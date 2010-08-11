@@ -350,6 +350,16 @@ class VIEW3D_MT_copypopup(bpy.types.Menu):
 
 def register():
     
+    for op in object_ops:
+        bpy.types.unregister(op)
+    for op in pose_ops:
+        bpy.types.unregister(op)
+
+    for op in object_ops:
+        bpy.types.register(op)
+    for op in pose_ops:
+        bpy.types.register(op)
+
     bpy.types.register(VIEW3D_MT_copypopup) 
     bpy.types.register(VIEW3D_MT_posecopypopup)
     km = bpy.context.manager.keyconfigs['Blender'].keymaps['Object Mode']
@@ -364,6 +374,11 @@ def register():
     kmi.properties.name = 'VIEW3D_MT_posecopypopup'
 
 def unregister():
+
+    for op in object_ops:
+        bpy.types.unregister(op)
+    for op in pose_ops:
+        bpy.types.unregister(op)
 
     bpy.types.unregister(VIEW3D_MT_copypopup) 
     bpy.types.unregister(VIEW3D_MT_posecopypopup)
