@@ -41,12 +41,21 @@ def build_exec(loopfunc,func):
         return {'FINISHED'}
     return exec_func
 
+def build_invoke(loopfunc,func):
+    '''Generator function that returns invoke functions for various operators'''
+    def invoke_func(self, context, event):
+        loopfunc(self, context, func)
+        return {'FINISHED'}
+    return invoke_func
+
 def genops(copylist, oplist, prefix, poll_func, loopfunc):
     '''Generate ops from the copy list and its associated functions '''
     for op in copylist:
         exec_func = build_exec(loopfunc,op[3])
+        invoke_func = build_invoke(loopfunc,op[3])
         opclass = type(op[0], (bpy.types.Operator,), dict(bl_idname=prefix+op[0], bl_label="Copy " +op[1], bl_description = op[2]))
         setattr(opclass, 'execute', exec_func)
+        setattr(opclass, 'invoke', invoke_func)
         setattr(opclass, 'poll', poll_func)
         #print(op[0],op[3])
         oplist.append(opclass)
@@ -144,7 +153,8 @@ pose_copies =  (('POSE_LOC_LOC', "Local Location", "Copy Location from Active to
                 ('POSE_CON', "Object Constraints", "Copy Object Constraints from Active to Selected",pConExec),
                 ('POSE_IKS', "IK Limits","Copy IK Limits from Active to Selected",pIKsExec))
 
-def pose_poll_func(self, context):
+@classmethod
+def pose_poll_func(cls, context):
     return(context.mode == 'POSE')
 
 pose_ops=[] #list of pose mode copy operators
@@ -319,7 +329,8 @@ object_copies =(('OBJ_LOC', "Location", "Copy Location from Active to Selected",
                 ('OBJ_MOD', "Modifiers","Copy Modifiers from Active to Selected",obMod),
                 ('OBJ_WEI', "Vertex Weights","Copy vertex weights based on indices",obWei))
 
-def object_poll_func(self, context):
+@classmethod
+def object_poll_func(cls, context):
     return(len(context.selected_objects) > 1)
 
 object_ops = []
