@@ -32,7 +32,7 @@ How to use:
 bl_addon_info = {
     'name': '3D View: Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': '2.6.0 2010/08/11',
+    'version': '2.6.1 2010/08/11',
     'blender': (2, 5, 4),
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
@@ -195,6 +195,10 @@ def clear_properties(full=True):
 
 # defining the panel
 def menu_func(self, context):
+    # initialise properties, if necessary
+    if "display_indices" not in context.scene.keys():
+        init_properties()
+    
     self.layout.separator()
     col = self.layout.column(align=True)
     col.operator(IndexVisualiser.bl_idname, text="Visualise indices")
@@ -211,7 +215,6 @@ def menu_func(self, context):
 
 
 def register():
-    init_properties()
     bpy.types.VIEW3D_PT_view3d_meshdisplay.append(menu_func)
 
 
