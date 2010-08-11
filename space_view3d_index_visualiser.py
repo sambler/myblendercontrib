@@ -32,7 +32,7 @@ How to use:
 bl_addon_info = {
     'name': '3D View: Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': '2.5.1 2010/07/27',
+    'version': '2.6.0 2010/08/11',
     'blender': (2, 5, 4),
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
@@ -54,7 +54,7 @@ import mathutils
 # calculate locations and store them as ID property in the mesh
 def calc_callback(self, context):
     # polling
-    if context.mode != 'EDIT_MESH':
+    if context.mode != "EDIT_MESH":
         return
     
     # get screen information
@@ -101,17 +101,17 @@ def calc_callback(self, context):
         texts+=[loc[0], loc[1], loc[2], loc[3], x, y, 0]
 
     # store as ID property in mesh
-    context.active_object.data['IndexVisualiser'] = texts
+    context.scene["IndexVisualiser"] = texts
 
 
 # draw in 3d-view
 def draw_callback(self, context):
     # polling
-    if context.mode != 'EDIT_MESH':
+    if context.mode != "EDIT_MESH":
         return
     # retrieving ID property data
     try:
-        texts = context.active_object.data['IndexVisualiser']
+        texts = context.scene["IndexVisualiser"]
     except:
         return
     if not texts:
@@ -131,61 +131,46 @@ class IndexVisualiser(bpy.types.Operator):
     bl_label = "Index Visualiser"
     bl_description = "Toggle the visualisation of indices"
     
-    def poll(self, context):
-        return context.mode=='EDIT_MESH'
+    @classmethod
+    def poll(cls, context):
+        return context.mode=="EDIT_MESH"
     
     def modal(self, context, event):
         context.area.tag_redraw()
 
         # removal of callbacks when operator is called again
-        if context.scene.display_indices == -1:
+        if context.scene["display_indices"] == -1:
             context.region.callback_remove(self.handle1)
             context.region.callback_remove(self.handle2)
-            context.scene.display_indices = 0
-            return {'CANCELLED'}
+            context.scene["display_indices"] = 0
+            return {"CANCELLED"}
         
-        return {'PASS_THROUGH'}
+        return {"PASS_THROUGH"}
     
     def invoke(self, context, event):
-        if context.area.type == 'VIEW_3D':
-            if context.scene.display_indices == 0:
+        if context.area.type == "VIEW_3D":
+            if context.scene["display_indices"] == 0:
                 # operator is called for the first time, start everything
-                context.scene.display_indices = 1
+                context.scene["display_indices"] = 1
                 context.manager.add_modal_handler(self)
                 self.handle1 = context.region.callback_add(calc_callback,
-                    (self, context), 'POST_VIEW')
+                    (self, context), "POST_VIEW")
                 self.handle2 = context.region.callback_add(draw_callback,
-                    (self, context), 'POST_PIXEL')
-                return {'RUNNING_MODAL'}
+                    (self, context), "POST_PIXEL")
+                return {"RUNNING_MODAL"}
             else:
                 # operator is called again, stop displaying
-                context.scene.display_indices = -1
+                context.scene["display_indices"] = -1
+                clear_properties(full=False)
                 return {'RUNNING_MODAL'}
         else:
-            self.report({'WARNING'}, "View3D not found, can't run operator")
-            return {'CANCELLED'}
+            self.report({"WARNING"}, "View3D not found, can't run operator")
+            return {"CANCELLED"}
 
 
-# defining the panel
-def menu_func(self, context):
-    col = self.layout.column(align=True)
-    col.operator(IndexVisualiser.bl_idname, text="Visualise indices")
-    row = col.row(align=True)
-    row.active = (context.mode=='EDIT_MESH' and \
-        context.scene.display_indices==1)
-    row.prop(context.scene, 'display_vert_index', toggle=True)
-    row.prop(context.scene, 'display_edge_index', toggle=True)
-    row.prop(context.scene, 'display_face_index', toggle=True)
-    row = col.row(align=True)
-    row.active = (context.mode=='EDIT_MESH' and \
-        context.scene.display_indices==1)
-    row.prop(context.scene, 'display_sel_only')
-    self.layout.separator()
-
-
-def register():
-    bpy.types.Scene.IntProperty(attr="display_indices", default=0)
-    bpy.context.scene.display_indices = 0
+# properties used by the script
+def init_properties():
+    bpy.context.scene["display_indices"] = 0
     bpy.types.Scene.BoolProperty(attr="display_sel_only", name="Selected only",
         description="Only display indices of selected vertices/edges/faces",
         default=True)
@@ -195,12 +180,43 @@ def register():
         description="Display edge indices")
     bpy.types.Scene.BoolProperty(attr="display_face_index", name="Faces",
         description="Display face indices")
-    bpy.types.register(IndexVisualiser)
+
+
+# removal of ID-properties when script is disabled
+def clear_properties(full=True):
+    props = ["display_indices", "display_sel_only", "display_vert_index",
+        "display_edge_index", "display_face_index", "IndexVisualiser"]
+    if not full:
+        props = ["IndexVisualiser"]
+    for p in props:
+        if p in bpy.context.scene.keys():
+            del bpy.context.scene[p]
+
+
+# defining the panel
+def menu_func(self, context):
+    self.layout.separator()
+    col = self.layout.column(align=True)
+    col.operator(IndexVisualiser.bl_idname, text="Visualise indices")
+    row = col.row(align=True)
+    row.active = (context.mode=="EDIT_MESH" and \
+        context.scene["display_indices"]==1)
+    row.prop(context.scene, "display_vert_index", toggle=True)
+    row.prop(context.scene, "display_edge_index", toggle=True)
+    row.prop(context.scene, "display_face_index", toggle=True)
+    row = col.row(align=True)
+    row.active = (context.mode=="EDIT_MESH" and \
+        context.scene["display_indices"]==1)
+    row.prop(context.scene, "display_sel_only")
+
+
+def register():
+    init_properties()
     bpy.types.VIEW3D_PT_view3d_meshdisplay.append(menu_func)
 
 
 def unregister():
-    bpy.types.unregister(IndexVisualiser)
+    clear_properties()
     bpy.types.VIEW3D_PT_view3d_meshdisplay.remove(menu_func)
 
 
