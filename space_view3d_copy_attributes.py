@@ -350,15 +350,18 @@ class VIEW3D_MT_copypopup(bpy.types.Menu):
 
 def register():
     
-    for op in object_ops:
-        bpy.types.unregister(op)
-    for op in pose_ops:
-        bpy.types.unregister(op)
+    if False:
+        for op in object_ops:
+            bpy.types.unregister(op)
+        for op in pose_ops:
+            bpy.types.unregister(op)
 
     for op in object_ops:
         bpy.types.register(op)
     for op in pose_ops:
         bpy.types.register(op)
+    bpy.types.unregister(VIEW3D_MT_copypopup) 
+    bpy.types.unregister(VIEW3D_MT_posecopypopup)
 
     bpy.types.register(VIEW3D_MT_copypopup) 
     bpy.types.register(VIEW3D_MT_posecopypopup)
