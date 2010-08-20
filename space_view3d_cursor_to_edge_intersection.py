@@ -121,8 +121,8 @@ class CursorToEdgeIntersection(bpy.types.Operator):
     bl_idname = "view3d.snap_cursor_to_edge_intersection"
     bl_label = "Cursor to Edge Intersection"
 
-    @staticmethod
-    def poll(context):
+    @classmethod
+    def poll(cls, context):
         obj = context.active_object
         return obj != None and obj.type == 'MESH'
 
