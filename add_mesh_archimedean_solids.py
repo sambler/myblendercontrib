@@ -14,7 +14,7 @@
 #  along with this program; if not, write to the Free Software Foundation,
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# ##### END GPL LICENSE BLOCK #####
+# ##### END GPL LICENSE BLOCK ######
 
 bl_addon_info = {
     'name': 'Add Mesh: Archimedean Solids',
@@ -33,10 +33,8 @@ from math import sqrt
 from mathutils import *
 from bpy.props import *
 
-# calculates the matrix for the new object
-# depending on user pref
 def align_matrix(context):
-    loc = TranslationMatrix(context.scene.cursor_location)
+    loc = Matrix.Translation(context.scene.cursor_location)
     obj_align = context.user_preferences.edit.object_align
     if (context.space_data.type == 'VIEW_3D'
         and obj_align == 'VIEW'):
