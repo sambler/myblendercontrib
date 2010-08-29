@@ -24,7 +24,7 @@ bl_addon_info={
     "description":"Enables Smart Tabs (Auto-indents new lines)",
     'url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/' \
         'Scripts/Text/Smart_Tabs',
-    "category":"System"}
+    "category":"Text Editor"}
 
 #Please send questions or comments to:
 #cdbfoster@gmail.com
