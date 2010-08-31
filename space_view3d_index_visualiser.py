@@ -30,16 +30,17 @@ How to use:
 """
 
 bl_addon_info = {
-    'name': '3D View: Index Visualiser',
+    'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': '2.6.1 2010/08/11',
+    'version': (2,6,1),
     'blender': (2, 5, 4),
+    'api': 31667,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
         'in the 3d-view',
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
-        'Scripts/Index_Visualiser',
+        'Scripts/3D_interaction/Index_Visualiser',
     'tracker_url': 'http://projects.blender.org/tracker/index.php?'\
         'func=detail&aid=21557&group_id=153&atid=468',
     'category': '3D View'}

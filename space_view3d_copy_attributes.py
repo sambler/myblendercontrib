@@ -15,15 +15,19 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
+
 bl_addon_info = {
-    'name': '3D View: Copy Attributes Menu',
+    'name': 'Copy Attributes Menu',
     'author': 'Bassam Kurdali, Fabian Fricke',
-    'version': '0.35 04-8-2010',
+    'version': (0,35),
     'blender': (2, 5, 3),
+    'api': 31667,
     'location': 'View3D > Ctrl/C',
     'description': 'Copy Attributes Menu from Blender 2.4',
-    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/3D_interaction/Copy_Attributes_Menu',
-    'tracker_url': 'https://projects.blender.org/tracker/index.php?func=detail&aid=22588&group_id=153&atid=467',
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
+        'Scripts/3D_interaction/Copy_Attributes_Menu',
+    'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
+        'func=detail&aid=22588&group_id=153&atid=467',
     'category': '3D View'}
 
 __bpydoc__ = """
@@ -185,7 +189,7 @@ def obLoopExec(self, context, funk):
 
 def obLoc (ob, active, context): ob.location = active.location
 
-def obRot (ob, active, context): rotcopy(ob, active.matrix.rotation_part())
+def obRot (ob, active, context): rotcopy(ob, active.matrix_world.rotation_part())
 
 def obSca (ob, active, context): ob.scale = active.scale
 
@@ -360,20 +364,20 @@ def register():
         bpy.types.register(op)
     for op in pose_ops:
         bpy.types.register(op)
-    bpy.types.unregister(VIEW3D_MT_copypopup) 
-    bpy.types.unregister(VIEW3D_MT_posecopypopup)
+    #bpy.types.unregister(VIEW3D_MT_copypopup) 
+    #bpy.types.unregister(VIEW3D_MT_posecopypopup)
 
-    bpy.types.register(VIEW3D_MT_copypopup) 
-    bpy.types.register(VIEW3D_MT_posecopypopup)
+    #bpy.types.register(VIEW3D_MT_copypopup) 
+    #bpy.types.register(VIEW3D_MT_posecopypopup)
     km = bpy.context.manager.keyconfigs['Blender'].keymaps['Object Mode']
-    kmi = km.items.add('wm.call_menu','C','PRESS',ctrl=True)
+    kmi = km.items.new('wm.call_menu','C','PRESS',ctrl=True)
     kmi.properties.name = 'VIEW3D_MT_copypopup'
     km = bpy.context.manager.keyconfigs['Blender'].keymaps['Pose']
     try:
         kmi = km.items['pose.copy']
         kmi.idname='wm.call_menu'
     except KeyError:
-        kmi = km.items.add('wm.call_menu','C','PRESS',ctrl=True)
+        kmi = km.items.new('wm.call_menu','C','PRESS',ctrl=True)
     kmi.properties.name = 'VIEW3D_MT_posecopypopup'
 
 def unregister():
@@ -383,10 +387,10 @@ def unregister():
     for op in pose_ops:
         bpy.types.unregister(op)
 
-    bpy.types.unregister(VIEW3D_MT_copypopup) 
-    bpy.types.unregister(VIEW3D_MT_posecopypopup)
+    #bpy.types.unregister(VIEW3D_MT_copypopup) 
+    #bpy.types.unregister(VIEW3D_MT_posecopypopup)
     for item in bpy.context.manager.keyconfigs['Blender'].keymaps['Pose'].items:
-        print(dir(item))
+        #print(dir(item))
         if item.name == 'Call Menu' and item.idname=='wm.call_menu' and item.properties.name == 'VIEW3D_MT_posecopypopup':
             item.idname='pose.copy'
             break

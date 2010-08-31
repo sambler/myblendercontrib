@@ -17,15 +17,20 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8-80 compliant>
+
 bl_addon_info = {
-    'name': 'Object: Batch Name Edit',
+    'name': 'Batch Name Edit',
     'author': 'Richard Olsson',
-    'version': '0.1',
+    'version': (0,1),
     'blender': (2, 5, 3),
+    'api': 31667,
     'location': 'ToolShelf Search',
-    'description': 'edit selected objects names (search: rename)',
-    'url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/' \
-           'Scripts/',
+    'warning': 'not compatible with last api, can crash blender',
+    'description': 'Edit selected objects names (search: rename)',
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/' \
+        'Scripts/Object/Batch_Name_Edit',
+    'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
+        'func=detail&aid=21681&group_id=153&atid=468',
     'category': 'Object'}
 
 

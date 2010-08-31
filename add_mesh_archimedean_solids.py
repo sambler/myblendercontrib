@@ -17,15 +17,17 @@
 # ##### END GPL LICENSE BLOCK ######
 
 bl_addon_info = {
-    'name': 'Add Mesh: Archimedean Solids',
+    'name': 'Archimedean Solids',
     'author': 'Buerbaum Martin (Pontiac)',
-    'version': '0.1',
+    'version': (0,1),
     'blender': (2, 5, 3),
+    'api': 31667,
     'location': 'View3D > Add > Mesh > Archimedean Solids',
     'description': 'Adds various archimedean solids to the Add Mesh menu',
-    'url':
-    'http://wiki.blender.org/index.php/Extensions:2.5/Py/' \
+    'wiki_url':'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
         'Scripts/Add_Mesh/Archimedean_Solids',  # @todo write the page
+    'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
+        'func=detail&aid=23479&group_id=153&atid=468',
     'category': 'Add Mesh'}
 
 import bpy

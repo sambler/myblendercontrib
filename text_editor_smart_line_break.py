@@ -16,14 +16,17 @@
 #  ***** GPL LICENSE BLOCK *****
 
 bl_addon_info={
-    "name":"Text Editor: Smart Line Break",
+    "name":"Smart Line Break",
     "author":"Chris Foster (Kira Vakaan)",
-    "version":"1.0 2010/5/20",
+    "version": (1,0),
     "blender":(2,5,3),
+    "api": 31667,
     "location":"Text Editor",
     "description":"Enables Smart Tabs (Auto-indents new lines)",
-    'url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/' \
-        'Scripts/Text/Smart_Tabs',
+    "wiki_url":"http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+        "Scripts/Text/Smart_Tabs",
+    "tracker_url":"https://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=22373&group_id=153&atid=468",
     "category":"Text Editor"}
 
 #Please send questions or comments to:
