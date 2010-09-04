@@ -354,7 +354,7 @@ class VIEW3D_MT_copypopup(bpy.types.Menu):
 
 def register():
     
-    if False:
+    if True:
         for op in object_ops:
             bpy.types.unregister(op)
         for op in pose_ops:
@@ -369,10 +369,10 @@ def register():
 
     #bpy.types.register(VIEW3D_MT_copypopup) 
     #bpy.types.register(VIEW3D_MT_posecopypopup)
-    km = bpy.context.manager.keyconfigs['Blender'].keymaps['Object Mode']
+    km = bpy.context.window_manager.keyconfigs['Blender'].keymaps['Object Mode']
     kmi = km.items.new('wm.call_menu','C','PRESS',ctrl=True)
     kmi.properties.name = 'VIEW3D_MT_copypopup'
-    km = bpy.context.manager.keyconfigs['Blender'].keymaps['Pose']
+    km = bpy.context.window_manager.keyconfigs['Blender'].keymaps['Pose']
     try:
         kmi = km.items['pose.copy']
         kmi.idname='wm.call_menu'
@@ -382,14 +382,14 @@ def register():
 
 def unregister():
 
-    for op in object_ops:
-        bpy.types.unregister(op)
-    for op in pose_ops:
-        bpy.types.unregister(op)
-
+#    for op in object_ops:
+#        bpy.types.unregister(op)
+#    for op in pose_ops:
+#        bpy.types.unregister(op)
+#
     #bpy.types.unregister(VIEW3D_MT_copypopup) 
     #bpy.types.unregister(VIEW3D_MT_posecopypopup)
-    for item in bpy.context.manager.keyconfigs['Blender'].keymaps['Pose'].items:
+    for item in bpy.context.window_manager.keyconfigs['Blender'].keymaps['Pose'].items:
         #print(dir(item))
         if item.name == 'Call Menu' and item.idname=='wm.call_menu' and item.properties.name == 'VIEW3D_MT_posecopypopup':
             item.idname='pose.copy'
