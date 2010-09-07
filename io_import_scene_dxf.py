@@ -17,9 +17,25 @@
 # ##### END GPL LICENSE BLOCK #####
 
 """
-Place this file in the .blender/scripts/addons dir
+Release note by migius (DXF support maintainer) 2010.06.14:
+- script works well for simple 2d objects
+- limited support for complex entities like POLYLINE / POLYFACE / POLYMESH
+- erroneous rotated TEXTs
+- no support for entity rotation in 3d (210 group ignored)
+- no support for hierarchies (BLOCKs)
+Most probably no additions will be made to this script.
+It is a temporary solution - the old full feature importer will be ported to 2.6 soon.
+
+Installation:
+Place this file to Blender addons directory (on Windows it is %Blender_directory%\2.53\scripts\addons\)
 You have to activated the script in the "Add-Ons" tab (user preferences).
 Access from the File > Import menu.
+
+History:
+ver 0.11 - 2010.09.07 by migius
+- fixed dxf-file names recognition limited to ".dxf"
+- fixed registering for 2.53beta
+ver 0.1 - 2010.06.10 by Thomas Larsson
 """
 
 bl_addon_info = {
@@ -1433,7 +1449,7 @@ def readDxfFile(filePath):
 
     fileName = os.path.expanduser(filePath)
     (shortName, ext) = os.path.splitext(fileName)
-    if ext != ".dxf":
+    if ext.lower() != ".dxf":
         print("Error: Not a dxf file: " + fileName)
         return
     print( "Opening DXF file "+ fileName )
@@ -2067,7 +2083,7 @@ class IMPORT_OT_autocad_dxf(bpy.types.Operator):
 
 def register():
     # registerPanels()
-
+    bpy.types.register(IMPORT_OT_autocad_dxf)
     menu_func = lambda self, context: self.layout.operator(IMPORT_OT_autocad_dxf.bl_idname, text="Autocad (.dxf)...")
     bpy.types.INFO_MT_file_import.append(menu_func)
     return
