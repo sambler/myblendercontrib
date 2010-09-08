@@ -646,7 +646,7 @@ class CLeader(CEntity):
 #    70 : 'flags', 90 : 'numverts'
 #
 
-class CLwPolyLine(CEntity):
+class CLWPolyLine(CEntity):
     def __init__(self):
         CEntity.__init__(self, 'LWPOLYLINE', None)
         self.vertex = None
