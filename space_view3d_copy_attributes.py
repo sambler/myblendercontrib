@@ -121,9 +121,9 @@ def pLocScaExec(bone, active, context): bone.scale = active.scale
 
 def pVisLocExec(bone, active, context): bone.location = getmat(bone,active,context,False).translation_part()
 
-def pVisRotExec(bone, active, context): rotcopy(bone,  getmat(bone,active,context,not context.active_object.data.bones[bone.name].hinge ))
+def pVisRotExec(bone, active, context): rotcopy(bone,  getmat(bone,active,context,not context.active_object.data.bones[bone.name].use_hinge ))
 
-def pVisScaExec(bone, active, context): bone.scale = getmat(bone,active,context , not context.active_object.data.bones[bone.name].inherit_scale ).scale_part()
+def pVisScaExec(bone, active, context): bone.scale = getmat(bone,active,context , not context.active_object.data.bones[bone.name].use_inherit_scale ).scale_part()
 
 def pDrwExec(bone, active, context): bone.custom_shape = active.custom_shape
 
