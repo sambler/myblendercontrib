@@ -28,7 +28,7 @@ bl_addon_info = {
     "blender": (2, 5, 3),
     "api": 31854,
     "location": "View3D > Toolbar",
-    "description": "You can navigate to views from 3D Toolbar (Shortcut: T)t",
+    "description": "You can navigate to views from 3D Toolbar (Shortcut: T)",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
         "Scripts/",
