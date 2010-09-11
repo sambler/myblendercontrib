@@ -19,9 +19,9 @@
 bl_addon_info = {
     'name': 'Copy Attributes Menu',
     'author': 'Bassam Kurdali, Fabian Fricke',
-    'version': (0,35),
-    'blender': (2, 5, 3),
-    'api': 31667,
+    'version': (0,36),
+    'blender': (2, 5, 4),
+    'api': 31880,
     'location': 'View3D > Ctrl/C',
     'description': 'Copy Attributes Menu from Blender 2.4',
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
