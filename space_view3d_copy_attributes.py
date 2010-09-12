@@ -200,7 +200,7 @@ pose_copies = (('POSE_LOC_LOC', "Local Location",
                 "Copy Bone Shape from Active to Selected", pDrwExec),
                 ('POSE_LOK', "Protected Transform",
                 "Copy Protected Tranforms from Active to Selected", pLokExec),
-                ('POSE_CON', "Object Constraints",
+                ('POSE_CON', "Bone Constraints",
                 "Copy Object Constraints from Active to Selected", pConExec),
                 ('POSE_IKS', "IK Limits",
                 "Copy IK Limits from Active to Selected", pIKsExec))
