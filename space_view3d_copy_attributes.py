@@ -21,7 +21,7 @@
 bl_addon_info = {
     'name': 'Copy Attributes Menu',
     'author': 'Bassam Kurdali, Fabian Fricke',
-    'version': (0, 36),
+    'version': (0, 37),
     'blender': (2, 5, 4),
     'api': 31881,
     'location': 'View3D > Ctrl/C',
