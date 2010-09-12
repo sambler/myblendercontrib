@@ -16,10 +16,12 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
 bl_addon_info = {
     'name': 'Copy Attributes Menu',
     'author': 'Bassam Kurdali, Fabian Fricke',
-    'version': (0,36),
+    'version': (0, 36),
     'blender': (2, 5, 4),
     'api': 31881,
     'location': 'View3D > Ctrl/C',
@@ -35,53 +37,66 @@ Copy Menu
 
 
 """
-import bpy, mathutils
+import bpy
+import mathutils
 from mathutils import *
 
-def build_exec(loopfunc,func):
-    '''Generator function that returns exec functions for various operators '''
+
+def build_exec(loopfunc, func):
+    '''Generator function that returns exec functions for operators '''
+
     def exec_func(self, context):
-        loopfunc(self,context,func)
+        loopfunc(self, context, func)
         return {'FINISHED'}
     return exec_func
 
-def build_invoke(loopfunc,func):
-    '''Generator function that returns invoke functions for various operators'''
+
+def build_invoke(loopfunc, func):
+    '''Generator function that returns invoke functions for operators'''
+
     def invoke_func(self, context, event):
         loopfunc(self, context, func)
         return {'FINISHED'}
     return invoke_func
 
+
 def genops(copylist, oplist, prefix, poll_func, loopfunc):
     '''Generate ops from the copy list and its associated functions '''
     for op in copylist:
-        exec_func = build_exec(loopfunc,op[3])
-        invoke_func = build_invoke(loopfunc,op[3])
-        opclass = type(op[0], (bpy.types.Operator,), dict(bl_idname=prefix+op[0], bl_label="Copy " +op[1], bl_description = op[2]))
+        exec_func = build_exec(loopfunc, op[3])
+        invoke_func = build_invoke(loopfunc, op[3])
+        opclass = type(op[0], (bpy.types.Operator,),
+           dict(bl_idname=prefix + op[0],
+           bl_label="Copy " + op[1], bl_description=op[2]))
         setattr(opclass, 'execute', exec_func)
         setattr(opclass, 'invoke', invoke_func)
         setattr(opclass, 'poll', poll_func)
-        #print(op[0],op[3])
         oplist.append(opclass)
 
-def generic_copy(source,target,string=""):
+
+def generic_copy(source, target, string=""):
     ''' copy attributes from source to target that have string in them '''
     for attr in dir(source):
         if attr.find(string) > -1:
             try:
-                setattr(target,attr,getattr(source,attr))
+                setattr(target, attr, getattr(source, attr))
             except:
                 pass
     return
 
-def getmat( bone , active , context , ignoreparent ):
-    '''Helper function for visual transform copy, gets the active transform in bone space'''
+
+def getmat(bone, active, context, ignoreparent):
+    '''Helper function for visual transform copy,
+       gets the active transform in bone space
+    '''
+    data_bone = context.active_object.data.bones[bone.name]
     #all matrices are in armature space unless commented otherwise
     otherloc = active.matrix #final 4x4 mat of target, location.
-    bonemat_local = Matrix( context.active_object.data.bones[bone.name].matrix_local) #self rest matrix
-    if context.active_object.data.bones[bone.name].parent:
-        parentposemat = Matrix(context.active_object.pose.bones[context.active_object.data.bones[bone.name].parent.name].matrix)
-        parentbonemat = Matrix(context.active_object.data.bones[bone.name].parent.matrix_local)
+    bonemat_local = Matrix(data_bone.matrix_local) #self rest matrix
+    if data_bone.parent:
+        parentposemat = Matrix(
+           context.active_object.pose.bones[data_bone.parent.name].matrix)
+        parentbonemat = Matrix(data_bone.parent.matrix_local)
     else:
         parentposemat = bonemat_local.copy().identity()
         parentbonemat = bonemat_local.copy().identity()
@@ -90,18 +105,21 @@ def getmat( bone , active , context , ignoreparent ):
     else:
         bonemat = parentbonemat.invert() * bonemat_local
 
-        newmat =  bonemat.invert() * parentposemat.invert()  * otherloc
+        newmat = bonemat.invert() * parentposemat.invert() * otherloc
     return newmat
 
-def rotcopy(item,mat):
+
+def rotcopy(item, mat):
     '''copy rotation to item from matrix mat depending on item.rotation_mode'''
     if item.rotation_mode == 'QUATERNION':
         item.rotation_quaternion = mat.rotation_part().to_quat()
     elif item.rotation_mode == 'AXIS_ANGLE':
         quat = mat.rotation_part().to_quat()
-        item.rotation_axis_angle = Vector([quat.axis[0],quat.axis[1],quat.axis[2],quat.angle])
+        item.rotation_axis_angle = Vector([quat.axis[0],
+           quat.axis[1], quat.axis[2], quat.angle])
     else:
         item.rotation_euler = mat.rotation_part().to_euler(item.rotation_mode)
+
 
 def pLoopExec(self, context, funk):
     '''Loop over selected bones and execute funk on them'''
@@ -109,23 +127,41 @@ def pLoopExec(self, context, funk):
     selected = context.selected_pose_bones
     selected.remove(active)
     for bone in selected:
-        funk(bone, active,context)
+        funk(bone, active, context)
 
 #The following functions are used o copy attributes frome active to bone
 
-def pLocLocExec (bone, active, context): bone.location = active.location
 
-def pLocRotExec (bone, active, context): rotcopy(bone, active.matrix_local.rotation_part())
+def pLocLocExec(bone, active, context):
+    bone.location = active.location
 
-def pLocScaExec(bone, active, context): bone.scale = active.scale
 
-def pVisLocExec(bone, active, context): bone.location = getmat(bone,active,context,False).translation_part()
+def pLocRotExec(bone, active, context):
+    rotcopy(bone, active.matrix_local.rotation_part())
 
-def pVisRotExec(bone, active, context): rotcopy(bone,  getmat(bone,active,context,not context.active_object.data.bones[bone.name].use_hinge ))
 
-def pVisScaExec(bone, active, context): bone.scale = getmat(bone,active,context , not context.active_object.data.bones[bone.name].use_inherit_scale ).scale_part()
+def pLocScaExec(bone, active, context):
+    bone.scale = active.scale
 
-def pDrwExec(bone, active, context): bone.custom_shape = active.custom_shape
+
+def pVisLocExec(bone, active, context):
+    bone.location = getmat(bone, active, context, False).translation_part()
+
+
+def pVisRotExec(bone, active, context):
+    rotcopy(bone, getmat(bone, active,
+      context, not context.active_object.data.bones[bone.name].use_hinge))
+
+
+def pVisScaExec(bone, active, context):
+    bone.scale = getmat(bone, active, context,
+       not context.active_object.data.bones[bone.name].use_inherit_scale)\
+          .scale_part()
+
+
+def pDrwExec(bone, active, context):
+    bone.custom_shape = active.custom_shape
+
 
 def pLokExec(bone, active, context):
     for index, state in enumerate(active.lock_location):
@@ -138,32 +174,46 @@ def pLokExec(bone, active, context):
     for index, state in enumerate(active.lock_scale):
         bone.lock_scale[index] = state
 
+
 def pConExec(bone, active, context):
     for old_constraint in  active.constraints.values():
         new_constraint = bone.constraints.new(old_constraint.type)
-        generic_copy(old_constraint,new_constraint)
-
-def pIKsExec(bone, active, context): generic_copy(active,bone,"ik_")
+        generic_copy(old_constraint, new_constraint)
 
 
-pose_copies =  (('POSE_LOC_LOC', "Local Location", "Copy Location from Active to Selected",pLocLocExec),
-                ('POSE_LOC_ROT', "Local Rotation", "Copy Rotation from Active to Selected",pLocRotExec),
-                ('POSE_LOC_SCA', "Local Scale", "Copy Scale from Active to Selected",pLocScaExec),
-                ('POSE_VIS_LOC', "Visual Location", "Copy Location from Active to Selected",pVisLocExec),
-                ('POSE_VIS_ROT', "Visual Rotation", "Copy Rotation from Active to Selected",pVisRotExec),
-                ('POSE_VIS_SCA', "Visual Scale", "Copy Scale from Active to Selected",pVisScaExec),
-                ('POSE_DRW', "Bone Shape", "Copy Bone Shape from Active to Selected",pDrwExec),
-                ('POSE_LOK', "Protected Transform", "Copy Protected Tranforms from Active to Selected",pLokExec),
-                ('POSE_CON', "Object Constraints", "Copy Object Constraints from Active to Selected",pConExec),
-                ('POSE_IKS', "IK Limits","Copy IK Limits from Active to Selected",pIKsExec))
+def pIKsExec(bone, active, context):
+    generic_copy(active, bone, "ik_")
+
+pose_copies = (('POSE_LOC_LOC', "Local Location",
+                "Copy Location from Active to Selected", pLocLocExec),
+                ('POSE_LOC_ROT', "Local Rotation",
+                "Copy Rotation from Active to Selected", pLocRotExec),
+                ('POSE_LOC_SCA', "Local Scale",
+                "Copy Scale from Active to Selected", pLocScaExec),
+                ('POSE_VIS_LOC', "Visual Location",
+                "Copy Location from Active to Selected", pVisLocExec),
+                ('POSE_VIS_ROT', "Visual Rotation",
+                "Copy Rotation from Active to Selected", pVisRotExec),
+                ('POSE_VIS_SCA', "Visual Scale",
+                "Copy Scale from Active to Selected", pVisScaExec),
+                ('POSE_DRW', "Bone Shape",
+                "Copy Bone Shape from Active to Selected", pDrwExec),
+                ('POSE_LOK', "Protected Transform",
+                "Copy Protected Tranforms from Active to Selected", pLokExec),
+                ('POSE_CON', "Object Constraints",
+                "Copy Object Constraints from Active to Selected", pConExec),
+                ('POSE_IKS', "IK Limits",
+                "Copy IK Limits from Active to Selected", pIKsExec))
+
 
 @classmethod
 def pose_poll_func(cls, context):
     return(context.mode == 'POSE')
 
-pose_ops=[] #list of pose mode copy operators
+pose_ops = [] #list of pose mode copy operators
 
 genops(pose_copies, pose_ops, "pose.copy_", pose_poll_func, pLoopExec)
+
 
 class VIEW3D_MT_posecopypopup(bpy.types.Menu):
     bl_label = "Copy Attributes"
@@ -172,8 +222,9 @@ class VIEW3D_MT_posecopypopup(bpy.types.Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
         for op in pose_copies:
-            layout.operator("pose.copy_"+op[0])
-        layout.operator("pose.copy",text="copy pose")
+            layout.operator("pose.copy_" + op[0])
+        layout.operator("pose.copy", text="copy pose")
+
 
 def obLoopExec(self, context, funk):
     '''Loop over selected objects and execute funk on them'''
@@ -181,19 +232,27 @@ def obLoopExec(self, context, funk):
     selected = context.selected_objects[:]
     selected.remove(active)
     for obj in selected:
-        msg = funk(obj, active,context)
+        msg = funk(obj, active, context)
     if msg:
         self.report({msg[0]}, msg[1])
 
-#The following functions are used o copy attributes frome active to selected object
+#The following functions are used o copy attributes from
+#active to selected object
 
-def obLoc (ob, active, context): ob.location = active.location
 
-def obRot (ob, active, context): rotcopy(ob, active.matrix_world.rotation_part())
+def obLoc(ob, active, context):
+    ob.location = active.location
 
-def obSca (ob, active, context): ob.scale = active.scale
 
-def obDrw (ob, active, context):
+def obRot(ob, active, context):
+    rotcopy(ob, active.matrix_world.rotation_part())
+
+
+def obSca(ob, active, context):
+    ob.scale = active.scale
+
+
+def obDrw(ob, active, context):
     ob.max_draw_type = active.max_draw_type
     ob.draw_axis = active.draw_axis
     ob.draw_bounds = active.draw_bounds
@@ -205,21 +264,27 @@ def obDrw (ob, active, context):
     ob.empty_draw_type = active.empty_draw_type
     ob.empty_draw_size = active.empty_draw_size
 
-def obOfs (ob, active, context):
+
+def obOfs(ob, active, context):
     ob.time_offset = active.time_offset
-    return ('INFO', "time offset copied")
+    return('INFO', "time offset copied")
 
-def obDup (ob, active, context):
-    generic_copy(active,ob,"dupli")
-    return ('INFO', "duplication method copied")
 
-def obCol (ob, active, context): ob.color = active.color
+def obDup(ob, active, context):
+    generic_copy(active, ob, "dupli")
+    return('INFO', "duplication method copied")
 
-def obMas (ob, active, context):
+
+def obCol(ob, active, context):
+    ob.color = active.color
+
+
+def obMas(ob, active, context):
     ob.game.mass = active.game.mass
-    return ('INFO', "mass copied")
+    return('INFO', "mass copied")
 
-def obLok (ob, active, context):
+
+def obLok(ob, active, context):
     for index, state in enumerate(active.lock_location):
         ob.lock_location[index] = state
     for index, state in enumerate(active.lock_rotation):
@@ -229,109 +294,130 @@ def obLok (ob, active, context):
     ob.lock_rotation_w = active.lock_rotation_w
     for index, state in enumerate(active.lock_scale):
         ob.lock_scale[index] = state
-    return ('INFO', "transform locks copied")
+    return('INFO', "transform locks copied")
 
-def obCon (ob, active, context):
+
+def obCon(ob, active, context):
     #for consistency with 2.49, delete old constraints first
-    for index in range(len(ob.constraints.values())-1,-1,-1):
+    for index in range(len(ob.constraints.values())-1, -1, -1):
         ob.constraints.remove(index)
     for old_constraint in  active.constraints.values():
         new_constraint = ob.constraints.new(old_constraint.type)
-        generic_copy(old_constraint,new_constraint)
-    return ('INFO', "constraints copied")
+        generic_copy(old_constraint, new_constraint)
+    return('INFO', "constraints copied")
 
-def obTex (ob, active, context):
+
+def obTex(ob, active, context):
     if 'texspace_loc' in dir(ob.data) and 'texspace_loc' in dir(active.data):
         ob.data.texspace_loc[:] = active.data.texspace_loc[:]
     if 'texspace_size' in dir(ob.data) and 'texspace_size' in dir(active.data):
         ob.data.texspace_size[:] = active.data.texspace_size[:]
-    return ('INFO', "texture space copied")
+    return('INFO', "texture space copied")
 
-def obIdx (ob, active, context):
+
+def obIdx(ob, active, context):
     ob.pass_index = active.pass_index
-    return ('INFO', "pass index copied")
+    return('INFO', "pass index copied")
 
-def obMod (ob, active, context):
+
+def obMod(ob, active, context):
     for modifier in ob.modifiers.values():
         ob.modifiers.remove(modifier) #remove existing before adding new
     for old_modifier in active.modifiers.values():
-        new_modifier = ob.modifiers.new( name = old_modifier.name, type= old_modifier.type )
-        generic_copy(old_modifier,new_modifier)
-    return ('INFO', "modifiers copied")
+        new_modifier = ob.modifiers.new(name=old_modifier.name,
+           type=old_modifier.type)
+        generic_copy(old_modifier, new_modifier)
+    return('INFO', "modifiers copied")
 
-def obWei (ob, active, context):
+
+def obWei(ob, active, context):
     me_source = active.data
     me_target = ob.data
-    
     # sanity check: do source and target have the same amount of verts?
     if len(me_source.verts) != len(me_target.verts):
-        return ('ERROR', "objects have different vertex counts, doing nothing")
-    
+        return('ERROR', "objects have different vertex counts, doing nothing")
     vgroups_IndexName = {}
-    for i in range(0,len(active.vertex_groups)):
+    for i in range(0, len(active.vertex_groups)):
         groups = active.vertex_groups[i]
         vgroups_IndexName[groups.index] = groups.name
-    
     data = {} # vert_indices, [(vgroup_index, weights)]
-    
     for v in me_source.verts:
         vg = v.groups
         vi = v.index
-        
         if len(vg) > 0:
             vgroup_collect = []
             for i in range(0, len(vg)):
-                vgroup_collect.append( (vg[i].group, vg[i].weight) )
+                vgroup_collect.append((vg[i].group, vg[i].weight))
             data[vi] = vgroup_collect
-    
     # write data to target
     if ob != active:
         # add missing vertex groups
         for vgroup_name in vgroups_IndexName.values():
             #check if group already exists...
             already_present = 0
-            for i in range(0,len(ob.vertex_groups)):
+            for i in range(0, len(ob.vertex_groups)):
                 if ob.vertex_groups[i].name == vgroup_name:
                     already_present = 1
             # ... if not, then add
             if already_present == 0:
                 ob.add_vertex_group(name=vgroup_name)
-        
         # write weights
         for v in me_target.verts:
             for vi_source, vgroupIndex_weight in data.items():
                 if v.index == vi_source:
-                    
+
                     for i in range(0, len(vgroupIndex_weight)):
-                        groupName = vgroups_IndexName[ vgroupIndex_weight[i][0] ]
+                        groupName = vgroups_IndexName[vgroupIndex_weight[i][0]]
                         groups = ob.vertex_groups
                         for vgs in range(0, len(groups)):
                             if groups[vgs].name == groupName:
-                                ob.add_vertex_to_group(v.index, groups[vgs], vgroupIndex_weight[i][1], "REPLACE")
-    return ('INFO', "weights copied")
-    
+                                ob.add_vertex_to_group(v.index, groups[vgs],
+                                   vgroupIndex_weight[i][1], "REPLACE")
+    return('INFO', "weights copied")
 
-object_copies =(('OBJ_LOC', "Location", "Copy Location from Active to Selected",obLoc),
-                ('OBJ_ROT', "Rotation", "Copy Rotation from Active to Selected",obRot),
-                ('OBJ_SCA', "Scale", "Copy Scale from Active to Selected",obSca),
-                ('OBJ_DRW', "Draw Options", "Copy Draw Options from Active to Selected",obDrw),
-                ('OBJ_OFS', "Time Offset", "Copy Time Offset from Active to Selected",obOfs),
-                ('OBJ_DUP', "Dupli", "Copy Dupli from Active to Selected",obDup),
-                ('OBJ_COL', "Object Color", "Copy Object Color from Active to Selected",obCol),
-                ('OBJ_MAS', "Mass", "Copy Mass from Active to Selected", obMas),
-                #('OBJ_DMP', "Damping", "Copy Damping from Active to Selected"),
-                #('OBJ_ALL', "All Physical Attributes", "Copy Physical Atributes from Active to Selected"),
-                #('OBJ_PRP', "Properties", "Copy Properties from Active to Selected"),
-                #('OBJ_LOG', "Logic Bricks", "Copy Logic Bricks from Active to Selected"),
-                ('OBJ_LOK', "Protected Transform", "Copy Protected Tranforms from Active to Selected",obLok),
-                ('OBJ_CON', "Object Constraints", "Copy Object Constraints from Active to Selected",obCon),
-                #('OBJ_NLA', "NLA Strips", "Copy NLA Strips from Active to Selected"),
-                ('OBJ_TEX', "Texture Space", "Copy Texture Space from Active to Selected",obTex),
-                #('OBJ_SUB', "Subsurf Settings", "Copy Subsurf Setings from Active to Selected"),
-                #('OBJ_SMO', "AutoSmooth", "Copy AutoSmooth from Active to Selected"),
-                ('OBJ_IDX', "Pass Index", "Copy Pass Index from Active to Selected",obIdx),
-                ('OBJ_MOD', "Modifiers","Copy Modifiers from Active to Selected",obMod),
-                ('OBJ_WEI', "Vertex Weights","Copy vertex weights based on indices",obWei))
+object_copies = (('OBJ_LOC', "Location",
+                "Copy Location from Active to Selected", obLoc),
+                ('OBJ_ROT', "Rotation",
+                "Copy Rotation from Active to Selected", obRot),
+                ('OBJ_SCA', "Scale",
+                "Copy Scale from Active to Selected", obSca),
+                ('OBJ_DRW', "Draw Options",
+                "Copy Draw Options from Active to Selected", obDrw),
+                ('OBJ_OFS', "Time Offset",
+                "Copy Time Offset from Active to Selected", obOfs),
+                ('OBJ_DUP', "Dupli",
+                "Copy Dupli from Active to Selected", obDup),
+                ('OBJ_COL', "Object Color",
+                "Copy Object Color from Active to Selected", obCol),
+                ('OBJ_MAS', "Mass",
+                "Copy Mass from Active to Selected", obMas),
+                #('OBJ_DMP', "Damping",
+                #"Copy Damping from Active to Selected"),
+                #('OBJ_ALL', "All Physical Attributes",
+                #"Copy Physical Atributes from Active to Selected"),
+                #('OBJ_PRP', "Properties",
+                #"Copy Properties from Active to Selected"),
+                #('OBJ_LOG', "Logic Bricks",
+                #"Copy Logic Bricks from Active to Selected"),
+                ('OBJ_LOK', "Protected Transform",
+                "Copy Protected Tranforms from Active to Selected", obLok),
+                ('OBJ_CON', "Object Constraints",
+                "Copy Object Constraints from Active to Selected", obCon),
+                #('OBJ_NLA', "NLA Strips",
+                #"Copy NLA Strips from Active to Selected"),
+                ('OBJ_TEX', "Texture Space",
+                "Copy Texture Space from Active to Selected", obTex),
+                #('OBJ_SUB', "Subsurf Settings",
+                #"Copy Subsurf Setings from Active to Selected"),
+                #('OBJ_SMO', "AutoSmooth",
+                #"Copy AutoSmooth from Active to Selected"),
+                ('OBJ_IDX', "Pass Index",
+                "Copy Pass Index from Active to Selected", obIdx),
+                ('OBJ_MOD', "Modifiers",
+                "Copy Modifiers from Active to Selected", obMod),
+                ('OBJ_WEI', "Vertex Weights",
+                "Copy vertex weights based on indices", obWei))
+
 
 @classmethod
 def object_poll_func(cls, context):
@@ -340,21 +426,21 @@ def object_poll_func(cls, context):
 object_ops = []
 genops(object_copies, object_ops, "object.copy_", object_poll_func, obLoopExec)
 
+
 class VIEW3D_MT_copypopup(bpy.types.Menu):
     bl_label = "Copy Attributes"
 
     def draw(self, context):
         layout = self.layout
-
         layout.operator_context = 'INVOKE_REGION_WIN'
-
-
         for op in object_copies:
-            layout.operator("object.copy_"+op[0])
+            layout.operator("object.copy_" + op[0])
+
 
 def register():
-    
+    ''' mostly to get the keymap working '''
 
+    # the following is a big hack and shouldn't be needed:
     try:
         for op in object_ops:
             bpy.types.register(op)
@@ -369,32 +455,34 @@ def register():
             bpy.types.register(op)
         for op in pose_ops:
             bpy.types.register(op)
-        
-      km = bpy.context.window_manager.keyconfigs['Blender'].keymaps['Object Mode']
-    kmi = km.items.new('wm.call_menu','C','PRESS',ctrl=True)
+    # end of hack.
+    km = bpy.context.window_manager.keyconfigs['Blender'].\
+       keymaps['Object Mode']
+    kmi = km.items.new('wm.call_menu', 'C', 'PRESS', ctrl=True)
     kmi.properties.name = 'VIEW3D_MT_copypopup'
     km = bpy.context.window_manager.keyconfigs['Blender'].keymaps['Pose']
     try:
         kmi = km.items['pose.copy']
-        kmi.idname='wm.call_menu'
+        kmi.idname = 'wm.call_menu'
     except KeyError:
-        kmi = km.items.new('wm.call_menu','C','PRESS',ctrl=True)
+        kmi = km.items.new('wm.call_menu', 'C', 'PRESS', ctrl=True)
     kmi.properties.name = 'VIEW3D_MT_posecopypopup'
 
-def unregister():
 
+def unregister():
+    ''' mostly to remove the keymap '''
+    # do we still need to unregister ops?
     if True:
         for op in object_ops:
             bpy.types.unregister(op)
         for op in pose_ops:
             bpy.types.unregister(op)
-    for item in bpy.context.window_manager.keyconfigs['Blender'].keymaps['Pose'].items:
-        #print(dir(item))
-        if item.name == 'Call Menu' and item.idname=='wm.call_menu' and item.properties.name == 'VIEW3D_MT_posecopypopup':
-            item.idname='pose.copy'
+    kms = bpy.context.window_manager.keyconfigs['Blender'].keymaps['Pose']
+    for item in kms.items:
+        if item.name == 'Call Menu' and item.idname == 'wm.call_menu' and \
+           item.properties.name == 'VIEW3D_MT_posecopypopup':
+            item.idname = 'pose.copy'
             break
-    
-
 
 if __name__ == "__main__":
     register()
