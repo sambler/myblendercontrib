@@ -21,7 +21,7 @@ bl_addon_info = {
     'author': 'Bassam Kurdali, Fabian Fricke',
     'version': (0,36),
     'blender': (2, 5, 4),
-    'api': 31881,
+    'api': 31880,
     'location': 'View3D > Ctrl/C',
     'description': 'Copy Attributes Menu from Blender 2.4',
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
@@ -354,7 +354,11 @@ class VIEW3D_MT_copypopup(bpy.types.Menu):
 
 def register():
     
-
+    if True:
+        for op in object_ops:
+            bpy.types.unregister(op)
+        for op in pose_ops:
+            bpy.types.unregister(op)
 
     for op in object_ops:
         bpy.types.register(op)
@@ -377,12 +381,6 @@ def register():
     kmi.properties.name = 'VIEW3D_MT_posecopypopup'
 
 def unregister():
-
-    if True:
-        for op in object_ops:
-            bpy.types.unregister(op)
-        for op in pose_ops:
-            bpy.types.unregister(op)
 
 #    for op in object_ops:
 #        bpy.types.unregister(op)
