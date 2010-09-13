@@ -185,12 +185,15 @@ def init_properties():
 
 # removal of ID-properties when script is disabled
 def clear_properties(full=True):
+    # can happen on reload
+    if bpy.context.scene is None:
+        return
     props = ["display_indices", "display_sel_only", "display_vert_index",
         "display_edge_index", "display_face_index", "IndexVisualiser"]
     if not full:
         props = ["IndexVisualiser"]
     for p in props:
-        if p in bpy.context.scene.keys():
+        if p in bpy.context.scene:
             del bpy.context.scene[p]
 
 

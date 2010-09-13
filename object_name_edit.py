@@ -45,9 +45,11 @@ from bpy.props import *
 # Base class used for all batch name edit operators,
 # since they share the same conditions for enabling
 # and invoke mechanism (open property popup)
-class BatchNameEdit(bpy.types.Operator):
+class BatchNameEdit:
     dialog_width = 250
-    def poll(self, context):
+
+    @classmethod
+    def poll(cls, context):
         return context.active_object is not None
 
     def invoke(self, context, event):
@@ -65,7 +67,7 @@ class BatchNameEdit(bpy.types.Operator):
             return plural
 
 
-class BatchNameEditNewName(BatchNameEdit):
+class BatchNameEditNewName(bpy.types.Operator, BatchNameEdit):
     '''Give all selected objects a common name'''
     bl_idname = "object.batch_name_edit_newname"
     bl_label = "Rename selected"
@@ -96,7 +98,7 @@ class BatchNameEditNewName(BatchNameEdit):
         layout.prop(props, "new_name")
     
 
-class BatchNameEditReplace(BatchNameEdit):
+class BatchNameEditReplace(bpy.types.Operator, BatchNameEdit):
     '''Replaces occurrences of a given string in object names'''
     bl_idname = "object.batch_name_edit_replace"
     bl_label = "Replace pattern"
@@ -149,7 +151,7 @@ class BatchNameEditReplace(BatchNameEdit):
         layout.prop(props, "replacement")
         
 
-class BatchNameEditAdd(BatchNameEdit):
+class BatchNameEditAdd(bpy.types.Operator, BatchNameEdit):
     '''Appends and/or prepends text to object names'''
     bl_idname = "object.batch_name_edit_add"
     bl_label = "Append or prepend string"
@@ -184,7 +186,7 @@ class BatchNameEditAdd(BatchNameEdit):
         layout.prop(props, "suffix")
 
 
-class BatchNameEditTruncate(BatchNameEdit):
+class BatchNameEditTruncate(bpy.types.Operator, BatchNameEdit):
     '''Removes a number of characters from start and/or end of object names'''
     bl_idname = "object.batch_name_edit_truncate"
     bl_label = "Truncate"
@@ -235,7 +237,7 @@ class BatchNameEditTruncate(BatchNameEdit):
         layout.prop(props, "trunc_end")
 
 
-class BatchNameEditTransfer(BatchNameEdit):
+class BatchNameEditTransfer(bpy.types.Operator, BatchNameEdit):
     '''Give all selected objects a common name'''
     bl_idname = "object.batch_name_edit_transfer"
     bl_label = "Copy to/from data block"
@@ -288,24 +290,12 @@ class BatchNameEditTransfer(BatchNameEdit):
         layout.prop(props, "direction")
 
 
-classes = [
-    BatchNameEditNewName,
-    BatchNameEditReplace,
-    BatchNameEditAdd,
-    BatchNameEditTruncate,
-    BatchNameEditTransfer]
-
-
 def register():
-    register = bpy.types.register
-    for c in classes:
-        register(c)
+    pass
 
 
 def unregister():
-    unregister = bpy.types.unregister
-    for c in classes:
-        unregister(c)
+    pass
 
 
 if __name__ == "__main__":

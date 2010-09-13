@@ -2083,10 +2083,8 @@ class IMPORT_OT_autocad_dxf(bpy.types.Operator):
 
 def register():
     # registerPanels()
-    bpy.types.register(IMPORT_OT_autocad_dxf)
     menu_func = lambda self, context: self.layout.operator(IMPORT_OT_autocad_dxf.bl_idname, text="Autocad (.dxf)...")
     bpy.types.INFO_MT_file_import.append(menu_func)
-    return
  
 def unregister():
     # unregisterPanels()
