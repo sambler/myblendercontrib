@@ -60,17 +60,26 @@ def build_invoke(loopfunc, func):
     return invoke_func
 
 
+def build_op(idname, label, description, fpoll, fexec, finvoke):
+    '''Generator function that returns the basic operator'''
+
+    class myopic(bpy.types.Operator):
+        bl_idname = idname
+        bl_label = label
+        bl_description = description
+        execute = fexec
+        poll = fpoll
+        invoke = finvoke
+    return myopic
+
+
 def genops(copylist, oplist, prefix, poll_func, loopfunc):
     '''Generate ops from the copy list and its associated functions '''
     for op in copylist:
         exec_func = build_exec(loopfunc, op[3])
         invoke_func = build_invoke(loopfunc, op[3])
-        opclass = type(op[0], (bpy.types.Operator,),
-           dict(bl_idname=prefix + op[0],
-           bl_label="Copy " + op[1], bl_description=op[2]))
-        setattr(opclass, 'execute', exec_func)
-        setattr(opclass, 'invoke', invoke_func)
-        setattr(opclass, 'poll', poll_func)
+        opclass = build_op(prefix + op[0], "Copy " + op[1], op[2],
+           poll_func, exec_func, invoke_func)
         oplist.append(opclass)
 
 
@@ -439,23 +448,6 @@ class VIEW3D_MT_copypopup(bpy.types.Menu):
 
 def register():
     ''' mostly to get the keymap working '''
-
-    # the following is a big hack and shouldn't be needed:
-    try:
-        for op in object_ops:
-            bpy.types.register(op)
-        for op in pose_ops:
-            bpy.types.register(op)
-    except AttributeError:
-        for op in object_ops:
-            bpy.types.unregister(op)
-        for op in pose_ops:
-            bpy.types.unregister(op)
-        for op in object_ops:
-            bpy.types.register(op)
-        for op in pose_ops:
-            bpy.types.register(op)
-    # end of hack.
     km = bpy.context.window_manager.keyconfigs['Blender'].\
        keymaps['Object Mode']
     kmi = km.items.new('wm.call_menu', 'C', 'PRESS', ctrl=True)
@@ -471,12 +463,6 @@ def register():
 
 def unregister():
     ''' mostly to remove the keymap '''
-    # do we still need to unregister ops?
-    if True:
-        for op in object_ops:
-            bpy.types.unregister(op)
-        for op in pose_ops:
-            bpy.types.unregister(op)
     kms = bpy.context.window_manager.keyconfigs['Blender'].keymaps['Pose']
     for item in kms.items:
         if item.name == 'Call Menu' and item.idname == 'wm.call_menu' and \
