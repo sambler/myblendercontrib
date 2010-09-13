@@ -53,7 +53,7 @@ class BatchNameEdit:
         return context.active_object is not None
 
     def invoke(self, context, event):
-        wm = context.manager
+        wm = context.window_manager
         wm.invoke_props_dialog(self, self.dialog_width)
         return {'RUNNING_MODAL'}
 
