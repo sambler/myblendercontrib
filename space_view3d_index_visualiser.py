@@ -32,7 +32,7 @@ How to use:
 bl_addon_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2,6,2),
+    'version': (2,6,3),
     'blender': (2, 5, 4),
     'api': 31878,
     'location': 'View3D > Properties panel > Mesh Display tab',
@@ -78,11 +78,13 @@ def calc_callback(self, context):
     #bpy.ops.object.editmode_toggle()
     if bpy.context.scene.display_vert_index:
         for v in me.vertices:
-            if v.select or not bpy.context.scene.display_sel_only:
+            if not v.hide and \
+            (v.select or not bpy.context.scene.display_sel_only):
                 locs.append([1.0, 1.0, 1.0, v.index, v.co.copy().resize4D()])
     if bpy.context.scene.display_edge_index:
         for ed in me.edges:
-            if ed.select or not bpy.context.scene.display_sel_only:
+            if not ed.hide and \
+            (ed.select or not bpy.context.scene.display_sel_only):
                 v1, v2 = ed.vertices
                 v1 = me.vertices[v1].co.copy()
                 v2 = me.vertices[v2].co.copy()
@@ -90,7 +92,8 @@ def calc_callback(self, context):
                 locs.append([1.0, 1.0, 0.0, ed.index, loc.resize4D()])
     if bpy.context.scene.display_face_index:
         for f in me.faces:
-            if f.select or not bpy.context.scene.display_sel_only:
+            if not f.hide and \
+            (f.select or not bpy.context.scene.display_sel_only):
                 locs.append([1.0, 0.0, 0.5, f.index, f.center.resize4D()])
                 
     for loc in locs:
