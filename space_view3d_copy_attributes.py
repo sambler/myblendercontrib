@@ -21,7 +21,7 @@
 bl_addon_info = {
     'name': 'Copy Attributes Menu',
     'author': 'Bassam Kurdali, Fabian Fricke',
-    'version': (0, 38),
+    'version': (0, 39),
     'blender': (2, 5, 4),
     'api': 31881,
     'location': 'View3D > Ctrl/C',
@@ -219,6 +219,42 @@ pose_copies = (('POSE_LOC_LOC', "Local Location",
 def pose_poll_func(cls, context):
     return(context.mode == 'POSE')
 
+
+def pose_invoke_func(self, context, event):
+    wm = context.window_manager
+    wm.invoke_props_dialog(self)
+    return {'RUNNING_MODAL'}
+
+
+class CopySelectedPoseConstraints(bpy.types.Operator):
+    ''' Copy Chosen constraints from active to selected'''
+    bl_idname = "pose.copy_selected_constraints"
+    bl_label = "Copy Selected Constraints"
+    selection = bpy.props.BoolVectorProperty(size=32)
+
+    poll = pose_poll_func
+    invoke = pose_invoke_func
+
+    def draw(self, context):
+        layout = self.layout
+        props = self.properties
+        for idx, const in enumerate(context.active_pose_bone.constraints):
+            layout.prop(props, 'selection', index=idx, text=const.name,
+               toggle=True)
+
+    def execute(self, context):
+        active = context.active_pose_bone
+        selected = context.selected_pose_bones[:]
+        selected.remove(active)
+        for bone in selected:
+            for index, flag in enumerate(self.selection):
+                if flag:
+                    old_constraint = active.constraints[index]
+                    new_constraint = bone.constraints.new(\
+                       active.constraints[index].type)
+                    generic_copy(old_constraint, new_constraint)
+        return {'FINISHED'}
+
 pose_ops = [] #list of pose mode copy operators
 
 genops(pose_copies, pose_ops, "pose.copy_", pose_poll_func, pLoopExec)
@@ -232,6 +268,7 @@ class VIEW3D_MT_posecopypopup(bpy.types.Menu):
         layout.operator_context = 'INVOKE_REGION_WIN'
         for op in pose_copies:
             layout.operator("pose.copy_" + op[0])
+        layout.operator("pose.copy_selected_constraints")
         layout.operator("pose.copy", text="copy pose")
 
 
@@ -432,6 +469,75 @@ object_copies = (('OBJ_LOC', "Location",
 def object_poll_func(cls, context):
     return(len(context.selected_objects) > 1)
 
+
+def object_invoke_func(self, context, event):
+    wm = context.window_manager
+    wm.invoke_props_dialog(self)
+    return {'RUNNING_MODAL'}
+
+
+class CopySelectedObjectConstraints(bpy.types.Operator):
+    ''' Copy Chosen constraints from active to selected'''
+    bl_idname = "object.copy_selected_constraints"
+    bl_label = "Copy Selected Constraints"
+    selection = bpy.props.BoolVectorProperty(size = 32)
+
+    poll = object_poll_func
+
+    invoke = object_invoke_func
+
+    def draw(self, context):
+        layout = self.layout
+        props = self.properties
+        for idx, const in enumerate(context.active_object.constraints):
+            layout.prop(props, 'selection', index=idx, text=const.name,
+               toggle=True)
+
+    def execute(self, context):
+        active = context.active_object
+        selected = context.selected_objects[:]
+        selected.remove(active)
+        for obj in selected:
+            for index, flag in enumerate(self.selection):
+                if flag:
+                    old_constraint = active.constraints[index]
+                    new_constraint = obj.constraints.new(\
+                       active.constraints[index].type)
+                    generic_copy(old_constraint, new_constraint)
+        return{'FINISHED'}
+
+
+class CopySelectedObjectModifiers(bpy.types.Operator):
+    ''' Copy Chosen modifiers from active to selected'''
+    bl_idname = "object.copy_selected_modifiers"
+    bl_label = "Copy Selected Modifiers"
+    selection = bpy.props.BoolVectorProperty(size = 32)
+
+    poll = object_poll_func
+
+    invoke = object_invoke_func
+
+    def draw(self, context):
+        layout = self.layout
+        props = self.properties
+        for idx, const in enumerate(context.active_object.modifiers):
+            layout.prop(props, 'selection', index=idx, text=const.name,
+               toggle=True)
+
+    def execute(self, context):
+        active = context.active_object
+        selected = context.selected_objects[:]
+        selected.remove(active)
+        for obj in selected:
+            for index, flag in enumerate(self.selection):
+                if flag:
+                    old_modifier = active.modifiers[index]
+                    new_modifier = obj.modifiers.new(\
+                       type=active.modifiers[index].type,
+                       name=active.modifiers[index].name)
+                    generic_copy(old_modifier, new_modifier)
+        return{'FINISHED'}
+
 object_ops = []
 genops(object_copies, object_ops, "object.copy_", object_poll_func, obLoopExec)
 
@@ -444,6 +550,8 @@ class VIEW3D_MT_copypopup(bpy.types.Menu):
         layout.operator_context = 'INVOKE_REGION_WIN'
         for op in object_copies:
             layout.operator("object.copy_" + op[0])
+        layout.operator("object.copy_selected_constraints")
+        layout.operator("object.copy_selected_modifiers")
 
 
 def register():
