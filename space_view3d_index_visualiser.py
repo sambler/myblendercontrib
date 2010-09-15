@@ -32,9 +32,9 @@ How to use:
 bl_addon_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2,6,1),
+    'version': (2,6,2),
     'blender': (2, 5, 4),
-    'api': 31667,
+    'api': 31878,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -172,14 +172,18 @@ class IndexVisualiser(bpy.types.Operator):
 # properties used by the script
 def init_properties():
     bpy.context.scene["display_indices"] = 0
-    bpy.types.Scene.BoolProperty(attr="display_sel_only", name="Selected only",
+    bpy.types.Scene.display_sel_only = bpy.props.BoolProperty(
+        name="Selected only",
         description="Only display indices of selected vertices/edges/faces",
         default=True)
-    bpy.types.Scene.BoolProperty(attr="display_vert_index", name="Vertices",
+    bpy.types.Scene.display_vert_index = bpy.props.BoolProperty(
+        name="Vertices",
         description="Display vertex indices", default=True)
-    bpy.types.Scene.BoolProperty(attr="display_edge_index", name="Edges",
+    bpy.types.Scene.display_edge_index = bpy.props.BoolProperty(
+        name="Edges",
         description="Display edge indices")
-    bpy.types.Scene.BoolProperty(attr="display_face_index", name="Faces",
+    bpy.types.Scene.display_face_index = bpy.props.BoolProperty(
+        name="Faces",
         description="Display face indices")
 
 
@@ -188,13 +192,17 @@ def clear_properties(full=True):
     # can happen on reload
     if bpy.context.scene is None:
         return
-    props = ["display_indices", "display_sel_only", "display_vert_index",
-        "display_edge_index", "display_face_index", "IndexVisualiser"]
-    if not full:
-        props = ["IndexVisualiser"]
-    for p in props:
-        if p in bpy.context.scene:
-            del bpy.context.scene[p]
+    
+    if "IndexVisualiser" in bpy.context.scene.keys():
+        del bpy.context.scene["IndexVisualiser"]
+    if full:
+        props = ["display_indices", "display_sel_only", "display_vert_index",
+        "display_edge_index", "display_face_index"]
+        for p in props:
+            if p in bpy.types.Scene.bl_rna.properties:
+                exec("del bpy.types.Scene."+p)
+            if p in bpy.context.scene.keys():
+                del bpy.context.scene[p]
 
 
 # defining the panel
@@ -202,6 +210,11 @@ def menu_func(self, context):
     # initialise properties, if necessary
     if "display_indices" not in context.scene.keys():
         init_properties()
+    props = ["display_vert_index", "display_edge_index",
+            "display_face_index", "display_sel_only"]
+    for p in props:
+        if p not in bpy.types.Scene.bl_rna.properties:
+            init_properties()
     
     self.layout.separator()
     col = self.layout.column(align=True)
