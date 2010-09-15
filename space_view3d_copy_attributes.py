@@ -480,7 +480,7 @@ class CopySelectedObjectConstraints(bpy.types.Operator):
     ''' Copy Chosen constraints from active to selected'''
     bl_idname = "object.copy_selected_constraints"
     bl_label = "Copy Selected Constraints"
-    selection = bpy.props.BoolVectorProperty(size = 32)
+    selection = bpy.props.BoolVectorProperty(size=32)
 
     poll = object_poll_func
 
@@ -511,7 +511,7 @@ class CopySelectedObjectModifiers(bpy.types.Operator):
     ''' Copy Chosen modifiers from active to selected'''
     bl_idname = "object.copy_selected_modifiers"
     bl_label = "Copy Selected Modifiers"
-    selection = bpy.props.BoolVectorProperty(size = 32)
+    selection = bpy.props.BoolVectorProperty(size=32)
 
     poll = object_poll_func
 
