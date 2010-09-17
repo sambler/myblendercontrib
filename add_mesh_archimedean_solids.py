@@ -21,7 +21,7 @@ bl_addon_info = {
     'author': 'Buerbaum Martin (Pontiac)',
     'version': (0,1),
     'blender': (2, 5, 3),
-    'api': 31667,
+    'api': 31965,
     'location': 'View3D > Add > Mesh > Archimedean Solids',
     'description': 'Adds various archimedean solids to the Add Mesh menu',
     'wiki_url':'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
