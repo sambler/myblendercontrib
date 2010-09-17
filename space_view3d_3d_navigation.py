@@ -24,9 +24,9 @@
 bl_addon_info = {
     "name": "3D Navigation",
     "author": "Demohero, uriel",
-    "version": (1,2),
+    "version": (1, 2),
     "blender": (2, 5, 3),
-    "api": 31854,
+    "api": 31965,
     "location": "View3D > Toolbar",
     "description": "You can navigate to views from 3D Toolbar (Shortcut: T)",
     "warning": "",
@@ -77,14 +77,14 @@ class VIEW3D_PT_3dnavigationPanel(bpy.types.Panel):
         col.label(text="View to Object:")
         col.prop(view, "lock_object", text="")
         row = col.row()
-        row.operator("view3d.view_selected", text="View to selected !") 
+        row.operator("view3d.view_selected", text="View to Selected") 
         col = layout.column(align=True)
         col.label(text="Cursor:")
         row = col.row()
         row.operator("view3d.snap_cursor_to_center", text="Center")
         row.operator("view3d.view_center_cursor", text="View")
         row = col.row()
-        row.operator("view3d.snap_cursor_to_selected", text="Cursor to selected")
+        row.operator("view3d.snap_cursor_to_selected", text="Cursor to Selected")
 
 # register the class
 def register(): 
