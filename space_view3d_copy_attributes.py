@@ -20,10 +20,10 @@
 
 bl_addon_info = {
     'name': 'Copy Attributes Menu',
-    'author': 'Bassam Kurdali, Fabian Fricke',
-    'version': (0, 39),
+    'author': 'Bassam Kurdali, Fabian Fricke, wiseman303',
+    'version': (0, 40),
     'blender': (2, 5, 4),
-    'api': 31965,
+    'api': 31989,
     'location': 'View3D > Ctrl/C',
     'description': 'Copy Attributes Menu from Blender 2.4',
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
@@ -100,7 +100,7 @@ def getmat(bone, active, context, ignoreparent):
     '''
     data_bone = context.active_object.data.bones[bone.name]
     #all matrices are in armature space unless commented otherwise
-    otherloc = active.matrix_world #final 4x4 mat of target, location.
+    otherloc = active.matrix #final 4x4 mat of target, location.
     bonemat_local = Matrix(data_bone.matrix_local) #self rest matrix
     if data_bone.parent:
         parentposemat = Matrix(
@@ -177,8 +177,7 @@ def pLokExec(bone, active, context):
         bone.lock_location[index] = state
     for index, state in enumerate(active.lock_rotation):
         bone.lock_rotation[index] = state
-    for index, state in enumerate(active.lock_rotations_4d):
-        bone.lock_rotations_4d[index] = state
+    bone.lock_rotations_4d = active.lock_rotations_4d
     bone.lock_rotation_w = active.lock_rotation_w
     for index, state in enumerate(active.lock_scale):
         bone.lock_scale[index] = state
@@ -345,8 +344,8 @@ def obLok(ob, active, context):
 
 def obCon(ob, active, context):
     #for consistency with 2.49, delete old constraints first
-    for index in range(len(ob.constraints.values())-1, -1, -1):
-        ob.constraints.remove(index)
+    for removeconst in ob.constraints:
+        ob.constraints.remove(removeconst)
     for old_constraint in  active.constraints.values():
         new_constraint = ob.constraints.new(old_constraint.type)
         generic_copy(old_constraint, new_constraint)
@@ -354,7 +353,8 @@ def obCon(ob, active, context):
 
 
 def obTex(ob, active, context):
-    if 'texspace_location' in dir(ob.data) and 'texspace_location' in dir(active.data):
+    if 'texspace_location' in dir(ob.data) and 'texspace_location' in dir(
+       active.data):
         ob.data.texspace_location[:] = active.data.texspace_location[:]
     if 'texspace_size' in dir(ob.data) and 'texspace_size' in dir(active.data):
         ob.data.texspace_size[:] = active.data.texspace_size[:]
@@ -367,8 +367,9 @@ def obIdx(ob, active, context):
 
 
 def obMod(ob, active, context):
-    for modifier in ob.modifiers.values():
-        ob.modifiers.remove(ob.modifiers[modifier]) #remove existing before adding new
+    for modifier in ob.modifiers:
+        #remove existing before adding new:
+        ob.modifiers.remove(modifier)
     for old_modifier in active.modifiers.values():
         new_modifier = ob.modifiers.new(name=old_modifier.name,
            type=old_modifier.type)
@@ -451,8 +452,8 @@ object_copies = (('OBJ_LOC', "Location",
                 "Copy Object Constraints from Active to Selected", obCon),
                 #('OBJ_NLA', "NLA Strips",
                 #"Copy NLA Strips from Active to Selected"),
-                ('OBJ_TEX', "Texture Space",
-                "Copy Texture Space from Active to Selected", obTex),
+                #('OBJ_TEX', "Texture Space",
+                #"Copy Texture Space from Active to Selected", obTex),
                 #('OBJ_SUB', "Subsurf Settings",
                 #"Copy Subsurf Setings from Active to Selected"),
                 #('OBJ_SMO', "AutoSmooth",
@@ -553,6 +554,176 @@ class VIEW3D_MT_copypopup(bpy.types.Menu):
         layout.operator("object.copy_selected_constraints")
         layout.operator("object.copy_selected_modifiers")
 
+#Begin Mesh copy settings:
+
+
+class MESH_MT_CopyFaceSettings(bpy.types.Menu):
+    bl_label = "Copy Face Settings"
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
+
+    def draw(self, context):
+        mesh = context.object.data
+        uv = len(mesh.uv_textures) > 1
+        vc = len(mesh.vertex_colors) > 1
+        layout = self.layout
+
+        layout.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                        text="Copy Material")['mode'] = 'MAT'
+        if mesh.uv_textures.active:
+            layout.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                            text="Copy Mode")['mode'] = 'MODE'
+            layout.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                            text="Copy Transp")['mode'] = 'TRANSP'
+            layout.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                            text="Copy Image")['mode'] = 'IMAGE'
+            layout.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                            text="Copy UV Coords")['mode'] = 'UV'
+        if mesh.vertex_colors.active:
+            layout.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                            text="Copy Vertex Colors")['mode'] = 'VCOL'
+        if uv or vc:
+            layout.separator()
+            if uv:
+                layout.menu("MESH_MT_CopyModeFromLayer")
+                layout.menu("MESH_MT_CopyTranspFromLayer")
+                layout.menu("MESH_MT_CopyImagesFromLayer")
+                layout.menu("MESH_MT_CopyUVCoordsFromLayer")
+            if vc:
+                layout.menu("MESH_MT_CopyVertexColorsFromLayer")
+
+
+def _buildmenu(self, mesh, mode):
+    layout = self.layout
+    if mode == 'VCOL':
+        layers = mesh.vertex_colors
+    else:
+        layers = mesh.uv_textures
+    for layer in layers:
+        if not layer.active:
+            op = layout.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                                 text=layer.name)
+            op['layer'] = layer.name
+            op['mode'] = mode
+
+
+@classmethod
+def _poll_layer_uvs(cls, context):
+    return context.mode == "EDIT_MESH" and len(
+       context.object.data.uv_layers) > 1
+
+
+@classmethod
+def _poll_layer_vcols(cls, context):
+    return context.mode == "EDIT_MESH" and len(
+       context.object.data.vertex_colors) > 1
+
+
+def _build_draw(mode):
+    return (lambda self, context: _buildmenu(self, context.object.data, mode))
+
+_layer_menu_data = (("UV Coords", _build_draw("UV"), _poll_layer_uvs),
+                    ("Images", _build_draw("IMAGE"), _poll_layer_uvs),
+                    ("Mode", _build_draw("MODE"), _poll_layer_uvs),
+                    ("Transp", _build_draw("TRANSP"), _poll_layer_uvs),
+                    ("Vertex Colors", _build_draw("VCOL"), _poll_layer_vcols))
+_layer_menus = []
+for name, draw_func, poll_func in _layer_menu_data:
+    classname = "MESH_MT_Copy" + "".join(name.split()) + "FromLayer"
+    menuclass = type(classname, (bpy.types.Menu,),
+                     dict(bl_label="Copy " + name + " from layer",
+                          bl_idname=classname,
+                          draw=draw_func,
+                          poll=poll_func))
+    _layer_menus.append(menuclass)
+
+
+class MESH_OT_CopyFaceSettings(bpy.types.Operator):
+    """Copy settings from active face to all selected faces."""
+    bl_idname = 'mesh.copy_face_settings'
+    bl_label = "Copy Face Settings"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
+
+    def execute(self, context):
+        mesh = context.object.data
+        mode = self.properties.get('mode', 'MODE')
+        layername = self.properties.get('layer')
+
+        # Switching out of edit mode updates the selected state of faces and
+        # makes the data from the uv texture and vertex color layers available.
+        bpy.ops.object.editmode_toggle()
+
+        if mode == 'MAT':
+            from_data = mesh.faces
+            to_data = from_data
+        else:
+            if mode == 'VCOL':
+                layers = mesh.vertex_colors
+                act_layer = mesh.vertex_colors.active
+            else:
+                layers = mesh.uv_textures
+                act_layer = mesh.uv_textures.active
+            if not layers or (layername and not layername in layers):
+                    return _end({'CANCELLED'})
+            from_data = layers[layername or act_layer.name].data
+            to_data = act_layer.data
+        from_face = from_data[mesh.faces.active]
+
+        for f in mesh.faces:
+            if f.select:
+                if to_data != from_data:
+                    from_face = from_data[f.index]
+                if mode == 'MAT':
+                    f.material_index = from_face.material_index
+                    continue
+                to_face = to_data[f.index]
+                if to_face is from_face:
+                    continue
+                if mode == 'VCOL':
+                    to_face.color1 = from_face.color1
+                    to_face.color2 = from_face.color2
+                    to_face.color3 = from_face.color3
+                    to_face.color4 = from_face.color4
+                elif mode == 'MODE':
+                    to_face.use_alpha_sort = from_face.use_alpha_sort
+                    to_face.use_billboard = from_face.use_billboard
+                    to_face.use_collision = from_face.use_collision
+                    to_face.use_halo = from_face.use_halo
+                    to_face.hide = from_face.hide
+                    to_face.use_light = from_face.use_light
+                    to_face.use_object_color = from_face.use_object_color
+                    to_face.use_shadow_cast = from_face.use_shadow_cast
+                    to_face.use_blend_shared = from_face.use_blend_shared
+                    to_face.use_image = from_face.use_image
+                    to_face.use_bitmap_text = from_face.use_bitmap_text
+                    to_face.use_twoside = from_face.use_twoside
+                elif mode == 'TRANSP':
+                    to_face.blend_type = from_face.blend_type
+                elif mode in ('UV', 'IMAGE'):
+                    attr = mode.lower()
+                    setattr(to_face, attr, getattr(from_face, attr))
+        return _end({'FINISHED'})
+
+
+def _end(retval):
+    # Clean up by returning to edit mode like it was before.
+    bpy.ops.object.editmode_toggle()
+    return(retval)
+
+
+def _add_tface_buttons(self, context):
+    row = self.layout.row()
+    row.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                 text="Copy Mode")['mode'] = 'MODE'
+    row.operator(MESH_OT_CopyFaceSettings.bl_idname,
+                 text="Copy Transp")['mode'] = 'TRANSP'
+
 
 def register():
     ''' mostly to get the keymap working '''
@@ -567,6 +738,11 @@ def register():
     except KeyError:
         kmi = km.items.new('wm.call_menu', 'C', 'PRESS', ctrl=True)
     kmi.properties.name = 'VIEW3D_MT_posecopypopup'
+    bpy.types.DATA_PT_texface.append(_add_tface_buttons)
+    km = bpy.context.window_manager.keyconfigs.active.keymaps['Mesh']
+    kmi = km.items.new('wm.call_menu', 'C', 'PRESS')
+    kmi.ctrl = True
+    kmi.properties.name = 'MESH_MT_CopyFaceSettings'
 
 
 def unregister():
@@ -577,6 +753,12 @@ def unregister():
            item.properties.name == 'VIEW3D_MT_posecopypopup':
             item.idname = 'pose.copy'
             break
+    bpy.types.DATA_PT_texface.remove(_add_tface_buttons)
+    km = bpy.context.window_manager.keyconfigs.active.keymaps['Mesh']
+    for kmi in km.items:
+        if kmi.idname == 'wm.call_menu':
+            if kmi.properties.name == 'MESH_MT_CopyFaceSettings':
+                km.items.remove(kmi)
 
 if __name__ == "__main__":
     register()
