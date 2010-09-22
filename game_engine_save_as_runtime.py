@@ -20,7 +20,7 @@ bl_addon_info = {
     "name": "Save As Runtime",
     "author": "Mitchell Stokes (Moguri)",
     "version": (0,2),
-    "blender": (2, 5, 3),
+    "blender": (2, 5, 4),
     "api": 31667,
     "location": "File > Export",
     "description": "Bundle a .blend file with the Blenderplayer",
@@ -108,7 +108,10 @@ class SaveAsRuntime(bpy.types.Operator):
     elif os.name == "mac":
         ext = ".app"
     
-    player_path = StringProperty(name="Player Path", description="The path to the player to use", default=sys.argv[0].replace("blender"+ext, "blenderplayer"+ext))
+    if not ext:
+        player_path = StringProperty(name="Player Path", description="The path to the player to use", default=sys.argv[0]+'player')
+    else:
+        player_path = StringProperty(name="Player Path", description="The path to the player to use", default=sys.argv[0].replace("blender"+ext, "blenderplayer"+ext))
     filepath = StringProperty(name="Output Path", description="Where to save the runtime", default="")
     
     def execute(self, context):
