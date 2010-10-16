@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_addon_info = {
-	'name': 'Mesh: Seam from uv isles',
+	'name': 'Seam from uv isles',
 	'author': 'Fredrik Hansson',
 	'version': '1.01  2010/08/25',
 	'blender': (2, 5, 3),
