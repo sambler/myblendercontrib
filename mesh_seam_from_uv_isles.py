@@ -17,18 +17,19 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_addon_info = {
-	'name': 'Mesh: Seam from uv isles',
-	'author': 'Fredrik Hansson',
-	'version': '1.01  2010/08/25',
-	'blender': (2, 5, 3),
-	'location': 'UV/Image editor> UVs > Seam from UV isles ',
-	'warning': '', # used for warning icon and text in addons panel
-	'description': 'Marks seams based on UV isles',
-	'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
-		'Scripts/Modeling/Seams_from_uv_isles' ,
-	'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
-		'func=detail&aid=22929&group_id=153&atid=467',
-	'category': 'Mesh'}
+    "name": "Seam from uv isles",
+    "author": "Fredrik Hansson",
+    "version": (1,1),
+    "blender": (2, 5, 4),
+    "api": 32516,
+    "location": "UV/Image editor> UVs > Seam from UV isles",
+    "description": "Marks seams based on UV isles",
+    "warning": "", # used for warning icon and text in addons panel
+    "wiki_url": 'http://wiki.blender.org/index.php/Extensions:2.5/Py/' \
+        'Scripts/Modeling/Seams_from_uv_isles',
+    "tracker_url": "https://projects.blender.org/tracker/index.php?" \
+        "func=detail&aid=22929&group_id=153&atid=467",
+    "category": "Mesh"}
 
 import bpy
 
