@@ -19,7 +19,7 @@
 bl_addon_info = {
     "name": "Save As Runtime",
     "author": "Mitchell Stokes (Moguri)",
-    "version": (0,2b),
+    "version": (0,2,1),
     "blender": (2, 5, 4),
     "api": 31667,
     "location": "File > Export",
@@ -95,22 +95,21 @@ def WriteRuntime(player_path, output_path):
     # Make the runtime executable on Linux
     if os.name == 'posix':
         os.chmod(output_path, 0o755)
-    
+
+
 from bpy.props import *
+
 class SaveAsRuntime(bpy.types.Operator):
     bl_idname = "wm.save_as_runtime"
     bl_label = "Save As Runtime"
     bl_options = {'REGISTER'}
     
-    ext = ""
+    blender_bin_path = bpy.app.binary_path
+    blender_bin_dir = os.path.dirname(blender_bin_path)
+    ext = os.path.splitext(blender_bin_path)[-1]
     
-    if os.name == "nt":
-        ext = ".exe"
-    elif os.name == "mac":
-        ext = ".app"
-
-    default_path = os.path.join(os.path.dirname(sys.argv[0]), 'blenderplayer'+ext)
-    player_path = StringProperty(name="Player Path", description="The path to the player to use", default=default_path)
+    default_player_path = os.path.join(blender_bin_dir, 'blenderplayer' + ext)
+    player_path = StringProperty(name="Player Path", description="The path to the player to use", default=default_player_path)
     filepath = StringProperty(name="Output Path", description="Where to save the runtime", default="")
     
     def execute(self, context):
@@ -127,13 +126,10 @@ class SaveAsRuntime(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 def menu_func(self, context):
-    ext = ""
-    
-    if os.name == "nt":
-        ext = ".exe"
 
-    default_path = bpy.data.filepath.replace(".blend", ext)
-    self.layout.operator(SaveAsRuntime.bl_idname, text=SaveAsRuntime.bl_label).filepath = default_path
+    ext = os.path.splitext(bpy.app.binary_path)[-1]
+    default_blend_path = bpy.data.filepath.replace(".blend", ext)
+    self.layout.operator(SaveAsRuntime.bl_idname, text=SaveAsRuntime.bl_label).filepath = default_blend_path
 
 
 def register():
