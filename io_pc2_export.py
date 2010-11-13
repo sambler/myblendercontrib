@@ -31,8 +31,8 @@ bl_addon_info = {
     "location": "File > Export",
     "description": "Export Mesh Pointcache to .pc2",
     "warning": "",
-    "wiki_url": "",
-    "tracker_url": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/File_I-O/PC2_Pointcache_export",
+    "tracker_url": "https://projects.blender.org/tracker/index.php?func=detail&aid=24703&group_id=153&atid=468",
     "category": "Import/Export"}
 
 
