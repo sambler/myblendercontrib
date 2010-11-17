@@ -32,9 +32,9 @@ How to use:
 bl_addon_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2,6,3),
-    'blender': (2, 5, 4),
-    'api': 31878,
+    'version': (2, 6, 4),
+    'blender': (2, 5, 5),
+    'api': 33078,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -97,7 +97,7 @@ def calc_callback(self, context):
                 locs.append([1.0, 0.0, 0.5, f.index, f.center.resize4D()])
                 
     for loc in locs:
-        vec = total_mat*loc[4] # order is important
+        vec = loc[4] * total_mat # order is important
         # dehomogenise
         vec = mathutils.Vector((vec[0]/vec[3],vec[1]/vec[3],vec[2]/vec[3]))
         x = int(mid_x + vec[0]*width/2.0)

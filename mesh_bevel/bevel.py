@@ -8,7 +8,7 @@ from bpy.props import *
 from bpy import context
 import mathutils as Math
 from mathutils import Matrix, Vector, Quaternion
-import geometry as geo
+import mathutils.geometry as geo
 
 import mesh_bevel.va
 from mesh_bevel.va import *

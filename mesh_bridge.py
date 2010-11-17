@@ -31,9 +31,9 @@ How to use:
 bl_addon_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
-    'version': (1, 4, 0),
-    'blender': (2, 5, 5),
-    'api': 32738,
+    'version': (1, 4, 3),
+    'blender': (2, 5, 6),
+    'api': 33078,
     'location': 'View3D > Ctrl+F > Bridge',
     'warning': '',
     'description': 'Bridge two, or loft several, loops of vertices.',
@@ -353,7 +353,7 @@ def calculate_lines(mesh, loops, mode, twist, reverse):
         
         # match start vertex of loop1 with loop2
         target_vector = mesh.vertices[loop2[0]].co - center2
-        dif_angles = [[(rotation_matrix * (mesh.vertices[vertex].co - center1)).angle(target_vector, 0), False, i] for i, vertex in enumerate(loop1)]
+        dif_angles = [[((mesh.vertices[vertex].co - center1) * rotation_matrix).angle(target_vector, 0), False, i] for i, vertex in enumerate(loop1)]
         dif_angles.sort()
         if len(loop1) != len(loop2):
             angle_limit = dif_angles[0][0] * 1.2 # 20% margin
@@ -413,7 +413,7 @@ def calculate_lines(mesh, loops, mode, twist, reverse):
                 if len(loop1) - shifting < len(loop2):
                     shifting = False
                     break
-                to_last, to_first = [(rotation_matrix * (mesh.vertices[loop1[-1]].co - center1)).angle((mesh.vertices[loop2[i]].co - center2), 0) for i in [-1, 0]]
+                to_last, to_first = [((mesh.vertices[loop1[-1]].co - center1) * rotation_matrix).angle((mesh.vertices[loop2[i]].co - center2), 0) for i in [-1, 0]]
                 if to_first < to_last:
                     loop1 = [loop1[-1]] + loop1[:-1]
                     shifting += 1
@@ -1038,4 +1038,3 @@ def unregister():
 
 if __name__ == '__main__':
     bpy.ops.mesh.bridge()
-register()
