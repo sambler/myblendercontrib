@@ -31,7 +31,7 @@ How to use:
 bl_addon_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
-    'version': (1, 4, 4),
+    'version': (1, 4, 5),
     'blender': (2, 5, 6),
     'api': 33191,
     'location': 'View3D > Ctrl+F > Bridge',
@@ -575,7 +575,7 @@ def calculate_virtual_vertex_normals(mesh, lines, loops, edge_faces, edgekey_to_
                     connection_vectors[v2].append(new_vector)
                     connections[v2].append(v1)
         connection_vectors = average_vector_dictionary(connection_vectors)
-        connection_vectors = dict([[vertex, vector[0]] for vertex, vector in connection_vectors.items()])
+        connection_vectors = dict([[vertex, vector[0]] if vector else [vertex, []] for vertex, vector in connection_vectors.items()])
         
         for vertex, values in edge_vectors.items():
             # vertex normal doesn't matter, just assign a random vector to it
