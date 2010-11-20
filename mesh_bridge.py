@@ -31,9 +31,9 @@ How to use:
 bl_addon_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
-    'version': (1, 4, 3),
+    'version': (1, 4, 5),
     'blender': (2, 5, 6),
-    'api': 33078,
+    'api': 33191,
     'location': 'View3D > Ctrl+F > Bridge',
     'warning': '',
     'description': 'Bridge two, or loft several, loops of vertices.',
@@ -273,7 +273,7 @@ def calculate_lines(mesh, loops, mode, twist, reverse):
     loop1_circular, loop2_circular = [i[1] for i in loops]
     circular = loop1_circular or loop2_circular
     circle_full = False
-
+    
     # calculate loop centers
     centers = []
     for loop in [loop1, loop2]:
@@ -336,9 +336,10 @@ def calculate_lines(mesh, loops, mode, twist, reverse):
         normals[0].negate()
     if ((center2 + normals[1]) - center1).length > ((center2 - normals[1]) - center1).length:
         normals[1].negate()
-        
+    
     # calculate rotation matrix, representing the difference between the plane normals
     axis = normals[0].cross(normals[1])
+    axis = mathutils.Vector([loc if abs(loc) > 1e-8 else 0 for loc in axis])
     if axis.angle(mathutils.Vector([0, 0, 1]), 0) > 1.5707964:
         axis.negate()
     angle = normals[0].dot(normals[1])
@@ -360,7 +361,7 @@ def calculate_lines(mesh, loops, mode, twist, reverse):
             dif_angles = [[(mesh.vertices[loop2[0]].co - mesh.vertices[loop1[index]].co).length, angle, index] for angle, distance, index in dif_angles if angle <= angle_limit]
             dif_angles.sort()
         loop1 = loop1[dif_angles[0][2]:] + loop1[:dif_angles[0][2]]
-
+    
     # have both loops face the same way
     if normal_plurity and not circular:
         second_to_first, second_to_second, second_to_last = [(mesh.vertices[loop1[1]].co - center1).angle(mesh.vertices[loop2[i]].co - center2) for i in [0, 1, -1]]
@@ -574,7 +575,7 @@ def calculate_virtual_vertex_normals(mesh, lines, loops, edge_faces, edgekey_to_
                     connection_vectors[v2].append(new_vector)
                     connections[v2].append(v1)
         connection_vectors = average_vector_dictionary(connection_vectors)
-        connection_vectors = dict([[vertex, vector[0]] for vertex, vector in connection_vectors.items()])
+        connection_vectors = dict([[vertex, vector[0]] if vector else [vertex, []] for vertex, vector in connection_vectors.items()])
         
         for vertex, values in edge_vectors.items():
             # vertex normal doesn't matter, just assign a random vector to it
