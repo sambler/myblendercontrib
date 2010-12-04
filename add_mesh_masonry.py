@@ -24,7 +24,7 @@
 bl_addon_info = {
     "name": "Masonry",
     "author": "Paul Spooner, Dudecon, Ziggy",
-    "version": (0, 56),
+    "version": (0, 57),
     "blender": (2, 5, 4),
     "api": 32261,
     "location": "View3D > Add > Mesh > Masonry",
@@ -44,22 +44,13 @@ bl_addon_info = {
     Crenelations also work which can double as arrow slits or support beam holes.
     Slots, both vertical and horizontal, can be added as openings.
     Steps and platforms may be added as extensions to the wall.
-
- --- not true yet:
-
-If a curve is the active object the wall will follow the curve (as long as a
-closed curve is a circle, let me know if you can find a work-around for this).
-
-In this way, castles or large citys can be quickly made by creating curve 
-circles for the towers and curve segments for the walls.
-
-Let me know about suggested improvements, I'll try to work them in!
 """
 
 # Using SourceForge commit number as version until official release.
-VERSION = '\n\tAdd Masonry v0.56' # show on load (add to menu)
+VERSION = '\n\tAdd Masonry v0.57' # show on load (add to menu)
 
 # Version History
+# v0.57 2010/12/03	Minor updates for Blender SVN maintenance.
 # v0.56 2010/11/19	Revised UI for property access/display.
 # V0.55 2010/11/15	Added stairs, improved shelf, fixed plan generation.
 # V0.54 2010/11/11	Changed version number to match sourceforge check-in,
@@ -219,11 +210,12 @@ def fill(left, right, avedst, mindst=0.0, dev=0.0, pad=(0.0,0.0), num=0,
     curpos = left+pad[0]
 
     # Set offset by average spacing, then add blocks (fall through); 
-    # clip to right edge.
+    # if not at right edge.
     if center:
         curpos += ((right-left-mindst*2)%avedst)/2+mindst
         if curpos-poslist[-1]<mindst: curpos = poslist[-1]+mindst+rnd()*dev/2
 
+        # clip to right edge.
         if (right-curpos<mindst) or (right-curpos< mindst-pad[1]):
             poslist.append(right)
             return poslist
@@ -1332,6 +1324,7 @@ def archGeneration(hole, vlist, flist, sideSign):
         else:
             BtmHt =  - (hole.btm() - MidZ) - Grout
             TopHt = nearCorner
+
         # set the amout to bevel the keystone
         keystoneBevel = (bevHt - v)*sideSign
         if Wdth >= settings['hm']:
@@ -1345,6 +1338,7 @@ def archGeneration(hole, vlist, flist, sideSign):
 
             vlist += avlist
             flist += aflist
+# remove "debug note" once bevel is finalized.
         else: print("keystone was too narrow - " + str(Wdth))
 
     else: # only one arc - curve not peak.
@@ -1613,6 +1607,7 @@ def build(Aplan):
 
             # Make blocks for each step row - based on rowOb::fillblocks
             # Does not vary grout.
+# add logic for "cantilevered steps"
             divs = fill(StepLft, StepRt, StepXMod, SetWidMin, SetWidVar)
 
             #loop through the row divisions, adding blocks for each one
