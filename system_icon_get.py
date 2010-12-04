@@ -36,72 +36,41 @@ bl_addon_info = {
 import bpy
 import urllib.request
 
+class WM_OT_icon_info(bpy.types.Operator):
+    bl_label = "Icon Info"
+    icon = bpy.props.StringProperty()
 
-# create list with all icon names
-def createIcons():
-    # retrieving the masterlist with all icon names
-    try:
-        file = urllib.request.urlopen('https://svn.blender.org/svnroot/'\
-        'bf-blender/trunk/blender/source/blender/editors/include/UI_icons.h')
-    except:
-        print("Couldn't find the urllib module or was unable to connect to"\
-        " the internet")
-        file = ''
-    # get the icon names of existing non-blank icons
-    icons = [str(l)[11:(-4 if l[-2]==b')' else (l.index(b')')+2))] for l in \
-        file if ( (l[:9]==b'DEF_ICON(') and (l[9:19]!=b'ICON_BLANK') )]
-    icons.sort()
-    return icons
+    def invoke(self, context, event):
+        self.report({'INFO'}, "Icon ID: '%s'" % self.icon)
+        return {'FINISHED'}
 
 
-# create custom operator for each icon
-def createOperators(icons):
-    for i in icons:
-        class custom_op(bpy.types.Operator):
-            bl_idname = "ICONDISPLAY_OT_"+i
-            bl_label = "ICONDISPLAY_OT_"+i
-            bl_description = i
-        
-            def invoke(self, context, event):
-                print(self.bl_description)
-                return {'FINISHED'}
-
-
-# main function that calls subroutines
-def main():
-    icons = createIcons()
-    createOperators(icons)
-
-
-# draw the panel with the icons
 class OBJECT_PT_icons(bpy.types.Panel):
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "object"
     bl_label = "All icons"
-    
-    icons = createIcons()
-    
+
+    @staticmethod
+    def _icon_list():
+        return sorted(bpy.types.UILayout.bl_rna.functions['prop'].parameters['icon'].items.keys())
+
     def draw(self, context):
         amount = 10
         cols = []
         layout = self.layout
-        split = layout.split(percentage=1.0/amount)
-        for i,icon in enumerate(self.icons):
-            if i<amount: cols.append(split.column())
-            col = cols[i%amount].row()
-            try:
-                col.operator("icondisplay."+icon, text="", icon=icon)
-            except:
-                col.operator("icondisplay."+icon, text="new")
+        split = layout.split(percentage=1.0 / amount)
 
+        for i, icon in enumerate(self._icon_list()):
+            if i < amount:
+                cols.append(split.column())
 
-main()
+            col = cols[i % amount].row()
+            col.operator("wm.icon_info", text="", icon=icon).icon = icon
 
 
 def register():
     pass
-
 
 def unregister():
     pass
