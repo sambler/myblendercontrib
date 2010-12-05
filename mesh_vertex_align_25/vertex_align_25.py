@@ -7,7 +7,7 @@ import bpy
 from bpy.props import *
 import mathutils as Math
 from mathutils import Matrix, Vector, Quaternion
-import geometry as Geo
+import mathutils.geometry as Geo
 from mesh_vertex_align_25.va import *
 from mesh_vertex_align_25.va_ex import *
 
