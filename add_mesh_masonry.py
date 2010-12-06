@@ -47,9 +47,10 @@ bl_addon_info = {
 """
 
 # Using SourceForge commit number as version until official release.
-VERSION = '\n\tAdd Masonry v0.57' # show on load (add to menu)
+VERSION = '\n\tAdd Masonry v0.58' # show on load (add to menu)
 
 # Version History
+# v0.58 2010/12/06	Added "cantilevered step" option.
 # v0.57 2010/12/03	Minor updates for Blender SVN maintenance.
 # v0.56 2010/11/19	Revised UI for property access/display.
 # V0.55 2010/11/15	Added stairs, improved shelf, fixed plan generation.
@@ -114,7 +115,7 @@ settings = {'w': 1.2, 'wv': 0.3, 'h': .6, 'hv': 0.3, 'd': 0.3, 'dv': 0.1,
 
 # dims = area of wall (face)
 dims = {'s':0, 'e':PI*3/2, 'b':0.1, 't':12.3} # radial
-#'s':start x or theta 'e':end x or theta 'b':bottom z or r 't':top z or r
+# 's':start x or theta 'e':end x or theta 'b':bottom z or r 't':top z or r
 # 'w' = e-s and h = t-b; calculated to optimize for various operations/usages
 #dims = {'s':-12, 'e':15, 'w':27, 'b':-15., 't':15., 'h':30}
 #dims = {'s':-bayDim/2, 'e':bayDim/2, 'b':-5., 't':10.} # bay settings?
@@ -123,7 +124,6 @@ radialized = 0 # Radiating from one point - round/disc; instead of square
 slope = 0 # Warp/slope; curved over like a vaulted tunnel
 # 'bigblock': merge adjacent blocks into single large blocks 
 bigBlock = 0 # Merge blocks
-shelfExt = 0 # Extend blocks to make platforms
 
 # Gaps in blocks for various apertures.
 #openingSpecs = []
@@ -136,7 +136,8 @@ openingSpecs = [{'w':0.5, 'h':0.5, 'x':0.8, 'z':2.7, 'rp':1, 'b':0.0,
 # 'v': height of the top arch, 'vl':height of the bottom arch,
 # 't': thickness of the top arch, 'tl': thickness of the bottom arch
 
-# Extend blocks to make platforms.
+# Add blocks to make platforms.
+shelfExt = 0
 #shelfSpecs = []
 shelfSpecs = {'w':0.5, 'h':0.5, 'd': 0.3, 'x':0.8, 'z':2.7}
 # 'w': block width, 'h': block height, 'd': block depth (shelf size; offset from wall)
@@ -1607,15 +1608,23 @@ def build(Aplan):
 
             # Make blocks for each step row - based on rowOb::fillblocks
             # Does not vary grout.
-# add logic for "cantilevered steps"
-            divs = fill(StepLft, StepRt, StepXMod, SetWidMin, SetWidVar)
 
-            #loop through the row divisions, adding blocks for each one
-            for i in range(len(divs)-1):
-                ThisBlockx = (divs[i]+divs[i+1])/2
-                ThisBlockw = divs[i+1]-divs[i]-SetGrtOff
+            if stepOnly: # "cantilevered steps"
+                if stepLeft:
+                    stepStart = StepRt - StepXMod
+                else:
+                    stepStart = StepLft
 
-                AllBlocks.append([ThisBlockx, StepBtm, ThisBlockw, StepZMod, StepThk, StepOffsets])
+                AllBlocks.append([stepStart, StepBtm, StepXMod, StepZMod, StepThk, StepOffsets])
+            else:
+                divs = fill(StepLft, StepRt, StepXMod, SetWidMin, SetWidVar)
+
+                #loop through the row divisions, adding blocks for each one
+                for i in range(len(divs)-1):
+                    ThisBlockx = (divs[i]+divs[i+1])/2
+                    ThisBlockw = divs[i+1]-divs[i]-SetGrtOff
+
+                    AllBlocks.append([ThisBlockx, StepBtm, ThisBlockw, StepZMod, StepThk, StepOffsets])
 
             StepBtm += StepZMod + SetGrtOff # moving up to next row...
             StepWide -= StepXMod # reduce step width
@@ -1927,6 +1936,7 @@ class AddWall(bpy.types.Operator):
                           description="Width of each step",
                           default=1.0, min=0.01, max=100.0)
     StepLeft = BoolProperty(name="High Left",description="Height left; else Height right", default = False)
+    StepOnly = BoolProperty(name="No Blocks",description="Steps only, no supporting blocks", default = False)
 
 ##
 ##
@@ -2049,6 +2059,7 @@ class AddWall(bpy.types.Operator):
             box.prop(self, 'StepV')
             box.prop(self, 'StepT')
             box.prop(self, 'StepLeft')
+            box.prop(self, 'StepOnly')
 
 ##
 #####
@@ -2067,6 +2078,7 @@ class AddWall(bpy.types.Operator):
         global shelfExt
         global stepMod
         global stepLeft
+        global stepOnly
 
         # Create the wall when enabled (skip regen iterations when off)
         if not self.properties.ConstructTog: return ('FINISHED')
@@ -2147,6 +2159,11 @@ class AddWall(bpy.types.Operator):
             if self.properties.StepLeft:
                 stepLeft = 1
             else: stepLeft = 0
+
+            if self.properties.StepOnly:
+                stepOnly = 1
+            else: stepOnly = 0
+
         else: stepMod = 0
 
         #enter the settings for the openings
