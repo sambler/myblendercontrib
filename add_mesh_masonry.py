@@ -50,7 +50,7 @@ bl_addon_info = {
 VERSION = '\n\tAdd Masonry v0.58' # show on load (add to menu)
 
 # Version History
-# v0.58 2010/12/06	Added "cantilevered step" option.
+# v0.58 2010/12/06	Added "backside" for shelf and steps, and "cantilevered step" options.
 # v0.57 2010/12/03	Minor updates for Blender SVN maintenance.
 # v0.56 2010/11/19	Revised UI for property access/display.
 # V0.55 2010/11/15	Added stairs, improved shelf, fixed plan generation.
@@ -1559,7 +1559,10 @@ def build(Aplan):
         # Use "corners" to adjust position so not centered on depth.
         # Facing shelf, at cursor (middle of wall blocks) - this way no gaps between platform and wall face due to wall block depth.
         wallDepth = settings['d']/2 # offset by wall depth so step depth matches UI setting :)
-        ShelfOffsets = [[0,-wallDepth,0],[0,-ShelfThk/2,0],[0,-wallDepth,0],[0,-ShelfThk/2,0],[0,-wallDepth,0],[0,-ShelfThk/2,0],[0,-wallDepth,0],[0,-ShelfThk/2,0]]
+        if shelfBack: # place blocks on backside of wall
+            ShelfOffsets = [[0,ShelfThk/2,0],[0,wallDepth,0],[0,ShelfThk/2,0],[0,wallDepth,0],[0,ShelfThk/2,0],[0,wallDepth,0],[0,ShelfThk/2,0],[0,wallDepth,0]]
+        else:
+            ShelfOffsets = [[0,-wallDepth,0],[0,-ShelfThk/2,0],[0,-wallDepth,0],[0,-ShelfThk/2,0],[0,-wallDepth,0],[0,-ShelfThk/2,0],[0,-wallDepth,0],[0,-ShelfThk/2,0]]
 
 	# Add blocks for each "shelf row" in area
         while ShelfBtm < ShelfTop:
@@ -1601,7 +1604,10 @@ def build(Aplan):
         # Facing steps, at cursor (middle of wall blocks) - this way no gaps between steps and wall face due to wall block depth.
         # Also, will work fine as stand-alone if not used with wall (try block depth 0 and see what happens).
         wallDepth = settings['d']/2 # offset by wall depth so step depth matches UI setting :)
-        StepOffsets = [[0,-wallDepth,0],[0,-StepThk/2,0],[0,-wallDepth,0],[0,-StepThk/2,0],[0,-wallDepth,0],[0,-StepThk/2,0],[0,-wallDepth,0],[0,-StepThk/2,0]]
+        if stepBack: # place blocks on backside of wall
+            StepOffsets = [[0,StepThk/2,0],[0,wallDepth,0],[0,StepThk/2,0],[0,wallDepth,0],[0,StepThk/2,0],[0,wallDepth,0],[0,StepThk/2,0],[0,wallDepth,0]]
+        else:
+            StepOffsets = [[0,-wallDepth,0],[0,-StepThk/2,0],[0,-wallDepth,0],[0,-StepThk/2,0],[0,-wallDepth,0],[0,-StepThk/2,0],[0,-wallDepth,0],[0,-StepThk/2,0]]
 
 	# Add steps for each "step row" in area (neg width is interesting but prevented)
         while StepBtm < StepTop and StepWide > 0:
@@ -1910,6 +1916,7 @@ class AddWall(bpy.types.Operator):
     ShelfD = FloatProperty(name="Depth",
                           description="Depth of each block for shelf (from cursor + 1/2 wall depth)",
                           default=2.0, min=0.01, max=100.0)
+    ShelfBack = BoolProperty(name="Backside",description="Shelf on backside of wall", default = False)
 
 
     #properties for steps (extend blocks in area, progressive width)
@@ -1937,6 +1944,7 @@ class AddWall(bpy.types.Operator):
                           default=1.0, min=0.01, max=100.0)
     StepLeft = BoolProperty(name="High Left",description="Height left; else Height right", default = False)
     StepOnly = BoolProperty(name="No Blocks",description="Steps only, no supporting blocks", default = False)
+    StepBack = BoolProperty(name="Backside",description="Steps on backside of wall", default = False)
 
 ##
 ##
@@ -2045,6 +2053,7 @@ class AddWall(bpy.types.Operator):
             box.prop(self, 'ShelfH')
             box.prop(self, 'ShelfW')
             box.prop(self, 'ShelfD')
+            box.prop(self, 'ShelfBack')
 
 # Steps
         box = layout.box()
@@ -2060,6 +2069,7 @@ class AddWall(bpy.types.Operator):
             box.prop(self, 'StepT')
             box.prop(self, 'StepLeft')
             box.prop(self, 'StepOnly')
+            box.prop(self, 'StepBack')
 
 ##
 #####
@@ -2078,7 +2088,9 @@ class AddWall(bpy.types.Operator):
         global shelfExt
         global stepMod
         global stepLeft
+        global shelfBack
         global stepOnly
+        global stepBack
 
         # Create the wall when enabled (skip regen iterations when off)
         if not self.properties.ConstructTog: return ('FINISHED')
@@ -2143,6 +2155,11 @@ class AddWall(bpy.types.Operator):
             shelfSpecs['d'] = self.properties.ShelfD
             shelfSpecs['x'] = self.properties.ShelfX
             shelfSpecs['z'] = self.properties.ShelfZ
+
+            if self.properties.ShelfBack:
+                shelfBack = 1
+            else: shelfBack = 0
+
         else: shelfExt = 0
 
 	# Make steps if enabled
@@ -2163,6 +2180,10 @@ class AddWall(bpy.types.Operator):
             if self.properties.StepOnly:
                 stepOnly = 1
             else: stepOnly = 0
+
+            if self.properties.StepBack:
+                stepBack = 1
+            else: stepBack = 0
 
         else: stepMod = 0
 
@@ -2380,5 +2401,3 @@ if __name__ == "__main__":
 # if openings overlap fills inverse with blocks.
 # Negative grout width creates a pair of phantom blocks, seperated by grout
 #   width, inside the edges.
-# I was going to add an "inner/outer" toggle for steps and shelves but user can just rotate 180 :)
-#   though you can't set shelf and steps on opposite sides of wall...
