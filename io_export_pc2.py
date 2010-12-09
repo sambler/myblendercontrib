@@ -165,7 +165,7 @@ class Export_pc2(bpy.types.Operator, ExportHelper):
 
         if True:
             # File selector
-            wm.add_fileselect(self) # will run self.execute()
+            wm.fileselect_add(self) # will run self.execute()
             return {'RUNNING_MODAL'}
         elif True:
             # search the enum
