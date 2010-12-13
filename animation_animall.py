@@ -99,10 +99,10 @@ class VIEW3D_PT_animall(bpy.types.Panel):
             row.prop(context.window_manager, "key_vgroups")
         
         row = col.row()
-        row.operator('anim.insert_keyframe_animall')
-        row.operator('anim.delete_keyframe_animall')
+        row.operator('anim.insert_keyframe_animall', icon='KEY_HLT')
+        row.operator('anim.delete_keyframe_animall', icon='KEY_DEHLT')
         row = layout.row()
-        row.operator('anim.clear_animation_animall')
+        row.operator('anim.clear_animation_animall', icon='X')
 
 
 class ANIM_OT_insert_keyframe_animall(bpy.types.Operator):
