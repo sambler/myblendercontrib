@@ -17,25 +17,26 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_addon_info = {
-    'name': 'AniMesh',
+    'name': 'AnimAll',
     'author': 'Daniel Salazar <zanqdo@gmail.com>',
     'version': (0, 2),
     'blender': (2, 5, 5),
-    'api': 33232,
-    'location': 'Select a Mesh: Toolbar > AniMesh panel',
-    'description': 'Allows animation of mesh data (Verts, VCols, VGroups, UVs)',
+    'api': 33625,
+    'location': 'Select a Mesh: Toolbar > AnimAll panel',
+    'description': 'Allows animation of mesh and lattice data (Verts, VCols, VGroups, UVs)',
     'warning': 'Blender API has some bugs around this still',
-    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Animation/AniMesh',
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Animation/AnimAll',
     'tracker_url': 'http://projects.blender.org/tracker/index.php?'\
         'func=detail&aid=24874&group_id=153&atid=468',
     'category': 'Animation'}
 
 '''-------------------------------------------------------------------------
-Thanks to Campbell Barton for hes API additions and fixes
-Daniel Salazar - ZanQdo
+Thanks to Campbell Barton and Joshua Leung for hes API additions and fixes
+Daniel 'ZanQdo' Salazar
 
 Rev 0.1 initial release
 Rev 0.2 added support for animating UVs, VCols, VGroups
+Rev 0.3 added support for animating Lattice points
 -------------------------------------------------------------------------'''
 
 import bpy
@@ -69,17 +70,18 @@ bpy.types.WindowManager.key_vgroups = BoolProperty(
 #
 # GUI (Panel)
 #
-class VIEW3D_PT_animesh(bpy.types.Panel):
+class VIEW3D_PT_animall(bpy.types.Panel):
 
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
-    bl_label = 'AniMesh'
+    bl_label = 'AnimAll'
 
     # show this add-on only in the Camera-Data-Panel
     @classmethod
     def poll(self, context):
         if context.active_object:
-            return context.active_object.type  == 'MESH'
+            return context.active_object.type  == 'MESH'\
+				or context.active_object.type  == 'LATTICE'
     
     # draw the gui
     def draw(self, context):
@@ -90,22 +92,23 @@ class VIEW3D_PT_animesh(bpy.types.Panel):
         #col.label(text="Keyframing:")
         row = col.row()
         row.prop(context.window_manager, "key_points")
-        row.prop(context.window_manager, "key_uvs")
-        row = col.row()
-        row.prop(context.window_manager, "key_vcols")
-        row.prop(context.window_manager, "key_vgroups")
+        if context.active_object.type == 'MESH':
+            row.prop(context.window_manager, "key_uvs")
+            row = col.row()
+            row.prop(context.window_manager, "key_vcols")
+            row.prop(context.window_manager, "key_vgroups")
         
         row = col.row()
-        row.operator('mesh.insert_keyframe_animesh')
-        row.operator('mesh.delete_keyframe_animesh')
+        row.operator('anim.insert_keyframe_animall')
+        row.operator('anim.delete_keyframe_animall')
         row = layout.row()
-        row.operator('mesh.clear_animation_animesh')
+        row.operator('anim.clear_animation_animall')
 
 
-class MESH_OT_insert_keyframe_animesh(bpy.types.Operator):
+class ANIM_OT_insert_keyframe_animall(bpy.types.Operator):
     bl_label = 'Insert'
-    bl_idname = 'mesh.insert_keyframe_animesh'
-    bl_description = 'Insert an Animesh Keyframe'
+    bl_idname = 'anim.insert_keyframe_animall'
+    bl_description = 'Insert a Keyframe'
     bl_options = {'REGISTER', 'UNDO'}
     
     
@@ -152,18 +155,21 @@ class MESH_OT_insert_keyframe_animesh(bpy.types.Operator):
                             Data.keyframe_insert('color3')
                             Data.keyframe_insert('color4')
             
-            
             if Mode:
                 bpy.ops.object.editmode_toggle()
+        
+        if Obj.type == 'LATTICE':
+            for Point in Obj.data.points:
+                Point.keyframe_insert('co_deform')
 
 
         return {'FINISHED'}
 
 
-class MESH_OT_delete_keyframe_animesh(bpy.types.Operator):
+class ANIM_OT_delete_keyframe_animall(bpy.types.Operator):
     bl_label = 'Delete'
-    bl_idname = 'mesh.delete_keyframe_animesh'
-    bl_description = 'Delete an Animesh Keyframe'
+    bl_idname = 'anim.delete_keyframe_animall'
+    bl_description = 'Delete a Keyframe'
     bl_options = {'REGISTER', 'UNDO'}
     
     
@@ -214,14 +220,17 @@ class MESH_OT_delete_keyframe_animesh(bpy.types.Operator):
             if Mode:
                 bpy.ops.object.editmode_toggle()
 
+        if Obj.type == 'LATTICE':
+            for Point in Obj.data.points:
+                Point.keyframe_delete('co_deform')
 
         return {'FINISHED'}
 
 
-class MESH_OT_clear_animation_animesh(bpy.types.Operator):
+class ANIM_OT_clear_animation_animall(bpy.types.Operator):
     bl_label = 'Clear Animation'
-    bl_idname = 'mesh.clear_animation_animesh'
-    bl_description = 'Clear all animation from the mesh'
+    bl_idname = 'anim.clear_animation_animall'
+    bl_description = 'Clear all animation'
     bl_options = {'REGISTER', 'UNDO'}
 
     # on mouse up:
