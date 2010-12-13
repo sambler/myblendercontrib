@@ -19,7 +19,7 @@
 bl_addon_info = {
     'name': 'AnimAll',
     'author': 'Daniel Salazar <zanqdo@gmail.com>',
-    'version': (0, 2),
+    'version': (0, 3),
     'blender': (2, 5, 5),
     'api': 33625,
     'location': 'Select a Mesh: Toolbar > AnimAll panel',
