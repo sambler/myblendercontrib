@@ -19,7 +19,7 @@
 bl_addon_info = {
     'name': 'Corrective shape keys',
     'author': 'Ivo Grigull (loolarge), Tal Trachtman',
-    'version': (1, 0)
+    'version': (1, 0),
     'blender': (2, 5, 5),
     'location': 'Object Data > Shape Keys (Search: corrective) ',
     'description': 'Creates a corrective shape key for the current pose',
@@ -58,7 +58,7 @@ threshold = 1e-16
 
 def reset_transform(ob):
     m = mathutils.Matrix()
-    ob.matrix_local = m    
+    ob.matrix_local = m 
 
 # flips rotation matrix
 def flip_matrix_direction(m):
@@ -217,9 +217,7 @@ def func_add_corrective_pose_shape( source, target):
     
 
 class add_corrective_pose_shape(bpy.types.Operator):    
-    '''Adds first object as shape to second object for the current pose while
-    maintaining modifiers (i.e. anisculpt, avoiding crazy space).
-    Beware of slowness!!!'''
+    '''Adds first object as shape to second object for the current pose while maintaining modifiers (i.e. anisculpt, avoiding crazy space) Beware of slowness!!!'''
     
     bl_idname = "object.add_corrective_pose_shape"
     bl_label = "Add object as corrective pose shape"
@@ -326,7 +324,7 @@ def unposeMesh(meshObToUnpose, meshObToUnposeWeightSrc, armatureOb):
         psdMeshVert = psdMesh[index]
 
         listOfBoneNameWeightPairs = []
-        for n in mesh.vertices[index].groups:          
+        for n in mesh.vertices[index].groups:         
             try:
                 name = meshObToUnposeWeightSrc.vertex_groups[n.group].name
                 weight = n.weight
@@ -482,14 +480,8 @@ class add_corrective_pose_shape_fast(bpy.types.Operator):
 def vgroups_draw(self, context):
     layout = self.layout
 
-    layout.row().operator(
-        "object.add_corrective_pose_shape_fast",
-        text='Add as corrective pose-shape (fast, armatures only)',
-        icon='COPY_ID') # icon is not ideal
-    layout.row().operator(
-        "object.add_corrective_pose_shape", 
-        text='Add as corrective pose-shape (slow, all modifiers)', 
-        icon='COPY_ID') # icon is not ideal
+    layout.row().operator("object.add_corrective_pose_shape_fast", text='Add as corrective pose-shape (fast, armatures only)', icon='COPY_ID') # icon is not ideal
+    layout.row().operator("object.add_corrective_pose_shape", text='Add as corrective pose-shape (slow, all modifiers)', icon='COPY_ID') # icon is not ideal
 
 def modifiers_draw(self, context):
     layout = self.layout
@@ -498,14 +490,8 @@ def modifiers_draw(self, context):
 
 
 def register():
-    #~ bpy.types.register(add_corrective_pose_shape)
-    #~ bpy.types.register(add_corrective_pose_shape_fast)
-    #~ bpy.types.register(object_duplicate_flatten_modifiers)
     bpy.types.MESH_MT_shape_key_specials.append( vgroups_draw )
     bpy.types.DATA_PT_modifiers.append( modifiers_draw )
 
 def unregister():
     pass
-    #~ bpy.types.unregister(add_corrective_pose_shape)
-    #~ bpy.types.unregister(add_corrective_pose_shape_fast)
-    #~ bpy.types.unregister(object_duplicate_flatten_modifiers)
