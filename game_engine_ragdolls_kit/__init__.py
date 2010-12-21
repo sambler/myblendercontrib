@@ -1,0 +1,55 @@
+# ***** BEGIN GPL LICENSE BLOCK *****
+#
+# Script copyright (C) Marcus Jenkins (Blenderartists user name FunkyWyrm)
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#
+# ***** END GPL LICENCE BLOCK *****
+# --------------------------------------------------------------------------
+
+bl_addon_info = {
+    "name": "BRIK - Blender Ragdoll Implementation Kit",
+    "author": "FunkyWyrm",
+    "version": (0,2),
+    "blender": (2, 5, 5),
+    "api": 31965,
+    "location": "Tool Shelf",
+    "description": "Kit for creating ragdoll structures from armatures and implementing them in the game engine.",
+    "warning": "Preliminary release for testing purposes. Use with caution on important files.",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Game_Engine/BRIK_ragdolls",
+    "tracker_url": "https://projects.blender.org/tracker/index.php?func=detail&aid=24946&group_id=153&atid=468",
+    "category": "Game Engine"}
+
+import bpy
+
+try:
+    init_data
+
+    reload(brik)
+except:
+    from game_engine_ragdolls_kit import brik
+
+init_data = True
+
+################################################################################
+##### REGISTER #####
+def register():
+    pass
+
+def unregister():
+    pass
+    
+if __name__ == "__main__":
+    register()
