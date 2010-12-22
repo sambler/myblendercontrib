@@ -26,19 +26,15 @@ bl_addon_info = {
     'wiki_url': '',
     'category': 'Mesh'}
 
+if "bpy" in locals():
+    import imp
+    imp.reload(bevel)
+else:
+    from . import bevel
+
 import bpy
 
-try:
-    init_data
-
-    reload(bevel)
-except:
-    from mesh_bevel import bevel
-
-init_data = True
-
 def menu_func(self, context): 
-    from mesh_bevel import bevel
     self.layout.operator(bevel.Bevel.bl_idname, text="Bevel")
 
 def register():

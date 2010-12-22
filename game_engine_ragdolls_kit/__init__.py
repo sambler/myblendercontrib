@@ -32,16 +32,13 @@ bl_addon_info = {
     "tracker_url": "https://projects.blender.org/tracker/index.php?func=detail&aid=24946&group_id=153&atid=468",
     "category": "Game Engine"}
 
+if "bpy" in locals():
+    import imp
+    imp.reload(brik)
+else:
+    from . import brik
+
 import bpy
-
-try:
-    init_data
-
-    reload(brik)
-except:
-    from game_engine_ragdolls_kit import brik
-
-init_data = True
 
 ################################################################################
 ##### REGISTER #####
