@@ -26,16 +26,15 @@ bl_addon_info = {
     'wiki_url': '',
     'category': 'Mesh'}
 
+
+if "bpy" in locals():
+    import imp
+    imp.reload(vertex_align_25)
+else:
+    from . import vertex_align_25
+
 import bpy
 
-try:
-    init_data
-
-    reload(vertex_align_25)
-except:
-    from mesh_vertex_align_25 import vertex_align_25
-
-init_data = True
 
 def register():
     km = bpy.context.window_manager.keyconfigs.default.keymaps['Mesh']

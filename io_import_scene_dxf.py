@@ -2058,7 +2058,7 @@ class IMPORT_OT_autocad_dxf(bpy.types.Operator):
     verbose = BoolProperty(name="Verbose", description="Print debug info", default=toggle&T_Verbose)
 
     codecs = tripleList(['iso-8859-15', 'utf-8', 'ascii'])
-    codec = EnumProperty(name="Codec", description="Codec",  items=codecs, default = '1')
+    codec = EnumProperty(name="Codec", description="Codec", items=codecs, default='utf-8')
 
         
     def execute(self, context):

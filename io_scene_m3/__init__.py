@@ -29,19 +29,15 @@ bl_addon_info = {
     "tracker_url": "http://github.com/muraj/m3_import/issues",
     "category": "Import/Export"}
 
+if "bpy" in locals():
+    import imp
+    imp.reload(import_m3)
+    #imp.reload(export_m3)
+else:
+    from . import import_m3
+    #from . import export_m3
+
 import bpy
-
-
-try:
-    init_data
-
-    reload(import_m3)
-    #reload(export_m3)
-except:
-    from io_scene_m3 import import_m3
-    #from io_mesh_m3 import export_m3
-
-init_data = True
 
 def menu_import(self, context): 
     from io_scene_pmd import import_pmd
