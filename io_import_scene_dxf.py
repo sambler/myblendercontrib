@@ -16,6 +16,21 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+bl_addon_info = {
+    'name': 'Import Autocad DXF (.dxf)',
+    'author': 'Thomas Larsson',
+    'version': (0, 1),
+    'blender': (2, 5, 3),
+    'api': 31667,
+    'location': 'File > Import',
+    'description': 'Import files in the Autocad DXF format (.dxf)',
+    'warning': '', # used for warning icon and text in addons panel
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
+        'Scripts/Import-Export/Import_DXF_(.dxf)',
+    'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
+        'func=detail&aid=23480&group_id=153&atid=468',
+    'category': 'Import-Export'}
+
 """
 Release note by migius (DXF support maintainer) 2010.06.14:
 - script works well for simple 2d objects
@@ -37,22 +52,6 @@ ver 0.11 - 2010.09.07 by migius
 - fixed registering for 2.53beta
 ver 0.1 - 2010.06.10 by Thomas Larsson
 """
-
-bl_addon_info = {
-    'name': 'Import Autocad DXF (.dxf)',
-    'author': 'Thomas Larsson',
-    'version': (0,1),
-    'blender': (2, 5, 3),
-    'api': 31667,
-    'location': 'File > Import',
-    'description': 'Import files in the Autocad DXF format (.dxf)',
-    'warning': '', # used for warning icon and text in addons panel
-    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
-        'Scripts/File_I-O/Import_DXF_(.dxf)',
-    'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
-        'func=detail&aid=23480&group_id=153&atid=468',
-    'category': 'Import/Export'}
-
 
 import os
 import codecs

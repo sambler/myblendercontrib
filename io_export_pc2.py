@@ -13,28 +13,28 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 '''
 
-
-''' Usage Notes:
-
-in Maya Mel:
-cacheFile -pc2 1 -pcf "<insert filepath of source>" -f "<insert target filename w/o extension>" -dir "<insert directory path for target>" -format "OneFile";
-
-'''
-
-
 bl_addon_info = {
     "name": "Export Pointcache (.pc2)",
     "author": "Florian Meyer (tstscr)",
-    "version": (1,0),
+    "version": (1, 0),
     "blender": (2, 5, 4),
     "api": 33047,
     "location": "File > Export",
     "description": "Export Mesh Pointcache to .pc2",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/File_I-O/PC2_Pointcache_export",
-    "tracker_url": "https://projects.blender.org/tracker/index.php?func=detail&aid=24703&group_id=153&atid=468",
-    "category": "Import/Export"}
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+        "Scripts/Import-Export/PC2_Pointcache_export",
+    "tracker_url": "https://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=24703&group_id=153&atid=468",
+    "category": "Import-Export"}
 
+'''
+Usage Notes:
+
+in Maya Mel:
+cacheFile -pc2 1 -pcf "<insert filepath of source>" -f "<insert target filename w/o extension>" -dir "<insert directory path for target>" -format "OneFile";
+
+'''
 
 import bpy
 from bpy.props import *

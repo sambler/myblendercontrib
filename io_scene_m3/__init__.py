@@ -19,15 +19,15 @@
 bl_addon_info = {
     "name": "M3",
     "author": "Cory Perry (muraj)",
-    "version": (0,0,2),
+    "version": (0, 0, 2),
     "blender": (2, 5, 4),
     "api": 31878,
-    "location": "File > Import/Export > M3 Import ",
+    "location": "File > Import-Export > M3 Import ",
     "description": "Import Blizzard M3 models (.m3 format)",
     "warning": "Alpha version",
     "wiki_url": "http://github.com/muraj/m3_import/wiki",
     "tracker_url": "http://github.com/muraj/m3_import/issues",
-    "category": "Import/Export"}
+    "category": "Import-Export"}
 
 if "bpy" in locals():
     import imp
