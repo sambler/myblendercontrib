@@ -16,62 +16,85 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-bl_addon_info = {
-    'name': 'Import Autocad DXF (.dxf)',
-    'author': 'Thomas Larsson',
-    'version': (0, 1),
-    'blender': (2, 5, 3),
-    'api': 31667,
-    'location': 'File > Import',
-    'description': 'Import files in the Autocad DXF format (.dxf)',
-    'warning': '', # used for warning icon and text in addons panel
-    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
-        'Scripts/Import-Export/Import_DXF_(.dxf)',
-    'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
-        'func=detail&aid=23480&group_id=153&atid=468',
-    'category': 'Import-Export'}
-
 """
-Release note by migius (DXF support maintainer) 2010.06.14:
-- script works well for simple 2d objects
-- limited support for complex entities like POLYLINE / POLYFACE / POLYMESH
-- erroneous rotated TEXTs
-- no support for entity rotation in 3d (210 group ignored)
-- no support for hierarchies (BLOCKs)
-Most probably no additions will be made to this script.
-It is a temporary solution - the old full feature importer will be ported to 2.6 soon.
+Release note by migius (DXF support maintainer) 2011.01.02:
+Script supports only a small part of DXF specification:
+- imports LINE, ARC, CIRCLE, ELLIPSE, SOLID, TRACE, POLYLINE, LWPOLYLINE
+- imports TEXT, MTEXT
+- supports 3d-rotation of entities (210 group)
+- supports THICKNESS for SOLID, TRACE, LINE, ARC, CIRCLE, ELLIPSE
+- ignores WIDTH, THICKNESS, BULGE in POLYLINE/LWPOLYLINE
+- ignores face-data in POLYFACE / POLYMESH
+- ignores TEXT 2d-rotation
+- ignores hierarchies (BLOCK, INSERT, GROUP)
+- ignores LAYER
+- ignores COLOR, LINEWIDTH, LINESTYLE
+
+This script is a temporary solution.
+Probably no more improvements will be done to this script.
+The full-feature importer script from 2.49 will be back in 2.6 release.
 
 Installation:
 Place this file to Blender addons directory (on Windows it is %Blender_directory%\2.53\scripts\addons\)
-You have to activated the script in the "Add-Ons" tab (user preferences).
-Access from the File > Import menu.
+You must activate the script in the "Add-Ons" tab (user preferences).
+Access it from File > Import menu.
 
 History:
-ver 0.11 - 2010.09.07 by migius
+ver 0.1.3 - 2011.01.02 by migius
+- added draw curves as sequence for "Draw_as_Curve"
+- added toggle "Draw as one" as user preset in UI
+- added draw POINT as mesh-vertex
+- added draw_THICKNESS for LINE, ARC, CIRCLE, ELLIPSE, LWPOLYLINE and POLYLINE
+- added draw_THICKNESS for SOLID, TRACE
+ver 0.1.2 - 2010.12.27 by migius
+- added draw() for TRACE
+- fixed wrong vertex order in SOLID
+- added CIRCLE resolution as user preset in UI
+- added closing segment for circular LWPOLYLINE and POLYLINE
+- fixed registering for 2.55beta
+ver 0.1.1 - 2010.09.07 by migius
 - fixed dxf-file names recognition limited to ".dxf"
 - fixed registering for 2.53beta
 ver 0.1 - 2010.06.10 by Thomas Larsson
 """
 
+bl_addon_info = {
+    'name': 'Import Autocad DXF (.dxf)',
+    'author': 'Thomas Larsson',
+    'version': (0,1,3),
+    'blender': (2, 5, 6),
+    'api': 32738,
+    'location': 'File > Import',
+    'description': 'Import files in the Autocad DXF format (.dxf)',
+    'warning': 'supporting only a sub-set of DXF specification',
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Import-Export/DXF_Importer',
+    'tracker_url': 'https://projects.blender.org/tracker/index.php?func=detail&aid=23480&group_id=153&atid=468',
+    'category': 'Import-Export'}
+
+__version__ = '.'.join([str(s) for s in bl_addon_info['version']])
+
 import os
 import codecs
 import math
+from math import sin, cos, radians
 import bpy
 import mathutils
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 #
 #    Global flags
 #
 
 T_Merge = 0x01
-T_Replace = 0x02
+T_NewScene = 0x02
 T_Curves = 0x04
-T_Verbose = 0x08
+T_DrawOne = 0x08
 T_Debug = 0x10
+T_Verbose = 0x20
+T_ThicON = 0x40
 
-toggle = T_Merge | T_Replace 
-
+toggle = T_Merge | T_NewScene | T_DrawOne | T_ThicON
+theCircleRes = 32
 theMergeLimit = 1e-5
 
 #
@@ -120,22 +143,22 @@ class CEntity:
         self.linetype_name = ''
         self.linetype_scale = 1.0
         self.paperspace = 0
-        self.extrusion = Vector()
+        #self.normal = Vector((0,0,1))
 
     def display(self):
         print("Entity %s %s %s %s %s %s %x" % 
             (self.type, self.handle, self.owner, self.subclass, self.layer, self.color, self.invisible))
 
-    def build(self, vn):
+    def build(self, vn=0):
         global toggle
         if toggle & T_Debug:
-            raise NameError("Cannot build %s yet" % self.type)
-        return(([], [], vn)) 
+            raise NameError("Warning: can not build - unsupported entity type: %s" % self.type)
+        return(([], [], [], vn)) 
 
     def draw(self):
         global toggle
         if toggle & T_Debug:
-            raise NameError("Cannot draw %s yet" % self.type)
+            raise NameError("Warning: can not draw - unsupported entity type: %s" % self.type)
         return
 
 
@@ -150,7 +173,6 @@ DxfCommonAttributes = {
     100 : 'subclass',
     330 : 'owner',
     360 : 'owner',
-    210 : 'extrusion.x', 220 : 'extrusion.y', 230 : 'extrusion.z', 
 }
 
 #
@@ -164,7 +186,7 @@ DxfCommonAttributes = {
 
 class C3dFace(CEntity):
     def __init__(self):
-        CEntity.__init__(self, '3DFACE', 'Face')
+        CEntity.__init__(self, '3DFACE', 'Mesh')
         self.point0 = Vector()
         self.point1 = Vector()
         self.point2 = Vector()
@@ -177,16 +199,16 @@ class C3dFace(CEntity):
         print(self.point2)
         print(self.point3)
 
-    def build(self, vn):
+    def build(self, vn=0):
         verts = [self.point0, self.point1, self.point2]
-        if self.point2 == self.point3:
-            face = (vn, vn+1, vn+2)
+        if self.point3 == Vector((0,0,0)) or self.point2 == self.point3:
+            faces = [(vn+0, vn+1, vn+2)]
             vn += 3
         else:
             verts.append( self.point3 )
-            face = (vn, vn+1, vn+2, vn+3)
+            faces = [(vn+0, vn+1, vn+2, vn+3)]
             vn += 4            
-        return((verts, [face], vn))
+        return((verts, [], faces, vn))
 
 #
 #    class C3dSolid(CEntity):
@@ -195,7 +217,7 @@ class C3dFace(CEntity):
 
 class C3dSolid(CEntity):
     def __init__(self):
-        CEntity.__init__(self, '3DSOLID', 'Face')
+        CEntity.__init__(self, '3DSOLID', 'Mesh')
         self.data = None
         self.more = None
         self.version = 0
@@ -221,34 +243,68 @@ class CAcadProxyEntity(CEntity):
 
 class CArc(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'ARC', 'Edge')
+        CEntity.__init__(self, 'ARC', 'Mesh')
         self.center = Vector()
         self.radius = 0.0
         self.start_angle = 0.0
         self.end_angle = 0.0
+        self.thickness = 0.0
+        self.normal = Vector((0,0,1))
         
     def display(self):
         CEntity.display(self)
         print(self.center)
         print("%.4f %.4f %.4f " % (self.radius, self.start_angle, self.end_angle))
 
-    def build(self, vn):
-        dphi = (self.end_angle - self.start_angle)*math.pi/180
-        phi0 = self.start_angle*math.pi/180
-        w = dphi/32
+    def build(self, vn=0):
+        start, end = self.start_angle, self.end_angle
+        if end > 360: end = end % 360.0
+        if end < start: end +=360.0
+        angle = end - start
+
+        deg2rad = math.pi/180.0
+        start *= deg2rad
+        end *= deg2rad
+        dphi = end - start
+        phi0 = start
+        w = dphi/theCircleRes
         r = self.radius
         center = self.center
-        verts = []
-        edges = []
-        for n in range(32):
+        v0 = vn
+        points = []
+        edges, faces = [], []
+        for n in range(theCircleRes):
             s = math.sin(n*w + phi0)
             c = math.cos(n*w + phi0)
-            v = (center.x + r*c, center.y + r*s, center.z)
-            verts.append(v)
-            edges.append((vn,vn+1))
-            vn += 1
-        edges.pop()
-        return( (verts, edges, vn) )
+            v = center + Vector((r*c, r*s, 0.0))
+            points.append(v)
+        pn = len(points)
+        thic = self.thickness
+        t_vector = Vector((0, 0, thic))
+        if thic != 0 and (toggle & T_ThicON):
+            thic_points = [v + t_vector for v in points]
+            if thic < 0.0:
+                thic_points.extend(points)
+                points = thic_points
+            else:
+                points.extend(thic_points)
+            faces = [(v0+nr+0,v0+nr+1,v0+pn+nr+1,v0+pn+nr+0) for nr in range(pn)]
+            faces.pop()
+            self.drawtype = 'Mesh'
+            vn += 2*pn
+        else:
+            edges = [(v0+nr+0,v0+nr+1) for nr in range(pn)]
+            edges.pop()
+            vn += pn
+
+        if self.normal!=Vector((0,0,1)):
+            ma = getOCS(self.normal)
+            if ma:
+                #ma.invert()
+                points = [v * ma for v in points]
+        #print ('arc vn=', vn)
+        #print ('faces=', len(faces))
+        return ((points, edges, faces, vn))
 
 #
 #    class CArcAlignedText(CEntity):
@@ -266,7 +322,7 @@ class CArc(CEntity):
 
 class CArcAlignedText(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'ARCALIGNEDTEXT', 'Edge')
+        CEntity.__init__(self, 'ARCALIGNEDTEXT', 'Mesh')
         self.text = ""
         self.style = ""
         self.center = Vector()
@@ -292,6 +348,7 @@ class CArcAlignedText(CEntity):
         self.color = 0
         self.wizard = None
         self.id = None
+        self.normal = Vector((0,0,1))
 
 
 #
@@ -322,9 +379,10 @@ class CAttdef(CEntity):
         self.text_generation_flags = 0
         self.horizontal_justification = 0.0
         self.vertical_justification = 0.0
+        self.normal = Vector((0,0,1))
 
     def draw(self):
-        drawText(self.text,  self.insertion_point, self.height, self.x_scale, self.rotation_angle, self.oblique_angle)
+        drawText(self.text,  self.insertion_point, self.height, self.x_scale, self.rotation_angle, self.oblique_angle, self.normal)
         return
 
 #
@@ -357,9 +415,10 @@ class CAttrib(CEntity):
         self.text_generation_flags = 0
         self.horizontal_justification = 0.0
         self.vertical_justification = 0.0
+        self.normal = Vector((0,0,1))
 
     def draw(self):
-        drawText(self.text,  self.insertion_point, self.height, self.x_scale, self.rotation_angle, self.oblique_angle)
+        drawText(self.text,  self.insertion_point, self.height, self.x_scale, self.rotation_angle, self.oblique_angle, self.normal)
         return
 
 
@@ -384,6 +443,7 @@ class CBlock(CEntity):
         self.rotation_angle = 0.0
         self.oblique_angle = 0.0
         self.flags = 0
+        self.normal = Vector((0,0,1))
 
     def display(self):
         CEntity.display(self)
@@ -402,32 +462,58 @@ class CBlock(CEntity):
 
 class CCircle(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'CIRCLE', 'Edge')
+        CEntity.__init__(self, 'CIRCLE', 'Mesh')
         self.center = Vector()
         self.radius = 0.0
+        self.thickness = 0.0
+        self.normal = Vector((0,0,1))
 
     def display(self):
         CEntity.display(self)
         print(self.center)
         print("%.4f" % self.radius)
 
-    def build(self, vn):
-        w = 2*math.pi/32
+    def build(self, vn=0):
+        w = 2*math.pi/theCircleRes
         r = self.radius
         center = self.center
-        verts = []
-        edges = []
+        points = []
+        edges, faces = [], []
         v0 = vn
-        for n in range(32):
+        for n in range(theCircleRes):
             s = math.sin(n*w)
             c = math.cos(n*w)
-            v = (center.x + r*c, center.y + r*s, center.z)
-            verts.append(v)
-            edges.append((vn,vn+1))
-            vn += 1
-        edges.pop()
-        edges.append((v0,vn-1))
-        return( (verts, edges, vn) )
+            v = center + Vector((r*c, r*s, 0))
+            points.append(v)
+
+        pn = len(points)
+        thic = self.thickness
+        t_vector = Vector((0, 0, thic))
+        if thic != 0 and (toggle & T_ThicON):
+            thic_points = [v + t_vector for v in points]
+            if thic < 0.0:
+                thic_points.extend(points)
+                points = thic_points
+            else:
+                points.extend(thic_points)
+            faces = [(v0+nr,v0+nr+1,pn+v0+nr+1,pn+v0+nr) for nr in range(pn)]
+            nr = pn -1
+            faces[-1] = (v0+nr,v0,pn+v0,pn+v0+nr)
+            self.drawtype = 'Mesh'
+            vn += 2*pn
+        else:
+            edges = [(v0+nr,v0+nr+1) for nr in range(pn)]
+            nr = pn -1
+            edges[-1] = (v0+nr,v0)
+            vn += pn
+        if self.normal!=Vector((0,0,1)):
+            ma = getOCS(self.normal)
+            if ma:
+                #ma.invert()
+                points = [v * ma for v in points]
+        #print ('cir vn=', vn)
+        #print ('faces=',len(faces))
+        return( (points, edges, faces, vn) )
             
 #
 #    class CDimension(CEntity):
@@ -456,6 +542,7 @@ class CDimension(CEntity):
         self.vector3 = Vector()
         self.vector4 = Vector()
         self.dimtype = 0
+        self.normal = Vector((0,0,1))
 
     def draw(self):
         return
@@ -469,38 +556,68 @@ class CDimension(CEntity):
 
 class CEllipse(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'ELLIPSE', 'Edge')
+        CEntity.__init__(self, 'ELLIPSE', 'Mesh')
         self.center = Vector()
         self.end_point = Vector()
         self.ratio = 1.0
         self.start = 0.0
         self.end = 2*math.pi
+        self.thickness = 0.0
+        self.normal = Vector((0,0,1))
 
     def display(self):
         CEntity.display(self)
         print(self.center)
         print("%.4f" % self.ratio)
                 
-    def build(self, vn):
+    def build(self, vn=0):
         dphi = (self.end - self.start)
         phi0 = self.start
-        w = dphi/32
+        w = dphi/theCircleRes
         r = self.end_point.length
         f = self.ratio
         a = self.end_point.x/r
         b = self.end_point.y/r
         center = self.center
-        verts = []
-        edges = []
-        for n in range(32):
+        v0 = vn
+        points = []
+        edges, faces = [], []
+        for n in range(theCircleRes):
             x = r*math.sin(n*w + phi0)
             y = f*r*math.cos(n*w + phi0)
             v = (center.x - a*x + b*y, center.y - a*y - b*x, center.z)
-            verts.append(v)
-            edges.append((vn,vn+1))
-            vn += 1
-        edges.pop()
-        return( (verts, edges, vn) )
+            points.append(v)
+
+        pn = len(points)
+        thic = self.thickness
+        t_vector = Vector((0, 0, thic))
+        if thic != 0 and (toggle & T_ThicON):
+            thic_points = [v + t_vector for v in points]
+            if thic < 0.0:
+                thic_points.extend(points)
+                points = thic_points
+            else:
+                points.extend(thic_points)
+            faces = [(v0+nr,v0+nr+1,pn+v0+nr+1,pn+v0+nr) for nr in range(pn)]
+            nr = pn -1
+            faces[-1] = (v0+nr,v0,pn+v0,pn+v0+nr)
+            #self.drawtype = 'Mesh'
+            vn += 2*pn
+        else:
+            edges = [(v0+nr,v0+nr+1) for nr in range(pn)]
+            nr = pn -1
+            edges[-1] = (v0+nr,v0)
+            vn += pn
+
+
+        if thic != 0 and (toggle & T_ThicON):
+            pass
+        if self.normal!=Vector((0,0,1)):
+            ma = getOCS(self.normal)
+            if ma:
+                #ma.invert()
+                points = [v * ma for v in points]
+        return ((points, edges, faces, vn))
 
 #
 #    class CHatch(CEntity):
@@ -526,6 +643,7 @@ class CHatch(CEntity):
         self.numlines = 0
         self.numpaths = 0
         self.numseeds = 0
+        self.normal = Vector((0,0,1))
 
 
 #    class CImage(CEntity):
@@ -557,6 +675,7 @@ class CImage(CEntity):
         self.fade = 0
         self.image = None
         self.reactor = None
+        self.normal = Vector((0,0,1))
 
 #
 #    class CInsert(CEntity):
@@ -583,6 +702,7 @@ class CInsert(CEntity):
         self.column_count = 1
         self.row_count = 1
         self.attributes_follow = 0
+        self.normal = Vector((0,0,1))
 
     def display(self):
         CEntity.display(self)
@@ -607,7 +727,7 @@ class CInsert(CEntity):
 
 class CLeader(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'LEADER', 'Edge')
+        CEntity.__init__(self, 'LEADER', 'Mesh')
         self.style = ""
         self.vertex = None
         self.verts = []
@@ -620,7 +740,7 @@ class CLeader(CEntity):
         self.hookline = 0
         self.numverts = 0
         self.color = 0
-        self.normal = Vector()
+        self.normal = Vector((0,0,1))
         self.horizon = Vector()
         self.offset_ins = Vector()
         self.offset_ann = Vector()
@@ -630,13 +750,13 @@ class CLeader(CEntity):
         self.vertex.x = data
         self.verts.append(self.vertex)
 
-    def build(self, vn):
+    def build(self, vn=0):
         edges = []
         for v in self.verts:
             edges.append((vn, vn+1))
             vn += 1
         edges.pop()
-        return (self.verts, edges, vn)
+        return (self.verts, edges, [], vn)
 
 #    class CLwPolyLine(CEntity):
 #    10 : ['new_vertex(data)'], 20 : 'vertex.y', 30 : 'vertex.z', 
@@ -651,26 +771,37 @@ class CLWPolyLine(CEntity):
         self.vertex = None
         self.verts = []
         self.elevation = 0
-        self.thickness = 1.0
-        self.start_width = 1.0
-        self.end_width = 1.0
+        self.thickness = 0.0
+        self.start_width = 0.0
+        self.end_width = 0.0
         self.bulge = 0.0
-        self.constant_width = 1.0
+        self.constant_width = 0.0
         self.flags = 0
         self.numverts = 0
+        self.normal = Vector((0,0,1))
 
     def new_vertex(self, data):
         self.vertex = Vector()
         self.vertex.x = data
         self.verts.append(self.vertex)
 
-    def build(self, vn):
+    def build(self, vn=0):
         edges = []
+        v_start = vn
         for v in self.verts:
             edges.append((vn, vn+1))
             vn += 1
-        edges.pop()
-        return (self.verts, edges, vn)
+        if self.flags & PL_CLOSED:
+            edges[-1] = (vn-1, v_start)
+        else:
+            edges.pop()
+        verts = self.verts
+        if self.normal!=Vector((0,0,1)):
+            ma = getOCS(self.normal)
+            if ma:
+                #ma.invert()
+                verts = [v * ma for v in verts]
+        return (verts, edges, [], vn-1)
         
 #
 #    class CLine(CEntity):
@@ -681,20 +812,32 @@ class CLWPolyLine(CEntity):
 
 class CLine(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'LINE', 'Edge')
+        CEntity.__init__(self, 'LINE', 'Mesh')
         self.start_point = Vector()
         self.end_point = Vector()
-        self.thickness = 1.0
+        self.thickness = 0.0
+        self.normal = Vector((0,0,1))
 
     def display(self):
         CEntity.display(self)
         print(self.start_point)
         print(self.end_point)
 
-    def build(self, vn):
-        verts = [self.start_point, self.end_point]
-        line = (vn, vn+1)
-        return((verts, [line], vn+2))
+    def build(self, vn=0):
+        points = [self.start_point, self.end_point]
+        faces, edges = [], []
+        n = vn
+        thic = self.thickness
+        if thic != 0 and (toggle & T_ThicON):
+            t_vector = thic * self.normal
+            #print 'deb:thic_vector: ', t_vector #---------------------
+            points.extend([v + t_vector for v in points])
+            faces = [[0+n, 1+n, 3+n, 2+n]]
+            self.drawtype = 'Mesh'
+        else:
+            edges = [[0+n, 1+n]]
+        vn +=2
+        return((points, edges, faces, vn))
 
 #    class CMLine(CEntity):
 #    10 : 'start_point.x', 20 : 'start_point.y', 30 : 'start_point.z', 
@@ -727,6 +870,7 @@ class CMLine(CEntity):
         self.numparam = 0
         self.numfills = 0
         self.id = 0
+        self.normal = Vector((0,0,1))
 
     def new_vertex(self, data):
         self.vertex = Vector()
@@ -771,15 +915,16 @@ class CMText(CEntity):
         self.attachment_point = 0
         self.drawing_direction = 0
         self.spacing_style = 0
+        self.normal = Vector((0,0,1))
 
     def display(self):
         CEntity.display(self)
         print("%s %s" % (self.text, self.style))
-        print(self.insertion_point)
-        print(self.alignment_point)
+        print('MTEXTinsertion_point=',self.insertion_point)
+        print('MTEXTalignment_point=',self.alignment_point)
 
     def draw(self):
-        drawText(self.text,  self.insertion_point, self.height, self.width, self.rotation_angle, 0.0)
+        drawText(self.text,  self.insertion_point, self.height, self.width, self.rotation_angle, 0.0, self.normal)
         return
 
 #
@@ -790,9 +935,9 @@ class CMText(CEntity):
 
 class CPoint(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'POINT', 'Edge')
+        CEntity.__init__(self, 'POINT', 'Mesh')
         self.point = Vector()
-        self.thickness = 1.0
+        self.thickness = 0.0
         self.orientation = 0.0
 
     def display(self):
@@ -800,9 +945,16 @@ class CPoint(CEntity):
         print(self.point)
         print("%.4f" % self.orientation)
 
-    def build(self, vn):
+    def build(self, vn=0):
+        # draw as mesh-vertex
         verts = [self.point]
-        return((verts, [], vn+1))
+        return((verts, [], [], vn+1))
+
+    def draw(self):
+        #todo
+        # draw as empty-object
+        loc = self.point
+        #bpy.ops.object.new('DXFpoint')
 
 #
 #    class CPolyLine(CEntity):
@@ -816,13 +968,14 @@ class CPoint(CEntity):
 
 class CPolyLine(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'POLYLINE', 'Edge')
+        CEntity.__init__(self, 'POLYLINE', 'Mesh')
         self.verts = []
         self.verts_follow = 1
         self.name = ""
         self.elevation = Vector()
-        self.start_width = 1.0
-        self.end_width = 1.0
+        self.thickness = 0.0
+        self.start_width = 0.0
+        self.end_width = 0.0
         self.verts_follow_flags = 0
         self.flags = 0
         self.row_count = 1
@@ -830,6 +983,7 @@ class CPolyLine(CEntity):
         self.row_density = 1.0
         self.column_density = 1.0
         self.linetype = 1
+        self.normal = Vector((0,0,1))
 
     def display(self):
         CEntity.display(self)
@@ -838,15 +992,23 @@ class CPolyLine(CEntity):
             print(v.location)
         print("END VERTS")
 
-    def build(self, vn):
+    def build(self, vn=0):
         verts = []
         lines = []
+        v_start = vn
         for vert in self.verts:
             verts.append(vert.location)
             lines.append((vn, vn+1))
             vn += 1
-        lines.pop()
-        return((verts, lines, vn))
+        if self.flags & PL_CLOSED:
+            lines[-1] = (vn-1, v_start)
+        else:
+            lines.pop()
+        if self.normal!=Vector((0,0,1)):
+            ma = getOCS(self.normal)
+            if ma:
+                verts = [v * ma for v in verts]
+        return((verts, lines, [], vn-1))
 
 #
 #    class CShape(CEntity):
@@ -862,11 +1024,12 @@ class CShape(CEntity):
         CEntity.__init__(self, 'SHAPE', None)
         self.name = ""
         self.insertion_point = Vector()
-        self.thickness = 1.0
+        self.thickness = 0.0
         self.size = 1.0
         self.x_scale = 1.0
         self.rotation_angle = 0.0
         self.oblique_angle = 0.0
+
     def display(self):
         CEntity.display(self)
         print("%s" % (self.name))
@@ -887,7 +1050,7 @@ class CShape(CEntity):
 
 class CSpline(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'SPLINE', 'Edge')
+        CEntity.__init__(self, 'SPLINE', 'Mesh')
         self.control_points = []
         self.fit_points = []
         self.knot_values = []
@@ -905,8 +1068,8 @@ class CSpline(CEntity):
         self.num_knots = 0
         self.num_control_points = 0
         self.num_fit_points = 0
-
-        self.normal = Vector()
+        self.thickness = 0.0
+        self.normal = Vector((0,0,1))
         
     def new_control_point(self, data):
         self.control_point = Vector()
@@ -923,6 +1086,7 @@ class CSpline(CEntity):
         self.knot_values.append(self.knot_value)
         
     def display(self):
+        #not testet yet (migius)
         CEntity.display(self)
         print("CONTROL")
         for p in self.control_points:
@@ -934,7 +1098,7 @@ class CSpline(CEntity):
         for v in self.knot_values:
             print(v)
 
-    def build(self, vn):
+    def build(self, vn=0):
         verts = []
         lines = []
         for vert in self.control_points:
@@ -942,7 +1106,7 @@ class CSpline(CEntity):
             lines.append((vn, vn+1))
             vn += 1
         lines.pop()
-        return((verts, lines, vn))
+        return((verts, lines, [], vn))
 
 
 #
@@ -956,12 +1120,13 @@ class CSpline(CEntity):
 
 class CSolid(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'SOLID', 'Face')
+        CEntity.__init__(self, 'SOLID', 'Mesh')
         self.point0 = Vector()
         self.point1 = Vector()
         self.point2 = Vector()
         self.point3 = Vector()
-        self.thickness = 1.0
+        self.normal = Vector((0,0,1))
+        self.thickness = 0.0
         
     def display(self):
         CEntity.display(self)
@@ -970,16 +1135,44 @@ class CSolid(CEntity):
         print(self.point2)
         print(self.point3)
 
-    def build(self, vn):
-        verts = [self.point0, self.point1, self.point2]
+    def build(self, vn=0):
+        points, edges, faces = [],[],[]
         if self.point2 == self.point3:
-            face = (vn, vn+1, vn+2)
-            vn += 3
+            points = [self.point0, self.point1, self.point2]
         else:
-            verts.append( self.point3 )
-            face = (vn, vn+1, vn+2, vn+3)
-            vn += 4            
-        return((verts, [face], vn))
+            points = [self.point0, self.point1, self.point2, self.point3]
+        pn = len(points)
+        v0 = vn
+        
+        thic = self.thickness
+        t_vector = Vector((0, 0, thic))
+        if thic != 0 and (toggle & T_ThicON):
+            thic_points = [v + t_vector for v in points]
+            if thic < 0.0:
+                thic_points.extend(points)
+                points = thic_points
+            else:
+                points.extend(thic_points)
+
+            if   pn == 4:
+                faces = [[0,1,3,2], [4,6,7,5], [0,4,5,1],
+                         [1,5,7,3], [3,7,6,2], [2,6,4,0]]
+            elif pn == 3:
+                faces = [[0,1,2], [3,5,4], [0,3,4,1], [1,4,5,2], [2,5,3,0]]
+            elif pn == 2: faces = [[0,1,3,2]]
+            vn += 2*pn
+        else:
+            if   pn == 4: faces = [[0,2,3,1]]
+            elif pn == 3: faces = [[0,2,1]]
+            elif pn == 2:
+                edges = [[0,1]]
+                self.drawtype = 'Mesh'
+            vn += pn
+        if self.normal!=Vector((0,0,1)):
+            ma = getOCS(self.normal)
+            if ma:
+                points = [v * ma for v in points]
+        return((points, edges, faces, vn))
         
 #
 #    class CText(CEntity):
@@ -1005,7 +1198,9 @@ class CText(CEntity):
         self.flags = 0
         self.horizontal_justification = 0.0
         self.vertical_justification = 0.0
-        
+        self.thickness = 0.0
+        self.normal = Vector((0,0,1))
+       
     def display(self):
         CEntity.display(self)
         print("%s %s" % (self.text, self.style))
@@ -1013,21 +1208,26 @@ class CText(CEntity):
         print(self.alignment_point)
         
     def draw(self):
-        drawText(self.text,  self.insertion_point, self.height, self.x_scale, self.rotation_angle, self.oblique_angle)
+        drawText(self.text,  self.insertion_point, self.height, self.x_scale, self.rotation_angle, self.oblique_angle, self.normal)
         return
 
 
-def drawText(text, loc, size, spacing, angle, shear):
+def drawText(text, loc, size, spacing, angle, shear, normal=Vector((0,0,1))):
+        #print('angle_deg=',angle)
         bpy.ops.object.text_add(
             view_align=False, 
             enter_editmode=False, 
             location= loc, 
-            rotation=(0, 0, angle))
+            #rotation=(0, 0, angle), #need radians here
+            )
         cu = bpy.context.object.data
         cu.body = text
-        cu.text_size = size
-        cu.word_spacing = spacing
+        cu.size = size #up 2.56
+        cu.space_word = spacing #up 2.56
         cu.shear = shear
+        if angle!=0.0 or normal!=Vector((0,0,1)):
+            obj = bpy.context.object
+            transform(normal, angle, obj)
         return
 
 #
@@ -1055,18 +1255,57 @@ class CTolerance(CEntity):
 
 class CTrace(CEntity):
     def __init__(self):
-        CEntity.__init__(self, 'TRACE', 'Edge')
+        CEntity.__init__(self, 'TRACE', 'Mesh')
         self.point0 = Vector()
         self.point1 = Vector()
         self.point2 = Vector()
         self.point3 = Vector()
-        self.thickness = 1.0
+        self.normal = Vector((0,0,1))
+        self.thickness = 0.0
+    
     def display(self):
         CEntity.display(self)
         print(self.point0)
         print(self.point1)
         print(self.point2)
         print(self.point3)
+   
+    def build(self, vn=0):
+        points, edges, faces = [],[],[]
+        if self.point2 == self.point3:
+            points = [self.point0, self.point2, self.point1]
+        else:
+            points = [self.point0, self.point2, self.point1, self.point3]
+        pn = len(points)
+        v0 = vn
+        thic = self.thickness
+        t_vector = Vector((0, 0, thic))
+        if thic != 0 and (toggle & T_ThicON):
+            thic_points = [v + t_vector for v in points]
+            if thic < 0.0:
+                thic_points.extend(points)
+                points = thic_points
+            else:
+                points.extend(thic_points)
+
+            if   pn == 4:
+                faces = [[0,1,3,2], [4,6,7,5], [0,4,5,1],
+                         [1,5,7,3], [3,7,6,2], [2,6,4,0]]
+            elif pn == 3:
+                faces = [[0,1,2], [3,5,4], [0,3,4,1], [1,4,5,2], [2,5,3,0]]
+            elif pn == 2: faces = [[0,1,3,2]]
+            vn += 2*pn
+        else:
+            if   pn == 4: faces = [[0,2,3,1]]
+            elif pn == 3: faces = [[0,2,1]]
+            elif pn == 2:
+                edges = [[0,1]]
+                self.drawtype = 'Mesh'
+        if self.normal!=Vector((0,0,1)):
+            ma = getOCS(self.normal)
+            if ma:
+                points = [v * ma for v in points]
+        return ((points, edges, faces, vn))
 
 #
 #    class CVertex(CEntity):
@@ -1081,8 +1320,8 @@ class CVertex(CEntity):
     def __init__(self):
         CEntity.__init__(self, 'VERTEX', None)
         self.location = Vector()
-        self.start_width = 1.0
-        self.end_width = 1.0
+        self.start_width = 0.0
+        self.end_width = 0.0
         self.bulge = 0.0
         self.tangent = 0.0
         self.flags = 0
@@ -1138,6 +1377,52 @@ class CWipeOut(CEntity):
 #
 #
 #
+WORLDX = Vector((1.0,0.0,0.0))
+WORLDY = Vector((0.0,1.0,0.0))
+WORLDZ = Vector((0.0,0.0,1.0))
+
+
+def getOCS(az):  #-----------------------------------------------------------------
+    """An implimentation of the Arbitrary Axis Algorithm.
+    """
+    #decide if we need to transform our coords
+    #if az[0] == 0 and az[1] == 0: 
+    if abs(az.x) < 0.00001 and abs(az.y) < 0.00001:
+        if az.z > 0.0:
+            return False
+        elif az.z < 0.0:
+            return Matrix(-WORLDX, WORLDY*1, -WORLDZ)
+
+    cap = 0.015625 # square polar cap value (1/64.0)
+    if abs(az.x) < cap and abs(az.y) < cap:
+        ax = WORLDY.cross(az)
+    else:
+        ax = WORLDZ.cross(az)
+    ax = ax.normalize()
+    ay = az.cross(ax)
+    ay = ay.normalize()
+    return Matrix(ax, ay, az)
+
+
+
+def transform(normal, rotation, obj):  #--------------------------------------------
+    """Use the calculated ocs to determine the objects location/orientation in space.
+    """
+    ma = Matrix([1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1])
+    o = Vector(obj.location)
+    ma_new = getOCS(normal)
+    if ma_new:
+        ma = ma_new.resize4x4()
+        o = o * ma #.copy().invert()
+
+    if rotation != 0:
+        g = radians(-rotation)
+        rmat = Matrix([cos(g), -sin(g), 0], [sin(g), cos(g), 0], [0, 0, 1])
+        ma = ma * rmat.resize4x4()
+
+    obj.matrix_world = ma #must be matrix4x4
+    obj.location = o
+
 
 DxfEntityAttributes = {
 '3DFACE'    : {
@@ -1161,7 +1446,9 @@ DxfEntityAttributes = {
 'ARC'        : {
     10 : 'center.x', 20 : 'center.y', 30 : 'center.z', 
     40 : 'radius',
-    50 : 'start_angle', 51 : 'end_angle'
+    50 : 'start_angle', 51 : 'end_angle',
+    39 : 'thickness',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'ARCALIGNEDTEXT'    : {
@@ -1208,7 +1495,9 @@ DxfEntityAttributes = {
 
 'CIRCLE'    : {
     10 : 'center.x', 20 : 'center.y', 30 : 'center.z', 
-    40 : 'radius'
+    40 : 'radius',
+    39 : 'thickness',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'DIMENSION'    : {
@@ -1227,6 +1516,8 @@ DxfEntityAttributes = {
     10 : 'center.x', 20 : 'center.y', 30 : 'center.z', 
     11 : 'end_point.x', 21 : 'end_point.y', 31 : 'end_point.z', 
     40 : 'ratio', 41 : 'start', 42 : 'end',
+    39 : 'thickness',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'HATCH'        : {
@@ -1235,6 +1526,7 @@ DxfEntityAttributes = {
     41 : 'scale', 47 : 'pixelsize', 52 : 'angle',
     70 : 'fill', 71 : 'associativity', 75: 'style', 77 : 'double', 
     78 : 'numlines', 91 : 'numpaths', 98 : 'numseeds',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'IMAGE'        : {
@@ -1246,7 +1538,7 @@ DxfEntityAttributes = {
     70 : 'display', 71 : 'cliptype', 
     90 : 'version',
     280 : 'clipstate', 281 : 'brightness', 282 : 'contrast', 283 : 'fade', 
-    340 : 'image', 360 : 'reactor'
+    340 : 'image', 360 : 'reactor',
     },
 
 'INSERT'    : {
@@ -1256,6 +1548,7 @@ DxfEntityAttributes = {
     44 : 'column_spacing', 45 : 'row_spacing', 
     50 : 'rotation_angle', 66 : 'attributes_follow',
     70 : 'column_count', 71 : 'row_count', 
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'LEADER'    : {
@@ -1274,13 +1567,15 @@ DxfEntityAttributes = {
     10 : 'start_point.x', 20 : 'start_point.y', 30 : 'start_point.z', 
     11 : 'end_point.x', 21 : 'end_point.y', 31 : 'end_point.z', 
     39 : 'thickness',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'LWPOLYLINE'    : {
     10 : ['new_vertex(data)'], 20 : 'vertex.y', 30 : 'vertex.z', 
     38 : 'elevation', 39 : 'thickness',
     40 : 'start_width', 41 : 'end_width', 42 : 'bulge', 43 : 'constant_width',
-    70 : 'flags', 90 : 'numverts'
+    70 : 'flags', 90 : 'numverts',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
         
 'MLINE'    : {
@@ -1288,10 +1583,12 @@ DxfEntityAttributes = {
     11 : ['new_vertex(data)'], 21 : 'vertex.y', 31 : 'vertex.z', 
     12 : ['new_seg_dir(data)'], 22 : 'seg_dir.y', 32 : 'seg_dir.z', 
     13 : ['new_miter_dir(data)'], 23 : 'miter_dir.y', 33 : 'miter_dir.z', 
+    39 : 'thickness',
     40 : 'scale', 41 : 'elem_param', 42 : 'fill_param',
     70 : 'justification', 71 : 'flags',
     72 : 'numverts', 73 : 'numelems', 74 : 'numparam', 75 : 'numfills',
-    340 : 'id'
+    340 : 'id',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
         
 'MTEXT'        : {
@@ -1301,20 +1598,23 @@ DxfEntityAttributes = {
     40 : 'nominal_height', 41 : 'reference_width', 42: 'width', 43 : 'height', 44 : 'line_spacing',
     50 : 'rotation_angle', 
     71 : 'attachment_point', 72 : 'drawing_direction',  73 : 'spacing_style',    
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'POINT'        : {
     10 : 'point.x', 20 : 'point.y', 30 : 'point.z', 
-    39 : 'thickness', 50 : 'orientation'
+    39 : 'thickness', 50 : 'orientation',
     },
 
 'POLYLINE'    : {
     1 : 'verts_follow', 2 : 'name',
     10 : 'elevation.x', 20 : 'elevation.y', 30 : 'elevation.z', 
+    39 : 'thickness',
     40 : 'start_width', 41 : 'end_width', 
     66 : 'verts_follow_flag',
     70 : 'flags', 71 : 'row_count', 72 : 'column_count', 
     73 : 'row_density', 74 : 'column_density', 75 : 'linetype',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'RAY'        : {
@@ -1325,9 +1625,11 @@ DxfEntityAttributes = {
 'RTEXT'        : {
     1 : 'text', 7 : 'style',
     10 : 'insertion_point.x', 20 : 'insertion_point.y', 30 : 'insertion_point.z', 
+    39 : 'thickness',
     40 : 'height', 
     50 : 'rotation_angle',
     70 : 'flags',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'SHAPE'        : {
@@ -1336,6 +1638,7 @@ DxfEntityAttributes = {
     39 : 'thickness',
     40 : 'size', 41 : 'x_scale', 
     50 : 'rotation_angle', 51 : 'oblique_angle',     
+    39 : 'thickness',
     },
 
 'SOLID'        : {
@@ -1344,6 +1647,7 @@ DxfEntityAttributes = {
     12 : 'point2.x', 22 : 'point2.y', 32 : 'point2.z', 
     13 : 'point3.x', 23 : 'point3.y', 33 : 'point3.z', 
     39 : 'thickness',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'SPLINE'    : {
@@ -1352,6 +1656,7 @@ DxfEntityAttributes = {
     40 : ['new_knot_value(data)'], 
     12 : 'start_tangent.x', 22 : 'start_tangent.y', 32 : 'start_tangent.z', 
     13 : 'end_tangent.x', 23 : 'end_tangent.y', 33 : 'end_tangent.z', 
+    39 : 'thickness',
     41 : 'weight', 42 : 'knot_tol', 43 : 'control_point_tol', 44 : 'fit_tol',
     70 : 'flag', 71 : 'degree', 
     72 : 'num_knots', 73 : 'num_control_points', 74 : 'num_fit_points',
@@ -1365,6 +1670,7 @@ DxfEntityAttributes = {
     40 : 'height', 41 : 'x_scale', 
     50 : 'rotation_angle', 51 : 'oblique_angle', 
     71 : 'flags', 72 : 'horizontal_justification',  73 : 'vertical_justification',    
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'TOLERANCE'    : {
@@ -1379,6 +1685,7 @@ DxfEntityAttributes = {
     12 : 'point2.x', 22 : 'point2.y', 32 : 'point2.z', 
     13 : 'point3.x', 23 : 'point3.y', 33 : 'point3.z', 
     39 : 'thickness',
+    210 : 'normal.x', 220 : 'normal.y', 230 : 'normal.z', 
     },
 
 'VERTEX'    : {
@@ -1443,14 +1750,9 @@ F3D_EDGE3_INVISIBLE = 0x08
 #    readDxfFile(filePath):
 #
 
-def readDxfFile(filePath):    
+def readDxfFile(fileName):    
     global toggle, theCodec
 
-    fileName = os.path.expanduser(filePath)
-    (shortName, ext) = os.path.splitext(fileName)
-    if ext.lower() != ".dxf":
-        print("Error: Not a dxf file: " + fileName)
-        return
     print( "Opening DXF file "+ fileName )
 
     # fp= open(fileName, "rU")
@@ -1917,80 +2219,128 @@ def parseObjects(data, statements, handles):
             
 #
 #    buildGeometry(entities):
-#    buildGeometryType(entities, drawtype):
 #    addMesh(name, verts, edges, faces):                            
 #
 
 def buildGeometry(entities):
-    (verts, faces) = buildGeometryType(entities, 'Face')
-    if verts:
-        me = bpy.data.meshes.new('FaceMesh')
-        me.from_pydata(verts, [], faces)
-        ob = addObject('Solid', me)
-        removeDoubles(ob)
-    
-    (verts, edges) = buildGeometryType(entities, 'Edge')
-    if verts:
-        if toggle & T_Curves:
-            cu = bpy.data.curves.new('Lines', 'CURVE')
-            cu.dimensions = '3D'
-            buildSplines(cu, verts, edges)
-            ob = addObject('Lines', cu)
-        else:
-            me = bpy.data.meshes.new('EdgeMesh')
-            me.from_pydata(verts, edges, [])
-            ob = addObject('Wires', me)
-            removeDoubles(ob)
-
+    try: bpy.ops.object.mode_set(mode='OBJECT')
+    except: pass
+    v_verts = []
+    v_vn = 0
+    e_verts = []
+    e_edges = []
+    e_vn = 0
+    f_verts = []
+    f_edges = []
+    f_faces = []
+    f_vn = 0
     for ent in entities:
-        if ent.drawtype in ['Face', 'Edge']:
-            pass
+        if ent.drawtype in ('Mesh','Curve'):
+            (verts, edges, faces, vn) = ent.build()
+            if not toggle & T_DrawOne:
+                drawGeometry(verts, edges, faces)
+            else:
+                if verts:
+                    if faces:
+                        for i,f in enumerate(faces):
+                            #print ('face=', f)
+                            faces[i] = tuple(it+f_vn for it in f)
+                        for i,e in enumerate(edges):
+                            edges[i] = tuple(it+f_vn for it in e)
+                        f_verts.extend(verts)
+                        f_edges.extend(edges)
+                        f_faces.extend(faces)
+                        f_vn += len(verts)
+                    elif edges:
+                        for i,e in enumerate(edges):
+                            edges[i] = tuple(it+e_vn for it in e)
+                        e_verts.extend(verts)
+                        e_edges.extend(edges)
+                        e_vn += len(verts)
+                    else:
+                        v_verts.extend(verts)
+                        v_vn += len(verts)
         else:
             ent.draw()
+                    
+    if toggle & T_DrawOne:
+        drawGeometry(f_verts, f_edges, f_faces)
+        drawGeometry(e_verts, e_edges)
+        drawGeometry(v_verts)
 
+
+
+def drawGeometry(verts, edges=[], faces=[]):
+    if verts:
+        if edges and (toggle & T_Curves):
+            print ('draw Curve')
+            cu = bpy.data.curves.new('DXFLines', 'CURVE')
+            cu.dimensions = '3D'
+            buildSplines(cu, verts, edges)
+            ob = addObject('DXFLines', cu)
+        else:
+            #for v in verts: print(v)
+            #print ('draw Mesh with %s vertices' %(len(verts)))
+            #for e in edges: print(e)
+            #print ('draw Mesh with %s edges' %(len(edges)))
+            #for f in faces: print(f)
+            #print ('draw Mesh with %s faces' %(len(faces)))
+            me = bpy.data.meshes.new('DXFmesh')
+            me.from_pydata(verts, edges, faces)
+            ob = addObject('DXFmesh', me)
+            removeDoubles(ob)
     return
 
-def buildSplines(cu, verts, edges):
-    points = []
-    for v in verts:
-        pt = list(v)
-        points.append(pt)
 
-    for (v0,v1) in edges:
-        spline = cu.splines.new('BEZIER')
-        spline.bezier_points.add(1)
-        #spline.endpoint_u = True
-        #spline.order_u = 2
-        spline.resolution_u = 1
-        
-        spline.bezier_points[0].co = verts[v0]
-        spline.bezier_points[1].co = verts[v1]
+
+def buildSplines(cu, verts, edges):
+    if edges:
+        point_list = []
+        (v0,v1) = edges.pop()
+        v1_old = v1
+        newPoints = [tuple(verts[v0]),tuple(verts[v1])]
+        for (v0,v1) in edges:
+            if v0==v1_old:
+                newPoints.append(tuple(verts[v1]))
+            else:
+                #print ('newPoints=', newPoints)
+                point_list.append(newPoints)
+                newPoints = [tuple(verts[v0]),tuple(verts[v1])]
+            v1_old = v1
+        point_list.append(newPoints)
+        for points in point_list:
+            #spline = cu.splines.new('BEZIER')
+            spline = cu.splines.new('POLY')
+            #spline.endpoint_u = True
+            #spline.order_u = 2
+            #spline.resolution_u = 1
+            #spline.bezier_points.add(2)
+
+            spline.points.add(len(points)-1)
+            #spline.points.foreach_set('co', points)
+            for i,p in enumerate(points):
+                spline.points[i].co = (p[0],p[1],p[2],0)
+                
+        print ('spline.type=', spline.type)
+        print ('cu spline number=', len(cu.splines))
     
-def buildGeometryType(entities, drawtype):
-    verts = []
-    faces = []
-    vn = 0
-    for ent in entities:
-        if ent.drawtype == drawtype:
-            (vrts, fcs, vn) = ent.build(vn)
-            verts.extend(vrts)
-            faces.extend(fcs)
-    return (verts, faces)
     
 def addObject(name, data):
     ob = bpy.data.objects.new(name, data)
     scn = bpy.context.scene
     scn.objects.link(ob)
-    scn.objects.active = ob
     return ob
 
 
 def removeDoubles(ob):
     global theMergeLimit
     if toggle & T_Merge:
+        scn = bpy.context.scene
+        scn.objects.active = ob
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.remove_doubles(limit=theMergeLimit)
         bpy.ops.object.mode_set(mode='OBJECT')
+
 
 
 #
@@ -2000,8 +2350,8 @@ def removeDoubles(ob):
 def clearScene():
     global toggle
     scn = bpy.context.scene
-    print("clearScene %s %s" % (toggle & T_Replace, scn))
-    if not toggle & T_Replace:
+    print("clearScene %s %s" % (toggle & T_NewScene, scn))
+    if not toggle & T_NewScene:
         return scn
 
     for ob in scn.objects:
@@ -2017,12 +2367,29 @@ def clearScene():
 #
 
 def readAndBuildDxfFile(filepath):
-    if toggle & T_Replace:
-        clearScene()
-    sections = readDxfFile(filepath)
-    print("Building geometry")
-    buildGeometry(sections['ENTITIES'].data)
-    print("Done")
+    fileName = os.path.expanduser(filepath)
+    if fileName:
+        (shortName, ext) = os.path.splitext(fileName)
+        #print("filepath: ", filepath)
+        #print("fileName: ", fileName)
+        #print("shortName: ", shortName)
+        if ext.lower() != ".dxf":
+            print("Error: Not a dxf file: " + fileName)
+            return
+        if toggle & T_NewScene:
+            clearScene()
+            if 0: # how to switch to the new scene?? (migius)
+                new_scn = bpy.data.scenes.new(shortName[-20:])
+                #new_scn.layers = (1<<20) -1
+                new_scn_name = new_scn.name
+                bpy.data.screens.scene = new_scn
+                #print("newScene: %s" % (new_scn))
+        sections = readDxfFile(fileName)
+        print("Building geometry")
+        buildGeometry(sections['ENTITIES'].data)
+        print("Done")
+        return
+    print("Error: Not a dxf file: " + filepath)
     return
 
 #
@@ -2042,34 +2409,78 @@ class IMPORT_OT_autocad_dxf(bpy.types.Operator):
     '''Import from DXF file format (.dxf)'''
     bl_idname = "import_scene.autocad_dxf"
     bl_description = 'Import from DXF file format (.dxf)'
-    bl_label = "Import DXF"
+    bl_label = "Import DXF" +' v.'+ __version__
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
 
     filepath = StringProperty(name="File Path", description="Filepath used for importing the DXF file", maxlen= 1024, default= "")
 
-    merge = BoolProperty(name="Remove doubles", description="Merge coincident vertices", default=toggle&T_Merge)
-    mergeLimit = FloatProperty(name="Merge limit", description="Merge limit", default = theMergeLimit*1e4)
+    new_scene = BoolProperty(name="Replace scene", description="Replace scene", default=toggle&T_NewScene)
+    #new_scene = BoolProperty(name="New scene", description="Create new scene", default=toggle&T_NewScene)
+    curves = BoolProperty(name="Draw curves", description="Draw entities as curves", default=toggle&T_Curves)
+    thic_on = BoolProperty(name="Thic ON", description="Support THICKNESS", default=toggle&T_ThicON)
 
-    replace = BoolProperty(name="Replace scene", description="Replace scene", default=toggle&T_Replace)
-    curves = BoolProperty(name="Lines as curves", description="Lines as curves", default=toggle&T_Curves)
-    debug = BoolProperty(name="Debug", description="Unknown codes generate errors", default=toggle&T_Debug)
+    merge = BoolProperty(name="Remove doubles", description="Merge coincident vertices", default=toggle&T_Merge)
+    mergeLimit = FloatProperty(name="Limit", description="Merge limit", default = theMergeLimit*1e4,min=1.0, soft_min=1.0, max=100.0, soft_max=100.0)
+
+    draw_one = BoolProperty(name="Merge all", description="Draw all into one mesh-object", default=toggle&T_DrawOne)
+    circleResolution = IntProperty(name="Circle resolution", description="Circle/Arc are aproximated will this factor", default = theCircleRes,
+                min=4, soft_min=4, max=360, soft_max=360)
+    codecs = tripleList(['iso-8859-15', 'utf-8', 'ascii'])
+    codec = EnumProperty(name="Codec", description="Codec",  items=codecs, default = 'ascii')
+
+    debug = BoolProperty(name="Debug", description="Unknown DXF-codes generate errors", default=toggle&T_Debug)
     verbose = BoolProperty(name="Verbose", description="Print debug info", default=toggle&T_Verbose)
 
-    codecs = tripleList(['iso-8859-15', 'utf-8', 'ascii'])
-    codec = EnumProperty(name="Codec", description="Codec", items=codecs, default='utf-8')
+    ##### DRAW #####
+    def draw(self, context):
+        layout0 = self.layout
+        #layout0.enabled = False
 
+        #col = layout0.column_flow(2,align=True)
+        layout = layout0.box()
+        col = layout.column()
+        #col.prop(self, 'KnotType') waits for more knottypes
+        #col.label(text="import Parameters")
+        #col.prop(self, 'replace')
+        col.prop(self, 'new_scene')
         
+        row = layout.row(align=True)
+        row.prop(self, 'curves')
+        row.prop(self, 'circleResolution')
+
+        row = layout.row(align=True)
+        row.prop(self, 'merge')
+        if self.merge:
+            row.prop(self, 'mergeLimit')
+ 
+        row = layout.row(align=True)
+        #row.label('na')
+        row.prop(self, 'draw_one')
+        row.prop(self, 'thic_on')
+
+        col = layout.column()
+        col.prop(self, 'codec')
+ 
+        row = layout.row(align=True)
+        row.prop(self, 'debug')
+        if self.debug:
+            row.prop(self, 'verbose')
+         
     def execute(self, context):
-        global toggle, theMergeLimit, theCodec
+        global toggle, theMergeLimit, theCodec, theCircleRes
         O_Merge = T_Merge if self.properties.merge else 0
-        O_Replace = T_Replace if self.properties.replace else 0
+        #O_Replace = T_Replace if self.properties.replace else 0
+        O_NewScene = T_NewScene if self.properties.new_scene else 0
         O_Curves = T_Curves if self.properties.curves else 0
+        O_ThicON = T_ThicON if self.properties.thic_on else 0
+        O_DrawOne = T_DrawOne if self.properties.draw_one else 0
         O_Debug = T_Debug if self.properties.debug else 0
         O_Verbose = T_Verbose if self.properties.verbose else 0
 
-        toggle =  O_Merge | O_Replace | O_Curves | O_Debug | O_Verbose
+        toggle =  O_Merge | O_DrawOne | O_NewScene | O_Curves | O_ThicON | O_Debug | O_Verbose
         theMergeLimit = self.properties.mergeLimit*1e-4
+        theCircleRes = self.properties.circleResolution
         theCodec = self.properties.codec
 
         readAndBuildDxfFile(self.properties.filepath)
@@ -2080,15 +2491,13 @@ class IMPORT_OT_autocad_dxf(bpy.types.Operator):
         wm.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
+def menu_func(self, context):
+    self.layout.operator(IMPORT_OT_autocad_dxf.bl_idname, text="Autocad (.dxf)")
+
 def register():
-    # registerPanels()
-    menu_func = lambda self, context: self.layout.operator(IMPORT_OT_autocad_dxf.bl_idname, text="Autocad (.dxf)...")
-    bpy.types.INFO_MT_file_import.append(menu_func)
+     bpy.types.INFO_MT_file_import.append(menu_func)
  
 def unregister():
-    # unregisterPanels()
-
-    menu_func = lambda self, context: self.layout.operator(IMPORT_OT_autocad_dxf.bl_idname, text="Autocad (.dxf)...")
     bpy.types.INFO_MT_file_import.remove(menu_func)
 
 if __name__ == "__main__":
