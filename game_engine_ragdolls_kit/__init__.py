@@ -28,9 +28,12 @@ bl_addon_info = {
     "location": "Tool Shelf",
     "description": "Kit for creating ragdoll structures from armatures and implementing them in the game engine.",
     "warning": "Preliminary release for testing purposes. Use with caution on important files.",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Game_Engine/BRIK_ragdolls",
-    "tracker_url": "https://projects.blender.org/tracker/index.php?func=detail&aid=24946&group_id=153&atid=468",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+        "Scripts/Game_Engine/BRIK_ragdolls",
+    "tracker_url": "https://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=24946&group_id=153&atid=468",
     "category": "Game Engine"}
+
 
 if "bpy" in locals():
     import imp
