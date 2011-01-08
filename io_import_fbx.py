@@ -66,14 +66,28 @@ def parse_fbx(path, fbx_data):
 
     CONTAINER = [None]
 
-    def isfloat(val):
+   def is_int(val):
+        try:
+            CONTAINER[0] = int(val)
+            return True
+        except:
+            return False
+
+    def is_int_array(val):
+        try:
+            CONTAINER[0] = tuple([float(v) for v in val.split(",")])
+            return True
+        except:
+            return False
+
+    def is_float(val):
         try:
             CONTAINER[0] = float(val)
             return True
         except:
             return False
 
-    def isfloatlist(val):
+    def is_float_array(val):
         try:
             CONTAINER[0] = tuple([float(v) for v in val.split(",")])
             return True
@@ -104,12 +118,18 @@ def parse_fbx(path, fbx_data):
 
         elif val.startswith('"') and val.endswith('"'):
             ls.append((tag, None, val[1:-1]))  # remove quotes
-        elif isfloat(val):
+        elif is_int(val):
             ls.append((tag, None, CONTAINER[0]))
-        elif isfloatlist(val):
+        elif is_int_array(val):
             ls.append((tag, None, CONTAINER[0]))
+        elif is_float(val):
+            ls.append((tag, None, CONTAINER[0]))
+        elif is_float_array(val):
+            ls.append((tag, None, CONTAINER[0]))
+        else:
+            print("\tParser Skipping:", (tag, None, val))
 
-        #name = .lstrip()[0]
+        # name = .lstrip()[0]
         if DEBUG:
             print("TAG:", tag)
             print("VAL:", val)
@@ -135,7 +155,12 @@ def import_fbx(path):
         if tag1 == "Objects":
             for tag2, name2, value2 in value1:
                 if tag2 == "Model":
-                    print(tag2, name2)
+					'''
+                    print("")
+                    print(tag2)
+                    print(name2)
+                    print(value2)
+					'''
                     # we dont parse this part properly
                     # the name2 can be somtrhing like
                     # Model "Model::kimiko", "Mesh"
@@ -154,7 +179,7 @@ def import_fbx(path):
 
                         # convert odd fbx verts and faces to a blender mesh.
                         if verts and faces:
-                            me = bpy.data.meshes.new(name='MyMesh')
+                            me = bpy.data.meshes.new(name=tag2.lstrip("Model::"))
                             # get a list of floats as triples
                             blen_verts = [verts[i - 3:i] for i in range(3, len(verts) + 3, 3)]
 
@@ -177,6 +202,10 @@ def import_fbx(path):
 
                             obj = bpy.data.objects.new("SomeFBXObj", me)
                             base = scene.objects.link(obj)
+                    
+                    elif name2.endswith(" \"Camera\""):
+                        pass
+                        
     return {'FINISHED'}
 
 
