@@ -351,8 +351,6 @@ def import_fbx(path):
                     if obj:
                         obj = objects[obj]
                         obj.data.materials.append(mat)
-                    else:
-                        for i in connections: print(i)
                     
     return {'FINISHED'}
 
