@@ -179,6 +179,7 @@ def import_fbx(path):
     import math
     
     fbx_data = []
+    objects = {}
     parse_fbx(path, fbx_data)
     # Now lets get in the mesh data for fun.
 
@@ -220,7 +221,6 @@ def import_fbx(path):
 
                     # "Model::MyCamera", "Camera"  -->  MyCamera
                     fbx_name = name2.split(',')[0].strip()[1:-1].split("::", 1)[-1]
-
                     # we dont parse this part properly
                     # the name2 can be somtrhing like
                     # Model "Model::kimiko", "Mesh"
@@ -265,8 +265,11 @@ def import_fbx(path):
                         obj = bpy.data.objects.new(fbx_name, camera)
                         base = scene.objects.link(obj)
 
-                    # apply transformation
                     if obj:
+                        # Update our object dict
+                        objects[fbx_name] = obj
+                    
+                        # apply transformation
                         props = tag_get_single(value2, "Properties60")[1]
                         
                         # Note, rotations is not correct!
@@ -275,13 +278,13 @@ def import_fbx(path):
                         sca = tag_get_prop(props, "Lcl Scaling")
 
                         obj.location = loc
-                        obj.rotation_euler = rot
+                        obj.rotation_euler = [math.radians(i) for i in rot]
                         obj.scale = sca
                         
                         # Take care of parenting (we assume the parent has already been processed)
                         parent = connections.get(fbx_name)
                         if parent and parent != 'blend_root':
-                            obj.parent = scene.objects[parent]
+                            obj.parent = objects[parent]
                         
 
     return {'FINISHED'}
