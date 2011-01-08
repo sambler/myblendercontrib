@@ -164,8 +164,8 @@ def parse_connections(fbx_data):
     for tag, name, value in fbx_data:
         type, child, parent = [i.strip() for i in value.replace('"', '').split(',')]
         if type == "OO":
-            parent = parent.replace('Model::', '')
-            child = child.replace('Model::', '')
+            parent = parent.replace('Model::', '').replace('Material::', '')
+            child = child.replace('Model::', '').replace('Material::', '')
             
             c[child] = parent
                 
@@ -183,6 +183,7 @@ def import_fbx(path):
     
     fbx_data = []
     objects = {}
+    materials = {}
     parse_fbx(path, fbx_data)
     # Now lets get in the mesh data for fun.
 
@@ -321,9 +322,38 @@ def import_fbx(path):
                         obj.location = loc
                         obj.rotation_euler = rot_mat.to_euler()[:]
                         obj.scale = sca
-                        
-                        
 
+                elif tag2 == "Material":
+                
+                    # "Material::MyMaterial", ""  -->  MyMaterial
+                    fbx_name = name2.split(',')[0].strip()[1:-1].split("::", 1)[-1]
+                    
+                    mat = bpy.data.materials.new(name=fbx_name)
+                    
+                    props = tag_get_single(value2, "Properties60")[1]
+                    
+                    # We always use Lambert diffuse shader for now
+                    mat.diffuse_shader = 'LAMBERT'
+                    
+                    mat.diffuse_color = tag_get_prop(props, "DiffuseColor")
+                    mat.diffuse_intensity = tag_get_prop(props, "DiffuseFactor")
+                    mat.alpha = 1 - tag_get_prop(props, "TransparencyFactor")
+                    mat.specular_color = tag_get_prop(props, "SpecularColor")
+                    mat.specular_intensity = tag_get_prop(props, "SpecularFactor")*2.0
+                    mat.specular_hardness = (tag_get_prop(props, "Shininess") * 5.10) + 1
+                    mat.ambient = tag_get_prop(props, "AmbientFactor")
+                    
+                    # Update material dict
+                    materials[fbx_name] = mat
+                    
+                    # Map to an object (we assume models are done before materials)
+                    obj = connections.get(fbx_name)
+                    if obj:
+                        obj = objects[obj]
+                        obj.data.materials.append(mat)
+                    else:
+                        for i in connections: print(i)
+                    
     return {'FINISHED'}
 
 
