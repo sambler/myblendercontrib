@@ -205,11 +205,13 @@ def import_fbx(path):
                     # check we import an object
                     obj = None
 
+                    # "Model::MyCamera", "Camera"  -->  MyCamera
+                    fbx_name = name2.split(',')[0].strip()[1:-1].split("::", 1)[-1]
+
                     # we dont parse this part properly
                     # the name2 can be somtrhing like
                     # Model "Model::kimiko", "Mesh"
                     if name2.endswith(" \"Mesh\""):
-                        fbx_name = tag2.lstrip("Model::")
 
                         verts = tag_get_single(value2, "Vertices")[1]
                         faces = tag_get_single(value2, "PolygonVertexIndex")[1]
@@ -241,7 +243,6 @@ def import_fbx(path):
                             base = scene.objects.link(obj)
 
                     elif name2.endswith(" \"Camera\""):
-                        fbx_name = tag2.lstrip("Model::")
 
                         camera = bpy.data.cameras.new(name=fbx_name)
                         
