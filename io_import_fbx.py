@@ -267,6 +267,30 @@ def import_fbx(path):
 
                         obj = bpy.data.objects.new(fbx_name, camera)
                         base = scene.objects.link(obj)
+                        
+                    elif name2.endswith(" \"Light\""):
+                        
+                        light = bpy.data.lamps.new(name=fbx_name)
+                        
+                        props = tag_get_single(value2, "Properties60")[1]
+                        
+                        
+                        # Lamp types
+                        light_types = {0: 'POINT', 1: 'SUN', 2: 'SPOT'}
+                        
+                        light.type = light_types[tag_get_prop(props, "LightType")]
+                        light.energy = max(tag_get_prop(props, "Intensity")/100, 0)
+                        light.color = tag_get_prop(props, "Color")
+                        light.distance = tag_get_prop(props, "DecayStart")
+                        
+                        if light.type == 'SPOT':
+                            light.spot_size = math.rad(tag_get_prop(props, "Cone angle"))
+                        
+                        # Todo: shadows
+                        
+                        obj = bpy.data.objects.new(fbx_name, light)
+                        base = scene.objects.link(obj)
+                        
 
                     if obj:
                         # Update our object dict
