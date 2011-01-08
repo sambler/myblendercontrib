@@ -335,8 +335,6 @@ def import_fbx(path):
                         rot_mat = mathutils.Euler([math.radians(i) for i in rot]).to_matrix()
                         if parent:
                             rot_mat = mathutils.Matrix(parent.matrix_world).rotation_part().invert() * rot_mat
-                        else:
-                            rot_mat *= mtx_x90
 
                         obj.location = loc
                         obj.rotation_euler = rot_mat.to_euler()[:]
