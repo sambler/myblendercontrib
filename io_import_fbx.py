@@ -75,7 +75,7 @@ def parse_fbx(path, fbx_data):
 
     def is_int_array(val):
         try:
-            CONTAINER[0] = tuple([float(v) for v in val.split(",")])
+            CONTAINER[0] = tuple([int(v) for v in val.split(",")])
             return True
         except:
             return False
@@ -120,13 +120,33 @@ def parse_fbx(path, fbx_data):
             ls.append((tag, None, val[1:-1]))  # remove quotes
         elif is_int(val):
             ls.append((tag, None, CONTAINER[0]))
-        elif is_int_array(val):
-            ls.append((tag, None, CONTAINER[0]))
         elif is_float(val):
+            ls.append((tag, None, CONTAINER[0]))
+        elif is_int_array(val):
             ls.append((tag, None, CONTAINER[0]))
         elif is_float_array(val):
             ls.append((tag, None, CONTAINER[0]))
+        elif tag == 'Property':
+            ptag, ptype, punknown, pval = val.split(",", 3)
+            ptag = ptag.strip().strip("\"")
+            ptype = ptype.strip().strip("\"")
+            punknown = punknown.strip().strip("\"")
+            pval = pval.strip()
+
+            if val.startswith('"') and val.endswith('"'):
+                pval = pval[1:-1]
+            elif is_int(pval):
+                pval = CONTAINER[0]
+            elif is_float(pval):
+                pval = CONTAINER[0]
+            elif is_int_array(pval):
+                pval = CONTAINER[0]
+            elif is_float_array(pval):
+                pval = CONTAINER[0]
+
+            ls.append((tag, None, (ptag, ptype, punknown, pval)))
         else:
+            # IGNORING ('Property', None, '"Lcl Scaling", "Lcl Scaling", "A+",1.000000000000000,1.000000000000000,1.000000000000000')
             print("\tParser Skipping:", (tag, None, val))
 
         # name = .lstrip()[0]
@@ -145,9 +165,29 @@ import bpy
 
 
 def import_fbx(path):
+    import math
+    
     fbx_data = []
     parse_fbx(path, fbx_data)
     # Now lets get in the mesh data for fun.
+
+    def tag_get_iter(data, tag):
+        for tag_iter, name, value in data:
+            if tag_iter == tag:
+                yield (name, value)
+    
+    def tag_get_single(data, tag):
+        for tag_iter, name, value in data:
+            if tag_iter == tag:
+                return (name, value)
+        return (None, None)
+
+    def tag_get_prop(data, prop):
+        for tag_iter, name, value in data:
+            if tag_iter == "Property":
+                if value[0] == prop:
+                    return value[3]
+        return None
 
     scene = bpy.context.scene
 
@@ -161,25 +201,22 @@ def import_fbx(path):
                     print(name2)
                     print(value2)
                     '''
+
+                    # check we import an object
+                    obj = None
+
                     # we dont parse this part properly
                     # the name2 can be somtrhing like
                     # Model "Model::kimiko", "Mesh"
                     if name2.endswith(" \"Mesh\""):
-                        verts = None
-                        faces = None
-                        # We have a mesh
-                        for tag3, name3, value3 in value2:
-                            # print('YAY MESH ', tag3, name3)
-                            if tag3 == "Vertices":
-                                #print value3
-                                verts = value3
-                            elif tag3 == "PolygonVertexIndex":
-                                #print(value3)
-                                faces = value3
+                        fbx_name = tag2.lstrip("Model::")
+
+                        verts = tag_get_single(value2, "Vertices")[1]
+                        faces = tag_get_single(value2, "PolygonVertexIndex")[1]
 
                         # convert odd fbx verts and faces to a blender mesh.
                         if verts and faces:
-                            me = bpy.data.meshes.new(name=tag2.lstrip("Model::"))
+                            me = bpy.data.meshes.new(name=fbx_name)
                             # get a list of floats as triples
                             blen_verts = [verts[i - 3:i] for i in range(3, len(verts) + 3, 3)]
 
@@ -200,12 +237,33 @@ def import_fbx(path):
                             me.from_pydata(blen_verts, [], blen_faces)
                             me.update()
 
-                            obj = bpy.data.objects.new("SomeFBXObj", me)
+                            obj = bpy.data.objects.new(fbx_name, me)
                             base = scene.objects.link(obj)
-                    
+
                     elif name2.endswith(" \"Camera\""):
-                        pass
+                        fbx_name = tag2.lstrip("Model::")
+
+                        camera = bpy.data.cameras.new(name=fbx_name)
                         
+                        props = tag_get_single(value2, "Properties60")[1]
+                        camera.angle = math.radians(tag_get_prop(props, "FieldOfView"))
+
+                        obj = bpy.data.objects.new(fbx_name, camera)
+                        base = scene.objects.link(obj)
+
+                    # apply transformation
+                    if obj:
+                        props = tag_get_single(value2, "Properties60")[1]
+                        
+                        # Note, rotations is not correct!
+                        loc = tag_get_prop(props, "Lcl Translation")
+                        rot = tag_get_prop(props, "Lcl Rotation")
+                        sca = tag_get_prop(props, "Lcl Scaling")
+
+                        obj.location = loc
+                        obj.rotation_euler = rot
+                        obj.scale = sca
+
     return {'FINISHED'}
 
 
