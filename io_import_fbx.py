@@ -177,6 +177,9 @@ import bpy
 
 def import_fbx(path):
     import math
+    import mathutils
+    
+    mtx_x90 = mathutils.Matrix.Rotation( math.pi/2.0, 3, 'X')
     
     fbx_data = []
     objects = {}
@@ -271,14 +274,17 @@ def import_fbx(path):
                     
                         # apply transformation
                         props = tag_get_single(value2, "Properties60")[1]
-                        
-                        # Note, rotations is not correct!
+
                         loc = tag_get_prop(props, "Lcl Translation")
                         rot = tag_get_prop(props, "Lcl Rotation")
                         sca = tag_get_prop(props, "Lcl Scaling")
+                        
+                        # Convert rotation
+                        rot_mat = mathutils.Euler([math.radians(i) for i in rot]).to_matrix()
+                        rot_mat *= mtx_x90
 
                         obj.location = loc
-                        obj.rotation_euler = [math.radians(i) for i in rot]
+                        obj.rotation_euler = rot_mat.to_euler()[:]
                         obj.scale = sca
                         
                         # Take care of parenting (we assume the parent has already been processed)
