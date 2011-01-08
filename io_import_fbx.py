@@ -271,6 +271,14 @@ def import_fbx(path):
                     if obj:
                         # Update our object dict
                         objects[fbx_name] = obj
+                        
+                        # Take care of parenting (we assume the parent has already been processed)
+                        parent = connections.get(fbx_name)
+                        if parent and parent != 'blend_root':
+                            obj.parent = objects[parent]
+                            parent = obj.parent
+                        else:
+                            parent = None
                     
                         # apply transformation
                         props = tag_get_single(value2, "Properties60")[1]
@@ -281,16 +289,15 @@ def import_fbx(path):
                         
                         # Convert rotation
                         rot_mat = mathutils.Euler([math.radians(i) for i in rot]).to_matrix()
-                        rot_mat *= mtx_x90
+                        if parent:
+                            rot_mat = mathutils.Matrix(parent.matrix_world).rotation_part().invert() * rot_mat
+                        else:
+                            rot_mat *= mtx_x90
 
                         obj.location = loc
                         obj.rotation_euler = rot_mat.to_euler()[:]
                         obj.scale = sca
                         
-                        # Take care of parenting (we assume the parent has already been processed)
-                        parent = connections.get(fbx_name)
-                        if parent and parent != 'blend_root':
-                            obj.parent = objects[parent]
                         
 
     return {'FINISHED'}
