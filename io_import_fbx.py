@@ -159,6 +159,17 @@ def parse_fbx(path, fbx_data):
     while i < len(lines):
         i = read_fbx(i, fbx_data)
 
+def parse_connections(fbx_data):
+    c = {}
+    for tag, name, value in fbx_data:
+        type, child, parent = [i.strip() for i in value.replace('"', '').split(',')]
+        if type == "OO":
+            parent = parent.replace('Model::', '')
+            child = child.replace('Model::', '')
+            
+            c[child] = parent
+                
+    return c
 
 # Blender code starts here:
 import bpy
@@ -190,6 +201,8 @@ def import_fbx(path):
         return None
 
     scene = bpy.context.scene
+    
+    connections = parse_connections(tag_get_single(fbx_data, "Connections")[1])
 
     for tag1, name1, value1 in fbx_data:
         if tag1 == "Objects":
@@ -264,6 +277,12 @@ def import_fbx(path):
                         obj.location = loc
                         obj.rotation_euler = rot
                         obj.scale = sca
+                        
+                        # Take care of parenting (we assume the parent has already been processed)
+                        parent = connections.get(fbx_name)
+                        if parent and parent != 'blend_root':
+                            obj.parent = scene.objects[parent]
+                        
 
     return {'FINISHED'}
 
