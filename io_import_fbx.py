@@ -255,6 +255,25 @@ def import_fbx(path):
 
                             me.from_pydata(blen_verts, [], blen_faces)
                             me.update()
+                            
+                            # Handle smoothing
+                            for i in tag_get_iter(value2, "LayerElementSmoothing"):
+                                i = i[1]
+                                type = tag_get_single(i, "MappingInformationType")[1]
+                                
+                                if type == "ByPolygon":
+                                    smooth_faces = tag_get_single(i, "Smoothing")[1]
+                                    
+                                    for idx, f in enumerate(me.faces):
+                                        f.use_smooth = smooth_faces[idx]
+                                elif type == "ByEdge":
+                                    smooth_edges = tag_get_single(i, "Smoothing")[1]
+                                    
+                                    for idx, ed in enumerate(me.edges):
+                                        ed.use_edge_sharp = smooth_edges[idx]
+                                else:
+                                    print("WARNING: %s, unsupported smoothing type: %s" % (fbx_name, type))
+                            
 
                             obj = bpy.data.objects.new(fbx_name, me)
                             base = scene.objects.link(obj)
