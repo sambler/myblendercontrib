@@ -66,7 +66,7 @@ def parse_fbx(path, fbx_data):
 
     CONTAINER = [None]
 
-   def is_int(val):
+    def is_int(val):
         try:
             CONTAINER[0] = int(val)
             return True
@@ -155,12 +155,12 @@ def import_fbx(path):
         if tag1 == "Objects":
             for tag2, name2, value2 in value1:
                 if tag2 == "Model":
-					'''
+                    '''
                     print("")
                     print(tag2)
                     print(name2)
                     print(value2)
-					'''
+                    '''
                     # we dont parse this part properly
                     # the name2 can be somtrhing like
                     # Model "Model::kimiko", "Mesh"
