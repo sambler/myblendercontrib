@@ -18,17 +18,6 @@
 
 # <pep8 compliant>
 
-"""
-Display the indices of vertices, edges and faces in the 3d-view.
-
-How to use:
-- Select a mesh and go into editmode
-- Display the properties panel (N-key)
-- Go to the Mesh Display tab, it helps to fold the tabs above it
-- Press the 'Visualise indices button'
-
-"""
-
 bl_addon_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
@@ -42,9 +31,20 @@ bl_addon_info = {
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
         'Scripts/3D_interaction/Index_Visualiser',
     'tracker_url': 'http://projects.blender.org/tracker/index.php?'\
-        'func=detail&aid=21557&group_id=153&atid=468',
+        'func=detail&aid=21557',
     'category': '3D View'}
 
+
+"""
+Display the indices of vertices, edges and faces in the 3d-view.
+
+How to use:
+- Select a mesh and go into editmode
+- Display the properties panel (N-key)
+- Go to the Mesh Display tab, it helps to fold the tabs above it
+- Press the 'Visualise indices button'
+
+"""
 
 import bgl
 import blf

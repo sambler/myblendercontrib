@@ -27,7 +27,7 @@ bl_addon_info = {
     'wiki_url':'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
         'Scripts/Add_Mesh/Archimedean_Solids',  # @todo write the page
     'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
-        'func=detail&aid=23479&group_id=153&atid=468',
+        'func=detail&aid=23479',
     'category': 'Add Mesh'}
 
 import bpy
