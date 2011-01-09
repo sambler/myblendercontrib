@@ -33,7 +33,7 @@ bl_addon_info = {
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
         "Scripts/Add_Mesh/Masonry",
     "tracker_url": "http://projects.blender.org/tracker/index.php?"\
-        "func=detail&aid=24980&group_id=153&atid=468",
+        "func=detail&aid=24980",
     "category": "Add Mesh"
 }
 

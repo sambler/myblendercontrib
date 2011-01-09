@@ -16,18 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
-"""
-Bridge
-
-How to use:
-- Select a mesh and go into editmode
-- Select two or more edge-loops
-- Press Ctrl+F
-- Select the Bridge or Loft option
-"""
-
-
 bl_addon_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
@@ -40,8 +28,18 @@ bl_addon_info = {
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
         'Scripts/Modeling/Bridge',
     'tracker_url': 'http://projects.blender.org/tracker/index.php?'\
-        'func=detail&aid=23889&group_id=153&atid=468',
+        'func=detail&aid=23889',
     'category': 'Mesh'}
+
+"""
+Bridge
+
+How to use:
+- Select a mesh and go into editmode
+- Select two or more edge-loops
+- Press Ctrl+F
+- Select the Bridge or Loft option
+"""
 
 
 import bpy
