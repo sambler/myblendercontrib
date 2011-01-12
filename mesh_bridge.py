@@ -19,9 +19,9 @@
 bl_addon_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
-    'version': (1, 4, 5),
-    'blender': (2, 5, 6),
-    'api': 33191,
+    'version': (1, 4, 6),
+    'blender': (2, 5, 7),
+    'api': 34254,
     'location': 'View3D > Ctrl+F > Bridge',
     'warning': '',
     'description': 'Bridge two, or loft several, loops of vertices.',
@@ -293,7 +293,7 @@ def calculate_lines(mesh, loops, mode, twist, reverse):
     normal_plurity = False
     for i, loop in enumerate([loop1, loop2]):
         # covariance matrix
-        mat = mathutils.Matrix([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+        mat = mathutils.Matrix(((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
         x, y, z = centers[i]
         for loc in [mesh.vertices[vertex].co for vertex in loop]:
             mat[0][0] += (loc[0]-x)**2
