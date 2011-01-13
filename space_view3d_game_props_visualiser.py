@@ -22,16 +22,14 @@
 bl_addon_info = {
     'name': 'Game Property Visualiser',
     'author': 'Bartius Crouch/Vilem Novak',
-    'version': (2,4),
+    'version': (2,5),
     'blender': (2, 5, 3),
     'api': 31667,
     'location': 'View3D > Properties panel > Display tab',
     'description': 'Display the game properties next to selected objects '\
         'in the 3d-view',
-    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
-        'Scripts/Index_Visualiser',
-    'tracker_url': 'http://projects.blender.org/tracker/index.php?'\
-        'func=detail&aid=21557',
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/3D_interaction/Game_Property_Visualiser',
+    'tracker_url': 'http://projects.blender.org/tracker/?func=detail&aid=22607&group_id=153&atid=468',
     'category': '3D View'}
 
 """
@@ -83,7 +81,7 @@ def calc_callback(self, context):
     
         for loc in locs:
     
-            vec = total_mat*loc[0] # order is important
+            vec = loc[0]*total_mat # order is important
             # dehomogenise
             vec = mathutils.Vector((vec[0]/vec[3],vec[1]/vec[3],vec[2]/vec[3]))
             x = int(mid_x + vec[0]*width/2.0)
