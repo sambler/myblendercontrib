@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-bl_addon_info = {
+bl_info = {
     "name": "Seam from uv isles",
     "author": "Fredrik Hansson",
     "version": (1,1),

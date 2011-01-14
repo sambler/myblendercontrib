@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-bl_addon_info = {
+bl_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
     'version': (1, 4, 6),

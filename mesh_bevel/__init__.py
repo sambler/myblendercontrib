@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-bl_addon_info = {
+bl_info = {
     'name': 'Bevel',
     'author': 'chromoly',
     'version': (0, 2),
