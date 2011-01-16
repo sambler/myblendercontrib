@@ -16,7 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK ######
 
-bl_addon_info = {
+bl_info = {
     'name': 'Archimedean Solids',
     'author': 'Buerbaum Martin (Pontiac)',
     'version': (0,1),

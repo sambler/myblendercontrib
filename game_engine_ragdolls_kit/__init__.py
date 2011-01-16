@@ -19,7 +19,7 @@
 # ***** END GPL LICENCE BLOCK *****
 # --------------------------------------------------------------------------
 
-bl_addon_info = {
+bl_info = {
     "name": "BRIK - Blender Ragdoll Implementation Kit",
     "author": "FunkyWyrm",
     "version": (0,2),

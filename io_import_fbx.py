@@ -18,7 +18,7 @@
 
 # <pep8 compliant>
 
-bl_addon_info = {
+bl_info = {
     "name": "Import: Autodesk FBX",
     "author": "Campbell Barton",
     "version": (0, 0, 1),

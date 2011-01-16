@@ -18,7 +18,7 @@
 
 # <pep8 compliant>
 
-bl_addon_info = {
+bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
     'version': (2, 6, 4),

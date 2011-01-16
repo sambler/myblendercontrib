@@ -21,7 +21,7 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-bl_addon_info = {
+bl_info = {
     "name": "Masonry",
     "author": "Paul Spooner, Dudecon, Ziggy",
     "version": (0, 57),
