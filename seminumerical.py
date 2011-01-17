@@ -20,10 +20,14 @@
 '''
     Common stuff for my addons...
 
-
+    2011-01-16 - Refactoring: drawButton renamed to drawIconButton
+                 New function drawTextButton
+    2011-01-13 - Refactoring: merged closestP2Sphere4 into closestP2Sphere
+                 Bugfix: Colinear and coplanar vertices are now ignored in 
+                         3P cylinder and 4P sphere algoeithms
+    2011-01-12 - Added some more geometry functions for cylinders and spheres
   --- pre shipment with Cursor Contol 0.4.1 -----------------------------------------------------------------------------------
     2011-01-09 - Support for Blender 2.56a
-
   --- pre shipment with Cursor Contol 0.4.0 -----------------------------------------------------------------------------------
     2010-11-15 - Support for Blender 2.55b
     2010-10-10 - Refactored drawButton into utility class GUI
@@ -131,12 +135,20 @@ class MeshEditor:
 class GUI:
 
     @classmethod
-    def drawButton(cls, enabled, layout, iconName, operator, frame=True):
+    def drawIconButton(cls, enabled, layout, iconName, operator, frame=True):
         col = layout.column()
         col.enabled = enabled
         bt = col.operator(operator,
             text='',
             icon=iconName,
+            emboss=frame)
+
+    @classmethod
+    def drawTextButton(cls, enabled, layout, text, operator, frame=True):
+        col = layout.column()
+        col.enabled = enabled
+        bt = col.operator(operator,
+            text=text,
             emboss=frame)
 
 
@@ -227,10 +239,13 @@ class G3:
 
     @classmethod
     def orthoCenter(cls, fv):
-        h0 = G3.closestP2L(fv[0], fv[1], fv[2])
-        h1 = G3.closestP2L(fv[1], fv[0], fv[2])
-        #h2 = G3.closestP2L(fm[2], fm[0], fm[1])
-        return geometry.intersect_line_line (fv[0], h0, fv[1], h1)[0]
+        try:
+            h0 = G3.closestP2L(fv[0], fv[1], fv[2])
+            h1 = G3.closestP2L(fv[1], fv[0], fv[2])
+            #h2 = G3.closestP2L(fm[2], fm[0], fm[1])
+            return geometry.intersect_line_line (fv[0], h0, fv[1], h1)[0]
+        except(RuntimeError, TypeError):
+            return None
 
     @classmethod
     def circumCenter(cls, fv):
@@ -245,33 +260,70 @@ class G3:
     def closestP2CylinderAxis(cls, p, fv):
         n = G3.ThreePnormal(fv)
         c = G3.circumCenter(fv)
+        if(c==None):
+            return None
         return G3.closestP2L(p, c, c+n)
+
+    @classmethod
+    def centerOfSphere(cls, fv):
+        try:
+            if len(fv)==3:
+                return G3.circumCenter(fv)
+            if len(fv)==4:
+                fv3 = [fv[0],fv[1],fv[2]]
+                c1 = G3.circumCenter(fv)
+                n1 = G3.ThreePnormal(fv)
+                fv3 = [fv[1],fv[2],fv[3]]
+                c2 = G3.circumCenter(fv3)
+                n2 = G3.ThreePnormal(fv3)
+                d1 = c1+n1
+                d2 = c2+n2
+                return geometry.intersect_line_line (c1, d1, c2, d2)[0]
+        except(RuntimeError, TypeError):
+            return None
 
     @classmethod
     def closestP2Sphere(cls, p, fv):
         #print ("G3.closestP2Sphere")
-        c = G3.circumCenter(fv)
-        pc = p-c
-        if pc.length == 0:
-            pc = pc + Vector((1,0,0))
-        return c + (pc.normalize() * G3.distanceP2P(c, fv[0]))
+        try:
+            c = G3.centerOfSphere(fv)
+            if c==None:
+                return None
+            pc = p-c
+            if pc.length == 0:
+                pc = pc + Vector((1,0,0))
+            return c + (pc.normalize() * G3.distanceP2P(c, fv[0]))
+        except(RuntimeError, TypeError):
+            return None
 
     @classmethod
-    def closestP2Sphere4(cls, p, fv4):
+    def closestP2Cylinder(cls, p, fv):
         #print ("G3.closestP2Sphere")
-        fv = [fv4[0],fv4[1],fv4[2]]
-        c1 = G3.circumCenter(fv)
-        n1 = G3.ThreePnormal(fv)
-        fv = [fv4[1],fv4[2],fv4[3]]
-        c2 = G3.circumCenter(fv)
-        n2 = G3.ThreePnormal(fv)
-        d1 = c1+n1
-        d2 = c2+n2
-        c = geometry.intersect_line_line (c1, d1, c2, d2)[0]
+        c = G3.closestP2CylinderAxis(p, fv)
+        if c==None:
+            return None
+        r = (fv[0] - G3.centerOfSphere(fv)).length
         pc = p-c
         if pc.length == 0:
             pc = pc + Vector((1,0,0))
-        return c + (pc.normalize() * G3.distanceP2P(c, fv[0]))
+        return c + (pc.normalize() * r)
+
+    #@classmethod
+    #def closestP2Sphere4(cls, p, fv4):
+        ##print ("G3.closestP2Sphere")
+        #fv = [fv4[0],fv4[1],fv4[2]]
+        #c1 = G3.circumCenter(fv)
+        #n1 = G3.ThreePnormal(fv)
+        #fv = [fv4[1],fv4[2],fv4[3]]
+        #c2 = G3.circumCenter(fv)
+        #n2 = G3.ThreePnormal(fv)
+        #d1 = c1+n1
+        #d2 = c2+n2
+        #c = geometry.intersect_line_line (c1, d1, c2, d2)[0]
+        #pc = p-c
+        #if pc.length == 0:
+            #pc = pc + Vector((1,0,0))
+        #return c + (pc.normalize() * G3.distanceP2P(c, fv[0]))
 
 
 
