@@ -19,13 +19,13 @@
 bl_info = {
     'name': 'Archimedean Solids',
     'author': 'Buerbaum Martin (Pontiac)',
-    'version': (0,1),
-    'blender': (2, 5, 3),
-    'api': 31965,
+    'version': (0, 2, 0),
+    'blender': (2, 5, 6),
+    'api': 34385,
     'location': 'View3D > Add > Mesh > Archimedean Solids',
     'description': 'Adds various archimedean solids to the Add Mesh menu',
-    'wiki_url':'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
-        'Scripts/Add_Mesh/Archimedean_Solids',  # @todo write the page
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
+        'Scripts/Add_Mesh/Archimedean_Solids',  # @todo Write the page.
     'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
         'func=detail&aid=23479',
     'category': 'Add Mesh'}
@@ -35,12 +35,14 @@ from math import sqrt
 from mathutils import *
 from bpy.props import *
 
+
 def align_matrix(context):
     loc = Matrix.Translation(context.scene.cursor_location)
     obj_align = context.user_preferences.edit.object_align
     if (context.space_data.type == 'VIEW_3D'
         and obj_align == 'VIEW'):
-        rot = context.space_data.region_3d.view_matrix.rotation_part().invert().resize4x4()
+        viewmat = context.space_data.region_3d.view_matrix
+        rot = viewmat.rotation_part().invert().resize4x4()
     else:
         rot = Matrix()
     align_matrix = loc * rot
@@ -865,7 +867,7 @@ def add_truncated_cuboctahedron(
 
     verts = []
     faces = []
-    
+
     oside = octagon_side
 
     # Vertices of a simple Cube
@@ -906,7 +908,8 @@ def add_truncated_cuboctahedron(
     bevel_z = Vector((0.0, 0.0, -bevel_size))
 
     va, vb = subdivide_edge_2_cuts(verts_cube[0], verts_cube[1], oside)
-    va1, vb1 = va + Vector((-bevel_size, 0, 0)), vb + Vector((-bevel_size, 0, 0))
+    va1 = va + Vector((-bevel_size, 0, 0))
+    vb1 = vb + Vector((-bevel_size, 0, 0))
     va2, vb2 = va + bevel_z, vb + bevel_z
     va1_idx, vb1_idx = len(verts), len(verts) + 1
     va2_idx, vb2_idx = len(verts) + 2, len(verts) + 3
@@ -943,7 +946,8 @@ def add_truncated_cuboctahedron(
     hex_3_zp.extend([vb2_idx, vb1_idx])
 
     va, vb = subdivide_edge_2_cuts(verts_cube[3], verts_cube[0], oside)
-    va1, vb1 = va + Vector((0, -bevel_size, 0)), vb + Vector((0, -bevel_size, 0))
+    va1 = va + Vector((0, -bevel_size, 0))
+    vb1 = vb + Vector((0, -bevel_size, 0))
     va2, vb2 = va + bevel_z, vb + bevel_z
     va1_idx, vb1_idx = len(verts), len(verts) + 1
     va2_idx, vb2_idx = len(verts) + 2, len(verts) + 3
@@ -957,8 +961,10 @@ def add_truncated_cuboctahedron(
 
     # Top-down edges ####
     va, vb = subdivide_edge_2_cuts(verts_cube[0], verts_cube[4], oside)
-    va1, vb1 = va + Vector((-bevel_size, 0, 0)), vb + Vector((-bevel_size, 0, 0))
-    va2, vb2 = va + Vector((0, -bevel_size, 0)), vb + Vector((0, -bevel_size, 0))
+    va1 = va + Vector((-bevel_size, 0, 0))
+    vb1 = vb + Vector((-bevel_size, 0, 0))
+    va2 = va + Vector((0, -bevel_size, 0))
+    vb2 = vb + Vector((0, -bevel_size, 0))
     va1_idx, vb1_idx = len(verts), len(verts) + 1
     va2_idx, vb2_idx = len(verts) + 2, len(verts) + 3
     verts.extend([va1, vb1, va2, vb2])
@@ -971,8 +977,10 @@ def add_truncated_cuboctahedron(
     hex_0_zn.extend([vb1_idx, vb2_idx])
 
     va, vb = subdivide_edge_2_cuts(verts_cube[1], verts_cube[5], oside)
-    va1, vb1 = va + Vector((-bevel_size, 0, 0)), vb + Vector((-bevel_size, 0, 0))
-    va2, vb2 = va + Vector((0, bevel_size, 0)), vb + Vector((0, bevel_size, 0))
+    va1 = va + Vector((-bevel_size, 0, 0))
+    vb1 = vb + Vector((-bevel_size, 0, 0))
+    va2 = va + Vector((0, bevel_size, 0))
+    vb2 = vb + Vector((0, bevel_size, 0))
     va1_idx, vb1_idx = len(verts), len(verts) + 1
     va2_idx, vb2_idx = len(verts) + 2, len(verts) + 3
     verts.extend([va1, vb1, va2, vb2])
@@ -1000,7 +1008,8 @@ def add_truncated_cuboctahedron(
 
     va, vb = subdivide_edge_2_cuts(verts_cube[3], verts_cube[7], oside)
     va1, vb1 = va + Vector((bevel_size, 0, 0)), vb + Vector((bevel_size, 0, 0))
-    va2, vb2 = va + Vector((0, -bevel_size, 0)), vb + Vector((0, -bevel_size, 0))
+    va2 = va + Vector((0, -bevel_size, 0))
+    vb2 = vb + Vector((0, -bevel_size, 0))
     va1_idx, vb1_idx = len(verts), len(verts) + 1
     va2_idx, vb2_idx = len(verts) + 2, len(verts) + 3
     verts.extend([va1, vb1, va2, vb2])
@@ -1011,12 +1020,13 @@ def add_truncated_cuboctahedron(
     quad_37 = [va1_idx, vb1_idx, vb2_idx, va2_idx]
     hex_3_zp.extend([va1_idx, va2_idx])
     hex_3_zn.extend([vb1_idx, vb2_idx])
-    
+
     # Bottom edges ####
     bevel_z = Vector((0.0, 0.0, bevel_size))
 
     va, vb = subdivide_edge_2_cuts(verts_cube[4], verts_cube[5], oside)
-    va1, vb1 = va + Vector((-bevel_size, 0, 0)), vb + Vector((-bevel_size, 0, 0))
+    va1 = va + Vector((-bevel_size, 0, 0))
+    vb1 = vb + Vector((-bevel_size, 0, 0))
     va2, vb2 = va + bevel_z, vb + bevel_z
     va1_idx, vb1_idx = len(verts), len(verts) + 1
     va2_idx, vb2_idx = len(verts) + 2, len(verts) + 3
@@ -1055,7 +1065,8 @@ def add_truncated_cuboctahedron(
     hex_3_zn.extend([vb2_idx, vb1_idx])
 
     va, vb = subdivide_edge_2_cuts(verts_cube[7], verts_cube[4], oside)
-    va1, vb1 = va + Vector((0, -bevel_size, 0)), vb + Vector((0, -bevel_size, 0))
+    va1 = va + Vector((0, -bevel_size, 0))
+    vb1 = vb + Vector((0, -bevel_size, 0))
     va2, vb2 = va + bevel_z, vb + bevel_z
     va1_idx, vb1_idx = len(verts), len(verts) + 1
     va2_idx, vb2_idx = len(verts) + 2, len(verts) + 3
@@ -1099,7 +1110,7 @@ def add_truncated_cuboctahedron(
 
         verts, faces_star = get_polygon_center(verts, ngons)
         faces.extend(faces_star)
-        
+
         # Create stars from hexagons.
         # @todo
 
@@ -1116,7 +1127,7 @@ def add_truncated_cuboctahedron(
             # orthagonal edges. Superficial change - Could be omitted.
             oct_quads = ngon_fill(ngon, offset=1)
             faces.extend(oct_quads)
-        
+
         # Create quads from hexagons.
         ngons = [hex_0_zp, hex_1_zp, hex_2_zp, hex_3_zp]
         for ngon in ngons:
@@ -1143,11 +1154,6 @@ class AddTruncatedTetrahedron(bpy.types.Operator):
     bl_description = 'Create a mesh for a truncated tetrahedron.'
     bl_options = {'REGISTER', 'UNDO'}
 
-    # edit - Whether to add or update.
-    edit = BoolProperty(name='',
-        description='',
-        default=False,
-        options={'HIDDEN'})
     hexagon_side = FloatProperty(name='Hexagon Side',
         description='One length of the hexagon side' \
             ' (on the original tetrahedron edge).',
@@ -1160,18 +1166,16 @@ class AddTruncatedTetrahedron(bpy.types.Operator):
     align_matrix = Matrix()
 
     def execute(self, context):
-        props = self.properties
 
         verts, faces = add_truncated_tetrahedron(
-            props.hexagon_side,
-            props.star_ngons)
+            self.hexagon_side,
+            self.star_ngons)
 
         if not verts:
             return {'CANCELLED'}
 
         obj = create_mesh_object(context, verts, [], faces,
-            'TrTetrahedron', props.edit, self.align_matrix)
-
+            'TrTetrahedron', False, self.align_matrix)
 
         return {'FINISHED'}
 
@@ -1188,11 +1192,6 @@ class AddCuboctahedron(bpy.types.Operator):
     bl_description = 'Create a mesh for a cuboctahedron (or truncated cube).'
     bl_options = {'REGISTER', 'UNDO'}
 
-    # edit - Whether to add or update.
-    edit = BoolProperty(name='',
-        description='',
-        default=False,
-        options={'HIDDEN'})
     octagon_side = FloatProperty(name='Octagon Side',
         description='One length of the octagon side' \
             ' (on the original cube edge).' \
@@ -1206,16 +1205,16 @@ class AddCuboctahedron(bpy.types.Operator):
     align_matrix = Matrix()
 
     def execute(self, context):
-        props = self.properties
 
         verts, faces, name = add_cuboctahedron(
-            props.octagon_side,
-            props.star_ngons)
+            self.octagon_side,
+            self.star_ngons)
 
         if not verts:
             return {'CANCELLED'}
 
-        obj = create_mesh_object(context, verts, [], faces, name, props.edit, self.align_matrix)
+        obj = create_mesh_object(context, verts, [], faces,
+            name, False, self.align_matrix)
 
         return {'FINISHED'}
 
@@ -1232,11 +1231,6 @@ class AddRhombicuboctahedron(bpy.types.Operator):
     bl_description = 'Create a mesh for a rhombicuboctahedron.'
     bl_options = {'REGISTER', 'UNDO'}
 
-    # edit - Whether to add or update.
-    edit = BoolProperty(name='',
-        description='',
-        default=False,
-        options={'HIDDEN'})
     quad_size = FloatProperty(name="Quad Size",
         description="Size of the orthogonal quad faces.",
         min=0.01,
@@ -1245,16 +1239,14 @@ class AddRhombicuboctahedron(bpy.types.Operator):
     align_matrix = Matrix()
 
     def execute(self, context):
-        props = self.properties
 
-        verts, faces = add_rhombicuboctahedron(props.quad_size)
+        verts, faces = add_rhombicuboctahedron(self.quad_size)
 
         if not verts:
             return {'CANCELLED'}
 
         obj = create_mesh_object(context, verts, [], faces,
-            'Rhombicuboctahedron', props.edit, self.align_matrix)
-
+            'Rhombicuboctahedron', False, self.align_matrix)
 
         return {'FINISHED'}
 
@@ -1271,11 +1263,6 @@ class AddTruncatedOctahedron(bpy.types.Operator):
     bl_description = 'Create a mesh for a truncated octahedron.'
     bl_options = {'REGISTER', 'UNDO'}
 
-    # edit - Whether to add or update.
-    edit = BoolProperty(name='',
-        description='',
-        default=False,
-        options={'HIDDEN'})
     hexagon_side = FloatProperty(name='Hexagon Side',
         description='One length of the hexagon side' \
             ' (on the original octahedron edge).',
@@ -1288,17 +1275,16 @@ class AddTruncatedOctahedron(bpy.types.Operator):
     align_matrix = Matrix()
 
     def execute(self, context):
-        props = self.properties
 
         verts, faces = add_truncated_octahedron(
-            props.hexagon_side,
-            props.star_ngons)
+            self.hexagon_side,
+            self.star_ngons)
 
         if not verts:
             return {'CANCELLED'}
 
         obj = create_mesh_object(context, verts, [], faces,
-            'TrOctahedron', props.edit, self.align_matrix)
+            'TrOctahedron', False, self.align_matrix)
 
         return {'FINISHED'}
 
@@ -1315,11 +1301,6 @@ class AddTruncatedCuboctahedron(bpy.types.Operator):
     bl_description = 'Create a mesh for a truncated cuboctahedron.'
     bl_options = {'REGISTER', 'UNDO'}
 
-    # edit - Whether to add or update.
-    edit = BoolProperty(name='',
-        description='',
-        default=False,
-        options={'HIDDEN'})
     octagon_size = FloatProperty(name='Octagon Size',
         description='The size (height/width) of the octagon.',
         min=0.02,
@@ -1337,18 +1318,17 @@ class AddTruncatedCuboctahedron(bpy.types.Operator):
     align_matrix = Matrix()
 
     def execute(self, context):
-        props = self.properties
 
         verts, faces = add_truncated_cuboctahedron(
-            props.octagon_size,
-            props.octagon_side,
-            props.star_ngons)
+            self.octagon_size,
+            self.octagon_side,
+            self.star_ngons)
 
         if not verts:
             return {'CANCELLED'}
 
         obj = create_mesh_object(context, verts, [], faces,
-            'TrCuboctahedron', props.edit, self.align_matrix)
+            'TrCuboctahedron', False, self.align_matrix)
 
         return {'FINISHED'}
 
