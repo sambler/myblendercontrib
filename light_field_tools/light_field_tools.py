@@ -87,7 +87,7 @@ TODO:
 class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
     """Create a lightfield rig based on the active object/mesh"""
     bl_idname="object.create_lightfield_rig"
-    bl_label="Create a lightfield rig based on the active object/mesh"
+    bl_label="Create a light field rig based on the active object/mesh"
     bl_options = {'REGISTER'}
 
     layer0 = [True] + [False]*19

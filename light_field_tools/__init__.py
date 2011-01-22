@@ -20,8 +20,8 @@
 bl_addon_info = {
     'name': 'Light Field Tools',
     'author': 'Aurel Wildfellner',
-    'description': 'Tools to create a lightfield camera and projector',
-    'version': (0,1,4),
+    'description': 'Tools to create a light field camera and projector',
+    'version': (0,2,0),
     'blender': (2, 5, 3),
     'api': 34456,
     'location': 'View3D > Tool Shelf > Light Field Tools',
