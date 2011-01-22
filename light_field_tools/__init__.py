@@ -1,4 +1,3 @@
-
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -17,6 +16,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+
 bl_addon_info = {
     'name': 'Light Field Tools',
     'author': 'Aurel Wildfellner',
@@ -31,6 +31,7 @@ bl_addon_info = {
     'category': 'Render'
 }
 
+
 if "bpy" in locals():
     import imp
     imp.reload(light_field_tools)
@@ -38,7 +39,7 @@ else:
     from . import light_field_tools
 
 import bpy
-from bpy.props import *
+
 
 def register():
     pass
