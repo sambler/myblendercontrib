@@ -1,0 +1,414 @@
+# ##### BEGIN GPL LICENSE BLOCK #####
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ##### END GPL LICENSE BLOCK #####
+
+import bpy
+from bpy.props import *
+
+import os
+import math
+
+import mathutils
+
+__bpydoc__ = """
+Light Field Tools
+
+This script helps setting up rendering of lightfields. It
+also supports the projection of lightfields with textured
+spotlights.
+
+Usage:
+A simple interface can be accessed in the tool shelf panel 
+in 3D View ([T] Key).
+
+A base mesh has to be provided, which will normaly be a
+subdivided plane. The script will then create a camera rig
+and a light rig with adjustable properties. A sample camera
+and a spotlight will be created on each vertex of the
+basemesh object axis (maybe vertex normal in future 
+versions).
+
+    Vertex order:
+        The user has to provide the number of cameras or
+        lights in one row in an unevenly spaced grid, the
+        basemesh. Then the right vertex order can be
+        computed as shown here.
+         6-7-8
+         | | |
+       ^ 3-4-5
+       | | | |
+       y 0-1-2
+         x->
+
+There is also a tool to create a basemesh, which is an
+evenly spaced grid. The row length parameter is taken to 
+construct such a NxN grid. Someone would start out by adding
+a rectengular plane as the slice plane of the frustrum of
+the most middle camera of the light field rig. The spacing
+parameter then places the other cameras in a way, so they
+have an offset of n pixels from the other camera on this
+plane.
+
+
+Version history:
+v0.2.0 - To be included in contrib, r34456
+v0.1.4 - To work with r34261
+v0.1.3 - Fixed base mesh creation for r29998
+v0.1.2 - Minor fixes, working with r29994
+v0.1.1 - Basemesh from focal plane.
+v0.1.0 - API updates, draft done.
+v0.0.4 - Texturing.
+v0.0.3 - Creates an array of non textured spotlights.
+v0.0.2 - Renders lightfields.
+v0.0.1 - Initial version.
+
+TODO:
+* Restore view after primary camera is changed.
+* Apply object matrix to normals.
+* Allign to normals, somehow,....
+* StringPropertie with PATH tag, for proper ui.
+"""
+
+
+class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
+    """Create a lightfield rig based on the active object/mesh"""
+    bl_idname="object.create_lightfield_rig"
+    bl_label="Create a light field rig based on the active object/mesh"
+    bl_options = {'REGISTER'}
+
+    layer0 = [True] + [False]*19
+
+    numSamples = 0
+    baseObject = None
+    verts = []
+    imagePaths = []
+
+
+    def arrangeVerts(self):
+        """Sorts the vertices as described in the usage part of the doc."""
+        # get mesh with applied modifer stack
+        scene = bpy.context.scene
+        mesh = self.baseObject.create_mesh(scene, True, "PREVIEW")
+        verts = []
+        row_length = scene.lightfield_row_length
+
+        for vert in mesh.vertices:
+            # world/parent origin
+            co = vert.co * self.baseObject.matrix_local
+            normal = vert.normal
+            verts.append([co, normal])
+
+        def key_x(v):
+            return v[0][0]
+        def key_y(v):
+            return v[0][1]
+        verts.sort(key=key_y)
+        sorted_verts = []
+        for i in range(0, len(verts), row_length):
+            row = verts[i:i+row_length]
+            row.sort(key=key_x)
+            sorted_verts.extend(row)
+
+        return sorted_verts
+
+
+    def createCamera(self):
+        scene = bpy.context.scene
+
+        bpy.ops.object.camera_add(layers=self.layer0)
+        cam = bpy.context.active_object
+        cam.name = "light_field_camera"
+        # set props
+        cam.data.angle = scene.lightfield_angle
+        # set as primary camera
+        bpy.ops.view3d.object_as_camera()
+
+        ### animate ###
+        scene.frame_current = 0
+
+        for frame, vert in enumerate(self.verts):
+            scene.frame_current = frame
+            # translate
+            cam.location = vert[0]
+            # rotation
+            cam.rotation_euler = self.baseObject.rotation_euler
+            # insert LocRot keyframes 
+            cam.keyframe_insert('location')
+        
+        # set anim render props
+        scene.frame_current = 0
+        scene.frame_start = 0
+        scene.frame_end = self.numSamples-1
+
+
+    def getImagePaths(self):
+        path = bpy.context.scene.lightfield_texture_path
+        if not os.path.isdir(path):
+            return False
+        files = os.listdir(path)
+        if not len(files) == self.numSamples:
+            return False
+        files.sort()
+        self.imagePaths = list(map(lambda f : os.path.join(path, f), files))
+        return True
+
+
+    def createTexture(self, index):
+        name = "light_field_spot_tex_" + str(index)
+        tex = bpy.data.textures.new(name)
+        # change type
+        tex.type = 'IMAGE'
+        tex = tex.recast_type()
+
+        # load and set the image
+        img = bpy.data.images.new("lfe_str_" + str(index))
+        img.filepath = self.imagePaths[index]
+        img.source = 'FILE'
+        tex.image = img
+
+        return tex
+
+
+    def createSpot(self, index, textured=False):
+        scene = bpy.context.scene
+        bpy.ops.object.lamp_add(
+                type='SPOT', 
+                layers=self.layer0)
+        spot = bpy.context.active_object
+
+        # set object props
+        spot.name = "light_field_spot_" + str(index)
+
+        # set constants
+        spot.data.use_square = True
+        spot.data.shadow_method = "RAY_SHADOW"
+        # FIXME
+        spot.data.distance = 10
+
+        # set spot props 
+        spot.data.energy = scene.lightfield_light_intensity / self.numSamples
+        spot.data.spot_size = scene.lightfield_angle
+        spot.data.spot_blend = scene.lightfield_light_spot_blend
+
+        # add texture
+        if textured:
+            spot.data.active_texture = self.createTexture(index)
+            # texture mapping
+            spot.data.texture_slots[0].texture_coordinates = 'VIEW'
+
+        return spot
+
+
+    def createLightfieldEmitter(self, textured=False):
+        for i, vert in enumerate(self.verts):
+            spot = self.createSpot(i, textured)
+            spot.location = vert[0]
+            spot.rotation_euler = self.baseObject.rotation_euler
+
+
+    def execute(self, context):
+        obj = self.baseObject = context.active_object
+        if not obj or obj.type != 'MESH':
+            return
+
+        self.verts = self.arrangeVerts()
+        self.numSamples = len(self.verts)
+
+        if bpy.context.scene.lightfield_do_camera:
+            self.createCamera()
+
+        if bpy.context.scene.lightfield_do_projection:
+            if self.getImagePaths():
+                self.createLightfieldEmitter(textured=True)
+            else:
+                self.createLightfieldEmitter(textured=False)
+
+        return 'FINISHED'
+   
+
+
+
+class OBJECT_OT_create_lightfield_basemesh(bpy.types.Operator): 
+    """Creates a basemsh from the selected focal plane"""
+    bl_idname="object.create_lightfield_basemesh"
+    bl_label="Create a basemesh from the selected focal plane"
+    bl_options = {'REGISTER'}
+    
+    objName = "lf_basemesh"
+
+
+    def getWidth(self, obj):
+        mat = obj.matrix_local
+        mesh = obj.data
+        v0 = mesh.vertices[mesh.edges[0].vertices[0]].co * mat
+        v1 = mesh.vertices[mesh.edges[0].vertices[1]].co * mat
+        return (v0-v1).length
+
+
+    def getCamVec(self, obj, angle):
+        width = self.getWidth(obj)
+        mat = obj.matrix_local.copy()
+        itmat = mat.invert().transpose()
+        normal = (obj.data.faces[0].normal * itmat).normalize()
+        vl = (width/2) * (1/math.tan(math.radians(angle/2)))
+        return normal*vl
+
+
+    def addMeshObj(self, mesh):
+        scene = bpy.context.scene
+                
+        for o in scene.objects:
+            o.select = False 
+                
+        mesh.update()
+        nobj = bpy.data.objects.new(self.objName, mesh)
+        scene.objects.link(nobj)
+        nobj.select = True 
+                
+        if scene.objects.active == None or scene.objects.active.mode == 'OBJECT':
+            scene.objects.active = nobj
+
+
+    def execute(self, context):
+        scene = context.scene
+        obj = context.active_object
+        if not obj or obj.type != 'MESH':
+            return
+
+        rl = scene.lightfield_row_length
+        # use a degree angle here
+        angle = math.degrees(scene.lightfield_angle)
+        spacing = scene.lightfield_spacing
+        # resolution of final renderings
+        res = round(scene.render.resolution_x * (scene.render.resolution_percentage/100.))
+        width = self.getWidth(obj)
+
+        # the offset between n pixels on the focal plane
+        fplane_offset = (width/res) * spacing
+
+        # vertices for the basemesh
+        verts = []
+        # the offset vector
+        vec = self.getCamVec(obj, angle)
+        # lower left coordinates of the grid
+        sx = obj.location[0] - fplane_offset * int(rl/2)
+        sy = obj.location[1] - fplane_offset * int(rl/2)
+        z = obj.location[2]
+        # position on the focal plane
+        fplane_pos = mathutils.Vector()
+        for x in [sx + fplane_offset*i for i in range(rl)]:
+            for y in [sy + fplane_offset*i for i in range(rl)]:
+                fplane_pos.x = x
+                fplane_pos.y = y
+                fplane_pos.z = z
+                # position of a vertex in a basemesh
+                pos = fplane_pos + vec
+                # pack coordinates flat into the vert list
+                verts.append( (pos.x, pos.y, pos.z) )
+
+        # setup the basemesh and add verts
+        mesh = bpy.data.meshes.new(self.objName)
+        mesh.from_pydata(verts, [], [])
+        self.addMeshObj(mesh)
+
+        return 'FINISHED'
+        
+
+
+
+class VIEW3D_OT_lightfield_tools(bpy.types.Panel):
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_context = "objectmode"
+    bl_label = "Light Field Tools"
+
+    def draw(self, context):
+        scene = context.scene
+
+        # define properties for settings
+        bpy.types.Scene.lightfield_angle = FloatProperty(
+                name="Angle",
+                # 40 degrees
+                default=0.69813170079,
+                min=0,
+                # 172 degrees
+                max=3.001966313430247,
+                precision=2,
+                subtype = 'ANGLE',
+                description="Field of view of camera and angle of beam for spotlights")
+        bpy.types.Scene.lightfield_row_length = IntProperty(
+                name="Row Length",
+                default=1,
+                min=1,
+                description="The number of cameras/lights in one row")
+        bpy.types.Scene.lightfield_do_camera = BoolProperty(
+                name="Create Camera",
+                default=True,
+                description="A light field camera is created")
+        bpy.types.Scene.lightfield_do_projection = BoolProperty(
+                name="Create Projector",
+                default=True,
+                description="A light field projector is created")
+        bpy.types.Scene.lightfield_texture_path = StringProperty(
+                name="Texture Path",
+                description="From this path textures for the spotlights will be loaded")
+        bpy.types.Scene.lightfield_light_intensity = FloatProperty(
+                name="Light Intensity",
+                default=2,
+                min=0,
+                precision=3,
+                description="Total intensity of all lamps")
+        # blending of the spotlights
+        bpy.types.Scene.lightfield_light_spot_blend =  FloatProperty(
+                name="Blend",
+                default=0,
+                min=0,
+                max=1,
+                precision=3,
+                description="Blending of the spotlights")
+        # spacing in pixels on the focal plane
+        bpy.types.Scene.lightfield_spacing = IntProperty(
+                name="Spacing",
+                default=10,
+                min=0,
+                description="The spacing in pixels between two cameras on the focal plane")
+
+        layout = self.layout
+        row = layout.row()
+        col = layout.column()
+
+        col.prop(scene, "lightfield_row_length")
+        col.prop(scene, "lightfield_angle")
+        
+        col.prop(scene, "lightfield_do_camera")
+        col.prop(scene, "lightfield_do_projection")
+
+        if (scene.lightfield_do_projection):
+            sub = layout.row()
+            subcol = sub.column(align=True)
+            subcol.prop(scene, "lightfield_texture_path")
+            subcol.prop(scene, "lightfield_light_intensity")
+            subcol.prop(scene, "lightfield_light_spot_blend")
+
+        # create a basemesh
+        sub = layout.row()
+        subcol = sub.column(align=True)
+        subcol.operator("object.create_lightfield_basemesh", "Create Base Grid")
+        subcol.prop(scene, "lightfield_spacing")
+
+        layout.operator("object.create_lightfield_rig", "Create Rig")
+
