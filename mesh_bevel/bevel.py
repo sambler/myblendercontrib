@@ -819,7 +819,7 @@ def bevel(ob, follow, type):
 
 class Bevel(bpy.types.Operator):
     bl_label = 'Bevel'
-    bl_idname = 'bevel'
+    bl_idname = 'mesh.bevel'
     bl_options = {'REGISTER', 'UNDO'}
 
     #bpy.data.window_managers['WinMan'].operators['Test'].v2
