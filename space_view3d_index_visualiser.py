@@ -23,7 +23,7 @@ bl_info = {
     'author': 'Bartius Crouch',
     'version': (2, 6, 5),
     'blender': (2, 5, 5),
-    'api': 33078,
+    'api': 34404,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
