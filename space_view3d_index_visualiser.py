@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 4),
+    'version': (2, 6, 5),
     'blender': (2, 5, 5),
-    'api': 33078,
+    'api': 34404,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -173,21 +173,26 @@ class IndexVisualiser(bpy.types.Operator):
 
 
 # properties used by the script
-def init_properties():
-    bpy.context.scene["display_indices"] = 0
-    bpy.types.Scene.display_sel_only = bpy.props.BoolProperty(
-        name="Selected only",
-        description="Only display indices of selected vertices/edges/faces",
-        default=True)
-    bpy.types.Scene.display_vert_index = bpy.props.BoolProperty(
-        name="Vertices",
-        description="Display vertex indices", default=True)
-    bpy.types.Scene.display_edge_index = bpy.props.BoolProperty(
-        name="Edges",
-        description="Display edge indices")
-    bpy.types.Scene.display_face_index = bpy.props.BoolProperty(
-        name="Faces",
-        description="Display face indices")
+class InitProperties(bpy.types.Operator):
+    bl_idname = "view3d.init_index_visualiser"
+    bl_label = "init properties for index visualiser"
+    
+    def execute(self, context):
+        bpy.context.scene["display_indices"] = 0
+        bpy.types.Scene.display_sel_only = bpy.props.BoolProperty(
+            name="Selected only",
+            description="Only display indices of selected vertices/edges/faces",
+            default=True)
+        bpy.types.Scene.display_vert_index = bpy.props.BoolProperty(
+            name="Vertices",
+            description="Display vertex indices", default=True)
+        bpy.types.Scene.display_edge_index = bpy.props.BoolProperty(
+            name="Edges",
+            description="Display edge indices")
+        bpy.types.Scene.display_face_index = bpy.props.BoolProperty(
+            name="Faces",
+            description="Display face indices")
+        return {'FINISHED'}
 
 
 # removal of ID-properties when script is disabled
@@ -212,12 +217,12 @@ def clear_properties(full=True):
 def menu_func(self, context):
     # initialise properties, if necessary
     if "display_indices" not in context.scene.keys():
-        init_properties()
+        bpy.ops.view3d.init_index_visualiser()
     props = ["display_vert_index", "display_edge_index",
             "display_face_index", "display_sel_only"]
     for p in props:
         if p not in bpy.types.Scene.bl_rna.properties:
-            init_properties()
+            bpy.ops.view3d.init_index_visualiser()
     
     self.layout.separator()
     col = self.layout.column(align=True)
