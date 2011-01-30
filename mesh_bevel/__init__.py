@@ -20,8 +20,8 @@ bl_info = {
     'name': 'Bevel',
     'author': 'chromoly',
     'version': (0, 2),
-    'blender': (2, 5, 3),
-    'api': 32116,
+    'blender': (2, 5, 6),
+    'api': 34530,
     'location': 'View3D > EditMode > Specials',
     'wiki_url': '',
     'category': 'Mesh'}
