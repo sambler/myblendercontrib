@@ -80,7 +80,7 @@ def calc_callback(self, context):
         for v in me.vertices:
             if not v.hide and \
             (v.select or not bpy.context.scene.display_sel_only):
-                locs.append([1.0, 1.0, 1.0, v.index, v.co.copy().resize4D()])
+                locs.append([1.0, 1.0, 1.0, v.index, v.co.to_4d()])
     if bpy.context.scene.display_edge_index:
         for ed in me.edges:
             if not ed.hide and \
@@ -89,12 +89,12 @@ def calc_callback(self, context):
                 v1 = me.vertices[v1].co.copy()
                 v2 = me.vertices[v2].co.copy()
                 loc = v1 + ((v2-v1)/2.0)
-                locs.append([1.0, 1.0, 0.0, ed.index, loc.resize4D()])
+                locs.append([1.0, 1.0, 0.0, ed.index, loc.resize_4d()])
     if bpy.context.scene.display_face_index:
         for f in me.faces:
             if not f.hide and \
             (f.select or not bpy.context.scene.display_sel_only):
-                locs.append([1.0, 0.0, 0.5, f.index, f.center.resize4D()])
+                locs.append([1.0, 0.0, 0.5, f.index, f.center.resize_4d()])
                 
     for loc in locs:
         vec = loc[4] * total_mat # order is important

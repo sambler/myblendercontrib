@@ -289,7 +289,7 @@ def world_to_window_coordinate(vec, pmat, sx, sy, size=3):
     window_pi = [v[0] * sx, v[1] * sy, v[2]]
     return window_pi
     '''
-    v = vec.copy().resize4D()
+    v = vec.to_4d()
     v = pmat * v
     if v[3] != 0.0:
         v /= v[3]
@@ -304,11 +304,11 @@ def window_to_world_coordinate(px, py, pmat, sx, sy, pz=0.):
     invpmat.invert()
     v = Math.Vector([float(px) * 2 / sx, float(py) * 2 / sy, pz])
     vec = v - Math.Vector([1., 1., 0.])
-    vec.resize4D()
+    vec.resize_4d()
     vec2 = invpmat * vec
     if vec2[3] != 0.0:
         vec2 /= vec2[3]
-    vec2.resize3D()
+    vec2.resize_3d()
     return vec2
 
 

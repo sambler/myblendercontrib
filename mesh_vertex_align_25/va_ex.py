@@ -191,7 +191,7 @@ def get_viewmat_and_viewname(context):
     1.world-coordinate: me.transform(ob.matrix)
     2a.empty-base-coordinate: me.transform(viewmat)
     2b.empty-base-coordinate: me.transform(emptymat.invert())
-    2Dvecs = [v.co.copy().resize2D() for v in me.vertices]
+    2Dvecs = [v.co.to_2d() for v in me.vertices]
     '''
 
     '''
@@ -200,7 +200,7 @@ def get_viewmat_and_viewname(context):
     ob_mat = context.active_object.matrix # object world space matrix
     total_mat = view_mat*ob_mat # combination of both matrices
 
-    loc = v.co.copy().resize4D() # location vector resized to 4 dimensions
+    loc = v.co.to_4d() # location vector resized to 4 dimensions
     vec = total_mat*loc # multiply vector with matrix
     vec = mathutils.Vector((vec[0]/vec[3],vec[1]/vec[3],vec[2]/vec[3])) # dehomogenise vector
 
