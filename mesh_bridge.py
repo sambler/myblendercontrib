@@ -19,9 +19,9 @@
 bl_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
-    'version': (1, 4, 6),
+    'version': (1, 4, 7),
     'blender': (2, 5, 7),
-    'api': 34254,
+    'api': 34674,
     'location': 'View3D > Ctrl+F > Bridge',
     'warning': '',
     'description': 'Bridge two, or loft several, loops of vertices.',
@@ -596,7 +596,7 @@ def calculate_virtual_vertex_normals(mesh, lines, loops, edge_faces, edgekey_to_
             if not values:
                 if (connected_center - (mesh.vertices[vertex].co + connection_vectors[vertex])).length < (connected_center - (mesh.vertices[vertex].co - connection_vectors[vertex])).length:
                     connection_vectors[vertex].negate()
-                vertex_normals[vertex] = [connection_vectors[vertex].normalize()]
+                vertex_normals[vertex] = [connection_vectors[vertex].normalized()]
                 continue
             
             # calculate vertex normals using edge-vectors, connection-vectors and the derived plane normal
