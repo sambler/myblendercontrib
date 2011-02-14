@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-bl_addon_info = {
+bl_info = {
     'name': 'Light Field Tools',
     'author': 'Aurel Wildfellner',
     'description': 'Tools to create a light field camera and projector',
@@ -42,10 +42,10 @@ import bpy
 
 
 def register():
-    pass
+    bpy.utils.register_module(__name__)
 
 def unregister():
-    pass
+    bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__":
     register()
