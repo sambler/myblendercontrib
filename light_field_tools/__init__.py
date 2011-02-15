@@ -22,7 +22,7 @@ bl_info = {
     'author': 'Aurel Wildfellner',
     'description': 'Tools to create a light field camera and projector',
     'version': (0, 2, 1),
-    'blender': (2, 5, 3),
+    'blender': (2, 5, 6),
     'api': 34843,
     'location': 'View3D > Tool Shelf > Light Field Tools',
     'url': 'http://www.jku.at/cg/',
