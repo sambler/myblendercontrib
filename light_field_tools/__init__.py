@@ -17,13 +17,13 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-bl_addon_info = {
+bl_info = {
     'name': 'Light Field Tools',
     'author': 'Aurel Wildfellner',
     'description': 'Tools to create a light field camera and projector',
-    'version': (0,2,0),
-    'blender': (2, 5, 3),
-    'api': 34456,
+    'version': (0, 2, 1),
+    'blender': (2, 5, 6),
+    'api': 34843,
     'location': 'View3D > Tool Shelf > Light Field Tools',
     'url': 'http://www.jku.at/cg/',
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Render/Light_Field_Tools",
@@ -42,10 +42,10 @@ import bpy
 
 
 def register():
-    pass
+    bpy.utils.register_module(__name__)
 
 def unregister():
-    pass
+    bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__":
     register()

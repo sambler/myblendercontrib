@@ -65,6 +65,7 @@ plane.
 
 
 Version history:
+v0.2.1 - Empty handler, multiple camera grid, r34843
 v0.2.0 - To be included in contrib, r34456
 v0.1.4 - To work with r34261
 v0.1.3 - Fixed base mesh creation for r29998
@@ -94,6 +95,7 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
 
     numSamples = 0
     baseObject = None
+    handler = None
     verts = []
     imagePaths = []
 
@@ -126,14 +128,23 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
         return sorted_verts
 
 
-    def createCamera(self):
+    def createCameraAnimated(self):
         scene = bpy.context.scene
 
         bpy.ops.object.camera_add(layers=self.layer0)
         cam = bpy.context.active_object
         cam.name = "light_field_camera"
+
         # set props
         cam.data.angle = scene.lightfield_angle
+
+        # display options of the camera
+        cam.data.lens_unit = 'DEGREES'
+
+        # handler parent
+        if scene.lightfield_create_handler:
+            cam.parent = self.handler
+
         # set as primary camera
         bpy.ops.view3d.object_as_camera()
 
@@ -153,6 +164,39 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
         scene.frame_current = 0
         scene.frame_start = 0
         scene.frame_end = self.numSamples-1
+
+
+    def createCameraMultiple(self):
+        scene = bpy.context.scene
+
+        for cam_idx, vert in enumerate(self.verts):
+            # add and name camera
+            bpy.ops.object.camera_add(layers=self.layer0)
+            cam = bpy.context.active_object
+            cam.name = "light_field_cam_" + str(cam_idx)
+
+            # translate
+            cam.location = vert[0]
+            # rotation
+            cam.rotation_euler = self.baseObject.rotation_euler
+
+            # set camera props
+            cam.data.angle = scene.lightfield_angle
+
+            # display options of the camera
+            cam.data.draw_size = 0.15
+            cam.data.lens_unit = 'DEGREES'
+
+            # handler parent
+            if scene.lightfield_create_handler:
+                cam.parent = self.handler
+
+
+    def createCamera(self):
+        if bpy.context.scene.lightfield_animate_camera:
+            self.createCameraAnimated()
+        else:
+            self.createCameraMultiple()
 
 
     def getImagePaths(self):
@@ -210,6 +254,10 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
             # texture mapping
             spot.data.texture_slots[0].texture_coordinates = 'VIEW'
 
+        # handler parent
+        if scene.lightfield_create_handler:
+            spot.parent = self.handler
+
         return spot
 
 
@@ -221,6 +269,8 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
 
 
     def execute(self, context):
+        scene = context.scene
+
         obj = self.baseObject = context.active_object
         if not obj or obj.type != 'MESH':
             return
@@ -228,10 +278,18 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
         self.verts = self.arrangeVerts()
         self.numSamples = len(self.verts)
 
-        if bpy.context.scene.lightfield_do_camera:
+        if scene.lightfield_create_handler:
+            #create an empty 
+            bpy.ops.object.add(type='EMPTY')
+            empty = bpy.context.active_object
+            empty.location = self.baseObject.location
+            empty.rotation_euler = self.baseObject.rotation_euler
+            self.handler = empty
+
+        if scene.lightfield_do_camera:
             self.createCamera()
 
-        if bpy.context.scene.lightfield_do_projection:
+        if scene.lightfield_do_projection:
             if self.getImagePaths():
                 self.createLightfieldEmitter(textured=True)
             else:
@@ -355,10 +413,18 @@ class VIEW3D_OT_lightfield_tools(bpy.types.Panel):
                 default=1,
                 min=1,
                 description="The number of cameras/lights in one row")
+        bpy.types.Scene.lightfield_create_handler = BoolProperty(
+                name="Handler",
+                default=True,
+                description="Creates an empty object, to which the cameras and spotlights are parent to")
         bpy.types.Scene.lightfield_do_camera = BoolProperty(
                 name="Create Camera",
                 default=True,
                 description="A light field camera is created")
+        bpy.types.Scene.lightfield_animate_camera = BoolProperty(
+                name="Animate Camera",
+                default=True,
+                description="Animates a single camera, so not multiple cameras get created")
         bpy.types.Scene.lightfield_do_projection = BoolProperty(
                 name="Create Projector",
                 default=True,
@@ -393,8 +459,11 @@ class VIEW3D_OT_lightfield_tools(bpy.types.Panel):
 
         col.prop(scene, "lightfield_row_length")
         col.prop(scene, "lightfield_angle")
+
+        col.prop(scene, "lightfield_create_handler")
         
         col.prop(scene, "lightfield_do_camera")
+        col.prop(scene, "lightfield_animate_camera")
         col.prop(scene, "lightfield_do_projection")
 
         if (scene.lightfield_do_projection):

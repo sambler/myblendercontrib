@@ -21,9 +21,9 @@ END GPL LICENCE BLOCK
 bl_info = {
     "name": "Edge tools : tinyCAD VTX",
     "author": "zeffii",
-    "version": (0,4,3),
+    "version": (0, 5, 1),
     "blender": (2, 5, 6),
-    "api": 34647,
+    "api": 34840,
     "category": "Mesh",
     "location": "View3D > EditMode > (w) Specials",
     "warning": "Still under development, bug reports appreciated",
@@ -37,8 +37,8 @@ bl_info = {
 parts based on Keith (Wahooney) Boshoff, cursor to intersection script and
 Paul Bourke's Shortest Line Between 2 lines, and thanks to PKHG from BA.org
 for attempting to explain things to me that i'm not familiar with.
-TODO: [ ] allow multi selection ( > 2 ) for Slice/Weld intersection mode 
-TODO: [ ] streamline this code ! 
+TODO: [ ] allow multi selection ( > 2 ) for Slice/Weld intersection mode
+TODO: [ ] streamline this code !
 
 1) Edge Extend To Edge ( T )
 2) Edge Slice Intersecting ( X )
@@ -96,7 +96,7 @@ def checkEdges(Edge, obj):
     point = ((line[0] + line[1]) / 2) # or point = line[0]
     return point
 
-#   returns (object, number of verts, number of edges)
+#   returns (object, number of verts, number of edges) && object mode == True
 def GetActiveObject():
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.delete(type='EDGE') # removes edges + verts
@@ -139,60 +139,50 @@ def ExtendEdge(vX, outer_points, count):
     oe.add(4)
     # Candidate for serious optimization.
     if isPointOnEdge(vX, vA, vB):
-        oe[edge_count].vertices = [vert_count,vert_count+1]
-        oe[edge_count+1].vertices = [vert_count,vert_count+2]
+        oe[edge_count].vertices = [vert_count, vert_count+1]
+        oe[edge_count+1].vertices = [vert_count, vert_count+2]
         # find which of C and D is farthest away from X
         if mDist(vD, vX) > mDist(vC, vX):
-            oe[edge_count+2].vertices = [vert_count,vert_count+3]
-            oe[edge_count+3].vertices = [vert_count+3,vert_count+4]
+            oe[edge_count+2].vertices = [vert_count, vert_count+3]
+            oe[edge_count+3].vertices = [vert_count+3, vert_count+4]
         if mDist(vC, vX) > mDist(vD, vX):
-            oe[edge_count+2].vertices = [vert_count,vert_count+4]
-            oe[edge_count+3].vertices = [vert_count+3,vert_count+4]
+            oe[edge_count+2].vertices = [vert_count, vert_count+4]
+            oe[edge_count+3].vertices = [vert_count+3, vert_count+4]
 
     if isPointOnEdge(vX, vC, vD):
-        oe[edge_count].vertices = [vert_count,vert_count+3]
-        oe[edge_count+1].vertices = [vert_count,vert_count+4]
+        oe[edge_count].vertices = [vert_count, vert_count+3]
+        oe[edge_count+1].vertices = [vert_count, vert_count+4]
         # find which of A and B is farthest away from X 
         if mDist(vB, vX) > mDist(vA, vX):
-            oe[edge_count+2].vertices = [vert_count,vert_count+1]
-            oe[edge_count+3].vertices = [vert_count+1,vert_count+2]
+            oe[edge_count+2].vertices = [vert_count, vert_count+1]
+            oe[edge_count+3].vertices = [vert_count+1, vert_count+2]
         if mDist(vA, vX) > mDist(vB, vX):
-            oe[edge_count+2].vertices = [vert_count,vert_count+2]
-            oe[edge_count+3].vertices = [vert_count+1,vert_count+2]
+            oe[edge_count+2].vertices = [vert_count, vert_count+2]
+            oe[edge_count+3].vertices = [vert_count+1, vert_count+2]
 
 
 #   ProjectGeometry is used to extend two edges to their intersection point.
 def ProjectGeometry(vX, opoint):
 
-    def closest_vert(X, A, B):
+    def return_distance_checked(X, A, B):
         dist1 = mDist(X, A)
         dist2 = mDist(X, B)
         point_choice = min(dist1, dist2)
-        if point_choice == dist1: return A
-        else: return B
-
-    def furthest_vert(X, A, B):
-        dist1 = mDist(X, A)
-        dist2 = mDist(X, B)
-        point_choice = max(dist1, dist2)
-        if point_choice == dist1: return A
-        else: return B
+        if point_choice == dist1: return A, B
+        else: return B, A
 
     (o, vert_count, edge_count) =  GetActiveObject()
-    vA = closest_vert(vX, Vector((opoint[0][0])),Vector((opoint[0][1])))    # A
-    vB = furthest_vert(vX, Vector((opoint[0][0])),Vector((opoint[0][1])))   # B
-    vC = closest_vert(vX, Vector((opoint[1][0])),Vector((opoint[1][1])))    # C
-    vD = furthest_vert(vX, Vector((opoint[1][0])),Vector((opoint[1][1])))   # D
+    vA, vB = return_distance_checked(vX, Vector((opoint[0][0])), Vector((opoint[0][1])))
+    vC, vD = return_distance_checked(vX, Vector((opoint[1][0])), Vector((opoint[1][1])))
     AddVertsToObject(vert_count, o, vX, vA, vB, vC, vD)
 
     oe = o.data.edges
     oe.add(4)
     oe[edge_count].vertices = [vert_count, vert_count+1]
     oe[edge_count+1].vertices = [vert_count, vert_count+3]
-    oe[edge_count+2].vertices = [vert_count+1,vert_count+2]
-    oe[edge_count+3].vertices = [vert_count+3,vert_count+4]
+    oe[edge_count+2].vertices = [vert_count+1, vert_count+2]
+    oe[edge_count+3].vertices = [vert_count+3, vert_count+4]
 
-## End business #########################################
 
 def getMeshMatrix(obj):
     is_editmode = (obj.mode == 'EDIT')
@@ -208,7 +198,7 @@ def getMeshMatrix(obj):
 
     edgenum = 0
     for edge_to_test in edges:
-        p1 = verts[edge_to_test.vertices[0]].co 
+        p1 = verts[edge_to_test.vertices[0]].co
         p2 = verts[edge_to_test.vertices[1]].co
         meshMatrix.append([Vector(p1),Vector(p2)])
         edgenum += 1
@@ -228,35 +218,35 @@ def runCleanUp():
     bpy.ops.mesh.select_all(action='TOGGLE')
     bpy.ops.mesh.select_all(action='TOGGLE')
     bpy.ops.mesh.remove_doubles(limit=VTX_PRECISION)
-    bpy.ops.mesh.select_all(action='TOGGLE')        #unselect all
+    bpy.ops.mesh.select_all(action='TOGGLE') #unselect all
 
 
 def initScriptV(context, self):
     obj = bpy.context.active_object
     meshMatrix = getMeshMatrix(obj)
     (vert_count, edge_count) = getVertEdgeCount()
-    
+
     #need 2 edges to be of any use.
     if len(meshMatrix) < 2: 
         print(str(len(meshMatrix)) +" select, make sure (only) 2 are selected")
         return
-        
+
     #dont go any further if the verts are not coplanar
     if checkIsMatrixCoplanar(meshMatrix): print("seems within tolerance, proceed")
     else: 
         print("check your geometry, or decrease tolerance value")
         return
 
-    #if we reach this point, the edges are coplanar
-    ## force edit mode
+    # if we reach this point, the edges are coplanar
+    # force edit mode
     bpy.ops.object.mode_set(mode='EDIT')
     vSel = bpy.context.active_object.data.total_vert_sel
 
     if checkEdges(meshMatrix, obj) == None: print("lines dont intersect")
     else:
-        count = CountPointOnEdges(checkEdges(meshMatrix, obj),meshMatrix)
+        count = CountPointOnEdges(checkEdges(meshMatrix, obj), meshMatrix)
         if count == 0:
-            ProjectGeometry(checkEdges(meshMatrix, obj),meshMatrix)
+            ProjectGeometry(checkEdges(meshMatrix, obj), meshMatrix)
             runCleanUp()
         else:
             print("The intersection seems to lie on 1 or 2 edges already")
@@ -272,10 +262,10 @@ def initScriptT(context, self):
     if len(meshMatrix) != 2:
         print(str(len(meshMatrix)) +" select 2 edges")
     else:
-        count = CountPointOnEdges(checkEdges(meshMatrix, obj),meshMatrix)
+        count = CountPointOnEdges(checkEdges(meshMatrix, obj), meshMatrix)
         if count == 1:
             print("Good, Intersection point lies on one of the two edges!")
-            ExtendEdge(checkEdges(meshMatrix, obj),meshMatrix, count)
+            ExtendEdge(checkEdges(meshMatrix, obj), meshMatrix, count)
             runCleanUp()    #neutral function, for removing potential doubles
         else:
             print("Intersection point not on chosen edges")
@@ -293,17 +283,21 @@ def initScriptX(context, self):
         if checkEdges(meshMatrix, obj) == None:
             print("lines dont intersect")
         else: 
-            count = CountPointOnEdges(checkEdges(meshMatrix, obj),meshMatrix)
+            count = CountPointOnEdges(checkEdges(meshMatrix, obj), meshMatrix)
             if count == 2:
-                makeGeometryWeld(checkEdges(meshMatrix, obj),meshMatrix)
+                makeGeometryWeld(checkEdges(meshMatrix, obj), meshMatrix)
                 runCleanUp()
-            
 
-class Edge_V(bpy.types.Operator):
-    '''Finds projected intersection'''
-    bl_idname = 'mesh.edges_v_intersection'
-    bl_label = 'Edge tools : tinyCAD VTX V'
+
+class EdgeIntersections(bpy.types.Operator):
+    '''Makes a weld/slice/extend to intersecting edges/lines'''
+    bl_idname = 'mesh.intersections'
+    bl_label = 'Edge tools : tinyCAD VTX'
     # bl_options = {'REGISTER', 'UNDO'}
+
+    mode = bpy.props.IntProperty(name = "Mode",
+                    description = "switch between intersection modes",
+                    default = 2)
 
     @classmethod
     def poll(self, context):
@@ -311,59 +305,29 @@ class Edge_V(bpy.types.Operator):
         return obj != None and obj.type == 'MESH'
 
     def execute(self, context):
-        initScriptV(context, self)
-        return {'FINISHED'}
-
-class Edge_T(bpy.types.Operator):
-    '''Finds intersection on edge'''
-    bl_idname = 'mesh.edges_t_intersection'
-    bl_label = 'Edge tools : tinyCAD VTX T'
-    # bl_options = {'REGISTER', 'UNDO'}
-        
-    @classmethod
-    def poll(self, context):
-        obj = context.active_object
-        return obj != None and obj.type == 'MESH'
-
-    def execute(self, context):
-        initScriptT(context, self)
-        return {'FINISHED'}
-        
-class Edge_X(bpy.types.Operator):
-    '''Makes a weld/slice on intersecting edges'''
-    bl_idname = 'mesh.edges_x_intersection'
-    bl_label = 'Edge tools : tinyCAD VTX X'
-    # bl_options = {'REGISTER', 'UNDO'}
-        
-    @classmethod
-    def poll(self, context):
-        obj = context.active_object
-        return obj != None and obj.type == 'MESH'
-
-    def execute(self, context):
-        initScriptX(context, self)
+        if self.mode == -1:
+            initScriptV(context, self)
+        if self.mode == 0:
+            initScriptT(context, self)
+        if self.mode == 1:
+            initScriptX(context, self)
+        if self.mode == 2:
+            print("something undefined happened, send me a test case!")
         return {'FINISHED'}
 
 
 def menu_func(self, context):
-    self.layout.operator(Edge_V.bl_idname, text="Edges V Intersection")
-
-def menu_func2(self, context):
-    self.layout.operator(Edge_T.bl_idname, text="Edges T Intersection")
-
-def menu_func3(self, context):
-    self.layout.operator(Edge_X.bl_idname, text="Edges X Intersection")
-
+    self.layout.operator(EdgeIntersections.bl_idname, text="Edges V Intersection").mode = -1
+    self.layout.operator(EdgeIntersections.bl_idname, text="Edges T Intersection").mode = 0
+    self.layout.operator(EdgeIntersections.bl_idname, text="Edges X Intersection").mode = 1
 
 def register():
-    bpy.types.VIEW3D_MT_edit_mesh_specials.append(menu_func) 
-    bpy.types.VIEW3D_MT_edit_mesh_specials.append(menu_func2)
-    bpy.types.VIEW3D_MT_edit_mesh_specials.append(menu_func3)
+    bpy.utils.register_class(EdgeIntersections)
+    bpy.types.VIEW3D_MT_edit_mesh_specials.append(menu_func)
 
 def unregister():
-    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func) 
-    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func2)
-    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func3)
+    bpy.utils.unregister_class(EdgeIntersections)
+    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
 
 if __name__ == "__main__":
     register()

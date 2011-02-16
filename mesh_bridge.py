@@ -19,9 +19,9 @@
 bl_info = {
     'name': 'Bridge',
     'author': 'Bartius Crouch',
-    'version': (1, 4, 6),
+    'version': (1, 4, 7),
     'blender': (2, 5, 7),
-    'api': 34254,
+    'api': 34674,
     'location': 'View3D > Ctrl+F > Bridge',
     'warning': '',
     'description': 'Bridge two, or loft several, loops of vertices.',
@@ -596,7 +596,7 @@ def calculate_virtual_vertex_normals(mesh, lines, loops, edge_faces, edgekey_to_
             if not values:
                 if (connected_center - (mesh.vertices[vertex].co + connection_vectors[vertex])).length < (connected_center - (mesh.vertices[vertex].co - connection_vectors[vertex])).length:
                     connection_vectors[vertex].negate()
-                vertex_normals[vertex] = [connection_vectors[vertex].normalize()]
+                vertex_normals[vertex] = [connection_vectors[vertex].normalized()]
                 continue
             
             # calculate vertex normals using edge-vectors, connection-vectors and the derived plane normal
@@ -893,7 +893,7 @@ def recalculate_normals():
 
 
 # operator class
-class bridge(bpy.types.Operator):
+class MeshBridge(bpy.types.Operator):
     bl_idname = 'mesh.bridge'
     bl_label = "Bridge / Loft"
     bl_description = "Bridge two, or loft several, loops of vertices"
@@ -1021,17 +1021,19 @@ class bridge(bpy.types.Operator):
 
 # draw function for menu integration
 def menu_func(self, context):
-    self.layout.operator("mesh.bridge", text = "Bridge").loft = False
-    self.layout.operator("mesh.bridge", text = "Loft").loft = True
+    self.layout.operator(MeshBridge.bl_idname, text="Bridge").loft = False
+    self.layout.operator(MeshBridge.bl_idname, text="Loft").loft = True
 
 
 # integrate operator in menu
 def register():
+    bpy.utils.register_class(MeshBridge)
     bpy.types.VIEW3D_MT_edit_mesh_faces.prepend(menu_func)
 
 
 # remove operator from menu
 def unregister():
+    bpy.utils.unregister_class(MeshBridge)
     bpy.types.VIEW3D_MT_edit_mesh_faces.remove(menu_func)
 
 
