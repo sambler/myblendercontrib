@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 5),
-    'blender': (2, 5, 5),
-    'api': 34404,
+    'version': (2, 6, 6),
+    'blender': (2, 5, 6),
+    'api': 34958,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -215,15 +215,6 @@ def clear_properties(full=True):
 
 # defining the panel
 def menu_func(self, context):
-    # initialise properties, if necessary
-    if "display_indices" not in context.scene.keys():
-        bpy.ops.view3d.init_index_visualiser()
-    props = ["display_vert_index", "display_edge_index",
-            "display_face_index", "display_sel_only"]
-    for p in props:
-        if p not in bpy.types.Scene.bl_rna.properties:
-            bpy.ops.view3d.init_index_visualiser()
-    
     self.layout.separator()
     col = self.layout.column(align=True)
     col.operator(IndexVisualiser.bl_idname, text="Visualise indices")
@@ -240,10 +231,15 @@ def menu_func(self, context):
 
 
 def register():
+    bpy.utils.register_class(IndexVisualiser)
+    bpy.utils.register_class(InitProperties)
+    bpy.ops.view3d.init_index_visualiser()
     bpy.types.VIEW3D_PT_view3d_meshdisplay.append(menu_func)
 
 
 def unregister():
+    bpy.utils.unregister_class(IndexVisualiser)
+    bpy.utils.unregister_class(InitProperties)
     clear_properties()
     bpy.types.VIEW3D_PT_view3d_meshdisplay.remove(menu_func)
 
