@@ -67,7 +67,7 @@ def triangle_normal(vec1, vec2, vec3):
     e2 = vec3 - vec2
 
     n = e2.cross(e1)
-    vec = n.normalize()
+    vec = n.normalized()
 
     return vec
 
@@ -81,7 +81,7 @@ def axis_angle_to_quat(axis, angle, deg=False):
     q = Math.Quaternion([1.0, 0.0, 0.0, 0.0])
     if axis.length == 0.0:
         return None
-    nor = axis.normalize()
+    nor = axis.normalized()
     si = math.sin(ang / 2)
     q.w = math.cos(ang / 2)
     v = nor * si
@@ -106,7 +106,7 @@ def intersect(vec1, vec2, vec3, ray, orig, clip=1):
     v1 = vec1.copy()
     v2 = vec2.copy()
     v3 = vec3.copy()
-    dir = ray.copy().normalize()
+    dir = ray.copy().normalized()
     orig = orig.copy()
 
     # find vectors for two edges sharing v1
@@ -153,7 +153,7 @@ def intersect(vec1, vec2, vec3, ray, orig, clip=1):
 def plane_intersect(loc, normalvec, seg1, seg2, returnstatus=0):
     zaxis = Vector([0.0, 0.0, 1.0])
     normal = normalvec.copy()
-    normal.normalize()
+    normal.normalized()
     quat = rotation_between_vectors_to_quat(normal, zaxis)
     s1 = (seg1 - loc) * quat
     s2 = (seg2 - loc) * quat
@@ -256,7 +256,7 @@ def get_view_vector(persmat):
     invpersmat = persmat.copy().invert()
     v0 = invpersmat * Math.Vector([0, 0, 0])
     v1 = invpersmat * Math.Vector([0, 0, -1])
-    return (v1 - v0).normalize()
+    return (v1 - v0).normalized()
 
 
 def world_to_window_coordinate(vec, pmat, sx, sy):
@@ -914,9 +914,9 @@ def angle_normalized_v3v3(v1, v2):
 
 def angle_tri_v3(v1, v2, v3):
     angles = [0.0, 0.0, 0.0]
-    ed1 = (v3 - v1).normalize()
-    ed2 = (v1 - v2).normalize()
-    ed3 = (v2 - v3).normalize()
+    ed1 = (v3 - v1).normalized()
+    ed2 = (v1 - v2).normalized()
+    ed3 = (v2 - v3).normalized()
 
     angles[0] = math.pi - angle_normalized_v3v3(ed1, ed2)
     angles[1] = math.pi - angle_normalized_v3v3(ed2, ed3)
@@ -925,10 +925,10 @@ def angle_tri_v3(v1, v2, v3):
 
 
 def angle_quad_v3(v1, v2, v3, v4):
-    ed1 = (v4 - v1).normalize()
-    ed2 = (v1 - v2).normalize()
-    ed3 = (v2 - v3).normalize()
-    ed4 = (v3 - v4).normalize()
+    ed1 = (v4 - v1).normalized()
+    ed2 = (v1 - v2).normalized()
+    ed3 = (v2 - v3).normalized()
+    ed4 = (v3 - v4).normalized()
 
     angles = [math.pi - angle_normalized_v3v3(ed1, ed2),
               math.pi - angle_normalized_v3v3(ed2, ed3),
