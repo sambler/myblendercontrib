@@ -106,7 +106,7 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
         scene = bpy.context.scene
         mesh = self.baseObject.create_mesh(scene, True, "PREVIEW")
         verts = []
-        row_length = scene.lightfield_row_length
+        row_length = scene.lightfield.row_length
 
         for vert in mesh.vertices:
             # world/parent origin
@@ -131,22 +131,22 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
     def createCameraAnimated(self):
         scene = bpy.context.scene
 
-        bpy.ops.object.camera_add(layers=self.layer0)
+        bpy.ops.object.camera_add(view_align=False)
         cam = bpy.context.active_object
         cam.name = "light_field_camera"
 
         # set props
-        cam.data.angle = scene.lightfield_angle
+        cam.data.angle = scene.lightfield.angle
 
         # display options of the camera
         cam.data.lens_unit = 'DEGREES'
 
         # handler parent
-        if scene.lightfield_create_handler:
+        if scene.lightfield.create_handler:
             cam.parent = self.handler
 
         # set as primary camera
-        bpy.ops.view3d.object_as_camera()
+        scene.camera = cam
 
         ### animate ###
         scene.frame_current = 0
@@ -171,7 +171,7 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
 
         for cam_idx, vert in enumerate(self.verts):
             # add and name camera
-            bpy.ops.object.camera_add(layers=self.layer0)
+            bpy.ops.object.camera_add(view_align=False)
             cam = bpy.context.active_object
             cam.name = "light_field_cam_" + str(cam_idx)
 
@@ -181,26 +181,26 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
             cam.rotation_euler = self.baseObject.rotation_euler
 
             # set camera props
-            cam.data.angle = scene.lightfield_angle
+            cam.data.angle = scene.lightfield.angle
 
             # display options of the camera
             cam.data.draw_size = 0.15
             cam.data.lens_unit = 'DEGREES'
 
             # handler parent
-            if scene.lightfield_create_handler:
+            if scene.lightfield.create_handler:
                 cam.parent = self.handler
 
 
     def createCamera(self):
-        if bpy.context.scene.lightfield_animate_camera:
+        if bpy.context.scene.lightfield.animate_camera:
             self.createCameraAnimated()
         else:
             self.createCameraMultiple()
 
 
     def getImagePaths(self):
-        path = bpy.context.scene.lightfield_texture_path
+        path = bpy.context.scene.lightfield.texture_path
         if not os.path.isdir(path):
             return False
         files = os.listdir(path)
@@ -244,9 +244,9 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
         spot.data.distance = 10
 
         # set spot props 
-        spot.data.energy = scene.lightfield_light_intensity / self.numSamples
-        spot.data.spot_size = scene.lightfield_angle
-        spot.data.spot_blend = scene.lightfield_light_spot_blend
+        spot.data.energy = scene.lightfield.light_intensity / self.numSamples
+        spot.data.spot_size = scene.lightfield.angle
+        spot.data.spot_blend = scene.lightfield.spot_blend
 
         # add texture
         if textured:
@@ -255,7 +255,7 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
             spot.data.texture_slots[0].texture_coordinates = 'VIEW'
 
         # handler parent
-        if scene.lightfield_create_handler:
+        if scene.lightfield.create_handler:
             spot.parent = self.handler
 
         return spot
@@ -273,12 +273,12 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
 
         obj = self.baseObject = context.active_object
         if not obj or obj.type != 'MESH':
-            return
+            return 'CANCELLED'
 
         self.verts = self.arrangeVerts()
         self.numSamples = len(self.verts)
 
-        if scene.lightfield_create_handler:
+        if scene.lightfield.create_handler:
             #create an empty 
             bpy.ops.object.add(type='EMPTY')
             empty = bpy.context.active_object
@@ -286,10 +286,10 @@ class OBJECT_OT_create_lightfield_rig(bpy.types.Operator):
             empty.rotation_euler = self.baseObject.rotation_euler
             self.handler = empty
 
-        if scene.lightfield_do_camera:
+        if scene.lightfield.do_camera:
             self.createCamera()
 
-        if scene.lightfield_do_projection:
+        if scene.lightfield.do_projection:
             if self.getImagePaths():
                 self.createLightfieldEmitter(textured=True)
             else:
@@ -319,9 +319,8 @@ class OBJECT_OT_create_lightfield_basemesh(bpy.types.Operator):
 
     def getCamVec(self, obj, angle):
         width = self.getWidth(obj)
-        mat = obj.matrix_local.copy()
-        itmat = mat.invert().transpose()
-        normal = (obj.data.faces[0].normal * itmat).normalize()
+        itmat = obj.matrix_local.inverted().transposed()
+        normal = (obj.data.faces[0].normal * itmat).normalized()
         vl = (width/2) * (1/math.tan(math.radians(angle/2)))
         return normal*vl
 
@@ -344,13 +343,18 @@ class OBJECT_OT_create_lightfield_basemesh(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
         obj = context.active_object
+        # check if active object is a mesh object
         if not obj or obj.type != 'MESH':
-            return
+            return 'CANCELLED'
 
-        rl = scene.lightfield_row_length
+        # check if it has at least one face
+        if len(obj.data.faces) < 1:
+            return 'CANCELLED'
+
+        rl = scene.lightfield.row_length
         # use a degree angle here
-        angle = math.degrees(scene.lightfield_angle)
-        spacing = scene.lightfield_spacing
+        angle = math.degrees(scene.lightfield.angle)
+        spacing = scene.lightfield.spacing
         # resolution of final renderings
         res = round(scene.render.resolution_x * (scene.render.resolution_percentage/100.))
         width = self.getWidth(obj)
@@ -397,87 +401,31 @@ class VIEW3D_OT_lightfield_tools(bpy.types.Panel):
     def draw(self, context):
         scene = context.scene
 
-        # define properties for settings
-        bpy.types.Scene.lightfield_angle = FloatProperty(
-                name="Angle",
-                # 40 degrees
-                default=0.69813170079,
-                min=0,
-                # 172 degrees
-                max=3.001966313430247,
-                precision=2,
-                subtype = 'ANGLE',
-                description="Field of view of camera and angle of beam for spotlights")
-        bpy.types.Scene.lightfield_row_length = IntProperty(
-                name="Row Length",
-                default=1,
-                min=1,
-                description="The number of cameras/lights in one row")
-        bpy.types.Scene.lightfield_create_handler = BoolProperty(
-                name="Handler",
-                default=True,
-                description="Creates an empty object, to which the cameras and spotlights are parent to")
-        bpy.types.Scene.lightfield_do_camera = BoolProperty(
-                name="Create Camera",
-                default=True,
-                description="A light field camera is created")
-        bpy.types.Scene.lightfield_animate_camera = BoolProperty(
-                name="Animate Camera",
-                default=True,
-                description="Animates a single camera, so not multiple cameras get created")
-        bpy.types.Scene.lightfield_do_projection = BoolProperty(
-                name="Create Projector",
-                default=True,
-                description="A light field projector is created")
-        bpy.types.Scene.lightfield_texture_path = StringProperty(
-                name="Texture Path",
-                description="From this path textures for the spotlights will be loaded")
-        bpy.types.Scene.lightfield_light_intensity = FloatProperty(
-                name="Light Intensity",
-                default=2,
-                min=0,
-                precision=3,
-                description="Total intensity of all lamps")
-        # blending of the spotlights
-        bpy.types.Scene.lightfield_light_spot_blend =  FloatProperty(
-                name="Blend",
-                default=0,
-                min=0,
-                max=1,
-                precision=3,
-                description="Blending of the spotlights")
-        # spacing in pixels on the focal plane
-        bpy.types.Scene.lightfield_spacing = IntProperty(
-                name="Spacing",
-                default=10,
-                min=0,
-                description="The spacing in pixels between two cameras on the focal plane")
-
         layout = self.layout
         row = layout.row()
         col = layout.column()
 
-        col.prop(scene, "lightfield_row_length")
-        col.prop(scene, "lightfield_angle")
+        col.prop(scene.lightfield, "row_length")
+        col.prop(scene.lightfield, "angle")
 
-        col.prop(scene, "lightfield_create_handler")
+        col.prop(scene.lightfield, "create_handler")
         
-        col.prop(scene, "lightfield_do_camera")
-        col.prop(scene, "lightfield_animate_camera")
-        col.prop(scene, "lightfield_do_projection")
+        col.prop(scene.lightfield, "do_camera")
+        col.prop(scene.lightfield, "animate_camera")
+        col.prop(scene.lightfield, "do_projection")
 
-        if (scene.lightfield_do_projection):
+        if (scene.lightfield.do_projection):
             sub = layout.row()
             subcol = sub.column(align=True)
-            subcol.prop(scene, "lightfield_texture_path")
-            subcol.prop(scene, "lightfield_light_intensity")
-            subcol.prop(scene, "lightfield_light_spot_blend")
+            subcol.prop(scene.lightfield, "texture_path")
+            subcol.prop(scene.lightfield, "light_intensity")
+            subcol.prop(scene.lightfield, "light_spot_blend")
 
         # create a basemesh
         sub = layout.row()
         subcol = sub.column(align=True)
         subcol.operator("object.create_lightfield_basemesh", "Create Base Grid")
-        subcol.prop(scene, "lightfield_spacing")
+        subcol.prop(scene.lightfield, "spacing")
 
         layout.operator("object.create_lightfield_rig", "Create Rig")
 
