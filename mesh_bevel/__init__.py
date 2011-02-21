@@ -38,10 +38,12 @@ def menu_func(self, context):
     self.layout.operator(bevel.Bevel.bl_idname, text="Bevel")
 
 def register():
+    bpy.utils.register_class(bevel.Bevel)
     bpy.types.VIEW3D_MT_edit_mesh_specials.append(menu_func)
 
 def unregister():
     bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
+    bpy.utils.register_class(bevel.Bevel)
 
 if __name__ == '__main__':
     register()

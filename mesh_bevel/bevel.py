@@ -173,11 +173,11 @@ def bevel(ob, follow, type):
             if vflags[vindex] == FACE:
                 # 
                 # 180
-                vr010c_cross = vr01.cross(vr0c).normalize()
+                vr010c_cross = vr01.cross(vr0c).normalized()
                 angle = vr01.angle(vr02)
                 q = axis_angle_to_quat(vr010c_cross, angle / 2)
                 v = vr01 * q
-                v.normalize()
+                v.normalized()
                 if angle > SMALL_NUMBER:
                     s = math.sin(angle / 2)
                     v *= 1.0 / s
@@ -200,7 +200,7 @@ def bevel(ob, follow, type):
                 for ea, eb, v in [(e1, e2, vr01), (e2, e1, vr02)]:
                     vei = vevparallel[vindex][ea.index]
                     if not vei:
-                        v = v.copy().normalize()
+                        v = v.copy().normalized()
                         #co = va0 + v
                         co = va0.copy()
                         bevelvert = BVert(v, co, bevelvertindex,
@@ -225,8 +225,8 @@ def bevel(ob, follow, type):
                 else:
                     ea, eb, vra, vrb = e1, e2, vr01, vr02
                 '''
-                vra = vra.copy().normalize()
-                vrb = vrb.copy().normalize()
+                vra = vra.copy().normalized()
+                vrb = vrb.copy().normalized()
                 angle = vra.angle(vrb)
                 if angle > SMALL_NUMBER:
                     v = vra / math.sin(angle)
@@ -778,7 +778,7 @@ def bevel(ob, follow, type):
         for edge in [e1, e2]:
             va1 = me.vertices[the_other(edge.key, vindex)].co
             vr01 = va1 - va0
-            vr01.normalize()
+            vr01.normalized()
             v = vr01
             co = va0.copy()
             bevelvert = BVert(v, co, bevelvertindex,
