@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 6),
+    'version': (2, 6, 7),
     'blender': (2, 5, 6),
-    'api': 34958,
+    'api': 35423,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -89,12 +89,12 @@ def calc_callback(self, context):
                 v1 = me.vertices[v1].co.copy()
                 v2 = me.vertices[v2].co.copy()
                 loc = v1 + ((v2-v1)/2.0)
-                locs.append([1.0, 1.0, 0.0, ed.index, loc.resize_4d()])
+                locs.append([1.0, 1.0, 0.0, ed.index, loc.to_4d()])
     if bpy.context.scene.display_face_index:
         for f in me.faces:
             if not f.hide and \
             (f.select or not bpy.context.scene.display_sel_only):
-                locs.append([1.0, 0.0, 0.5, f.index, f.center.resize_4d()])
+                locs.append([1.0, 0.0, 0.5, f.index, f.center.to_4d()])
                 
     for loc in locs:
         vec = loc[4] * total_mat # order is important
