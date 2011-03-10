@@ -22,7 +22,7 @@
 bl_info = {
     'name': 'Display Keys Status for Screencasting',
     'author': 'Paulo Gomes, Bartius Crouch',
-    'version': (0, 7),
+    'version': (0, 8),
     'blender': (2, 5, 6),
     'api': 35012,
     'location': 'View3D > Properties panel > Display tab',
@@ -71,7 +71,8 @@ class ScreencastKeysStatus(bpy.types.Operator):
     bl_description = "Display keys pressed in the 3D-view"
     
     def modal(self, context, event):
-        context.area.tag_redraw()
+        if context.area:
+            context.area.tag_redraw()
         # keys that shouldn't show up in the 3d-view
         mouse_keys = ['MOUSEMOVE','MIDDLEMOUSE','LEFTMOUSE',
          'RIGHTMOUSE', 'WHEELDOWNMOUSE','WHEELUPMOUSE']
