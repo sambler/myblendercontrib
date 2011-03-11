@@ -22,9 +22,9 @@
 bl_info = {
     'name': 'Display Keys Status for Screencasting',
     'author': 'Paulo Gomes, Bartius Crouch',
-    'version': (0, 8),
+    'version': (1, 0),
     'blender': (2, 5, 6),
-    'api': 35012,
+    'api': 35457,
     'location': 'View3D > Properties panel > Display tab',
     'warning': '',
     'description': 'Display keys pressed in the 3d-view, '\
@@ -36,8 +36,9 @@ bl_info = {
     'category': '3D View'}
 
 
-import bpy
+import bgl
 import blf
+import bpy
 import time
 
 
@@ -46,6 +47,8 @@ def draw_callback_px(self, context):
     if wm.display_keys:
         # draw text in the 3d-view
         blf.size(0, wm.display_font_size, 72)
+        r, g, b = wm.display_color
+        bgl.glColor3f(r, g, b)
         final = 0
         
         # only display key-presses of last 2 seconds
@@ -85,12 +88,12 @@ class ScreencastKeysStatus(bpy.types.Operator):
             # add key-press to display-list
             sc_keys = []
             
+            if event.ctrl:
+                sc_keys.append("Ctrl ")
+            if event.alt:
+                sc_keys.append("Alt ")
             if event.shift:
                 sc_keys.append("Shift ")
-            elif event.alt:
-                sc_keys.append("Alt ")
-            elif event.ctrl:
-                sc_keys.append("Ctrl ")
             
             if event.type not in ignore_keys:
                 sc_keys.append(event.type)
@@ -146,6 +149,13 @@ def init_properties():
         name="Pos Y",
         description="Position of the font in y axis",
         default=60)
+    bpy.types.WindowManager.display_color = bpy.props.FloatVectorProperty(
+        name="Colour",
+        description="Font colour",
+        default=(1.0, 1.0, 1.0),
+        min=0,
+        max=1,
+        subtype='COLOR')
 
 
 # removal of properties when script is disabled
@@ -184,6 +194,9 @@ class OBJECT_PT_keys_status(bpy.types.Panel):
         row = col.row(align=True)
         row.prop(context.window_manager, "display_font_size")
         row.prop(context.window_manager, "display_mouse")
+        
+        row = self.layout.row()
+        row.prop(context.window_manager, "display_color")
 
 
 classes = [ScreencastKeysStatus,
