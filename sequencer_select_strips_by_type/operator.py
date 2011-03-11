@@ -27,7 +27,7 @@ def main(context, select_types, deselect):
             if not deselect and not seq.select: seq.select = True
             elif seq.select: seq.select = False
 
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty
 
 class SelectSequenceStripsByType(bpy.types.Operator):
     '''
@@ -38,16 +38,34 @@ class SelectSequenceStripsByType(bpy.types.Operator):
     # Enable undo…
     bl_options = {'REGISTER', 'UNDO'}
 
-    # TODO: learn CollectionProperty to see whether it is possible to get
-    #       directly a set of strings…
-    # For now, list of types separated by white spaces.
-    select_types = StringProperty(name="Select Types",
-                                  description="Type(s) of strip to select",
-                                  default="")
+    select_types = EnumProperty(name="Select Types",
+                                description="Type(s) of strip to select",
+                                default=set(),
+                                options={"ENUM_FLAG"},
+                                items=(("SOUND", "Audio Strip", ""),
+                                       ("IMAGE", "Image Strip", ""),
+                                       ("MOVIE", "Movie Strip", ""),
+                                       ("SCENE", "Scene Strip", ""),
+                                       ("META", "Meta Strip", ""),
+                                       ("ADD", "Add Video Effect", ""),
+                                       ("SUBTRACT", "Subtract Video Effect", ""),
+                                       ("MULTIPLY", "Multiply Video Effect", ""),
+                                       ("ALPHA_OVER", "Alpha Over Video Effect", ""),
+                                       ("ALPHA_UNDER", "Alpha Under Video Effect", ""),
+                                       ("OVER_DROP", "Over Drop Video Effect", ""),
+                                       ("CROSS", "Cross Video Effect", ""),
+                                       ("GAMMA_CROSS", "Gamma Cross Video Effect", ""),
+                                       ("PLUGIN", "Plugin Video Effect", ""),
+                                       ("WIPE", "Wipe Video Effect", ""),
+                                       ("GLOW", "Glow Video Effect", ""),
+                                       ("TRANSFORM", "Transform Video Effect", ""),
+                                       ("COLOR", "Color Video Effect", ""),
+                                       ("SPEED", "Speed Video Effect", ""),
+                                      )
+                               )
 
     deselect = BoolProperty(name="Deselect",
-                            description="Deselect strips instead of selecting "
-                                       +"them.",
+                            description="Deselect strips instead of selecting them.",
                             default=False)
 
     @classmethod
@@ -55,7 +73,7 @@ class SelectSequenceStripsByType(bpy.types.Operator):
         return context.scene.sequence_editor != None
 
     def execute(self, context):
-        select_types = set(str(self.select_types).split())
+        select_types = set(self.select_types)
         main(context, self.select_types, self.deselect)
         return {'FINISHED'}
 
