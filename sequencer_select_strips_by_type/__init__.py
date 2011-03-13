@@ -19,27 +19,32 @@
 # ##### CHANGELOG #####
 #
 #  0.0.1
-#      Initial release.
+#      * Initial release.
 #
 #  0.0.2
-#      Updates to follow Blender API:
-#        * bl_addon_info renamed in bl_info!
-#        * adding bpy.utils.(un)register_module calls.
-#      Also, in standard import, using “from . import …” now.
+#      * Updates to follow Blender API:
+#        ** bl_addon_info renamed in bl_info!
+#        ** adding bpy.utils.(un)register_module calls.
+#      * Also, in standard import, using “from . import …” now.
+#
+#  0.0.3
+#      * Now using an EnumProperty to set which types to (de)select. A little bit more verbose,
+#        but much less hackish than the previous string technique…
+#      * As requested by mindrones, renamed in “Sequencer Select Strips By Type”.
 #
 # ##### END OF CHANGELOG #####
 
 bl_info = {
-    "name": "Select Sequence Strips By Types",
+    "name": "Sequencer Select Strips By Type",
     "author": "Bastien Montagne",
-    "version": (0, 0, 2),
+    "version": (0, 0, 3),
     "blender": (2, 5, 6),
-    "api": 34317,
+    "api": 35433,
     "location": "Video Sequence Editor header (Select menu)",
     "description": "Allows to select strips by their type (image, video, audio, etc.).",
     "warning": "beta",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
-                "Scripts/Sequencer/Select Sequence Strips By Type",
+                "Scripts/Sequencer/Select Strips By Type",
     "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=25833",
     "category": "Sequencer"}
 
@@ -56,13 +61,13 @@ else:
 
 def register():
     bpy.utils.register_module(__name__)
-    
+
     # Append the relevant menu entries.
     bpy.types.SEQUENCER_MT_select.append(menu.menu_func)
 
 def unregister():
     bpy.utils.unregister_module(__name__)
-    
+
     # Remove the relevant menu entries.
     bpy.types.SEQUENCER_MT_select.remove(menu.menu_func)
 
