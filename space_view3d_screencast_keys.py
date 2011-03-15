@@ -21,8 +21,8 @@
 
 bl_info = {
     'name': 'Display Keys Status for Screencasting',
-    'author': 'Paulo Gomes, Bartius Crouch',
-    'version': (1, 0),
+    'author': 'Paulo Gomes, Bart Crouch, John E. Herrenyo',
+    'version': (1, 1),
     'blender': (2, 5, 6),
     'api': 35457,
     'location': 'View3D > Properties panel > Display tab',
@@ -48,14 +48,16 @@ def draw_callback_px(self, context):
         # draw text in the 3d-view
         blf.size(0, wm.display_font_size, 72)
         r, g, b = wm.display_color
-        bgl.glColor3f(r, g, b)
         final = 0
         
         # only display key-presses of last 2 seconds
         for i in range(len(self.key)):
-            if time.time()-self.time[i] < 2:
+            label_time = time.time() - self.time[i]
+            if label_time < 2:
                 blf.position(0, wm.display_pos_x,
                     wm.display_pos_y + wm.display_font_size*i, 0)
+                alpha = min(1.0, max(0.0, 2 * (2 - label_time)))
+                bgl.glColor4f(r, g, b, alpha)
                 blf.draw(0, self.key[i])
                 final = i
             else:
@@ -95,9 +97,23 @@ class ScreencastKeysStatus(bpy.types.Operator):
             if event.shift:
                 sc_keys.append("Shift ")
             
+            sc_amount = ""
+            if self.key:
+                if event.type not in ignore_keys and event.type in self.key[0]:
+                    mods = "+ ".join(sc_keys)
+                    old_mods = "+ ".join(self.key[0].split("+ ")[:-1])
+                    if mods == old_mods:
+                        amount = self.key[0].split(" x")
+                        if len(amount) >= 2:
+                            sc_amount = " x" + str(int(amount[-1]) + 1)
+                        else:
+                            sc_amount = " x2"
+                        del self.key[0]
+                        del self.time[0]
+           
             if event.type not in ignore_keys:
                 sc_keys.append(event.type)
-                self.key.insert(0, "+ ".join(map(str, sc_keys)))
+                self.key.insert(0, "+ ".join(sc_keys) + sc_amount)
                 self.time.insert(0, time.time())
         
         if not context.window_manager.display_keys:
