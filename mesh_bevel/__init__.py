@@ -19,9 +19,9 @@
 bl_info = {
     'name': 'Bevel',
     'author': 'chromoly',
-    'version': (0, 2),
-    'blender': (2, 5, 6),
-    'api': 34530,
+    'version': (0, 3),
+    'blender': (2, 5, 7),
+    'api': 35672,
     'location': 'View3D > EditMode > Specials',
     'wiki_url': '',
     'category': 'Mesh'}
@@ -34,7 +34,8 @@ else:
 
 import bpy
 
-def menu_func(self, context): 
+def menu_func(self, context):
+    self.layout.operator_context = 'INVOKE_DEFAULT'
     self.layout.operator(bevel.Bevel.bl_idname, text="Bevel")
 
 def register():
