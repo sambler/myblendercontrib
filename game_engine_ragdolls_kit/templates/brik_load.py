@@ -1,4 +1,4 @@
-#BRIK_load_0_1.py
+#brik_load_0_1.py
 
 # ***** BEGIN MIT LICENSE BLOCK *****
 #
@@ -37,14 +37,14 @@ probably still be optimised more.
 FOR MULTIPLE RAGDOLLS IN THE SAME SCENE:
 
 The correct armature data fileS need to be loaded at the start of the game.
-To do this, the name of the text file in the BRIK_ragdoll_data controller needs
+To do this, the name of the text file in the brik_ragdoll_data controller needs
 to be changed so it corresponds with the correct armature.
 
-This needs to be done when BRIK creates the logic.
+This needs to be done when brik creates the logic.
 A separate spawn point should be created for each new ragdoll structure that is
 added to the scene. Each spawn point would load the data for it's corresponding
 ragdoll.
-    Alternatively, the BRIK_load.py script should iterate through all ragdoll
+    Alternatively, the brik_load.py script should iterate through all ragdoll
     structures and load them in turn.
     
     The spawn point would need a new property that is a list of all ragdoll armatures
@@ -57,7 +57,7 @@ ragdoll.
     This would allow for a single spawn point to load all structure data.
 '''
 print('###########################')
-print('RUNNING BRIK_load_0_1.py')
+print('RUNNING brik_load_0_1.py')
 
 import bge
 import mathutils
@@ -212,12 +212,12 @@ def load_data(data_cont):
     spawn_point['mob_object'] = armature.name
     
 def main():
-    mob_total = spawn_point['BRIK_mob_count']
+    mob_total = spawn_point['brik_mob_count']
             
     for count in range(0, mob_total+1):
     
         for cont in spawn_point.controllers:
-            if cont.name[:-8] == 'BRIK_ragdoll_data_'+str(count):
+            if cont.name[:-8] == 'brik_ragdoll_data_'+str(count):
                 data_cont = cont
                 
         load_data(data_cont)
