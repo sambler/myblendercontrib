@@ -1,4 +1,4 @@
-#BRIK_spawn_init.py
+#brik_spawn_init.py
 
 # ***** BEGIN MIT LICENSE BLOCK *****
 #
@@ -40,13 +40,13 @@ def initialize():
 def main():
 
     cont = bge.logic.getCurrentController()
-    sens = cont.sensors['BRIK_Tab_sens']
+    sens = cont.sensors['brik_Tab_sens']
     
     if sens.getKeyStatus(sens.key) == 1:
         print('#########################')
         print('SPAWNING MOB AND HIT BOXES')
         
-        spawn_act = cont.actuators['BRIK_spawn_act']
+        spawn_act = cont.actuators['brik_spawn_act']
         
         scene = bge.logic.getCurrentScene()
         objects = scene.objects
@@ -70,7 +70,7 @@ def main():
         last_spawned['spawn_id'] = spawn_empty['add_count']
         #This is the dictionary of drivers that are unique to the added object.
         '''
-        Originally this dictionary was defined in the BRIK_load.py script, but since
+        Originally this dictionary was defined in the brik_load.py script, but since
         dictionaries are stored as a reference, and the added objects are copies of the
         hidden object, the added objects had a copy of the reference to the dictionary
         and all used the same dictionary.

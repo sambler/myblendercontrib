@@ -1,4 +1,4 @@
-#BRIK_init_ragdoll.py
+#brik_init_ragdoll.py
 
 # ***** BEGIN MIT LICENSE BLOCK *****
 #
@@ -68,13 +68,13 @@ NOTE:
 def main():
 
     '''
-    Sensor disabled. Using BRIK_use_ragdoll 'changed' sensor
+    Sensor disabled. Using brik_use_ragdoll 'changed' sensor
     '''
-    #sens = spawn_boxes_cont.sensors['BRIK_spawn_boxes_sens']
+    #sens = spawn_boxes_cont.sensors['brik_spawn_boxes_sens']
     #if sens.getKeyStatus(sens.key) == 1:
     
     init_ragdoll_controller = bge.logic.getCurrentController()
-    spawn_boxes_act = init_ragdoll_controller.actuators['BRIK_spawn_boxes_act']
+    spawn_boxes_act = init_ragdoll_controller.actuators['brik_spawn_boxes_act']
     
     armature = init_ragdoll_controller.owner
     
@@ -87,7 +87,7 @@ def main():
     spawn_point = armature['spawn_point']
     spawn_id = armature['spawn_id']
     
-    if armature['BRIK_use_ragdoll'] and armature['BRIK_init_ragdoll']:
+    if armature['brik_use_ragdoll'] and armature['brik_init_ragdoll']:
 
         print('#########################')
         print('SPAWNING RIGID BODY OBJECTS')
@@ -105,7 +105,7 @@ def main():
             box['spawn_point'] = spawn_point
             box['spawn_id'] = spawn_id
             
-            #Add the box to a dictionary on the armature so it can be located in BRIK_use_doll_0_3.py
+            #Add the box to a dictionary on the armature so it can be located in brik_use_doll_0_3.py
             armature['driver_dict'][box_name] = box
             
             #Set the  drivers to the location and orientation of the hit boxes
@@ -118,9 +118,10 @@ def main():
             I have absolutely NO idea why these next two lines are necessary...
             Without these lines, object rotation appears to be set to the identity.
             Damned weird stuff. =S
+            Update... these lines screw things up in version 35733 but leaving them for now
             '''
-            box.suspendDynamics()
-            box.restoreDynamics()
+            #box.suspendDynamics()
+            #box.restoreDynamics()
             
             #Set up the rigid body joints for the newly spawned objects.
             if not box['joint_target'] == 'None':
@@ -140,22 +141,24 @@ def main():
                 
                 #Set up the copy rotation bone constraint for this driver
                 print('######################')
-                print('SETTING UP BONE CONSTRAINTS FOR '+box.name)
+                print('SETTING UP ROT BONE CONSTRAINTS FOR '+box.name)
                 print('BONE NAME '+box['bone_name'])
-                constraint_rot = armature.constraints[box['bone_name']+':BRIK_copy_rot']
+                constraint_rot = armature.constraints[box['bone_name']+':brik_copy_rot']
                 constraint_rot.target = box
             else:
                 print('######################')
-                print('SETTING UP BONE CONSTRAINTS FOR '+box.name)
+                print('SETTING UP LOC/ROT BONE CONSTRAINTS FOR '+box.name)
                 print('BONE NAME '+box['bone_name'])
                 #Set up the copy rotation constraint for this driver
-                constraint_rot = armature.constraints[box['bone_name']+':BRIK_copy_rot']
+                constraint_rot = armature.constraints[box['bone_name']+':brik_copy_rot']
                 constraint_rot.target = box
+                print(constraint_rot)
                 
                 #Set up the copy location constraint for the empty parented to this driver
-                copy_loc_target = box.children['BRIK_'+armature.name+'_loc']
-                constraint_loc = armature.constraints[box['bone_name']+':BRIK_copy_loc']
+                copy_loc_target = box.children['brik_'+armature.name+'_loc']
+                constraint_loc = armature.constraints[box['bone_name']+':brik_copy_loc']
                 constraint_loc.target = copy_loc_target
+                print(constraint_loc)
             
             box.worldLinearVelocity = hit_box.worldLinearVelocity
             box.worldAngularVelocity = hit_box.worldAngularVelocity
@@ -166,11 +169,11 @@ def main():
             #There appears to be no direct way of checking that an actuator is an action actuator.
             #act.type would be nice.
             if hasattr(act, 'action'):
-                if not act.name == 'BRIK_use_act':
+                if not act.name == 'brik_use_act':
                     init_ragdoll_controller.deactivate(act)
                 
-        #Needed to prevent BRIK_use_changed_sens second pulse from re-triggering the script.
-        armature['BRIK_init_ragdoll'] = False
+        #Needed to prevent brik_use_changed_sens second pulse from re-triggering the script.
+        armature['brik_init_ragdoll'] = False
             
         if debug == True:
             for bone_name in armature['optimal_order']:
