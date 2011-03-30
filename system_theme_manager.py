@@ -22,9 +22,9 @@
 bl_info = {
     'name': "Theme manager",
     'author': "Bart Crouch",
-    'version': (1, 0, 0),
+    'version': (1, 1, 0),
     'blender': (2, 5, 7),
-    'api': 35842,
+    'api': 35850,
     'location': "User Preferences > Themes > Header",
     'warning': "",
     'description': "Load or save a custom theme",
@@ -35,22 +35,93 @@ bl_info = {
     'category': 'System'}
 
 
+import blf
 import bpy
 import gzip
 from io_utils import ExportHelper, ImportHelper
+import os
 import pickle
+import shutil
 
 
-# load operator
-class LoadTheme(bpy.types.Operator, ImportHelper):
-    bl_idname = "ui.load_theme"
-    bl_label = "Load Theme"
-    bl_description = "Load a theme from file"
+def get_paths():
+    # locate theme preset folder
+    paths = bpy.utils.preset_paths("theme")
+    if not paths:
+        # theme preset folder doesn't exist, so create it
+        paths = [os.path.join(bpy.utils.user_resource('SCRIPTS'), "presets",
+            "theme")]
+        if not os.path.exists(paths[0]):
+            os.makedirs(paths[0])
     
-    filename_ext = ".blt"
-    filter_glob = bpy.props.StringProperty(default="*.blt", options={'HIDDEN'})
+    return(paths)
+
+
+def load_presets():
+    # find theme files
+    paths = get_paths()
+    theme_files = []
+    for path in paths:
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                if file.endswith(".blt"):
+                    theme_files.append(os.path.join(root, file))
+    
+    # read author and theme names
+    theme_list = []
+    for filename in theme_files:
+        # load file
+        try:
+            file = gzip.open(filename, mode='r')
+            dump = pickle.load(file)
+            file.close()
+            author = dump["info"]["author"]
+            theme_name = dump["info"]["theme_name"]
+            sort_name = theme_name.lower()
+            theme_list.append([sort_name, theme_name, author, filename])
+        except:
+            continue
+    theme_list.sort()
+    
+    # find popup width
+    sizes = [blf.dimensions(0, theme + " by " + author)[0] + 25 for \
+        i, theme, author, path in theme_list]
+    sizes.append(blf.dimensions(0, "Install new theme")[0])
+    popup_max = 250
+    if len(sizes) > 1:
+        sizes.sort()
+        max_size = sizes[-1] + 10
+    else:
+        max_size = blf.dimensions(0, "No theme presets found")[0] + 10
+    width = min(popup_max, max_size)
+    
+    # store settings in window-manager
+    bpy.context.window_manager["theme_list"] = theme_list
+    bpy.context.window_manager["theme_width"] = width
+
+
+def unload_presets():
+    # remove settings from window-manager
+    del bpy.context.window_manager["theme_list"]
+    del bpy.context.window_manager["theme_width"]
+
+
+# install operator
+class ApplyTheme(bpy.types.Operator):
+    bl_idname = "ui.apply_theme"
+    bl_label = "Apply Theme"
+    bl_description = "Apply this theme"
+    
+    filepath = bpy.props.StringProperty(name="File Path",
+        description="Filepath at which theme is located", maxlen=1024,
+        default="", subtype='FILE_PATH')
     
     def execute(self, context):
+        # filepath should always be given
+        if not self.filepath:
+            self.report("ERROR", "Could not find theme")
+            return{'CANCELLED'}
+        
         # load file
         try:
             file = gzip.open(self.filepath, mode='r')
@@ -58,7 +129,7 @@ class LoadTheme(bpy.types.Operator, ImportHelper):
             file.close()
             dump["info"]["script"]
         except:
-            self.report("ERROR", "Could not read file")
+            self.report("ERROR", "Could not read theme")
             return{'CANCELLED'}
         
         # apply theme
@@ -81,9 +152,63 @@ class LoadTheme(bpy.types.Operator, ImportHelper):
         # report to user
         author = dump["info"]["author"]
         theme_name = dump["info"]["theme_name"]
-        self.report('INFO', "Loaded " + theme_name + " by " + author)
+        self.report('INFO', "Applied " + theme_name + " by " + author)
         
         return{'FINISHED'}
+
+
+# install operator
+class InstallTheme(bpy.types.Operator, ImportHelper):
+    bl_idname = "ui.install_theme"
+    bl_label = "Install new theme"
+    bl_description = "Install a new theme"
+    
+    filename_ext = ".blt"
+    filter_glob = bpy.props.StringProperty(default="*.blt", options={'HIDDEN'})
+    
+    def execute(self, context):
+        # apply chosen theme
+        bpy.ops.ui.apply_theme(filepath=self.filepath)
+        # copy theme to presets folder
+        filename = os.path.basename(self.filepath)
+        try:
+            shutil.copyfile(self.filepath,
+                os.path.join(get_paths()[0], filename))
+        except:
+            self.report('ERROR', "Theme applied, but installing failed")
+            return{'CANCELLED'}
+        # reload presets list
+        load_presets()
+        
+        return{'FINISHED'}
+
+
+# load operator (imitates a menu)
+class LoadTheme(bpy.types.Operator):
+    bl_idname = "ui.load_theme"
+    bl_label = "Load Theme"
+    bl_options = {'REGISTER'}
+    
+    def draw(self, context):
+        # menu-like interface
+        theme_list = context.window_manager["theme_list"]
+        layout = self.layout
+        
+        layout.operator("ui.install_theme")
+        col = layout.column(align=True)
+        for i, theme, author, path in theme_list:
+            row = col.row(align=True)
+            row.operator("ui.apply_theme", text=theme+" by "+author)\
+                .filepath = path
+            row.operator("ui.uninstall_theme", icon="ZOOMOUT", text="")\
+                .filepath = path
+        if not theme_list:
+            col.label("No theme presets found")
+    
+    def execute(self, context):
+        # invoke popup
+        width = context.window_manager["theme_width"]
+        return context.window_manager.invoke_popup(self, width=width)
 
 
 # save operator
@@ -93,6 +218,8 @@ class SaveTheme(bpy.types.Operator, ExportHelper):
     bl_description = "Save the current theme to a .blt file"
     
     filename_ext = ".blt"
+    filepath = bpy.props.StringProperty(\
+        default=os.path.join(get_paths()[0], "untitled"))
     filter_glob = bpy.props.StringProperty(default="*.blt", options={'HIDDEN'})
     author = bpy.props.StringProperty(name="Author",
         default=bpy.context.user_preferences.system.author,
@@ -181,6 +308,29 @@ class SaveTheme(bpy.types.Operator, ExportHelper):
         file = gzip.open(filepath, mode='w')
         pickle.dump(dump, file)
         file.close()
+        load_presets()
+        
+        return{'FINISHED'}
+
+
+# install operator
+class UninstallTheme(bpy.types.Operator):
+    bl_idname = "ui.uninstall_theme"
+    bl_label = "Uninstall theme"
+    bl_description = "Uninstall this theme preset"
+    
+    filepath = bpy.props.StringProperty(name="File Path",
+        description="Filepath at which theme is located", maxlen=1024,
+        default="", subtype='FILE_PATH')
+    
+    def execute(self, context):
+        try:
+            os.remove(self.filepath)
+        except:
+            self.report('ERROR', "Could not remove theme preset")
+            return{'CANCELLED'}
+        # reload presets list
+        load_presets()
         
         return{'FINISHED'}
 
@@ -193,11 +343,15 @@ def header_func(self, context):
         self.layout.operator("ui.save_theme")
 
 
-classes = [LoadTheme,
-    SaveTheme]
+classes = [ApplyTheme,
+    InstallTheme,
+    LoadTheme,
+    SaveTheme,
+    UninstallTheme]
 
 
 def register():
+    load_presets()
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.USERPREF_HT_header.append(header_func)
@@ -207,6 +361,7 @@ def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
     bpy.types.USERPREF_HT_header.remove(header_func)
+    unload_presets()
 
 
 if __name__ == "__main__":
