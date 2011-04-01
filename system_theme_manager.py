@@ -22,7 +22,7 @@
 bl_info = {
     'name': "Theme manager",
     'author': "Bart Crouch",
-    'version': (1, 1, 0),
+    'version': (1, 2, 0),
     'blender': (2, 5, 7),
     'api': 35850,
     'location': "User Preferences > Themes > Header",
@@ -207,6 +207,9 @@ class LoadTheme(bpy.types.Operator):
     
     def execute(self, context):
         # invoke popup
+        if "theme_width" not in context.window_manager:
+            # happens when new blend-file is loaded and wm is destroyed
+            load_presets()
         width = context.window_manager["theme_width"]
         return context.window_manager.invoke_popup(self, width=width)
 
