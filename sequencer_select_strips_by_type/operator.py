@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -16,7 +18,10 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
 import bpy
+
 
 def main(context, select_types, deselect):
     # Simply check all strips in the sequencer and select those of given type(s)
@@ -24,10 +29,13 @@ def main(context, select_types, deselect):
     # If deselect is True, remove them from selection instead!
     for seq in context.sequences:
         if seq.type in select_types:
-            if not deselect and not seq.select: seq.select = True
-            elif seq.select: seq.select = False
+            if not deselect and not seq.select:
+                seq.select = True
+            elif seq.select:
+                seq.select = False
 
 from bpy.props import BoolProperty, EnumProperty
+
 
 class SelectSequenceStripsByType(bpy.types.Operator):
     '''
@@ -80,4 +88,3 @@ class SelectSequenceStripsByType(bpy.types.Operator):
 
 if __name__ == "__main__":
     bpy.ops.sequencer.select_by_type()
-
