@@ -175,7 +175,7 @@ def bevel(ob, follow, type):
                 # 180
                 vr010c_cross = vr01.cross(vr0c).normalized()
                 angle = vr01.angle(vr02)
-                q = axis_angle_to_quat(vr010c_cross, angle / 2)
+                q = Quaternion(vr010c_cross, angle / 2)
                 v = vr01 * q
                 v.normalized()
                 if angle > SMALL_NUMBER:
@@ -952,3 +952,4 @@ class Bevel(bpy.types.Operator):
 
         return {'FINISHED'}
         #RUNNING_MODAL, CANCELLED, FINISHED, PASS_THROUGH
+
