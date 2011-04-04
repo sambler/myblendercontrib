@@ -2367,7 +2367,7 @@ class INFO_MT_mesh_masonry_add(bpy.types.Menu):
 
 
 # Register all operators and panels
-import space_info
+from bl_ui import space_info
 
 # Define "Masonry" menu
 def menu_func(self, context):
@@ -2377,7 +2377,6 @@ def menu_func(self, context):
 # Add "Masonry" menu to the "Add Mesh" menu
 def register():
     space_info.INFO_MT_mesh_add.append(menu_func)
-    print(VERSION)
 
 
 # Remove "Masonry" menu from the "Add Mesh" menu.

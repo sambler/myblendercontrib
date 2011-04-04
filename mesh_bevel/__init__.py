@@ -44,7 +44,7 @@ def register():
 
 def unregister():
     bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
-    bpy.utils.register_class(bevel.Bevel)
+    bpy.utils.unregister_class(bevel.Bevel)
 
 if __name__ == '__main__':
     register()

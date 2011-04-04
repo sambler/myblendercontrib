@@ -38,15 +38,15 @@ import bpy
 
 def register():
     km = bpy.context.window_manager.keyconfigs.default.keymaps['Mesh']
-    kmi = km.items.new('wm.call_menu', 'A', 'PRESS', ctrl=True)
+    kmi = km.keymap_items.new('wm.call_menu', 'A', 'PRESS', ctrl=True)
     kmi.properties.name = 'mesh.vertex_align'
 
 def unregister():
     km = bpy.context.window_manager.keyconfigs.default.keymaps['Mesh']
-    for kmi in km.items:
+    for kmi in km.keymap_items:
         if kmi.idname == 'wm.call_menu':
             if kmi.properties.name == 'mesh.vertex_align':
-                km.items.remove(kmi)
+                km.keymap_items.remove(kmi)
                 break
 
 if __name__ == '__main__':
