@@ -21,9 +21,9 @@
 bl_info = {
     'name': "LoopTools",
     'author': "Bart Crouch",
-    'version': (3, 1, 0),
+    'version': (3, 2, 0),
     'blender': (2, 5, 7),
-    'api': 35672,
+    'api': 35979,
     'location': "View3D > Toolbar and View3D > Specials (W-key)",
     'warning': "",
     'description': "Mesh modelling toolkit. Several tools to aid modelling",
@@ -43,62 +43,42 @@ import math
 ####### General functions ################
 ##########################################
 
+
+# used by all tools to improve speed on reruns
+looptools_cache = {}
+
+
+# force a full recalculation next time
+def cache_delete(tool):
+    if tool in looptools_cache:
+        del looptools_cache[tool]
+
+
 # check cache for stored information
 def cache_read(tool, object, mesh, input_method, boundaries):
-    # get cache
-    if "LoopTools_cache" not in object:
-        return(False, False, False, False, False)
-    cache = object["LoopTools_cache"]
-    # version check
-    try:
-        if cache["version"] != "".join(map(str, bl_info["version"])):
-            # cache written by other version of script
-            cache["version"] = "".join(map(str, bl_info["version"]))
-            return(False, False, False, False, False)
-    except:
-        # cache written by old script that didn't use version control
-        cache["version"] = "".join(map(str, bl_info["version"]))
-        return(False, False, False, False, False)
     # current tool not cached yet
-    if tool not in cache:
+    if tool not in looptools_cache:
+        return(False, False, False, False, False)
+    # check if selected object didn't change
+    if object.name != looptools_cache[tool]["object"]:
         return(False, False, False, False, False)
     # check if input didn't change
-    if input_method != cache[tool]["input_method"]:
+    if input_method != looptools_cache[tool]["input_method"]:
         return(False, False, False, False, False)
-    if boundaries != cache[tool]["boundaries"]:
+    if boundaries != looptools_cache[tool]["boundaries"]:
         return(False, False, False, False, False)
-    cache_input = cache[tool]["input"]
-    input = ",".join([str(v.index) for v in mesh.vertices if \
-        v.select and not v.hide])
-    if input != cache_input:
+    modifiers = [mod.name for mod in object.modifiers if mod.show_viewport \
+        and mod.type == 'MIRROR']
+    if modifiers != looptools_cache[tool]["modifiers"]:
+        return(False, False, False, False, False)
+    input = [v.index for v in mesh.vertices if v.select and not v.hide]
+    if input != looptools_cache[tool]["input"]:
         return(False, False, False, False, False)
     # reading values
-    single_loops_safe = cache[tool]["single_loops"]
-    if single_loops_safe:
-        single_loops = {}
-        for key, val in single_loops_safe.items():
-            single_loops[int(key)] = [i for i in val]
-    else:
-        single_loops = False
-    loops_safe = cache[tool]["loops"]
-    loops = []
-    for loop_safe in [loops_safe[str(j)] for j in range(len(loops_safe))]:
-        loop = []
-        circular = False
-        for key, val in loop_safe.items():
-            if key == "loop":
-                loop = [i for i in val]
-            else: # key == "circular"
-                circular = bool(val)
-        loops.append([loop, circular])
-    derived = bool(cache[tool]["derived"])
-    mapping_safe = cache[tool]["mapping"]
-    if derived:
-        mapping = {}
-        for key, val in mapping_safe.items():
-            mapping[int(key)] = val
-    else:
-        mapping = False
+    single_loops = looptools_cache[tool]["single_loops"]
+    loops = looptools_cache[tool]["loops"]
+    derived = looptools_cache[tool]["derived"]
+    mapping = looptools_cache[tool]["mapping"]
     
     return(True, single_loops, loops, derived, mapping)
 
@@ -106,38 +86,18 @@ def cache_read(tool, object, mesh, input_method, boundaries):
 # store information in the cache
 def cache_write(tool, object, mesh, input_method, boundaries, single_loops,
 loops, derived, mapping):
-    # retrieve cache
-    if "LoopTools_cache" not in object:
-        object["LoopTools_cache"] = {}
-    cache = object["LoopTools_cache"]
-    # clear cache if cache was written by other version of the script
-    if "version" not in cache or \
-    cache["version"] != "".join(map(str, bl_info["version"])):
-        object["LoopTools_cache"] = {}
-        cache = object["LoopTools_cache"]
     # clear cache of current tool
-    if tool in cache:
-        del cache[tool]
-    # prepare values to be saved as ID-property
-    input = ",".join([str(v.index) for v in mesh.vertices if \
-        v.select and not v.hide])
-    if mapping:
-        mapping_safe = dict([[str(key), val] for key, val in mapping.items()])
-    else:
-        mapping_safe = False
-    if single_loops:
-        single_loops_safe = dict([[str(key), val] for key, val in \
-            single_loops.items()])
-    else:
-        single_loops_safe = False
-    loops_safe = {}
-    for i, loop in enumerate(loops):
-        loops_safe[str(i)] = {"circular": loop[1], "loop": loop[0]}
+    if tool in looptools_cache:
+        del looptools_cache[tool]
+    # prepare values to be saved to cache
+    input = [v.index for v in mesh.vertices if v.select and not v.hide]
+    modifiers = [mod.name for mod in object.modifiers if mod.show_viewport \
+        and mod.type == 'MIRROR']
     # update cache
-    cache["version"] = "".join(map(str, bl_info["version"]))
-    cache[tool] = {"input": input, "input_method": input_method,
-        "boundaries": boundaries, "single_loops": single_loops_safe, 
-        "loops": loops_safe, "derived": derived, "mapping": mapping_safe}
+    looptools_cache[tool] = {"input": input, "object": object.name,
+        "input_method": input_method, "boundaries": boundaries,
+        "single_loops": single_loops, "loops": loops,
+        "derived": derived, "mapping": mapping, "modifiers": modifiers}
 
 
 # calculates natural cubic splines through all given knots
@@ -1030,9 +990,9 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
                 loop1 = [loop1[-1]] + loop1[:-1]
     else:
         angle = (mesh.vertices[loop1[0]].co - center1).\
-            cross(mesh.vertices[loop1[1]].co - center1).angle(normals[0])
+            cross(mesh.vertices[loop1[1]].co - center1).angle(normals[0], 0)
         target_angle = (mesh.vertices[loop2[0]].co - center2).\
-            cross(mesh.vertices[loop2[1]].co - center2).angle(normals[1])
+            cross(mesh.vertices[loop2[1]].co - center2).angle(normals[1], 0)
         limit = 1.5707964 # 0.5*pi, 90 degrees
         if not ((angle > limit and target_angle > limit) or \
         (angle < limit and target_angle < limit)):
@@ -1693,7 +1653,10 @@ def circle_calculate_best_fit(locs_2d):
         jmat2[1][0] = jmat2[0][1]
         jmat2[2][0] = jmat2[0][2]
         jmat2[2][1] = jmat2[1][2]
-        jmat2.invert()
+        try:
+            jmat2.invert()
+        except:
+            pass
         dx0, dy0, dr = k2 * jmat2
         x0 += dx0
         y0 += dy0
@@ -2793,6 +2756,9 @@ class Bridge(bpy.types.Operator):
             if faces:
                 bridge_create_faces(mesh, faces, self.twist)
                 bridge_select_new_faces(mesh, len(faces), smooth)
+            # edge-data could have changed, can't use cache next run
+            if faces and not vertices:
+                cache_delete("Bridge")
             # delete internal faces
             if self.remove_faces and old_selected_faces:
                 bridge_remove_internal_faces(mesh, old_selected_faces)
@@ -3204,10 +3170,6 @@ class Relax(bpy.types.Operator):
             move = [relax_calculate_verts(mesh_mod, self.interpolation,
                 tknots, knots, tpoints, points, splines)]
             move_verts(mesh, mapping, move, -1)
-            bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=0)
-        self.report('INFO', "The 'Draw Window and Swap' messages above can "\
-            "be safely ignored")
-        self.report('INFO', "Relax tool finished")
         
         # cleaning up 
         if derived:
