@@ -54,107 +54,11 @@ def saasin(fac):
         return math.asin(fac)
 
 
-def cross2D(v1, v2):
-    return v1.x * v2.y - v1.y * v2.x
-
-
-def dot2D(v1, v2):
-    return v1.x * v2.x + v1.y * v2.y
-
-
-def triangle_normal(vec1, vec2, vec3):
-    e1 = vec1 - vec2
-    e2 = vec3 - vec2
-
-    n = e2.cross(e1)
-    vec = n.normalized()
-
-    return vec
-
-
-def axis_angle_to_quat(axis, angle, deg=False):
-    if deg:
-        # convert to radians
-        ang = math.radians(angle)
-    else:
-        ang = angle
-    q = Math.Quaternion([1.0, 0.0, 0.0, 0.0])
-    if axis.length == 0.0:
-        return None
-    nor = axis.normalized()
-    si = math.sin(ang / 2)
-    q.w = math.cos(ang / 2)
-    v = nor * si
-    q.x = v.x
-    q.y = v.y
-    q.z = v.z
-
-    return q
-
-
-def rotation_between_vectors_to_quat(vec1, vec2):
-    c = vec1.cross(vec2)
-    axis = c if c.length > 0.0 else Math.Vector([1.0, 0.0, 0.0])
-    #angle = NormalizedVecAngle2(vec1, vec2)
-    angle = saacos(vec1.dot(vec2) / (vec1.length * vec2.length))
-    quat = axis_angle_to_quat(axis, angle)
-
-    return quat
-
-
-def intersect(vec1, vec2, vec3, ray, orig, clip=1):
-    v1 = vec1.copy()
-    v2 = vec2.copy()
-    v3 = vec3.copy()
-    dir = ray.copy().normalized()
-    orig = orig.copy()
-
-    # find vectors for two edges sharing v1
-    e1 = v2 - v1
-    e2 = v3 - v1
-
-    # begin calculating determinant - also used to calculated U parameter
-    pvec = dir.cross(e2)
-
-    # if determinant is near zero, ray lies in plane of triangle
-    det = e1.dot(pvec)
-
-    if (-1E-6 < det < 1E-6):
-        return None
-
-    inv_det = 1.0 / det
-
-    # calculate distance from v1 to ray origin
-    tvec = orig - v1
-
-    # calculate U parameter and test bounds
-    u = tvec.dot(pvec) * inv_det
-    if (clip and (u < 0.0 or u > 1.0)):
-        return None
-
-    # prepare to test the V parameter
-    qvec = tvec.cross(e1)
-
-    # calculate V parameter and test bounds
-    v = dir.dot(qvec) * inv_det
-
-    if (clip and (v < 0.0 or u + v > 1.0)):
-        return None
-
-    # calculate t, ray intersects triangle
-    t = e2.dot(qvec) * inv_det
-
-    dir = dir * t
-    pvec = orig + dir
-
-    return pvec
-
-
 def plane_intersect(loc, normalvec, seg1, seg2, returnstatus=0):
     zaxis = Vector([0.0, 0.0, 1.0])
     normal = normalvec.copy()
     normal.normalized()
-    quat = rotation_between_vectors_to_quat(normal, zaxis)
+    quat = normal.rotation_difference(zaxis)
     s1 = (seg1 - loc) * quat
     s2 = (seg2 - loc) * quat
     t = crossStatus = None
@@ -196,7 +100,7 @@ def vedistance(vecp, vec1, vec2, segment=1, returnVerticalPoint=False):
     vec = vec2 - vec1
     p = vecp - vec1
     zaxis = Vector([0.0, 0.0, 1.0])
-    quat = rotation_between_vectors_to_quat(vec, zaxis)
+    quat = vec.rotation_difference(zaxis)
     p2 = quat * p
     if dist is None:
         dist = math.sqrt(p2[0] ** 2 + p2[1] ** 2)
@@ -1085,3 +989,4 @@ def draw_arc2(x, y, radius, start_angle, end_angle, edgenum):
         bgl.glVertex2f(x + radius * math.cos(r), y + radius * math.sin(r))
         r += diffangle
     bgl.glEnd()
+

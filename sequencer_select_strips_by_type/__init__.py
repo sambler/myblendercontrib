@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -34,8 +36,15 @@
 #
 # ##### END OF CHANGELOG #####
 
+# <pep8 compliant>
+
+"""
+This Blender addon simply adds two options in the sequencer Select menu, to (de)select strips
+by type.
+"""
+
 bl_info = {
-    "name": "Sequencer Select Strips By Type",
+    "name": "Select Strips By Type",
     "author": "Bastien Montagne",
     "version": (0, 0, 3),
     "blender": (2, 5, 6),
@@ -59,11 +68,13 @@ else:
     from . import operator
     from . import menu
 
+
 def register():
     bpy.utils.register_module(__name__)
 
     # Append the relevant menu entries.
     bpy.types.SEQUENCER_MT_select.append(menu.menu_func)
+
 
 def unregister():
     bpy.utils.unregister_module(__name__)
@@ -73,4 +84,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-

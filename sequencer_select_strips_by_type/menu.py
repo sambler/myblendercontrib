@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -16,7 +18,10 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
 import bpy
+
 
 # Selection.
 class SEQUENCER_MT_select_by_type(bpy.types.Menu):
@@ -32,7 +37,7 @@ class SEQUENCER_MT_select_by_type(bpy.types.Menu):
         layout.operator("sequencer.select_by_type", text="All Graphical Strips").select_types = {
                 "CROSS", "ADD", "SUBTRACT", "ALPHA_OVER", "ALPHA_UNDER", "GAMMA_CROSS", "MULTIPLY",
                 "OVER_DROP", "PLUGIN", "WIPE", "GLOW", "TRANSFORM", "COLOR", "SPEED", "IMAGE",
-                "MOVIE", "SCENE", "META"} # META might be graphical…
+                "MOVIE", "SCENE", "META"}  # META might be graphical…
         layout.operator("sequencer.select_by_type", text="All Effect Strips").select_types = {
                 "CROSS", "ADD", "SUBTRACT", "ALPHA_OVER", "ALPHA_UNDER", "GAMMA_CROSS", "MULTIPLY",
                 "OVER_DROP", "PLUGIN", "WIPE", "GLOW", "TRANSFORM", "COLOR", "SPEED"}
@@ -41,10 +46,11 @@ class SEQUENCER_MT_select_by_type(bpy.types.Menu):
         layout.operator("sequencer.select_by_type", text="Image Strips").select_types = {"IMAGE"}
         layout.operator("sequencer.select_by_type", text="Scene Strips").select_types = {"SCENE"}
         layout.operator("sequencer.select_by_type", text="Sound Strips").select_types = {"SOUND"}
-        layout.operator("sequencer.select_by_type", text="Meta Strips").select_types  = {"META"}
+        layout.operator("sequencer.select_by_type", text="Meta Strips").select_types = {"META"}
 
         layout.separator()
         layout.menu("SEQUENCER_MT_select_by_type_effects")
+
 
 class SEQUENCER_MT_select_by_type_effects(bpy.types.Menu):
     """
@@ -56,20 +62,21 @@ class SEQUENCER_MT_select_by_type_effects(bpy.types.Menu):
         layout = self.layout
 
         layout.column()
-        layout.operator("sequencer.select_by_type", text="Add").select_types         = {"ADD"}
-        layout.operator("sequencer.select_by_type", text="Subtract").select_types    = {"SUBTRACT"}
-        layout.operator("sequencer.select_by_type", text="Multiply").select_types    = {"MULTIPLY"}
-        layout.operator("sequencer.select_by_type", text="Alpha Over").select_types  = {"ALPHA_OVER"}
+        layout.operator("sequencer.select_by_type", text="Add").select_types = {"ADD"}
+        layout.operator("sequencer.select_by_type", text="Subtract").select_types = {"SUBTRACT"}
+        layout.operator("sequencer.select_by_type", text="Multiply").select_types = {"MULTIPLY"}
+        layout.operator("sequencer.select_by_type", text="Alpha Over").select_types = {"ALPHA_OVER"}
         layout.operator("sequencer.select_by_type", text="Alpha Under").select_types = {"ALPHA_UNDER"}
-        layout.operator("sequencer.select_by_type", text="Over Drop").select_types   = {"OVER_DROP"}
-        layout.operator("sequencer.select_by_type", text="Cross").select_types       = {"CROSS"}
+        layout.operator("sequencer.select_by_type", text="Over Drop").select_types = {"OVER_DROP"}
+        layout.operator("sequencer.select_by_type", text="Cross").select_types = {"CROSS"}
         layout.operator("sequencer.select_by_type", text="Gamma Cross").select_types = {"GAMMA_CROSS"}
-        layout.operator("sequencer.select_by_type", text="Wipe").select_types        = {"WIPE"}
-        layout.operator("sequencer.select_by_type", text="Glow").select_types        = {"GLOW"}
-        layout.operator("sequencer.select_by_type", text="Transform").select_types   = {"TRANSFORM"}
-        layout.operator("sequencer.select_by_type", text="Color").select_types       = {"COLOR"}
-        layout.operator("sequencer.select_by_type", text="Speed").select_types       = {"SPEED"}
-        layout.operator("sequencer.select_by_type", text="Plugin").select_types      = {"PLUGIN"}
+        layout.operator("sequencer.select_by_type", text="Wipe").select_types = {"WIPE"}
+        layout.operator("sequencer.select_by_type", text="Glow").select_types = {"GLOW"}
+        layout.operator("sequencer.select_by_type", text="Transform").select_types = {"TRANSFORM"}
+        layout.operator("sequencer.select_by_type", text="Color").select_types = {"COLOR"}
+        layout.operator("sequencer.select_by_type", text="Speed").select_types = {"SPEED"}
+        layout.operator("sequencer.select_by_type", text="Plugin").select_types = {"PLUGIN"}
+
 
 # Deselection
 class SEQUENCER_MT_deselect_by_type(bpy.types.Menu):
@@ -85,7 +92,7 @@ class SEQUENCER_MT_deselect_by_type(bpy.types.Menu):
         me = layout.operator("sequencer.select_by_type", text="All Graphical Strips")
         me.select_types = {"CROSS", "ADD", "SUBTRACT", "ALPHA_OVER", "ALPHA_UNDER", "GAMMA_CROSS",
                 "MULTIPLY", "OVER_DROP", "PLUGIN", "WIPE", "GLOW", "TRANSFORM", "COLOR", "SPEED",
-                "IMAGE", "MOVIE", "SCENE", "META"} # META might be graphical…
+                "IMAGE", "MOVIE", "SCENE", "META"}  # META might be graphical…
         me.deselect = True
         me = layout.operator("sequencer.select_by_type", text="All Effect Strips")
         me.select_types = {"CROSS", "ADD", "SUBTRACT", "ALPHA_OVER", "ALPHA_UNDER", "GAMMA_CROSS",
@@ -105,11 +112,12 @@ class SEQUENCER_MT_deselect_by_type(bpy.types.Menu):
         me.select_types = {"SOUND"}
         me.deselect = True
         me = layout.operator("sequencer.select_by_type", text="Meta Strips")
-        me.select_types  = {"META"}
+        me.select_types = {"META"}
         me.deselect = True
 
         layout.separator()
         layout.menu("SEQUENCER_MT_deselect_by_type_effects")
+
 
 class SEQUENCER_MT_deselect_by_type_effects(bpy.types.Menu):
     """
@@ -164,9 +172,9 @@ class SEQUENCER_MT_deselect_by_type_effects(bpy.types.Menu):
         me.select_types = {"PLUGIN"}
         me.deselect = True
 
+
 def menu_func(self, context):
     layout = self.layout
     layout.separator()
     layout.menu("SEQUENCER_MT_select_by_type")
     layout.menu("SEQUENCER_MT_deselect_by_type")
-

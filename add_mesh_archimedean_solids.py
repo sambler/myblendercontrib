@@ -1358,7 +1358,7 @@ class INFO_MT_mesh_archimedean_solids_add(bpy.types.Menu):
             text="Truncated Cuboctahedron")
 
 ########################
-import space_info
+from bl_ui import space_info
 
 # Define "Archimedean Solids" menu
 menu_func = (lambda self, context: self.layout.menu(
