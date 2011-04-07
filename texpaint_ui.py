@@ -296,11 +296,11 @@ class OBJECT_PT_Texture_paint_add(bpy.types.Panel):
                 col.operator('object.add_paint_layer',
                     text = "Add Translucency").ttype = 'TRANSLUCENCY'
                     
-                col = layout.column(align =True)                      
-                col.operator('object.add_paint_layer',
-                    text = "Add Mirror").ttype = 'MIRROR' 
-                col.operator('object.add_paint_layer',
-                    text = "Add Ray Mirror").ttype = 'RAY_MIRROR'   
+#                col = layout.column(align =True)                      
+#                col.operator('object.add_paint_layer',
+#                    text = "Add Mirror").ttype = 'MIRROR' 
+#                col.operator('object.add_paint_layer',
+#                    text = "Add Ray Mirror").ttype = 'RAY_MIRROR'   
                     
                 col = layout.column(align =True)                      
                 col.operator('object.add_paint_layer',
@@ -428,7 +428,9 @@ def add_paint(context, size =2048, typ = 'NORMAL'):
         iname ='Color'
         color = (1.0,1.0,1.0,0.0)
 
-                  
+    elif typ =='ALPHA':
+        iname ='Alpha'
+        color = (1.0,1.0,1.0,0.0)                  
     else:
         color =(0.0,0.0,0.0,1.0)
         iname = typ.capitalize()
@@ -505,7 +507,8 @@ def add_paint(context, size =2048, typ = 'NORMAL'):
         ts.use_rgb_to_intensity = True 
                         
     elif typ == 'RAY_MIRROR':
-        ts.use_map_ray_mir = True
+        mat.raytrace_mirror.use = True
+        ts.use_map_ray_mirror = True
         ts.use_map_color_diffuse =False
         ts.use_rgb_to_intensity = True 
                                                
