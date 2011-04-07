@@ -8,8 +8,8 @@ bl_info = {
     "description": "adds a layer manager for image based texture slots in paint and quick add layer tools",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/3D_interaction/Texture_paint_layers",
-    "tracker_url": "http://projects.blender.org/tracker/?func=add&group_id=153&atid=467",
-    "category": "Add Mesh"}
+    "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=26789&group_id=153&atid=467",
+    "category": "Texture"}
         
         
 import bpy
@@ -153,39 +153,41 @@ class OBJECT_PT_Texture_paint_layers(bpy.types.Panel):
         if ob:
             me = ob.data
             mat = ob.active_material
-    
-            
-            row = layout.row()        
-            row.template_list(ob, "material_slots", ob, 
-                "active_material_index", rows=2 )
-            
-    
-            
-            #list Paintable textures
-            #TODO add filter for channel type
-            i = -1
-            for t in mat.texture_slots:
-                i+=1
-                try:
-                    if t.texture.type =='IMAGE':                
-                        row = layout.row(align= True)                
-                        if t.texture == mat.active_texture:
-                            ai =  'BRUSH_DATA'
-                        else:
-                            ai = 'BLANK1'
-                        row.operator('object.set_active_paint_layer', 
-                            text = "", icon = ai).tex_index =i   
-                        row.prop(t.texture,'name', text = "")
+            if not mat:
+                row = layout.row() 
+                row.label(' Add a Material first!', icon = 'ERROR')
+            else:
+                row = layout.row()        
+                row.template_list(ob, "material_slots", ob, 
+                    "active_material_index", rows=2 )
+                
         
-    
-                        #Visibility
-                        if t.use:
-                            ic = 'RESTRICT_VIEW_OFF'
-                        else:
-                            ic = 'RESTRICT_VIEW_ON'
-                        row.prop(t,'use', text = "",icon = ic)
-                except:
-                     continue
+                
+                #list Paintable textures
+                #TODO add filter for channel type
+                i = -1
+                for t in mat.texture_slots:
+                    i+=1
+                    try:
+                        if t.texture.type =='IMAGE':                
+                            row = layout.row(align= True)                
+                            if t.texture == mat.active_texture:
+                                ai =  'BRUSH_DATA'
+                            else:
+                                ai = 'BLANK1'
+                            row.operator('object.set_active_paint_layer', 
+                                text = "", icon = ai).tex_index =i   
+                            row.prop(t.texture,'name', text = "")
+            
+        
+                            #Visibility
+                            if t.use:
+                                ic = 'RESTRICT_VIEW_OFF'
+                            else:
+                                ic = 'RESTRICT_VIEW_ON'
+                            row.prop(t,'use', text = "",icon = ic)
+                    except:
+                         continue
     
             
     
@@ -196,62 +198,51 @@ class OBJECT_PT_Texture_paint_layers(bpy.types.Panel):
     
             if ts:
                 row = layout.row()
-                row = layout.row()
-                row.label('Active Properties:', icon = 'BRUSH_DATA')
+
     
-                #use if rather than elif... can be mapped to multiple things                
-                if ts.use_map_diffuse:
-                    row = layout.row()
-    
-                    row.prop(ts,'diffuse_factor', slider = True)
-                if ts.use_map_color_diffuse:
-                    row = layout.row()
-                    row.prop(ts,'diffuse_color_factor', slider = True)
-                if ts.use_map_alpha:
-                    row = layout.row()
-                    row.prop(ts,'alpha_factor', slider = True)
-                if ts.use_map_translucency:
-                    row = layout.row()
-                    row.prop(ts,'translucency_factor', slider = True)
                 
+                
+                col = layout.column(align =True)
+                col.label('Active Properties:', icon = 'BRUSH_DATA') 
+                    
+                #use if rather than elif... can be mapped to multiple things                                   
+                if ts.use_map_diffuse:
+                    col.prop(ts,'diffuse_factor', slider = True)
+                if ts.use_map_color_diffuse:
+                    col.prop(ts,'diffuse_color_factor', slider = True)
+                if ts.use_map_alpha:
+                    col.prop(ts,'alpha_factor', slider = True)
+                if ts.use_map_translucency:
+                    col.prop(ts,'translucency_factor', slider = True)
                 if ts.use_map_specular:
-                    row = layout.row()
-                    row.prop(ts,'specular_factor', slider = True)
+                    col.prop(ts,'specular_factor', slider = True)
                 if ts.use_map_color_spec:
-                    row = layout.row()
-                    row.prop(ts,'specular_color_factor', slider = True)
+                    col.prop(ts,'specular_color_factor', slider = True)
                 if ts.use_map_hardness:
-                    row = layout.row()
-                    row.prop(ts,'hardness_factor', slider = True)
+                    col.prop(ts,'hardness_factor', slider = True)
                     
                 if ts.use_map_normal:
-                    row = layout.row()
-                    row.prop(ts,'normal_factor', slider = True)
+                    col.prop(ts,'normal_factor', slider = True)
                 if ts.use_map_warp:
-                    row = layout.row()
-                    row.prop(ts,'warp_factor', slider = True)
+                    col.prop(ts,'warp_factor', slider = True)
                 if ts.use_map_displacement:
-                    row = layout.row()
-                    row.prop(ts,'displacement_factor', slider = True)  
+                    col.prop(ts,'displacement_factor', slider = True)  
                     
                 if ts.use_map_ambient:
-                    row = layout.row()
-                    row.prop(ts,'ambient_factor', slider = True)               
+                    col.prop(ts,'ambient_factor', slider = True)               
                 if ts.use_map_emit:
-                    row = layout.row()
-                    row.prop(ts,'emit_factor', slider = True)                  
+                    col.prop(ts,'emit_factor', slider = True)                  
                 if ts.use_map_mirror:
-                    row = layout.row()
-                    row.prop(ts,'mirror_factor', slider = True)    
+                    col.prop(ts,'mirror_factor', slider = True)    
                 if ts.use_map_raymir:
-                    row = layout.row()
-                    row.prop(ts,'raymir_factor', slider = True)    
+                    col.prop(ts,'raymir_factor', slider = True)    
                  
                                     
-                row = layout.row()
-                row.prop(ts,'blend_type',text='')   
+                col.prop(ts,'blend_type',text='')   
         
-        
+            else:
+                row=layout.row()
+                row.label('No paint layers in material', icon = 'ERROR')        
 
 #            
 #        row = layout.row()
@@ -279,21 +270,49 @@ class OBJECT_PT_Texture_paint_add(bpy.types.Panel):
         if ob:
             me = ob.data
             mat = ob.active_material
-    
             
-            #row = layout.row()   
-            col = layout.column(align =True)
-    
-    
-            col.operator('object.add_paint_layer',
-                text = "Add Color").ttype = 'COLOR' 
-            col.operator('object.add_paint_layer',
-                text = "Add Bump").ttype = 'NORMAL'
-            col.operator('object.add_paint_layer',
-                text = "Add Specular").ttype = 'SPECULAR'
-            col.operator('object.add_paint_layer',
-                text = "Add Emit").ttype = 'EMIT'      
-            
+            if mat:
+                
+                #row = layout.row()   
+                col = layout.column(align =True)
+        
+        
+                col.operator('object.add_paint_layer',
+                    text = "Add Color").ttype = 'COLOR' 
+                col.operator('object.add_paint_layer',
+                    text = "Add Bump").ttype = 'NORMAL'
+                    
+                col = layout.column(align =True)
+                col.operator('object.add_paint_layer',
+                    text = "Add Specular").ttype = 'SPECULAR'
+                col.operator('object.add_paint_layer',
+                    text = "Add Spec Col").ttype = 'SPEC_COL'
+                col.operator('object.add_paint_layer',
+                    text = "Add Hardness").ttype = 'HARDNESS' 
+                    
+                col = layout.column(align =True)    
+                col.operator('object.add_paint_layer',
+                    text = "Add Alpha").ttype = 'ALPHA' 
+                col.operator('object.add_paint_layer',
+                    text = "Add Translucency").ttype = 'TRANSLUCENCY'
+                    
+                col = layout.column(align =True)                      
+                col.operator('object.add_paint_layer',
+                    text = "Add Mirror").ttype = 'MIRROR' 
+                col.operator('object.add_paint_layer',
+                    text = "Add Ray Mirror").ttype = 'RAY_MIRROR'   
+                    
+                col = layout.column(align =True)                      
+                col.operator('object.add_paint_layer',
+                    text = "Add Emit").ttype = 'EMIT' 
+                col.operator('object.add_paint_layer',
+                    text = "Add Diffuse").ttype = 'DIFFUSE'   
+                col.operator('object.add_paint_layer',
+                    text = "Add Ambient").ttype = 'AMBIENT' 
+                                        
+            else:
+                row = layout.row() 
+                row.label(' Add a Material first!', icon = 'ERROR')
         
         
 
@@ -397,7 +416,6 @@ def add_image_kludge(iname = 'grey', iwidth = 256, iheight = 256,
         
     
 def add_paint(context, size =2048, typ = 'NORMAL'):
-    #types can be 'NORMAL', 'COLOR','SPECULAR'
     
     ob = bpy.context.object
     mat = ob.active_material
@@ -409,17 +427,11 @@ def add_paint(context, size =2048, typ = 'NORMAL'):
     elif typ =='COLOR':
         iname ='Color'
         color = (1.0,1.0,1.0,0.0)
-    elif typ =='SPECULAR':
-        color =(0.0,0.0,0.0,1.0)
-        iname ='Specular'
-        
-    elif typ =='EMIT':
-        color =(0.0,0.0,0.0,1.0)
-        iname ='emit'
-        
+
+                  
     else:
         color =(0.0,0.0,0.0,1.0)
-        iname = typ
+        iname = typ.capitalize()
         
 #    bn = bpy.context.blend_data.filepath.split(bpy.utils._os.sep)[-1]
 #    bn = bn.replace('.blend', '')
@@ -455,7 +467,48 @@ def add_paint(context, size =2048, typ = 'NORMAL'):
         ts.use_map_color_diffuse =False
         ts.use_rgb_to_intensity = True
         
+    elif typ == 'ALPHA':
+        mat.use_transparency = True
+        ts.use_map_alpha = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True
+        ts.blend_type = 'MULTIPLY'
         
+    elif typ == 'SPEC_COL':
+        ts.use_map_color_spec = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True
+        
+    elif typ == 'HARDNESS':
+        ts.use_map_hardness = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True        
+        
+    elif typ == 'DIFFUSE':
+        ts.use_map_diffuse = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True         
+
+    elif typ == 'TRANSLUCENCY':
+        ts.use_map_translucency = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True 
+
+    elif typ == 'AMBIENT':
+        ts.use_map_ambient = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True
+         
+    elif typ == 'MIRROR':
+        ts.use_map_mirror = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True 
+                        
+    elif typ == 'RAY_MIRROR':
+        ts.use_map_ray_mir = True
+        ts.use_map_color_diffuse =False
+        ts.use_rgb_to_intensity = True 
+                                               
     #set new texture slot to active
     i = 0
     ts_index = None
