@@ -264,7 +264,7 @@ def get_points(stroke):
 
 
 def get_splines(gp):
-    l = gp.layers.activez
+    l = gp.layers.active
     if l:
         frame = l.active_frame
         return [Spline(get_points(stroke)) for stroke in frame.strokes]
