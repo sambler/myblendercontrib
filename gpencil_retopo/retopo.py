@@ -18,11 +18,47 @@
 
 # <pep8 compliant>
 
+
+bl_info = {
+    'name': "Grease Pencil Retopology",
+    'author': "Campbell Barton, Bart Crouch",
+    'version': (1, 0, 0),
+    'blender': (2, 5, 7),
+    'api': 36007,
+    'location': "View3D > Properties > Grease Pencil",
+    'warning': "",
+    'description': "Use Grease Pencil to retopologise a mesh.",
+    'wiki_url': "",
+    'tracker_url': "",
+    'category': 'Mesh'}
+
+
 import bpy
+from math import radians
+from mathutils.geometry import intersect_point_line, intersect_line_line
 
 
-EPS_SPLINE_DIV = 15.0  # remove doubles is ~15th the length of the spline
-ANGLE_JOIN_LIMIT = 25.0  # limit for joining splines into 1.
+# gather initial data and prepare for retopologising
+def initialise(poll=False):
+    scene = bpy.context.scene
+    obj = bpy.context.object
+    
+    # if we're only polling, we've got enough information
+    if poll and obj:
+        return(True)
+    elif poll:
+        return(False)
+    
+    gp = None
+    if obj:
+        gp = obj.grease_pencil
+    if not gp:
+        gp = scene.grease_pencil
+    
+    if gp:
+        bpy.ops.object.mode_set(mode='OBJECT')
+    
+    return(scene, gp)
 
 
 def get_hub(co, _hubs, EPS_SPLINE):
@@ -272,10 +308,9 @@ def get_splines(gp):
         return []
 
 
-def xsect_spline(sp_a, sp_b, _hubs):
-    from mathutils.geometry import intersect_point_line, intersect_line_line
+def xsect_spline(sp_a, sp_b, _hubs, precision):
     pt_a_prev = pt_b_prev = None
-    EPS_SPLINE = (sp_a.length + sp_b.length) / (EPS_SPLINE_DIV * 2)
+    EPS_SPLINE = (sp_a.length + sp_b.length) / (precision * 2)
     pt_a_prev = sp_a.points[0]
     for a, pt_a in enumerate(sp_a.points[1:]):
         pt_b_prev = sp_b.points[0]
@@ -286,10 +321,11 @@ def xsect_spline(sp_a, sp_b, _hubs):
             xsect = intersect_line_line(pt_a, pt_a_prev, pt_b, pt_b_prev)
             if xsect is not None:
                 if (xsect[0] - xsect[1]).length <= EPS_SPLINE:
-                    f = intersect_point_line(xsect[1], pt_a, pt_a_prev)[1]
-                    # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE: # for some reason doesnt work so well, same below
+                    f = intersect_point_line (xsect[1], pt_a, pt_a_prev)[1]
+                    # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE:
+                        # for some reason doesnt work so well, same below
                     if f >= 0.0 and f <= 1.0:
-                        f = intersect_point_line(xsect[0], pt_b, pt_b_prev)[1]
+                        f = intersect_point_line (xsect[0], pt_b, pt_b_prev)[1]
                         # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE:
                         if f >= 0.0 and f <= 1.0:
                             # This wont happen often
@@ -304,10 +340,9 @@ def xsect_spline(sp_a, sp_b, _hubs):
         pt_a_prev = pt_a
 
 
-def connect_splines(splines):
+def connect_splines(splines, precision):
     HASH_PREC = 8
-    from math import radians
-    ANG_LIMIT = radians(ANGLE_JOIN_LIMIT)
+    ANG_LIMIT = radians(25.0)  # limit for joining splines into 1
 
     def sort_pair(a, b):
         if a < b:
@@ -332,13 +367,13 @@ def connect_splines(splines):
             p2b = s2.points[-2]
 
         # compare length between tips
-        if (p1a - p2a).length > (length_average / EPS_SPLINE_DIV):
+        if (p1a - p2a).length > (length_average / precision):
             return False
 
         v1 = p1a - p1b
         v2 = p2b - p2a
-
-        if v1.angle(v2) > ANG_LIMIT:
+        
+        if v1.angle(v2, ANG_LIMIT+1) > ANG_LIMIT:
             return False
 
         # print("joining!")
@@ -412,11 +447,11 @@ def connect_splines(splines):
                 break
 
 
-def calculate(gp):
+def calculate(gp, precision):
     splines = get_splines(gp)
 
     # spline endpoints may be co-linear, join these into single splines
-    connect_splines(splines)
+    connect_splines(splines, precision)
 
     _hubs = {}
 
@@ -426,7 +461,7 @@ def calculate(gp):
                 continue
 
             if sp.bb.xsect(sp_other.bb, margin=0.1):
-                xsect_spline(sp, sp_other, _hubs)
+                xsect_spline(sp, sp_other, _hubs, precision)
 
     for sp in splines:
         sp.link()
@@ -467,40 +502,84 @@ def calculate(gp):
 
     mesh = bpy.data.meshes.new("Retopo")
     mesh.from_pydata(verts, [], faces)
-
+    
     scene = bpy.context.scene
     mesh.update()
     obj_new = bpy.data.objects.new(name="Retopo", object_data=mesh)
     scene.objects.link(obj_new)
-
+    
     return obj_new
 
 
-def main():
-    scene = bpy.context.scene
-    obj = bpy.context.object
+# retopo operator
+class Retopo(bpy.types.Operator):
+    bl_idname = 'mesh.gp_retopo'
+    bl_label = "Retopo"
+    bl_description = "Convert Grease Pencil drawings to a mesh"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    precision = bpy.props.IntProperty(name="Precision",
+        description="Lower values result in more removed doubles and "\
+            "smoother less precise results",
+        default=15,
+        min=2,
+        soft_max = 100)
+    
+    @classmethod
+    def poll(cls, context):
+        return(initialise(poll=True))
+    
+    def execute(self, context):
+        scene, gp = initialise()
+        if not gp:
+            self.report('WARNING', "No grease pencil data found")
+            return {'CANCELLED'}
+        obj_new = calculate(gp, self.precision)
+        
+        bpy.ops.object.select_all(action='DESELECT')
+        scene.objects.active = obj_new
+        obj_new.select = True
+        
+        # nasty, recalc normals
+        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+        bpy.ops.mesh.normals_make_consistent(inside=False)
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+        
+        return {'FINISHED'}
 
-    gp = None
 
-    if obj:
-        gp = obj.grease_pencil
+# draw function for integration in panels
+def panel_func(self, context):
+    self.layout.operator("mesh.gp_retopo")
 
-    if not gp:
-        gp = scene.grease_pencil
 
-    if not gp:
-        raise Exception("no active grease pencil")
+# define classes and panels for registration
+classes = [Retopo]
+panels = [bpy.types.VIEW3D_PT_tools_objectmode,
+    bpy.types.VIEW3D_PT_tools_meshedit,
+    bpy.types.VIEW3D_PT_tools_curveedit,
+    bpy.types.VIEW3D_PT_tools_surfaceedit,
+    bpy.types.VIEW3D_PT_tools_armatureedit,
+    bpy.types.VIEW3D_PT_tools_mballedit,
+    bpy.types.VIEW3D_PT_tools_latticeedit,
+    bpy.types.VIEW3D_PT_tools_posemode]
 
-    obj_new = calculate(gp)
 
-    scene.objects.active = obj_new
-    obj_new.select = True
+# registering and menu integration
+def register():
+    for c in classes:
+        bpy.utils.register_class(c)
+    for panel in panels:
+        panel.append(panel_func)
 
-    # nasty, recalc normals
-    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-    bpy.ops.mesh.normals_make_consistent(inside=False)
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+
+# unregistering and removing menus
+def unregister():
+    for c in classes:
+        bpy.utils.unregister_class(c)
+    for panel in panels:
+        panel.remove(panel_func)
 
 
 if __name__ == "__main__":
-    main()
+    register()
