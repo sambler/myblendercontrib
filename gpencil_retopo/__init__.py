@@ -20,39 +20,40 @@
 
 
 bl_info = {
-    'name': "Grease Pencil Retopology",
-    'author': "Campbell Barton, Bart Crouch",
-    'version': (1, 0, 0),
-    'blender': (2, 5, 7),
-    'api': 36007,
-    'location': "View3D > Properties > Grease Pencil",
-    'warning': "",
-    'description': "Use Grease Pencil to retopologise a mesh.",
-    'wiki_url': "",
-    'tracker_url': "",
-    'category': 'Mesh'}
+    "name": "Grease Pencil Retopology",
+    "author": "Campbell Barton, Bart Crouch",
+    "version": (1, 0, 0),
+    "blender": (2, 5, 7),
+    "api": 36007,
+    "location": "View3D > Properties > Grease Pencil",
+    "warning": "",
+    "description": "Use Grease Pencil to retopologise a mesh.",
+    "wiki_url": "",
+    "tracker_url": "",
+    "category": "Mesh"}
 
 
 import bpy
 
+
 # retopo operator
 class Retopo(bpy.types.Operator):
-    bl_idname = 'mesh.gp_retopo'
+    bl_idname = "mesh.gp_retopo"
     bl_label = "Retopo"
     bl_description = "Convert Grease Pencil drawings to a mesh"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     precision = bpy.props.IntProperty(name="Precision",
-        description="Lower values result in more removed doubles and "\
-            "smoother less precise results",
+        description="Lower values result in more removed doubles and "
+                    "smoother less precise results",
         default=15,
         min=2,
-        soft_max = 100)
-    
+        soft_max=100)
+
     @classmethod
     def poll(cls, context):
         return context.object
-    
+
     def execute(self, context):
         from . import retopo
         scene, gp = retopo.initialise(context)
@@ -61,16 +62,16 @@ class Retopo(bpy.types.Operator):
             return {'CANCELLED'}
 
         obj_new = retopo.calculate(gp, self.precision)
-        
+
         bpy.ops.object.select_all(action='DESELECT')
         scene.objects.active = obj_new
         obj_new.select = True
-        
+
         # nasty, recalc normals
         bpy.ops.object.mode_set(mode='EDIT', toggle=False)
         bpy.ops.mesh.normals_make_consistent(inside=False)
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-        
+
         return {'FINISHED'}
 
 

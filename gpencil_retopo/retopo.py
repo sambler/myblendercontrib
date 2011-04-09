@@ -33,7 +33,7 @@ def initialise(context):
         gp = obj.grease_pencil
     if not gp:
         gp = scene.grease_pencil
-    
+
     if gp:
         bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -300,11 +300,11 @@ def xsect_spline(sp_a, sp_b, _hubs, precision):
             xsect = intersect_line_line(pt_a, pt_a_prev, pt_b, pt_b_prev)
             if xsect is not None:
                 if (xsect[0] - xsect[1]).length <= EPS_SPLINE:
-                    f = intersect_point_line (xsect[1], pt_a, pt_a_prev)[1]
+                    f = intersect_point_line(xsect[1], pt_a, pt_a_prev)[1]
                     # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE:
                         # for some reason doesnt work so well, same below
                     if f >= 0.0 and f <= 1.0:
-                        f = intersect_point_line (xsect[0], pt_b, pt_b_prev)[1]
+                        f = intersect_point_line(xsect[0], pt_b, pt_b_prev)[1]
                         # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE:
                         if f >= 0.0 and f <= 1.0:
                             # This wont happen often
@@ -351,8 +351,8 @@ def connect_splines(splines, precision):
 
         v1 = p1a - p1b
         v2 = p2b - p2a
-        
-        if v1.angle(v2, ANG_LIMIT+1) > ANG_LIMIT:
+
+        if v1.angle(v2, ANG_LIMIT) >= ANG_LIMIT:
             return False
 
         # print("joining!")
@@ -481,10 +481,10 @@ def calculate(gp, precision):
 
     mesh = bpy.data.meshes.new("Retopo")
     mesh.from_pydata(verts, [], faces)
-    
+
     scene = bpy.context.scene
     mesh.update()
     obj_new = bpy.data.objects.new(name="Retopo", object_data=mesh)
     scene.objects.link(obj_new)
-    
+
     return obj_new
