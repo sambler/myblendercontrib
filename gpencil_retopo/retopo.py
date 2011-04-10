@@ -225,12 +225,13 @@ class BBox(object):
 
 
 class Spline(object):
-    __slots__ = "points", "hubs", "length", "bb"
+    __slots__ = "points", "hubs", "closed", "length", "bb"
 
-    def __init__(self, points):
+    def __init__(self, points, precision):
         self.points = points
         self.hubs = []
         self.calc_length()
+        self.closed = self.calc_closed(precision)
         self.bb = BBox()
         self.bb.calc(points)
 
@@ -242,6 +243,9 @@ class Spline(object):
             f += (co - co_prev).length
             co_prev = co
         self.length = f
+    
+    def calc_closed(self, precision):
+        return (self.points[0] - self.points[-1]).length < (self.length / precision)
 
     def link(self):
         if len(self.hubs) < 2:
@@ -273,16 +277,20 @@ class Spline(object):
             hub_prev.links.append(hub)
             hub_prev = hub
 
+        if self.closed:
+            hubs_order[0].links.append(hubs_order[-1])
+            hubs_order[-1].links.append(hubs_order[0])
+
 
 def get_points(stroke):
     return [point.co.copy() for point in stroke.points]
 
 
-def get_splines(gp):
+def get_splines(gp, precision):
     l = gp.layers.active
     if l:
         frame = l.active_frame
-        return [Spline(get_points(stroke)) for stroke in frame.strokes]
+        return [Spline(get_points(stroke), precision) for stroke in frame.strokes]
     else:
         return []
 
@@ -427,7 +435,8 @@ def connect_splines(splines, precision):
 
 
 def calculate(gp, precision):
-    splines = get_splines(gp)
+    # note, this precision is for closed lines, it could be a different arg.
+    splines = get_splines(gp, precision)
 
     # spline endpoints may be co-linear, join these into single splines
     connect_splines(splines, precision)

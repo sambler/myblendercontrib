@@ -46,7 +46,7 @@ class Retopo(bpy.types.Operator):
     precision = bpy.props.IntProperty(name="Precision",
         description="Lower values result in more removed doubles and "
                     "smoother less precise results",
-        default=15,
+        default=40,
         min=2,
         soft_max=100)
 
