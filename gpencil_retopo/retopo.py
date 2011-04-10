@@ -290,7 +290,7 @@ def get_splines(gp, precision):
     l = gp.layers.active
     if l:
         frame = l.active_frame
-        return [Spline(get_points(stroke), precision) for stroke in frame.strokes]
+        return [Spline(get_points(stroke), precision) for stroke in frame.strokes if len(stroke.points) > 1]
     else:
         return []
 
