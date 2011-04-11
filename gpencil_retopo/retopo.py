@@ -297,7 +297,7 @@ def get_splines(gp, precision):
 
 def xsect_spline(sp_a, sp_b, _hubs, precision):
     pt_a_prev = pt_b_prev = None
-    EPS_SPLINE = (sp_a.length + sp_b.length) / (precision * 2)
+    EPS_SPLINE = min(sp_a.length, sp_b.length) / precision
     pt_a_prev = sp_a.points[0]
     for a, pt_a in enumerate(sp_a.points[1:]):
         pt_b_prev = sp_b.points[0]
