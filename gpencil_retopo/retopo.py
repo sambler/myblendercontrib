@@ -243,7 +243,7 @@ class Spline(object):
             f += (co - co_prev).length
             co_prev = co
         self.length = f
-    
+
     def calc_closed(self, precision):
         return (self.points[0] - self.points[-1]).length < (self.length / precision)
 
@@ -353,14 +353,37 @@ def connect_splines(splines, precision):
             p2a = s2.points[-1]
             p2b = s2.points[-2]
 
-        # compare length between tips
-        if (p1a - p2a).length > (length_average / precision):
-            return False
-
         v1 = p1a - p1b
         v2 = p2b - p2a
 
         if v1.angle(v2, ANG_LIMIT) >= ANG_LIMIT:
+            return False
+
+        # trim s2, allow overlapping line.
+        v2_test_1 = p2b - p2a
+        if dir2 is False:
+            i = 2
+            while (p2b - p1a).length < (p2a - p1a).length and i < len(s2.points):
+                p2a = p2b
+                p2b = s2.points[i]
+                i += 1
+        else:
+            i = -3
+            while (p2b - p1a).length < (p2a - p1a).length and -i <= len(s2.points):
+                p2a = p2b
+                p2b = s2.points[i]
+                i -= 1
+
+        # when trimming did we we turn a corner?
+        v2_test_2 = p2b - p2a
+        if v2_test_1.angle(v2_test_2, ANG_LIMIT) >= ANG_LIMIT:
+            return False
+        del v2_test_1
+        del v2_test_2
+        # end trimming
+
+        # compare length between tips
+        if (p1a - p2a).length > (length_average / precision):
             return False
 
         # print("joining!")
