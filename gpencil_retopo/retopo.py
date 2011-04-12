@@ -19,10 +19,25 @@
 # <pep8 compliant>
 
 import bpy
+from math import radians
+from mathutils.geometry import intersect_point_line, intersect_line_line
 
 
-EPS_SPLINE_DIV = 15.0  # remove doubles is ~15th the length of the spline
-ANGLE_JOIN_LIMIT = 25.0  # limit for joining splines into 1.
+# gather initial data and prepare for retopologising
+def initialise(context):
+    scene = context.scene
+    obj = context.object
+
+    gp = None
+    if obj:
+        gp = obj.grease_pencil
+    if not gp:
+        gp = scene.grease_pencil
+
+    if gp:
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    return(scene, gp)
 
 
 def get_hub(co, _hubs, EPS_SPLINE):
@@ -210,12 +225,13 @@ class BBox(object):
 
 
 class Spline(object):
-    __slots__ = "points", "hubs", "length", "bb"
+    __slots__ = "points", "hubs", "closed", "length", "bb"
 
-    def __init__(self, points):
+    def __init__(self, points, precision):
         self.points = points
         self.hubs = []
         self.calc_length()
+        self.closed = self.calc_closed(precision)
         self.bb = BBox()
         self.bb.calc(points)
 
@@ -227,6 +243,9 @@ class Spline(object):
             f += (co - co_prev).length
             co_prev = co
         self.length = f
+
+    def calc_closed(self, precision):
+        return (self.points[0] - self.points[-1]).length < (self.length / precision)
 
     def link(self):
         if len(self.hubs) < 2:
@@ -258,24 +277,27 @@ class Spline(object):
             hub_prev.links.append(hub)
             hub_prev = hub
 
+        if self.closed:
+            hubs_order[0].links.append(hubs_order[-1])
+            hubs_order[-1].links.append(hubs_order[0])
+
 
 def get_points(stroke):
     return [point.co.copy() for point in stroke.points]
 
 
-def get_splines(gp):
+def get_splines(gp, precision):
     l = gp.layers.active
     if l:
         frame = l.active_frame
-        return [Spline(get_points(stroke)) for stroke in frame.strokes]
+        return [Spline(get_points(stroke), precision) for stroke in frame.strokes if len(stroke.points) > 1]
     else:
         return []
 
 
-def xsect_spline(sp_a, sp_b, _hubs):
-    from mathutils.geometry import intersect_point_line, intersect_line_line
+def xsect_spline(sp_a, sp_b, _hubs, precision):
     pt_a_prev = pt_b_prev = None
-    EPS_SPLINE = (sp_a.length + sp_b.length) / (EPS_SPLINE_DIV * 2)
+    EPS_SPLINE = min(sp_a.length, sp_b.length) / precision
     pt_a_prev = sp_a.points[0]
     for a, pt_a in enumerate(sp_a.points[1:]):
         pt_b_prev = sp_b.points[0]
@@ -287,7 +309,8 @@ def xsect_spline(sp_a, sp_b, _hubs):
             if xsect is not None:
                 if (xsect[0] - xsect[1]).length <= EPS_SPLINE:
                     f = intersect_point_line(xsect[1], pt_a, pt_a_prev)[1]
-                    # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE: # for some reason doesnt work so well, same below
+                    # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE:
+                        # for some reason doesnt work so well, same below
                     if f >= 0.0 and f <= 1.0:
                         f = intersect_point_line(xsect[0], pt_b, pt_b_prev)[1]
                         # if f >= 0.0-EPS_SPLINE and f <= 1.0+EPS_SPLINE:
@@ -304,10 +327,9 @@ def xsect_spline(sp_a, sp_b, _hubs):
         pt_a_prev = pt_a
 
 
-def connect_splines(splines):
+def connect_splines(splines, precision):
     HASH_PREC = 8
-    from math import radians
-    ANG_LIMIT = radians(ANGLE_JOIN_LIMIT)
+    ANG_LIMIT = radians(25.0)  # limit for joining splines into 1
 
     def sort_pair(a, b):
         if a < b:
@@ -331,14 +353,37 @@ def connect_splines(splines):
             p2a = s2.points[-1]
             p2b = s2.points[-2]
 
-        # compare length between tips
-        if (p1a - p2a).length > (length_average / EPS_SPLINE_DIV):
-            return False
-
         v1 = p1a - p1b
         v2 = p2b - p2a
 
-        if v1.angle(v2) > ANG_LIMIT:
+        if v1.angle(v2, ANG_LIMIT) >= ANG_LIMIT:
+            return False
+
+        # trim s2, allow overlapping line.
+        v2_test_1 = p2b - p2a
+        if dir2 is False:
+            i = 2
+            while (p2b - p1a).length < (p2a - p1a).length and i < len(s2.points):
+                p2a = p2b
+                p2b = s2.points[i]
+                i += 1
+        else:
+            i = -3
+            while (p2b - p1a).length < (p2a - p1a).length and -i <= len(s2.points):
+                p2a = p2b
+                p2b = s2.points[i]
+                i -= 1
+
+        # when trimming did we we turn a corner?
+        v2_test_2 = p2b - p2a
+        if v2_test_1.angle(v2_test_2, ANG_LIMIT) >= ANG_LIMIT:
+            return False
+        del v2_test_1
+        del v2_test_2
+        # end trimming
+
+        # compare length between tips
+        if (p1a - p2a).length > (length_average / precision):
             return False
 
         # print("joining!")
@@ -412,11 +457,12 @@ def connect_splines(splines):
                 break
 
 
-def calculate(gp):
-    splines = get_splines(gp)
+def calculate(gp, precision):
+    # note, this precision is for closed lines, it could be a different arg.
+    splines = get_splines(gp, precision)
 
     # spline endpoints may be co-linear, join these into single splines
-    connect_splines(splines)
+    connect_splines(splines, precision)
 
     _hubs = {}
 
@@ -426,7 +472,7 @@ def calculate(gp):
                 continue
 
             if sp.bb.xsect(sp_other.bb, margin=0.1):
-                xsect_spline(sp, sp_other, _hubs)
+                xsect_spline(sp, sp_other, _hubs, precision)
 
     for sp in splines:
         sp.link()
@@ -474,33 +520,3 @@ def calculate(gp):
     scene.objects.link(obj_new)
 
     return obj_new
-
-
-def main():
-    scene = bpy.context.scene
-    obj = bpy.context.object
-
-    gp = None
-
-    if obj:
-        gp = obj.grease_pencil
-
-    if not gp:
-        gp = scene.grease_pencil
-
-    if not gp:
-        raise Exception("no active grease pencil")
-
-    obj_new = calculate(gp)
-
-    scene.objects.active = obj_new
-    obj_new.select = True
-
-    # nasty, recalc normals
-    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-    bpy.ops.mesh.normals_make_consistent(inside=False)
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-
-
-if __name__ == "__main__":
-    main()

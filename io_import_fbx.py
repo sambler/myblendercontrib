@@ -159,6 +159,7 @@ def parse_fbx(path, fbx_data):
     while i < len(lines):
         i = read_fbx(i, fbx_data)
 
+
 def parse_connections(fbx_data):
     c = {}
     for tag, name, value in fbx_data:
@@ -166,9 +167,9 @@ def parse_connections(fbx_data):
         if type == "OO":
             parent = parent.replace('Model::', '').replace('Material::', '')
             child = child.replace('Model::', '').replace('Material::', '')
-            
+
             c[child] = parent
-                
+
     return c
 
 # Blender code starts here:
@@ -178,9 +179,9 @@ import bpy
 def import_fbx(path):
     import math
     import mathutils
-    
-    mtx_x90 = mathutils.Matrix.Rotation( math.pi/2.0, 3, 'X')
-    
+
+    mtx_x90 = mathutils.Matrix.Rotation(math.pi / 2.0, 3, 'X')
+
     fbx_data = []
     objects = {}
     materials = {}
@@ -191,7 +192,7 @@ def import_fbx(path):
         for tag_iter, name, value in data:
             if tag_iter == tag:
                 yield (name, value)
-    
+
     def tag_get_single(data, tag):
         for tag_iter, name, value in data:
             if tag_iter == tag:
@@ -206,7 +207,7 @@ def import_fbx(path):
         return None
 
     scene = bpy.context.scene
-    
+
     connections = parse_connections(tag_get_single(fbx_data, "Connections")[1])
 
     for tag1, name1, value1 in fbx_data:
@@ -255,25 +256,24 @@ def import_fbx(path):
 
                             me.from_pydata(blen_verts, [], blen_faces)
                             me.update()
-                            
+
                             # Handle smoothing
                             for i in tag_get_iter(value2, "LayerElementSmoothing"):
                                 i = i[1]
                                 type = tag_get_single(i, "MappingInformationType")[1]
-                                
+
                                 if type == "ByPolygon":
                                     smooth_faces = tag_get_single(i, "Smoothing")[1]
-                                    
+
                                     for idx, f in enumerate(me.faces):
                                         f.use_smooth = smooth_faces[idx]
                                 elif type == "ByEdge":
                                     smooth_edges = tag_get_single(i, "Smoothing")[1]
-                                    
+
                                     for idx, ed in enumerate(me.edges):
                                         ed.use_edge_sharp = smooth_edges[idx]
                                 else:
                                     print("WARNING: %s, unsupported smoothing type: %s" % (fbx_name, type))
-                            
 
                             obj = bpy.data.objects.new(fbx_name, me)
                             base = scene.objects.link(obj)
@@ -281,41 +281,39 @@ def import_fbx(path):
                     elif name2.endswith(" \"Camera\""):
 
                         camera = bpy.data.cameras.new(name=fbx_name)
-                        
+
                         props = tag_get_single(value2, "Properties60")[1]
                         camera.angle = math.radians(tag_get_prop(props, "FieldOfView"))
 
                         obj = bpy.data.objects.new(fbx_name, camera)
                         base = scene.objects.link(obj)
-                        
+
                     elif name2.endswith(" \"Light\""):
-                        
+
                         light = bpy.data.lamps.new(name=fbx_name)
-                        
+
                         props = tag_get_single(value2, "Properties60")[1]
-                        
-                        
+
                         # Lamp types
                         light_types = {0: 'POINT', 1: 'SUN', 2: 'SPOT'}
-                        
+
                         light.type = light_types[tag_get_prop(props, "LightType")]
-                        light.energy = max(tag_get_prop(props, "Intensity")/100, 0)
+                        light.energy = max(tag_get_prop(props, "Intensity") / 100.0, 0)
                         light.color = tag_get_prop(props, "Color")
                         light.distance = tag_get_prop(props, "DecayStart")
-                        
+
                         if light.type == 'SPOT':
                             light.spot_size = math.rad(tag_get_prop(props, "Cone angle"))
-                        
+
                         # Todo: shadows
-                        
+
                         obj = bpy.data.objects.new(fbx_name, light)
                         base = scene.objects.link(obj)
-                        
 
                     if obj:
                         # Update our object dict
                         objects[fbx_name] = obj
-                        
+
                         # Take care of parenting (we assume the parent has already been processed)
                         parent = connections.get(fbx_name)
                         if parent and parent != 'blend_root':
@@ -323,14 +321,14 @@ def import_fbx(path):
                             parent = obj.parent
                         else:
                             parent = None
-                    
+
                         # apply transformation
                         props = tag_get_single(value2, "Properties60")[1]
 
                         loc = tag_get_prop(props, "Lcl Translation")
                         rot = tag_get_prop(props, "Lcl Rotation")
                         sca = tag_get_prop(props, "Lcl Scaling")
-                        
+
                         # Convert rotation
                         rot_mat = mathutils.Euler([math.radians(i) for i in rot]).to_matrix()
                         if parent:
@@ -341,34 +339,34 @@ def import_fbx(path):
                         obj.scale = sca
 
                 elif tag2 == "Material":
-                
+
                     # "Material::MyMaterial", ""  -->  MyMaterial
                     fbx_name = name2.split(',')[0].strip()[1:-1].split("::", 1)[-1]
-                    
+
                     mat = bpy.data.materials.new(name=fbx_name)
-                    
+
                     props = tag_get_single(value2, "Properties60")[1]
-                    
+
                     # We always use Lambert diffuse shader for now
                     mat.diffuse_shader = 'LAMBERT'
-                    
+
                     mat.diffuse_color = tag_get_prop(props, "DiffuseColor")
                     mat.diffuse_intensity = tag_get_prop(props, "DiffuseFactor")
                     mat.alpha = 1 - tag_get_prop(props, "TransparencyFactor")
                     mat.specular_color = tag_get_prop(props, "SpecularColor")
-                    mat.specular_intensity = tag_get_prop(props, "SpecularFactor")*2.0
+                    mat.specular_intensity = tag_get_prop(props, "SpecularFactor") * 2.0
                     mat.specular_hardness = (tag_get_prop(props, "Shininess") * 5.10) + 1
                     mat.ambient = tag_get_prop(props, "AmbientFactor")
-                    
+
                     # Update material dict
                     materials[fbx_name] = mat
-                    
+
                     # Map to an object (we assume models are done before materials)
                     obj = connections.get(fbx_name)
                     if obj:
                         obj = objects[obj]
                         obj.data.materials.append(mat)
-                    
+
     return {'FINISHED'}
 
 

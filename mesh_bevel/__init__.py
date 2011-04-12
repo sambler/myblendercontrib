@@ -21,9 +21,13 @@ bl_info = {
     'author': 'chromoly',
     'version': (0, 3),
     'blender': (2, 5, 7),
-    'api': 35672,
-    'location': 'View3D > EditMode > Specials',
-    'wiki_url': '',
+    'api': 36090,
+    'location': 'View3D > EditMode > Specials (W Key)',
+    'warning': "Buggy",
+    'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
+	    'Scripts/Modeling/Bevel',
+    'tracker_url': "http://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=23563",
     'category': 'Mesh'}
 
 if "bpy" in locals():
