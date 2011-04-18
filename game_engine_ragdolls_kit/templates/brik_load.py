@@ -85,15 +85,15 @@ class Box:
     JOINT_POSITION_X    = 4
     JOINT_POSITION_Y    = 5
     JOINT_POSITION_Z    = 6
-    '''
-	#should no longer need to do this.
+    ###################################################
+    #should no longer need to do this.
     JOINT_LIMIT_MAX_X   = 7
     JOINT_LIMIT_MAX_Y   = 8
     JOINT_LIMIT_MAX_Z   = 9
     JOINT_LIMIT_MIN_X   = 10
     JOINT_LIMIT_MIN_Y   = 11
     JOINT_LIMIT_MIN_Z   = 12
-    '''
+    
 
 scene = bge.logic.getCurrentScene()
 cont = bge.logic.getCurrentController()
@@ -200,15 +200,15 @@ def load_data(data_cont):
             box['joint_position'] = [float(data[Box.JOINT_POSITION_X]),\
                                      float(data[Box.JOINT_POSITION_Y]),\
                                      float(data[Box.JOINT_POSITION_Z])]
-			'''
-			#should no longer need to do this
+            #############################################
+            #should no longer need to do this
             box['limit_rotation_x'] = [float(data[Box.JOINT_LIMIT_MIN_X]),\
                                        float(data[Box.JOINT_LIMIT_MAX_X])]
             box['limit_rotation_y'] = [float(data[Box.JOINT_LIMIT_MIN_Y]),\
                                        float(data[Box.JOINT_LIMIT_MAX_Y])]
             box['limit_rotation_z'] = [float(data[Box.JOINT_LIMIT_MIN_Z]),\
                                        float(data[Box.JOINT_LIMIT_MAX_Z])]
-			'''
+            
             hit_box = objects[data[Box.HIT_BOX_NAME]]
             hit_box['bone_name'] = data[Box.BONE_NAME]
             armature['bone_box_dict'][box['bone_name']] = box.name

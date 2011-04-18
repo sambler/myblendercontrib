@@ -452,7 +452,7 @@ class brik_write_game_file(bpy.types.Operator):
                 pos_z = obj['joint_position_z']
                 itemString = str(pos_x)+"\n"+str(pos_y)+"\n"+str(pos_z)+"\n"
                 dataFile.write(itemString)
-                '''
+                #############################################
                 #Should no longer need to do this.
 				
                 #Write rigid body joint limits to the file
@@ -466,7 +466,7 @@ class brik_write_game_file(bpy.types.Operator):
                 min_z = obj['rot_min_z']
                 itemString = str(min_x)+"\n"+str(min_y)+"\n"+str(min_z)+"\n"
                 dataFile.write(itemString)
-                '''
+                
             
         dataFile.write("'''")
         
@@ -971,7 +971,6 @@ class brik_create_structure(bpy.types.Operator):
                 RB_joint.use_angular_limit_x = True
                 RB_joint.use_angular_limit_y = True
                 RB_joint.use_angular_limit_z = True
-                #For some reason the limits are not being applied correctly!
             else:
                 boxObj['brik_joint_target'] = 'None'
             
