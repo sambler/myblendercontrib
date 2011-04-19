@@ -569,14 +569,16 @@ def save_painted(ts):
                         
                     bpy.context.scene.render.color_mode = 'RGBA'                          
                     fp =bpy.path.abspath(sep + sep +'textures' + sep + name)
-
-                    i.save_render(fp)
-                    i.source = 'FILE'
-                    if bpy.context.user_preferences.filepaths.use_relative_paths:
-                        i.filepath = bpy.path.relpath(fp) 
-                    else:
-                        i.filepath = fp
-                    i.name = name
+                    try:
+                        i.save_render(fp)
+                        i.source = 'FILE'
+                        if bpy.context.user_preferences.filepaths.use_relative_paths:
+                            i.filepath = bpy.path.relpath(fp) 
+                        else:
+                            i.filepath = fp
+                        i.name = name
+                    except:
+                        print("something wrong with", fp)
 
 
 
