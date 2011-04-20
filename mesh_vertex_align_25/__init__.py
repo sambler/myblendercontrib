@@ -23,6 +23,7 @@ bl_info = {
     'blender': (2, 5, 3),
     'api': 31847,
     'location': 'View3D > EditMode > Ctrl + A',
+    'warning': "Broken",
     'wiki_url': '',
     'category': 'Mesh'}
 
@@ -37,11 +38,15 @@ import bpy
 
 
 def register():
+    bpy.utils.register_module(__name__)
+
     km = bpy.context.window_manager.keyconfigs.default.keymaps['Mesh']
     kmi = km.keymap_items.new('wm.call_menu', 'A', 'PRESS', ctrl=True)
     kmi.properties.name = 'mesh.vertex_align'
 
 def unregister():
+    bpy.utils.unregister_module(__name__)
+
     km = bpy.context.window_manager.keyconfigs.default.keymaps['Mesh']
     for kmi in km.keymap_items:
         if kmi.idname == 'wm.call_menu':
