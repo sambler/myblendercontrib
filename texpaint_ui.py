@@ -580,6 +580,9 @@ def save_painted(ts):
                         i.use_premultiply = True
                     except:
                         print("something wrong with", fp)
+    #THAT'S THE GENERATED FILES saved, pathed and reloaded
+    #now save other painted textures
+    bpy.ops.image.save_dirty()
 
 
 
