@@ -568,7 +568,7 @@ def save_painted(ts):
                         name = name +'.tga' 
                         
                     bpy.context.scene.render.color_mode = 'RGBA'                          
-                    fp =bpy.path.abspath(sep + sep +'textures' + sep + name)
+                    fp =bpy.path.abspath('//textures' + sep + name)
                     try:
                         i.save_render(fp)
                         i.source = 'FILE'
