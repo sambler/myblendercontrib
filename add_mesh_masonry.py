@@ -25,8 +25,8 @@ bl_info = {
     "name": "Masonry",
     "author": "Paul Spooner, Dudecon, Ziggy",
     "version": (0, 57),
-    "blender": (2, 5, 4),
-    "api": 32261,
+    "blender": (2, 5, 7),
+    "api": 36147,
     "location": "View3D > Add > Mesh > Masonry",
     "description": "Add Stonework - walls, towers, path, block meshes.",
     "warning": "WIP - updates pending and API not final for Blender",
@@ -2376,17 +2376,19 @@ def menu_func(self, context):
 
 # Add "Masonry" menu to the "Add Mesh" menu
 def register():
-    space_info.INFO_MT_mesh_add.append(menu_func)
+    bpy.utils.register_module(__name__)
+
+    bpy.types.INFO_MT_mesh_add.append(menu_func)
 
 
-# Remove "Masonry" menu from the "Add Mesh" menu.
 def unregister():
-    space_info.INFO_MT_mesh_add.remove(menu_func)
+    bpy.utils.unregister_module(__name__)
+
+    bpy.types.INFO_MT_mesh_add.remove(menu_func)
 
 
 if __name__ == "__main__":
     register()
-
 #
 # optimize for speed.  Make it run faster?
 # Grout model... yeah.

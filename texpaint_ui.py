@@ -568,15 +568,21 @@ def save_painted(ts):
                         name = name +'.tga' 
                         
                     bpy.context.scene.render.color_mode = 'RGBA'                          
-                    fp =bpy.path.abspath(sep + sep +'textures' + sep + name)
-
-                    i.save_render(fp)
-                    i.source = 'FILE'
-                    if bpy.context.user_preferences.filepaths.use_relative_paths:
-                        i.filepath = bpy.path.relpath(fp) 
-                    else:
-                        i.filepath = fp
-                    i.name = name
+                    fp =bpy.path.abspath('//textures' + sep + name)
+                    try:
+                        i.save_render(fp)
+                        i.source = 'FILE'
+                        if bpy.context.user_preferences.filepaths.use_relative_paths:
+                            i.filepath = bpy.path.relpath(fp) 
+                        else:
+                            i.filepath = fp
+                        i.name = name
+                        i.use_premultiply = True
+                    except:
+                        print("something wrong with", fp)
+    #THAT'S THE GENERATED FILES saved, pathed and reloaded
+    #now save other painted textures
+    bpy.ops.image.save_dirty()
 
 
 

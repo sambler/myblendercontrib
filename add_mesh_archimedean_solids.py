@@ -20,10 +20,11 @@ bl_info = {
     'name': 'Archimedean Solids',
     'author': 'Buerbaum Martin (Pontiac)',
     'version': (0, 2, 0),
-    'blender': (2, 5, 6),
-    'api': 34385,
+    'blender': (2, 5, 7),
+    'api': 36147,
     'location': 'View3D > Add > Mesh > Archimedean Solids',
     'description': 'Adds various archimedean solids to the Add Mesh menu',
+    "warning": "Truncated functions are broken",
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/'\
         'Scripts/Add_Mesh/Archimedean_Solids',  # @todo Write the page.
     'tracker_url': 'https://projects.blender.org/tracker/index.php?'\
@@ -1366,13 +1367,12 @@ menu_func = (lambda self, context: self.layout.menu(
 
 
 def register():
-    # Add "Archimedean Solids" menu to the "Add Mesh" menu
-    space_info.INFO_MT_mesh_add.append(menu_func)
+    bpy.utils.register_module(__name__)
+
+    bpy.types.INFO_MT_mesh_add.append(menu_func)
 
 
 def unregister():
-    # Remove "Archimedean Solids" menu from the "Add Mesh" menu.
-    space_info.INFO_MT_mesh_add.remove(menu_func)
+    bpy.utils.unregister_module(__name__)
 
-if __name__ == "__main__":
-    register()
+    bpy.types.INFO_MT_mesh_add.remove(menu_func)

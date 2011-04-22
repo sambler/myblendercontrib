@@ -452,6 +452,9 @@ class brik_write_game_file(bpy.types.Operator):
                 pos_z = obj['joint_position_z']
                 itemString = str(pos_x)+"\n"+str(pos_y)+"\n"+str(pos_z)+"\n"
                 dataFile.write(itemString)
+                #############################################
+                #Should no longer need to do this.
+				
                 #Write rigid body joint limits to the file
                 max_x = obj['rot_max_x']
                 max_y = obj['rot_max_y']
@@ -463,6 +466,7 @@ class brik_write_game_file(bpy.types.Operator):
                 min_z = obj['rot_min_z']
                 itemString = str(min_x)+"\n"+str(min_y)+"\n"+str(min_z)+"\n"
                 dataFile.write(itemString)
+                
             
         dataFile.write("'''")
         
@@ -954,13 +958,29 @@ class brik_create_structure(bpy.types.Operator):
                 RB_joint.pivot_y = -bone.length/2
                 RB_joint.target = RB_dict[boxObj['brik_joint_target']]
                 RB_joint.use_linked_collision = True
+                RB_joint.pivot_type = ("GENERIC_6_DOF")
+                RB_joint.limit_angle_max_x = bone.ik_max_x
+                RB_joint.limit_angle_max_y = bone.ik_max_y
+                RB_joint.limit_angle_max_z = bone.ik_max_z
+                RB_joint.limit_angle_min_x = bone.ik_min_x
+                RB_joint.limit_angle_min_y = bone.ik_min_y
+                RB_joint.limit_angle_min_z = bone.ik_min_z
+                RB_joint.use_limit_x = True
+                RB_joint.use_limit_y = True
+                RB_joint.use_limit_z = True
+                RB_joint.use_angular_limit_x = True
+                RB_joint.use_angular_limit_y = True
+                RB_joint.use_angular_limit_z = True
             else:
                 boxObj['brik_joint_target'] = 'None'
-                
+            
+            #I think the above code should do this...
+            
             #It would be nice to use IK limits to define rigid body joint limits,
             #but the limit arrays have not yet been wrapped in RNA apparently...
             #properties_object_constraint.py in ui directory, line 554 says:
             #Missing: Limit arrays (not wrapped in RNA yet)
+            #From store_joint_data in write_game_file:
     
     def add_boxes_to_group(self, armature, RB_dict):
         print("Adding boxes to group")
