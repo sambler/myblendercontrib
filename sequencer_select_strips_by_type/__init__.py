@@ -18,6 +18,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
 # ##### CHANGELOG #####
 #
 #  0.0.1
@@ -34,9 +36,11 @@
 #        but much less hackish than the previous string technique…
 #      * As requested by mindrones, renamed in “Sequencer Select Strips By Type”.
 #
+#  0.0.4
+#      * Anecdotal changes, now PEP8 compliant…
+#      * Removed the beta warning!
+#
 # ##### END OF CHANGELOG #####
-
-# <pep8 compliant>
 
 """
 This Blender addon simply adds two options in the sequencer Select menu, to (de)select strips
@@ -46,12 +50,11 @@ by type.
 bl_info = {
     "name": "Select Strips By Type",
     "author": "Bastien Montagne",
-    "version": (0, 0, 3),
-    "blender": (2, 5, 6),
-    "api": 35433,
+    "version": (0, 0, 4),
+    "blender": (2, 5, 7),
+    "api": 36380,
     "location": "Video Sequence Editor header (Select menu)",
     "description": "Allows to select strips by their type (image, video, audio, etc.).",
-    "warning": "beta",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
                 "Scripts/Sequencer/Select Strips By Type",
     "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=25833",
