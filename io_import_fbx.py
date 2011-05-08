@@ -233,6 +233,7 @@ def import_fbx(path):
 
                         verts = tag_get_single(value2, "Vertices")[1]
                         faces = tag_get_single(value2, "PolygonVertexIndex")[1]
+                        #EDGE: edges = tag_get_single(value2, "Edges")[1]
 
                         # convert odd fbx verts and faces to a blender mesh.
                         if verts and faces:
@@ -240,21 +241,71 @@ def import_fbx(path):
                             # get a list of floats as triples
                             blen_verts = [verts[i - 3:i] for i in range(3, len(verts) + 3, 3)]
 
-                            # get weirdo face indicies
-                            face = []
-                            blen_faces = [face]
-                            for f in faces:
-                                if f < 0:
-                                    face.append(int(-f) - 1)
-                                    face = []
-                                    blen_faces.append(face)
-                                else:
-                                    face.append(int(f))
+                            # get weirdo face indicies and proper edge indexs
+                            # edge_ends is referring to end vertex of the face.
+                            # Thas why we have link with first vertex of the face.
 
+                            face = []
+                            #EDGE: ed = 0
+                            #EDGE: edge_ends = []
+                            blen_faces = [face]
+                            blen_faces_edges = []  # faces that have a length of 2
+                            blen_poly_mapping = {}
+                            poly_idx = 0
+                            for idx, f in enumerate(faces):
+                                if f < 0:
+                                    face.append(f ^ -1)
+                                    face = []
+
+                                    if len(blen_faces[-1]) == 2:
+                                        blen_faces_edges.append(blen_faces.pop())
+                                    else:
+                                        blen_poly_mapping[poly_idx] = len(blen_faces) - 1
+
+                                    blen_faces.append(face)
+                                    poly_idx += 1
+
+                                    #EDGE: if ed == 0:
+                                    #EDGE:     edge_ends.append((idx, 0))
+                                    #EDGE:     ed = 1
+                                    #EDGE:     tuli = idx + 1
+                                    #EDGE: else:
+                                    #EDGE:     edge_ends.append((idx, tuli))
+                                    #EDGE:     tuli = idx + 1
+
+                                else:
+                                    face.append(f)
+
+
+                            #EDGE:
+                            """
+                            edge_final = []
+
+                            for idx, e in enumerate(edges):
+                                if edge_ends[-1][0] == e:
+                                    edge1 = faces[edge_ends[-1][0]]
+                                    if edge1 < 0:
+                                        edge1 ^= -1
+                                    edge2 = faces[edge_ends[-1][1]]
+                                    if edge2 < 0:
+                                        edge2 ^= -1
+
+                                    edge_final.append((edge1, edge2))
+                                else:
+                                    edge1 = faces[e]
+                                    if edge1 < 0:
+                                        edge1 ^= -1
+                                    edge2 = faces[e + 1]
+                                    if edge2 < 0:
+                                        edge2 ^= -1
+
+                                    edge_final.append((edge1, edge2))
+                            """
                             if not blen_faces[-1]:
                                 del blen_faces[-1]
 
-                            me.from_pydata(blen_verts, [], blen_faces)
+                            #EDGE: me.from_pydata(blen_verts, edge_final + blen_faces_edges, blen_faces)
+                            me.from_pydata(blen_verts, blen_faces_edges, blen_faces)
                             me.update()
 
                             # Handle smoothing
@@ -265,8 +316,10 @@ def import_fbx(path):
                                 if type == "ByPolygon":
                                     smooth_faces = tag_get_single(i, "Smoothing")[1]
 
-                                    for idx, f in enumerate(me.faces):
-                                        f.use_smooth = smooth_faces[idx]
+                                    for idx, val in enumerate(smooth_faces):
+                                        new_idx = blen_poly_mapping.get(idx)
+                                        if new_idx is not None:
+                                            me.faces[new_idx].use_smooth = val
                                 elif type == "ByEdge":
                                     smooth_edges = tag_get_single(i, "Smoothing")[1]
 
@@ -274,6 +327,30 @@ def import_fbx(path):
                                         ed.use_edge_sharp = smooth_edges[idx]
                                 else:
                                     print("WARNING: %s, unsupported smoothing type: %s" % (fbx_name, type))
+
+
+                            #EDGE:
+                            """ 
+                            # Handle edge weighting
+                            for i in tag_get_iter(value2, "LayerElementEdgeCrease"):
+                                i = i[1]
+                                type = tag_get_single(i, "MappingInformationType")[1]
+
+                                if type == "ByPolygon":
+                                    crease_faces = tag_get_single(i, "Smoothing")[1]
+
+                                    for idx, f in enumerate(me.faces):
+                                        poly_idx = blen_poly_mapping.get(idx)
+                                        if poly_idx is not None:
+                                            f.use_smooth = crease_faces[idx]
+                                elif type == "ByEdge":
+                                    crease_edges = tag_get_single(i, "EdgeCrease")[1]
+
+                                    for idx, ed in enumerate(me.edges):
+                                        ed.crease = crease_edges[idx]
+                                else:
+                                    print("WARNING: %s, unsupported smoothing type: %s" % (fbx_name, type))
+                            """
 
                             obj = bpy.data.objects.new(fbx_name, me)
                             base = scene.objects.link(obj)
