@@ -316,7 +316,7 @@ def import_fbx(path):
 
                         # Take care of parenting (we assume the parent has already been processed)
                         parent = connections.get(fbx_name)
-                        if parent and parent != 'blend_root':
+                        if parent and parent != "Scene":
                             obj.parent = objects[parent]
                             parent = obj.parent
                         else:
@@ -332,7 +332,7 @@ def import_fbx(path):
                         # Convert rotation
                         rot_mat = mathutils.Euler([math.radians(i) for i in rot]).to_matrix()
                         if parent:
-                            rot_mat = mathutils.Matrix(parent.matrix_world).rotation_part().invert() * rot_mat
+                            rot_mat = parent.matrix_world.to_3x3().inverted() * rot_mat
 
                         obj.location = loc
                         obj.rotation_euler = rot_mat.to_euler()[:]
@@ -393,10 +393,12 @@ def menu_func(self, context):
 
 
 def register():
+    bpy.utils.register_class(ImportFBX)
     bpy.types.INFO_MT_file_import.append(menu_func)
 
 
 def unregister():
+    bpy.utils.register_class(ImportFBX)
     bpy.types.INFO_MT_file_import.remove(menu_func)
 
 
