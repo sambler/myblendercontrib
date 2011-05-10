@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 7),
-    'blender': (2, 5, 6),
-    'api': 35423,
+    'version': (2, 6, 8),
+    'blender': (2, 5, 7),
+    'api': 36489,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -140,22 +140,23 @@ class IndexVisualiser(bpy.types.Operator):
         return context.mode=="EDIT_MESH"
     
     def modal(self, context, event):
-        context.area.tag_redraw()
+        if context.area:
+            context.area.tag_redraw()
 
         # removal of callbacks when operator is called again
-        if context.scene["display_indices"] == -1:
+        if context.scene.display_indices == -1:
             context.region.callback_remove(self.handle1)
             context.region.callback_remove(self.handle2)
-            context.scene["display_indices"] = 0
+            context.scene.display_indices = 0
             return {"CANCELLED"}
         
         return {"PASS_THROUGH"}
     
     def invoke(self, context, event):
         if context.area.type == "VIEW_3D":
-            if context.scene["display_indices"] == 0:
+            if context.scene.display_indices == 0:
                 # operator is called for the first time, start everything
-                context.scene["display_indices"] = 1
+                context.scene.display_indices = 1
                 context.window_manager.modal_handler_add(self)
                 self.handle1 = context.region.callback_add(calc_callback,
                     (self, context), "POST_VIEW")
@@ -164,7 +165,7 @@ class IndexVisualiser(bpy.types.Operator):
                 return {"RUNNING_MODAL"}
             else:
                 # operator is called again, stop displaying
-                context.scene["display_indices"] = -1
+                context.scene.display_indices = -1
                 clear_properties(full=False)
                 return {'RUNNING_MODAL'}
         else:
@@ -178,7 +179,9 @@ class InitProperties(bpy.types.Operator):
     bl_label = "init properties for index visualiser"
     
     def execute(self, context):
-        bpy.context.scene["display_indices"] = 0
+        bpy.types.Scene.display_indices = bpy.props.IntProperty(
+            name="Display indices",
+            default=0)
         bpy.types.Scene.display_sel_only = bpy.props.BoolProperty(
             name="Selected only",
             description="Only display indices of selected vertices/edges/faces",
@@ -220,13 +223,13 @@ def menu_func(self, context):
     col.operator(IndexVisualiser.bl_idname, text="Visualise indices")
     row = col.row(align=True)
     row.active = (context.mode=="EDIT_MESH" and \
-        context.scene["display_indices"]==1)
+        context.scene.display_indices==1)
     row.prop(context.scene, "display_vert_index", toggle=True)
     row.prop(context.scene, "display_edge_index", toggle=True)
     row.prop(context.scene, "display_face_index", toggle=True)
     row = col.row(align=True)
     row.active = (context.mode=="EDIT_MESH" and \
-        context.scene["display_indices"]==1)
+        context.scene.display_indices==1)
     row.prop(context.scene, "display_sel_only")
 
 
