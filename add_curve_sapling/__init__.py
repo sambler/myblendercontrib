@@ -522,31 +522,14 @@ def menu_func(self, context):
     self.layout.operator(AddTree.bl_idname, text="Add Tree", icon='PLUGIN')
 
 def register():
-    bpy.utils.register_class(AddTree)
-    bpy.utils.register_class(PresetMenu)
-    bpy.utils.register_class(ImportData)
-    bpy.utils.register_class(ExportData)
-    #bpy.utils.register_class(SaplingProps)
+    bpy.utils.register_module(__name__)
+
     bpy.types.INFO_MT_curve_add.append(menu_func)
-    #bpy.types.WindowManager.sapling = bpy.props.PointerProperty(type = SaplingProps)
 
 def unregister():
-    bpy.utils.unregister_class(AddTree)
-    bpy.utils.unregister_class(PresetMenu)
-    bpy.utils.unregister_class(ImportData)
-    bpy.utils.unregister_class(ExportData)
+    bpy.utils.unregister_module(__name__)
+
     bpy.types.INFO_MT_curve_add.remove(menu_func)
-    try:
-        del bpy.types.WindowManager.sapling
-    except:
-        pass
 
 if __name__ == "__main__":
     register()
-
-class panelTest(AddTree, bpy.types.Panel):
-    bl_idname = "VIEW3D_PT_test_1"
-    bl_label = "Panel One"
-
-    def draw(self, context):
-        self.layout.label("Small Class")
