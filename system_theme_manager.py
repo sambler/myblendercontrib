@@ -22,9 +22,9 @@
 bl_info = {
     'name': "Theme manager",
     'author': "Bart Crouch",
-    'version': (1, 2, 0),
+    'version': (1, 3, 0),
     'blender': (2, 5, 7),
-    'api': 35850,
+    'api': 36489,
     'location': "User Preferences > Themes > Header",
     'warning': "",
     'description': "Load or save a custom theme",
@@ -149,6 +149,72 @@ class ApplyTheme(bpy.types.Operator):
                     for subprop, subval in val.items():
                         setattr(prop_struct, subprop, subval)
         
+        # restore default values for miscellaneous items, before assigning
+        bpy.context.user_preferences.view.object_origin_size = 6
+        bpy.context.user_preferences.view.mini_axis_size = 25
+        bpy.context.user_preferences.view.mini_axis_brightness = 8
+        bpy.context.user_preferences.view.manipulator_size = 15
+        bpy.context.user_preferences.view.manipulator_handle_size = 25
+        bpy.context.user_preferences.view.manipulator_hotspot = 14
+        bpy.context.user_preferences.edit.sculpt_paint_overlay_color = \
+            [0.0, 0.0, 0.0]
+        bpy.context.user_preferences.system.dpi = 72
+        bpy.context.user_preferences.system.use_weight_color_range = False
+        color_range = bpy.context.user_preferences.system.weight_color_range
+        color_range.interpolation = 'LINEAR'
+        for element in color_range.elements:
+            if len(color_range.elements) > 1:
+                color_range.elements.remove(element)
+        if len(color_range.elements) == 1:
+            color_range.elements[0].position = 1.0
+            color_range.elements[0].color = [0.0, 1.0, 0.0, 0.0]
+        lights = bpy.context.user_preferences.system.solid_lights
+        light_settings = [{"diffuse_color":[0.8, 0.8, 0.8],
+            "direction":[-0.892, 0.3, 0.9], "specular_color":[0.5, 0.5, 0.5],
+            "use":True}, {"diffuse_color":[0.498, 0.5, 0.6], 
+            "direction":[0.588, 0.460, 0.248],
+            "specular_color":[0.2, 0.2, 0.2], "use":True},
+            {"diffuse_color":[0.798, 0.838, 1.0],
+            "direction":[0.216, -0.392, -0.216],
+            "specular_color":[0.066, 0.0, 0.0], "use":True}]
+        for i, light in enumerate(lights):
+            settings = light_settings[i]
+            for prop, value in settings.items():
+                setattr(light, prop, value)
+        
+        # theme file created with script version >= 1.3
+        if "misc" in dump:
+            for category, props in dump["misc"].items():
+                category_struct = getattr(bpy.context.user_preferences,
+                    category)
+                for prop_name, val in props.items():
+                    if type(val) != type({}):
+                        # simple miscellaneous setting
+                        setattr(category_struct, prop_name, val)
+                    else:
+                        structs = getattr(category_struct, prop_name)
+                        for subkey, subval in val.items():
+                            if type(subkey) == type(1):
+                                # solid_lights
+                                struct = structs[subkey]
+                                for subprop_name, subprop_val in \
+                                subval.items():
+                                    setattr(struct, subprop_name, subprop_val)
+                            else:
+                                # weight paint color-range
+                                if type(subval) != type({}):
+                                    setattr(structs, subkey, subval)
+                                else:
+                                    elements = getattr(structs, subkey)
+                                    add_new = len(subval) - len(elements)
+                                    for i in range(add_new):
+                                        elements.new(i / len(subval))
+                                    for i, element_prop in subval.items():
+                                        for element_key, element_value in \
+                                        element_prop.items():
+                                            setattr(elements[i], element_key,
+                                                element_value)
+        
         # report to user
         author = dump["info"]["author"]
         theme_name = dump["info"]["theme_name"]
@@ -233,7 +299,7 @@ class SaveTheme(bpy.types.Operator, ExportHelper):
     
     def execute(self, context):
         # create dictionary with all information
-        dump = {"info":{}, "values":{}}
+        dump = {"info":{}, "misc":{}, "values":{}}
         dump["info"]["script"] = bl_info['name']
         dump["info"]["script_version"] = bl_info['version']
         dump["info"]["version"] = bpy.app.version
@@ -304,7 +370,54 @@ class SaveTheme(bpy.types.Operator, ExportHelper):
                                 # single value
                                 dump["values"][name][prop.identifier]\
                                     [subprop.identifier] = subval
-                
+        
+        # get simple settings which are spread out over various sections
+        save_props = ["view.object_origin_size", "view.mini_axis_size",
+            "view.mini_axis_brightness", "view.manipulator_size",
+            "view.manipulator_handle_size", "view.manipulator_hotspot",
+            "edit.sculpt_paint_overlay_color", "system.dpi",
+            "system.use_weight_color_range"]
+        for property in save_props:
+            category, prop_name = property.split(".", 1)
+            if not dump["misc"].get(category, False):
+                dump["misc"][category] = {}
+            prop = getattr(getattr(bpy.context.user_preferences, category),
+                prop_name)
+            if str(type(prop)) in ["<class 'bpy_prop_array'>",
+            "<class 'mathutils.Color'>"]:
+                prop = [val for val in prop]
+            dump["misc"][category][prop_name] = prop
+        
+        # solid_light settings
+        dump["misc"]["system"]["solid_lights"] = {}
+        for i, light in enumerate(bpy.context.user_preferences.system.
+        solid_lights):
+            dump["misc"]["system"]["solid_lights"][i] = {}
+            save_props = ["diffuse_color", "direction", "specular_color",
+                "use"]
+            for property in save_props:
+                prop = getattr(bpy.context.user_preferences.system.\
+                    solid_lights[i], property)
+                if str(type(prop)) in ["<class 'bpy_prop_array'>",
+                "<class 'mathutils.Color'>", "<class 'mathutils.Vector'>"]:
+                    prop = [val for val in prop]
+                dump["misc"]["system"]["solid_lights"][i][property] = prop
+        
+        # weight paint color-range settings
+        dump["misc"]["system"]["weight_color_range"] = {}
+        dump["misc"]["system"]["weight_color_range"]["interpolation"] = bpy.\
+            context.user_preferences.system.weight_color_range.interpolation
+        dump["misc"]["system"]["weight_color_range"]["elements"] = {}
+        for i, element in enumerate(context.user_preferences.system.\
+        weight_color_range.elements):
+            dump["misc"]["system"]["weight_color_range"]["elements"][i] = {}
+            dump["misc"]["system"]["weight_color_range"]["elements"][i]\
+                ["position"] = bpy.context.user_preferences.system.\
+                weight_color_range.elements[i].position
+            dump["misc"]["system"]["weight_color_range"]["elements"][i]\
+                ["color"] = [c for c in bpy.context.user_preferences.system.\
+                weight_color_range.elements[i].color]
+        
         # save to file
         filepath = self.filepath
         filepath = bpy.path.ensure_ext(filepath, self.filename_ext)
