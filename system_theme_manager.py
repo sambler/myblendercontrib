@@ -22,7 +22,7 @@
 bl_info = {
     'name': "Theme manager",
     'author': "Bart Crouch",
-    'version': (1, 3, 0),
+    'version': (1, 3, 1),
     'blender': (2, 5, 7),
     'api': 36489,
     'location': "User Preferences > Themes > Header",
@@ -162,9 +162,8 @@ class ApplyTheme(bpy.types.Operator):
         bpy.context.user_preferences.system.use_weight_color_range = False
         color_range = bpy.context.user_preferences.system.weight_color_range
         color_range.interpolation = 'LINEAR'
-        for element in color_range.elements:
-            if len(color_range.elements) > 1:
-                color_range.elements.remove(element)
+        while len(color_range.elements) > 1:
+            color_range.elements.remove(color_range.elements[0])
         if len(color_range.elements) == 1:
             color_range.elements[0].position = 1.0
             color_range.elements[0].color = [0.0, 1.0, 0.0, 0.0]
