@@ -342,6 +342,43 @@ def import_fbx(path):
                                         ed.crease = crease_edges[idx]
                                 else:
                                     print("WARNING: %s, unsupported smoothing type: %s" % (fbx_name, type))
+
+                            # Create the Uv-sets 
+                            for i in tag_get_iter(value2, "LayerElementUV"):
+                                i=i[1]
+                                uv_in = 0
+                                uv_face = []
+                                uv_name = tag_get_single(i,"Name")[1]
+                                print(uv_name)
+                                uv_verts = tag_get_single(i, "UV")[1]
+                                uv_index = tag_get_single(i, "UVIndex")[1]
+
+                                if(uv_verts):
+                                    blen_uv_verts = [uv_verts[i - 2:i] for i in range(2, len(uv_verts) + 2, 2)]
+
+                                    for ind,uv_i in enumerate(uv_index):
+                                        if(uv_i == -1):
+                                            uv_face.append([-0.1,-0.1])
+                                        else:
+                                            uv_face.append(blen_uv_verts[uv_in])
+                                            uv_in +=1
+
+                                    me.uv_textures.new(uv_name)
+                                    uv_layer = me.uv_textures[-1].data
+                                    uv_counter = 0
+                                    if uv_layer:
+                                        for fi, uv in enumerate(uv_layer):
+                                            if(len(me.faces[fi].vertices) == 4):
+                                                uv.uv1 = uv_face[uv_counter]
+                                                uv.uv2 = uv_face[uv_counter+1]
+                                                uv.uv3 = uv_face[uv_counter+2]
+                                                uv.uv4 = uv_face[uv_counter+3]
+                                                uv_counter += 4
+                                            else:
+                                                uv.uv1 = uv_face[uv_counter]
+                                                uv.uv2 = uv_face[uv_counter+1]
+                                                uv.uv3 = uv_face[uv_counter+2]
+                                                uv_counter += 3
                             
 
                             obj = bpy.data.objects.new(fbx_name, me)
