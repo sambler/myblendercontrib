@@ -24,7 +24,7 @@ bl_info = {
     'author': 'Paulo Gomes, Bart Crouch, John E. Herrenyo',
     'version': (1, 2),
     'blender': (2, 5, 7),
-    'api': 35658,
+    'api': 36710,
     'location': 'View3D > Properties panel > Display tab',
     'warning': '',
     'description': 'Display keys pressed in the 3d-view, '\
