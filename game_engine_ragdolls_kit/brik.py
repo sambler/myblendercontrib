@@ -27,8 +27,7 @@ brik is the Blender Ragdoll Implementation Kit.
 It aims to provide a tool kit that enables the easy implementation of ragdolls in Blender.
 
 Acnowledgements:
-	
-This section comes first because I am grateful to Thomas Eldredge (teldredge on
+    This section comes first because I am grateful to Thomas Eldredge (teldredge on
 www.blenderartists.com). Without his great script to take apart, I would never have got
 around to this even though it's been in my todo list for a while. The link to his thread is
 http://blenderartists.org/forum/showthread.php?t=152150
@@ -68,6 +67,7 @@ import bpy
 from bpy.props import *
 import mathutils
 from mathutils import Vector
+from game_engine_ragdolls_kit.brik_funcs import *
 
 class VIEW3D_PT_brik_panel(bpy.types.Panel):
 
@@ -313,6 +313,7 @@ class brik_create_game_logic(bpy.types.Operator):
             hit_box.select = True
             scene.objects.active = hit_box
             bpy.ops.object.game_property_new()
+            print(*hit_box.game.properties)
             prop = hit_box.game.properties[-1]
             prop.name = 'brik_can_hit'
             prop.type = 'BOOL'
@@ -587,7 +588,8 @@ class brik_create_hit_boxes(bpy.types.Operator):
             for bone in bones:
                 if bone.bone.use_deform:
                     #Create boxes that do not exist
-                    hit_box = self.create_hit_box(armature, bone)
+                    hit_box,volume = create_shape_box(self.hit_box_prefix, armature, bone)
+                    #hit_box = create_box(self.hit_box_prefix, self.hit_box_length, self.hit_box_width, armature, bone)
                     armature['brik_bone_hit_box_dict'][bone.name] = hit_box.name
                 
                     #Orientate and position the box
@@ -602,42 +604,7 @@ class brik_create_hit_boxes(bpy.types.Operator):
                     hit_box_dict[hit_box.name] = hit_box
         
         return hit_box_dict
-    
-    #Create a box based on bone size
-    def create_hit_box(self, armature, bone):
-        #print('CREATING HIT BOX')
-        scene = bpy.context.scene
         
-        height = bone.length
-        #gap = height * self.hit_box_length      #The distance between two boxes
-        box_length = bone.length*self.hit_box_length
-        width = bone.length * self.hit_box_width
-        
-        x = width/2
-        y = box_length/2
-        z = width/2
-        
-        verts = [[-x,y,-z],[-x,y,z],[x,y,z],[x,y,-z],\
-                 [x,-y,-z],[-x,-y,-z],[-x,-y,z],[x,-y,z]]
-        
-        edges = [[0,1],[1,2],[2,3],[3,0],\
-                [4,5],[5,6],[6,7],[7,4],\
-                [0,5],[1,6],[2,7],[3,4]]
-        
-        faces = [[0,1,2,3],[7,6,5,4],[5,0,3,4],[5,6,1,0],[6,7,2,1],[7,4,3,2]]
-        
-        #Create the mesh
-        mesh = bpy.data.meshes.new('Mesh_'+self.hit_box_prefix+bone.name)
-        mesh.from_pydata(verts,edges,faces)
-        
-        #Create an object for the mesh and link it to the scene
-        hit_box = bpy.data.objects.new(self.hit_box_prefix+bone.name,mesh)
-        scene.objects.link(hit_box)
-        
-        #Move the hit box so that when parented the object centre is at the bone centre
-        hit_box.location.y = -bone.length/2
-        return(hit_box)
-    
     #Reshape an existing box based on parameter changes.
     #I introduced this as an attempt to improve responsiveness. This should
     #eliminate the overhead from creating completely new meshes or objects on
@@ -817,7 +784,8 @@ class brik_create_structure(bpy.types.Operator):
             for bone in bones:
                 if bone.bone.use_deform:
                     #Create boxes that do not exist
-                    box = self.create_box(armature, bone)
+                    box, volume = create_shape_box(self.prefix, armature, bone)
+                    #box = create_box(self.prefix, self.driver_length, self.driver_width, armature, bone)
                     RB_dict[box.name] = box
                     armature['brik_bone_driver_dict'][bone.name] = box.name
                 
@@ -837,55 +805,23 @@ class brik_create_structure(bpy.types.Operator):
                 constraint.target = RB_dict[armature['brik_bone_driver_dict'][bone.name]]
             if not 'brik_copy_loc' in bone.constraints:
                 if not bone.parent:
+                    print(bone.head, bone.tail)
                     if armature['brik_armature_locator_name'] == '':
                         bpy.ops.object.add(type='EMPTY')
                         locator = bpy.context.object
                         locator.name = 'brik_'+armature.name+'_loc'
-                        locator.location = (bone.head - bone.tail)/2 * bone.matrix
-                        #locator.location = armature.data.bones[bone.name].matrix_local.translation_part()
+                        locator.location = (0.0,-bone.length/2,0.0)
                         locator.parent = RB_dict[armature['brik_bone_driver_dict'][bone.name]]
                         armature['brik_armature_locator_name'] = locator.name
                         bpy.ops.object.select_all(action='DESELECT')
                         bpy.ops.object.select_name(name=armature.name, extend=False)
                     else:
                         locator = bpy.data.objects['brik_armature_locator_name']
-                        locator.location = (bone.head - bone.tail)/2 * bone.matrix
+                        locator.location = (0.0,-bone.length/2,0.0)
                         locator.parent = RB_dict[armature['brik_bone_driver_dict'][bone.name]]
                     constraint = bone.constraints.new(type='COPY_LOCATION')
                     constraint.name = 'brik_copy_loc'
                     constraint.target = locator
-    
-    #Create a box based on bone size
-    def create_box(self, armature, bone):
-        scene = bpy.context.scene
-        
-        height = bone.length
-        #gap = height * self.hit_box_length      #The distance between two boxes
-        box_length = bone.length*self.driver_length
-        width = bone.length * self.driver_width
-        
-        x = width/2
-        y = box_length/2
-        z = width/2
-        
-        verts = [[-x,y,-z],[-x,y,z],[x,y,z],[x,y,-z],\
-                 [x,-y,-z],[-x,-y,-z],[-x,-y,z],[x,-y,z]]
-        
-        edges = [[0,1],[1,2],[2,3],[3,0],\
-                [4,5],[5,6],[6,7],[7,4],\
-                [0,5],[1,6],[2,7],[3,4]]
-        
-        faces = [[0,1,2,3],[7,6,5,4],[5,0,3,4],[5,6,1,0],[6,7,2,1],[7,4,3,2]]
-        
-        #Create the mesh
-        RB_mesh = bpy.data.meshes.new('Mesh_' + self.prefix + bone.name)
-        RB_mesh.from_pydata(verts, edges, faces)
-        
-        #Create an object for the mesh and link it to the scene
-        RB_obj = bpy.data.objects.new(self.prefix + bone.name, RB_mesh)
-        scene.objects.link(RB_obj)
-        
-        return(RB_obj)
     
     def reshape_box(self, armature, bone):
         '''
@@ -973,24 +909,16 @@ class brik_create_structure(bpy.types.Operator):
                 RB_joint.use_angular_limit_z = True
             else:
                 boxObj['brik_joint_target'] = 'None'
-            
-            #I think the above code should do this...
-            
-            #It would be nice to use IK limits to define rigid body joint limits,
-            #but the limit arrays have not yet been wrapped in RNA apparently...
-            #properties_object_constraint.py in ui directory, line 554 says:
-            #Missing: Limit arrays (not wrapped in RNA yet)
-            #From store_joint_data in write_game_file:
     
     def add_boxes_to_group(self, armature, RB_dict):
-        print("Adding boxes to group")
+        #print("Adding boxes to group")
         group_name = self.prefix+armature.name+"_Group"
         if not group_name in bpy.data.groups:
             group = bpy.data.groups.new(group_name)
         else:
             group = bpy.data.groups[group_name]
-        print(group)
-        print(RB_dict)
+        #print(group)
+        #print(RB_dict)
         for box in RB_dict:
             if not box in group.objects:
                 group.objects.link(bpy.context.scene.objects[box])
@@ -1042,6 +970,7 @@ class brik_create_structure(bpy.types.Operator):
         armature['brik_prefix'] = self.prefix
         
         return{'FINISHED'}
+
     
 class brik_destroy_structure(bpy.types.Operator):
     bl_label = 'brik destroy structure operator'
