@@ -22,9 +22,9 @@
 bl_info = {
     'name': "Theme manager",
     'author': "Bart Crouch",
-    'version': (1, 3, 1),
+    'version': (1, 3, 2),
     'blender': (2, 5, 7),
-    'api': 36489,
+    'api': 36710,
     'location': "User Preferences > Themes > Header",
     'warning': "",
     'description': "Load or save a custom theme",
@@ -38,7 +38,7 @@ bl_info = {
 import blf
 import bpy
 import gzip
-from io_utils import ExportHelper, ImportHelper
+from bpy_extras.io_utils import ExportHelper, ImportHelper
 import os
 import pickle
 import shutil
@@ -276,7 +276,9 @@ class LoadTheme(bpy.types.Operator):
             # happens when new blend-file is loaded and wm is destroyed
             load_presets()
         width = context.window_manager["theme_width"]
-        return context.window_manager.invoke_popup(self, width=width)
+        context.window_manager.invoke_popup(self, width=width)
+        
+        return{'FINISHED'}
 
 
 # save operator
