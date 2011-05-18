@@ -21,7 +21,7 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 8),
+    'version': (2, 6, 9),
     'blender': (2, 5, 7),
     'api': 36710,
     'location': 'View3D > Properties panel > Mesh Display tab',
@@ -154,7 +154,7 @@ class IndexVisualiser(bpy.types.Operator):
     
     def invoke(self, context, event):
         if context.area.type == "VIEW_3D":
-            if context.scene.display_indices == 0:
+            if context.scene.display_indices < 1:
                 # operator is called for the first time, start everything
                 context.scene.display_indices = 1
                 context.window_manager.modal_handler_add(self)
