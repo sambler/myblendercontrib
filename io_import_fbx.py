@@ -233,7 +233,7 @@ def import_fbx(path):
 
                         verts = tag_get_single(value2, "Vertices")[1]
                         faces = tag_get_single(value2, "PolygonVertexIndex")[1]
-                        #EDGE: edges = tag_get_single(value2, "Edges")[1]
+                        edges = tag_get_single(value2, "Edges")[1]
 
                         # convert odd fbx verts and faces to a blender mesh.
                         if verts and faces:
@@ -242,19 +242,20 @@ def import_fbx(path):
                             blen_verts = [verts[i - 3:i] for i in range(3, len(verts) + 3, 3)]
 
                             # get weirdo face indicies and proper edge indexs
-                            # edge_ends is referring to end vertex of the face.
-                            # Thas why we have link with first vertex of the face.
+                            # edge_points Collects faces index, first and last verts.
 
                             face = []
-                            #EDGE: ed = 0
-                            #EDGE: edge_ends = []
+                            edge_points = {}
                             blen_faces = [face]
                             blen_faces_edges = []  # faces that have a length of 2
                             blen_poly_mapping = {}
                             poly_idx = 0
+                            
                             for idx, f in enumerate(faces):
+                                        
                                 if f < 0:
                                     face.append(f ^ -1)
+                                    edge_points[idx] = [face[-1],face[0]]
                                     face = []
 
                                     if len(blen_faces[-1]) == 2:
@@ -264,48 +265,40 @@ def import_fbx(path):
 
                                     blen_faces.append(face)
                                     poly_idx += 1
-
-                                    #EDGE: if ed == 0:
-                                    #EDGE:     edge_ends.append((idx, 0))
-                                    #EDGE:     ed = 1
-                                    #EDGE:     tuli = idx + 1
-                                    #EDGE: else:
-                                    #EDGE:     edge_ends.append((idx, tuli))
-                                    #EDGE:     tuli = idx + 1
-
-                                else:
+                                    
+                                else:   
                                     face.append(f)
 
-
-                            #EDGE:
-                            """
                             edge_final = []
 
-                            for idx, e in enumerate(edges):
-                                if edge_ends[-1][0] == e:
-                                    edge1 = faces[edge_ends[-1][0]]
-                                    if edge1 < 0:
-                                        edge1 ^= -1
-                                    edge2 = faces[edge_ends[-1][1]]
-                                    if edge2 < 0:
-                                        edge2 ^= -1
+                            if(len(faces) == 2): # Special case if there is only one edge in scene.
+                                edge1 = faces[0]
+                                if(edge1<0):
+                                    edge1 ^= -1 
+                                edge2 = faces[1]
+                                if(edge2<0):
+                                    edge2 ^= -1
+                                edge_final.append((edge1,edge2))
+                            
+                            else:    # More than one edges. 
+                                for idx, e in enumerate(edges):
+
+                                    if (faces[e]<0): #If this is the faces last point, use edge_points to create edge between last and first points of face
+                                        edge1 = edge_points[e][0]
+                                        edge2 = edge_points[e][1]
+                                    else:
+                                        edge1 = faces[e]
+                                        edge2 = faces[e + 1]
+                                        if edge2 < 0:
+                                            edge2 ^= -1
 
                                     edge_final.append((edge1, edge2))
-                                else:
-                                    edge1 = faces[e]
-                                    if edge1 < 0:
-                                        edge1 ^= -1
-                                    edge2 = faces[e + 1]
-                                    if edge2 < 0:
-                                        edge2 ^= -1
-
-                                    edge_final.append((edge1, edge2))
-                            """
+                                  
                             if not blen_faces[-1]:
                                 del blen_faces[-1]
+                            
 
-                            #EDGE: me.from_pydata(blen_verts, edge_final + blen_faces_edges, blen_faces)
-                            me.from_pydata(blen_verts, blen_faces_edges, blen_faces)
+                            me.from_pydata(blen_verts, edge_final, blen_faces)
                             me.update()
 
                             # Handle smoothing
@@ -329,8 +322,7 @@ def import_fbx(path):
                                     print("WARNING: %s, unsupported smoothing type: %s" % (fbx_name, type))
 
 
-                            #EDGE:
-                            """ 
+                            
                             # Handle edge weighting
                             for i in tag_get_iter(value2, "LayerElementEdgeCrease"):
                                 i = i[1]
@@ -350,7 +342,44 @@ def import_fbx(path):
                                         ed.crease = crease_edges[idx]
                                 else:
                                     print("WARNING: %s, unsupported smoothing type: %s" % (fbx_name, type))
-                            """
+
+                            # Create the Uv-sets 
+                            for i in tag_get_iter(value2, "LayerElementUV"):
+                                i=i[1]
+                                uv_in = 0
+                                uv_face = []
+                                uv_name = tag_get_single(i,"Name")[1]
+                                print(uv_name)
+                                uv_verts = tag_get_single(i, "UV")[1]
+                                uv_index = tag_get_single(i, "UVIndex")[1]
+
+                                if(uv_verts):
+                                    blen_uv_verts = [uv_verts[i - 2:i] for i in range(2, len(uv_verts) + 2, 2)]
+
+                                    for ind,uv_i in enumerate(uv_index):
+                                        if(uv_i == -1):
+                                            uv_face.append([-0.1,-0.1])
+                                        else:
+                                            uv_face.append(blen_uv_verts[uv_in])
+                                            uv_in +=1
+
+                                    me.uv_textures.new(uv_name)
+                                    uv_layer = me.uv_textures[-1].data
+                                    uv_counter = 0
+                                    if uv_layer:
+                                        for fi, uv in enumerate(uv_layer):
+                                            if(len(me.faces[fi].vertices) == 4):
+                                                uv.uv1 = uv_face[uv_counter]
+                                                uv.uv2 = uv_face[uv_counter+1]
+                                                uv.uv3 = uv_face[uv_counter+2]
+                                                uv.uv4 = uv_face[uv_counter+3]
+                                                uv_counter += 4
+                                            else:
+                                                uv.uv1 = uv_face[uv_counter]
+                                                uv.uv2 = uv_face[uv_counter+1]
+                                                uv.uv3 = uv_face[uv_counter+2]
+                                                uv_counter += 3
+                            
 
                             obj = bpy.data.objects.new(fbx_name, me)
                             base = scene.objects.link(obj)
