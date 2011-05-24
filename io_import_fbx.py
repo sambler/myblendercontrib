@@ -478,7 +478,7 @@ def import_fbx(path):
 
 # Operator
 from bpy.props import StringProperty
-from io_utils import ImportHelper
+from bpy_extras.io_utils import ImportHelper
 
 
 class ImportFBX(bpy.types.Operator, ImportHelper):
