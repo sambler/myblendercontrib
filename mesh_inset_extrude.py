@@ -9,7 +9,7 @@ bl_info = {
     'warning': "",
     'category': 'Mesh',
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Modeling/Inset-Extrude'}
-
+#
 import bpy
 import bgl
 import blf
