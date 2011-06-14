@@ -34,9 +34,10 @@ bl_info = {
     "warning": "WIP - Initial implementation; updates pending and API not final for Blender",
     "wiki_url": "http://www.uthynq.com/JBDoc/index.php?title=Column",
     "tracker_url": "http://projects.blender.org/tracker/index.php?"\
-        "func=detail&aid=27395",
+        "func=detail&aid=27655",
     "category": "Add Mesh"
 }
+
 
 '''
 
