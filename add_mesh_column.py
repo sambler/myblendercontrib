@@ -26,7 +26,7 @@
 bl_info = {
     "name": "Columns",
     "author": "Jim Bates, jambay",
-    "version": (0, 10),
+    "version": (0, 11),
     "blender": (2, 5, 7),
     "api": 36339,
     "location": "View3D > Add > Mesh > Columns",
@@ -67,6 +67,7 @@ This script is based on features from add_mesh_gears, add_curve_aceous_galore.py
 
 
 # Version History
+# v0.11 2011/06/14	Added width parameter for base and capital.
 # v0.10 2011/06/13	Consolidated base and capital "add" functions. More styles. Fixed taper with negative radius.
 # v0.09 2011/06/06	Column fluting - 90%. Added "sides" parameter for flutes, not sure I want to fix "odd" behavior.
 # v0.08 2011/05/24	Common function to generate base and capitals, more types added.
@@ -402,15 +403,14 @@ def Fill_Ring_Face(OFFSET, NUM, FACE_DOWN = 0):
 #    May need to separate in future but handy for now for "simple" styles. Simply use "menu select" to set type for
 #    base or capital if they shouldn't be same.
 #
-# @todo: Use something besides height to determine width.
-#
-def add_extent(radius, height, zPos, type=1):
+def add_extent(radius, height, width, zPos, type=1):
     '''
 Create geometry for base/capital (shared function).
 
     Params:
 	radius    area of the column (inner vertice for base/capital).
 	height    height of base/capital.
+	width     width (radius) of base/capital.
         zPos      vertical origin (base height+column height for capital, zero for base).
         type      type of base/capital to generate.
 
@@ -418,8 +418,6 @@ Create geometry for base/capital (shared function).
 	list of vertices and edges
 
     '''
-    width = height # translator varible until parameter added... so function calls are correct.
-
     verts = []
     edges = []
 
@@ -884,6 +882,11 @@ Add a column mesh.
         min=0.05,
         max=10.0,
         default=0.5)
+    base_width = FloatProperty(name="Width",
+        description="Width of base (radius)",
+        min=0.05,
+        max=10.0,
+        default=0.5)
 
     col_cap = BoolProperty(name="Capital",
          description="Column capital",
@@ -900,6 +903,11 @@ Add a column mesh.
         default=1)
     cap_height = FloatProperty(name="Height",
         description="Height of capital",
+        min=0.05,
+        max=10.0,
+        default=0.5)
+    cap_width = FloatProperty(name="Width",
+        description="Width of capital (radius)",
         min=0.05,
         max=10.0,
         default=0.5)
@@ -927,6 +935,7 @@ Add a column mesh.
             box.prop(self, 'base_type')
             box.prop(self, 'base_faces')
             box.prop(self, 'base_height')
+            box.prop(self, 'base_width')
 
         box = layout.box()
         box.prop(self, 'col_cap')
@@ -934,6 +943,7 @@ Add a column mesh.
             box.prop(self, 'cap_type')
             box.prop(self, 'cap_faces')
             box.prop(self, 'cap_height')
+            box.prop(self, 'cap_width')
 
     def execute(self, context):
 
@@ -960,6 +970,7 @@ Add a column mesh.
             vertsBase, edgesBase = add_extent(
                 self.radius,
                 baseH,
+                self.base_width,
                 0,
                 self.base_type
                 )
@@ -971,7 +982,8 @@ Add a column mesh.
             vertsCap, edgesCap = add_extent(
                 self.radius - self.properties.taper, # fit to top of column
                 self.cap_height,
-                baseH + self.row_height * self.col_blocks,
+                self.cap_width,
+                baseH + (self.row_height * self.col_blocks),
                 self.cap_type
                 )
 
