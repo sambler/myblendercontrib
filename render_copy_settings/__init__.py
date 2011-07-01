@@ -45,13 +45,19 @@
 #      WARNING: this addon now needs a Blender patched with the ui_template_list diff, else it won’t
 #               be fully functional (even though working)…
 #
+#  0.1.2
+#      Minor changes:
+#        * Updated accordingly to the changes in enhanced ui_template_list proposal.
+#      WARNING: this addon now needs a Blender patched with the ui_template_list diff, else it won’t
+#               be fully functional (even though working)…
+#
 # ##### END OF CHANGELOG #####
 
 bl_info = {
     "name": "Copy Settings",
     "author": "Bastien Montagne",
-    "version": (0, 1, 1),
-    "blender": (2, 5, 7),
+    "version": (0, 1, 2),
+    "blender": (2, 5, 8),
     "api": 36380,
     "location": "Render buttons (Properties window)",
     "description": "Allows to copy a selection of render settings from current scene to others.",
