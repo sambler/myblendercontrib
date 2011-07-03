@@ -41,7 +41,8 @@ class RENDER_PT_copy_settings(bpy.types.Panel):
             bpy.ops.scene.render_copy_settings_prepare()
 
         split = layout.split(0.75)
-        split.template_list(cp_sett, "affected_settings", cp_sett, "aff_sett_idx", rows=6)
+        split.template_list(cp_sett, "affected_settings", cp_sett, "aff_sett_idx",
+                            enum_ctrls_name="template_list_controls", rows=6)
         col = split.column()
         label = ""
         if (cp_sett.affected_settings["resolution_x"].copy and
