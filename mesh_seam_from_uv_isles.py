@@ -20,8 +20,8 @@ bl_info = {
     "name": "Seam from uv isles",
     "author": "Fredrik Hansson",
     "version": (1,1),
-    "blender": (2, 5, 4),
-    "api": 32516,
+    "blender": (2, 5, 7),
+    "api": 37360,
     "location": "UV/Image editor> UVs > Seam from UV isles",
     "description": "Marks seams based on UV isles",
     "warning": "", # used for warning icon and text in addons panel
@@ -87,15 +87,20 @@ class UvIsleSeamsOperator(bpy.types.Operator):
 	def execute(self, context):
 		main(context)
 		return {'FINISHED'}
+	
 
-def uvseam_menu_function(self, context): 
-	self.layout.operator(UvIsleSeamsOperator.bl_idname,text="Seams from UV isles",icon='PLUGIN')
+def menu_func(self, context):
+    self.layout.operator(UvIsleSeamsOperator.bl_idname)
 
 def register():
-	bpy.types.IMAGE_MT_uvs.append(uvseam_menu_function)
- 
+    bpy.utils.register_module(__name__)
+
+    bpy.types.IMAGE_MT_uvs.append(menu_func)
+
 def unregister():
-	bpy.types.IMAGE_MT_uvs.remove(uvseam_menu_function)
- 
+    bpy.utils.unregister_module(__name__)
+
+    bpy.types.IMAGE_MT_uvs.remove(menu_func)
+
 if __name__ == "__main__":
-	register()
+    register()
