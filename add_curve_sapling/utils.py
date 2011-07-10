@@ -19,11 +19,13 @@
 
 import bpy
 import time
+import copy
 
 from mathutils import *
 from math import pi,sin,degrees,radians,atan2,copysign,cos,acos
 from random import random,uniform,seed,choice,getstate,setstate
 from bpy.props import *
+from collections import deque
 
 # Initialise the split error and axis vectors
 splitError = 0.0
@@ -186,7 +188,8 @@ def findChildPoints(stemList,numChild):
 
 # Find the coordinates, quaternion and radius for each t on the stem
 def interpStem(stem,tVals,lPar,parRad):
-    tempList = []
+    tempList = deque()
+    addpoint = tempList.append
     checkVal = (stem.segMax - len(stem.spline.bezier_points) + 1)/stem.segMax
     points = stem.spline.bezier_points
     numPoints = len(stem.spline.bezier_points)
@@ -204,8 +207,8 @@ def interpStem(stem,tVals,lPar,parRad):
                 tTemp = length - index
                 coord = evalBez(points[index].co,points[index].handle_right,points[index+1].handle_left,points[index+1].co,tTemp)
                 quat = (evalBezTan(points[index].co,points[index].handle_right,points[index+1].handle_left,points[index+1].co,tTemp)).to_track_quat('Z','Y')
-                radius = parRad#(1-tTemp)*points[index].radius + tTemp*points[index+1].radius # Not sure if this is the parent radius at the child point or parent start radius
-            tempList.append(childPoint(coord,quat,radius,t*lPar,lPar,'bone'+(str(stem.splN).rjust(3,'0'))+'.'+(str(index).rjust(3,'0'))))
+                radius = (1-tTemp)*points[index].radius + tTemp*points[index+1].radius # Not sure if this is the parent radius at the child point or parent start radius
+            addpoint(childPoint(coord,quat,(parRad, radius),t*lPar,lPar,'bone'+(str(stem.splN).rjust(3,'0'))+'.'+(str(index).rjust(3,'0'))))
     return tempList
 
 # Convert a list of degrees to radians
@@ -387,7 +390,7 @@ def genLeafMesh(leafScale,leafScaleX,loc,quat,index,downAngle,downAngleV,rotate,
 
 def addTree(props):
         global splitError
-        startTime = time.time()
+        #startTime = time.time()
         # Set the seed for repeatable results
         seed(props.seed)#
         
@@ -512,12 +515,14 @@ def addTree(props):
         leafFaces = []
         levelCount = []
 
-        splineToBone = ['']
+        splineToBone = deque([''])
+        addsplinetobone = splineToBone.append
 
         # Each of the levels needed by the user we grow all the splines
         for n in range(levels):
             storeN = n
-            stemList = []
+            stemList = deque()
+            addstem = stemList.append
             # If n is used as an index to access parameters for the tree it must be at most 3 or it will reference outside the array index
             n = min(3,n)
             vertAtt = attractUp
@@ -537,7 +542,7 @@ def addTree(props):
                 startRad = branchL*ratio*(scale0 + uniform(-scaleV0,scaleV0))
                 endRad = startRad*(1 - taper[0])
                 newPoint.radius = startRad
-                stemList.append(stemSpline(newSpline,curve[0]/curveRes[0],curveV[0]/curveRes[0],0,curveRes[0],branchL/curveRes[0],childStems,startRad,endRad,0))
+                addstem(stemSpline(newSpline,curve[0]/curveRes[0],curveV[0]/curveRes[0],0,curveRes[0],branchL/curveRes[0],childStems,startRad,endRad,0))
             # If this isn't the trunk then we may have multiple stem to intialise
             else:
                 # Store the old rotation to allow new stems to be rotated away from the previous one.
@@ -587,7 +592,7 @@ def addTree(props):
                         else:
                             childStems = leaves*shapeRatio(leafDist,p.offset/p.lengthPar)
                     # Determine the starting and ending radii of the stem using the tapering of the stem
-                    startRad = p.radiusPar*((branchL/p.lengthPar)**ratioPower)
+                    startRad = min(p.radiusPar[0]*((branchL/p.lengthPar)**ratioPower), p.radiusPar[1])
                     endRad = startRad*(1 - taper[n])
                     newPoint.radius = startRad
                     # If curveBack is used then the curviness of the stem is different for the first half
@@ -596,8 +601,8 @@ def addTree(props):
                     else:
                         curveVal = 2*curve[n]/curveRes[n]
                     # Add the new stem to list of stems to grow and define which bone it will be parented to
-                    stemList.append(stemSpline(newSpline,curveVal,curveV[n]/curveRes[n],0,curveRes[n],branchL/curveRes[n],childStems,startRad,endRad,len(cu.splines)-1))
-                    splineToBone.append(p.parBone)
+                    addstem(stemSpline(newSpline,curveVal,curveV[n]/curveRes[n],0,curveRes[n],branchL/curveRes[n],childStems,startRad,endRad,len(cu.splines)-1))
+                    addsplinetobone(p.parBone)
 
             childP = []
             # Now grow each of the stems in the list of those to be extended
@@ -619,7 +624,7 @@ def addTree(props):
                 currentScale = 1.0
                 oldMax = 1.0
                 deleteSpline = False
-                orginalSplineToBone = splineToBone[:]
+                orginalSplineToBone = copy.copy(splineToBone)
                 forceSprout = False
                 # Now do the iterative pruning, this uses a binary search and halts once the difference between upper and lower bounds of the search are less than 0.005
                 while startPrune and ((currentMax - currentMin) > 0.005):
@@ -656,7 +661,7 @@ def addTree(props):
                     for k in range(curveRes[n]):
                         # Make a copy of the current list to avoid continually adding to the list we're iterating over
                         tempList = splineList[:]
-                        print('Leng: ',len(tempList))
+                        #print('Leng: ',len(tempList))
                         # For each of the splines in this list set the number of splits and then grow it
                         for spl in tempList:
                             if k == 0:
@@ -899,4 +904,4 @@ def addTree(props):
             for p in armOb.pose.bones:
                 p.rotation_mode = 'XYZ'
             treeOb.parent = armOb
-        print(time.time()-startTime)
+        #print(time.time()-startTime)

@@ -19,7 +19,7 @@
 bl_info = {
     "name": "Sapling",
     "author": "Andrew Hale (TrumanBlending)",
-    "version": (0, 2, 1),
+    "version": (0, 2, 2),
     "blender": (2, 5, 8),
     "api": 37702,
     "location": "View3D > Add > Curve",
@@ -52,14 +52,14 @@ from add_curve_sapling.utils import *
 #global splitError
 useSet = False
 
-shapeList = [('0', 'Conical', 'Shape = 0'),
-            ('1', 'Spherical', 'Shape = 1'),
-            ('2', 'Hemispherical', 'Shape = 2'),
-            ('3', 'Cylindrical', 'Shape = 3'),
-            ('4', 'Tapered Cylindrical', 'Shape = 4'),
-            ('5', 'Flame', 'Shape = 5'),
-            ('6', 'Inverse Conical', 'Shape = 6'),
-            ('7', 'Tend Flame', 'Shape = 7')]
+shapeList = [('0', 'Conical (0)', 'Shape = 0'),
+            ('1', 'Spherical (1)', 'Shape = 1'),
+            ('2', 'Hemispherical (2)', 'Shape = 2'),
+            ('3', 'Cylindrical (3)', 'Shape = 3'),
+            ('4', 'Tapered Cylindrical (4)', 'Shape = 4'),
+            ('5', 'Flame (5)', 'Shape = 5'),
+            ('6', 'Inverse Conical (6)', 'Shape = 6'),
+            ('7', 'Tend Flame (7)', 'Shape = 7')]
 
 handleList = [('0', 'Auto', 'Auto'),
                 ('1', 'Vector', 'Vector')]
@@ -72,9 +72,21 @@ settings = [('0', 'Geometry', 'Geometry'),
             ('5', 'Armature', 'Armature')]
 
 
+def getPresetpath():
+    '''Support user defined scripts directory
+       Find the first ocurrence of add_curve_sapling/presets in possible script paths
+       and return it as preset path'''
+    presetpath = ""
+    for p in bpy.utils.script_paths():
+        presetpath = os.path.join(p, 'addons', 'add_curve_sapling', 'presets')
+        if os.path.exists(presetpath):
+            break
+    return presetpath
+
+
 class ExportData(bpy.types.Operator):
     '''This operator handles writing presets to file'''
-    bl_idname = 'sapling.export'
+    bl_idname = 'sapling.exportdata'
     bl_label = 'Export Preset'
 
     data = StringProperty()
@@ -84,7 +96,7 @@ class ExportData(bpy.types.Operator):
         data, filename = eval(self.data)
         try:
             # Check whether the file exists by trying to open it.
-            f = open(os.path.join(bpy.utils.script_paths()[0], 'addons', 'add_curve_sapling', 'presets', filename + '.py'), 'r')
+            f = open(os.path.join(getPresetpath(), filename + '.py'), 'r')
             f.close()
             # If it exists then report an error
             self.report({'ERROR_INVALID_INPUT'}, 'Preset Already Exists')
@@ -92,7 +104,7 @@ class ExportData(bpy.types.Operator):
         except IOError:
             if data:
                 # If it doesn't exist, create the file with the required data
-                f = open(os.path.join(bpy.utils.script_paths()[0], 'addons', 'add_curve_sapling', 'presets', filename + '.py'), 'w')
+                f = open(os.path.join(getPresetpath(), filename + '.py'), 'w')
                 f.write(data)
                 f.close()
                 return {'FINISHED'}
@@ -102,7 +114,7 @@ class ExportData(bpy.types.Operator):
 
 class ImportData(bpy.types.Operator):
     '''This operator handles importing existing presets'''
-    bl_idname = 'sapling.import'
+    bl_idname = 'sapling.importdata'
     bl_label = 'Import Preset'
 
     filename = StringProperty()
@@ -111,9 +123,10 @@ class ImportData(bpy.types.Operator):
         # Make sure the operator knows about the global variables
         global settings, useSet
         # Read the preset data into the global settings
-        f = open(os.path.join(bpy.utils.script_paths()[0], 'addons', 'add_curve_sapling', 'presets', self.filename), 'r')
+        f = open(os.path.join(getPresetpath(), self.filename), 'r')
         settings = f.readline()
         f.close()
+        #print(settings)
         settings = eval(settings)
         # Set the flag to use the settings
         useSet = True
@@ -129,11 +142,11 @@ class PresetMenu(bpy.types.Menu):
 
     def draw(self, context):
         # Get all the sapling presets
-        presets = [a for a in os.listdir(os.path.join(bpy.utils.script_paths()[0], 'addons', 'add_curve_sapling', 'presets')) if a[-3:] == '.py']
+        presets = [a for a in os.listdir(getPresetpath()) if a[-3:] == '.py']
         layout = self.layout
         # Append all to the menu
         for p in presets:
-            layout.operator("sapling.import", text=p[:-3]).filename = p
+            layout.operator("sapling.importdata", text=p[:-3]).filename = p
 
 
 class AddTree(bpy.types.Operator):
@@ -408,7 +421,7 @@ class AddTree(bpy.types.Operator):
             # Unfortunately as_keyword doesn't work with vector properties,
             # so we need something custom. This is it
             data = []
-            for a, b in (self.as_keywords(ignore=("presetName", ))).items():
+            for a, b in (self.as_keywords(ignore=("presetName", "limitImport"))).items():
                 # If the property is a vector property then evaluate it and
                 # convert to a string
                 if (repr(b))[:3] == 'bpy':
@@ -422,7 +435,7 @@ class AddTree(bpy.types.Operator):
             row = box.row()
             row.prop(self, 'presetName')
             # Send the data dict and the file name to the exporter
-            row.operator('sapling.export').data = repr([repr(data),
+            row.operator('sapling.exportdata').data = repr([repr(data),
                                                        self.presetName])
             row = box.row()
             row.menu('sapling.presetmenu', text='Load Preset')
@@ -534,6 +547,8 @@ class AddTree(bpy.types.Operator):
     def execute(self, context):
         # Ensure the use of the global variables
         global settings, useSet
+        start_time = time.time()
+        #bpy.ops.ImportData.filename = "quaking_aspen"
         # If we need to set the properties from a preset then do it here
         if useSet:
             for a, b in settings.items():
@@ -543,8 +558,14 @@ class AddTree(bpy.types.Operator):
                 setattr(self, 'showLeaves', False)
             useSet = False
         addTree(self)
-
+        print("Tree creation in %0.1fs" %(time.time()-start_time))
         return {'FINISHED'}
+    
+    def invoke(self, context, event):
+#        global settings, useSet
+#        useSet = True
+        bpy.ops.sapling.importdata(filename = "quaking_aspen.py")
+        return self.execute(context)
 
 
 def menu_func(self, context):
