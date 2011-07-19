@@ -29,7 +29,41 @@ This will be a collection of useful functions that can be reused across the diff
 import bpy
 
 #Create a box based on envelope size (easier matching of box to model proportions)
-def create_shape_box(prefix, armature, poseBone):
+def create_box_bbone(prefix, armature, poseBone):
+    #Thanks to Wraaah for this function
+    
+    ########################
+    #INSERT SHAPE CODE HERE#
+    
+    #Strange looking code as I am referencing the editbone data from the posebone.
+    h = poseBone.bone.bbone_x
+    w = poseBone.bone.bbone_z
+    l = poseBone.bone.length/2.0
+    #The bone points along it's y axis so head is -y and tail is +y
+    verts = [[h,-l, w],[h,-l,-w],[-h,-l,-w],[-h,-l,w],\
+            [h,l,w],[h,l,-w],[-h,l,-w],[-h,l,w]]
+    edges = [[0,1],[1,2],[2,3],[3,0],\
+            [4,5],[5,6],[6,7],[7,4],\
+            [0,4],[1,5],[2,6],[3,7]]
+    faces = [[3,2,1,0],[4,5,6,7],[0,4,7,3],[1,5,4,0],[2,6,5,1],[3,7,6,2]]
+    
+    ########################
+    
+    #Create the mesh
+    mesh = bpy.data.meshes.new(prefix + poseBone.name)
+    mesh.from_pydata(verts, edges, faces)
+    
+    #Create an object for the mesh and link it to the scene
+    box = bpy.data.objects.new(prefix + poseBone.name, mesh)
+    bpy.context.scene.objects.link(box)
+    
+    #Move the hit box so that when parented the object centre is at the bone centre
+    box.location.y = -poseBone.length/2
+    volume = h * l * w * 8.0 
+    return(box, volume)
+    
+#Create a box based on envelope size (easier matching of box to model proportions)
+def create_box_envelope(prefix, armature, poseBone):
     ########################
     #INSERT SHAPE CODE HERE#
     
@@ -88,4 +122,6 @@ def create_box(prefix, length, width, armature, bone):
     obj = bpy.data.objects.new(prefix + bone.name, mesh)
     scene.objects.link(obj)
     
-    return(obj)
+    volume = x*y*z
+    
+    return(obj, volume)
