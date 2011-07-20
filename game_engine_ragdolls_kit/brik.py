@@ -204,7 +204,11 @@ class brik_create_structure(bpy.types.Operator):
                 #Orientate and position the box
                 self.position_box(armature, bone, box)
                 box['brik_bone_name'] = bone.name
-    
+                
+                #### Contributed by Wraaah #########
+                box.game.physics_type = 'RIGID_BODY'
+                box.game.mass = volume * 1.5 #Density I used was 1.5
+                ##############################
         return RB_dict
     
     def make_bone_constraints(self, armature, RB_dict):
