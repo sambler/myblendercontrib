@@ -911,7 +911,7 @@ class brik_create_hit_boxes(bpy.types.Operator):
             for bone in bones:
                 if bone.bone.use_deform:
                     #Create boxes that do not exist
-                    hit_box,volume = create_shape_box(self.hit_box_prefix, armature, bone)
+                    hit_box,volume = create_box_envelope(self.hit_box_prefix, armature, bone)
                     #hit_box = create_box(self.hit_box_prefix, self.hit_box_length, self.hit_box_width, armature, bone)
                     armature['brik_bone_hit_box_dict'][bone.name] = hit_box.name
                 
