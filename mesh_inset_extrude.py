@@ -620,14 +620,14 @@ class inset_extrude(bpy.types.Operator):
 def register():
     bpy.utils.register_class(inset_extrude)
     
-    km = bpy.context.window_manager.keyconfigs.default.keymaps['Mesh']
+    km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Mesh')
     kmi = km.keymap_items.new('mesh.inset_extrude', 'I', 'PRESS')
 
 
 def unregister():
     bpy.utils.unregister_class(inset_extrude)
     
-    km = bpy.context.window_manager.keyconfigs.default.keymaps['Mesh']
+    km = bpy.context.window_manager.keyconfigs.addon.keymaps['Mesh']
     for kmi in km.keymap_items:
         if kmi.idname == 'mesh.inset_extrude':
             km.keymap_items.remove(kmi)
