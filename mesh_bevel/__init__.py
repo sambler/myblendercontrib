@@ -27,8 +27,13 @@ bl_info = {
     'blender': (2, 5, 7),
     'api': 39104,
     'location': 'View3D > EditMode > Specials',
-    'url': '',
-    'category': 'Mesh'}
+    "description": "Select all faces connected to the current selection",
+    "warning": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+        "Scripts/Modeling/Bevel",
+    "tracker_url": "http://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=23563",
+	"category": "Mesh"}
 
 
 import math
