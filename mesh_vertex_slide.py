@@ -19,9 +19,9 @@
 bl_info = {
     "name": "Vertex slide",
     "author": "Valter Battioli (ValterVB) and PKHG",
-    "version": (1, 0, 8),
-    "blender": (2, 5, 7),
-    "api": 37603,
+    "version": (1, 0, 9),
+    "blender": (2, 5, 8),
+    "api": 39094,
     "location": "View3D > Mesh > Vertices (CTRL V-key) or search for 'VB Vertex 2'",
     "description": "Slide a vertex along an edge",
     "warning": "",
@@ -45,6 +45,7 @@ bl_info = {
 #            Correct the crash with not linked vertex
 #ver. 1.0.7: Restore shift, and some code cleanup
 #ver. 1.0.8: Restore 2 type of sliding with 2 vertex selected
+#ver. 1.0.9: Fix for reverse vector multiplication
 #***********************************************************************
 
 import bpy
@@ -99,7 +100,7 @@ def draw_callback_px(self, context):
 
     loc = Vertices[ActiveVertex].co.to_4d()  # Where I want draw the text
 
-    vec = loc * total_mat  # Order is important
+    vec = total_mat * loc
     if vec[3] != 0:
         vec = vec / vec[3]
     else:
@@ -132,9 +133,9 @@ class VertexSlideOperator(bpy.types.Operator):
     def denominator(self, vertex_zero_co, vertex_one_co):
         global denom
         matw = bpy.context.active_object.matrix_world
-        V0 = vertex_zero_co * matw
+        V0 = matw * vertex_zero_co
         res0 = view3d_utils.location_3d_to_region_2d(bpy.context.region, bpy.context.space_data.region_3d, V0)  # make global?
-        V1 = vertex_one_co * matw
+        V1 = matw * vertex_one_co
         res1 = view3d_utils.location_3d_to_region_2d(bpy.context.region, bpy.context.space_data.region_3d, V1)
         result = (res0 - res1).length
         if debugDenomiator:
