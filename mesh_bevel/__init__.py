@@ -25,10 +25,15 @@ bl_info = {
     'author': 'chromoly',
     'version': (0, 4),
     'blender': (2, 5, 7),
-    'api': 36505,
+    'api': 39104,
     'location': 'View3D > EditMode > Specials',
-    'url': '',
-    'category': 'Mesh'}
+    "description": "Select all faces connected to the current selection",
+    "warning": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+        "Scripts/Modeling/Bevel",
+    "tracker_url": "http://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=23563",
+	"category": "Mesh"}
 
 
 import math
@@ -229,7 +234,7 @@ def bevel(ob, follow, beveltype):
                 vr010c_cross = vr01.cross(vr0c).normalized()
                 angle = vr01.angle(vr02)
                 q = axis_angle_to_quat(vr010c_cross, angle / 2)
-                v = vr01 * q
+                v = q * vr01 
                 v.normalize()
                 if angle > SMALL_NUMBER:
                     s = math.sin(angle / 2)

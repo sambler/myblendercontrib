@@ -25,7 +25,7 @@ bl_info = {
     'author': 'chromoly, JMR',
     'version': (0, 2),
     'blender': (2, 5, 7),
-    'api': 36887,
+    'api': 39104,
     'location': 'Search > vertex slide',
     'description': 'Interactive Vertex Slide',
     'warning': 'Tool Shelf functions may cause errors.',
@@ -102,7 +102,7 @@ class PyMesh():
 
     def calc_world_coordinate(self, matrix_world):
         for vert in self.vertices:
-            vert.worco = vert.co * matrix_world
+            vert.worco = matrix_world * vert.co
 
 def convert_world_to_window(vec, persmat, sx, sy):
     '''vec: sequence
@@ -110,7 +110,7 @@ def convert_world_to_window(vec, persmat, sx, sy):
     '''
     #v = vec.copy().resize4D()
     v = Vector([vec[0], vec[1], vec[2], 1.0])
-    v = v * persmat
+    v = persmat * v
     if v[3] != 0.0:
         v /= v[3]
     x = sx / 2 + v[0] * sx / 2
@@ -127,7 +127,7 @@ def convert_window_to_world(vec, persmat, sx, sy):
     v1 = Math.Vector([float(vec[0]) * 2 / sx, float(vec[1]) * 2 / sy, vec[2]])
     v2 = v1 - Math.Vector([1., 1., 0.])
     v2.resize_4d()
-    v3 = v2 * invpmat
+    v3 = invpmat * v2
     if v3[3] != 0.0:
         v3 /= v3[3]
     v3.resize_3d()
@@ -552,7 +552,7 @@ class MESH_OT_vertex_slide(bpy.types.Operator):
             else:
                 newco = vert.worco + transvec * distance
             # apply
-            meverts[vert.index].co = newco * matrix_world_inv
+            meverts[vert.index].co = matrix_world_inv * newco
 
             # edgelines
             if vert.winco:
