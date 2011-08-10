@@ -16,11 +16,13 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
 bl_info = {
     "name": "Vertex slide",
     "author": "Valter Battioli (ValterVB) and PKHG",
-    "version": (1, 0, 9),
-    "blender": (2, 5, 8),
+    "version": (1, 1, 0),
+    "blender": (2, 5, 9),
     "api": 39094,
     "location": "View3D > Mesh > Vertices (CTRL V-key) or search for 'VB Vertex 2'",
     "description": "Slide a vertex along an edge",
@@ -46,22 +48,22 @@ bl_info = {
 #ver. 1.0.7: Restore shift, and some code cleanup
 #ver. 1.0.8: Restore 2 type of sliding with 2 vertex selected
 #ver. 1.0.9: Fix for reverse vector multiplication
+#ver. 1.1.0: Delete debug info, some cleanup and add some comments
 #***********************************************************************
 
 import bpy
 import bgl
 import blf
 from mathutils import Vector
-from bpy_extras import view3d_utils  # pkhg
-
-debugDenomiator = False  # debugging info
+from bpy_extras import view3d_utils
 
 ###global
 direction = 1.0
 mouseVec = None
 ActiveVertex = None
-drempel = 0
 
+
+#  This class store Vertex data
 class Point():
     class Vertices():
         def __init__(self):
@@ -75,22 +77,21 @@ class Point():
         self.selected = False
 
 
-#Equation of the line
-#Changing t, I have a new point coordinate on the line along v0 v1
-#With t from 0 to 1  I move from v0 to v1
+# Equation of the line
+# Changing t, I have a new point coordinate on the line along v0 v1
+# With t from 0 to 1  I move from v0 to v1
 def NewCoordinate(v0, v1, t):
     return v0 + t * (v1 - v0)
 
-
+# Draw an asterisk near the vertex that I move
 def draw_callback_px(self, context):
-    #Copied from index visualiser
-    #get screen information
+    # Get screen information
     mid_x = context.region.width / 2.0
     mid_y = context.region.height / 2.0
     width = context.region.width
     height = context.region.height
 
-    # get matrices
+    # Get matrices
     view_mat = context.space_data.region_3d.perspective_matrix
     ob_mat = context.active_object.matrix_world
     total_mat = view_mat * ob_mat
@@ -104,11 +105,11 @@ def draw_callback_px(self, context):
     if vec[3] != 0:
         vec = vec / vec[3]
     else:
-        vec = vec  # PKHG TODO: what to do now? VB I think that is correct
+        vec = vec
     x = int(mid_x + vec[0] * width / 2.0)
     y = int(mid_y + vec[1] * height / 2.0)
 
-    # draw some a star at the active vertex
+    # Draw an * at the active vertex
     blf.position(0, x, y, 0)
     blf.size(0, 26, 72)
     blf.draw(0, "*")
@@ -118,9 +119,9 @@ class VertexSlideOperator(bpy.types.Operator):
     bl_idname = "vertex.slide"
     bl_label = "VB Vertex Slide 2"  # PKHG easy to searc for ;-)
 
-    Vert1 = Point()
-    Vert2 = Point()
-    LinkedVerts = []
+    Vert1 = Point()  # Original selected vertex data
+    Vert2 = Point()  # Second selected vertex data
+    LinkedVerts = []  # List of linked vertex to Vert1
     VertLinkedIdx = 0  # Index of the linked vertex selected
     temp_mouse_x = 0
     tmpMouse = Vector((0, 0))
@@ -129,25 +130,16 @@ class VertexSlideOperator(bpy.types.Operator):
     left_alt_press = False
     left_shift_press = False
 
-    #compute the screendistance of two vertices (here an edge, I hope)!
+    #Compute the screendistance of two vertices PKHG
     def denominator(self, vertex_zero_co, vertex_one_co):
         global denom
         matw = bpy.context.active_object.matrix_world
         V0 = matw * vertex_zero_co
-        res0 = view3d_utils.location_3d_to_region_2d(bpy.context.region, bpy.context.space_data.region_3d, V0)  # make global?
+        res0 = view3d_utils.location_3d_to_region_2d(bpy.context.region, bpy.context.space_data.region_3d, V0)
         V1 = matw * vertex_one_co
         res1 = view3d_utils.location_3d_to_region_2d(bpy.context.region, bpy.context.space_data.region_3d, V1)
         result = (res0 - res1).length
-        if debugDenomiator:
-            print("denomiator info:")
-            print("matw", matw)
-            print("edge vertices are\n", vertex_zero_co, "\n", vertex_one_co)
-            print("V0 = ", V0)
-            print("=>location_3d_to_region_2(bpy.context.region,bpy.context.space_data.region_3d,vzero) = \n", res0)
-            print("V1 = ", V1)
-            print("=>location_3d_to_region_2(bpy.context.region,bpy.context.space_data.region_3d,vone) = \n", res1)
-            print("edgelength = ", result)
-        denom = result  # global denom if < eps =>> error?
+        denom = result
         return result
 
     def modal(self, context, event):
@@ -157,7 +149,7 @@ class VertexSlideOperator(bpy.types.Operator):
             Vertices = bpy.context.object.data.vertices
             bpy.ops.object.mode_set(mode='OBJECT')
             if self.Vert2.original.idx != -1:  # Starting with 2 vertex selected
-                denom = self.denominator(self.Vert1.original.co, self.Vert2.original.co)  # check on too small denom?! Done some test, I think isn't a problem
+                denom = self.denominator(self.Vert1.original.co, self.Vert2.original.co)
                 tmpMouse = Vector((event.mouse_x, event.mouse_y))
                 t_diff = (tmpMouse - self.tmpMouse).length
                 self.tmpMouse = tmpMouse
@@ -175,7 +167,7 @@ class VertexSlideOperator(bpy.types.Operator):
                     Vertices[self.Vert1.original.idx].co = NewCoordinate(self.Vert1.original.co, self.Vert2.original.co, self.Vert1.t)
                     Vertices[self.Vert2.original.idx].co = NewCoordinate(self.Vert2.original.co, self.Vert1.original.co, self.Vert2.t)
             else:  # Starting with 1 vertex selected
-                denom = self.denominator(self.Vert1.original.co, self.LinkedVerts[self.VertLinkedIdx].original.co)  # check on too small denom?! Done some test, I think isn't a problem
+                denom = self.denominator(self.Vert1.original.co, self.LinkedVerts[self.VertLinkedIdx].original.co)
                 tmpMouse = Vector((event.mouse_x, event.mouse_y))
                 t_diff = (tmpMouse - self.tmpMouse).length
                 self.tmpMouse = tmpMouse
@@ -200,7 +192,7 @@ class VertexSlideOperator(bpy.types.Operator):
             if self.left_alt_press and self.Vert2.original.idx == -1:
                 vert = bpy.context.object.data.vertices[self.Vert1.original.idx]
                 self.Vert2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
-                self.Vert2.t = 0                
+                self.Vert2.t = 0
 
         elif event.type == 'LEFT_SHIFT':  # Hold left SHIFT to slide lower
             self.left_shift_press = not self.left_shift_press
@@ -212,8 +204,8 @@ class VertexSlideOperator(bpy.types.Operator):
                 else:
                     direction = 1
 
-        elif event.type == 'WHEELDOWNMOUSE':
-            if self.Vert2.original.idx == -1:  # Starting with 1 vertex selected
+        elif event.type == 'WHEELDOWNMOUSE':  # Change the vertex to be moved
+            if self.Vert2.original.idx == -1:
                 if self.left_alt_press:
                     vert = bpy.context.object.data.vertices[self.Vert1.original.idx]
                     self.Vert2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
@@ -241,8 +233,8 @@ class VertexSlideOperator(bpy.types.Operator):
                     else:
                         ActiveVertex = self.Vert2.original.idx
 
-        elif event.type == 'WHEELUPMOUSE':
-            if self.Vert2.original.idx == -1:  # Starting with 1 vertex selected
+        elif event.type == 'WHEELUPMOUSE':  # Change the vertex to be moved
+            if self.Vert2.original.idx == -1:
                 if self.left_alt_press:
                     vert = bpy.context.object.data.vertices[self.Vert1.original.idx]
                     self.Vert2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
@@ -278,7 +270,7 @@ class VertexSlideOperator(bpy.types.Operator):
             if direction > 0.0:
                 direction = - direction
 
-        elif event.type == 'LEFTMOUSE':
+        elif event.type == 'LEFTMOUSE':  #Confirm and exit
             Vertices = bpy.context.object.data.vertices
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='DESELECT')
@@ -288,7 +280,7 @@ class VertexSlideOperator(bpy.types.Operator):
             context.region.callback_remove(self._handle)
             return {'FINISHED'}
 
-        elif event.type in ('RIGHTMOUSE', 'ESC'):
+        elif event.type in ('RIGHTMOUSE', 'ESC'):  # Exit without change
             Vertices = bpy.context.object.data.vertices
             bpy.ops.object.mode_set(mode='OBJECT')
             Vertices[self.Vert1.original.idx].co = self.Vert1.original.co
@@ -323,11 +315,6 @@ class VertexSlideOperator(bpy.types.Operator):
             mouse_start_x = event.mouse_x
             mouse_start_y = event.mouse_y
             mouseVec = Vector((mouse_start_x, mouse_start_y))
-            if debugDenomiator:
-                vertices = bpy.context.active_object.data.vertices
-                ver0 = vertices[0].co
-                ver1 = vertices[1].co
-                self.denominator(ver0, ver1)
 
             obj = bpy.context.object
             Selected = False
@@ -339,12 +326,12 @@ class VertexSlideOperator(bpy.types.Operator):
                     Selected = True
                     selected_vertices.append(vert.index)
                     count += 1
-                    if (count > 2):  # I'll ask to some user for know whats is better
+                    if (count > 2):  # more than 2 vertex selected
                         Selected = False
                         break
 
             if Selected == False:
-                self.report({'WARNING'}, "No selected vertex, could not start")
+                self.report({'WARNING'}, "0 or more then 2 vertices selected, could not start")
                 bpy.ops.object.mode_set(mode='EDIT')
                 return {'CANCELLED'}
             else:
@@ -375,7 +362,7 @@ class VertexSlideOperator(bpy.types.Operator):
                                 self.LinkedVerts[-1].original.idx = vert.index
                                 self.LinkedVerts[-1].original.co = vert.co.copy()
                                 self.LinkedVerts[-1].new = self.LinkedVerts[-1].original
-                    if len(self.LinkedVerts) > 0:  # Check isolated vertex
+                    if len(self.LinkedVerts) > 0:  # Check for isolated vertex
                         self.VertLinkedIdx = 0
                         bpy.ops.object.mode_set(mode='EDIT')
                         bpy.ops.mesh.select_all(action='DESELECT')
@@ -385,7 +372,7 @@ class VertexSlideOperator(bpy.types.Operator):
                         bpy.ops.object.mode_set(mode='EDIT')
                     else:
                         bpy.ops.object.mode_set(mode='EDIT')
-                        self.report({'WARNING'}, "Isolated vertex!")  # Or you have selcted both Vertex select mode and Edge/Face and/or Face/Edge
+                        self.report({'WARNING'}, "Isolated vertex or wrong Select Mode!")
                         return {'CANCELLED'}
                 context.window_manager.modal_handler_add(self)
                 # Add the region OpenGL drawing callback
