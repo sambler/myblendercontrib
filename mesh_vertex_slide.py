@@ -21,9 +21,9 @@
 bl_info = {
     "name": "Vertex slide",
     "author": "Valter Battioli (ValterVB) and PKHG",
-    "version": (1, 1, 0),
+    "version": (1, 1, 1),
     "blender": (2, 5, 9),
-    "api": 39094,
+    "api": 39263,
     "location": "View3D > Mesh > Vertices (CTRL V-key) or search for 'VB Vertex 2'",
     "description": "Slide a vertex along an edge",
     "warning": "",
@@ -49,6 +49,7 @@ bl_info = {
 #ver. 1.0.8: Restore 2 type of sliding with 2 vertex selected
 #ver. 1.0.9: Fix for reverse vector multiplication
 #ver. 1.1.0: Delete debug info, some cleanup and add some comments
+#ver. 1.1.1: Now UNDO work properly
 #***********************************************************************
 
 import bpy
@@ -118,6 +119,7 @@ def draw_callback_px(self, context):
 class VertexSlideOperator(bpy.types.Operator):
     bl_idname = "vertex.slide"
     bl_label = "VB Vertex Slide 2"  # PKHG easy to searc for ;-)
+    bl_options = {'REGISTER', 'UNDO'}
 
     Vert1 = Point()  # Original selected vertex data
     Vert2 = Point()  # Second selected vertex data
