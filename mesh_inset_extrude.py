@@ -3,8 +3,8 @@ bl_info = {
     'description': "Inset and Extrude selected polygons, useful modeling tool",
     'author': "Jon Sandstrom",
     'version': (0, 6),
-    'blender': (2, 5, 7),
-    'api': 36147,
+    'blender': (2, 5, 9),
+    'api': 39514,
     'location': 'Search for Inset Extrude, map a key to the operator "mesh.inset_extrude", or use the default "I-key"',
     'warning': "",
     'category': 'Mesh',
@@ -616,22 +616,24 @@ class inset_extrude(bpy.types.Operator):
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
 
-
 def register():
-    bpy.utils.register_class(inset_extrude)
-    
-    km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Mesh')
-    kmi = km.keymap_items.new('mesh.inset_extrude', 'I', 'PRESS')
+    bpy.utils.register_module(__name__)
 
+    wm = bpy.context.window_manager
+    km = wm.keyconfigs.addon.keymaps.new(name='3D View', space_type='VIEW_3D')
+    kmi = km.keymap_items.new('mesh.inset_extrude', 'I', 'PRESS')
+ #   kmi.properties.name = "MESH_OT_inset_extrude"
+	
 
 def unregister():
-    bpy.utils.unregister_class(inset_extrude)
-    
-    km = bpy.context.window_manager.keyconfigs.addon.keymaps['Mesh']
+    bpy.utils.unregister_module(__name__)
+
+    wm = bpy.context.window_manager
+    km = wm.keyconfigs.addon.keymaps['3D View']
     for kmi in km.keymap_items:
         if kmi.idname == 'mesh.inset_extrude':
+#            if kmi.properties.name == "MESH_OT_inset_extrude":
             km.keymap_items.remove(kmi)
             break
-
 if __name__ == "__main__":
     register()
