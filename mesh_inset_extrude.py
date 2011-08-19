@@ -440,7 +440,7 @@ def terminate(global_undo):
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.context.user_preferences.edit.use_global_undo = global_undo
 
-class inset_extrude(bpy.types.Operator):
+class MESH_OT_inset_extrude(bpy.types.Operator):
     bl_idname = "mesh.inset_extrude"
     bl_label = "Inset Extrude"
     bl_options = {'REGISTER', 'UNDO'}
