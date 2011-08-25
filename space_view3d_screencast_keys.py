@@ -20,12 +20,12 @@
 
 
 bl_info = {
-    'name': 'Display Keys Status for Screencasting',
+    'name': 'Screencast Keys',
     'author': 'Paulo Gomes, Bart Crouch, John E. Herrenyo',
     'version': (1, 2),
-    'blender': (2, 5, 7),
-    'api': 36710,
-    'location': 'View3D > Properties panel > Display tab',
+    'blender': (2, 5, 9),
+    'api': 39576,
+    'location': 'View3D > Properties panel > Screencast Keys',
     'warning': '',
     'description': 'Display keys pressed in the 3d-view, '\
         'useful for screencasts.',
@@ -374,11 +374,12 @@ def init_properties():
             ("text", "Text", "Display mouse events as text lines")),
         name="Mouse display",
         description="Display mouse events",
-        default='none')
+        default='text')
     bpy.types.WindowManager.display_font_size = bpy.props.IntProperty(
         name="Size",
         description="Fontsize",
-        default=20)
+        default=20, min=10, max=150)
+
     bpy.types.WindowManager.display_pos_x = bpy.props.IntProperty(
         name="Pos X",
         description="Margin on the x axis",
@@ -412,7 +413,7 @@ def clear_properties():
 
 # defining the panel
 class OBJECT_PT_keys_status(bpy.types.Panel):
-    bl_label = "Display Keys Status"
+    bl_label = "Screencast Keys"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     
