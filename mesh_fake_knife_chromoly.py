@@ -25,7 +25,7 @@ bl_info = {
     "author": "Chromoly",
     "version": (0, 4),
     "blender": (2, 5, 9),
-    "api": 39104,
+    "api": 39685,
     "location": "Editmode specials menu",
     "description": "Interactive Knife Tool.",
     "warning": "",
