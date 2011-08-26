@@ -96,7 +96,7 @@ def draw_mouse(context, shape, style, alpha):
     offset_y = wm.display_pos_y
     shape_data = get_shape_data(shape)
     bgl.glTranslatef(offset_x, offset_y, 0)
-    # colour
+    # color
     r, g, b = wm.display_color
     bgl.glEnable(bgl.GL_BLEND)
     #bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
@@ -389,8 +389,8 @@ def init_properties():
         description="Margin on the y axis",
         default=60)
     bpy.types.WindowManager.display_color = bpy.props.FloatVectorProperty(
-        name="Colour",
-        description="Font colour",
+        name="Color",
+        description="Font color",
         default=(1.0, 1.0, 1.0),
         min=0,
         max=1,
@@ -418,15 +418,16 @@ class OBJECT_PT_keys_status(bpy.types.Panel):
     bl_region_type = "UI"
     
     def draw(self, context):
-        col = self.layout.column(align=False)
+        layout = self.layout
+        
         if not context.window_manager.display_keys:
-            col.operator("view3d.screencast_keys", text="Start display",
+            layout.operator("view3d.screencast_keys", text="Start display",
                 icon='PLAY')
         else:
-            col.operator("view3d.screencast_keys", text="Stop display",
+            layout.operator("view3d.screencast_keys", text="Stop display",
                 icon='PAUSE')
         
-        col = self.layout.column(align=True)
+        col = layout.column(align=True)
         row = col.row(align=True)
         row.prop(context.window_manager, "display_pos_x")
         row.prop(context.window_manager, "display_pos_y")
@@ -434,8 +435,7 @@ class OBJECT_PT_keys_status(bpy.types.Panel):
         row.prop(context.window_manager, "display_font_size")
         row.prop(context.window_manager, "display_mouse", text="")
         
-        row = self.layout.row()
-        row.prop(context.window_manager, "display_color")
+        layout.prop(context.window_manager, "display_color")
 
 
 classes = [ScreencastKeysStatus,
