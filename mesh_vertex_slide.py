@@ -19,9 +19,9 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "Vertex Slide",
+    "name": "Vertex slide",
     "author": "Valter Battioli (ValterVB) and PKHG",
-    "version": (1, 1, 3),
+    "version": (1, 1, 4),
     "blender": (2, 5, 9),
     "api": 39523,
     "location": "View3D > Mesh > Vertices (CTRL V-key) or search for 'VB Vertex 2'",
@@ -56,6 +56,8 @@ bl_info = {
 #            Add edge drawing (from chromoly vertex slide)
 #            Add help on screen (from chromooly vertex slide)
 #ver. 1.1.3: Now work also with Continuos Grab, some clean on code
+#ver. 1.1.4: Remove a lot of mode switching in Invoke. It was too slow 
+#            with big mesh.
 #***********************************************************************
 
 import bpy
@@ -90,7 +92,7 @@ class Point():
 
 class VertexSlideOperator(bpy.types.Operator):
     bl_idname = "vertex.slide"
-    bl_label = "VB Vertex Slide 2"
+    bl_label = "Vertex Slide"
     bl_options = {'REGISTER', 'UNDO', 'GRAB_POINTER', 'BLOCKING', 'INTERNAL'}
 
     Vertex1 = Point()  # First selected vertex data
@@ -107,7 +109,7 @@ class VertexSlideOperator(bpy.types.Operator):
     LeftShiftPress = False  # Flag to know if SHIFT is hold on
 
     # Convert a 3D coord to screen 2D coord
-    def Conv3DtoScreen2D(self, context, index):
+    def Conv3DtoScreen2D(self, context, index):  # ^^^ could this function be replaced by bpy_extras.view3d_utils.location_3d_to_region_2d ?
         # Get screen information
         mid_x = context.region.width / 2.0
         mid_y = context.region.height / 2.0
@@ -161,6 +163,7 @@ class VertexSlideOperator(bpy.types.Operator):
             bgl.glVertex2f(p.x2D, p.y2D)
         bgl.glEnd()
 
+
     # Compute the screen distance of two vertices
     def ScreenDistance(self, vertex_zero_co, vertex_one_co):
         matw = bpy.context.active_object.matrix_world
@@ -173,8 +176,8 @@ class VertexSlideOperator(bpy.types.Operator):
 
     def modal(self, context, event):
         if event.type == 'MOUSEMOVE':
-            Vertices = bpy.context.object.data.vertices
             bpy.ops.object.mode_set(mode='OBJECT')
+            Vertices = bpy.context.object.data.vertices
             # Calculate the temp t valuse. Stored in td
             tmpMouse = Vector((event.mouse_x, event.mouse_y))
             t_diff = (tmpMouse - self.tmpMouse).length
@@ -297,7 +300,6 @@ class VertexSlideOperator(bpy.types.Operator):
 
         elif event.type == 'LEFTMOUSE':  # Confirm and exit
             Vertices = bpy.context.object.data.vertices
-            bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='DESELECT')
             bpy.ops.object.mode_set(mode='OBJECT')
             Vertices[self.Vertex1.original.idx].select = True
@@ -330,11 +332,12 @@ class VertexSlideOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         obj = bpy.context.object
+        mesh = obj.data
         Selected = False
         Count = 0
         SelectedVertices = []  # Index of selected vertices
         bpy.ops.object.mode_set(mode='OBJECT')
-        for vert in obj.data.vertices:
+        for vert in mesh.vertices:
             if vert.select:
                 Selected = True
                 SelectedVertices.append(vert.index)
@@ -356,31 +359,30 @@ class VertexSlideOperator(bpy.types.Operator):
         self.LinkedVertices2 = []
 
         # Store selected vertices data
-        bpy.ops.object.mode_set(mode='OBJECT')
         self.Vertex1.original.idx = SelectedVertices[0]
-        self.Vertex1.original.co = obj.data.vertices[SelectedVertices[0]].co.copy()
+        self.Vertex1.original.co = mesh.vertices[SelectedVertices[0]].co.copy()
         self.Vertex1.new = self.Vertex1.original
         x, y = self.Conv3DtoScreen2D(context, SelectedVertices[0])  # For draw edge
         self.Vertex1.x2D = x
         self.Vertex1.y2D = y
         if len(SelectedVertices) == 2:
             self.Vertex2.original.idx = SelectedVertices[1]
-            self.Vertex2.original.co = obj.data.vertices[SelectedVertices[1]].co.copy()
+            self.Vertex2.original.co = mesh.vertices[SelectedVertices[1]].co.copy()
             self.Vertex2.new = self.Vertex2.original
             x, y = self.Conv3DtoScreen2D(context, SelectedVertices[1])  # For draw edge
             self.Vertex2.x2D = x
             self.Vertex2.y2D = y
-        bpy.ops.object.mode_set(mode='EDIT')
 
+        if len(SelectedVertices) == 2:
+            mesh.vertices[self.Vertex2.original.idx].select = False  # Unselect the second selected vertex
+        
         # Store linked vertices data, except the selected vertices
-        bpy.ops.mesh.select_all(action='DESELECT')
-        bpy.ops.object.mode_set(mode='OBJECT')
-        obj.data.vertices[self.Vertex1.original.idx].select = True  # Select the first selected vertex
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_more()  # Select the linked vertices
         bpy.ops.object.mode_set(mode='OBJECT')
-        for vert in obj.data.vertices:
-            if vert.select and vert.index != self.Vertex1.original.idx:
+        mesh.vertices[self.Vertex1.original.idx].select = False  #So are selected only the linked vertices
+        for vert in mesh.vertices:
+            if vert.select:
                 self.LinkedVertices1.append(Point())
                 self.LinkedVertices1[-1].original.idx = vert.index
                 self.LinkedVertices1[-1].original.co = vert.co.copy()
@@ -388,16 +390,15 @@ class VertexSlideOperator(bpy.types.Operator):
                 x, y = self.Conv3DtoScreen2D(context, vert.index)  # For draw edge
                 self.LinkedVertices1[-1].x2D = x
                 self.LinkedVertices1[-1].y2D = y
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='DESELECT')
+                vert.select = False
         if len(SelectedVertices) == 2:
-            bpy.ops.object.mode_set(mode='OBJECT')
-            obj.data.vertices[self.Vertex2.original.idx].select = True  # Select the Second selected vertex
+            mesh.vertices[self.Vertex2.original.idx].select = True  # Select the second selected vertex
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_more()  # Select the linked vertices
             bpy.ops.object.mode_set(mode='OBJECT')
-            for vert in obj.data.vertices:
-                if vert.select and vert.index != self.Vertex2.original.idx:
+            mesh.vertices[self.Vertex2.original.idx].select = False  #So are selected only the linked vertices
+            for vert in mesh.vertices:
+                if vert.select:
                     self.LinkedVertices2.append(Point())
                     self.LinkedVertices2[-1].original.idx = vert.index
                     self.LinkedVertices2[-1].original.co = vert.co.copy()
@@ -405,8 +406,7 @@ class VertexSlideOperator(bpy.types.Operator):
                     x, y = self.Conv3DtoScreen2D(context, vert.index)  # For draw edge
                     self.LinkedVertices2[-1].x2D = x
                     self.LinkedVertices2[-1].y2D = y
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='DESELECT')
+                    vert.select = False
 
         # Check for no linked vertex. Can be happen also with a mix of Select Mode
         # Need only with 1 vertex selected
@@ -415,14 +415,14 @@ class VertexSlideOperator(bpy.types.Operator):
             self.report({'WARNING'}, "Isolated vertex or mixed Select Mode!")
             return {'CANCELLED'}
 
-        bpy.ops.object.mode_set(mode='OBJECT')
-        obj.data.vertices[self.Vertex1.original.idx].select = True  # Select the firs selected vertex
+        mesh.vertices[self.Vertex1.original.idx].select = True  # Select the firs selected vertex
         if len(SelectedVertices) == 2:
-            obj.data.vertices[self.Vertex2.original.idx].select = True  # Select the second selected vertex
+            mesh.vertices[self.Vertex2.original.idx].select = True  # Select the second selected vertex
         else:
-            obj.data.vertices[self.LinkedVertices1[0].original.idx].select = True  # Select the first linked vertex
-        bpy.ops.object.mode_set(mode='EDIT')
+            mesh.vertices[self.LinkedVertices1[0].original.idx].select = True  # Select the first linked vertex
         self.ActiveVertex = self.Vertex1.original.idx
+
+        bpy.ops.object.mode_set(mode='EDIT')  #I must stay in Edit mode
 
         # Add the region OpenGL drawing callback
         # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
