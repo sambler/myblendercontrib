@@ -19,7 +19,7 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "Vertex slide 2",
+    "name": "Vertex Slide",
     "author": "Valter Battioli (ValterVB) and PKHG",
     "version": (1, 1, 3),
     "blender": (2, 5, 9),
