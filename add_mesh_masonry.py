@@ -29,7 +29,7 @@ bl_info = {
     "api": 36147,
     "location": "View3D > Add > Mesh > Masonry",
     "description": "Add Stonework - walls, towers, path, block meshes.",
-    "warning": "WIP - updates pending and API not final for Blender",
+    "warning": "WIP - Broken. updates pending",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
         "Scripts/Add_Mesh/Masonry",
     "tracker_url": "http://projects.blender.org/tracker/index.php?"\
