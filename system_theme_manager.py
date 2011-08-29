@@ -22,9 +22,9 @@
 bl_info = {
     'name': "Theme manager",
     'author': "Bart Crouch",
-    'version': (1, 3, 2),
-    'blender': (2, 5, 7),
-    'api': 36710,
+    'version': (1, 4, 0),
+    'blender': (2, 5, 9),
+    'api': 39720,
     'location': "User Preferences > Themes > Header",
     'warning': "",
     'description': "Load or save a custom theme",
@@ -35,7 +35,6 @@ bl_info = {
     'category': 'System'}
 
 
-import blf
 import bpy
 import gzip
 from bpy_extras.io_utils import ExportHelper, ImportHelper
@@ -44,6 +43,141 @@ import pickle
 import shutil
 
 
+# function to change the theme
+def apply_theme(self, context):
+    theme = context.window_manager.theme_list
+    if theme == "internal_tm_42_default":
+        bpy.ops.ui.reset_default_theme()
+        print("Applied Default theme")
+        return
+    
+    match = False
+    for (sort_name, theme_name, author, version, filename) in \
+    context.window_manager["theme_list_id"]:
+        if theme_name == theme:
+            match = True
+            break
+    if not match:
+        # should be impossible
+        print("Could not find theme(internal mismatch)")
+        return
+    else:
+        filepath = filename
+    
+    # load file
+    try:
+        file = gzip.open(filepath, mode='r')
+        dump = pickle.load(file)
+        file.close()
+        dump["info"]["script"]
+    except:
+        print("Could not read theme")
+        return
+    
+    # apply theme
+    theme = bpy.context.user_preferences.themes["Default"]
+    for ts, props in dump["values"].items():
+        theme_struct = getattr(theme, ts)
+        for prop, val in props.items():
+            if type(val) != type({}):
+                setattr(theme_struct, prop, val)
+            else:
+                # one level deeper
+                if type(prop) == type(1):
+                    # collection property (bone color set)
+                    prop_struct = theme_struct[prop]
+                else:
+                    prop_struct = getattr(theme_struct, prop)
+                for subprop, subval in val.items():
+                    setattr(prop_struct, subprop, subval)
+    
+    # restore default values for miscellaneous items, before assigning
+    bpy.context.user_preferences.view.object_origin_size = 6
+    bpy.context.user_preferences.view.mini_axis_size = 25
+    bpy.context.user_preferences.view.mini_axis_brightness = 8
+    bpy.context.user_preferences.view.manipulator_size = 15
+    bpy.context.user_preferences.view.manipulator_handle_size = 25
+    bpy.context.user_preferences.view.manipulator_hotspot = 14
+    bpy.context.user_preferences.edit.sculpt_paint_overlay_color = \
+        [0.0, 0.0, 0.0]
+    bpy.context.user_preferences.system.dpi = 72
+    bpy.context.user_preferences.system.use_weight_color_range = False
+    color_range = bpy.context.user_preferences.system.weight_color_range
+    color_range.interpolation = 'LINEAR'
+    while len(color_range.elements) > 1:
+        color_range.elements.remove(color_range.elements[0])
+    if len(color_range.elements) == 1:
+        color_range.elements[0].position = 1.0
+        color_range.elements[0].color = [0.0, 1.0, 0.0, 0.0]
+    lights = bpy.context.user_preferences.system.solid_lights
+    light_settings = [{"diffuse_color":[0.8, 0.8, 0.8],
+        "direction":[-0.892, 0.3, 0.9], "specular_color":[0.5, 0.5, 0.5],
+        "use":True}, {"diffuse_color":[0.498, 0.5, 0.6], 
+        "direction":[0.588, 0.460, 0.248],
+        "specular_color":[0.2, 0.2, 0.2], "use":True},
+        {"diffuse_color":[0.798, 0.838, 1.0],
+        "direction":[0.216, -0.392, -0.216],
+        "specular_color":[0.066, 0.0, 0.0], "use":True}]
+    for i, light in enumerate(lights):
+        settings = light_settings[i]
+        for prop, value in settings.items():
+            setattr(light, prop, value)
+    
+    # theme file created with script version >= 1.3
+    if "misc" in dump:
+        for category, props in dump["misc"].items():
+            category_struct = getattr(bpy.context.user_preferences,
+                category)
+            for prop_name, val in props.items():
+                if type(val) != type({}):
+                    # simple miscellaneous setting
+                    setattr(category_struct, prop_name, val)
+                else:
+                    structs = getattr(category_struct, prop_name)
+                    for subkey, subval in val.items():
+                        if type(subkey) == type(1):
+                            # solid_lights
+                            struct = structs[subkey]
+                            for subprop_name, subprop_val in \
+                            subval.items():
+                                setattr(struct, subprop_name, subprop_val)
+                        else:
+                            # weight paint color-range
+                            if type(subval) != type({}):
+                                setattr(structs, subkey, subval)
+                            else:
+                                elements = getattr(structs, subkey)
+                                add_new = len(subval) - len(elements)
+                                for i in range(add_new):
+                                    elements.new(i / len(subval))
+                                for i, element_prop in subval.items():
+                                    for element_key, element_value in \
+                                    element_prop.items():
+                                        setattr(elements[i], element_key,
+                                            element_value)
+    
+    # report to user
+    author = dump["info"]["author"]
+    theme_name = dump["info"]["theme_name"]
+    print("Applied " + theme_name + " by " + author)
+
+
+# create list for dynamic EnumProperty
+def dynamic_list(self, context):
+    d_list = [('internal_tm_42_default', "Default", "Reset to the "\
+        "default theme colors")]
+    if "theme_list_id" in context.window_manager:
+        for i, theme, author, version, path in \
+        context.window_manager["theme_list_id"]:
+            if version:
+                version = " " + version
+            d_list.append((theme, theme + version + " by " + author,
+                "Apply " + theme + version))
+    
+    return(d_list)
+
+
+# return path of the folder where all themes are located
 def get_paths():
     # locate theme preset folder
     paths = bpy.utils.preset_paths("theme")
@@ -57,6 +191,7 @@ def get_paths():
     return(paths)
 
 
+# create list of all themes available
 def load_presets():
     # find theme files
     paths = get_paths()
@@ -78,148 +213,36 @@ def load_presets():
             author = dump["info"]["author"]
             theme_name = dump["info"]["theme_name"]
             sort_name = theme_name.lower()
-            theme_list.append([sort_name, theme_name, author, filename])
+            # theme_version available if created with script version >= 1.4
+            theme_version = dump["info"].get("theme_version", "")
+            theme_list.append([sort_name, theme_name, author, theme_version,
+                filename])
         except:
             continue
     theme_list.sort()
     
-    # find popup width
-    sizes = [blf.dimensions(0, theme + " by " + author)[0] + 25 for \
-        i, theme, author, path in theme_list]
-    sizes.append(blf.dimensions(0, "Install new theme")[0])
-    popup_max = 250
-    if len(sizes) > 1:
-        sizes.sort()
-        max_size = sizes[-1] + 10
-    else:
-        max_size = blf.dimensions(0, "No theme presets found")[0] + 10
-    width = min(popup_max, max_size)
-    
-    # store settings in window-manager
-    bpy.context.window_manager["theme_list"] = theme_list
-    bpy.context.window_manager["theme_width"] = width
+    # store list in window-manager
+    bpy.context.window_manager["theme_list_id"] = theme_list
+    try:
+        # check if EnumProp exists: overwrite might cause memory corruption
+        bpy.context.window_manager.theme_list
+    except:
+        # create EnumProp, because it doesn't exist yet
+        bpy.types.WindowManager.theme_list = bpy.props.EnumProperty(\
+            name="Load Theme",
+            items=dynamic_list,
+            description="Load a theme",
+            update=apply_theme)
 
 
 def unload_presets():
     # remove settings from window-manager
-    del bpy.context.window_manager["theme_list"]
-    del bpy.context.window_manager["theme_width"]
-
-
-# install operator
-class ApplyTheme(bpy.types.Operator):
-    bl_idname = "ui.apply_theme"
-    bl_label = "Apply Theme"
-    bl_description = "Apply this theme"
-    
-    filepath = bpy.props.StringProperty(name="File Path",
-        description="Filepath at which theme is located", maxlen=1024,
-        default="", subtype='FILE_PATH')
-    
-    def execute(self, context):
-        # filepath should always be given
-        if not self.filepath:
-            self.report("ERROR", "Could not find theme")
-            return{'CANCELLED'}
-        
-        # load file
-        try:
-            file = gzip.open(self.filepath, mode='r')
-            dump = pickle.load(file)
-            file.close()
-            dump["info"]["script"]
-        except:
-            self.report("ERROR", "Could not read theme")
-            return{'CANCELLED'}
-        
-        # apply theme
-        theme = bpy.context.user_preferences.themes["Default"]
-        for ts, props in dump["values"].items():
-            theme_struct = getattr(theme, ts)
-            for prop, val in props.items():
-                if type(val) != type({}):
-                    setattr(theme_struct, prop, val)
-                else:
-                    # one level deeper
-                    if type(prop) == type(1):
-                        # collection property (bone color set)
-                        prop_struct = theme_struct[prop]
-                    else:
-                        prop_struct = getattr(theme_struct, prop)
-                    for subprop, subval in val.items():
-                        setattr(prop_struct, subprop, subval)
-        
-        # restore default values for miscellaneous items, before assigning
-        bpy.context.user_preferences.view.object_origin_size = 6
-        bpy.context.user_preferences.view.mini_axis_size = 25
-        bpy.context.user_preferences.view.mini_axis_brightness = 8
-        bpy.context.user_preferences.view.manipulator_size = 15
-        bpy.context.user_preferences.view.manipulator_handle_size = 25
-        bpy.context.user_preferences.view.manipulator_hotspot = 14
-        bpy.context.user_preferences.edit.sculpt_paint_overlay_color = \
-            [0.0, 0.0, 0.0]
-        bpy.context.user_preferences.system.dpi = 72
-        bpy.context.user_preferences.system.use_weight_color_range = False
-        color_range = bpy.context.user_preferences.system.weight_color_range
-        color_range.interpolation = 'LINEAR'
-        while len(color_range.elements) > 1:
-            color_range.elements.remove(color_range.elements[0])
-        if len(color_range.elements) == 1:
-            color_range.elements[0].position = 1.0
-            color_range.elements[0].color = [0.0, 1.0, 0.0, 0.0]
-        lights = bpy.context.user_preferences.system.solid_lights
-        light_settings = [{"diffuse_color":[0.8, 0.8, 0.8],
-            "direction":[-0.892, 0.3, 0.9], "specular_color":[0.5, 0.5, 0.5],
-            "use":True}, {"diffuse_color":[0.498, 0.5, 0.6], 
-            "direction":[0.588, 0.460, 0.248],
-            "specular_color":[0.2, 0.2, 0.2], "use":True},
-            {"diffuse_color":[0.798, 0.838, 1.0],
-            "direction":[0.216, -0.392, -0.216],
-            "specular_color":[0.066, 0.0, 0.0], "use":True}]
-        for i, light in enumerate(lights):
-            settings = light_settings[i]
-            for prop, value in settings.items():
-                setattr(light, prop, value)
-        
-        # theme file created with script version >= 1.3
-        if "misc" in dump:
-            for category, props in dump["misc"].items():
-                category_struct = getattr(bpy.context.user_preferences,
-                    category)
-                for prop_name, val in props.items():
-                    if type(val) != type({}):
-                        # simple miscellaneous setting
-                        setattr(category_struct, prop_name, val)
-                    else:
-                        structs = getattr(category_struct, prop_name)
-                        for subkey, subval in val.items():
-                            if type(subkey) == type(1):
-                                # solid_lights
-                                struct = structs[subkey]
-                                for subprop_name, subprop_val in \
-                                subval.items():
-                                    setattr(struct, subprop_name, subprop_val)
-                            else:
-                                # weight paint color-range
-                                if type(subval) != type({}):
-                                    setattr(structs, subkey, subval)
-                                else:
-                                    elements = getattr(structs, subkey)
-                                    add_new = len(subval) - len(elements)
-                                    for i in range(add_new):
-                                        elements.new(i / len(subval))
-                                    for i, element_prop in subval.items():
-                                        for element_key, element_value in \
-                                        element_prop.items():
-                                            setattr(elements[i], element_key,
-                                                element_value)
-        
-        # report to user
-        author = dump["info"]["author"]
-        theme_name = dump["info"]["theme_name"]
-        self.report('INFO', "Applied " + theme_name + " by " + author)
-        
-        return{'FINISHED'}
+    del bpy.context.window_manager["theme_list_id"]
+    try:
+        del bpy.types.WindowManager.theme_list
+        print('successfully removed theme_list enum property')
+    except:
+        pass
 
 
 # install operator
@@ -232,51 +255,29 @@ class InstallTheme(bpy.types.Operator, ImportHelper):
     filter_glob = bpy.props.StringProperty(default="*.blt", options={'HIDDEN'})
     
     def execute(self, context):
-        # apply chosen theme
-        bpy.ops.ui.apply_theme(filepath=self.filepath)
         # copy theme to presets folder
         filename = os.path.basename(self.filepath)
         try:
             shutil.copyfile(self.filepath,
                 os.path.join(get_paths()[0], filename))
         except:
-            self.report('ERROR', "Theme applied, but installing failed")
+            self.report({'ERROR'}, "Installing failed")
             return{'CANCELLED'}
+        
         # reload presets list
         load_presets()
         
-        return{'FINISHED'}
-
-
-# load operator (imitates a menu)
-class LoadTheme(bpy.types.Operator):
-    bl_idname = "ui.load_theme"
-    bl_label = "Load Theme"
-    bl_options = {'REGISTER'}
-    
-    def draw(self, context):
-        # menu-like interface
-        theme_list = context.window_manager["theme_list"]
-        layout = self.layout
-        
-        layout.operator("ui.install_theme")
-        col = layout.column(align=True)
-        for i, theme, author, path in theme_list:
-            row = col.row(align=True)
-            row.operator("ui.apply_theme", text=theme+" by "+author)\
-                .filepath = path
-            row.operator("ui.uninstall_theme", icon="ZOOMOUT", text="")\
-                .filepath = path
-        if not theme_list:
-            col.label("No theme presets found")
-    
-    def execute(self, context):
-        # invoke popup
-        if "theme_width" not in context.window_manager:
-            # happens when new blend-file is loaded and wm is destroyed
-            load_presets()
-        width = context.window_manager["theme_width"]
-        context.window_manager.invoke_popup(self, width=width)
+        # change active theme
+        try:
+            file = gzip.open(self.filepath, mode='r')
+            dump = pickle.load(file)
+            file.close()
+            theme = dump["info"]["theme_name"]
+        except:
+            self.report({"ERROR"}, "Installing succeeded, but could not read "\
+                "theme")
+            return{'CANCELLED'}
+        context.window_manager.theme_list = theme
         
         return{'FINISHED'}
 
@@ -297,6 +298,10 @@ class SaveTheme(bpy.types.Operator, ExportHelper):
     theme_name = bpy.props.StringProperty(name="Theme name",
         default="",
         description="Name of the theme")
+    version = bpy.props.StringProperty(name="Version",
+        default="",
+        description="Version number of the theme, eg: 1.0",
+        maxlen=8)
     
     def execute(self, context):
         # create dictionary with all information
@@ -307,6 +312,7 @@ class SaveTheme(bpy.types.Operator, ExportHelper):
         dump["info"]["build_revision"] = bpy.app.build_revision
         dump["info"]["author"] = self.author
         dump["info"]["theme_name"] = self.theme_name
+        dump["info"]["theme_version"] = self.version
         
         # defaults
         if not self.author:
@@ -426,28 +432,43 @@ class SaveTheme(bpy.types.Operator, ExportHelper):
         pickle.dump(dump, file)
         file.close()
         load_presets()
+        context.window_manager.theme_list = dump["info"]["theme_name"]
         
         return{'FINISHED'}
 
 
-# install operator
+# uninstall operator
 class UninstallTheme(bpy.types.Operator):
     bl_idname = "ui.uninstall_theme"
     bl_label = "Uninstall theme"
     bl_description = "Uninstall this theme preset"
     
-    filepath = bpy.props.StringProperty(name="File Path",
-        description="Filepath at which theme is located", maxlen=1024,
-        default="", subtype='FILE_PATH')
-    
     def execute(self, context):
-        try:
-            os.remove(self.filepath)
-        except:
-            self.report('ERROR', "Could not remove theme preset")
+        theme = context.window_manager.theme_list
+        match = False
+        for (sort_name, theme_name, author, version, filename) in \
+        context.window_manager["theme_list_id"]:
+            if theme_name == theme:
+                match = True
+                break
+        if not match:
+            # should be impossible
+            self.report({'ERROR'}, "Could not remove theme preset (internal "\
+                "mismatch)")
             return{'CANCELLED'}
-        # reload presets list
+        else:
+            filepath = filename
+        
+        try:
+            os.remove(filepath)
+        except:
+            self.report({'ERROR'}, "Could not remove theme preset")
+            return{'CANCELLED'}
+        
+        # reload presets list and reset to default
         load_presets()
+        bpy.ops.ui.reset_default_theme()
+        context.window_manager.theme_list = 'internal_tm_42_default'
         
         return{'FINISHED'}
 
@@ -456,13 +477,17 @@ class UninstallTheme(bpy.types.Operator):
 def header_func(self, context):
     if context.user_preferences.active_section == 'THEMES':
         self.layout.separator()
-        self.layout.operator("ui.load_theme")
+        row = self.layout.row(align=True)
+        row.prop(context.window_manager, "theme_list", text="")
+        row.operator("ui.install_theme", icon='ZOOMIN', text="")
+        row = row.row()
+        row.enabled = context.window_manager.theme_list != \
+            'internal_tm_42_default'
+        row.operator("ui.uninstall_theme", icon='X', text="")
         self.layout.operator("ui.save_theme")
 
 
-classes = [ApplyTheme,
-    InstallTheme,
-    LoadTheme,
+classes = [InstallTheme,
     SaveTheme,
     UninstallTheme]
 
