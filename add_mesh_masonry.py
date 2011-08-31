@@ -24,9 +24,9 @@
 bl_info = {
     "name": "Masonry",
     "author": "Paul Spooner, Dudecon, Ziggy",
-    "version": (0, 57),
-    "blender": (2, 5, 7),
-    "api": 36147,
+    "version": (0,5,8),
+    "blender": (2, 5, 9),
+    "api": 39789,
     "location": "View3D > Add > Mesh > Masonry",
     "description": "Add Stonework - walls, towers, path, block meshes.",
     "warning": "WIP - updates pending and API not final for Blender",
@@ -2348,7 +2348,7 @@ class AddWall(bpy.types.Operator):
 		print(':done:')
         '''
 
-        return ('FINISHED')
+        return {'FINISHED'}
 
 
 # Register the operator
