@@ -51,17 +51,23 @@
 #      WARNING: this addon now needs a Blender patched with the ui_template_list diff, else it won’t
 #               be fully functional (even though working)…
 #
+#  0.1.3
+#      Minor changes:
+#        * Fixed a small bug that was disabling the whole UI when entering a filtering regex
+#          matching no scene.
+#      WARNING: this addon now needs a Blender patched with the ui_template_list diff, else it won’t
+#               be fully functional (even though working)…
+#
 # ##### END OF CHANGELOG #####
 
 bl_info = {
     "name": "Copy Settings",
     "author": "Bastien Montagne",
-    "version": (0, 1, 2),
-    "blender": (2, 5, 8),
+    "version": (0, 1, 3),
+    "blender": (2, 5, 9),
     "api": 36380,
     "location": "Render buttons (Properties window)",
     "description": "Allows to copy a selection of render settings from current scene to others.",
-    "warning": "beta",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
                 "Scripts/Render/Copy Settings",
     "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=25832",
