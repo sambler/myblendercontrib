@@ -43,10 +43,10 @@ class DXFExporter(bpy.types.Operator):
         ('ALL', 'All Objects', ''),
         ('SELECTION', 'Selected Objects', ''),
     )
-    spaceItems = (
-        ('1', 'Paper-Space', ''),
-        ('2', 'Model-Space', '')
-    )
+#    spaceItems = (
+#        ('1', 'Paper-Space', ''),
+#        ('2', 'Model-Space', '')
+#    )
 
     entityltype_fromItems = (
         ('default_LTYPE', 'default_LTYPE', ''),
@@ -85,146 +85,147 @@ class DXFExporter(bpy.types.Operator):
         ('LINEs', 'LINEs', 'export Mesh as multiple LINEs'),
         ('POINTs', 'POINTs', 'Export Mesh as multiple POINTs')
     )
-    curve_asItems  = (
-        ('NO', 'Do not export', ''),
-        ('LINEs', 'LINEs', ''),
-        ('POLYLINE', 'POLYLINE', ''),
-        ('..LWPOLYLINE r14', '..LWPOLYLINE r14', ''),
-        ('..SPLINE r14', '..SPLINE r14', ''),
-        ('POINTs', 'POINTs',  '')
-    )
-    surface_asItems  = (
-        ('NO', 'Do not export', ''),
-        ('..3DFACEs', '..3DFACEs', ''),
-        ('..POLYFACE', '..POLYFACE', ''),
-        ('..POINTs', '..POINTs', ''),
-        ('..NURBS', '..NURBS', '')
-    )
-    meta_asItems  = (
-        ('NO', 'Do not export', ''),
-        ('..3DFACEs', '..3DFACEs', ''),
-        ('..POLYFACE', '..POLYFACE', ''),
-        ('..3DSOLID', '..3DSOLID', '')
-    )
-    text_asItems  = (
-        ('NO', 'Do not export', ''),
-        ('TEXT', 'TEXT', ''),
-        ('..MTEXT', '..MTEXT', ''),
-        ('..ATTRIBUT', '..ATTRIBUT', '')
-    )
-    empty_asItems  = (
-        ('NO', 'Do not export', ''),
-        ('POINT', 'POINT', ''),
-        ('..INSERT', '..INSERT', ''),
-        ('..XREF', '..XREF', '')
-    )
-    group_asItems  = (
-        ('NO', 'Do not export', ''),
-        ('..GROUP', '..GROUP', ''),
-        ('..BLOCK', '..BLOCK', ''),
-        ('..ungroup', '..ungroup', '')
-    )
-#    parent_asItems = ['..BLOCK','..ungroup'] # ???
-    proxy_asItems = (
-        ('NO', 'Do not export', ''),
-        ('..BLOCK','..BLOCK', ''),
-        ('..XREF', '..XREF', ''),
-        ('..ungroup', '..ungroup', ''),
-        ('..POINT', '..POINT', '')
-    )
-    camera_asItems = (
-        ('NO', 'Do not export', ''),
-        ('..BLOCK', '..BLOCK', ''),
-        ('..A_CAMERA', '..A_CAMERA', ''),
-        ('VPORT', 'VPORT', ''),
-        ('VIEW', 'VIEW', ''),
-        ('POINT', 'POINT', '')
-    )
-    lamp_asItems = (
-        ('NO', 'Do not export', ''),
-        ('..BLOCK', '..BLOCK', ''),
-        ('..A_LAMP', '..A_LAMP', ''),
-        ('POINT', 'POINT', '')
-    )
+#    curve_asItems  = (
+#        ('NO', 'Do not export', ''),
+#        ('LINEs', 'LINEs', ''),
+#        ('POLYLINE', 'POLYLINE', ''),
+#        ('..LWPOLYLINE r14', '..LWPOLYLINE r14', ''),
+#        ('..SPLINE r14', '..SPLINE r14', ''),
+#        ('POINTs', 'POINTs',  '')
+#    )
+#    surface_asItems  = (
+#        ('NO', 'Do not export', ''),
+#        ('..3DFACEs', '..3DFACEs', ''),
+#        ('..POLYFACE', '..POLYFACE', ''),
+#        ('..POINTs', '..POINTs', ''),
+#        ('..NURBS', '..NURBS', '')
+#    )
+#    meta_asItems  = (
+#        ('NO', 'Do not export', ''),
+#        ('..3DFACEs', '..3DFACEs', ''),
+#        ('..POLYFACE', '..POLYFACE', ''),
+#        ('..3DSOLID', '..3DSOLID', '')
+#    )
+#    text_asItems  = (
+#        ('NO', 'Do not export', ''),
+#        ('TEXT', 'TEXT', ''),
+#        ('..MTEXT', '..MTEXT', ''),
+#        ('..ATTRIBUT', '..ATTRIBUT', '')
+#    )
+#    empty_asItems  = (
+#        ('NO', 'Do not export', ''),
+#        ('POINT', 'POINT', ''),
+#        ('..INSERT', '..INSERT', ''),
+#        ('..XREF', '..XREF', '')
+#    )
+#    group_asItems  = (
+#        ('NO', 'Do not export', ''),
+#        ('..GROUP', '..GROUP', ''),
+#        ('..BLOCK', '..BLOCK', ''),
+#        ('..ungroup', '..ungroup', '')
+#    )
+##    parent_asItems = ['..BLOCK','..ungroup'] # ???
+#    proxy_asItems = (
+#        ('NO', 'Do not export', ''),
+#        ('..BLOCK','..BLOCK', ''),
+#        ('..XREF', '..XREF', ''),
+#        ('..ungroup', '..ungroup', ''),
+#        ('..POINT', '..POINT', '')
+#    )
+#    camera_asItems = (
+#        ('NO', 'Do not export', ''),
+#        ('..BLOCK', '..BLOCK', ''),
+#        ('..A_CAMERA', '..A_CAMERA', ''),
+#        ('VPORT', 'VPORT', ''),
+#        ('VIEW', 'VIEW', ''),
+#        ('POINT', 'POINT', '')
+#    )
+#    lamp_asItems = (
+#        ('NO', 'Do not export', ''),
+#        ('..BLOCK', '..BLOCK', ''),
+#        ('..A_LAMP', '..A_LAMP', ''),
+#        ('POINT', 'POINT', '')
+#    )
     # --------- CONTROL PROPERTIES --------------------------------------------
-    projectionThrough = EnumProperty(name="Projection through:", default="NO",
+    projectionThrough = EnumProperty(name="Projection", default="NO",
                                     description="Select camera for use to 2D projection",
                                     items=projectionItems)
     
-    entitylayer_from = EnumProperty(name="Entity Layer From:", default="obj.data.name",
+    onlySelected = BoolProperty(name="Only selected", default=True,
+                              description="What object will be exported? Only selected / all objects.")
+    
+    apply_modifiers = BoolProperty(name="Apply modifiers", default=True,
+                           description="Shall be modifiers applied during export.")
+    # GUI_B -----------------------------------------
+    mesh_as = EnumProperty( name="Export Mesh As", default='POLYLINE',
+                            description="Select representation of a mesh",
+                            items=mesh_asItems)
+#    curve_as = EnumProperty( name="Export Curve As:", default='NO',
+#                            description="Select representation of a curve",
+#                            items=curve_asItems)
+#    surface_as = EnumProperty( name="Export Surface As:", default='NO',
+#                            description="Select representation of a surface",
+#                            items=surface_asItems)
+#    meta_as = EnumProperty( name="Export meta As:", default='NO',
+#                            description="Select representation of a meta",
+#                            items=meta_asItems)
+#    text_as = EnumProperty( name="Export text As:", default='NO',
+#                            description="Select representation of a text",
+#                            items=text_asItems)
+#    empty_as = EnumProperty( name="Export empty As:", default='NO',
+#                            description="Select representation of a empty",
+#                            items=empty_asItems)
+#    group_as = EnumProperty( name="Export group As:", default='NO',
+#                            description="Select representation of a group",
+#                            items=group_asItems)
+##    parent_as = EnumProperty( name="Export parent As:", default='NO',
+##                            description="Select representation of a parent",
+##                            items=parent_asItems)
+#    proxy_as = EnumProperty( name="Export proxy As:", default='NO',
+#                            description="Select representation of a proxy",
+#                            items=proxy_asItems)
+#    camera_as = EnumProperty( name="Export camera As:", default='NO',
+#                            description="Select representation of a camera",
+#                            items=camera_asItems)
+#    lamp_as = EnumProperty( name="Export lamp As:", default='NO',
+#                            description="Select representation of a lamp",
+#                            items=lamp_asItems)
+    # ----------------------------------------------------------
+    entitylayer_from = EnumProperty(name="Entity Layer From", default="obj.data.name",
                                     description="entity LAYER assigned to?",
                                     items=entitylayer_from_items)
-    entitycolor_from = EnumProperty(name="Layer Color From:", default="default_COLOR",
+    entitycolor_from = EnumProperty(name="Layer Color From", default="default_COLOR",
                                     description="entity COLOR assigned to?",
                                     items=layerColorFromItems)
-    entityltype_from = EnumProperty(name="Layer Type:", default="CONTINUOUS",
+    entityltype_from = EnumProperty(name="Layer Type", default="CONTINUOUS",
                                     description="Select type of layer",
                                     items=entityltype_fromItems)
 
-    layerName_from = EnumProperty(name="Layer Name From:", default="LAYERNAME_DEF",
+    layerName_from = EnumProperty(name="Layer Name From", default="LAYERNAME_DEF",
                                     description="Select Entity from which layer name will be taken.",
                                     items=layerNameFromItems)
     # GUI_A -----------------------------------------
-    layFrozen_on = BoolProperty(name="LAYER.frozen status", description="(*todo) Support LAYER.frozen status   on/off", default=False)
-    materialFilter_on = BoolProperty(name="Material filtering", description="(*todo) Material filtering   on/off", default=False)
-    colorFilter_on = BoolProperty(name="Color filtering", description="(*todo) Color filtering   on/off", default=False)
-    groupFilter_on = BoolProperty(name="Group filtering", description="(*todo) Group filtering   on/off", default=False)
-    objectFilter_on = BoolProperty(name="Object filtering", description="(*todo) Object filtering   on/off", default=False)
-    paper_space_on = EnumProperty(name="Space of export:", default="2",
-                                    description="Select space that will be taken for export.",
-                                    items=spaceItems)
-    material_to = EnumProperty(name="Material assigned to?:", default="NO",
-                                    description="Material assigned to?.",
-                                    items=material_toItems)
+#    layFrozen_on = BoolProperty(name="LAYER.frozen status", description="(*todo) Support LAYER.frozen status   on/off", default=False)
+#    materialFilter_on = BoolProperty(name="Material filtering", description="(*todo) Material filtering   on/off", default=False)
+#    colorFilter_on = BoolProperty(name="Color filtering", description="(*todo) Color filtering   on/off", default=False)
+#    groupFilter_on = BoolProperty(name="Group filtering", description="(*todo) Group filtering   on/off", default=False)
+#    objectFilter_on = BoolProperty(name="Object filtering", description="(*todo) Object filtering   on/off", default=False)
+#    paper_space_on = EnumProperty(name="Space of export:", default="2",
+#                                    description="Select space that will be taken for export.",
+#                                    items=spaceItems)
+#    material_to = EnumProperty(name="Material assigned to?:", default="NO",
+#                                    description="Material assigned to?.",
+#                                    items=material_toItems)
 
-    prefix_def = StringProperty(name="Prefix for LAYERs", default="DX_",
-                                    description='Type Prefix for LAYERs')
-    layername_def = StringProperty(name="default LAYER name", default="DEF_LAY",
-                                    description='Type default LAYER name')
-    layercolor_def = StringProperty(name="Default layer color:", default="1",
-                                    description='Set default COLOR. (0=BYBLOCK,256=BYLAYER)')
-    layerltype_def = StringProperty(name="Default LINETYPE", default="DEF_LAY_TYPE",
-                                    description='Set default LINETYPE')
-
-    # GUI_B -----------------------------------------
-    mesh_as = EnumProperty( name="Export Mesh As:", default='POLYLINE',
-                            description="Select representation of a mesh",
-                            items=mesh_asItems)
-    curve_as = EnumProperty( name="Export Curve As:", default='NO',
-                            description="Select representation of a curve",
-                            items=curve_asItems)
-    surface_as = EnumProperty( name="Export Surface As:", default='NO',
-                            description="Select representation of a surface",
-                            items=surface_asItems)
-    meta_as = EnumProperty( name="Export meta As:", default='NO',
-                            description="Select representation of a meta",
-                            items=meta_asItems)
-    text_as = EnumProperty( name="Export text As:", default='NO',
-                            description="Select representation of a text",
-                            items=text_asItems)
-    empty_as = EnumProperty( name="Export empty As:", default='NO',
-                            description="Select representation of a empty",
-                            items=empty_asItems)
-    group_as = EnumProperty( name="Export group As:", default='NO',
-                            description="Select representation of a group",
-                            items=group_asItems)
-#    parent_as = EnumProperty( name="Export parent As:", default='NO',
-#                            description="Select representation of a parent",
-#                            items=parent_asItems)
-    proxy_as = EnumProperty( name="Export proxy As:", default='NO',
-                            description="Select representation of a proxy",
-                            items=proxy_asItems)
-    camera_as = EnumProperty( name="Export camera As:", default='NO',
-                            description="Select representation of a camera",
-                            items=camera_asItems)
-    lamp_as = EnumProperty( name="Export lamp As:", default='NO',
-                            description="Select representation of a lamp",
-                            items=lamp_asItems)
-    # ----------------------------------------------------------
-    exportMode = EnumProperty(name="Export", default="SELECTION", items=exportModeItems,
-                              description="Select which objects to export.  Only Mesh, Empty, and Armature objects will be exported.")
-    apply_modifiers = BoolProperty(name="Aplply modifiers", default=True,
-                           description="Shall be modifiers applied during export.")
+#    prefix_def = StringProperty(name="Prefix for LAYERs", default="DX_",
+#                                    description='Type Prefix for LAYERs')
+#    layername_def = StringProperty(name="default LAYER name", default="DEF_LAY",
+#                                    description='Type default LAYER name')
+#    layercolor_def = StringProperty(name="Default layer color:", default="1",
+#                                    description='Set default COLOR. (0=BYBLOCK,256=BYLAYER)')
+#    layerltype_def = StringProperty(name="Default LINETYPE", default="DEF_LAY_TYPE",
+#                                    description='Set default LINETYPE')
+    
     verbose = BoolProperty(name="Verbose", default=False,
                            description="Run the exporter in debug mode.  Check the console for output.")
 
@@ -232,32 +233,35 @@ class DXFExporter(bpy.types.Operator):
         filePath = bpy.path.ensure_ext(self.filepath, ".dxf")
         config = {
             'projectionThrough' : self._checkNO(self.projectionThrough),
+            'onlySelected' : self.onlySelected,
+            'apply_modifiers' : self.apply_modifiers,
+            # GUI B
+            'mesh_as' : self._checkNO(self.mesh_as),
+#            'curve_as' : self._checkNO(self.curve_as),
+#            'surface_as' : self._checkNO(self.surface_as),
+#            'meta_as' : self._checkNO(self.meta_as),
+#            'text_as' : self._checkNO(self.text_as),
+#            'empty_as' : self._checkNO(self.empty_as),
+#            'group_as' : self._checkNO(self.group_as),
+#            'proxy_as' : self._checkNO(self.proxy_as),
+#            'camera_as' : self._checkNO(self.camera_as),
+#            'lamp_as' : self._checkNO(self.lamp_as),
+
             'entitylayer_from' : self.entitylayer_from,
             'entitycolor_from' : self.entitycolor_from,
-            'entityltype_from' : self.entityltype_from,
-            
+            'entityltype_from' : self.entityltype_from,      
             'layerName_from' : self.layerName_from,
-            'layFrozen_on' : self.layFrozen_on,
-            'materialFilter_on' : self.materialFilter_on,
-            'colorFilter_on' : self.colorFilter_on,
-            'groupFilter_on' : self.groupFilter_on,
-            'objectFilter_on' : self.objectFilter_on,
-            'paper_space_on' : self.paper_space_on,
-            'layercolor_def' : self.layercolor_def,
+            
+            # NOT USED
+#            'layFrozen_on' : self.layFrozen_on,
+#            'materialFilter_on' : self.materialFilter_on,
+#            'colorFilter_on' : self.colorFilter_on,
+#            'groupFilter_on' : self.groupFilter_on,
+#            'objectFilter_on' : self.objectFilter_on,
+#            'paper_space_on' : self.paper_space_on,
+#            'layercolor_def' : self.layercolor_def,
+#            'material_to' : self.material_to,
 
-            'mesh_as' : self._checkNO(self.mesh_as),
-            'curve_as' : self._checkNO(self.curve_as),
-            'surface_as' : self._checkNO(self.surface_as),
-            'meta_as' : self._checkNO(self.meta_as),
-            'text_as' : self._checkNO(self.text_as),
-            'empty_as' : self._checkNO(self.empty_as),
-            'group_as' : self._checkNO(self.group_as),
-            'proxy_as' : self._checkNO(self.proxy_as),
-            'camera_as' : self._checkNO(self.camera_as),
-            'lamp_as' : self._checkNO(self.lamp_as),
-
-            'exportMode' : self.exportMode,
-            'apply_modifiers' : self.apply_modifiers,
             'verbose' : self.verbose
         }
 
