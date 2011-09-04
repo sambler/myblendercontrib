@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Vertex slide",
     "author": "Valter Battioli (ValterVB) and PKHG",
-    "version": (1, 1, 5),
+    "version": (1, 1, 6),
     "blender": (2, 5, 9),
     "api": 39643,
     "location": "View3D > Mesh > Vertices (CTRL V-key)",
@@ -60,6 +60,7 @@ bl_info = {
 #            with big mesh.
 #ver. 1.1.5: Changed Lay out of the Help and the Key for reverse the 
 #            movement. Left/Right arrow rather than Pus/Minus numpad
+#ver. 1.1.6: Now the vertex movement is always coherent with Mouse movement
 #***********************************************************************
 
 import bpy
@@ -261,6 +262,23 @@ class VertexSlideOperator(bpy.types.Operator):
                     self.ActiveVertex = self.Vertex1.original.idx
                 else:
                     self.ActiveVertex = self.Vertex2.original.idx
+            # Keep Vertex movement coherent with Mouse movement
+            if self.Vertex2.original.idx is not None:
+                if self.FirstVertexMove: 
+                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+                    if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction >= 0)):
+                        self.Direction = -self.Direction
+                else:
+                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                    if (tmpX1 < tmpX2 and self.Direction < 0) or (tmpX2 < tmpX1 and self.Direction >= 0):
+                        self.Direction = -self.Direction
+            else:
+                tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.LinkedVertices1[self.VertLinkedIdx].original.idx)
+                if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction < 0)):
+                    self.Direction = -self.Direction
             context.area.tag_redraw()
 
         elif event.type == 'WHEELUPMOUSE':  # Change the vertex to be moved
@@ -286,6 +304,23 @@ class VertexSlideOperator(bpy.types.Operator):
                     self.ActiveVertex = self.Vertex1.original.idx
                 else:
                     self.ActiveVertex = self.Vertex2.original.idx
+            # Keep Vertex movement coherent with Mouse movement
+            if self.Vertex2.original.idx is not None:
+                if self.FirstVertexMove: 
+                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+                    if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction >= 0)):
+                        self.Direction = -self.Direction
+                else:
+                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                    if (tmpX1 < tmpX2 and self.Direction < 0) or (tmpX2 < tmpX1 and self.Direction >= 0):
+                        self.Direction = -self.Direction
+            else:
+                tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.LinkedVertices1[self.VertLinkedIdx].original.idx)
+                if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction < 0)):
+                    self.Direction = -self.Direction
             context.area.tag_redraw()
 
         elif event.type == 'LEFT_SHIFT':  # Hold left SHIFT for precision
@@ -437,6 +472,14 @@ class VertexSlideOperator(bpy.types.Operator):
             mesh.vertices[self.LinkedVertices1[0].original.idx].select = True  # Select the first linked vertex
         self.ActiveVertex = self.Vertex1.original.idx
 
+        # Keep Vertex movement coherent with Mouse movement
+        tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+        if len(SelectedVertices) == 2:
+            tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+        else:
+            tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.LinkedVertices1[0].original.idx)
+        if tmpX2 - tmpX1 < 0:
+            self.Direction = -self.Direction
         bpy.ops.object.mode_set(mode='EDIT')  #I must stay in Edit mode
 
         # Add the region OpenGL drawing callback
