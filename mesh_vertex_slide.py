@@ -21,11 +21,11 @@
 bl_info = {
     "name": "Vertex slide",
     "author": "Valter Battioli (ValterVB) and PKHG",
-    "version": (1, 1, 4),
+    "version": (1, 1, 5),
     "blender": (2, 5, 9),
-    "api": 39523,
-    "location": "View3D > Mesh > Vertices (CTRL V-key) or search for 'VB Vertex 2'",
-    "description": "Slide a vertex along an edge",
+    "api": 39643,
+    "location": "View3D > Mesh > Vertices (CTRL V-key)",
+    "description": "Slide a vertex along an edge or a line",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
         "Scripts/Modeling/Vertex_Slide2",
@@ -58,6 +58,8 @@ bl_info = {
 #ver. 1.1.3: Now work also with Continuos Grab, some clean on code
 #ver. 1.1.4: Remove a lot of mode switching in Invoke. It was too slow 
 #            with big mesh.
+#ver. 1.1.5: Changed Lay out of the Help and the Key for reverse the 
+#            movement. Left/Right arrow rather than Pus/Minus numpad
 #***********************************************************************
 
 import bpy
@@ -142,14 +144,27 @@ class VertexSlideOperator(bpy.types.Operator):
         blf.draw(0, "*")
 
         #Draw Help
+        yPos=30
         blf.size(0, 11, context.user_preferences.system.dpi)
-        textlist = ['{SHIFT}:Precision',
-                    '{WHEEL}:Change the vertex/edge',
-                    '{ALT}:Continuos slide',
-                    '{NUMPAD -}:Reverse the movement',
-                    '{NUMPAD +}:Restore the movement']
-        blf.position(0, 70, 30, 0)
-        blf.draw(0, ', '.join(textlist))
+        txtHelp1 = "{SHIFT}:Precision"
+        txtHelp2 = "{WHEEL}:Change the vertex/edge"
+        txtHelp3 = "{ALT}:Continuos slide"
+        txtHelp4 = "{LEFT ARROW}:Reverse the movement"
+        txtHelp5 = "{RIGHT ARROW}:Restore the movement"
+        blf.position(0, 70, yPos, 0)
+        blf.draw(0, txtHelp5)
+        yPos += (int(blf.dimensions(0, txtHelp4)[1]*2))
+        blf.position(0 , 70, yPos, 0)
+        blf.draw(0, txtHelp4)
+        yPos += (int(blf.dimensions(0, txtHelp3)[1]*2))
+        blf.position(0 , 70, yPos, 0)
+        blf.draw(0, txtHelp3)
+        yPos += (int(blf.dimensions(0, txtHelp2)[1]*2))
+        blf.position(0 , 70, yPos, 0)
+        blf.draw(0, txtHelp2)
+        yPos += (int(blf.dimensions(0, txtHelp1)[1]*2))
+        blf.position(0 , 70, yPos, 0)
+        blf.draw(0, txtHelp1)
 
         # Draw edge
         bgl.glEnable(bgl.GL_BLEND)
@@ -290,11 +305,11 @@ class VertexSlideOperator(bpy.types.Operator):
                 self.Vertex2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
                 self.Vertex2.t = 0
 
-        elif event.type == 'NUMPAD_PLUS':  # Reverse direction
+        elif event.type == 'LEFT_ARROW':  # Reverse direction
             if self.Direction < 0.0:
                 self.Direction = - self.Direction
 
-        elif event.type == 'NUMPAD_MINUS':  # Restore direction
+        elif event.type == 'RIGHT_ARROW':  # Restore direction
             if self.Direction > 0.0:
                 self.Direction = - self.Direction
 
