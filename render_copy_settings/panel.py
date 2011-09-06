@@ -83,9 +83,9 @@ class RENDER_PT_copy_settings(bpy.types.Panel):
             label = "Set Stamp"
         col.operator("scene.render_copy_settings_preset", text=label).presets = {"stamp"}
 
+        layout.prop(cp_sett, "filter_scene")
         if len(cp_sett.allowed_scenes):
             layout.label("Affected Scenes:")
-            layout.prop(cp_sett, "filter_scene")
             # XXX Unfortunately, there can only be one template_list per panel…
 #            layout.template_list(cp_sett, "allowed_scenes", cp_sett, "allw_scenes_idx", rows=5)
             col = layout.column_flow(columns=0)
@@ -93,4 +93,3 @@ class RENDER_PT_copy_settings(bpy.types.Panel):
                 col.prop(prop, "allowed", toggle=True, text=prop.name)
         else:
             layout.label(text="No Affectable Scenes!", icon="ERROR")
-            layout.enabled = False

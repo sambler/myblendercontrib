@@ -1,15 +1,15 @@
-
+import os
 import mathutils
-from .model import MigusDXFLibDrawing
 
-DEBUG = False #activates debug mode
-
+DEBUG = os.environ.get('BLENDER_DEBUG', False) #activates debug mode
 if DEBUG:
 	import sys
-	sys.path.append(r'/home/vencax/.eclipse/plugins/org.python.pydev.debug_1.6.3.2010100513/pysrc')
+	sys.path.append(os.environ['PYDEV_DEBUG_PATH'])
 	import pydevd
+	
+from .model.migiusModel import MigiusDXFLibDrawing
 
-SUPPORTED_TYPES = ('MESH','CURVE','EMPTY','TEXT','CAMERA','LAMP')
+SUPPORTED_TYPES = ('MESH')#,'CURVE','EMPTY','TEXT','CAMERA','LAMP')
 
 def exportDXF(context, filePath, settings):
 	"""
@@ -24,7 +24,7 @@ def exportDXF(context, filePath, settings):
 
 	scene = context.scene
 
-	if settings['exportMode'] == 'SELECTION':
+	if settings['onlySelected'] is True:
 		objects = (ob for ob in scene.objects if ob.is_visible(scene) and ob.select and ob.type in SUPPORTED_TYPES)
 	else:
 		objects = (ob for ob in scene.objects if ob.is_visible(scene) and ob.type in SUPPORTED_TYPES)
@@ -38,7 +38,7 @@ def exportDXF(context, filePath, settings):
 		#if APPLY_MODIFIERS: tmp_me = Mesh.New('tmp')
 		#else: tmp_me = None
 	
-		drawing = MigusDXFLibDrawing()
+		drawing = MigiusDXFLibDrawing()
 		exported = 0
 		for o in objects:
 			if _exportItem(context, o, mw, drawing, settings):
@@ -51,7 +51,6 @@ def exportDXF(context, filePath, settings):
 	#			e = ViewBorderDXFExporter(settings)
 	#			e.export(drawing, ob, mx, mw)
 	
-			print('writing to %s' % filePath)
 			drawing.convert(filePath)
 			
 		duration = time.clock() - time1
@@ -88,21 +87,23 @@ def getCommons(ob, settings):
 
 	layers = ob.layers #gives a list e.g.[1,5,19]
 	if layers: ob_layer_nr = layers[0]
-	print('ob_layer_nr=', ob_layer_nr) #--------------
+	if DEBUG: print('ob_layer_nr=', ob_layer_nr) #--------------
 
 	materials = ob.material_slots
 	if materials:
 		ob_material = materials[0]
 		ob_mat_color = ob_material.material.diffuse_color
 	else: ob_mat_color, ob_material = None, None
-	print('ob_mat_color, ob_material=', ob_mat_color, ob_material) #--------------
+	if DEBUG: 
+		print('ob_mat_color, ob_material=', ob_mat_color, ob_material) #--------------
 
 	data_materials = ob.material_slots
 	if data_materials:
 		data_material = data_materials[0]
 		data_mat_color = data_material.material.diffuse_color
 	else: data_mat_color, data_material = None, None
-	print('data_mat_color, data_material=', data_mat_color, data_material) #--------------
+	if DEBUG:
+		print('data_mat_color, data_material=', data_mat_color, data_material) #--------------
 
 	entitylayer = ENTITYLAYER_DEF
 	c = settings['entitylayer_from']
@@ -219,7 +220,7 @@ def _exportItem(ctx, o, mw, drawing, settings):
 	Export one item from export list.
 	mw - modelview
 	"""
-	print('Exporting %s' % o)
+	if settings['verbose']: print('Exporting %s' % o)
 	#mx = ob.matrix.copy()
 	#print 'deb: ob	=', ob	 #---------
 	#print 'deb: ob.type	=', ob.type	 #---------
@@ -233,7 +234,8 @@ def _exportItem(ctx, o, mw, drawing, settings):
 
 	#mx_inv = mx.copy().invert()
 	elayer, ecolor, eltype = getCommons(o, settings)
-
+	if settings['verbose']:
+		print('elayer=%s, ecolor=%s, eltype=%s' % (elayer, ecolor, eltype))
 	#TODO: use o.boundBox for drawing extends ??
 
 	if elayer != None and not drawing.containsLayer(elayer):

@@ -1,5 +1,6 @@
 """ NOTE:
-This stuff was in original code but it is no longer needed.
+This stuff was in original code but it seems it will be no longer needed.
+NOT USED now.
 """
 
 #-----------------------------------------------------
