@@ -87,11 +87,6 @@ import bpy
 from bpy.props import StringProperty, BoolProperty, IntProperty, CollectionProperty
 
 
-# XXX This should be somehow a BPY-wide class…
-class TemplateListControl(bpy.types.PropertyGroup):
-    identifier = StringProperty()
-
-
 ####################################################################################################
 # Global properties for the script, for UI (as there’s no way to let them in the operator…).
 ####################################################################################################
@@ -99,35 +94,17 @@ class TemplateListControl(bpy.types.PropertyGroup):
 class RenderCopySettingsScene(bpy.types.PropertyGroup):
     allowed = BoolProperty(default=True)
 
-    # A collection of identifiers (as strings) which property’s controls should be displayed
+    # A string of identifiers (colon delimited) which property’s controls should be displayed
     # in a template_list.
-    # XXX: The initialization of this collection is done via a dedicated
-    #      init_TemplateListControls() func.
-    #      This isn’t really nice, but there seems to be no ways to specify a default set of
-    #      items for a collection. User has to define and call this func manually…
-    #      There should be a way to automatize all this, but I’m not skilled enough with BPY
-    #      to figure it (seems inheritance and/or __init__ and/or __new__ don’t work here…).
-    template_list_controls = CollectionProperty(type=TemplateListControl, options={"HIDDEN"})
-
-    def init_TemplateListControls(self):
-        self.template_list_controls.add().identifier = "allowed"
+    template_list_controls = StringProperty(default="allowed", options={"HIDDEN"})
 
 
 class RenderCopySettingsSetting(bpy.types.PropertyGroup):
     copy = BoolProperty(default=False)
 
-    # A collection of identifiers (as strings) which property’s controls should be displayed
+    # A string of identifiers (colon delimited) which property’s controls should be displayed
     # in a template_list.
-    # XXX: The initialization of this collection is done via a dedicated
-    #      init_TemplateListControls() func.
-    #      This isn’t really nice, but there seems to be no ways to specify a default set of
-    #      items for a collection. User has to define and call this func manually…
-    #      There should be a way to automatize all this, but I’m not skilled enough with BPY
-    #      to figure it (seems inheritance and/or __init__ and/or __new__ don’t work here…).
-    template_list_controls = CollectionProperty(type=TemplateListControl, options={"HIDDEN"})
-
-    def init_TemplateListControls(self):
-        self.template_list_controls.add().identifier = "copy"
+    template_list_controls = StringProperty(default="copy", options={"HIDDEN"})
 
 
 class RenderCopySettings(bpy.types.PropertyGroup):
@@ -154,7 +131,6 @@ class RenderCopySettings(bpy.types.PropertyGroup):
 
 def register():
     # Register properties.
-    bpy.utils.register_class(TemplateListControl)
     bpy.utils.register_class(RenderCopySettingsScene)
     bpy.utils.register_class(RenderCopySettingsSetting)
     bpy.utils.register_class(RenderCopySettings)
@@ -166,7 +142,6 @@ def register():
 
 def unregister():
     # Unregister properties.
-    bpy.utils.unregister_class(TemplateListControl)
     bpy.utils.unregister_class(RenderCopySettingsScene)
     bpy.utils.unregister_class(RenderCopySettingsSetting)
     bpy.utils.unregister_class(RenderCopySettings)
