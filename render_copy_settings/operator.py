@@ -78,7 +78,7 @@ class RenderCopySettingsPrepare(bpy.types.Operator):
         for prop in props:
             sett = cp_sett.affected_settings.add()
             sett.name = prop
-            sett.init_TemplateListControls()
+#            sett.init_TemplateListControls()
         collection_property_sort(cp_sett.affected_settings, "name")
 
         # Get all available scenes, and update accordingly allowed_scenes…
@@ -113,7 +113,7 @@ class RenderCopySettingsPrepare(bpy.types.Operator):
         for scene in scenes:
             sett = cp_sett.allowed_scenes.add()
             sett.name = scene
-            sett.init_TemplateListControls()
+#            sett.init_TemplateListControls()
         collection_property_sort(cp_sett.allowed_scenes, "name")
 
         return {'FINISHED'}
@@ -229,8 +229,7 @@ class RenderCopySettings(bpy.types.Operator):
         cp_sett = context.scene.render_copy_settings
         affected_settings = set([sett.name for sett in cp_sett.affected_settings if sett.copy])
         allowed_scenes = set([sce.name for sce in cp_sett.allowed_scenes if sce.allowed])
-        do_copy(context, affected_settings=affected_settings,
-                allowed_scenes=allowed_scenes)
+        do_copy(context, affected_settings=affected_settings, allowed_scenes=allowed_scenes)
         return {'FINISHED'}
 
 
