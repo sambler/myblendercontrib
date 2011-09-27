@@ -2093,7 +2093,7 @@ class AddWall(bpy.types.Operator):
         global stepBack
 
         # Create the wall when enabled (skip regen iterations when off)
-        if not self.properties.ConstructTog: return ('FINISHED')
+        if not self.properties.ConstructTog: return {'FINISHED'}
 
         #enter the settings for the wall dimensions (area)
 # start can't be zero - min/max don't matter [if max less than end] but zero don't workie.
