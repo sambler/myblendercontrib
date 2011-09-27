@@ -35,7 +35,7 @@ bl_info = {
 def parse_fbx(path, fbx_data):
     DEBUG = False
 
-    f = open(path, "rU")
+    f = open(path, "rU", encoding="utf-8")
     lines = f.readlines()
 
     # remove comments and \n
