@@ -504,7 +504,7 @@ def register():
 
 
 def unregister():
-    bpy.utils.register_class(ImportFBX)
+    bpy.utils.unregister_class(ImportFBX)
     bpy.types.INFO_MT_file_import.remove(menu_func)
 
 
