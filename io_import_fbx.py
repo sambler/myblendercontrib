@@ -360,7 +360,7 @@ def import_fbx(path):
                                         if(uv_i == -1):
                                             uv_face.append([-0.1,-0.1])
                                         else:
-                                            uv_face.append(blen_uv_verts[uv_in])
+                                            uv_face.append(blen_uv_verts[uv_i])
                                             uv_in +=1
 
                                     me.uv_textures.new(uv_name)
@@ -422,7 +422,7 @@ def import_fbx(path):
 
                         # Take care of parenting (we assume the parent has already been processed)
                         parent = connections.get(fbx_name)
-                        if parent and parent != "Scene":
+                        if parent and parent != "Scene" and not parent.startswith("DisplayLayer"):
                             obj.parent = objects[parent]
                             parent = obj.parent
                         else:
