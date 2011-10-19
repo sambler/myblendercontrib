@@ -75,14 +75,14 @@ class MeshDXFExporter(BasePrimitiveDXFExporter):
             ##faces = [[v.index for v in f.vertices] for f in me.faces]
             faces = me.faces
             #faces = [[allpoints[v.index] for v in f.vertices] for f in me.faces]
-        print('deb: allpoints=\n', allpoints) #---------
-        print('deb: edges=\n', edges) #---------
-        print('deb: faces=\n', faces) #---------
+        #print('deb: allpoints=\n', allpoints) #---------
+        #print('deb: edges=\n', edges) #---------
+        #print('deb: faces=\n', faces) #---------
         if self.isLeftHand(mx): # then change vertex-order in every face
             for f in faces:
                 f.reverse()
                 #f = [f[-1]] + f[:-1] #TODO: might be needed
-            print('deb: faces=\n', faces) #---------
+            #print('deb: faces=\n', faces) #---------
         entities = self._writeMeshEntities(allpoints, edges, faces, **kwargs)
         # TODO: rewrite
         for type, args in entities:
@@ -94,12 +94,12 @@ class MeshDXFExporter(BasePrimitiveDXFExporter):
         """
         entities = []
         c = self._settings['mesh_as']
-        if 'POINTs'==c: # export Mesh as multiple POINTs
+        if c=='POINTs': # export Mesh as multiple POINTs
             for p in allpoints:
                 args = copy.copy(kwargs)
                 args['points'] = [p]
                 entities.append(('Point', args))
-        elif 'LINEs'==c or (not faces):
+        elif c=='LINEs' or (not faces):
             if edges and allpoints:
 #                if exportsettings['verbose']:
 #                    mesh_drawBlender(allpoints, edges, None) #deb: draw to blender scene
@@ -108,42 +108,43 @@ class MeshDXFExporter(BasePrimitiveDXFExporter):
                     args = copy.copy(kwargs)
                     args['points'] = points
                     entities.append(('Line', args))
-        elif faces:
-            if c in ('POLYFACE','POLYLINE'):
-                if allpoints:
-                    #TODO: purge allpoints: left only vertices used by faces
+        elif c in ('POLYFACE','POLYLINE'):
+            if faces and allpoints:
+                #TODO: purge allpoints: left only vertices used by faces
 #                    if exportsettings['verbose']: 
 #                        mesh_drawBlender(allpoints, None, faces) #deb: draw to scene
-                    if not (self.PROJECTION and self.HIDDEN_LINES):
-                        faces = [[v+1 for v in f.vertices] for f in faces]
-                    else:
-                        # for back-Faces-mode remove face-free vertices
-                        map=verts_state= [0]*len(allpoints)
-                        for f in faces:
-                            for v in f:
-                                verts_state[v]=1
-                        if 0 in verts_state: # if dirty state
-                            i,newverts=0,[]
-                            for used_i,used in enumerate(verts_state):
-                                if used:
-                                    newverts.append(allpoints[used_i])    
-                                    map[used_i]=i
-                                    i+=1
-                            allpoints = newverts
-                            faces = [[map[v]+1 for v in f] for f in faces]
-                    args = copy.copy(kwargs)
-                    args['flag70'] = 64
-                    args['flag75'] = 0
-                    args['width'] = 0.0
-                    args['points'] = [allpoints, faces]
-                    entities.append(('PolyLine', args))
-            elif '3DFACEs'==c:
+                if not (self.PROJECTION and self.HIDDEN_LINES):
+                    faces = [[v+1 for v in f.vertices] for f in faces]
+                else:
+                    # for back-Faces-mode remove face-free vertices
+                    map=verts_state= [0]*len(allpoints)
+                    for f in faces:
+                        for v in f:
+                            verts_state[v]=1
+                    if 0 in verts_state: # if dirty state
+                        i,newverts=0,[]
+                        for used_i,used in enumerate(verts_state):
+                            if used:
+                                newverts.append(allpoints[used_i])    
+                                map[used_i]=i
+                                i+=1
+                        allpoints = newverts
+                        faces = [[map[v]+1 for v in f] for f in faces]
+                args = copy.copy(kwargs)
+                args['flag70'] = 64
+                args['flag75'] = 0
+                args['width'] = 0.0
+                args['points'] = [allpoints, faces]
+                entities.append(('PolyLine', args))
+        elif c=='3DFACEs':
+            if faces and allpoints:
 #                if exportsettings['verbose']: 
 #                    mesh_drawBlender(allpoints, None, faces) #deb: draw to scene
                 for f in faces:
-                    points = f.vertices
+                    points = [allpoints[v_id] for v_id in f.vertices]
                     args = copy.copy(kwargs)
                     args['points'] = points
+#                    print(args)
                     entities.append(('Face', args))
     
 

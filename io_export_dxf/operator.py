@@ -155,9 +155,9 @@ class DXFExporter(bpy.types.Operator):
                               description="What object will be exported? Only selected / all objects.")
     
     apply_modifiers = BoolProperty(name="Apply modifiers", default=True,
-                           description="Shall be modifiers applied during export.")
+                           description="Shall be modifiers applied during export?")
     # GUI_B -----------------------------------------
-    mesh_as = EnumProperty( name="Export Mesh As", default='POLYLINE',
+    mesh_as = EnumProperty( name="Export Mesh As", default='3DFACEs',
                             description="Select representation of a mesh",
                             items=mesh_asItems)
 #    curve_as = EnumProperty( name="Export Curve As:", default='NO',
@@ -191,18 +191,18 @@ class DXFExporter(bpy.types.Operator):
 #                            description="Select representation of a lamp",
 #                            items=lamp_asItems)
     # ----------------------------------------------------------
-    entitylayer_from = EnumProperty(name="Entity Layer From", default="obj.data.name",
-                                    description="entity LAYER assigned to?",
+    entitylayer_from = EnumProperty(name="Entity Layer", default="obj.data.name",
+                                    description="Entity LAYER assigned to?",
                                     items=entitylayer_from_items)
-    entitycolor_from = EnumProperty(name="Layer Color From", default="default_COLOR",
-                                    description="entity COLOR assigned to?",
+    entitycolor_from = EnumProperty(name="Entity Color", default="default_COLOR",
+                                    description="Entity COLOR assigned to?",
                                     items=layerColorFromItems)
-    entityltype_from = EnumProperty(name="Layer Type", default="CONTINUOUS",
-                                    description="Select type of layer",
+    entityltype_from = EnumProperty(name="Entity Linetype", default="CONTINUOUS",
+                                    description="Entity LINETYPE assigned to?",
                                     items=entityltype_fromItems)
 
-    layerName_from = EnumProperty(name="Layer Name From", default="LAYERNAME_DEF",
-                                    description="Select Entity from which layer name will be taken.",
+    layerName_from = EnumProperty(name="Layer Name", default="LAYERNAME_DEF",
+                                    description="From where will layer name be taken?",
                                     items=layerNameFromItems)
     # GUI_A -----------------------------------------
 #    layFrozen_on = BoolProperty(name="LAYER.frozen status", description="(*todo) Support LAYER.frozen status   on/off", default=False)
