@@ -37,33 +37,34 @@ import datetime
 
 
 # create list of static blender's data
-def get_comp_data():
-    aspect_x = bpy.context.scene.render.pixel_aspect_x
-    aspect_y = bpy.context.scene.render.pixel_aspect_y
+def get_comp_data(context):
+    scene = context.scene
+    aspect_x = scene.render.pixel_aspect_x
+    aspect_y = scene.render.pixel_aspect_y
     aspect = aspect_x / aspect_y
-    fps = bpy.context.scene.render.fps
+    fps = scene.render.fps
 
     return {
-        'scn': bpy.context.scene,
-        'width': bpy.context.scene.render.resolution_x,
-        'height': bpy.context.scene.render.resolution_y,
+        'scn': scene,
+        'width': scene.render.resolution_x,
+        'height': scene.render.resolution_y,
         'aspect': aspect,
         'fps': fps,
-        'start': bpy.context.scene.frame_start,
-        'end': bpy.context.scene.frame_end,
-        'duration': (bpy.context.scene.frame_end - bpy.context.scene.frame_start + 1.0) / fps,
-        'curframe': bpy.context.scene.frame_current,
+        'start': scene.frame_start,
+        'end': scene.frame_end,
+        'duration': (scene.frame_end - scene.frame_start + 1.0) / fps,
+        'curframe': scene.frame_current,
         }
 
 
 # create managable list of selected objects
 # (only selected objects will be analyzed and exported)
-def get_selected(prefix):
+def get_selected(context, prefix):
     cameras = []  # list of selected cameras
     cams_names = []  # list of selected cameras' names (prevent from calling "ConvertName(ob)" function too many times)
     nulls = []  # list of all selected objects exept cameras (will be used to create nulls in AE)
     nulls_names = []  # list of above objects names (prevent from calling "ConvertName(ob)" function too many times)
-    obs = bpy.context.selected_objects
+    obs = context.selected_objects
 
     for ob in obs:
         if ob.type == 'CAMERA':
@@ -340,8 +341,8 @@ def write_jsx_file(file, data, selection, export_bundles, comp_name, prefix):
 
 
 def main(file, context, export_bundles, comp_name, prefix):
-    data = get_comp_data()
-    selection = get_selected(prefix)
+    data = get_comp_data(context)
+    selection = get_selected(context, prefix)
     write_jsx_file(file, data, selection, export_bundles, comp_name, prefix)
     print ("\nExport to After Effects Completed")
     return {'FINISHED'}
