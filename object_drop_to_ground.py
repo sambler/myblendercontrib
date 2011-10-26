@@ -28,7 +28,7 @@ bl_info = {
     "tracker_url": "http://projects.blender.org/tracker/?func=detail&atid=467&aid=25349",
     "category": "Object"}
  
-import bpy
+import bpy , random
 from bpy.props import *
 import mathutils
 import math
@@ -84,6 +84,24 @@ def do_drop(context,tmpObj, ob):
         print('\nno hit')
         return    
 
+# compute randomisation based on the general or specific percentage chosen
+# if the specific percentage is zero then the general percentage is used
+def compute_percentage(min,max,value,percentage):
+        range = max-min
+        general_percentage = bpy.context.scene.general_percentage
+        
+        if percentage == 0:
+            percentage_random = ( value -((range*(general_percentage/100))/2) )+ (range * (general_percentage / 100) * random.random())
+        else:
+            percentage_random = ( value - ((range*(percentage/100))/2)) + (range * (percentage / 100) * random.random())
+             
+        if percentage_random > max:
+            percentage_random = max
+        if percentage_random < min:
+            percentage_random = min
+        
+        return percentage_random 
+
 def main(self, context):
 
     print('\n_______START__________')
@@ -104,6 +122,15 @@ def main(self, context):
     for ob in obs:
         bpy.ops.object.select_all(action='DESELECT')
         ob.select = True
+        
+        #randomise location it its enabled
+        if sc.random_loc :
+            print("randomising the location of object : ", ob.name)
+            print("current location :" + str(ob.location))
+            bpy.ops.transform.translate(value=(compute_percentage(sc.rl_min_x,sc.rl_max_x,0,100),
+                           compute_percentage(sc.rl_min_y,sc.rl_max_y,0,100),
+                           compute_percentage(sc.rl_min_z,sc.rl_max_z,0,100)))
+            print("randomised location : ", str(ob.location))
         do_drop(context, tmpObj, ob)
 
     bpy.ops.object.select_all(action='DESELECT')
@@ -128,7 +155,26 @@ class VIEW3D_PT_tools_drop_to_ground(bpy.types.Panel):
         col.operator("object.drop_to_ground", text="Drop")
         col.prop(context.scene, "align_object")
         col.prop(context.scene, "use_center")
+        box= layout.box()
+        box.prop(context.scene, "random_loc")
         
+        # random location gui appears only if its enabled
+        if bpy.context.scene.random_loc:
+            
+            row = box.row()
+            row.label(text="(X,Y,Z) [min/max]")
+            row = box.row()
+            a = row.split(percentage = 0.5, align = True)
+            a.prop(context.scene, "rl_min_x")
+            a.prop(context.scene, "rl_max_x")
+            row = box.row()
+            b = row.split(percentage = 0.5, align = True)
+            b.prop(context.scene, "rl_min_y")
+            b.prop(context.scene, "rl_max_y")
+            row = box.row()
+            b = row.split(percentage = 0.5, align = True)
+            b.prop(context.scene, "rl_min_z")
+            b.prop(context.scene, "rl_max_z")
         
 class OBJECT_OT_drop_to_ground(bpy.types.Operator):
     """Drop to ground"""
@@ -155,11 +201,30 @@ def register():
         name="Use the center to drop",
         description="When dropping the object will be relocated on the basis of its senter",
         default=False)
-    
+     
+     #random location props
+     bpy.types.Scene.random_loc = BoolProperty(
+        name="Random Location",
+        description="When dropping the object will be relocated randomly ",
+        default=False)
+     bpy.types.Scene.rl_min_x =  IntProperty(name="min", description = " Minimum of location randomisation while droped to the ground for the x axis", default = 0)
+     bpy.types.Scene.rl_max_x =  IntProperty(name="max", description = " Maximum of location randomisation while droped to the ground for the x axis", default = 0)
+     bpy.types.Scene.rl_min_y =  IntProperty(name="min", description = " Minimum of location randomisation while droped to the ground for the y axis", default = 0)
+     bpy.types.Scene.rl_max_y =  IntProperty(name="max", description = " Maximum of location randomisation while droped to the ground for the y axis", default = 0)
+     bpy.types.Scene.rl_min_z =  IntProperty(name="min", description = " Minimum of location randomisation while droped to the ground for the z axis", default = 0)
+     bpy.types.Scene.rl_max_z =  IntProperty(name="max", description = " Maximum of location randomisation while droped to the ground for the z axis", default = 0)
+     
 def unregister():
     bpy.utils.unregister_module(__name__)
     del bpy.types.Scene.align_object
     del bpy.types.Scene.use_center
-
+    del bpy.types.Scene.random_loc
+    del bpy.types.Scene.rl_min_x
+    del bpy.types.Scene.rl_max_x
+    del bpy.types.Scene.rl_min_y
+    del bpy.types.Scene.rl_max_y
+    del bpy.types.Scene.rl_min_z
+    del bpy.types.Scene.rl_max_z
+    
 if __name__ == '__main__':
     register()
