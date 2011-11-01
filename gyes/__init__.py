@@ -20,18 +20,18 @@
 """ Copyright  Kilon 2011 GPL licence applies"""
 
 bl_info = {
-    "name": "Gyes (A Blender MultiTool)",
-    "description": "Gyes is a collection of scripts, named <tools> that simplify , automate and extend blender",
+    "name": "Gyes (Random Materials and Textures Generator)",
+    "description": "GYES is an addon that can produce Random Materials and Textures . The randomization is controlled by the user and so the user can set what is randomized and how much .",
     "author": "Kilon",
-    "version": (0,0,7),
-    "blender": (2, 5, 9),
+    "version": (1, 0, 0),
+    "blender": (2, 6, 0),
     "api": 40500,
     "location": "View3D > Left panel ",
-    "warning": '', # used for warning icon and text in addons panel
+    "warning": '',  # used for warning icon and text in addons panel
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/System/Gyes",
     "tracker_url": "https://github.com/kilon/Gyes",
-    "category": "System"}
-    
+    "category": "Material"}
+
 if "bpy" in locals():
     import imp
     imp.reload(random_material_generator)
@@ -41,7 +41,6 @@ else:
     from gyes import random_material_generator
     from gyes import random_texture_generator
     #from gyes import random_landscape_generator
-    
 import bpy
 from bpy.props import *
 
@@ -49,25 +48,18 @@ from bpy.props import *
 # Choose the tool you want to use
 bpy.types.Scene.tool = EnumProperty(attr='tool', name='Tool', items=(
 ('RMG', 'RMG', 'Random Material Generator'),
-('RTG', 'RTG', 'Random Texture Generator'),
-('RLG', 'RLG' , 'Random Landscape Generator'),
-('TARTARA', 'TARTARA', 'An online Library for any kind of blender asset')),default='RMG')
-
+('RTG', 'RTG', 'Random Texture Generator')), default='RMG')
 
 rm = random_material_generator.rm
-rt = random_texture_generator.rt                 
+rt = random_texture_generator.rt
+
+
 # this the main panel
 class gyes_panel(bpy.types.Panel):
     bl_label = "Gyes"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
-    
-    """@classmethod    
-    def poll(self, context):
-        if context.object and context.object.type == 'MESH':                    
-            return len(context.object.data.materials)"""
-        
-    
+   
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -75,20 +67,18 @@ class gyes_panel(bpy.types.Panel):
         
         # check which tool the user has selected (RGM is the default one) and display the appropriate gui
         
-        if context.scene.tool == 'RMG' :
+        if context.scene.tool == 'RMG':
             rm.draw_gui(context,self)
         
-        if context.scene.tool == 'RTG' :
+        if context.scene.tool == 'RTG':
             rt.draw_gui(context,self,rm)
  
         r = layout.row()
-        if context.scene.tool == 'RLG' :
+        if context.scene.tool == 'RLG':
             r.label(text="WIP not finished yet")
-        if context.scene.tool == 'TARTARA' :
+        if context.scene.tool == 'TARTARA':
             r.label(text="WIP not finished yet")
 
-
-        
 def register():
     bpy.utils.register_module(__name__)
 
