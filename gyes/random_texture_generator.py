@@ -13,10 +13,9 @@ class random_texture_class:
                    
         # various gui modes (simple, template etc)
         bpy.types.Scene.rtexture_gui_mode = EnumProperty(attr='mode', name='Mode', items=(
-('simple', 'Simple', 'The first item'),
-('simple_percentage', 'Simple percentage' , 'here you define individual percentage'),
-('templates', 'Templates', 'The second item'),
-('help', 'Help', 'The third item')), default='simple')
+('enable', 'Enable', 'Enable Disable texture parameters for randomisation'),
+('percentage', 'Percentage' , 'here you define percentage of randomisation for each texture parameters'),
+('help', 'Help', 'Help documentation')), default='enable')
 
         # Here I define the selective areas that the user can enable or disable for randomisation in simple mode               
         bpy.types.Scene.rtexture_type = EnumProperty(attr='type', name='type', items=(
@@ -378,7 +377,7 @@ class random_texture_class:
         
         # check which Gui mode the user has selected (Simple is the default one and display the appropriate gui
         
-        if context.scene.rtexture_gui_mode == 'simple' :
+        if context.scene.rtexture_gui_mode == 'enable' :
             box = layout.box()
             box.prop(context.scene,"rtexture_type")
             
@@ -469,7 +468,7 @@ class random_texture_class:
             box.prop(context.scene,"rtexture_general_percentage", slider = True)
             layout.operator("gyes.random_texture")
             
-        if context.scene.rtexture_gui_mode == 'simple_percentage' :
+        if context.scene.rtexture_gui_mode == 'percentage' :
             box = layout.box()
             
             if context.scene.rtexture_type=='BLEND':

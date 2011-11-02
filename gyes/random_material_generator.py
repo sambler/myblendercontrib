@@ -12,6 +12,7 @@ def h_names(self,contex):
     for x in h_list:
         names=names+[(x,x,x)]
     return names 
+
 class random_material_class:
     """ this class contains all fuctions and variables concerning generation of random material """
     
@@ -20,10 +21,9 @@ class random_material_class:
                    
         # various gui modes (simple, template etc)
         bpy.types.Scene.gui_mode = EnumProperty(attr='mode', name='Mode', items=(
-('simple', 'Simple', 'The first item'),
-('simple_percentage', 'Simple percentage' , 'here you define individual percentage'),
-('templates', 'Templates', 'The second item'),
-('help', 'Help', 'The third item')), default='simple')
+('enable', 'Enable', 'Enable Disable material parameters for randomisation'),
+('percentage', 'Percentage' , 'here you define the percentage randomisation for each parameter'),
+('help', 'Help', 'Help documentation')), default='enable')
 
         # Here I define the selective areas that the user can enable or disable for randomisation in simple mode               
                      
@@ -291,7 +291,7 @@ class random_material_class:
         
         # check which Gui mode the user has selected (Simple is the default one and display the appropriate gui
         
-        if context.scene.gui_mode == 'simple' :
+        if context.scene.gui_mode == 'enable' :
             
             box = layout.box()
             
@@ -308,7 +308,7 @@ class random_material_class:
             box.prop(context.scene,"general_percentage", slider = True)           
             layout.operator("gyes.random_material")
             
-        if context.scene.gui_mode == 'simple_percentage' :
+        if context.scene.gui_mode == 'percentage' :
             box = layout.box()
             
             if context.scene.rdiffuse_shader :
@@ -354,10 +354,7 @@ class random_material_class:
             box.prop(context.scene,"general_percentage", slider = True)
             layout.operator("gyes.random_material")
         
-        if context.scene.gui_mode== 'templates' : 
-            box = layout.box()
-            box.operator("gyes.open_librarian")
-                    
+                           
         if context.scene.gui_mode== 'help' :
             box = layout.box()
             help_text=["","Copyright 2011 Kilon  ",
@@ -696,157 +693,6 @@ class import_materials(bpy.types.Operator):
         
         return{'FINISHED'}
 
-'''
-This script resects the camera position into virtual 3d space.
-Dealga McArdle (c) 2011
-
-The program may be distributed under the terms of the GNU General
-Public License. The full terms of GNU GPL2 can be found at: 
-http://www.gnu.org/licenses/gpl-2.0.html
-
-Be sure that you understand the GLP2 terms prior to using this script.
-Nothing between these tripple quote marks should be construed as
-having deminished the full extent of the GPL2 license.
-'''
-
-import bpy
-import bgl
-import blf
-from mathutils.geometry import intersect_line_line
-from mathutils import Vector
-
-'''
-- TODO: complete vanishing point and horizon drawing
-- TODO: correctly deal with impossible guides orientations
-- TODO: implement rudimentary double buffer for 3d openGL drawing
-'''
-
-
-''' defining globals '''
-
-
-
-# colours/transparency of viewport text
-dimension_colour = (1.0, 1.0, 1.0, 1.0)
-explanation_colour = (1.0, 1.0, 1.0, 0.7)
-
-
-''' G L  D R A W I N G '''
-
-
-def draw_librarian():
-    '''accepts 2 coordinates and a colour then draws
-    the line and the handle'''
-
-    
-
-    #set colour to use
-    bgl.glColor4f(0.5,0.0,0.5,0.7)
-
-    #draw main line and handles
-    #bgl.glBegin(bgl.GL_LINES)
-    bgl.glRecti(5,5,bpy.context.area.regions[4].width-5, bpy.context.area.regions[4].height-5)
-    #bgl.glEnd()
-    x1 = 50
-    y1 = 50
-    x2 = bpy.context.area.regions[4].width-50
-    y2 = bpy.context.area.regions[4].height-50
-    color=[0.5,0.5,0.5,1]
-    if len(bpy.data.images)>0:
-        img = bpy.data.images[0]
-        img.gl_load(bgl.GL_NEAREST, bgl.GL_NEAREST)
-        bgl.glBindTexture(bgl.GL_TEXTURE_2D, img.bindcode)
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
-
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
-        bgl.glEnable(bgl.GL_TEXTURE_2D)
-        bgl.glEnable(bgl.GL_BLEND)
-        #bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
-        bgl.glColor4f(color[0], color[1], color[2], color[3])
-        bgl.glBegin(bgl.GL_QUADS)
-        bgl.glTexCoord2f(0,0)
-        bgl.glVertex2f(x1,y1)
-        bgl.glTexCoord2f(0,1)
-        bgl.glVertex2f(x1,y2)
-        bgl.glTexCoord2f(1,1)
-        bgl.glVertex2f(x2,y2)
-        bgl.glTexCoord2f(1,0)
-        bgl.glVertex2f(x2,y1)
-        bgl.glEnd()
-        bgl.glDisable(bgl.GL_BLEND)
-        bgl.glDisable(bgl.GL_TEXTURE_2D)
-
-
-
-
-def DrawStringToViewport(text, x, y, size, color):
-    ''' my_string : the text we want to print
-        pos_x, pos_y : coordinates in integer values
-        size : font height.
-        colour_type : used for definining the colour'''
-    my_dpi, font_id = 72, 0 # dirty fast assignment
-    bgl.glColor4f(*color)
-    blf.position(font_id, x, y, 0)
-    blf.size(font_id, size, my_dpi)
-    blf.draw(font_id, text)
-
-
-def InitViewportText(self, context):
-    '''used to deligate opengl text printing to the viewport'''
-    this_h = context.region.height
-    this_w = context.region.width
-    dimension_string = "Gyes - RMG (Random Material Generator)"
-    explanation_string = "Press ESC to exit"
-    DrawStringToViewport(dimension_string, 100, bpy.context.area.height-50, 20, dimension_colour)
-    DrawStringToViewport("Material Templates Librarian version 0.01", 100, bpy.context.area.height-70, 20, dimension_colour)
-    
-    DrawStringToViewport(explanation_string, 10, 7, 40, explanation_colour)
-    DrawStringToViewport("Region : "+ bpy.context.area.regions[4].type, 10, 100, 20, explanation_colour)
-
-def InitGLOverlay(self, context):
-    
-
-    # 50% alpha, 2 pixel width line
-    bgl.glEnable(bgl.GL_BLEND)
-    bgl.glColor4f(0.0, 0.0, 0.0, 0.5)
-    bgl.glLineWidth(1.5)
-
-    # start visible drawing
-    draw_librarian()
-    InitViewportText(self, context)
-
-    # restore opengl defaults
-    bgl.glLineWidth(1)
-    bgl.glDisable(bgl.GL_BLEND)
-    bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
-
-
-class open_templates_librarian(bpy.types.Operator):
-    bl_idname = "gyes.open_librarian"
-    bl_label = "Templates Librarian"
-
-    def modal(self, context, event):
-        context.area.tag_redraw()
-
-        
-        if event.type in ('ESC'):
-            context.region.callback_remove(self._handle)
-            return {'CANCELLED'}
-
-        return {'RUNNING_MODAL'}
-
-    def invoke(self, context, event):
-        if context.area.type == 'VIEW_3D':
-            self.cursor_on_handle = 'None'
-            context.window_manager.modal_handler_add(self)
-
-            # Add the region OpenGL drawing callback
-            # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
-            self._handle = context.region.callback_add(InitGLOverlay, (self, context), 'POST_PIXEL')
-            return {'RUNNING_MODAL'}
-        else:
-            self.report({'WARNING'}, "Image View not found, cannot run operator")
-            return {'CANCELLED'}
 
 
 
@@ -868,7 +714,6 @@ def register():
     bpy.utils.register_class(restore_history)
     bpy.utils.register_class(animate)
     bpy.utils.register_class(x)
-    bpy.utils.register_class(open_templates_librarian)
     bpy.utils.register_class(import_materials)
 def unregister():
     bpy.utils.unregister_class(gyes_panel)
@@ -886,7 +731,6 @@ def unregister():
     bpy.utils.unregister_class(restore_history)
     bpy.utils.unregister_class(animate)
     bpy.utils.unregister_class(x)
-    bpy.utils.unregister_class(open_templates_librarian)
     bpy.utils.unregister_class(import_materials)
 if __name__ == '__main__':
     register()
