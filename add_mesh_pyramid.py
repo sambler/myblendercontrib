@@ -1,5 +1,3 @@
-# add_mesh_pyramid.py (c) 2011 Phil Cote (cotejrp1)
-#
 # ***** BEGIN GPL LICENSE BLOCK *****
 #
 #
@@ -18,6 +16,9 @@
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ***** END GPL LICENCE BLOCK *****
+
+# (c) 2011 Phil Cote (cotejrp1)
+
 bl_info = {
     'name': 'Mesh Pyramid',
     'author': 'Phil Cote, cotejrp1, (http://www.blenderaddons.com)',
@@ -31,7 +32,10 @@ bl_info = {
 
 
 import bpy
-from bpy.props import FloatVectorProperty, IntProperty, FloatProperty, BoolProperty
+from bpy.props import (FloatVectorProperty,
+                       IntProperty,
+                       FloatProperty,
+                       BoolProperty)
 
 from add_utils import AddObjectHelper, add_object_data
 from mathutils import Vector
@@ -66,25 +70,21 @@ def makePyramid(initial_size, step_height, step_width, number_steps):
         vert_list.extend((bfl, bfr, bbl, bbr, tfl, tfr, tbl, tbr,))
 
         # side faces
-        face_list.extend(((voffset + 4, voffset + 5,
-                            voffset + 1, voffset + 0),))  # front
-        face_list.extend(((voffset + 6, voffset + 7,
-                            voffset + 3, voffset + 2),))  # back
-        face_list.extend(((voffset + 2, voffset + 6,
-                            voffset + 4, voffset + 0),))  # left
-        face_list.extend(((voffset + 3, voffset + 7,
-                            voffset + 5, voffset + 1),))  # right
+        face_list.extend((
+            (voffset + 4, voffset + 5, voffset + 1, voffset + 0), # back
+            (voffset + 6, voffset + 7, voffset + 3, voffset + 2), # front
+            (voffset + 2, voffset + 6, voffset + 4, voffset + 0), # left
+            (voffset + 3, voffset + 7, voffset + 5, voffset + 1), # right
+            ))
 
         # horizontal connecting faces ( note: n/a for the first iteration ).
         if voffset > 0:
-            face_list.extend(((voffset - 4, voffset - 3,
-                            voffset + 1, voffset + 0),))  # connector front
-            face_list.extend(((voffset - 2, voffset - 1,
-                            voffset + 3, voffset + 2),))  # back
-            face_list.extend(((voffset - 4, voffset - 2,
-                            voffset + 2, voffset + 0),))  # left
-            face_list.extend(((voffset - 3, voffset - 1,
-                            voffset + 3, voffset + 1),))  # right
+            face_list.extend((
+                (voffset - 4, voffset - 3, voffset + 1, voffset + 0), # connector front
+                (voffset - 2, voffset - 1, voffset + 3, voffset + 2), # back
+                (voffset - 4, voffset - 2, voffset + 2, voffset + 0), # left
+                (voffset - 3, voffset - 1, voffset + 3, voffset + 1), # right
+                ))
 
         # set up parameters for the next iteration
         cur_size = cur_size - (step_width * 2)
@@ -94,12 +94,11 @@ def makePyramid(initial_size, step_height, step_width, number_steps):
         sn = sn + 1
         voffset = voffset + 8
 
-    # cap the top.
     voffset = voffset - 8  # remove extra voffset done on final iteration
-    face_list.extend(((voffset + 6, voffset + 7, voffset + 5, voffset + 4),))
-
-    # cap the bottom.
-    face_list.extend(((2, 3, 1, 0),))
+    face_list.extend((
+        (voffset + 6, voffset + 7, voffset + 5, voffset + 4), # cap the top.
+        (2, 3, 1, 0), # cap the bottom.
+        ))
 
     return vert_list, face_list
 
