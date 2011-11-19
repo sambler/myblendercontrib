@@ -159,9 +159,9 @@ class random_texture_class:
         if material.texture_slots[material.active_texture_index] and material.texture_slots[material.active_texture_index].texture:
             texture = material.texture_slots[material.active_texture_index].texture
             if not scn.rtexture_type=='RANDOM':
-               texture.type = scn.rtexture_type
+                texture.type = scn.rtexture_type
             else:
-               texture.type = random.choice(['BLEND','CLOUDS','DISTORTED_NOISE','MAGIC','MARBLE','MUSGRAVE','NOISE','STUCCI','VORONOI','WOOD'])
+                texture.type = random.choice(['BLEND','CLOUDS','DISTORTED_NOISE','MAGIC','MARBLE','MUSGRAVE','NOISE','STUCCI','VORONOI','WOOD'])
             material.texture_slots[material.active_texture_index].texture = texture 
         else:
             material.texture_slots.create(material.active_texture_index)           
