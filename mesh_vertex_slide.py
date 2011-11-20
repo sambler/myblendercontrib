@@ -396,9 +396,9 @@ class VertexSlideOperator(bpy.types.Operator):
                     Selected = False
                     break
         if Selected == False:
-                self.report({'WARNING'}, "0 or more then 2 vertices selected, could not start")
-                bpy.ops.object.mode_set(mode='EDIT')
-                return {'CANCELLED'}
+            self.report({'WARNING'}, "0 or more then 2 vertices selected, could not start")
+            bpy.ops.object.mode_set(mode='EDIT')
+            return {'CANCELLED'}
 
         self.tmpMouse[0], self.tmpMouse[1] = (event.mouse_x, event.mouse_y)
         self.tmpMouse_x = self.tmpMouse[0]
