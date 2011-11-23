@@ -7,7 +7,7 @@
 #
 #  Start of project              : 2011-08-31 by Clemens Barth
 #  First publication in Blender  : 2011-11-11
-#  Last modified                 : 2011-11-21
+#  Last modified                 : 2011-11-22
 #
 #
 # ##### BEGIN GPL LICENSE BLOCK #####
@@ -51,148 +51,140 @@ bl_info = {
 import bpy
 import io
 import sys
+import math
 import os
-import inspect
-from math import *
-import mathutils, math
-from mathutils import Vector
+from mathutils import Vector, Matrix
+from bpy_extras.io_utils import ImportHelper
+from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, FloatProperty
 
 
 # These are variables, which contain the name of the PDB file and
 # the path of the PDB file.
 # They are used almost everywhere, which is the reason why they 
 # should stay global. First, they are empty and get 'filled' directly
-# after having chosen the PDB file (see discussion at 'class LoadPDB'
-# further below).
+# after having chosen the PDB file (see 'class LoadPDB' further below).
 
 PDBFILEPATH       = ""
 PDBFILENAME       = ""
-
-# The name of this script and the data file. This is used in the class 
-# LoadPDB, for determining the path of the data file. For further details 
-# see below.
-SCRIPTNAME   = "io_import_pdb_atomic_blender.py"
-
 
 # Some string stuff for the console.
 Atomic_Blender_string     = "Atomic Blender 2.0\n==================="
 Atomic_Blender_panel_name = "PDB - Atomic Blender"
 
-# Before I had a data file, which included all the following atom data. Well, in fact I prefer
-# separate files, especially data files.
-# However, since it was almost impossible to find a mean for determing the path of the data 
-# file for any kind of situation, I finally decided to include all the atom data into the Python
-# script. The script is now absolutely independent on a second file, and we solved many problems
-# that come along with the world of file paths under different operating systems.
-
-# This is a list that contains some data of all possible atoms. The structure is as follows:
+# This is a list that contains some data of all possible atoms. The structure 
+# is as follows:
 #
 # 1, "Hydrogen", "H", [0.0,0.0,1.0], 0.32, 0.32, 0.32 , -1 , 1.54   means
 #
-# Number, name of atom, short name, color, radius (used for Blender), radius (covalent), radius (atomic), ... 
-#
-# ... then the charge state: charge state, radius (ionic), charge state, radius (ionic), ... all charge states 
-# for any atom are listed, if existing.
-  
-Data_all_atoms = [
-[ 1, "Hydrogen", "H", [0.0,0.0,1.0], 0.32, 0.32, 0.32 , -1 , 1.54 ],
-[ 2, "Helium", "He", [0.20,0.56,0.20], 0.93, 0.93, 0.93 , 1 , 0.68 ],
-[ 3, "Beryllium", "Be", [0.44,0.72,0.30], 0.90, 0.90, 0.90 , 1 , 0.44 , 2 , 0.35 ],
-[ 4, "Boron", "B", [1.0,1.0,1.0], 0.82, 0.82, 0.82 , 1 , 0.35 , 3 , 0.23 ],
-[ 5, "Carbon", "C", [0.0,0.0,0.0], 0.77, 0.77, 0.77 , -4 , 2.60 , 4 , 0.16 ],
-[ 6, "Nitrogen", "N", [0.0,0.0,1.0], 0.75, 0.75, 0.75 , -3 , 1.71 , 1 , 0.25 , 3 , 0.16 , 5 , 0.13 ],
-[ 7, "Oxygen", "O", [1.0,0.0,0.0], 0.73, 0.73, 0.73 , -2 , 1.32 , -1 , 1.76 , 1 , 0.22 , 6 , 0.09 ],
-[ 8, "Fluorine", "F", [0.0,1.0,0.0], 0.72, 0.72, 0.72 , -1 , 1.33 , 7 , 0.08 ],
-[ 9, "Neon", "Ne", [0.53,0.60,0.52], 0.71, 0.71, 0.71 , 1 , 1.12 ],
-[ 10, "Sodium", "Na", [0.0,0.0,1.0], 1.54, 1.54, 1.54 , 1 , 0.97 ],
-[ 11, "Magnesium", "Mg", [1.0,1.0,1.0], 1.36, 1.36, 1.36 , 1 , 0.82 , 2 , 0.66 ],
-[ 12, "Aluminium", "Al", [0.70,0.2,0.62], 1.18, 1.18, 1.18 , 3 , 0.51 ],
-[ 13, "Silicon", "Si", [0.65,0.64,0.27], 1.11, 1.11, 1.11 , -4 , 2.71 , -1 , 3.84 , 1 , 0.65 , 4 , 0.42 ],
-[ 14, "Phosphorus", "P", [1.0,1.0,0.0], 1.06, 1.06, 1.06 , -3 , 2.12 , 3 , 0.44 , 5 , 0.35 ],
-[ 15, "Sulfur", "S", [1.0,1.0,0.50], 1.02, 1.02, 1.02 , -2 , 1.84 , 2 , 2.19 , 4 , 0.37 , 6 , 0.30 ],
-[ 16, "Chlorine", "Cl", [0.0,1.0,0.0], 0.99, 0.99, 0.99 , -1 , 1.81 , 5 , 0.34 , 7 , 0.27 ],
-[ 17, "Argon", "Ar", [0.31,0.32,0.74], 0.98, 0.98, 0.98 , 1 , 1.54 ],
-[ 18, "Potassium", "K", [0.81,0.23,0.42], 2.03, 2.03, 2.03 , 1 , 0.81 ],
-[ 19, "Calcium", "Ca", [1.0,1.0,1.0], 1.74, 1.74, 1.74 , 1 , 1.18 , 2 , 0.99 ],
-[ 20, "Scandium", "Sc", [0.66,0.44,0.31], 1.44, 1.44, 1.44 , 3 , 0.73 ],
-[ 21, "Titanium", "Ti", [0.27,0.53,0.68], 1.32, 1.32, 1.32 , 1 , 0.96 , 2 , 0.94 , 3 , 0.76 , 4 , 0.68 ],
-[ 22, "Vanadium", "V", [0.27,0.24,0.63], 1.22, 1.22, 1.22 , 2 , 0.88 , 3 , 0.74 , 4 , 0.63 , 5 , 0.59 ],
-[ 23, "Chromium", "Cr", [0.80,0.28,0.81], 1.18, 1.18, 1.18 , 1 , 0.81 , 2 , 0.89 , 3 , 0.63 , 6 , 0.52 ],
-[ 24, "Manganese", "Mn", [0.75,0.35,0.55], 1.17, 1.17, 1.17 , 2 , 0.80 , 3 , 0.66 , 4 , 0.60 , 7 , 0.46 ],
-[ 25, "Iron", "Fe", [1.0,0.0,0.0], 1.17, 1.17, 1.17 , 2 , 0.74 , 3 , 0.64 ],
-[ 26, "Cobalt", "Co", [0.27,0.21,0.75], 1.16, 1.16, 1.16 , 2 , 0.72 , 3 , 0.63 ],
-[ 27, "Nickel", "Ni", [0.43,0.36,0.86], 1.15, 1.15, 1.15 , 2 , 0.69 ],
-[ 28, "Copper", "Cu", [0.60,0.0,0.0], 1.17, 1.17, 1.17 , 1 , 0.96 , 2 , 0.72 ],
-[ 29, "Zinc", "Zn", [0.42,0.36,0.45], 1.25, 1.25, 1.25 , 1 , 0.88 , 2 , 0.74 ],
-[ 30, "Gallium", "Ga", [0.63,0.72,0.33], 1.26, 1.26, 1.26 , 1 , 0.81 , 3 , 0.62 ],
-[ 31, "Germanium", "Ge", [0.42,0.75,0.30], 1.22, 1.22, 1.22 , -4 , 2.72 , 2 , 0.73 , 4 , 0.53 ],
-[ 32, "Arsenic", "As", [0.39,0.77,0.25], 1.20, 1.20, 1.20 , -3 , 2.22 , 3 , 0.58 , 5 , 0.46 ],
-[ 33, "Selenium", "Se", [0.95,0.27,0.90], 1.16, 1.16, 1.16 , -2 , 1.91 , -1 , 2.32 , 1 , 0.66 , 4 , 0.50 , 6 , 0.42 ],
-[ 34, "Bromine", "Br", [0.0,0.49,0.0], 1.14, 1.14, 1.14 , -1 , 1.96 , 5 , 0.47 , 7 , 0.39 ],
-[ 35, "Krypton", "Kr", [0.22,0.43,0.19], 1.31, 1.31, 1.31 , 1 , 1.47 ],
-[ 36, "Strontium", "Sr", [1.0,1.0,1.0], 1.91, 1.91, 1.91 , 2 , 1.12 ],
-[ 37, "Yttrium", "Y", [1.0,1.0,1.0], 1.62, 1.62, 1.62 , 3 , 0.89 ],
-[ 38, "Zirconium", "Zr", [1.0,1.0,1.0], 1.45, 1.45, 1.45 , 1 , 1.09 , 4 , 0.79 ],
-[ 39, "Niobium", "Nb", [1.0,1.0,1.0], 1.34, 1.34, 1.34 , 1 , 1.00 , 4 , 0.74 , 5 , 0.69 ],
-[ 40, "Molybdenum", "Mo", [1.0,1.0,1.0], 1.30, 1.30, 1.30 , 1 , 0.93 , 4 , 0.70 , 6 , 0.62 ],
-[ 41, "Technetium", "Tc", [1.0,1.0,1.0], 1.27, 1.27, 1.27 , 7 , 0.97 ],
-[ 42, "Ruthenium", "Ru", [1.0,1.0,1.0], 1.25, 1.25, 1.25 , 4 , 0.67 ],
-[ 43, "Rhodium", "Rh", [1.0,1.0,1.0], 1.25, 1.25, 1.25 , 3 , 0.68 ],
-[ 44, "Palladium", "Pd", [1.0,1.0,1.0], 1.28, 1.28, 1.28 , 2 , 0.80 , 4 , 0.65 ],
-[ 45, "Silver", "Ag", [1.0,1.0,1.0], 1.34, 1.34, 1.34 , 1 , 1.26 , 2 , 0.89 ],
-[ 46, "Cadmium", "Cd", [1.0,1.0,1.0], 1.48, 1.48, 1.48 , 1 , 1.14 , 2 , 0.97 ],
-[ 47, "Indium", "In", [1.0,1.0,1.0], 1.44, 1.44, 1.44 , 3 , 0.81 ],
-[ 48, "Tin", "Sn", [1.0,1.0,1.0], 1.41, 1.41, 1.41 , -4 , 2.94 , -1 , 3.70 , 2 , 0.93 , 4 , 0.71 ],
-[ 49, "Antimony", "Sb", [1.0,1.0,1.0], 1.40, 1.40, 1.40 , -3 , 2.45 , 3 , 0.76 , 5 , 0.62 ],
-[ 50, "Tellurium", "Te", [1.0,1.0,1.0], 1.36, 1.36, 1.36 , -2 , 2.11 , -1 , 2.50 , 1 , 0.82 , 4 , 0.70 , 6 , 0.56 ],
-[ 51, "Iodine", "I", [0.0,0.49,0.49], 1.33, 1.33, 1.33 , -1 , 2.20 , 5 , 0.62 , 7 , 0.50 ],
-[ 52, "Xenon", "Xe", [1.0,1.0,1.0], 1.31, 1.31, 1.31 , 1 , 1.67 ],
-[ 53, "Barium", "Ba", [1.0,1.0,1.0], 1.98, 1.98, 1.98 , 1 , 1.53 , 2 , 1.34 ],
-[ 54, "Lanthanum", "La", [1.0,1.0,1.0], 1.69, 1.69, 1.69 , 1 , 1.39 , 3 , 1.06 ],
-[ 55, "Cerium", "Ce", [1.0,1.0,1.0], 1.65, 1.65, 1.65 , 1 , 1.27 , 3 , 1.03 , 4 , 0.92 ],
-[ 56, "Praseodymium", "Pr", [1.0,1.0,1.0], 1.65, 1.65, 1.65 , 3 , 1.01 , 4 , 0.90 ],
-[ 57, "Neodymium", "Nd", [1.0,1.0,1.0], 1.64, 1.64, 1.64 , 3 , 0.99 ],
-[ 58, "Promethium", "Pm", [1.0,1.0,1.0], 1.63, 1.63, 1.63 , 3 , 0.97 ],
-[ 59, "Samarium", "Sm", [1.0,1.0,1.0], 1.62, 1.62, 1.62 , 3 , 0.96 ],
-[ 60, "Europium", "Eu", [1.0,1.0,1.0], 1.85, 1.85, 1.85 , 2 , 1.09 , 3 , 0.95 ],
-[ 61, "Gadolinium", "Gd", [1.0,1.0,1.0], 1.61, 1.61, 1.61 , 3 , 0.93 ],
-[ 62, "Terbium", "Tb", [1.0,1.0,1.0], 1.59, 1.59, 1.59 , 3 , 0.92 , 4 , 0.84 ],
-[ 63, "Dysprosium", "Dy", [1.0,1.0,1.0], 1.59, 1.59, 1.59 , 3 , 0.90 ],
-[ 64, "Holmium", "Ho", [1.0,1.0,1.0], 1.58, 1.58, 1.58 , 3 , 0.89 ],
-[ 65, "Erbium", "Er", [0.48,0.48,0.48], 1.57, 1.57, 1.57 , 3 , 0.88 ],
-[ 66, "Thulium", "Tm", [1.0,1.0,1.0], 1.56, 1.56, 1.56 , 3 , 0.87 ],
-[ 67, "Ytterbium", "Yb", [1.0,1.0,1.0], 1.74, 1.74, 1.74 , 2 , 0.93 , 3 , 0.85 ],
-[ 68, "Lutetium", "Lu", [1.0,1.0,1.0], 1.56, 1.56, 1.56 , 3 , 0.85 ],
-[ 69, "Hafnium", "Hf", [1.0,1.0,1.0], 1.44, 1.44, 1.44 , 4 , 0.78 ],
-[ 70, "Tantalum", "Ta", [1.0,1.0,1.0], 1.34, 1.34, 1.34 , 5 , 0.68 ],
-[ 71, "Tungsten", "W", [1.0,1.0,1.0], 1.30, 1.30, 1.30 , 4 , 0.70 , 6 , 0.62 ],
-[ 72, "Rhenium", "Re", [1.0,1.0,1.0], 1.28, 1.28, 1.28 , 4 , 0.72 , 7 , 0.56 ],
-[ 73, "Osmium", "Os", [1.0,1.0,1.0], 1.26, 1.26, 1.26 , 4 , 0.88 , 6 , 0.69 ],
-[ 74, "Iridium", "Ir", [1.0,1.0,1.0], 1.27, 1.27, 1.27 , 4 , 0.68 ],
-[ 75, "Platinium", "Pt", [1.0,1.0,1.0], 1.30, 1.30, 1.30 , 2 , 0.80 , 4 , 0.65 ],
-[ 76, "Gold", "Au", [1.0,1.0,1.0], 1.34, 1.34, 1.34 , 1 , 1.37 , 3 , 0.85 ],
-[ 77, "Mercury", "Hg", [1.0,1.0,1.0], 1.49, 1.49, 1.49 , 1 , 1.27 , 2 , 1.10 ],
-[ 78, "Thallium", "Tl", [1.0,1.0,1.0], 1.48, 1.48, 1.48 , 1 , 1.47 , 3 , 0.95 ],
-[ 79, "Lead", "Pb", [0.49,0.49,0.49], 1.47, 1.47, 1.47 , 2 , 1.20 , 4 , 0.84 ],
-[ 80, "Bismuth", "Bi", [1.0,1.0,1.0], 1.46, 1.46, 1.46 , 1 , 0.98 , 3 , 0.96 , 5 , 0.74 ],
-[ 81, "Polonium", "Po", [1.0,1.0,1.0], 1.46, 1.46, 1.46 , 6 , 0.67 ],
-[ 82, "Astatine", "At", [1.0,1.0,1.0], 1.45, 1.45, 1.45 , -3 , 2.22 , 3 , 0.85 , 5 , 0.46 ],
-[ 83, "Radon", "Rn", [1.0,1.0,1.0], 1.00, 1.00, 1.00 , 1 , 1.80 ],
-[ 84, "Radium", "Ra", [1.0,1.0,1.0], 1.00, 1.00, 1.00 , 2 , 1.43 ],
-[ 85, "Actinium", "Ac", [1.0,1.0,1.0], 1.00, 1.00, 1.00 , 3 , 1.18 ],
-[ 86, "Thorium", "Th", [1.0,1.0,1.0], 1.65, 1.65, 1.65 , 4 , 1.02 ],
-[ 87, "Protactinium", "Pa", [1.0,1.0,1.0], 1.00, 1.00, 1.00 , 3 , 1.13 , 4 , 0.98 , 5 , 0.89 ],
-[ 88, "Uranium", "U", [1.0,1.0,1.0], 1.42, 1.42, 1.42 , 4 , 0.97 , 6 , 0.80 ],
-[ 89, "Neptunium", "Np", [1.0,1.0,1.0], 1.00, 1.00, 1.00 , 3 , 1.10 , 4 , 0.95 , 7 , 0.71 ],
-[ 90, "Plutonium", "Pu", [1.0,1.0,1.0], 1.00, 1.00, 1.00 , 3 , 1.08 , 4 , 0.93 ],
-[ 91, "Americium", "Am", [1.0,1.0,1.0], 1.00, 1.00, 1.00 , 3 , 1.07 , 4 , 0.92 ],
-[ 92, "Curium", "Cm", [1.0,1.0,1.0], 1.00, 1.00, 1.00 ],
-[ 93, "Vacancy", "Vac", [0.5,0.5,0.5], 1.00, 0.00, 0.00],
-[ 94, "Default", "Default", [1.0,1.0,1.0], 1.00, 1.00, 1.00],
-[ 95, "Stick", "Stick", [0.5,0.5,0.5], 0.00, 0.00, 0.00]]
+# No., name, short name, color, radius (used), radius (covalent), radius (atomic),
+# 
+# charge state 1, radius (ionic) 1, charge state 2, radius (ionic) 2, ... all 
+# charge states for any atom are listed, if existing.
 
-all_existing_atoms = 95
+Data_all_atoms = (
+( 1,      "Hydrogen",        "H", (  0.0,   0.0,   1.0), 0.32, 0.32, 0.32 , -1 , 1.54 ),
+( 2,        "Helium",       "He", ( 0.20,  0.56,  0.20), 0.93, 0.93, 0.93 ,  1 , 0.68 ),
+( 3,     "Beryllium",       "Be", ( 0.44,  0.72,  0.30), 0.90, 0.90, 0.90 ,  1 , 0.44 ,  2 , 0.35 ),
+( 4,         "Boron",        "B", (  1.0,   1.0,   1.0), 0.82, 0.82, 0.82 ,  1 , 0.35 ,  3 , 0.23 ),
+( 5,        "Carbon",        "C", (  0.0,   0.0,   0.0), 0.77, 0.77, 0.77 , -4 , 2.60 ,  4 , 0.16 ),
+( 6,      "Nitrogen",        "N", (  0.0,   0.0,   1.0), 0.75, 0.75, 0.75 , -3 , 1.71 ,  1 , 0.25 ,  3 , 0.16 ,  5 , 0.13 ),
+( 7,        "Oxygen",        "O", (  1.0,   0.0,   0.0), 0.73, 0.73, 0.73 , -2 , 1.32 , -1 , 1.76 ,  1 , 0.22 ,  6 , 0.09 ),
+( 8,      "Fluorine",        "F", (  0.0,   1.0,   0.0), 0.72, 0.72, 0.72 , -1 , 1.33 ,  7 , 0.08 ),
+( 9,          "Neon",       "Ne", ( 0.53,  0.60,  0.52), 0.71, 0.71, 0.71 ,  1 , 1.12 ),
+(10,        "Sodium",       "Na", (  0.0,   0.0,   1.0), 1.54, 1.54, 1.54 ,  1 , 0.97 ),
+(11,     "Magnesium",       "Mg", (  1.0,   1.0,   1.0), 1.36, 1.36, 1.36 ,  1 , 0.82 ,  2 , 0.66 ),
+(12,     "Aluminium",       "Al", ( 0.70,   0.2,  0.62), 1.18, 1.18, 1.18 ,  3 , 0.51 ),
+(13,       "Silicon",       "Si", ( 0.65,  0.64,  0.27), 1.11, 1.11, 1.11 , -4 , 2.71 , -1 , 3.84 ,  1 , 0.65 ,  4 , 0.42 ),
+(14,    "Phosphorus",        "P", (  1.0,   1.0,   0.0), 1.06, 1.06, 1.06 , -3 , 2.12 ,  3 , 0.44 ,  5 , 0.35 ),
+(15,        "Sulfur",        "S", (  1.0,   1.0,  0.50), 1.02, 1.02, 1.02 , -2 , 1.84 ,  2 , 2.19 ,  4 , 0.37 ,  6 , 0.30 ),
+(16,      "Chlorine",       "Cl", (  0.0,   1.0,   0.0), 0.99, 0.99, 0.99 , -1 , 1.81 ,  5 , 0.34 ,  7 , 0.27 ),
+(17,         "Argon",       "Ar", ( 0.31,  0.32,  0.74), 0.98, 0.98, 0.98 ,  1 , 1.54 ),
+(18,     "Potassium",        "K", ( 0.81,  0.23,  0.42), 2.03, 2.03, 2.03 ,  1 , 0.81 ),
+(19,       "Calcium",       "Ca", (  1.0,   1.0,   1.0), 1.74, 1.74, 1.74 ,  1 , 1.18 ,  2 , 0.99 ),
+(20,      "Scandium",       "Sc", ( 0.66,  0.44,  0.31), 1.44, 1.44, 1.44 ,  3 , 0.73 ),
+(21,      "Titanium",       "Ti", ( 0.27,  0.53,  0.68), 1.32, 1.32, 1.32 ,  1 , 0.96 ,  2 , 0.94 ,  3 , 0.76 ,  4 , 0.68 ),
+(22,      "Vanadium",        "V", ( 0.27,  0.24,  0.63), 1.22, 1.22, 1.22 ,  2 , 0.88 ,  3 , 0.74 ,  4 , 0.63 ,  5 , 0.59 ),
+(23,      "Chromium",       "Cr", ( 0.80,  0.28,  0.81), 1.18, 1.18, 1.18 ,  1 , 0.81 ,  2 , 0.89 ,  3 , 0.63 ,  6 , 0.52 ),
+(24,     "Manganese",       "Mn", ( 0.75,  0.35,  0.55), 1.17, 1.17, 1.17 ,  2 , 0.80 ,  3 , 0.66 ,  4 , 0.60 ,  7 , 0.46 ),
+(25,          "Iron",       "Fe", (  1.0,   0.0,   0.0), 1.17, 1.17, 1.17 ,  2 , 0.74 ,  3 , 0.64 ),
+(26,        "Cobalt",       "Co", ( 0.27,  0.21,  0.75), 1.16, 1.16, 1.16 ,  2 , 0.72 ,  3 , 0.63 ),
+(27,        "Nickel",       "Ni", ( 0.43,  0.36,  0.86), 1.15, 1.15, 1.15 ,  2 , 0.69 ),
+(28,        "Copper",       "Cu", ( 0.60,   0.0,   0.0), 1.17, 1.17, 1.17 ,  1 , 0.96 ,  2 , 0.72 ),
+(29,          "Zinc",       "Zn", ( 0.42,  0.36,  0.45), 1.25, 1.25, 1.25 ,  1 , 0.88 ,  2 , 0.74 ),
+(30,       "Gallium",       "Ga", ( 0.63,  0.72,  0.33), 1.26, 1.26, 1.26 ,  1 , 0.81 ,  3 , 0.62 ),
+(31,     "Germanium",       "Ge", ( 0.42,  0.75,  0.30), 1.22, 1.22, 1.22 , -4 , 2.72 ,  2 , 0.73 ,  4 , 0.53 ),
+(32,       "Arsenic",       "As", ( 0.39,  0.77,  0.25), 1.20, 1.20, 1.20 , -3 , 2.22 ,  3 , 0.58 ,  5 , 0.46 ),
+(33,      "Selenium",       "Se", ( 0.95,  0.27,  0.90), 1.16, 1.16, 1.16 , -2 , 1.91 , -1 , 2.32 ,  1 , 0.66 ,  4 , 0.50 ,  6 , 0.42 ),
+(34,       "Bromine",       "Br", (  0.0,  0.49,   0.0), 1.14, 1.14, 1.14 , -1 , 1.96 ,  5 , 0.47 ,  7 , 0.39 ),
+(35,       "Krypton",       "Kr", ( 0.22,  0.43,  0.19), 1.31, 1.31, 1.31 ,  1 , 1.47 ),
+(36,     "Strontium",       "Sr", (  1.0,   1.0,   1.0), 1.91, 1.91, 1.91 ,  2 , 1.12 ),
+(37,       "Yttrium",        "Y", (  1.0,   1.0,   1.0), 1.62, 1.62, 1.62 ,  3 , 0.89 ),
+(38,     "Zirconium",       "Zr", (  1.0,   1.0,   1.0), 1.45, 1.45, 1.45 ,  1 , 1.09 ,  4 , 0.79 ),
+(39,       "Niobium",       "Nb", (  1.0,   1.0,   1.0), 1.34, 1.34, 1.34 ,  1 , 1.00 ,  4 , 0.74 ,  5 , 0.69 ),
+(40,    "Molybdenum",       "Mo", (  1.0,   1.0,   1.0), 1.30, 1.30, 1.30 ,  1 , 0.93 ,  4 , 0.70 ,  6 , 0.62 ),
+(41,    "Technetium",       "Tc", (  1.0,   1.0,   1.0), 1.27, 1.27, 1.27 ,  7 , 0.97 ),
+(42,     "Ruthenium",       "Ru", (  1.0,   1.0,   1.0), 1.25, 1.25, 1.25 ,  4 , 0.67 ),
+(43,       "Rhodium",       "Rh", (  1.0,   1.0,   1.0), 1.25, 1.25, 1.25 ,  3 , 0.68 ),
+(44,     "Palladium",       "Pd", (  1.0,   1.0,   1.0), 1.28, 1.28, 1.28 ,  2 , 0.80 ,  4 , 0.65 ),
+(45,        "Silver",       "Ag", (  1.0,   1.0,   1.0), 1.34, 1.34, 1.34 ,  1 , 1.26 ,  2 , 0.89 ),
+(46,       "Cadmium",       "Cd", (  1.0,   1.0,   1.0), 1.48, 1.48, 1.48 ,  1 , 1.14 ,  2 , 0.97 ),
+(47,        "Indium",       "In", (  1.0,   1.0,   1.0), 1.44, 1.44, 1.44 ,  3 , 0.81 ),
+(48,           "Tin",       "Sn", (  1.0,   1.0,   1.0), 1.41, 1.41, 1.41 , -4 , 2.94 , -1 , 3.70 ,  2 , 0.93 ,  4 , 0.71 ),
+(49,      "Antimony",       "Sb", (  1.0,   1.0,   1.0), 1.40, 1.40, 1.40 , -3 , 2.45 ,  3 , 0.76 ,  5 , 0.62 ),
+(50,     "Tellurium",       "Te", (  1.0,   1.0,   1.0), 1.36, 1.36, 1.36 , -2 , 2.11 , -1 , 2.50 ,  1 , 0.82 ,  4 , 0.70 ,  6 , 0.56 ),
+(51,        "Iodine",        "I", (  0.0,  0.49,  0.49), 1.33, 1.33, 1.33 , -1 , 2.20 ,  5 , 0.62 ,  7 , 0.50 ),
+(52,         "Xenon",       "Xe", (  1.0,   1.0,   1.0), 1.31, 1.31, 1.31 ,  1 , 1.67 ),
+(53,        "Barium",       "Ba", (  1.0,   1.0,   1.0), 1.98, 1.98, 1.98 ,  1 , 1.53 ,  2 , 1.34 ),
+(54,     "Lanthanum",       "La", (  1.0,   1.0,   1.0), 1.69, 1.69, 1.69 ,  1 , 1.39 ,  3 , 1.06 ),
+(55,        "Cerium",       "Ce", (  1.0,   1.0,   1.0), 1.65, 1.65, 1.65 ,  1 , 1.27 ,  3 , 1.03 ,  4 , 0.92 ),
+(56,  "Praseodymium",       "Pr", (  1.0,   1.0,   1.0), 1.65, 1.65, 1.65 ,  3 , 1.01 ,  4 , 0.90 ),
+(57,     "Neodymium",       "Nd", (  1.0,   1.0,   1.0), 1.64, 1.64, 1.64 ,  3 , 0.99 ),
+(58,    "Promethium",       "Pm", (  1.0,   1.0,   1.0), 1.63, 1.63, 1.63 ,  3 , 0.97 ),
+(59,      "Samarium",       "Sm", (  1.0,   1.0,   1.0), 1.62, 1.62, 1.62 ,  3 , 0.96 ),
+(60,      "Europium",       "Eu", (  1.0,   1.0,   1.0), 1.85, 1.85, 1.85 ,  2 , 1.09 ,  3 , 0.95 ),
+(61,    "Gadolinium",       "Gd", (  1.0,   1.0,   1.0), 1.61, 1.61, 1.61 ,  3 , 0.93 ),
+(62,       "Terbium",       "Tb", (  1.0,   1.0,   1.0), 1.59, 1.59, 1.59 ,  3 , 0.92 ,  4 , 0.84 ),
+(63,    "Dysprosium",       "Dy", (  1.0,   1.0,   1.0), 1.59, 1.59, 1.59 ,  3 , 0.90 ),
+(64,       "Holmium",       "Ho", (  1.0,   1.0,   1.0), 1.58, 1.58, 1.58 ,  3 , 0.89 ),
+(65,        "Erbium",       "Er", ( 0.48,  0.48,  0.48), 1.57, 1.57, 1.57 ,  3 , 0.88 ),
+(66,       "Thulium",       "Tm", (  1.0,   1.0,   1.0), 1.56, 1.56, 1.56 ,  3 , 0.87 ),
+(67,     "Ytterbium",       "Yb", (  1.0,   1.0,   1.0), 1.74, 1.74, 1.74 ,  2 , 0.93 ,  3 , 0.85 ),
+(68,      "Lutetium",       "Lu", (  1.0,   1.0,   1.0), 1.56, 1.56, 1.56 ,  3 , 0.85 ),
+(69,       "Hafnium",       "Hf", (  1.0,   1.0,   1.0), 1.44, 1.44, 1.44 ,  4 , 0.78 ),
+(70,      "Tantalum",       "Ta", (  1.0,   1.0,   1.0), 1.34, 1.34, 1.34 ,  5 , 0.68 ),
+(71,      "Tungsten",        "W", (  1.0,   1.0,   1.0), 1.30, 1.30, 1.30 ,  4 , 0.70 ,  6 , 0.62 ),
+(72,       "Rhenium",       "Re", (  1.0,   1.0,   1.0), 1.28, 1.28, 1.28 ,  4 , 0.72 ,  7 , 0.56 ),
+(73,        "Osmium",       "Os", (  1.0,   1.0,   1.0), 1.26, 1.26, 1.26 ,  4 , 0.88 ,  6 , 0.69 ),
+(74,       "Iridium",       "Ir", (  1.0,   1.0,   1.0), 1.27, 1.27, 1.27 ,  4 , 0.68 ),
+(75,     "Platinium",       "Pt", (  1.0,   1.0,   1.0), 1.30, 1.30, 1.30 ,  2 , 0.80 ,  4 , 0.65 ),
+(76,          "Gold",       "Au", (  1.0,   1.0,   1.0), 1.34, 1.34, 1.34 ,  1 , 1.37 ,  3 , 0.85 ),
+(77,       "Mercury",       "Hg", (  1.0,   1.0,   1.0), 1.49, 1.49, 1.49 ,  1 , 1.27 ,  2 , 1.10 ),
+(78,      "Thallium",       "Tl", (  1.0,   1.0,   1.0), 1.48, 1.48, 1.48 ,  1 , 1.47 ,  3 , 0.95 ),
+(79,          "Lead",       "Pb", ( 0.49,  0.49,  0.49), 1.47, 1.47, 1.47 ,  2 , 1.20 ,  4 , 0.84 ),
+(80,       "Bismuth",       "Bi", (  1.0,   1.0,   1.0), 1.46, 1.46, 1.46 ,  1 , 0.98 ,  3 , 0.96 ,  5 , 0.74 ),
+(81,      "Polonium",       "Po", (  1.0,   1.0,   1.0), 1.46, 1.46, 1.46 ,  6 , 0.67 ),
+(82,      "Astatine",       "At", (  1.0,   1.0,   1.0), 1.45, 1.45, 1.45 , -3 , 2.22 ,  3 , 0.85 ,  5 , 0.46 ),
+(83,         "Radon",       "Rn", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ,  1 , 1.80 ),
+(84,        "Radium",       "Ra", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ,  2 , 1.43 ),
+(85,      "Actinium",       "Ac", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ,  3 , 1.18 ),
+(86,       "Thorium",       "Th", (  1.0,   1.0,   1.0), 1.65, 1.65, 1.65 ,  4 , 1.02 ),
+(87,  "Protactinium",       "Pa", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ,  3 , 1.13 ,  4 , 0.98 ,  5 , 0.89 ),
+(88,       "Uranium",        "U", (  1.0,   1.0,   1.0), 1.42, 1.42, 1.42 ,  4 , 0.97 ,  6 , 0.80 ),
+(89,     "Neptunium",       "Np", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ,  3 , 1.10 ,  4 , 0.95 ,  7 , 0.71 ),
+(90,     "Plutonium",       "Pu", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ,  3 , 1.08 ,  4 , 0.93 ),
+(91,     "Americium",       "Am", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ,  3 , 1.07 ,  4 , 0.92 ),
+(92,        "Curium",       "Cm", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00 ),
+(93,       "Vacancy",      "Vac", (  0.5,   0.5,   0.5), 1.00, 0.00, 0.00),
+(94,       "Default",  "Default", (  1.0,   1.0,   1.0), 1.00, 1.00, 1.00),
+(95,         "Stick",    "Stick", (  0.5,   0.5,   0.5), 0.00, 0.00, 0.00))
+
+ALL_EXISTING_ATOMS = 95
     
+# List of loaded structures (molecules, crystals, etc.). Each sub list contains 
+# all objects of one loaded structure. These list are used to identify the 
+# all structure, which are loaded during a session. 
+LOADED_STRUCTURES       = []
+LOADED_STRUCTURES_DUPLI = []     
     
 
 # The panel, which is loaded after the file has been
@@ -239,13 +231,13 @@ class CLASS_PDB_Panel(bpy.types.Panel):
         col.prop(scn, "atom_pdb_PDB_file")
         row = layout.row()
         row = layout.row() 
-  
-        row.prop(scn, "atom_pdb_group_atoms_yesno")
-        row.prop(scn, "atom_pdb_group_atoms_dn")
+        
+        col = row.column()
+        col.prop(scn, "use_atom_pdb_dupliverts")
 
         row = layout.row()
         col = row.column(align=True)        
-        col.prop(scn, "atom_pdb_mesh_yesno")
+        col.prop(scn, "use_atom_pdb_mesh")
         col.prop(scn, "atom_pdb_mesh_azimuth")
         col.prop(scn, "atom_pdb_mesh_zenith")        
         col = row.column(align=True)        
@@ -253,7 +245,7 @@ class CLASS_PDB_Panel(bpy.types.Panel):
         col.prop(scn, "atom_pdb_scale_ballradius")
         col.prop(scn, "atom_pdb_scale_distances")
         col = row.column(align=True) 
-        col.prop(scn, "atom_pdb_sticks_yesno")
+        col.prop(scn, "use_atom_pdb_sticks")
         col.prop(scn, "atom_pdb_sticks_sectors")
         col.prop(scn, "atom_pdb_sticks_radius")
 
@@ -263,99 +255,144 @@ class CLASS_PDB_Panel(bpy.types.Panel):
         col.prop(scn, "atom_pdb_offset_y")
         col.prop(scn, "atom_pdb_offset_z")
         col = row.column()         
-        col.prop(scn, "atom_pdb_center_yesno")
+        col.prop(scn, "use_atom_pdb_center")
 
         layout.separator()  
         row = layout.row(align=True)        
         col = row.column()
-        col.prop(scn, "atom_pdb_cam_yesno")
-        col.prop(scn, "atom_pdb_lamp_yesno")        
+        col.prop(scn, "use_atom_pdb_cam")
+        col.prop(scn, "use_atom_pdb_lamp")        
         col = row.column() 
         col.operator( "atom_pdb.button_start" )
         row2 = col.row()
         row2.label(text="Number of atoms")
-        row2.prop(scn, "atom_pdb_start_number_atoms")
+        row2.prop(scn, "atom_pdb_number_atoms")
         layout.separator()
               
-        if scn.atom_pdb_group_atoms_yesno == False:        
-
-            row = layout.row()             
-            row.operator( "atom_pdb.button_distance")
-            row.prop(scn, "atom_pdb_distance") 
-            layout.separator()
+        row = layout.row()             
+        row.operator( "atom_pdb.button_distance")
+        row.prop(scn, "atom_pdb_distance") 
+        layout.separator()
             
-            row = layout.row()                   
-            row.label(text="Modification of the radii of one type of atom")            
+        row = layout.row()                   
+        row.label(text="Modification of the radii of one type of atom")            
             
-            row = layout.row()     
-            split = row.split(percentage=0.40)
-            col = split.column()
-            col.prop(scn, "atom_pdb_mod_atomname") 
-            split = split.split(percentage=0.50)
-            col = split.column()
-            col.prop(scn, "atom_pdb_mod_pm_radius")
-            split = split.split(percentage=1.0)
-            col = split.column()
-            col.operator("atom_pdb.button_modify_single")
+        row = layout.row()     
+        split = row.split(percentage=0.40)
+        col = split.column()
+        col.prop(scn, "atom_pdb_mod_atomname") 
+        split = split.split(percentage=0.50)
+        col = split.column()
+        col.prop(scn, "atom_pdb_mod_pm_radius")
+        split = split.split(percentage=1.0)
+        col = split.column()
+        col.operator("atom_pdb.button_modify_single")
             
-            row = layout.row()     
-            split = row.split(percentage=0.40)
-            col = split.column()
-            split = split.split(percentage=0.50)
-            col = split.column()
-            col.prop(scn, "atom_pdb_mod_rel_radius")
-            split = split.split(percentage=1.0)
-            col = split.column(align=True)
-            col.operator( "atom_pdb.button_bigger_single" )            
-            col.operator( "atom_pdb.button_smaller_single" ) 
+        row = layout.row()     
+        split = row.split(percentage=0.40)
+        col = split.column()
+        split = split.split(percentage=0.50)
+        col = split.column()
+        col.prop(scn, "atom_pdb_mod_rel_radius")
+        split = split.split(percentage=1.0)
+        col = split.column(align=True)
+        col.operator( "atom_pdb.button_bigger_single" )            
+        col.operator( "atom_pdb.button_smaller_single" ) 
                                              
-            row = layout.row()            
-            row.label(text="Modification of all atom radii")
-            row = layout.row()
-            col = row.column() 
-            col.prop(scn, "atom_pdb_mod_all_radii")
-            col = row.column(align=True) 
-            col.operator( "atom_pdb.button_modify_all" )
-            col.operator( "atom_pdb.button_invert_all" )
+        row = layout.row()            
+        row.label(text="Modification of all atom radii")
+        row = layout.row()
+        col = row.column() 
+        col.prop(scn, "atom_pdb_mod_all_radii")
+        col = row.column(align=True) 
+        col.operator( "atom_pdb.button_modify_all" )
+        col.operator( "atom_pdb.button_invert_all" )
+
 
 
 class CLASS_Input_Output(bpy.types.PropertyGroup):
-    bpy.types.Scene.atom_pdb_PDB_filename        = bpy.props.StringProperty(name = "File name", default="", description = "PDB file name")
-    bpy.types.Scene.atom_pdb_PDB_file            = bpy.props.StringProperty(name = "Path to file", default="", description = "Path of the PDB file")
-    bpy.types.Scene.atom_pdb_group_atoms_yesno   = bpy.props.BoolProperty  (name = "Group atoms", default=False, description = "Grouping same type of atoms speeds up the loading of large-atom PDB files")    
-    bpy.types.Scene.atom_pdb_group_atoms_dn      = bpy.props.IntProperty   (name = "Delta N", default=200, min=0, description = "The number of single atoms, which are grouped together after their loading")
-    bpy.types.Scene.atom_pdb_mesh_yesno          = bpy.props.BoolProperty  (name = "Mesh balls", default=False, description = "Do you want to use mesh balls instead of NURBS?")    
-    bpy.types.Scene.atom_pdb_mesh_azimuth     = bpy.props.IntProperty   (name = "Azimuth", default=32, min=0, description = "Number of sectors (azimuth)")
-    bpy.types.Scene.atom_pdb_mesh_zenith      = bpy.props.IntProperty   (name = "Zenith", default=32, min=0, description = "Number of sectors (zenith)")
-    bpy.types.Scene.atom_pdb_scale_ballradius         = bpy.props.FloatProperty (name = "Balls", default=1.0, min=0.0, description = "Scale factor for all atom radii")
-    bpy.types.Scene.atom_pdb_scale_distances           = bpy.props.FloatProperty (name = "Distances", default=1.0, min=0.0, description = "Scale factor for all distances")
-    bpy.types.Scene.atom_pdb_center_yesno        = bpy.props.BoolProperty  (name = "Object to origin", default=True, description = "Shall the object first put into the global origin before applying the offsets on the left?")    
-    bpy.types.Scene.atom_pdb_offset_x             = bpy.props.FloatProperty (name = "X", default=0.0, description = "Offset in X")
-    bpy.types.Scene.atom_pdb_offset_y             = bpy.props.FloatProperty (name = "Y", default=0.0, description = "Offset in Y")
-    bpy.types.Scene.atom_pdb_offset_z             = bpy.props.FloatProperty (name = "Z", default=0.0, description = "Offset in Z")
-    bpy.types.Scene.atom_pdb_sticks_yesno        = bpy.props.BoolProperty  (name = "Use sticks", default=False, description = "Do you want to display also the sticks?")    
-    bpy.types.Scene.atom_pdb_sticks_sectors      = bpy.props.IntProperty   (name = "Sector", default = 20, min=0,   description = "Number of sectors of a stick")        
-    bpy.types.Scene.atom_pdb_sticks_radius       = bpy.props.FloatProperty (name = "Radius", default =  0.1, min=0.0, description = "Radius of a stick")  
-    bpy.types.Scene.atom_pdb_cam_yesno           = bpy.props.BoolProperty  (name = "Camera", default=False, description = "Do you need a camera?")   
-    bpy.types.Scene.atom_pdb_lamp_yesno          = bpy.props.BoolProperty  (name = "Lamp", default=False, description = "Do you need a lamp?")
-    bpy.types.Scene.atom_pdb_start_number_atoms  = bpy.props.StringProperty(name = "", default="Number", description = "This output shows the number of atoms which have been loaded")
-    bpy.types.Scene.atom_pdb_distance            = bpy.props.StringProperty(name = "", default="Distance (Angstrom)", description = "Distance of 2 objects in Angstrom")  
-    bpy.types.Scene.atom_pdb_mod_atomname        = bpy.props.StringProperty(name = "", default = "Atom name", description="Put in the name of the atom (e.g. Hydrogen)")
-    bpy.types.Scene.atom_pdb_mod_pm_radius       = bpy.props.FloatProperty (name = "", default = 100.0, min=0.0, description="Put in the radius of the atom (in pm)")
-    bpy.types.Scene.atom_pdb_mod_rel_radius      = bpy.props.FloatProperty (name = "", default = 1.05, min=1.0, description="Put in the scale factor")
-    bpy.types.Scene.atom_pdb_mod_all_radii       = bpy.props.FloatProperty (name = "Scale", default = 1.05, min=1.0, description="Put in the scale factor")
+    scn = bpy.types.Scene
+    scn.atom_pdb_PDB_filename = StringProperty(
+        name = "File name", default="", 
+        description = "PDB file name")
+    scn.atom_pdb_PDB_file = StringProperty(
+        name = "Path to file", default="", 
+        description = "Path of the PDB file")
+    scn.use_atom_pdb_dupliverts = BoolProperty(
+        name = "Use dupliverts (much faster)", default=True, 
+        description = "Use the dublication method via vertice referencing "
+        "(Much faster loading!)")    
+    scn.use_atom_pdb_mesh = BoolProperty(
+        name = "Mesh balls", default=False, 
+        description = "Do you want to use mesh balls instead of NURBS?")    
+    scn.atom_pdb_mesh_azimuth = IntProperty(
+        name = "Azimuth", default=32, min=0, 
+        description = "Number of sectors (azimuth)")
+    scn.atom_pdb_mesh_zenith = IntProperty(
+        name = "Zenith", default=32, min=0, 
+        description = "Number of sectors (zenith)")
+    scn.atom_pdb_scale_ballradius = FloatProperty(
+        name = "Balls", default=1.0, min=0.0, 
+        description = "Scale factor for all atom radii")
+    scn.atom_pdb_scale_distances = FloatProperty (
+        name = "Distances", default=1.0, min=0.0, 
+        description = "Scale factor for all distances")
+    scn.use_atom_pdb_center = BoolProperty(
+        name = "Object to origin", default=True, 
+        description = "Shall the object first put into the global origin "
+        "before applying the offsets on the left?")    
+    scn.atom_pdb_offset_x = FloatProperty(
+        name="X", default=0.0, description="Offset in X")
+    scn.atom_pdb_offset_y = FloatProperty(
+        name="Y", default=0.0, description="Offset in Y")
+    scn.atom_pdb_offset_z = FloatProperty(
+        name="Z", default=0.0, description="Offset in Z")
+    scn.use_atom_pdb_sticks = BoolProperty(
+        name="Use sticks", default=False, 
+        description="Do you want to display also the sticks?")    
+    scn.atom_pdb_sticks_sectors = IntProperty(
+        name = "Sector", default=20, min=0,
+        description="Number of sectors of a stick")        
+    scn.atom_pdb_sticks_radius = FloatProperty(
+        name = "Radius", default=0.1, min=0.0, 
+        description ="Radius of a stick")  
+    scn.use_atom_pdb_cam = BoolProperty(
+        name="Camera", default=False, 
+        description="Do you need a camera?")   
+    scn.use_atom_pdb_lamp = BoolProperty(
+        name="Lamp", default=False, 
+        description = "Do you need a lamp?")
+    scn.atom_pdb_number_atoms = StringProperty(name="", 
+        default="Number", description = "This output shows "
+        "the number of atoms which have been loaded")
+    scn.atom_pdb_distance = StringProperty(
+        name="", default="Distance (Angstrom)", 
+        description="Distance of 2 objects in Angstrom")  
+    scn.atom_pdb_mod_atomname = StringProperty(
+        name="", default="Atom name", 
+        description="Put in the name of the atom (e.g. Hydrogen)")
+    scn.atom_pdb_mod_pm_radius = FloatProperty(
+        name="", default=100.0, min=0.0, 
+        description="Put in the radius of the atom (in pm)")
+    scn.atom_pdb_mod_rel_radius = FloatProperty(
+        name="", default=1.05, min=1.0, 
+        description="Put in the scale factor")
+    scn.atom_pdb_mod_all_radii = FloatProperty(
+        name="Scale", default = 1.05, min=1.0, 
+        description="Put in the scale factor")
 
 
 # Button for measuring the distance of the active objects
 class CLASS_Distance_Button(bpy.types.Operator):
     bl_idname = "atom_pdb.button_distance"
     bl_label = "Measure ..."
-    bl_description = "Measure the distance between two objects."
+    bl_description = "Measure the distance between two objects"
 
     def execute(self, context):
+        scn    = bpy.context.scene
         dist   = Measure_distance_in_scene()
 
-        if dist != "-1.0":
+        if dist != "N.A.":
            # The string length is cut, 3 digits after the first 3 digits 
            # after the '.'. Append also "Angstrom". 
            # Remember: 1 Angstrom = 10^(-10) m 
@@ -364,7 +401,6 @@ class CLASS_Distance_Button(bpy.types.Operator):
            dist   = dist + " Angstrom"
 
         # Put the distance into the string of the output field.
-        scn                = bpy.context.scene
         scn.atom_pdb_distance = dist
         return {'FINISHED'}
   
@@ -373,13 +409,12 @@ class CLASS_Distance_Button(bpy.types.Operator):
 class CLASS_Modify_Single_Button(bpy.types.Operator):
     bl_idname = "atom_pdb.button_modify_single"
     bl_label = "Modify ..."
-    bl_description = "Change the radii of atoms of one type in pm."
+    bl_description = "Change the radii of atoms of one type in pm"
 
     def execute(self, context):
         scn = bpy.context.scene
-        atomname   = scn.atom_pdb_mod_atomname
-        radius_pm  = scn.atom_pdb_mod_pm_radius
-        Modify_atom_radii_type_pm(atomname, radius_pm)
+        Modify_atom_radii_type_pm(scn.atom_pdb_mod_atomname, 
+                                  scn.atom_pdb_mod_pm_radius)
         return {'FINISHED'}
 
 
@@ -387,13 +422,12 @@ class CLASS_Modify_Single_Button(bpy.types.Operator):
 class CLASS_Bigger_Single_Button(bpy.types.Operator):
     bl_idname = "atom_pdb.button_bigger_single"
     bl_label = "Bigger ..."
-    bl_description = "Increase the radii of atoms of one type."
+    bl_description = "Increase the radii of atoms of one type"
 
     def execute(self, context):
         scn = bpy.context.scene
-        atomname   = scn.atom_pdb_mod_atomname
-        radius_rel = scn.atom_pdb_mod_rel_radius
-        Modify_atom_radii_type_scale(atomname, radius_rel)
+        Modify_atom_radii_type_scale(scn.atom_pdb_mod_atomname, 
+                                     scn.atom_pdb_mod_rel_radius)
         return {'FINISHED'}
 
 
@@ -401,13 +435,12 @@ class CLASS_Bigger_Single_Button(bpy.types.Operator):
 class CLASS_Smaller_Single_Button(bpy.types.Operator):
     bl_idname = "atom_pdb.button_smaller_single"
     bl_label = "Smaller ..."
-    bl_description = "Decrease the radii of atoms of one type."
+    bl_description = "Decrease the radii of atoms of one type"
 
     def execute(self, context):
         scn = bpy.context.scene
-        atomname   = scn.atom_pdb_mod_atomname
-        radius_rel = 1.0/scn.atom_pdb_mod_rel_radius
-        Modify_atom_radii_type_scale(atomname, radius_rel)
+        Modify_atom_radii_type_scale(scn.atom_pdb_mod_atomname, 
+                                     1.0/scn.atom_pdb_mod_rel_radius)
         return {'FINISHED'}
 
 
@@ -415,12 +448,11 @@ class CLASS_Smaller_Single_Button(bpy.types.Operator):
 class CLASS_Bigger_All_Button(bpy.types.Operator):
     bl_idname = "atom_pdb.button_modify_all"
     bl_label = "Bigger ..."
-    bl_description = "Increase the radii of all atoms."
+    bl_description = "Increase the radii of all atoms"
 
     def execute(self, context):
         scn     = bpy.context.scene
-        scale   = scn.atom_pdb_mod_all_radii
-        Modify_all_atom_radii(scale)
+        Modify_all_atom_radii(scn.atom_pdb_mod_all_radii)
         return {'FINISHED'}
 
 
@@ -428,12 +460,11 @@ class CLASS_Bigger_All_Button(bpy.types.Operator):
 class CLASS_Smaller_All_Button(bpy.types.Operator):
     bl_idname = "atom_pdb.button_invert_all"
     bl_label = "Smaller ..."
-    bl_description = "Decrease the radii of all atoms."
+    bl_description = "Decrease the radii of all atoms"
 
     def execute(self, context):
         scn     = bpy.context.scene
-        scale   = 1.0/scn.atom_pdb_mod_all_radii
-        Modify_all_atom_radii(scale)
+        Modify_all_atom_radii(1.0/scn.atom_pdb_mod_all_radii)
         return {'FINISHED'}
 
 
@@ -441,65 +472,66 @@ class CLASS_Smaller_All_Button(bpy.types.Operator):
 class CLASS_Start_Button(bpy.types.Operator):
     bl_idname = "atom_pdb.button_start"
     bl_label = "DRAW THE ATOMS ..."
-    bl_description = "Start to load and draw the atoms and sticks."
+    bl_description = "Start to load and draw the atoms and sticks"
     
     def execute(self, context):
         scn = bpy.context.scene
 
-        azimuth   = scn.atom_pdb_mesh_azimuth
-        zenith    = scn.atom_pdb_mesh_zenith 
-        bradius   = scn.atom_pdb_scale_ballradius
-        bdistance = scn.atom_pdb_scale_distances
-        center    = scn.atom_pdb_center_yesno 
-        x         = scn.atom_pdb_offset_x
-        y         = scn.atom_pdb_offset_y
-        z         = scn.atom_pdb_offset_z
-        yn        = scn.atom_pdb_sticks_yesno 
-        ssector   = scn.atom_pdb_sticks_sectors
-        sradius   = scn.atom_pdb_sticks_radius
-        cam       = scn.atom_pdb_cam_yesno 
-        lamp      = scn.atom_pdb_lamp_yesno
-        mesh      = scn.atom_pdb_mesh_yesno 
-        group     = scn.atom_pdb_group_atoms_yesno
-        dn        = scn.atom_pdb_group_atoms_dn
-        
-        atom_number                  = Draw_scene(group,dn,mesh,azimuth,zenith,bradius,bdistance,x,y,z,yn,ssector,sradius,center,cam,lamp)
-        scn.atom_pdb_start_number_atoms = atom_number
+        azimuth    = scn.atom_pdb_mesh_azimuth
+        zenith     = scn.atom_pdb_mesh_zenith 
+        bradius    = scn.atom_pdb_scale_ballradius
+        bdistance  = scn.atom_pdb_scale_distances
+        center     = scn.use_atom_pdb_center 
+        offset_vec = Vector((scn.atom_pdb_offset_x,
+                             scn.atom_pdb_offset_y,
+                             scn.atom_pdb_offset_z))
+        sticks     = scn.use_atom_pdb_sticks 
+        ssector    = scn.atom_pdb_sticks_sectors
+        sradius    = scn.atom_pdb_sticks_radius
+        cam        = scn.use_atom_pdb_cam 
+        lamp       = scn.use_atom_pdb_lamp
+        mesh       = scn.use_atom_pdb_mesh 
+        dupliverts = scn.use_atom_pdb_dupliverts
+              
+        atom_number = Draw_scene(dupliverts,mesh,azimuth,zenith,bradius,
+                                 bdistance,offset_vec,sticks,ssector,
+                                 sradius,center,cam,lamp)
+        scn.atom_pdb_number_atoms = str(atom_number)
 
         return {'FINISHED'}
 
 
 # This is the class for the file dialog.
-class CLASS_LoadPDB(bpy.types.Operator):
-    bl_idname = "import_image.brushset"
+class CLASS_LoadPDB(bpy.types.Operator, ImportHelper):
+    bl_idname = "import_pdb.pdb"
     bl_label  = "Import PDB"
-
-    filename = bpy.props.StringProperty(name = "PDB  File", description="Path to the PDB file", maxlen = 256, default = PDBFILEPATH, subtype='FILE_PATH', options={'HIDDEN'})
-    filepath = bpy.props.StringProperty(name = "PDB  File", description="Path to the PDB file", maxlen = 256, default = PDBFILEPATH, subtype='FILE_PATH', options={'HIDDEN'})
     
-    def execute(self, context):
+    filename_ext = ".pdb"
+    filter_glob  = StringProperty(default="*.pdb", options={'HIDDEN'},)
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):   
         global PDBFILEPATH
         global PDBFILENAME
-        
+      
         # In the following the name and path of the PDB file
         # is stored into the global variables.
         scn = bpy.context.scene
-        PDBFILENAME     = self.filename
         PDBFILEPATH     = self.filepath
+        PDBFILENAME     = os.path.basename(PDBFILEPATH)
         scn.atom_pdb_PDB_filename = PDBFILENAME
         scn.atom_pdb_PDB_file     = PDBFILEPATH
         return {'FINISHED'}
 
-    def invoke(self, context, event):
-        wm = context.window_manager
-        wm.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+
 
 
 # The entry into the menu 'file -> import'
 def menu_func(self, context):
-    default_name = "" 
-    self.layout.operator(CLASS_LoadPDB.bl_idname, text="PDB (.pdb)").filename = default_name
+    self.layout.operator(CLASS_LoadPDB.bl_idname, text="PDB (.pdb)")
 
 
 def register():
@@ -562,159 +594,60 @@ if __name__ == "__main__":
 
 
 
-# This function measures the distance between two objects (atoms), which are marked.
+# This function measures the distance between two objects (atoms), 
+# which are active.
 def Measure_distance_in_scene():
 
     if len(bpy.context.selected_bases) > 1:
         object_1 = bpy.context.selected_objects[0]
         object_2 = bpy.context.selected_objects[1]
     else:
-        return "-1.0"
+        return "N.A."
 
-    v1     = object_1.location
-    v2     = object_2.location
-    dv     = (v2 - v1)
+    dv     = object_2.location - object_1.location
     length = str(dv.length)
     return length 
 
+    
 
 # Routine to modify the radii of a specific type of atom
 def Modify_atom_radii_type_pm(atomname, radius_pm):
 
-    for obj in bpy.context.scene.objects:
-
+    for structure in LOADED_STRUCTURES:
+        for obj in structure:
+            if atomname in obj.name:
+                obj.scale = (radius_pm/100,radius_pm/100,radius_pm/100)
+                
+    for obj in LOADED_STRUCTURES_DUPLI:
         if atomname in obj.name:
-
             obj.scale = (radius_pm/100,radius_pm/100,radius_pm/100)
+
                 
 
 # Routine to modify the radii of a specific type of atom
 def Modify_atom_radii_type_scale(atomname, radius_rel):
 
-    for obj in bpy.context.scene.objects:
-
+    for structure in LOADED_STRUCTURES:
+        for obj in structure:
+            if atomname in obj.name:
+                obj.scale *= radius_rel
+                
+    for obj in LOADED_STRUCTURES_DUPLI:
         if atomname in obj.name:
-
-            value = obj.scale[0]
-            obj.scale = (radius_rel * value,radius_rel * value,radius_rel * value)
+            obj.scale *= radius_rel
 
 
 # Routine to scale the radii of all atoms
 def Modify_all_atom_radii(scale):
 
-    for obj in bpy.context.scene.objects:
-
-        if obj.type == "SURFACE" or obj.type == "MESH":
-
+    for structure in LOADED_STRUCTURES:
+        for obj in structure:
             if "Stick" not in obj.name:
-                radius = obj.scale[0]
-                obj.scale = (radius * scale,radius * scale,radius * scale)
-
-
-
-########################################################
-#
-#
-#
-#
-#
-#          For reading the sticks inside the PDB file
-#
-#
-#
-#
-#
-########################################################
-
-
-
-def Read_atom_for_stick(string):        
-
-    string_length = len(string)
-
-    j               = 0
-    string_reversed = ""
-    atoms           = []
-    space           = False
-    # An atom number can have max 5 letters! This automatically means that
-    # up to 99999 atoms can be loaded max. - Well, this should be sufficient.
-    counter_letters = 5 
-   
-    # I know that what follows is somewhat 'confusing'! However, the strings of
-    # the atom numbers do have a clear position in the file (From 1 to 5, 
-    # from 6 to 10 and so on.) and one needs to consider this. One could also use
-    # the split function but then one gets into trouble if there are many atoms:
-    # For instance, it may happen that one has
-    #
-    # CONECT 11111  22244444
-    #
-    # In Fact it means that atom No. 11111 has a stick with atom No. 222 but also
-    # with atom No. 44444. The split function would give me only two numbers (11111
-    # and 22244444), which is wrong. However, the following code supplies 
-    # the three correct numbers: 
-    for i in list(range(string_length)):
-   
-        # If the 'T' of 'CONECT' is read => exit
-        if string[string_length-i-1] == 'T':
-            break
-
-        # Continue, if a space is read but no letter is present in 'string_reversed'.
-        # This happens, when there are spaces behind the last atom number in the
-        # string. 
-        if string[string_length-i-1] == ' ' and string_reversed == "":
-            continue
-   
-        if string[string_length-i-1] == ' ' or counter_letters == 0:
-      
-            string_correct         = ""
-            string_reversed_length = len(string_reversed)
-            l                      = 0
-            for k in list(range(string_reversed_length)):
-                string_correct = string_correct + string_reversed[string_reversed_length-k-1]
-                l += 1
-      
-            # If the first 'space' is found, we found the number of an atom
-            # Transform the string into an integer and append this to the overall list
-            if space == False:
-                atom            = int(string_correct)
-                atoms.append(atom)
-                # Initialization of the variables
-                string_reversed = ""
-                space           = True
-            
-            
-            # If it was only a 'space' then go up the 'for loop'.
-            if counter_letters != 0:
-                counter_letters  = 5
-                continue
-            
-            counter_letters = 5
-   
-   
-        space            = False
-        string_reversed  = string_reversed + string[string_length-i-1]
-        j               += 1
-        # One letter has been read, so one down with the counter. 
-        # Max is 5! 
-        counter_letters -= 1
-      
-    # Return the list of atoms   
-    return atoms
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                obj.scale *= scale
+                
+    for obj in LOADED_STRUCTURES_DUPLI:
+        if "Stick" not in obj.name:
+            obj.scale *= scale  
 
 
 
@@ -746,31 +679,37 @@ def Read_atom_for_stick(string):
 
 
 
-def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,Ball_radius_factor,Ball_distance_factor,offset_x,offset_y,offset_z,Stick_yn,Stick_sectors,Stick_diameter, put_to_center, camera_yn, lamp_yn):
+def Draw_scene(use_dupliverts,use_mesh,Ball_azimuth,Ball_zenith,
+               Ball_radius_factor,Ball_distance_factor,offset_vec,
+               use_stick,Stick_sectors,Stick_diameter,put_to_center,
+               use_camera,use_lamp):
 
     global PDBFILEPATH
     global PDBFILENAME
-    
+
+    global LOADED_STRUCTURES
+    global LOADED_STRUCTURES_DUPLI  
 
     # This is in order to solve this strange 'relative path' thing.
     PDBFILEPATH  = bpy.path.abspath(PDBFILEPATH)
    
-    # Lists for atoms in the PDB file
-    atom_object    = []
+    # Properties for atoms
     atom_element   = []
     atom_name      = []
     atom_charge    = []
     atom_color     = []
-    atom_material  = []   
-    atom_x         = []
-    atom_y         = []
-    atom_z         = []
+    atom_material  = []
+    atom_xyz_vec   = []
     atom_R         = []
-    bar_atom1      = []
-    bar_atom2      = []
+    # The sticks
+    stick_atom1    = []
+    stick_atom2    = []
    
     # Materials
     atom_material_list = []
+
+
+
 
 
 
@@ -809,23 +748,26 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
         # If 'ATOM4 or 'HETATM' appears in the line then do ...
         if "ATOM" in line or "HETATM" in line:
         
-            # Split the line into its parts (devided by a ' ') and analyse it. The first line is read.
+            # Split the line into its parts (devided by a ' ') and analyse it. 
             split_list = line.rsplit()
                         
-            for i in list(range(all_existing_atoms)):
+            for i in list(range(ALL_EXISTING_ATOMS)):
                 if str.upper(split_list[-1]) == str.upper(Data_all_atoms[i][2]):
-                    # Give the atom its proper name and radius:
+                    # Give the atom its proper names, color and radius:
                     atom_element.append(str.upper(Data_all_atoms[i][2]))
                     atom_name.append(Data_all_atoms[i][1])
                     atom_R.append(float(Data_all_atoms[i][4]))
                     atom_color.append(Data_all_atoms[i][3])
                     break
 
-            # 1. case: These are 'unknown' atoms. In some cases, atoms are named with an additional label like H1 (hydrogen1)
-            # 2. case: The last column 'split_list[-1]' does not exist, we take then column 3 in the PDB file.
-            if i == all_existing_atoms-1:
+            # 1. case: These are 'unknown' atoms. In some cases, atoms are  
+            # named with an additional label like H1 (hydrogen1)
+            # 2. case: The last column 'split_list[-1]' does not exist, we take 
+            # then column 3 in the PDB file.
+            if i == ALL_EXISTING_ATOMS-1:
 
-                # Give this atom also a name. If it is an 'X' then it is a vacancy. Otherwise ...
+                # Give this atom also a name. If it is an 'X' then it is a 
+                # vacancy. Otherwise ...
                 if "X" in str.upper(split_list[2]):
                     atom_element.append("VAC")
                     atom_name.append("Vacancy")
@@ -835,48 +777,51 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
                     atom_name.append(str.upper(split_list[2]))
 
                 # Default values for the atom.
-                atom_R.append(float(Data_all_atoms[all_existing_atoms-2][4]))
-                atom_color.append(Data_all_atoms[all_existing_atoms-2][3])
+                atom_R.append(float(Data_all_atoms[ALL_EXISTING_ATOMS-2][4]))
+                atom_color.append(Data_all_atoms[ALL_EXISTING_ATOMS-2][3])
          
                  
          
-            # The list that contains info about all types of atoms is created here.
-            # It is used for building the material properties for instance. 
-            
-            # If the name of the atom is already in the list, FLAG on 'True'. 
+            # The list that contains info about all types of atoms is created
+            # here. It is used for building the material properties for 
+            # instance.      
             FLAG_FOUND = False
             for atom_type in atom_all_types_list:
+                # If the atom name is already in the list, FLAG on 'True'. 
                 if atom_type[0] == atom_name[-1]:
                     FLAG_FOUND = True
                     break
             # No name in the current list has been found? => New entry.
             if FLAG_FOUND == False:
-                # Stored are: Atom label (e.g. 'Na'), the corresponding atom name (e.g. 'Sodium') and its color.
-                atom_all_types_list.append([atom_name[-1],atom_element[-1],atom_color[-1]])
+                # Stored are: Atom label (e.g. 'Na'), the corresponding atom
+                # name (e.g. 'Sodium') and its color.
+                atom_all_types_list.append([atom_name[-1],
+                                            atom_element[-1],
+                                            atom_color[-1]])
 
 
                  
             # Now the coordinates x, y and z are read.
             coor   = 1
-            number = 0
          
-            # The coordinates x, y and z are identified as such by the dot (e.g., 5.678) - a dot
-            # in the line appears only in the coordinates. The coordinates are listed as follwos: 
-            # x, y and z.
-            # If the first coordinate (x) is read, increase coor (y).
+            # The coordinates x, y and z are identified as such by the dot 
+            # (e.g., 5.678) - a dot in the line appears only in the 
+            # coordinates! The coordinates are listed as follwos: x, y and z.
             for each_element in split_list:
     
                 # If there is a dot, it is an coordinate.
                 if "." in each_element:
                     if coor == 1:
-                        atom_x.append(float(each_element))
+                        x = float(each_element)
                         coor     += 1
                     elif coor == 2:
-                        atom_y.append(float(each_element))
+                        y = float(each_element)
                         coor     += 1
                     elif coor == 3:
-                        atom_z.append(float(each_element))
+                        z = float(each_element)
                         coor     += 1        
+      
+            atom_xyz_vec.append(Vector((x,y,z)))
       
             j += 1
            
@@ -900,15 +845,16 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
 
 
 
-    # Here, the atoms get already their material properties. Why already here? Because
-    # then it is done and the atoms can be drawn in a fast way (see drawing part at the end 
-    # of this script, further below). 
-    # Note that all atoms of one type (e.g. all hydrogens) get only ONE material! This 
-    # is good because then, by activating one atom in the Blender scene and changing 
-    # the color of this atom, one changes the color of ALL atoms of the same type at the 
-    # same time.
+    # Here, the atoms get already their material properties. Why already here? 
+    # Because then it is done and the atoms can be drawn in a fast way (see 
+    # drawing part at the end of this script, further below). 
+    # Note that all atoms of one type (e.g. all hydrogens) get only ONE 
+    # material! This is good because then, by activating one atom in the 
+    # Blender scene and changing the color of this atom, one changes the color 
+    # of ALL atoms of the same type at the same time.
    
-    # Create first a new list of materials for each type of atom (e.g. hydrogen)
+    # Create first a new list of materials for each type of atom 
+    # (e.g. hydrogen)
     for atom_type in atom_all_types_list:
    
         bpy.ops.object.material_slot_add()
@@ -921,16 +867,17 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     for i in range(0, Number_of_total_atoms):
         # ... and all materials ...
         for material in atom_material_list:
-            # ... select the correct material for the current atom via name-comparison ...
+            # ... select the correct material for the current atom via 
+            # comparison of names ...
             if atom_name[i] in material.name:
                 # ... and give the atom its material properties. 
                 # However, before we check, if it is a vacancy, because then it
-                # gets some additional preparation. The vacancy is represented by
-                # a transparent cube.
+                # gets some additional preparation. The vacancy is represented
+                # by a transparent cube.
                 if atom_name[i] == "Vacancy":
-                    material.transparency_method                  = 'Z_TRANSPARENCY'
-                    material.alpha                                = 1.3
-                    material.raytrace_transparency.fresnel        = 1.6
+                    material.transparency_method = 'Z_TRANSPARENCY'
+                    material.alpha = 1.3
+                    material.raytrace_transparency.fresnel = 1.6
                     material.raytrace_transparency.fresnel_factor = 1.6                   
                     material.use_transparency                     = True      
                 # The atom gets its properties.
@@ -947,8 +894,8 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     #
 
 
-    # Open the PDB file again such that the file pointer is in the first line ...
-    # Stupid, I know ... ;-)
+    # Open the PDB file again such that the file pointer is in the first
+    # line ... . Stupid, I know ... ;-)
     PDBFILEPATH_p = io.open(PDBFILEPATH, "r")
 
     split_list = line.split(' ')
@@ -962,8 +909,8 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
 
   
     Number_of_sticks = 0
-    doppelte_bars  = 0
-    j              = 0
+    doppelte_bars    = 0
+    j                = 0
     # This is in fact an endless while loop, ...    
     while j > -1:
  
@@ -973,36 +920,47 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
         # ... or here, when no 'CONECT' appears anymore.
         if "CONECT" not in line:
             break
-         
-        if line[-1] == '\n':
-            line = line[:-1]
+               
+        # The strings of the atom numbers do have a clear position in the file 
+        # (From 7 to 12, from 13 to 18 and so on.) and one needs to consider 
+        # this. One could also use the split function but then one gets into 
+        # trouble if there are many atoms: For instance, it may happen that one 
+        # has
+        #                   CONECT 11111  22244444
+        #
+        # In Fact it means that atom No. 11111 has a connection with atom 
+        # No. 222 but also with atom No. 44444. The split function would give 
+        # me only two numbers (11111 and 22244444), which is wrong. 
+  
+        # Cut spaces from the right and 'CONECT' at the beginning
+        line = line.rstrip()    
+        line = line[6:]
+        # Amount of loops
+        length = len(line)
+        loops  = int(length/5)
+    
+        # List of atoms
+        atoms = []
+        for i in list(range(loops)):
+            atom = int(line[5*i:5*(i+1)])
+            atoms.append(atom)
+   
+        # The first atom is connected with all the others in the list.
+        atom1 = atoms[0]
         
-        # Read the sticks for the actual atom (sub routine). One gets a list of
-        # sticks.
-        atoms_list        = Read_atom_for_stick(line)
-        # Determine the length of the list
-        atoms_list_length = len(atoms_list)
-
-        # For all sticks in the list do:
-        q = 0
-        for each_element in atoms_list:
+        # For all the other atoms in the list do:
+        for each_element in atoms[1:]:
       
-            # End == break
-            if q == atoms_list_length - 1:
-                break
-      
-            # The first atom is connected with all the others in the list.
-            atom1 = atoms_list[-1]
             # The second, third, ... partner atom
             atom2 = each_element
 
-            FLAG_BAR = False
- 
-            # Note that in a PDB file, sticks of one atom pair can appear a couple
-            # of times. (Only god knows why ...) 
+            # Note that in a PDB file, sticks of one atom pair can appear a
+            # couple of times. (Only god knows why ...) 
             # So, does a stick between the considered atoms already exist?
+            FLAG_BAR = False
             for k in list(range(j)):
-                if (bar_atom1[k] == atom1 and bar_atom2[k] == atom2) or (bar_atom1[k] == atom2 and bar_atom2[k] == atom1):
+                if ((stick_atom1[k] == atom1 and stick_atom2[k] == atom2) or 
+                    (stick_atom1[k] == atom2 and stick_atom2[k] == atom1)):
                     doppelte_bars += 1
                     # If yes, then FLAG on 'True'.
                     FLAG_BAR       = True
@@ -1011,15 +969,13 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
             # If the stick is not yet registered (FLAG_BAR == False), then 
             # register it!
             if FLAG_BAR == False:
-                bar_atom1.append(atom1)
-                bar_atom2.append(atom2)      
+                stick_atom1.append(atom1)
+                stick_atom2.append(atom2)      
                 Number_of_sticks += 1   
                 j += 1
- 
-            q += 1
 
         line = PDBFILEPATH_p.readline()
-        line = line[:-1]
+        line = line.rstrip()
 
     PDBFILEPATH_p.close()
     # So far, all atoms and sticks have been registered.
@@ -1040,28 +996,18 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     # If chosen, the objects are first put into the center of the scene.
     if put_to_center == True:
 
-        sum_x = 0
-        sum_y = 0
-        sum_z = 0
+        sum_vec = Vector((0.0,0.0,0.0)) 
 
         # Sum of all atom coordinates
         for i in list(range(Number_of_total_atoms)):
-
-            sum_x = sum_x + atom_x[i]
-            sum_y = sum_y + atom_y[i]
-            sum_z = sum_z + atom_z[i]
+            sum_vec = sum_vec + atom_xyz_vec[i]
 
         # Then the average is taken
-        sum_x = sum_x / Number_of_total_atoms
-        sum_y = sum_y / Number_of_total_atoms
-        sum_z = sum_z / Number_of_total_atoms
+        sum_vec = sum_vec / Number_of_total_atoms
 
         # After, for each atom the center of gravity is substracted
         for i in list(range(Number_of_total_atoms)):
-
-            atom_x[i] = atom_x[i] - sum_x
-            atom_y[i] = atom_y[i] - sum_y
-            atom_z[i] = atom_z[i] - sum_z
+            atom_xyz_vec[i] = atom_xyz_vec[i] - sum_vec
 
 
 
@@ -1081,14 +1027,11 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     # - and move the center of the whole ('+= offset_x', in Angstroem)
     for i in list(range(Number_of_total_atoms)):
 
-        atom_charge.append(1.0)  
-        atom_x[i] += offset_x
-        atom_y[i] += offset_y
-        atom_z[i] += offset_z
-        atom_x[i] *= Ball_distance_factor
-        atom_y[i] *= Ball_distance_factor
-        atom_z[i] *= Ball_distance_factor
+        atom_charge.append(1.0) 
+        atom_xyz_vec[i] += offset_vec
+        atom_xyz_vec[i] *= Ball_distance_factor
 
+         
 
 
     #
@@ -1103,29 +1046,23 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
 
     # In the following, some geometric properties of the whole object are 
     # determined: center, size, etc. 
-    sum_x = 0
-    sum_y = 0
-    sum_z = 0
+    sum_vec = Vector((0.0,0.0,0.0))
 
     # First the center is determined. All coordinates are summed up ...
     for i in list(range(Number_of_total_atoms)):
-        sum_x = sum_x + atom_x[i]
-        sum_y = sum_y + atom_y[i]
-        sum_z = sum_z + atom_z[i]
+        sum_vec = sum_vec + atom_xyz_vec[i]
     # ... and the average is taken. This gives the center of the object.
-    object_center = [sum_x / Number_of_total_atoms, sum_y / Number_of_total_atoms, sum_z / Number_of_total_atoms]
+    object_center_vec = sum_vec / Number_of_total_atoms
 
     # Now, we determine the size. All coordinates are analyzed ...
     object_size = 0.0
     for i in list(range(Number_of_total_atoms)):
 
-        diff_x = atom_x[i] - object_center[0]
-        diff_y = atom_y[i] - object_center[1]
-        diff_z = atom_z[i] - object_center[2]
+        diff_vec = atom_xyz_vec[i] - object_center_vec
 
         # This is needed in order to estimate the size of the object.
         # The farest atom from the object center is taken as a measure.
-        distance_to_object_center = math.sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z)
+        distance_to_object_center = diff_vec.length
         if distance_to_object_center > object_size:
             object_size = distance_to_object_center
 
@@ -1142,19 +1079,23 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     camera_factor = 15.0
 
     # Here a camera is put into the scene, if chosen.
-    if camera_yn == True:
+    if use_camera == True:
 
-        # Assume that the object is put into the global origin. Then, the camera
-        # is moved in x and z direction, not in y. The object has its size at distance
-        # math.sqrt(object_size) from the origin. So, move the camera by this distance
-        # times a factor of camera_factor in x and z. Then add x, y and z of the origin of the
-        # object.   
-        camera_x = object_center[0] + math.sqrt(object_size) * camera_factor
-        camera_y = object_center[1]
-        camera_z = object_center[2] + math.sqrt(object_size) * camera_factor
-        camera_pos    = [camera_x,camera_y,camera_z]
+        # Assume that the object is put into the global origin. Then, the 
+        # camera is moved in x and z direction, not in y. The object has its 
+        # size at distance math.sqrt(object_size) from the origin. So, move the 
+        # camera by this distance times a factor of camera_factor in x and z. 
+        # Then add x, y and z of the origin of the object.   
+        object_camera_vec = Vector((math.sqrt(object_size) * camera_factor, 
+                                    0.0, 
+                                    math.sqrt(object_size) * camera_factor))
+        camera_xyz_vec    = object_center_vec + object_camera_vec
+
         # Create the camera
-        bpy.ops.object.camera_add(view_align=False, enter_editmode=False, location=camera_pos, rotation=(0.0, 0.0, 0.0), layers=(True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))
+        current_layers=bpy.context.scene.layers
+        bpy.ops.object.camera_add(view_align=False, enter_editmode=False, 
+                               location=camera_xyz_vec, 
+                               rotation=(0.0, 0.0, 0.0), layers=current_layers)
         # Some properties of the camera are changed.
         camera               = bpy.context.scene.objects.active
         camera.name          = "A_camera"
@@ -1162,25 +1103,30 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
         camera.data.lens     = 45
         camera.data.clip_end = 500.0
 
-        # Here the camera is rotated such it looks towards the center of the object.
-        
-        # The vector between camera and origin of the object
-        vec_cam_obj            = (mathutils.Vector(camera_pos) - mathutils.Vector(object_center))
-        # The [0.0, 0.0, 1.0] vector along the z axis
-        vec_up_axis            = mathutils.Vector([0.0, 0.0, 1.0])
+        # Here the camera is rotated such it looks towards the center of 
+        # the object. The [0.0, 0.0, 1.0] vector along the z axis
+        z_axis_vec             = Vector((0.0, 0.0, 1.0))
         # The angle between the last two vectors
-        angle                  = vec_cam_obj.angle(vec_up_axis, 0)
-        # The cross-product of the [0.0, 0.0, 1.0] vector and vec_cam_obj
-        # It is the resulting vector which stands up perpendicular on vec_up_axis and vec_cam_obj
-        axis                   = vec_up_axis.cross(vec_cam_obj)
-        # Rotate axis 'axis' by angle 'angle' and convert this to euler parameters. 4 is the size
-        # of the matrix.
-        euler                  = mathutils.Matrix.Rotation(angle, 4, axis).to_euler()
+        angle                  = object_camera_vec.angle(z_axis_vec, 0)
+        # The cross-product of z_axis_vec and object_camera_vec
+        axis_vec               = z_axis_vec.cross(object_camera_vec)
+        # Rotate 'axis_vec' by 'angle' and convert this to euler parameters.
+        # 4 is the size of the matrix.
+        euler                  = Matrix.Rotation(angle, 4, axis_vec).to_euler()
         camera.rotation_euler  = euler
 
-        # Rotate the camera around its axis by 90° such that we have a nice camera position
-        # and view onto the object.
-        bpy.ops.transform.rotate(value=(90.0*2*math.pi/360.0,), axis=vec_cam_obj, constraint_axis=(False, False, False), constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH', proportional_size=1, snap=False, snap_target='CLOSEST', snap_point=(0, 0, 0), snap_align=False, snap_normal=(0, 0, 0), release_confirm=False)
+        # Rotate the camera around its axis by 90° such that we have a nice 
+        # camera position and view onto the object.
+        bpy.ops.transform.rotate(value=(90.0*2*math.pi/360.0,), 
+                                 axis=object_camera_vec, 
+                                 constraint_axis=(False, False, False), 
+                                 constraint_orientation='GLOBAL', 
+                                 mirror=False, proportional='DISABLED', 
+                                 proportional_edit_falloff='SMOOTH', 
+                                 proportional_size=1, snap=False, 
+                                 snap_target='CLOSEST', snap_point=(0, 0, 0), 
+                                 snap_align=False, snap_normal=(0, 0, 0), 
+                                 release_confirm=False)
 
 
         # This does not work, I don't know why. 
@@ -1191,30 +1137,33 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
 
 
     # Here a lamp is put into the scene, if chosen.
-    if lamp_yn == True:
+    if use_lamp == True:
 
 
-        # This is the distance from the object measured in terms of % of the camera 
-        # distance. It is set onto 50% (1/2) distance.
-        lamp_dl                        = math.sqrt(object_size) * 15 * 0.5
-        # This is a factor to which extend the lamp shall go to the right (from the camera 
-        # point of view).
-        lamp_dy_right                  = lamp_dl * (3.0/4.0)
+        # This is the distance from the object measured in terms of % 
+        # of the camera distance. It is set onto 50% (1/2) distance.
+        lamp_dl       = math.sqrt(object_size) * 15 * 0.5
+        # This is a factor to which extend the lamp shall go to the right
+        # (from the camera  point of view).
+        lamp_dy_right = lamp_dl * (3.0/4.0)
         
         # Create x, y and z for the lamp.
-        lamp_x                         = object_center[0] + lamp_dl
-        lamp_y                         = object_center[1] + lamp_dy_right
-        lamp_z                         = object_center[2] + lamp_dl
-        lamp_pos                       = [lamp_x, lamp_y, lamp_z]
+        object_lamp_vec  = Vector((lamp_dl,lamp_dy_right,lamp_dl))
+        lamp_xyz_vec     = object_center_vec + object_lamp_vec 
+
         # Create the lamp
-        bpy.ops.object.lamp_add  (type = 'POINT', view_align=False,         location=lamp_pos,   rotation=(0.0, 0.0, 0.0), layers=(True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))
+        current_layers=bpy.context.scene.layers
+        bpy.ops.object.lamp_add (type = 'POINT', view_align=False, 
+                                 location=lamp_xyz_vec, 
+                                 rotation=(0.0, 0.0, 0.0), 
+                                 layers=current_layers)
         # Some properties of the lamp are changed.
-        lamp                           = bpy.context.scene.objects.active
-        lamp.data.name                 = "A_lamp"
-        lamp.name                      = "A_lamp"
-        lamp.data.distance             = 500.0 
-        lamp.data.energy               = 3.0 
-        lamp.data.shadow_method        = 'RAY_SHADOW'
+        lamp                    = bpy.context.scene.objects.active
+        lamp.data.name          = "A_lamp"
+        lamp.name               = "A_lamp"
+        lamp.data.distance      = 500.0 
+        lamp.data.energy        = 3.0 
+        lamp.data.shadow_method = 'RAY_SHADOW'
 
         bpy.context.scene.world.light_settings.use_ambient_occlusion = True
         bpy.context.scene.world.light_settings.ao_factor = 0.2
@@ -1231,17 +1180,20 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     #
 
    
-    # The following two loops give a huge printout in the terminal. If needed one can uncomment these lines
+    # The following two loops print out all coordinates of the atoms in the
+    # terminal. If needed one can uncomment these lines
    
     # Atoms
     # print("\nCoordinates of the atoms:")
     # for i in list(range(Number_of_total_atoms)):
-    #   print(str(i+1) + "	" + str(atom_x[i]) + "	" + str(atom_y[i]) + "	" + str(atom_z[i]) + "	" + str(atom_R[i]) + "	" + atom_element[i])
+    #   print(str(i+1) + "	" + str(atom_x[i]) + "	" 
+    #   + str(atom_y[i]) + "	" + str(atom_z[i]) + "	" + str(atom_R[i]) 
+    #   + "	" + atom_element[i])
 
     # Sticks
     # print("\nSticks, which connect two atoms with indices:")
     # for i in list(range(Number_of_sticks)):
-    #    print(str(bar_atom1[i]) + "   " + str(bar_atom2[i]))
+    #    print(str(stick_atom1[i]) + "   " + str(stick_atom2[i]))
    
     print()
     print()
@@ -1250,17 +1202,9 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     print()
     print("Total number of atoms   : " + str(Number_of_total_atoms))
     print("Total number of sticks  : " + str(Number_of_sticks))
-    print("Center of object        : ", object_center)
+    print("Center of object        : ", object_center_vec)
     print("Size of object          : ", object_size)
     print()
-
-
-
-
-
-
-
-
 
 
 
@@ -1276,214 +1220,252 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
     #
     #
 
-    # This part was the main issue in earlier versions: the loading of atoms has taken too much time!
-    # Example: a surface can be easily composed of 5000 atoms => Loading 5000 NURBS needs quite a long time. 
-    # There are two things that can be done: 
-    #
-    #                                1. Remove any 'if's in the drawing loop <= Increased a bit the speed
-    #                                2. Group atoms of one type such that it is ONE object <= Huge speed increase
-    #
-    # I have done some measurements with a stopwatch: 'Grouping' is definitely much, much faster for
-    # large scale situations. We talk about differences in seconds or even, for many-atom-scenes, in 
-    # minutes and hours. Try out and compare yourself. To clearly see the difference you need, say, 2000 atoms.
-    # Try with 8000 atoms => you need to group the atoms ... . 
 
 
-    # Lists of atoms of one type are first created. If it is atoms, all theses lists are put into one 
-    # single list called 'draw_atom_type_list'. The vacancies have their extra list 'draw_atom_type_list_vacancy' 
+    # Lists of atoms of one type are created. If it is atoms, all theses lists
+    # are put into one single list called 'draw_atom_type_list'. The vacancies
+    # have their extra list 'draw_atom_type_list_vacancy' 
    
-    # So far, the empty lists:
     # The list containing all lists, which each contains all atoms of one type
     draw_atom_type_list           = []
     # The list which contains all vacancies
     draw_atom_type_list_vacancy   = []
 
 
-    # Go through the list which contains all types of atoms. It is the list, which has been
-    # created on the top during reading the PDB file. It contains elements like [hydrogen, carbon, ...]
+    # Go through the list which contains all types of atoms. It is the list,
+    # which has been created on the top during reading the PDB file. 
+    # Example: atom_all_types_list = ["hydrogen", "carbon", ...]
     for atom_type in atom_all_types_list:
    
-        # This is the draw list, which contains all atoms of one type (e.g. all hydrogens) ...
+        # This is the draw list, which contains all atoms of one type (e.g. 
+        # all hydrogens) ...
         draw_atom_list = []  
       
         # Go through all atoms ...
         for i in range(0, Number_of_total_atoms):
             # ... select the atoms of the considered type via comparison ...
             if atom_type[0] == atom_name[i]:
+
+                # Vacancy
+                if atom_type[0] == "Vacancy":
+                    draw_atom_type_list_vacancy.append([atom_name[i], 
+                                                        atom_material[i], 
+                                                        atom_xyz_vec[i], 
+                                                        atom_R[i]])
                 # ... and append them to the list 'draw_atom_list'.
-                draw_atom_list.append([atom_name[i], atom_material[i], [atom_x[i], atom_y[i], atom_z[i]], atom_R[i]])
-      
-        if atom_type[0] == "Vacancy":
-            draw_atom_type_list_vacancy.append(draw_atom_list)
-        else:
+                else:
+                    draw_atom_list.append([atom_name[i], 
+                                           atom_material[i], 
+                                           atom_xyz_vec[i], 
+                                           atom_R[i]])
+    
+        # Now append the atom list to the list of all types of atoms
+        if atom_type[0] != "Vacancy":
             draw_atom_type_list.append(draw_atom_list)
-   
+
+
+
+
 
     #
     # DRAW ATOMS
     #
 
-    # The comments in the follwoing block of code (NURBS) are basically the same
-    # for the code, which is used to draw meshes and the vacancies.
+    # The comments in the follwoing block of code (NURBS) are basically the 
+    # same for the code, which is used to draw meshes and the vacancies.
    
     # This is the number of all atoms which are put into the scene.
-    i = 0 
-    # Deselect all objects.
+    number_loaded_atoms = 0 
     bpy.ops.object.select_all(action='DESELECT')    
     # Draw NURBS or ...
-    if mesh_yn == False:
-        # For all atom lists in the list 'draw_atom_type_list' do ...
-        # So, in other words: for all lists of atoms of ONE type (e.g. Hydrogen)
+    if use_mesh == False:
+        # For each list of atoms of ONE type (e.g. Hydrogen)
         for atom_list in draw_atom_type_list:
-            group_counter = 0
-            # This is a list of groups. Each group contains 'group_atoms_dn' 
-            # atoms; let's say it is 200 atoms which shall be loaded first and then grouped
-            # together.
-            groups        = []
-            # For each atom in a group do ...
-            for atom in atom_list:
-                # First print in the terminal the number of atom that will be build right now.
-                sys.stdout.write("Atom No. %d has been built\r" % (i+1) )
-                sys.stdout.flush()
 
-                # Build a sphere (atom), with coordinates 'atom[2]'. the index 2 is a list
-                # of the coordinates [x,y,z]
-                bpy.ops.surface.primitive_nurbs_surface_sphere_add(view_align=False, enter_editmode=False, location=atom[2], rotation=(0.0, 0.0, 0.0), layers=(True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))
-                # Put the ball into the scene
+            if use_dupliverts == False:
+
+                # For each atom in a group do ...
+                structure = []
+                for atom in atom_list:
+                    # First print in the terminal the number of atom that will
+                    # be build right now.
+                    sys.stdout.write("Atom No. %d has been built\r" 
+                                      % (number_loaded_atoms+1) )
+                    sys.stdout.flush()
+
+                    # Build a sphere (atom)
+                    current_layers=bpy.context.scene.layers
+                    bpy.ops.surface.primitive_nurbs_surface_sphere_add(
+                                    view_align=False, enter_editmode=False, 
+                                    location=atom[2], rotation=(0.0, 0.0, 0.0), 
+                                    layers=current_layers)
+                    ball                 = bpy.context.scene.objects.active
+                    ball.scale           = (atom[3]*Ball_radius_factor,
+                                            atom[3]*Ball_radius_factor,
+                                            atom[3]*Ball_radius_factor)
+                    ball.name            = atom[0]
+                    ball.active_material = atom[1]
+                    structure.append(ball)
+                    number_loaded_atoms += 1  
+                LOADED_STRUCTURES.append(structure)
+
+
+            if use_dupliverts == True:
+
+                # Create first the vertices composed of the coordinates of all
+                # atoms of one type
+                atom_vertices = []
+                for atom in atom_list:
+                    atom_vertices.append( atom[2] )
+
+                # Build the mesh
+                atom_mesh = bpy.data.meshes.new("Mesh_"+atom[0])
+                atom_mesh.from_pydata(atom_vertices, [], [])
+                atom_mesh.update()
+                new_atom_mesh = bpy.data.objects.new(atom[0], atom_mesh)
+                bpy.context.scene.objects.link(new_atom_mesh)
+
+                # Now, build a representative sphere (atom)
+                current_layers=bpy.context.scene.layers
+                bpy.ops.surface.primitive_nurbs_surface_sphere_add(
+                                    view_align=False, enter_editmode=False, 
+                                    location=(0,0,0), rotation=(0.0, 0.0, 0.0), 
+                                    layers=current_layers)
                 ball                 = bpy.context.scene.objects.active
-                # Scale the radius (atom[3])
-                ball.scale           = (atom[3]*Ball_radius_factor,atom[3]*Ball_radius_factor,atom[3]*Ball_radius_factor)
-                # Name and ...
-                ball.name            = atom[0]
-                # Material
+                ball.scale           = (atom[3]*Ball_radius_factor,
+                                        atom[3]*Ball_radius_factor,
+                                        atom[3]*Ball_radius_factor)
+                ball.name            = "Ball (NURBS)_"+atom[0]
                 ball.active_material = atom[1]
-                # Very important for grouping: append the atom to the list 'atom_object'
-                atom_object.append(ball)
-            
-                # We have a new atom, so increase the counter.
-                i += 1   
-                # Increase also the group counter      
-                group_counter += 1 
-                # If we shall group then do ... 
-                if FLAG_group_atoms == True:
-                    # First check if we have loaded 200 atoms ('group_atoms_dn').
-                    if group_counter == group_atoms_dn:
-                        # If so, then activate all the last 200 atoms. i is the current number
-                        # of all loaded atoms and group_counter is 200.
-                        for z in range(i-group_counter,i):
-                            atom_object[z].select = True 
-                        # ... and join them. This here is the 'grouping'.
-                        bpy.ops.object.join()
-                        # Put this list of 200 atoms into the group list
-                        groups.append(bpy.context.scene.objects.active)
-                        # Deselect all objects and ...
-                        bpy.ops.object.select_all(action='DESELECT')
-                        # ... start from the beginning with the group counter. Come
-                        # back if you have again 200 atoms loaded.
-                        group_counter = 0
- 
-            # So, if we shall group then group the very last loaded atoms ...
-            if FLAG_group_atoms == True:
-                for z in range(i-group_counter,i):
-                    atom_object[z].select = True 
-                    bpy.context.scene.objects.active = atom_object[z]
-                bpy.ops.object.join()
-                groups.append(bpy.context.scene.objects.active)
-                bpy.ops.object.select_all(action='DESELECT')
-         
-                # Group all groups into one huge group! Select the before ...
-                for group in groups:
-                    group.select = True 
-                bpy.ops.object.join()   
-                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+                ball.parent = new_atom_mesh
+                new_atom_mesh.dupli_type = 'VERTS'
+                LOADED_STRUCTURES_DUPLI.append(ball)
+                   
             
     # ... draw Mesh balls  
     else: 
         for atom_list in draw_atom_type_list:
-            group_counter = 0
-            groups        = []
-            for atom in atom_list:
-                sys.stdout.write("Atom No. %d has been built\r" % (i+1) )
-                sys.stdout.flush()
 
-                bpy.ops.mesh.primitive_uv_sphere_add(segments=Ball_azimuth, ring_count=Ball_zenith, size=1, view_align=False, enter_editmode=False, location=atom[2], rotation=(0, 0, 0), layers=(True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))
+            if use_dupliverts == False:  
+
+                structure = []
+                for atom in atom_list:
+                    sys.stdout.write("Atom No. %d has been built\r" 
+                                     % (number_loaded_atoms+1) )
+                    sys.stdout.flush()
+
+                    current_layers=bpy.context.scene.layers
+                    bpy.ops.mesh.primitive_uv_sphere_add(
+                                segments=Ball_azimuth, ring_count=Ball_zenith, 
+                                size=1, view_align=False, enter_editmode=False, 
+                                location=atom[2], rotation=(0, 0, 0), 
+                                layers=current_layers)
+                    ball                 = bpy.context.scene.objects.active
+                    ball.scale           = (atom[3]*Ball_radius_factor,
+                                            atom[3]*Ball_radius_factor,
+                                            atom[3]*Ball_radius_factor)
+                    ball.name            = atom[0]
+                    ball.active_material = atom[1]
+                    structure.append(ball)
+                    number_loaded_atoms += 1         
+                LOADED_STRUCTURES.append(structure)
+  
+
+            if use_dupliverts == True:
+
+                atom_vertices = []       
+                for atom in atom_list:
+                    atom_vertices.append( atom[2] )
+
+                atom_mesh = bpy.data.meshes.new("Mesh_"+atom[0])
+                atom_mesh.from_pydata(atom_vertices, [], [])
+                atom_mesh.update()
+                new_atom_mesh = bpy.data.objects.new(atom[0], atom_mesh)
+                bpy.context.scene.objects.link(new_atom_mesh)
+
+                current_layers=bpy.context.scene.layers
+                bpy.ops.mesh.primitive_uv_sphere_add(
+                                segments=Ball_azimuth, ring_count=Ball_zenith, 
+                                size=1, view_align=False, enter_editmode=False, 
+                                location=(0,0,0), rotation=(0, 0, 0), 
+                                layers=current_layers)    
                 ball                 = bpy.context.scene.objects.active
-                ball.scale           = (atom[3]*Ball_radius_factor,atom[3]*Ball_radius_factor,atom[3]*Ball_radius_factor)
-                ball.name            = atom[0]
+                ball.scale           = (atom[3]*Ball_radius_factor,
+                                        atom[3]*Ball_radius_factor,
+                                        atom[3]*Ball_radius_factor)
+                ball.name            = "Ball (UV)_"+atom[0]
                 ball.active_material = atom[1]
-                atom_object.append(ball)
+                ball.parent = new_atom_mesh
+                new_atom_mesh.dupli_type = 'VERTS'    
+                LOADED_STRUCTURES_DUPLI.append(ball)
+        
 
-                i += 1         
-                group_counter += 1 
-                if FLAG_group_atoms == True:
-                    if group_counter == group_atoms_dn:
-                        for z in range(i-group_counter,i):
-                            atom_object[z].select = True 
-                        bpy.ops.object.join()
-                        groups.append(bpy.context.scene.objects.active)
-                        bpy.ops.object.select_all(action='DESELECT')
-                        group_counter = 0
          
-            if FLAG_group_atoms == True:
-                for z in range(i-group_counter,i):
-                    atom_object[z].select = True 
-                bpy.ops.object.join()
-                groups.append(bpy.context.scene.objects.active)
-                bpy.ops.object.select_all(action='DESELECT')  
 
-                for group in groups:
-                    group.select = True 
-                bpy.ops.object.join()  
-                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
 
     #
     # DRAW VACANCIES
     #
-
-
-    bpy.ops.object.select_all(action='DESELECT') 
-    for atom_list in draw_atom_type_list_vacancy:
-        group_counter = 0
-        groups        = []
-        for atom in atom_list:
-            sys.stdout.write("Atom No. %d has been built\r" % (i+1) )
-            sys.stdout.flush()
-            bpy.ops.mesh.primitive_cube_add(view_align=False, enter_editmode=False, location=atom[2], rotation=(0.0, 0.0, 0.0), layers=(True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))
+    
+    bpy.ops.object.select_all(action='DESELECT')
+    
+    if draw_atom_type_list_vacancy != []:
+    
+        if use_dupliverts == False:  
+     
+            structure = []   
+            for atom in atom_list:
+                sys.stdout.write("Atom No. %d has been built\r" 
+                                  % (number_loaded_atoms+1) )
+                sys.stdout.flush()
+                
+                current_layers=bpy.context.scene.layers
+                bpy.ops.mesh.primitive_cube_add(
+                                   view_align=False, enter_editmode=False, 
+                                   location=atom[2], rotation=(0.0, 0.0, 0.0), 
+                                   layers=current_layers)
+                ball                 = bpy.context.scene.objects.active
+                ball.scale           = (atom[3]*Ball_radius_factor,
+                                        atom[3]*Ball_radius_factor,
+                                        atom[3]*Ball_radius_factor)
+                ball.name            = atom[0]
+                ball.active_material = atom[1]
+                structure.append(ball)
+                number_loaded_atoms += 1   
+            LOADED_STRUCTURES.append(structure) 
+    
+    
+        if use_dupliverts == True:
+   
+            atom_vertices = []
+            for atom in draw_atom_type_list_vacancy:
+                atom_vertices.append( atom[2] )
+            
+            atom_mesh = bpy.data.meshes.new("Mesh_"+atom[0])
+            atom_mesh.from_pydata(atom_vertices, [], [])
+            atom_mesh.update()
+            new_atom_mesh = bpy.data.objects.new(atom[0], atom_mesh)
+            bpy.context.scene.objects.link(new_atom_mesh)
+            
+            current_layers=bpy.context.scene.layers
+            bpy.ops.mesh.primitive_cube_add(
+                                      view_align=False, enter_editmode=False, 
+                                      location=(0.0, 0.0, 0.0), 
+                                      rotation=(0.0, 0.0, 0.0), 
+                                      layers=current_layers)
             ball                 = bpy.context.scene.objects.active
-            ball.scale           = (atom[3]*Ball_radius_factor,atom[3]*Ball_radius_factor,atom[3]*Ball_radius_factor)
-            ball.name            = atom[0]
+            ball.scale           = (atom[3]*Ball_radius_factor,
+                                    atom[3]*Ball_radius_factor,
+                                    atom[3]*Ball_radius_factor)
+            ball.name            = "Cube_"+atom[0]
             ball.active_material = atom[1]
-            atom_object.append(ball)
-         
-            i += 1         
-            group_counter += 1 
-            if FLAG_group_atoms == True:
-                if group_counter == group_atoms_dn:
-                    for z in range(i-group_counter,i):
-                        atom_object[z].select = True
-                    bpy.ops.object.join()
-                    groups.append(bpy.context.scene.objects.active)
-                    bpy.ops.object.select_all(action='DESELECT')
-                    group_counter = 0
-                    
-        if FLAG_group_atoms == True:
-            for z in range(i-group_counter,i):
-                atom_object[z].select = True
-            bpy.ops.object.join()
-            groups.append(bpy.context.scene.objects.active)
-            bpy.ops.object.select_all(action='DESELECT')  
-         
-            for group in groups:
-                group.select = True 
-            bpy.ops.object.join()  
-            bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
-      
+            ball.parent = new_atom_mesh
+            new_atom_mesh.dupli_type = 'VERTS'  
+            LOADED_STRUCTURES_DUPLI.append(ball)
+
+
+
     print()    
-      
-      
-      
-      
-      
       
       
       
@@ -1498,56 +1480,61 @@ def Draw_scene(FLAG_group_atoms,group_atoms_dn,mesh_yn,Ball_azimuth,Ball_zenith,
 
 
 
-    if Stick_yn == True:
+    if use_stick == True:
  
         # Create a new material with the corresponding color. The
         # color is taken from the all_atom list, it is the last entry
         # in the data file (index -1).
         bpy.ops.object.material_slot_add()
-        stick_material               = bpy.data.materials.new(Data_all_atoms[all_existing_atoms-1][2])
-                       
-        stick_material.name          = Data_all_atoms[all_existing_atoms-1][1]
-        stick_material.diffuse_color = Data_all_atoms[all_existing_atoms-1][3]
+        stick_material = bpy.data.materials.new(Data_all_atoms[ALL_EXISTING_ATOMS-1][2])  
+        stick_material.diffuse_color = Data_all_atoms[ALL_EXISTING_ATOMS-1][3]
  
         # This is the unit vector of the z axis
-        up_axis = mathutils.Vector([0.0, 0.0, 1.0])
+        z_axis_vec = Vector((0.0, 0.0, 1.0))
  
+        sticks = []
         # For all sticks, do ...
         for i in range(0,Number_of_sticks):
-            # Print on the terminal the actual number of the stick that is build
+            # Print on the terminal the actual number of the stick that is 
+            # build
             sys.stdout.write("Stick No. %d has been built\r" % (i+1) )
             sys.stdout.flush()
-            # The vectors of the two atoms are build 
-            k1 = mathutils.Vector([atom_x[bar_atom1[i]-1],atom_y[bar_atom1[i]-1],atom_z[bar_atom1[i]-1]])
-            k2 = mathutils.Vector([atom_x[bar_atom2[i]-1],atom_y[bar_atom2[i]-1],atom_z[bar_atom2[i]-1]])
-            # This is the difference of both vectors
-            v = (k2-k1)
+            # Sum and difference of both atoms
+            vv_vec = atom_xyz_vec[stick_atom2[i]-1] + atom_xyz_vec[stick_atom1[i]-1] 
+            dv_vec = atom_xyz_vec[stick_atom2[i]-1] - atom_xyz_vec[stick_atom1[i]-1]
             # Angle with respect to the z-axis
-            angle   = v.angle(up_axis, 0)
-            # Cross-product between v and the z-axis vector. It is the vector of
-            # rotation.
-            axis    = up_axis.cross(v)
+            angle = dv_vec.angle(z_axis_vec, 0)
+            # Cross-product between dv_vec and the z-axis vector. It is the 
+            # vector of rotation.
+            axis_vec = z_axis_vec.cross(dv_vec)
             # Calculate Euler angles
-            euler   = mathutils.Matrix.Rotation(angle, 4, axis).to_euler()
+            euler = Matrix.Rotation(angle, 4, axis_vec).to_euler()
             # Create stick
-            bpy.ops.mesh.primitive_cylinder_add(vertices=Stick_sectors, radius=Stick_diameter, depth= v.length, cap_ends=True, view_align=False, enter_editmode=False, location= ((k1+k2)*0.5), rotation=(0,0,0), layers=(True, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))
+            current_layers = bpy.context.scene.layers
+            bpy.ops.mesh.primitive_cylinder_add(vertices=Stick_sectors, 
+                                  radius=Stick_diameter, depth= dv_vec.length, 
+                                  cap_ends=True, view_align=False, 
+                                  enter_editmode=False, location= (vv_vec*0.5), 
+                                  rotation=(0,0,0), layers=current_layers)
             # Put the stick into the scene ...
             stick                 = bpy.context.scene.objects.active
             # ... and rotate the stick.
             stick.rotation_euler  = euler
-            # Material ... 
             stick.active_material = stick_material
-            # ... and name
-            stick.name            = Data_all_atoms[all_existing_atoms-1][1]
-
- 
-    print()
-    print()
-    print("All atoms and sticks have been drawn - finished.")
-    print()
-    print()
-
-
-    return str(Number_of_total_atoms)
+            stick.name            = Data_all_atoms[ALL_EXISTING_ATOMS-1][1]
+            sticks.append(stick)
             
-            
+        if use_dupliverts == True:
+            bpy.ops.object.select_all(action='DESELECT')
+            for stick in sticks:
+                stick.select = True
+            bpy.ops.object.join()
+            bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+            sticks_all      = bpy.context.scene.objects.active
+            sticks_all.name = "Sticks" 
+
+
+    print("\n\nAll atoms and sticks have been drawn - finished (%d) .\n\n" 
+           % Number_of_total_atoms)
+
+    return Number_of_total_atoms
