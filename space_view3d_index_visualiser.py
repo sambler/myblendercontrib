@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 10),
+    'version': (2, 6, 11),
     'blender': (2, 6, 0),
-    'api': 42162,
+    'api': 42181,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -73,9 +73,9 @@ def calc_callback(self, context):
     texts = []
     locs = []
     me = context.active_object.data
-    # uncomment 2 lines below, to enable live updating of the selection
-    #bpy.ops.object.editmode_toggle()
-    #bpy.ops.object.editmode_toggle()
+    if bpy.context.scene.live_mode:
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.editmode_toggle()
     if bpy.context.scene.display_vert_index:
         for v in me.vertices:
             if not v.hide and \
@@ -139,6 +139,10 @@ class IndexVisualiser(bpy.types.Operator):
     def poll(cls, context):
         return context.mode=="EDIT_MESH"
     
+    def __del__(self):
+        bpy.context.scene.display_indices = -1
+        clear_properties(full=False)
+    
     def modal(self, context, event):
         if context.area:
             context.area.tag_redraw()
@@ -196,6 +200,10 @@ class InitProperties(bpy.types.Operator):
         bpy.types.Scene.display_face_index = bpy.props.BoolProperty(
             name="Faces",
             description="Display face indices")
+        bpy.types.Scene.live_mode = bpy.props.BoolProperty(
+            name="Live",
+            description="Toggle live update of the selection, can be slow",
+            default=False)
         return {'FINISHED'}
 
 
@@ -209,7 +217,7 @@ def clear_properties(full=True):
         del bpy.context.scene["IndexVisualiser"]
     if full:
         props = ["display_indices", "display_sel_only", "display_vert_index",
-        "display_edge_index", "display_face_index"]
+        "display_edge_index", "display_face_index", "live_mode"]
         for p in props:
             if p in bpy.types.Scene.bl_rna.properties:
                 exec("del bpy.types.Scene."+p)
@@ -232,6 +240,7 @@ def menu_func(self, context):
     row.active = (context.mode=="EDIT_MESH" and \
         context.scene.display_indices==1)
     row.prop(context.scene, "display_sel_only")
+    row.prop(context.scene, "live_mode", toggle=False)
 
 
 def register():
