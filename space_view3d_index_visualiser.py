@@ -21,7 +21,7 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 11),
+    'version': (2, 6, 12),
     'blender': (2, 6, 0),
     'api': 42181,
     'location': 'View3D > Properties panel > Mesh Display tab',
@@ -67,7 +67,7 @@ def calc_callback(self, context):
     # get matrices
     view_mat = context.space_data.region_3d.perspective_matrix
     ob_mat = context.active_object.matrix_world
-    total_mat = ob_mat * view_mat
+    total_mat = view_mat * ob_mat
     
     # calculate location info
     texts = []
@@ -97,7 +97,7 @@ def calc_callback(self, context):
                 locs.append([1.0, 0.0, 0.5, f.index, f.center.to_4d()])
                 
     for loc in locs:
-        vec = total_mat *loc[4] # order is important
+        vec = total_mat * loc[4] # order is important
         # dehomogenise
         vec = mathutils.Vector((vec[0]/vec[3],vec[1]/vec[3],vec[2]/vec[3]))
         x = int(mid_x + vec[0]*width/2.0)
