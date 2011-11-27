@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 9),
-    'blender': (2, 5, 9),
-    'api': 39740,
+    'version': (2, 6, 10),
+    'blender': (2, 6, 0),
+    'api': 42162,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -182,6 +182,7 @@ class InitProperties(bpy.types.Operator):
         bpy.types.Scene.display_indices = bpy.props.IntProperty(
             name="Display indices",
             default=0)
+        context.scene.display_indices = 0
         bpy.types.Scene.display_sel_only = bpy.props.BoolProperty(
             name="Selected only",
             description="Only display indices of selected vertices/edges/faces",
