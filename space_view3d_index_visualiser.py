@@ -21,9 +21,9 @@
 bl_info = {
     'name': 'Index Visualiser',
     'author': 'Bartius Crouch',
-    'version': (2, 6, 9),
-    'blender': (2, 5, 9),
-    'api': 39740,
+    'version': (2, 6, 12),
+    'blender': (2, 6, 0),
+    'api': 42181,
     'location': 'View3D > Properties panel > Mesh Display tab',
     'warning': '', # used for warning icon and text in addons panel
     'description': 'Display the indices of vertices, edges and faces '\
@@ -67,15 +67,15 @@ def calc_callback(self, context):
     # get matrices
     view_mat = context.space_data.region_3d.perspective_matrix
     ob_mat = context.active_object.matrix_world
-    total_mat = ob_mat * view_mat
+    total_mat = view_mat * ob_mat
     
     # calculate location info
     texts = []
     locs = []
     me = context.active_object.data
-    # uncomment 2 lines below, to enable live updating of the selection
-    #bpy.ops.object.editmode_toggle()
-    #bpy.ops.object.editmode_toggle()
+    if bpy.context.scene.live_mode:
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.editmode_toggle()
     if bpy.context.scene.display_vert_index:
         for v in me.vertices:
             if not v.hide and \
@@ -97,7 +97,7 @@ def calc_callback(self, context):
                 locs.append([1.0, 0.0, 0.5, f.index, f.center.to_4d()])
                 
     for loc in locs:
-        vec = total_mat *loc[4] # order is important
+        vec = total_mat * loc[4] # order is important
         # dehomogenise
         vec = mathutils.Vector((vec[0]/vec[3],vec[1]/vec[3],vec[2]/vec[3]))
         x = int(mid_x + vec[0]*width/2.0)
@@ -138,6 +138,10 @@ class IndexVisualiser(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         return context.mode=="EDIT_MESH"
+    
+    def __del__(self):
+        bpy.context.scene.display_indices = -1
+        clear_properties(full=False)
     
     def modal(self, context, event):
         if context.area:
@@ -182,6 +186,7 @@ class InitProperties(bpy.types.Operator):
         bpy.types.Scene.display_indices = bpy.props.IntProperty(
             name="Display indices",
             default=0)
+        context.scene.display_indices = 0
         bpy.types.Scene.display_sel_only = bpy.props.BoolProperty(
             name="Selected only",
             description="Only display indices of selected vertices/edges/faces",
@@ -195,6 +200,10 @@ class InitProperties(bpy.types.Operator):
         bpy.types.Scene.display_face_index = bpy.props.BoolProperty(
             name="Faces",
             description="Display face indices")
+        bpy.types.Scene.live_mode = bpy.props.BoolProperty(
+            name="Live",
+            description="Toggle live update of the selection, can be slow",
+            default=False)
         return {'FINISHED'}
 
 
@@ -208,7 +217,7 @@ def clear_properties(full=True):
         del bpy.context.scene["IndexVisualiser"]
     if full:
         props = ["display_indices", "display_sel_only", "display_vert_index",
-        "display_edge_index", "display_face_index"]
+        "display_edge_index", "display_face_index", "live_mode"]
         for p in props:
             if p in bpy.types.Scene.bl_rna.properties:
                 exec("del bpy.types.Scene."+p)
@@ -231,6 +240,7 @@ def menu_func(self, context):
     row.active = (context.mode=="EDIT_MESH" and \
         context.scene.display_indices==1)
     row.prop(context.scene, "display_sel_only")
+    row.prop(context.scene, "live_mode", toggle=False)
 
 
 def register():
