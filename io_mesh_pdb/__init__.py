@@ -20,7 +20,7 @@ bl_info = {
     "name": "PDB Atomic Blender",
     "description": "Loading and manipulating atoms from PDB files",
     "author": "Clemens Barth",
-    "version": (0,9),
+    "version": (1,0),
     "blender": (2,6),
     "api": 31236,
     "location": "File -> Import -> PDB (.pdb), Panel: View 3D - Tools",
