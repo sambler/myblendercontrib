@@ -101,7 +101,7 @@ class ImportMS3D(
 
     #DEBUG_print("ImportMS3D")
 
-    bl_idname = "io_ms3d.ms3d_import"
+    bl_idname = "io_scene_ms3d.ms3d_import"
     bl_label = "Import MS3D"
     bl_description = "Import from a MS3D file format (.ms3d)"
     bl_options = {"PRESET"}

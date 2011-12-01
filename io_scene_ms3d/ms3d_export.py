@@ -89,7 +89,7 @@ class ExportMS3D(
 
     #DEBUG_print("ExportMS3D")
 
-    bl_idname = "io_ms3d.ms3d_export"
+    bl_idname = "io_scene_ms3d.ms3d_export"
     bl_label = "Export MS3D"
     bl_description = "Export to a MS3D file format (.ms3d)"
     bl_options = {"PRESET"}
