@@ -41,13 +41,16 @@ from bpy.props import (StringProperty,
                        FloatProperty)
 
 
+# TODO, allow reload
+from . import import_pdb
+
 # -----------------------------------------------------------------------------
 #                                                                           GUI
 
 # The panel, which is loaded after the file has been
 # chosen via the menu 'File -> Import'
 class CLASS_atom_pdb_panel(bpy.types.Panel):
-    bl_label       = ATOM_PDB_PANELNAME
+    bl_label       = "PDB - Atomic Blender"
     #bl_space_type  = "PROPERTIES"
     #bl_region_type = "WINDOW"
     #bl_context     = "physics"
@@ -73,7 +76,7 @@ class CLASS_atom_pdb_panel(bpy.types.Panel):
     # Please, correct me if I'm wrong. 
     @classmethod
     def poll(self, context):
-        if ATOM_PDB_FILEPATH == "":
+        if import_pdb.ATOM_PDB_FILEPATH == "":
             return False
         else:
             return True
@@ -90,7 +93,6 @@ class CLASS_atom_pdb_panel(bpy.types.Panel):
         col.operator("atom_pdb.datafile_apply")
         row = layout.row()
         col = row.column(align=True)
-        col.prop(scn, "atom_pdb_PDB_filename") 
         col.prop(scn, "atom_pdb_PDB_file")
 
         layout.separator()
@@ -122,7 +124,10 @@ class CLASS_atom_pdb_panel(bpy.types.Panel):
         col.prop(scn, "use_atom_pdb_lamp")          
         col = row.column() 
         col.operator("atom_pdb.button_reload")
+
+        # TODO, use lanel() instead
         col.prop(scn, "atom_pdb_number_atoms")
+
         layout.separator()
               
         row = layout.row()             
@@ -167,14 +172,18 @@ class CLASS_atom_pdb_IO(bpy.types.PropertyGroup):
     
     def Callback_radius_type(self, context):
         scnn = bpy.context.scene
-        DEF_atom_pdb_radius_type(scnn.atom_pdb_radius_type,
-                                 scnn.atom_pdb_radius_how)
+        import_pdb.DEF_atom_pdb_radius_type(
+                scnn.atom_pdb_radius_type,
+                scnn.atom_pdb_radius_how,
+                )
         
     def Callback_radius_pm(self, context):
         scnn = bpy.context.scene
-        DEF_atom_pdb_radius_pm(scnn.atom_pdb_radius_pm_name, 
-                               scnn.atom_pdb_radius_pm,
-                               scnn.atom_pdb_radius_how)       
+        import_pdb.DEF_atom_pdb_radius_pm(
+                scnn.atom_pdb_radius_pm_name, 
+                scnn.atom_pdb_radius_pm,
+                scnn.atom_pdb_radius_how,
+                )
            
     # In the file dialog window
     scn = bpy.types.Scene
@@ -224,12 +233,10 @@ class CLASS_atom_pdb_IO(bpy.types.PropertyGroup):
     scn.atom_pdb_datafile = StringProperty(
         name = "", description="Path to your custom data file", 
         maxlen = 256, default = "", subtype='FILE_PATH')
-    scn.atom_pdb_PDB_filename = StringProperty(
-        name = "File name", default="", 
-        description = "PDB file name")
     scn.atom_pdb_PDB_file = StringProperty(
         name = "Path to file", default="", 
         description = "Path of the PDB file")               
+    # TODO, remove this property, its used for display only!
     scn.atom_pdb_number_atoms = StringProperty(name="", 
         default="Number", description = "This output shows "
         "the number of atoms which have been loaded")
@@ -265,7 +272,7 @@ class CLASS_atom_pdb_IO(bpy.types.PropertyGroup):
 class CLASS_atom_pdb_datafile_apply(bpy.types.Operator):
     bl_idname = "atom_pdb.datafile_apply"
     bl_label = "Apply"
-    bl_description = "Use color and radii values stored in a custom file."
+    bl_description = "Use color and radii values stored in a custom file"
 
     def execute(self, context):
         scn    = bpy.context.scene        
@@ -273,7 +280,7 @@ class CLASS_atom_pdb_datafile_apply(bpy.types.Operator):
         if scn.atom_pdb_datafile == "":
             return {'FINISHED'}   
         
-        DEF_atom_pdb_custom_datafile(scn.atom_pdb_datafile)
+        import_pdb.DEF_atom_pdb_custom_datafile(scn.atom_pdb_datafile)
         
         for obj in bpy.context.selected_objects:
             if len(obj.children) != 0:
@@ -377,7 +384,7 @@ class CLASS_atom_pdb_distance_button(bpy.types.Operator):
 
     def execute(self, context):
         scn    = bpy.context.scene
-        dist   = DEF_atom_pdb_distance()
+        dist   = import_pdb.DEF_atom_pdb_distance()
 
         if dist != "N.A.":
            # The string length is cut, 3 digits after the first 3 digits 
@@ -400,8 +407,10 @@ class CLASS_atom_pdb_radius_all_bigger_button(bpy.types.Operator):
 
     def execute(self, context):
         scn = bpy.context.scene
-        DEF_atom_pdb_radius_all(scn.atom_pdb_radius_all, 
-                              scn.atom_pdb_radius_how)
+        import_pdb.DEF_atom_pdb_radius_all(
+                scn.atom_pdb_radius_all, 
+                scn.atom_pdb_radius_how,
+                )
         return {'FINISHED'}
 
 
@@ -413,8 +422,10 @@ class CLASS_atom_pdb_radius_all_smaller_button(bpy.types.Operator):
 
     def execute(self, context):
         scn = bpy.context.scene
-        DEF_atom_pdb_radius_all(1.0/scn.atom_pdb_radius_all, 
-                                  scn.atom_pdb_radius_how)
+        import_pdb.DEF_atom_pdb_radius_all(
+                1.0/scn.atom_pdb_radius_all, 
+                scn.atom_pdb_radius_how,
+                )
         return {'FINISHED'}
 
 
@@ -442,18 +453,12 @@ class CLASS_atom_pdb_load_button(bpy.types.Operator):
         datafile   = scn.atom_pdb_datafile
               
         # Execute main routine an other time ... from the panel      
-        atom_number = DEF_atom_pdb_main(mesh,azimuth,zenith,bradius,
-                                 radiustype,bdistance,sticks,
-                                 ssector,sradius,center,cam,lamp,datafile)
+        atom_number = import_pdb.DEF_atom_pdb_main(
+                mesh, azimuth, zenith, bradius,
+                radiustype, bdistance, sticks,
+                ssector, sradius, center, cam, lamp, datafile,
+                )
         scn.atom_pdb_number_atoms = str(atom_number) + " atoms"
-        
-        # Select all loaded objects
-        bpy.ops.object.select_all(action='DESELECT')  
-        for obj in LOADED_STRUCTURE:
-            obj.select = True
-            bpy.context.scene.objects.active = obj
-        # Clean this list
-        LOADED_STRUCTURE[:] = []
 
         return {'FINISHED'}
 
@@ -499,30 +504,16 @@ class CLASS_LoadPDB(bpy.types.Operator, ImportHelper):
         row = layout.row()    
         row.prop(scn, "atom_pdb_atomradius")
     
-    def execute(self, context):   
-        global ATOM_PDB_FILEPATH
-        global ATOM_PDB_FILENAME
+    def execute(self, context):
         global ATOM_PDB_ELEMENTS_DEFAULT
         global ATOM_PDB_ELEMENTS
-      
-        # Initialize the element list
-        for item in ATOM_PDB_ELEMENTS_DEFAULT:
-        
-            # All three radii into a list
-            radii = [item[4],item[5],item[6]]
-            # The handling of the ionic radii will be done later. So far, it is an
-            # empty list.
-            radii_ionic = []  
 
-            li = CLASS_atom_pdb_Elements(item[0],item[1],item[2],item[3],
-                                         radii,radii_ionic)                                 
-            ATOM_PDB_ELEMENTS.append(li)
-     
         scn = bpy.context.scene
-        ATOM_PDB_FILEPATH = self.filepath
-        ATOM_PDB_FILENAME = os.path.basename(ATOM_PDB_FILEPATH)
-        scn.atom_pdb_PDB_filename = ATOM_PDB_FILENAME
-        scn.atom_pdb_PDB_file = ATOM_PDB_FILEPATH
+
+        # This is in order to solve this strange 'relative path' thing.
+        import_pdb.ATOM_PDB_FILEPATH = bpy.path.abspath(self.filepath)
+
+        scn.atom_pdb_PDB_file = import_pdb.ATOM_PDB_FILEPATH
         
         azimuth    = scn.atom_pdb_mesh_azimuth
         zenith     = scn.atom_pdb_mesh_zenith 
@@ -537,21 +528,15 @@ class CLASS_LoadPDB(bpy.types.Operator, ImportHelper):
         lamp       = scn.use_atom_pdb_lamp
         mesh       = scn.use_atom_pdb_mesh 
         datafile   = scn.atom_pdb_datafile
-              
+
         # Execute main routine      
-        atom_number = DEF_atom_pdb_main(mesh,azimuth,zenith,bradius,
-                                 radiustype,bdistance,sticks,
-                                 ssector,sradius,center,cam,lamp,datafile)
+        atom_number = import_pdb.DEF_atom_pdb_main(
+                mesh, azimuth, zenith, bradius,
+                radiustype, bdistance, sticks,
+                ssector, sradius, center, cam, lamp, datafile)
+
         scn.atom_pdb_number_atoms = str(atom_number) + " atoms"
-        
-        # Select all loaded objects
-        bpy.ops.object.select_all(action='DESELECT')  
-        for obj in LOADED_STRUCTURE:
-            obj.select = True
-            bpy.context.scene.objects.active = obj
-        # Clean the list which contains the last loaded structure
-        LOADED_STRUCTURE[:] = []
-        
+
         return {'FINISHED'}
 
 

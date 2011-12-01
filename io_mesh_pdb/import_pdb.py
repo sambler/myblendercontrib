@@ -31,8 +31,6 @@
 #  dairin0d, PKHG, Valter, etc 
 #
 
-ATOM_PDB_VERSION = "0.9"
-
 import bpy
 import io
 import sys
@@ -48,11 +46,9 @@ from mathutils import Vector, Matrix
 # after having chosen the PDB file (see 'class LoadPDB' further below).
 
 ATOM_PDB_FILEPATH = ""
-ATOM_PDB_FILENAME = ""
 
 # Some string stuff for the console.
-ATOM_PDB_STRING = "Atomic Blender "+ATOM_PDB_VERSION+"\n==================="
-ATOM_PDB_PANELNAME = "PDB - Atomic Blender - v"+ATOM_PDB_VERSION
+ATOM_PDB_STRING = "Atomic Blender\n==================="
 
 
 # -----------------------------------------------------------------------------
@@ -213,14 +209,6 @@ class CLASS_atom_pdb_stick:
     def __init__(self, atom1, atom2):
         self.atom1 = atom1
         self.atom2 = atom2       
-
-
-# A list of ALL objects which are loaded (needed for selecting the loaded
-# structure. 
-LOADED_STRUCTURE = []
-    
-
-    
 
 
 # -----------------------------------------------------------------------------
@@ -504,12 +492,6 @@ def DEF_atom_pdb_main(use_mesh,Ball_azimuth,Ball_zenith,
                Ball_radius_factor,radiustype,Ball_distance_factor,
                use_stick,Stick_sectors,Stick_diameter,put_to_center,
                use_camera,use_lamp,path_datafile):
-
-    global ATOM_PDB_FILEPATH
-    global ATOM_PDB_FILENAME
-
-    # This is in order to solve this strange 'relative path' thing.
-    ATOM_PDB_FILEPATH  = bpy.path.abspath(ATOM_PDB_FILEPATH)
     
     # The list of all atoms as read from the PDB file.
     all_atoms  = []
@@ -519,6 +501,28 @@ def DEF_atom_pdb_main(use_mesh,Ball_azimuth,Ball_zenith,
    
     # List of materials
     atom_material_list = []
+
+    # A list of ALL objects which are loaded (needed for selecting the loaded
+    # structure. 
+    atom_object_list = []
+
+
+    # ------------------------------------------------------------------------
+    # INITIALIZE THE ELEMENT LIST
+
+    ATOM_PDB_ELEMENTS[:] = []
+
+    for item in ATOM_PDB_ELEMENTS_DEFAULT:
+    
+        # All three radii into a list
+        radii = [item[4],item[5],item[6]]
+        # The handling of the ionic radii will be done later. So far, it is an
+        # empty list.
+        radii_ionic = []  
+
+        li = CLASS_atom_pdb_Elements(item[0],item[1],item[2],item[3],
+                                     radii,radii_ionic)                                 
+        ATOM_PDB_ELEMENTS.append(li)
 
 
     # ------------------------------------------------------------------------
@@ -1051,7 +1055,7 @@ def DEF_atom_pdb_main(use_mesh,Ball_azimuth,Ball_zenith,
         new_atom_mesh.dupli_type = 'VERTS'
         # The object is back translated to 'object_center_vec'.
         new_atom_mesh.location = object_center_vec
-        LOADED_STRUCTURE.append(new_atom_mesh)
+        atom_object_list.append(new_atom_mesh)
 
     print()    
            
@@ -1121,11 +1125,22 @@ def DEF_atom_pdb_main(use_mesh,Ball_azimuth,Ball_zenith,
         stick_cylinder.active_material = stick_material
         stick_cylinder.parent = new_mesh
         new_mesh.dupli_type = 'FACES'
-        LOADED_STRUCTURE.append(new_mesh)
-        
+        atom_object_list.append(new_mesh)
+
+
+    # ------------------------------------------------------------------------
+    # SELECT ALL LOADED OBJECTS
+    bpy.ops.object.select_all(action='DESELECT')  
+    obj = None
+    for obj in atom_object_list:
+        obj.select = True
+
+    # activate the last selected object (perhaps another should be active?)
+    if obj:
+        bpy.context.scene.objects.active = obj
 
     print("\n\nAll atoms (%d) and sticks (%d) have been drawn - finished.\n\n" 
            % (Number_of_total_atoms,Number_of_sticks))
-      
+
 
     return Number_of_total_atoms
