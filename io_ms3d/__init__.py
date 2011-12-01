@@ -68,7 +68,7 @@ bl_info = { \
     "location": "File > Import-Export",
     "warning": "imports and exports only geometry and material of ms3d file. (poor performance)",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/MilkShape3D_MS3D",
-    "tracker_url": "",
+    "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=29404",
     "category": "Import-Export"
     }
 

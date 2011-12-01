@@ -94,6 +94,7 @@ todo:
 changelog:
 changed: (0, 3, 3, "beta (2011-12-01 00:00)")
 mod: if "name" in somedict: result = somedict["name"]  to  result = somedict.get("name") if result is not None: (comment by campbellbarton)
+mod: "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=29404"
 
 
 changed: (0, 3, 3, "beta (2011-11-29 00:00)")
