@@ -199,6 +199,7 @@ class ExportMS3D(
         #DEBUG_print("WriteMs3d")
 
         t1 = time.time()
+        t2 = None
 
         try:
             # setup environment
@@ -216,6 +217,8 @@ class ExportMS3D(
             self.Ms3dFromBlender(blenderContext, ms3dTemplate)
             #DEBUG_print("WriteMs3d - data injected")
 
+            t2 = time.time()
+
             # write ms3d file to disk
             self.file = io.FileIO(self.filepath, "w")
             #DEBUG_print("WriteMs3d - file opend to write")
@@ -231,8 +234,11 @@ class ExportMS3D(
             ms3d_utils.PostSetupEnvironment(self, False)
 
         except Exception:
-            for i in range(len(sys.exc_info())):
-                print("WriteMs3d - exception in try block '{0}'".format(sys.exc_info()[i]))
+            type, value, traceback = sys.exc_info()
+            print("WriteMs3d - exception in try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+
+            if t2 is None:
+                t2 = time.time()
 
             raise
 
@@ -240,8 +246,8 @@ class ExportMS3D(
             #DEBUG_print("WriteMs3d - passed try block")
             pass
 
-        t2 = time.time()
-        print("elapsed time: {0:.4}s".format(t2 - t1))
+        t3 = time.time()
+        print("elapsed time: {0:.4}s (converter: ~{1:.4}s, disk io: ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
         return {"FINISHED"}
 
@@ -497,8 +503,6 @@ class ExportMS3D(
 
     ###############################################################################
     def CreateNormal(self,  matrixObject, blenderVertex):
-        ms3dNormal = [None for i in range(3)]
-
         mathVector = mathutils.Vector(blenderVertex.normal)
 
         # apply its object matrix (translation, rotation, scale)
@@ -541,7 +545,7 @@ class ExportMS3D(
                 return None
 
             # no order-translation needed
-            tx = tuple([0, 1, 2])
+            tx = (0, 1, 2)
 
         elif (l == 4):
             # it is a quad geometry
@@ -550,10 +554,10 @@ class ExportMS3D(
 
             if (subIndex == 0):
                 # order-translation for 1'st triangle
-                tx = tuple([0, 1, 3])
+                tx = (0, 1, 3)
             else:
                 # order-translation for 2'nd triangle
-                tx = tuple([3, 1, 2])
+                tx = (3, 1, 2)
 
         else:
             # it is any unhandled geometry
@@ -587,7 +591,7 @@ class ExportMS3D(
                 ])
 
         # put the normales
-        ms3dTriangle._vertexNormals = tuple([n0, n1, n2])
+        ms3dTriangle._vertexNormals = (n0, n1, n2)
 
         # if uv's present
         if (blenderMesh.uv_textures):
@@ -619,8 +623,8 @@ class ExportMS3D(
             #DEBUG_print("uv's present 2")
 
             # put the uv-coordinates
-            ms3dTriangle._s = tuple([s0, s1, s2])
-            ms3dTriangle._t = tuple([t0, t1, t2])
+            ms3dTriangle._s = (s0, s1, s2)
+            ms3dTriangle._t = (t0, t1, t2)
 
         return ms3dTriangle
 
@@ -706,7 +710,7 @@ class ExportMS3D(
             smoothGroup += 1
             if (smoothGroup > ms3d_spec.MAX_SMOOTH_GROUP):
                 smoothGroup = 1
-                
+
         #DEBUG_print("GenerateSmoothGroups smoothGroupFaces= {0}".format(smoothGroupFaces))
 
         return smoothGroupFaces

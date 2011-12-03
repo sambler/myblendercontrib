@@ -470,19 +470,19 @@ def PostSetupEnvironment(porterSelf, adjustView):
         # and set up the clipping
         for screen in bpy.context.blend_data.screens:
             #DEBUG_print(" screen={0}".format(screen))
-        
+
             for area in screen.areas:
                 #DEBUG_print("  area={0}".format(area.type))
-            
+
                 if (area.type != 'VIEW_3D'):
                     continue
-            
+
                 for space in area.spaces:
                     #DEBUG_print("   space={0}".format(space.type))
-                
+
                     if (space.type != 'VIEW_3D'):
                         continue
-                
+
                     screen.scene.game_settings.material_mode = 'MULTITEXTURE'
                     space.viewport_shade = 'SOLID'
                     space.show_textured_solid = True

@@ -92,6 +92,10 @@ todo:
 
 
 changelog:
+changed: (0, 3, 3, "beta (2011-12-03 00:00)")
+mod: class __init__(self, ...) default parameter handling
+mod: droped some tuple constructions: replaced with regular expression "tuple[(].*[[](.*)[]].*[)]" with "(\1)"
+
 changed: (0, 3, 3, "beta (2011-12-02 00:00)")
 add: importer adds additionally smoothingGroups as vertex_groups "ms3d_smoothingGroup{1...32}"
 fix: export smoothingGroups start index to 1

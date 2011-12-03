@@ -229,23 +229,11 @@ class ImportMS3D(
         #DEBUG_print("ReadMs3d")
 
         t1 = time.time()
+        t2 = None
 
         try:
             # setup environment
             ms3d_utils.PreSetupEnvironment(self)
-
-            # inject dictionaries
-            # handle internal ms3d names to external blender names
-            # to prevent potential name collisions on multiple imports
-            # with same names but different content
-            self.dict_armatures = {}
-            self.dict_bones = {}
-            self.dict_groups = {}
-            self.dict_images = {}
-            self.dict_materials = {}
-            self.dict_meshes = {}
-            self.dict_objects = {}
-            self.dict_textures = {}
 
             #DEBUG_print("ReadMs3d - entering try block")
 
@@ -268,6 +256,21 @@ class ImportMS3D(
             self.file.close()
             #DEBUG_print("ReadMs3d - file closed")
 
+            t2 = time.time()
+
+            # inject dictionaries
+            # handle internal ms3d names to external blender names
+            # to prevent potential name collisions on multiple imports
+            # with same names but different content
+            self.dict_armatures = {}
+            self.dict_bones = {}
+            self.dict_groups = {}
+            self.dict_images = {}
+            self.dict_materials = {}
+            self.dict_meshes = {}
+            self.dict_objects = {}
+            self.dict_textures = {}
+
             # inject ms3d data to blender
             self.BlenderFromMs3d(blenderContext, ms3dTemplate)
             #DEBUG_print("ReadMs3d - data injected")
@@ -276,8 +279,11 @@ class ImportMS3D(
             ms3d_utils.PostSetupEnvironment(self, self.prop_unit_mm)
 
         except Exception:
-            for i in range(len(sys.exc_info())):
-                print("ReadMs3d - exception in try block '{0}'".format(sys.exc_info()[i]))
+            type, value, traceback = sys.exc_info()
+            print("ReadMs3d - exception in try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+
+            if t2 is None:
+                t2 = time.time()
 
             raise
 
@@ -285,8 +291,8 @@ class ImportMS3D(
             #DEBUG_print("ReadMs3d - passed try block")
             pass
 
-        t2 = time.time()
-        print("elapsed time: {0:.4}s".format(t2 - t1))
+        t3 = time.time()
+        print("elapsed time: {0:.4}s (disk io: ~{1:.4}s, converter: ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
         return {"FINISHED"}
 
@@ -462,11 +468,11 @@ class ImportMS3D(
         blenderImage, setupImage = self.GetImage(ms3dMaterial, alphamap, allow_create=allow_create)
         if setupImage:
             pass
-    
+
         blenderTexture, setupTexture = self.GetTexture(ms3dMaterial, alphamap, blenderImage, allow_create=allow_create)
         if setupTexture:
             blenderTexture.image = blenderImage
-        
+
             if (alphamap):
                 blenderTexture.use_preview_alpha = True
 
@@ -613,7 +619,7 @@ class ImportMS3D(
         # remove double and deserted vertices
         ms3d_utils.EnableEditMode(True)
 
-    
+
         if (ms3d_utils.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
             #bpy.ops.object.modifier_add(type='ARMATURE')
             pass
@@ -711,7 +717,7 @@ class ImportMS3D(
             # duplicate selected faces
             if bpy.ops.mesh.duplicate.poll():
                 bpy.ops.mesh.duplicate()
-                
+
             # put selected to vertex_group
             blenderVertexGroup = bpy.context.active_object.vertex_groups.new(prop(PROP_NAME_SMOOTH_GROUP).format(smoothGroupKey))
             bpy.context.active_object.vertex_groups.active = blenderVertexGroup
@@ -921,7 +927,7 @@ class ImportMS3D(
     ###########################################################################
     def GetMaterial(self, ms3dMaterial):
         nameMaterial = ms3dMaterial.name
-        
+
         # already available
         blenderMaterial = self.dict_materials.get(nameMaterial)
         if (blenderMaterial):

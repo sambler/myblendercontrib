@@ -62,7 +62,7 @@ bl_info = {
         "name": "MilkShape3D MS3D format (.ms3d)",
         "description":  "Import / Export MilkShape3D MS3D files (conform with v1.8.4)",
         "author": "Alexander Nussbaumer",
-        "version": (0, 3, 3, "beta (2011-12-02 00:00)"),
+        "version": (0, 3, 3, "beta (2011-12-03 00:00)"),
         "blender": (2, 6, 0),
         "api": 41226,
         "location": "File > Import-Export",

@@ -320,8 +320,8 @@ class ms3d_header_t:
 
     def __init__(
             self,
-            defaultId = None,
-            defaultVersion = None
+            defaultId=HEADER,
+            defaultVersion=4
             ):
         """
         initialize
@@ -332,12 +332,6 @@ class ms3d_header_t:
         :type version: :class:`dword`
         """
         #DEBUG_print("ms3d_header_t.__init__", PRINT_LEVEL1)
-
-        if (not defaultId):
-            defaultId = HEADER
-
-        if (not defaultVersion):
-            defaultVersion = 4
 
         self.id = defaultId
         self.version = defaultVersion
@@ -386,16 +380,12 @@ class ms3d_vertex_t:
             "referenceCount",
             )
 
-    @property
-    def vertex(self):
-        return self._vertex
-
     def __init__(
             self,
-            defaultFlags=None,
-            defaultVertex=None,
-            defaultBoneId=None,
-            defaultReferenceCount=None
+            defaultFlags=FLAG_NONE,
+            defaultVertex=(0.0 ,0.0 ,0.0),
+            defaultBoneId=-1,
+            defaultReferenceCount=0
             ):
         """
         initialize
@@ -410,18 +400,6 @@ class ms3d_vertex_t:
         :type referenceCount: :class:`byte`
         """
         #DEBUG_print("ms3d_vertex_t.__init__", PRINT_LEVEL1)
-
-        if (not defaultFlags):
-            defaultFlags = FLAG_NONE
-
-        if (not defaultVertex):
-            defaultVertex = tuple([0 for i in range(3)])
-
-        if (not defaultBoneId):
-            defaultBoneId = -1
-
-        if (not defaultReferenceCount):
-            defaultReferenceCount = 0
 
         self.flags = defaultFlags
         self._vertex = defaultVertex
@@ -438,20 +416,24 @@ class ms3d_vertex_t:
                 )
 
     def __hash__(self):
-        return (
-                hash(self.vertex)
+        return (hash(self.vertex)
                 #^ hash(self.flags)
                 #^ hash(self.boneId)
                 #^ hash(self.referenceCount)
                 )
 
     def __eq__(self, other):
-        return (
-                (self.vertex == other.vertex)
+        return ((self.vertex == other.vertex)
                 #and (self.flags == other.flags)
                 #and (self.boneId == other.boneId)
                 #and (self.referenceCount == other.referenceCount)
                 )
+
+
+    @property
+    def vertex(self):
+        return self._vertex
+
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_t.read (flags)", PRINT_LEVEL1)
@@ -497,31 +479,15 @@ class ms3d_triangle_t:
             "groupIndex"
             )
 
-    @property
-    def vertexIndices(self):
-        return self._vertexIndices
-
-    @property
-    def vertexNormals(self):
-        return self._vertexNormals
-
-    @property
-    def s(self):
-        return self._s
-
-    @property
-    def t(self):
-        return self._t
-
     def __init__(
             self,
-            defaultFlags=None,
-            defaultVertexIndices=None,
-            defaultVertexNormals=None,
-            defaultS=None,
-            defaultT=None,
-            defaultSmoothingGroup=None,
-            defaultGroupIndex=None
+            defaultFlags=FLAG_NONE,
+            defaultVertexIndices=(0, 0, 0),
+            defaultVertexNormals=((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+            defaultS=(0.0, 0.0, 0.0),
+            defaultT=(0.0, 0.0, 0.0),
+            defaultSmoothingGroup=1,
+            defaultGroupIndex=0
             ):
         """
         initialize
@@ -543,27 +509,6 @@ class ms3d_triangle_t:
         """
         #DEBUG_print("ms3d_triangle_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultFlags):
-            defaultFlags = FLAG_NONE
-
-        if (not defaultVertexIndices):
-            defaultVertexIndices = tuple([0 for i in range(3)])
-
-        if (not defaultVertexNormals):
-            defaultVertexNormals = tuple([tuple([0.0 for ii in range(3)]) for i in range(3)])
-
-        if (not defaultS):
-            defaultS = tuple([0.0 for i in range(3)])
-
-        if (not defaultT):
-            defaultT = tuple([0.0 for i in range(3)])
-
-        if (not defaultSmoothingGroup):
-            defaultSmoothingGroup = 1
-
-        if (not defaultGroupIndex):
-            defaultGroupIndex = 0
-
         self.flags = defaultFlags
         self._vertexIndices = defaultVertexIndices
         self._vertexNormals = defaultVertexNormals
@@ -582,6 +527,24 @@ class ms3d_triangle_t:
                 self.smoothingGroup,
                 self.groupIndex
                 )
+
+
+    @property
+    def vertexIndices(self):
+        return self._vertexIndices
+
+    @property
+    def vertexNormals(self):
+        return self._vertexNormals
+
+    @property
+    def s(self):
+        return self._s
+
+    @property
+    def t(self):
+        return self._t
+
 
     def read(self, file):
         #DEBUG_print("ms3d_triangle_t.read (flags)", PRINT_LEVEL1)
@@ -635,23 +598,13 @@ class ms3d_group_t:
             "materialIndex"
             )
 
-    @property
-    def numtriangles(self):
-        if not self.triangleIndices:
-            return 0
-        return len(self.triangleIndices)
-
-    @property
-    def triangleIndices(self):
-        return self._triangleIndices
-
     def __init__(
             self,
-            defaultFlags=None,
-            defaultName=None,
-            defaultNumtriangles=None,
+            defaultFlags=FLAG_NONE,
+            defaultName="",
+            defaultNumtriangles=0,
             defaultTriangleIndices=None,
-            defaultMaterialIndex=None
+            defaultMaterialIndex=-1
             ):
         """
         initialize
@@ -669,20 +622,11 @@ class ms3d_group_t:
         """
         #DEBUG_print("ms3d_group_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultFlags):
-            defaultFlags = FLAG_NONE
-
         if (defaultName is None):
             defaultName = ""
 
-        #if (not defaultNumtriangles):
-        #    defaultNumtriangles = 0
-
-        if (not defaultTriangleIndices):
+        if (defaultTriangleIndices is None):
             defaultTriangleIndices = []
-
-        if (not defaultMaterialIndex):
-            defaultMaterialIndex = -1
 
         self.flags = defaultFlags
         self.name = defaultName
@@ -698,6 +642,18 @@ class ms3d_group_t:
                 self.triangleIndices,
                 self.materialIndex
                 )
+
+
+    @property
+    def numtriangles(self):
+        if not self.triangleIndices:
+            return 0
+        return len(self.triangleIndices)
+
+    @property
+    def triangleIndices(self):
+        return self._triangleIndices
+
 
     def read(self, file):
         #DEBUG_print("ms3d_group_t.read (flags)", PRINT_LEVEL1)
@@ -753,34 +709,18 @@ class ms3d_material_t:
             PROP_NAME_ALPHAMAP
             )
 
-    @property
-    def ambient(self):
-        return self._ambient
-
-    @property
-    def diffuse(self):
-        return self._diffuse
-
-    @property
-    def specular(self):
-        return self._specular
-
-    @property
-    def emissive(self):
-        return self._emissive
-
     def __init__(
             self,
-            defaultName=None,
-            defaultAmbient=None,
-            defaultDiffuse=None,
-            defaultSpecular=None,
-            defaultEmissive=None,
-            defaultShininess=None,
-            defaultTransparency=None,
-            defaultMode=None,
-            defaultTexture=None,
-            defaultAlphamap=None
+            defaultName="",
+            defaultAmbient=(0.0, 0.0, 0.0, 0.0),
+            defaultDiffuse=(0.0, 0.0, 0.0, 0.0),
+            defaultSpecular=(0.0, 0.0, 0.0, 0.0),
+            defaultEmissive=(0.0, 0.0, 0.0, 0.0),
+            defaultShininess=0.0,
+            defaultTransparency=0.0,
+            defaultMode=0,
+            defaultTexture="",
+            defaultAlphamap=""
             ):
         """
         initialize
@@ -810,27 +750,6 @@ class ms3d_material_t:
 
         if (defaultName is None):
             defaultName = ""
-
-        if (not defaultAmbient):
-            defaultAmbient = tuple([0.0 for i in range(4)])
-
-        if (not defaultDiffuse):
-            defaultDiffuse = tuple([0.0 for i in range(4)])
-
-        if (not defaultSpecular):
-            defaultSpecular = tuple([0.0 for i in range(4)])
-
-        if (not defaultEmissive):
-            defaultEmissive = tuple([0.0 for i in range(4)])
-
-        if (not defaultShininess):
-            defaultShininess = 0.0
-
-        if (not defaultTransparency):
-            defaultTransparency = 0.0
-
-        if (not defaultMode):
-            defaultMode = 0
 
         if (defaultTexture is None):
             defaultTexture = ""
@@ -864,7 +783,7 @@ class ms3d_material_t:
                 )
 
     def __hash__(self):
-        return (hash(self.name) 
+        return (hash(self.name)
                 ^ hash(self.texture)
                 ^ hash(self.alphamap)
 
@@ -892,6 +811,24 @@ class ms3d_material_t:
                 #and (self.texture == other.texture)
                 #and (self.alphamap == other.alphamap)
                 )
+
+
+    @property
+    def ambient(self):
+        return self._ambient
+
+    @property
+    def diffuse(self):
+        return self._diffuse
+
+    @property
+    def specular(self):
+        return self._specular
+
+    @property
+    def emissive(self):
+        return self._emissive
+
 
     def read(self, file):
         #DEBUG_print("ms3d_material_t.read (name)", PRINT_LEVEL1)
@@ -951,14 +888,10 @@ class ms3d_keyframe_rot_t:
             "_rotation"
             )
 
-    @property
-    def rotation(self):
-        return self._rotation
-
     def __init__(
             self,
-            defaultTime=None,
-            defaultRotation=None
+            defaultTime=0.0,
+            defaultRotation=(0.0, 0.0, 0.0)
             ):
         """
         initialize
@@ -970,12 +903,6 @@ class ms3d_keyframe_rot_t:
         """
         #DEBUG_print("ms3d_keyframe_rot_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultTime):
-            defaultTime = 0.0
-
-        if (not defaultRotation):
-            defaultRotation = tuple([0.0 for i in range(3)])
-
         self.time = defaultTime
         self._rotation = defaultRotation
 
@@ -984,6 +911,12 @@ class ms3d_keyframe_rot_t:
                 self.time,
                 self.rotation,
                 )
+
+
+    @property
+    def rotation(self):
+        return self._rotation
+
 
     def read(self, file):
         #DEBUG_print("ms3d_keyframe_rot_t.read (time)", PRINT_LEVEL1)
@@ -1011,14 +944,10 @@ class ms3d_keyframe_pos_t:
             "_position"
             )
 
-    @property
-    def position(self):
-        return self._position
-
     def __init__(
             self,
-            defaultTime=None,
-            defaultPosition=None
+            defaultTime=0.0,
+            defaultPosition=(0.0, 0.0, 0.0)
             ):
         """
         initialize
@@ -1030,12 +959,6 @@ class ms3d_keyframe_pos_t:
         """
         #DEBUG_print("ms3d_keyframe_pos_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultTime):
-            defaultTime = 0.0
-
-        if (not defaultPosition):
-            defaultPosition = tuple([0.0 for i in range(3)])
-
         self.time = defaultTime
         self._position = defaultPosition
 
@@ -1044,6 +967,12 @@ class ms3d_keyframe_pos_t:
                 self.time,
                 self.position,
                 )
+
+
+    @property
+    def position(self):
+        return self._position
+
 
     def read(self, file):
         #DEBUG_print("ms3d_keyframe_pos_t.read (time)", PRINT_LEVEL1)
@@ -1085,6 +1014,78 @@ class ms3d_joint_t:
             "_keyFramesTrans"
             )
 
+    def __init__(
+            self,
+            defaultFlags=FLAG_NONE,
+            defaultName="",
+            defaultParentName="",
+            defaultRotation=(0.0, 0.0, 0.0),
+            defaultPosition=(0.0, 0.0, 0.0),
+            defaultNumKeyFramesRot=0,
+            defaultNumKeyFramesTrans=0,
+            defaultKeyFramesRot=None,
+            defaultKeyFramesTrans=None
+            ):
+        """
+        initialize
+
+        :arg flags: flags
+        :type flags: :class:`byte`
+        :arg name: name
+        :type name: :class:`string`
+        :arg parentName: parentName
+        :type parentName: :class:`string`
+        :arg rotation: rotation
+        :type rotation: :class:`float[3]`
+        :arg position: position
+        :type position: :class:`float[3]`
+        :arg numKeyFramesRot: numKeyFramesRot
+        :type numKeyFramesRot: :class:`word`
+        :arg numKeyFramesTrans: numKeyFramesTrans
+        :type numKeyFramesTrans: :class:`word`
+        :arg keyFramesRot: keyFramesRot
+        :type nkeyFramesRotame: :class:`ms3d_spec.ms3d_keyframe_rot_t[]`
+        :arg keyFramesTrans: keyFramesTrans
+        :type keyFramesTrans: :class:`ms3d_spec.ms3d_keyframe_pos_t[]`
+        """
+        #DEBUG_print("ms3d_joint_t.__init__", PRINT_LEVEL1)
+
+        if (defaultName is None):
+            defaultName = ""
+
+        if (defaultParentName is None):
+            defaultParentName = ""
+
+        if (defaultKeyFramesRot is None):
+            defaultKeyFramesRot = [] #ms3d_keyframe_rot_t()
+
+        if (defaultKeyFramesTrans is None):
+            defaultKeyFramesTrans = [] #ms3d_keyframe_pos_t()
+
+        self.flags = defaultFlags
+        self.name = defaultName
+        self.parentName = defaultParentName
+        self._rotation = defaultRotation
+        self._position = defaultPosition
+        #self.numKeyFramesRot = defaultNumKeyFramesRot
+        #self.numKeyFramesTrans = defaultNumKeyFramesTrans
+        self._keyFramesRot = defaultKeyFramesRot
+        self._keyFramesTrans = defaultKeyFramesTrans
+
+    def __repr__(self):
+        return "\n<flags={0}, name='{1}', parentName='{2}', rotation={3}, position={4}, numKeyFramesRot={5}, numKeyFramesTrans={6}, keyFramesRot={7}, keyFramesTrans={8}>".format(
+                self.flags,
+                self.name,
+                self.parentName,
+                self.rotation,
+                self.position,
+                self.numKeyFramesRot,
+                self.numKeyFramesTrans,
+                self.keyFramesRot,
+                self.keyFramesTrans
+                )
+
+
     @property
     def rotation(self):
         return self._rotation
@@ -1113,91 +1114,6 @@ class ms3d_joint_t:
     def keyFramesTrans(self):
         return self._keyFramesTrans
 
-    def __init__(
-            self,
-            defaultFlags=None,
-            defaultName=None,
-            defaultParentName=None,
-            defaultRotation=None,
-            defaultPosition=None,
-            defaultNumKeyFramesRot=None,
-            defaultNumKeyFramesTrans=None,
-            defaultKeyFramesRot=None,
-            defaultKeyFramesTrans=None
-            ):
-        """
-        initialize
-
-        :arg flags: flags
-        :type flags: :class:`byte`
-        :arg name: name
-        :type name: :class:`string`
-        :arg parentName: parentName
-        :type parentName: :class:`string`
-        :arg rotation: rotation
-        :type rotation: :class:`float[3]`
-        :arg position: position
-        :type position: :class:`float[3]`
-        :arg numKeyFramesRot: numKeyFramesRot
-        :type numKeyFramesRot: :class:`word`
-        :arg numKeyFramesTrans: numKeyFramesTrans
-        :type numKeyFramesTrans: :class:`word`
-        :arg keyFramesRot: keyFramesRot
-        :type nkeyFramesRotame: :class:`ms3d_spec.ms3d_keyframe_rot_t[]`
-        :arg keyFramesTrans: keyFramesTrans
-        :type keyFramesTrans: :class:`ms3d_spec.ms3d_keyframe_pos_t[]`
-        """
-        #DEBUG_print("ms3d_joint_t.__init__", PRINT_LEVEL1)
-
-        if (not defaultFlags):
-            defaultFlags = FLAG_NONE
-
-        if (defaultName is None):
-            defaultName = ""
-
-        if (defaultParentName is None):
-            defaultParentName = ""
-
-        if (not defaultRotation):
-            defaultRotation = tuple([0.0 for i in range(3)])
-
-        if (not defaultPosition):
-            defaultPosition = tuple([0.0 for i in range(3)])
-
-        #if (not defaultNumKeyFramesRot):
-        #    defaultNumKeyFramesRot = 0
-
-        #if (not defaultNumKeyFramesTrans):
-        #    defaultNumKeyFramesTrans = 0
-
-        if (not defaultKeyFramesRot):
-            defaultKeyFramesRot = [] #ms3d_keyframe_rot_t()
-
-        if (not defaultKeyFramesTrans):
-            defaultKeyFramesTrans = [] #ms3d_keyframe_pos_t()
-
-        self.flags = defaultFlags
-        self.name = defaultName
-        self.parentName = defaultParentName
-        self._rotation = defaultRotation
-        self._position = defaultPosition
-        #self.numKeyFramesRot = defaultNumKeyFramesRot
-        #self.numKeyFramesTrans = defaultNumKeyFramesTrans
-        self._keyFramesRot = defaultKeyFramesRot
-        self._keyFramesTrans = defaultKeyFramesTrans
-
-    def __repr__(self):
-        return "\n<flags={0}, name='{1}', parentName='{2}', rotation={3}, position={4}, numKeyFramesRot={5}, numKeyFramesTrans={6}, keyFramesRot={7}, keyFramesTrans={8}>".format(
-                self.flags,
-                self.name,
-                self.parentName,
-                self.rotation,
-                self.position,
-                self.numKeyFramesRot,
-                self.numKeyFramesTrans,
-                self.keyFramesRot,
-                self.keyFramesTrans
-                )
 
     def read(self, file):
         #DEBUG_print("ms3d_joint_t.read (flags)", PRINT_LEVEL1)
@@ -1261,17 +1177,11 @@ class ms3d_comment_t:
             PROP_NAME_COMMENT
             )
 
-    @property
-    def commentLength(self):
-        if not self.comment:
-            return 0
-        return len(self.comment)
-
     def __init__(
             self,
-            defaultIndex=None,
-            defaultCommentLength=None,
-            defaultComment=None
+            defaultIndex=0,
+            defaultCommentLength=0,
+            defaultComment=""
             ):
         """
         initialize
@@ -1284,12 +1194,6 @@ class ms3d_comment_t:
         :type comment: :class:`string`
         """
         #DEBUG_print("ms3d_comment_t.__init__", PRINT_LEVEL1)
-
-        if (not defaultIndex):
-            defaultIndex = 0
-
-        #if (not defaultCommentLength):
-        #    defaultCommentLength = 0
 
         if (defaultComment is None):
             defaultComment = ""
@@ -1304,6 +1208,14 @@ class ms3d_comment_t:
                 self.commentLength,
                 self.comment
                 )
+
+
+    @property
+    def commentLength(self):
+        if not self.comment:
+            return 0
+        return len(self.comment)
+
 
     def read(self, file):
         #DEBUG_print("ms3d_comment_t.read (index)", PRINT_LEVEL1)
@@ -1339,18 +1251,10 @@ class ms3d_vertex_ex1_t:
             "_weights"
             )
 
-    @property
-    def boneIds(self):
-        return self._boneIds
-
-    @property
-    def weights(self):
-        return self._weights
-
     def __init__(
             self,
-            defaultBoneIds=None,
-            defaultWeights=None
+            defaultBoneIds=(-1, -1, -1),
+            defaultWeights=(0, 0, 0)
             ):
         """
         initialize
@@ -1362,12 +1266,6 @@ class ms3d_vertex_ex1_t:
         """
         #DEBUG_print("ms3d_vertex_ex1_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultBoneIds):
-            defaultBoneIds = tuple([-1 for i in range(3)])
-
-        if (not defaultWeights):
-            defaultWeights = tuple([0 for i in range(3)])
-
         self._boneIds = defaultBoneIds
         self._weights = defaultWeights
 
@@ -1376,6 +1274,16 @@ class ms3d_vertex_ex1_t:
                 self.boneIds,
                 self.weights
                 )
+
+
+    @property
+    def boneIds(self):
+        return self._boneIds
+
+    @property
+    def weights(self):
+        return self._weights
+
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_ex1_t.read (boneIds)", PRINT_LEVEL1)
@@ -1409,19 +1317,11 @@ class ms3d_vertex_ex2_t:
             PROP_NAME_EXTRA
             )
 
-    @property
-    def boneIds(self):
-        return self._boneIds
-
-    @property
-    def weights(self):
-        return self._weights
-
     def __init__(
             self,
-            defaultBoneIds=None,
-            defaultWeights=None,
-            defaultExtra=None
+            defaultBoneIds=(-1, -1, -1),
+            defaultWeights=(0, 0, 0),
+            defaultExtra=0
             ):
         """
         initialize
@@ -1435,15 +1335,6 @@ class ms3d_vertex_ex2_t:
         """
         #DEBUG_print("ms3d_vertex_ex2_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultBoneIds):
-            defaultBoneIds = tuple([-1 for i in range(3)])
-
-        if (not defaultWeights):
-            defaultWeights = tuple([0 for i in range(3)])
-
-        if (not defaultExtra):
-            defaultExtra = 0
-
         self._boneIds = defaultBoneIds
         self._weights = defaultWeights
         self.extra = defaultExtra
@@ -1454,6 +1345,16 @@ class ms3d_vertex_ex2_t:
                 self.weights,
                 self.extra
                 )
+
+
+    @property
+    def boneIds(self):
+        return self._boneIds
+
+    @property
+    def weights(self):
+        return self._weights
+
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_ex2_t.read (boneIds)", PRINT_LEVEL1)
@@ -1491,19 +1392,11 @@ class ms3d_vertex_ex3_t:
             PROP_NAME_EXTRA
             )
 
-    @property
-    def boneIds(self):
-        return self._boneIds
-
-    @property
-    def weights(self):
-        return self._weights
-
     def __init__(
             self,
-            defaultBoneIds=None,
-            defaultWeights=None,
-            defaultExtra=None
+            defaultBoneIds=(-1, -1, -1),
+            defaultWeights=(0, 0, 0),
+            defaultExtra=0
             ):
         """
         initialize
@@ -1517,15 +1410,6 @@ class ms3d_vertex_ex3_t:
         """
         #DEBUG_print("ms3d_vertex_ex3_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultBoneIds):
-            defaultBoneIds = tuple([-1 for i in range(3)])
-
-        if (not defaultWeights):
-            defaultWeights = tuple([0 for i in range(3)])
-
-        if (not defaultExtra):
-            defaultExtra = 0
-
         self._boneIds = defaultBoneIds
         self._weights = defaultWeights
         self.extra = defaultExtra
@@ -1536,6 +1420,16 @@ class ms3d_vertex_ex3_t:
                 self.weights,
                 self.extra
                 )
+
+
+    @property
+    def boneIds(self):
+        return self._boneIds
+
+    @property
+    def weights(self):
+        return self._weights
+
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_ex3_t.read (boneIds)", PRINT_LEVEL1)
@@ -1565,13 +1459,9 @@ class ms3d_joint_ex_t:
             "_color"
             )
 
-    @property
-    def color(self):
-        return self._color
-
     def __init__(
             self,
-            defaultColor=None
+            defaultColor=(0.0, 0.0, 0.0)
             ):
         """
         initialize
@@ -1581,17 +1471,16 @@ class ms3d_joint_ex_t:
         """
         #DEBUG_print("ms3d_joint_ex_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultColor):
-            defaultColor = tuple([0.0 for i in range(3)])
-
         self._color = defaultColor
 
     def __repr__(self):
         return "\n<color={0}>".format(self.color)
 
+
     @property
     def color(self):
         return self._color
+
 
     def read(self, file):
         #DEBUG_print("ms3d_joint_ex_t.read (color)", PRINT_LEVEL1)
@@ -1619,9 +1508,9 @@ class ms3d_model_ex_t:
 
     def __init__(
             self,
-            defaultJointSize=None,
-            defaultTransparencyMode=None,
-            defaultAlphaRef=None
+            defaultJointSize=0.0,
+            defaultTransparencyMode=0,
+            defaultAlphaRef=0.0
             ):
         """
         initialize
@@ -1634,15 +1523,6 @@ class ms3d_model_ex_t:
         :type alphaRef: :class:`float[3]`
         """
         #DEBUG_print("ms3d_model_ex_t.__init__", PRINT_LEVEL1)
-
-        if (not defaultJointSize):
-            defaultJointSize = 0.0
-
-        if (not defaultTransparencyMode):
-            defaultTransparencyMode = 0
-
-        if (not defaultAlphaRef):
-            defaultAlphaRef = 0.0
 
         self.jointSize = defaultJointSize
         self.transparencyMode = defaultTransparencyMode
@@ -1718,124 +1598,9 @@ class ms3d_file_t:
             PROP_NAME_NAME
             )
 
-    @property
-    def nNumVertices(self):
-        if not self.vertices:
-            return 0
-        return len(self.vertices)
-
-    @property
-    def vertices(self):
-        return self._vertices
-
-
-    @property
-    def nNumTriangles(self):
-        if not self.triangles:
-            return 0
-        return len(self.triangles)
-
-    @property
-    def triangles(self):
-        return self._triangles
-
-
-    @property
-    def nNumGroups(self):
-        if not self.groups:
-            return 0
-        return len(self.groups)
-
-    @property
-    def groups(self):
-        return self._groups
-
-
-    @property
-    def nNumMaterials(self):
-        if not self.materials:
-            return 0
-        return len(self.materials)
-
-    @property
-    def materials(self):
-        return self._materials
-
-
-    @property
-    def nNumJoints(self):
-        if not self.joints:
-            return 0
-        return len(self.joints)
-
-    @property
-    def joints(self):
-        return self._joints
-
-
-    @property
-    def nNumGroupComments(self):
-        if not self.groupComments:
-            return 0
-        return len(self.groupComments)
-
-    @property
-    def groupComments(self):
-        return self._groupComments
-
-
-    @property
-    def nNumMaterialComments(self):
-        if not self.materialComments:
-            return 0
-        return len(self.materialComments)
-
-    @property
-    def materialComments(self):
-        return self._materialComments
-
-
-    @property
-    def nNumJointComments(self):
-        if not self.jointComments:
-            return 0
-        return len(self.jointComments)
-
-    @property
-    def jointComments(self):
-        return self._jointComments
-
-
-    @property
-    def nNumModelComment(self):
-        if not self.modelComments:
-            return 0
-        return len(self.modelComments)
-
-    @property
-    def modelComments(self):
-        return self._modelComments
-
-
-    @property
-    def vertex_ex1(self):
-        return self._vertex_ex1
-
-    @property
-    def vertex_ex2(self):
-        return self._vertex_ex2
-
-    @property
-    def vertex_ex3(self):
-        return self._vertex_ex3
-
-    @property
-    def joint_ex(self):
-        return self._joint_ex
-
     def __init__(
             self,
-            defaultName=None
+            defaultName=""
             ):
         """
         initialize
@@ -1954,6 +1719,122 @@ class ms3d_file_t:
         self.model_ex = ms3d_model_ex_t()
 
         #DEBUG_print("ms3d_file_t.__init__ #finished")
+
+
+    @property
+    def nNumVertices(self):
+        if not self.vertices:
+            return 0
+        return len(self.vertices)
+
+    @property
+    def vertices(self):
+        return self._vertices
+
+
+    @property
+    def nNumTriangles(self):
+        if not self.triangles:
+            return 0
+        return len(self.triangles)
+
+    @property
+    def triangles(self):
+        return self._triangles
+
+
+    @property
+    def nNumGroups(self):
+        if not self.groups:
+            return 0
+        return len(self.groups)
+
+    @property
+    def groups(self):
+        return self._groups
+
+
+    @property
+    def nNumMaterials(self):
+        if not self.materials:
+            return 0
+        return len(self.materials)
+
+    @property
+    def materials(self):
+        return self._materials
+
+
+    @property
+    def nNumJoints(self):
+        if not self.joints:
+            return 0
+        return len(self.joints)
+
+    @property
+    def joints(self):
+        return self._joints
+
+
+    @property
+    def nNumGroupComments(self):
+        if not self.groupComments:
+            return 0
+        return len(self.groupComments)
+
+    @property
+    def groupComments(self):
+        return self._groupComments
+
+
+    @property
+    def nNumMaterialComments(self):
+        if not self.materialComments:
+            return 0
+        return len(self.materialComments)
+
+    @property
+    def materialComments(self):
+        return self._materialComments
+
+
+    @property
+    def nNumJointComments(self):
+        if not self.jointComments:
+            return 0
+        return len(self.jointComments)
+
+    @property
+    def jointComments(self):
+        return self._jointComments
+
+
+    @property
+    def nNumModelComment(self):
+        if not self.modelComments:
+            return 0
+        return len(self.modelComments)
+
+    @property
+    def modelComments(self):
+        return self._modelComments
+
+
+    @property
+    def vertex_ex1(self):
+        return self._vertex_ex1
+
+    @property
+    def vertex_ex2(self):
+        return self._vertex_ex2
+
+    @property
+    def vertex_ex3(self):
+        return self._vertex_ex3
+
+    @property
+    def joint_ex(self):
+        return self._joint_ex
 
 
     def print_internal(self):
@@ -2206,9 +2087,8 @@ class ms3d_file_t:
         #except struct.error:
                 #DEBUG_print("ms3d_file.read - exception in optional try block 'struct.error'")
         except Exception:
-            #for i in range(len(sys.exc_info())):
-            #    #DEBUG_print("ms3d_file.read - exception in optional try block '{0}', progressCount={1}".format(sys.exc_info()[i], progressCount))
-            #    pass
+            #type, value, traceback = sys.exc_info()
+            #DEBUG_print("ms3d_file.read - exception in optional try block, progressCount={0}\n  type: '{1}'\n  value: '{2}'".format(progressCount, type, value, traceback))
 
             if (progressCount):
                 if (progressCount <= 0):
@@ -2249,6 +2129,7 @@ class ms3d_file_t:
 
                 if (progressCount <= 9):
                     self.model_ex = None
+
         else:
             #DEBUG_print("ms3d_file.read - passed optional try block")
             pass
@@ -2363,9 +2244,9 @@ class ms3d_file_t:
             self.model_ex.write(file)
 
         except Exception:
-            for i in range(len(sys.exc_info())):
-                #DEBUG_print("ms3d_file.write - exception in optional try block '{0}'".format(sys.exc_info()[i]))
-                pass
+            #type, value, traceback = sys.exc_info()
+            #DEBUG_print("ms3d_file.write - exception in optional try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+            pass
 
         else:
             #DEBUG_print("ms3d_file.write - passed optional try block")
