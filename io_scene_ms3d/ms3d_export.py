@@ -30,6 +30,15 @@
 # ##### END COPYRIGHT BLOCK #####
 
 
+#import python stuff
+import io
+import math
+import mathutils
+import os
+import sys
+import time
+
+
 # To support reload properly, try to access a package var, if it's there, reload everything
 if ("bpy" in locals()):
     import imp
@@ -41,23 +50,16 @@ if ("bpy" in locals()):
         imp.reload(ms3d_spec)
     if "ms3d_utils" in locals():
         imp.reload(ms3d_utils)
-    #print("MS3D-add-on Reloaded")
+    #print("ms3d_export.MS3D-add-on Reloaded")
+    pass
 
 else:
     #from . import ms3d_export
     #from . import ms3d_import
     from . import ms3d_spec
     from . import ms3d_utils
-    #print("MS3D-add-on Imported")
-
-
-#import python stuff
-import io
-import sys
-import time
-import os
-import math
-import mathutils
+    #print("ms3d_export.MS3D-add-on Imported")
+    pass
 
 
 #import blender stuff
@@ -80,9 +82,9 @@ def DEBUG_print(s):
 
 # registered entry point export
 class ExportMS3D(
-    bpy.types.Operator,
-    bpy_extras.io_utils.ExportHelper
-    ):
+        bpy.types.Operator,
+        bpy_extras.io_utils.ExportHelper
+        ):
     """
     Save a MilkShape3D MS3D File
     """
@@ -92,80 +94,80 @@ class ExportMS3D(
     bl_idname = "io_scene_ms3d.ms3d_export"
     bl_label = "Export MS3D"
     bl_description = "Export to a MS3D file format (.ms3d)"
-    bl_options = {"PRESET"}
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
+    bl_options = {'PRESET'}
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
 
     filename_ext = ms3d_utils.FILE_EXT
     filter_glob = bpy.props.StringProperty(
-        default = ms3d_utils.FILE_FILTER,
-        options = {"HIDDEN"}
-        )
+            default = ms3d_utils.FILE_FILTER,
+            options = {'HIDDEN'}
+            )
 
-    filepath = bpy.props.StringProperty(subtype = "FILE_PATH")
+    filepath = bpy.props.StringProperty(subtype='FILE_PATH')
 
 
     prop_debug = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_DEBUG,
-        description = ms3d_utils.PROP_DESC_DEBUG,
-        default = ms3d_utils.PROP_DEFAULT_DEBUG,
-        options = ms3d_utils.PROP_OPT_DEBUG,
-        )
+            name = ms3d_utils.PROP_NAME_DEBUG,
+            description = ms3d_utils.PROP_DESC_DEBUG,
+            default = ms3d_utils.PROP_DEFAULT_DEBUG,
+            options = ms3d_utils.PROP_OPT_DEBUG,
+            )
 
     prop_verbose = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_VERBOSE,
-        description = ms3d_utils.PROP_DESC_VERBOSE,
-        default = ms3d_utils.PROP_DEFAULT_VERBOSE,
-        options = ms3d_utils.PROP_OPT_VERBOSE,
-        )
+            name = ms3d_utils.PROP_NAME_VERBOSE,
+            description = ms3d_utils.PROP_DESC_VERBOSE,
+            default = ms3d_utils.PROP_DEFAULT_VERBOSE,
+            options = ms3d_utils.PROP_OPT_VERBOSE,
+            )
 
     prop_coordinate_system = EnumProperty(
-        name = ms3d_utils.PROP_NAME_COORDINATESYSTEM,
-        description = ms3d_utils.PROP_DESC_COORDINATESYSTEM,
-        items = ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
-        default = ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_EXP,
-        options = ms3d_utils.PROP_OPT_COORDINATESYSTEM,
-        )
+            name = ms3d_utils.PROP_NAME_COORDINATESYSTEM,
+            description = ms3d_utils.PROP_DESC_COORDINATESYSTEM,
+            items = ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
+            default = ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_EXP,
+            options = ms3d_utils.PROP_OPT_COORDINATESYSTEM,
+            )
 
     prop_scale = FloatProperty(
-        name = ms3d_utils.PROP_NAME_SCALE,
-        description = ms3d_utils.PROP_DESC_SCALE,
-        default = 1.0 / ms3d_utils.PROP_DEFAULT_SCALE,
-        min = ms3d_utils.PROP_MIN_SCALE,
-        max = ms3d_utils.PROP_MAX_SCALE,
-        soft_min = ms3d_utils.PROP_SMIN_SCALE,
-        soft_max = ms3d_utils.PROP_SMAX_SCALE,
-        options = ms3d_utils.PROP_OPT_SCALE,
-        )
+            name = ms3d_utils.PROP_NAME_SCALE,
+            description = ms3d_utils.PROP_DESC_SCALE,
+            default = 1.0 / ms3d_utils.PROP_DEFAULT_SCALE,
+            min = ms3d_utils.PROP_MIN_SCALE,
+            max = ms3d_utils.PROP_MAX_SCALE,
+            soft_min = ms3d_utils.PROP_SMIN_SCALE,
+            soft_max = ms3d_utils.PROP_SMAX_SCALE,
+            options = ms3d_utils.PROP_OPT_SCALE,
+            )
 
     prop_objects = EnumProperty(
-        name = ms3d_utils.PROP_NAME_OBJECTS_EXP,
-        description = ms3d_utils.PROP_DESC_OBJECTS_EXP,
-        items = ms3d_utils.PROP_ITEMS_OBJECTS_EXP,
-        default = ms3d_utils.PROP_DEFAULT_OBJECTS_EXP,
-        options = ms3d_utils.PROP_OPT_OBJECTS_EXP,
-        )
+            name = ms3d_utils.PROP_NAME_OBJECTS_EXP,
+            description = ms3d_utils.PROP_DESC_OBJECTS_EXP,
+            items = ms3d_utils.PROP_ITEMS_OBJECTS_EXP,
+            default = ms3d_utils.PROP_DEFAULT_OBJECTS_EXP,
+            options = ms3d_utils.PROP_OPT_OBJECTS_EXP,
+            )
 
     prop_selected = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_SELECTED,
-        description = ms3d_utils.PROP_DESC_SELECTED,
-        default = ms3d_utils.PROP_DEFAULT_SELECTED,
-        options = ms3d_utils.PROP_OPT_SELECTED,
-        )
+            name = ms3d_utils.PROP_NAME_SELECTED,
+            description = ms3d_utils.PROP_DESC_SELECTED,
+            default = ms3d_utils.PROP_DEFAULT_SELECTED,
+            options = ms3d_utils.PROP_OPT_SELECTED,
+            )
 
     prop_animation = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_ANIMATION,
-        description = ms3d_utils.PROP_DESC_ANIMATION,
-        default = ms3d_utils.PROP_DEFAULT_ANIMATION,
-        options = ms3d_utils.PROP_OPT_ANIMATION,
-        )
+            name = ms3d_utils.PROP_NAME_ANIMATION,
+            description = ms3d_utils.PROP_DESC_ANIMATION,
+            default = ms3d_utils.PROP_DEFAULT_ANIMATION,
+            options = ms3d_utils.PROP_OPT_ANIMATION,
+            )
 
     prop_animation_fp = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_ANIMATION_FP,
-        description = ms3d_utils.PROP_DESC_ANIMATION_FP,
-        default = ms3d_utils.PROP_DEFAULT_ANIMATION_FP,
-        options = ms3d_utils.PROP_OPT_ANIMATION_FP,
-        )
+            name = ms3d_utils.PROP_NAME_ANIMATION_FP,
+            description = ms3d_utils.PROP_DESC_ANIMATION_FP,
+            default = ms3d_utils.PROP_DEFAULT_ANIMATION_FP,
+            options = ms3d_utils.PROP_OPT_ANIMATION_FP,
+            )
 
 
     # draw the option panel
@@ -228,7 +230,7 @@ class ExportMS3D(
             # finalize/restore environment
             ms3d_utils.PostSetupEnvironment(self, False)
 
-        except:
+        except Exception:
             for i in range(len(sys.exc_info())):
                 print("WriteMs3d - exception in try block '{0}'".format(sys.exc_info()[i]))
 
@@ -283,7 +285,7 @@ class ExportMS3D(
         for blenderObject in blender.objects:
 
             # do not handle non-mesh objects or unused objects
-            if (blenderObject.type != "MESH") or (blenderObject.users <= 0):
+            if (blenderObject.type != 'MESH') or (blenderObject.users <= 0):
                 continue
 
             # skip unselected objects in "only selected"-mode
@@ -348,8 +350,8 @@ class ExportMS3D(
                 ms3dGroup.triangleIndices.append(ms3dTriangles.index(ms3dTriangle)) # put triangle index
 
             # handle material (take the first one)
-            if (flagHandleMaterials) and (len(blenderMesh.materials) > 0):
-                if (blenderMesh.uv_textures) and (len(blenderMesh.uv_textures) > 0):
+            if (flagHandleMaterials) and (blenderMesh.materials):
+                if (blenderMesh.uv_textures):
                     tmpMaterial1 = self.CreateMaterial(blenderMesh.materials[0], blenderMesh.uv_textures[0])
                 else:
                     tmpMaterial1 = self.CreateMaterial(blenderMesh.materials[0], None)
@@ -359,7 +361,7 @@ class ExportMS3D(
 
                     # upgrade poor material.texture with rich material.texture
                     tmpMaterial2 = ms3dMaterials[ms3dGroup.materialIndex]
-                    if (tmpMaterial1.texture) and (len(tmpMaterial1.texture) > 0) and (not tmpMaterial2.texture) or (len(tmpMaterial2.texture) <= 0):
+                    if (tmpMaterial1.texture) and (not tmpMaterial2.texture):
                         tmpMaterial2.texture = tmpMaterial1.texture
                         #print("inject texture")
 
@@ -419,32 +421,32 @@ class ExportMS3D(
         ms3dMaterial.name = blenderMaterial.name
 
         ms3dMaterial._ambient = tuple([
-            blenderMaterial.diffuse_color[0],
-            blenderMaterial.diffuse_color[1],
-            blenderMaterial.diffuse_color[2],
-            blenderMaterial.ambient
-            ])
+                blenderMaterial.diffuse_color[0],
+                blenderMaterial.diffuse_color[1],
+                blenderMaterial.diffuse_color[2],
+                blenderMaterial.ambient
+                ])
 
         ms3dMaterial._diffuse = tuple([
-            blenderMaterial.diffuse_color[0],
-            blenderMaterial.diffuse_color[1],
-            blenderMaterial.diffuse_color[2],
-            blenderMaterial.diffuse_intensity
-            ])
+                blenderMaterial.diffuse_color[0],
+                blenderMaterial.diffuse_color[1],
+                blenderMaterial.diffuse_color[2],
+                blenderMaterial.diffuse_intensity
+                ])
 
         ms3dMaterial._specular = tuple([
-            blenderMaterial.specular_color[0],
-            blenderMaterial.specular_color[1],
-            blenderMaterial.specular_color[2],
-            blenderMaterial.specular_intensity
-            ])
+                blenderMaterial.specular_color[0],
+                blenderMaterial.specular_color[1],
+                blenderMaterial.specular_color[2],
+                blenderMaterial.specular_intensity
+                ])
 
         ms3dMaterial._emissive = tuple([
-            blenderMaterial.diffuse_color[0],
-            blenderMaterial.diffuse_color[1],
-            blenderMaterial.diffuse_color[2],
-            blenderMaterial.emit
-            ])
+                blenderMaterial.diffuse_color[0],
+                blenderMaterial.diffuse_color[1],
+                blenderMaterial.diffuse_color[2],
+                blenderMaterial.emit
+                ])
 
         ms3dMaterial.shininess = blenderMaterial.specular_hardness
 
@@ -456,13 +458,11 @@ class ExportMS3D(
             imageAlpha = None
 
             for blenderTextureSlot in blenderMaterial.texture_slots:
-                if (
-                    (not blenderTextureSlot)
-                    or (not blenderTextureSlot.texture)
-                    or (blenderTextureSlot.texture_coords != "UV")
-                    or (not blenderTextureSlot.texture)
-                    or (blenderTextureSlot.texture.type != "IMAGE")
-                ):
+                if ((not blenderTextureSlot)
+                        or (not blenderTextureSlot.texture)
+                        or (blenderTextureSlot.texture_coords != 'UV')
+                        or (blenderTextureSlot.texture.type != 'IMAGE')
+                        ):
                     continue
 
                 if (not imageDiffuse) and (blenderTextureSlot.use_map_color_diffuse):
@@ -514,7 +514,7 @@ class ExportMS3D(
 
 
     ###############################################################################
-    def CreateTriangle(self,  matrixObject, ms3dVertices, blenderMesh, blenderFace, groupIndex = 0, smoothingGroup = None, subIndex = 0):
+    def CreateTriangle(self,  matrixObject, ms3dVertices, blenderMesh, blenderFace, groupIndex=0, smoothingGroup=None, subIndex=0):
         """
         known limitations:
             - it will take only the first uv_texture-data, if one or more are present
@@ -581,10 +581,10 @@ class ExportMS3D(
 
         # put the indices of ms3d-vertices!
         ms3dTriangle._vertexIndices = tuple([
-            ms3dVertices.index(v0),
-            ms3dVertices.index(v1),
-            ms3dVertices.index(v2)
-            ])
+                ms3dVertices.index(v0),
+                ms3dVertices.index(v1),
+                ms3dVertices.index(v2)
+                ])
 
         # put the normales
         ms3dTriangle._vertexNormals = tuple([n0, n1, n2])
@@ -687,7 +687,7 @@ class ExportMS3D(
             #DEBUG_print("GenerateSmoothGroups 1b")
 
             blenderFaces[iFace].select = True
-            smoothGroup += 1
+            #smoothGroup += 1
             #DEBUG_print("GenerateSmoothGroups smoothGroup={0}".format(smoothGroup))
 
             ms3d_utils.EnableEditMode(True)
@@ -703,6 +703,10 @@ class ExportMS3D(
                         #DEBUG_print("GenerateSmoothGroups iiFace={0}, smoothGroup={1}".format(iiFace, smoothGroup))
                         smoothGroupFaces[iiFace] = smoothGroup
 
+            smoothGroup += 1
+            if (smoothGroup > ms3d_spec.MAX_SMOOTH_GROUP):
+                smoothGroup = 1
+                
         #DEBUG_print("GenerateSmoothGroups smoothGroupFaces= {0}".format(smoothGroupFaces))
 
         return smoothGroupFaces

@@ -30,6 +30,13 @@
 # ##### END COPYRIGHT BLOCK #####
 
 
+#import python stuff
+import collections
+import io
+import struct
+import sys
+
+
 # To support reload properly, try to access a package var, if it's there, reload everything
 if ("bpy" in locals()):
     import imp
@@ -39,25 +46,18 @@ if ("bpy" in locals()):
     #    imp.reload(ms3d_import)
     #if "ms3d_spec" in locals():
     #    imp.reload(ms3d_spec)
-    #if "ms3d_utils" in locals():
-    #    imp.reload(ms3d_utils)
-    #print("MS3D-add-on Reloaded")
+    if "ms3d_utils" in locals():
+        imp.reload(ms3d_utils)
+    #print("ms3d_spec.MS3D-add-on Reloaded")
     pass
 
 else:
     #from . import ms3d_export
     #from . import ms3d_import
     #from . import ms3d_spec
-    #from . import ms3d_utils
-    #print("MS3D-add-on Imported")
+    from . import ms3d_utils
+    #print("ms3d_spec.MS3D-add-on Imported")
     pass
-
-
-#import python stuff
-import struct
-import io
-import sys
-import collections
 
 
 #import blender stuff
@@ -67,7 +67,7 @@ import bpy_extras.io_utils
 #
 # DEBUG
 #
-def DEBUG_print(s = "", i = 0):
+def DEBUG_print(s="", i=0):
     """
     shows a log on the console
     :arg s: messate to print
@@ -77,7 +77,7 @@ def DEBUG_print(s = "", i = 0):
     """
     if(ms3d_utils._DEBUG):
         for ii in range(i):
-            print(" ", end = "")
+            print(" ", end="")
 
         print("ms3d_spec.{0}".format(s))
 
@@ -123,6 +123,7 @@ MAX_TRIANGLES = 65534 # 0..65533; note: (65534???, 65535???)
 MAX_GROUPS = 255 # 1..255; note: (0 default group)
 MAX_MATERIALS = 128 # 0..127; note: (-1 no material)
 MAX_JOINTS = 128 # 0..127; note: (-1 no joint)
+MAX_SMOOTH_GROUP = 32 # 0..32; note: (0 no smoothing group)
 
 
 ###############################################################################
@@ -313,9 +314,9 @@ class ms3d_header_t:
     #char id[LENGTH_ID]; // always "MS3D000000"
     #int version; // 4
     __slots__ = (
-        "id",
-        "version"
-        )
+            "id",
+            "version"
+            )
 
     def __init__(
             self,
@@ -348,15 +349,12 @@ class ms3d_header_t:
             )
 
     def __hash__(self):
-        if not id:
-            hId = 0
-        else:
-            hId = hash(self.id)
-
-        return hId ^ hash(self.version)
+        return hash(self.id) ^ hash(self.version)
 
     def __eq__(self, other):
-        return (self and other and self.id and other.id and self.id == other.id and self.version == other.version)
+        return ((self is not None) and (other is not None)
+                and (self.id == other.id)
+                and (self.version == other.version))
 
     def read(self, file):
         #DEBUG_print("ms3d_header_t.read (id)", PRINT_LEVEL1)
@@ -382,11 +380,11 @@ class ms3d_vertex_t:
     #char boneId; // -1 = no bone
     #byte referenceCount;
     __slots__ = (
-        PROP_NAME_FLAGS,
-        "_vertex",
-        "boneId",
-        "referenceCount",
-        )
+            PROP_NAME_FLAGS,
+            "_vertex",
+            "boneId",
+            "referenceCount",
+            )
 
     @property
     def vertex(self):
@@ -394,10 +392,10 @@ class ms3d_vertex_t:
 
     def __init__(
             self,
-            defaultFlags = None,
-            defaultVertex = None,
-            defaultBoneId = None,
-            defaultReferenceCount = None
+            defaultFlags=None,
+            defaultVertex=None,
+            defaultBoneId=None,
+            defaultReferenceCount=None
             ):
         """
         initialize
@@ -433,29 +431,27 @@ class ms3d_vertex_t:
 
     def __repr__(self):
         return "\n<flags={0}, vertex={1}, boneId={2}, referenceCount={3}>".format(
-            self.flags,
-            self._vertex,
-            self.boneId,
-            self.referenceCount
-            )
+                self.flags,
+                self._vertex,
+                self.boneId,
+                self.referenceCount
+                )
 
     def __hash__(self):
         return (
-            hash(self.vertex)
-            #^ hash(self.flags)
-            #^ hash(self.boneId)
-            #^ hash(self.referenceCount)
-            )
+                hash(self.vertex)
+                #^ hash(self.flags)
+                #^ hash(self.boneId)
+                #^ hash(self.referenceCount)
+                )
 
     def __eq__(self, other):
-        return ( True
-            and (self.vertex[0] == other.vertex[0])
-            and (self.vertex[1] == other.vertex[1])
-            and (self.vertex[2] == other.vertex[2])
-            #and (self.flags == other.flags)
-            #and (self.boneId == other.boneId)
-            #and (self.referenceCount == other.referenceCount)
-            )
+        return (
+                (self.vertex == other.vertex)
+                #and (self.flags == other.flags)
+                #and (self.boneId == other.boneId)
+                #and (self.referenceCount == other.referenceCount)
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_t.read (flags)", PRINT_LEVEL1)
@@ -492,14 +488,14 @@ class ms3d_triangle_t:
     #byte smoothingGroup; // 1 - 32
     #byte groupIndex;
     __slots__ = (
-        PROP_NAME_FLAGS,
-        "_vertexIndices",
-        "_vertexNormals",
-        "_s",
-        "_t",
-        "smoothingGroup",
-        "groupIndex"
-        )
+            PROP_NAME_FLAGS,
+            "_vertexIndices",
+            "_vertexNormals",
+            "_s",
+            "_t",
+            "smoothingGroup",
+            "groupIndex"
+            )
 
     @property
     def vertexIndices(self):
@@ -519,13 +515,13 @@ class ms3d_triangle_t:
 
     def __init__(
             self,
-            defaultFlags = None,
-            defaultVertexIndices = None,
-            defaultVertexNormals = None,
-            defaultS = None,
-            defaultT = None,
-            defaultSmoothingGroup = None,
-            defaultGroupIndex = None
+            defaultFlags=None,
+            defaultVertexIndices=None,
+            defaultVertexNormals=None,
+            defaultS=None,
+            defaultT=None,
+            defaultSmoothingGroup=None,
+            defaultGroupIndex=None
             ):
         """
         initialize
@@ -578,14 +574,14 @@ class ms3d_triangle_t:
 
     def __repr__(self):
         return "\n<flags={0}, vertexIndices={1}, vertexNormals={2}, s={3}, t={4}, smoothingGroup={5}, groupIndex={6}>".format(
-            self.flags,
-            self.vertexIndices,
-            self.vertexNormals,
-            self.s,
-            self.t,
-            self.smoothingGroup,
-            self.groupIndex
-            )
+                self.flags,
+                self.vertexIndices,
+                self.vertexNormals,
+                self.s,
+                self.t,
+                self.smoothingGroup,
+                self.groupIndex
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_triangle_t.read (flags)", PRINT_LEVEL1)
@@ -632,12 +628,12 @@ class ms3d_group_t:
     #word triangleIndices[numtriangles]; // the groups group the triangles
     #char materialIndex; // -1 = no material
     __slots__ = (
-        PROP_NAME_FLAGS,
-        PROP_NAME_NAME,
-        "_numtriangles",
-        "_triangleIndices",
-        "materialIndex"
-        )
+            PROP_NAME_FLAGS,
+            PROP_NAME_NAME,
+            "_numtriangles",
+            "_triangleIndices",
+            "materialIndex"
+            )
 
     @property
     def numtriangles(self):
@@ -651,11 +647,11 @@ class ms3d_group_t:
 
     def __init__(
             self,
-            defaultFlags = None,
-            defaultName = None,
-            defaultNumtriangles = None,
-            defaultTriangleIndices = None,
-            defaultMaterialIndex = None
+            defaultFlags=None,
+            defaultName=None,
+            defaultNumtriangles=None,
+            defaultTriangleIndices=None,
+            defaultMaterialIndex=None
             ):
         """
         initialize
@@ -676,7 +672,7 @@ class ms3d_group_t:
         if (not defaultFlags):
             defaultFlags = FLAG_NONE
 
-        if (not defaultName):
+        if (defaultName is None):
             defaultName = ""
 
         #if (not defaultNumtriangles):
@@ -696,12 +692,12 @@ class ms3d_group_t:
 
     def __repr__(self):
         return "\n<flags={0}, name='{1}', numtriangles={2}, triangleIndices={3}, materialIndex={4}>".format(
-            self.flags,
-            self.name,
-            self.numtriangles,
-            self.triangleIndices,
-            self.materialIndex
-            )
+                self.flags,
+                self.name,
+                self.numtriangles,
+                self.triangleIndices,
+                self.materialIndex
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_group_t.read (flags)", PRINT_LEVEL1)
@@ -745,17 +741,17 @@ class ms3d_material_t:
     #char texture[LENGTH_FILENAME]; // texture.bmp
     #char alphamap[LENGTH_FILENAME]; // alpha.bmp
     __slots__ = (
-        PROP_NAME_NAME,
-        "_ambient",
-        "_diffuse",
-        "_specular",
-        "_emissive",
-        "shininess",
-        "transparency",
-        PROP_NAME_MODE,
-        PROP_NAME_TEXTURE,
-        PROP_NAME_ALPHAMAP
-        )
+            PROP_NAME_NAME,
+            "_ambient",
+            "_diffuse",
+            "_specular",
+            "_emissive",
+            "shininess",
+            "transparency",
+            PROP_NAME_MODE,
+            PROP_NAME_TEXTURE,
+            PROP_NAME_ALPHAMAP
+            )
 
     @property
     def ambient(self):
@@ -775,16 +771,16 @@ class ms3d_material_t:
 
     def __init__(
             self,
-            defaultName = None,
-            defaultAmbient = None,
-            defaultDiffuse = None,
-            defaultSpecular = None,
-            defaultEmissive = None,
-            defaultShininess = None,
-            defaultTransparency = None,
-            defaultMode = None,
-            defaultTexture = None,
-            defaultAlphamap = None
+            defaultName=None,
+            defaultAmbient=None,
+            defaultDiffuse=None,
+            defaultSpecular=None,
+            defaultEmissive=None,
+            defaultShininess=None,
+            defaultTransparency=None,
+            defaultMode=None,
+            defaultTexture=None,
+            defaultAlphamap=None
             ):
         """
         initialize
@@ -812,7 +808,7 @@ class ms3d_material_t:
         """
         #DEBUG_print("ms3d_material_t.__init__", PRINT_LEVEL1)
 
-        if (not defaultName):
+        if (defaultName is None):
             defaultName = ""
 
         if (not defaultAmbient):
@@ -836,10 +832,10 @@ class ms3d_material_t:
         if (not defaultMode):
             defaultMode = 0
 
-        if (not defaultTexture):
+        if (defaultTexture is None):
             defaultTexture = ""
 
-        if (not defaultAlphamap):
+        if (defaultAlphamap is None):
             defaultAlphamap = ""
 
         self.name = defaultName
@@ -855,52 +851,47 @@ class ms3d_material_t:
 
     def __repr__(self):
         return "\n<name='{0}', ambient={1}, diffuse={2}, specular={3}, emissive={4}, shininess={5}, transparency={6}, mode={7}, texture='{8}', alphamap='{9}'>".format(
-            self.name,
-            self.ambient,
-            self.diffuse,
-            self.specular,
-            self.emissive,
-            self.shininess,
-            self.transparency,
-            self.mode,
-            self.texture,
-            self.alphamap
-            )
+                self.name,
+                self.ambient,
+                self.diffuse,
+                self.specular,
+                self.emissive,
+                self.shininess,
+                self.transparency,
+                self.mode,
+                self.texture,
+                self.alphamap
+                )
 
     def __hash__(self):
-        return hash(self.name) ^ hash(self.texture) ^ hash(self.alphamap) ^ hash(self.ambient) ^ hash(self.diffuse) ^ hash(self.specular) ^ hash(self.emissive) ^ hash(self.shininess) ^ hash(self.transparency) ^ hash(self.mode)
+        return (hash(self.name) 
+                ^ hash(self.texture)
+                ^ hash(self.alphamap)
+
+                ^ hash(self.ambient)
+                ^ hash(self.diffuse)
+                ^ hash(self.specular)
+                ^ hash(self.emissive)
+
+                ^ hash(self.shininess)
+                ^ hash(self.transparency)
+                ^ hash(self.mode))
 
     def __eq__(self, other):
-        return ( True
-            and (self.name == other.name)
+        return ((self.name == other.name)
 
-            and (self.ambient[0] == other.ambient[0])
-            and (self.ambient[1] == other.ambient[1])
-            and (self.ambient[2] == other.ambient[2])
-            and (self.ambient[3] == other.ambient[3])
+        and (self.ambient == other.ambient)
+                and (self.diffuse == other.diffuse)
+                and (self.specular == other.specular)
+                and (self.emissive == other.emissive)
 
-            and (self.diffuse[0] == other.diffuse[0])
-            and (self.diffuse[1] == other.diffuse[1])
-            and (self.diffuse[2] == other.diffuse[2])
-            and (self.diffuse[3] == other.diffuse[3])
+                and (self.shininess == other.shininess)
+                and (self.transparency == other.transparency)
+                and (self.mode == other.mode)
 
-            and (self.specular[0] == other.specular[0])
-            and (self.specular[1] == other.specular[1])
-            and (self.specular[2] == other.specular[2])
-            and (self.specular[3] == other.specular[3])
-
-            and (self.emissive[0] == other.emissive[0])
-            and (self.emissive[1] == other.emissive[1])
-            and (self.emissive[2] == other.emissive[2])
-            and (self.emissive[3] == other.emissive[3])
-
-            and (self.shininess == other.shininess)
-            and (self.transparency == other.transparency)
-            and (self.mode == other.mode)
-
-            #and (self.texture == other.texture)
-            #and (self.alphamap == other.alphamap)
-            )
+                #and (self.texture == other.texture)
+                #and (self.alphamap == other.alphamap)
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_material_t.read (name)", PRINT_LEVEL1)
@@ -956,9 +947,9 @@ class ms3d_keyframe_rot_t:
     #float time; // time in seconds
     #float rotation[3]; // x, y, z angles
     __slots__ = (
-        "time",
-        "_rotation"
-        )
+            "time",
+            "_rotation"
+            )
 
     @property
     def rotation(self):
@@ -966,8 +957,8 @@ class ms3d_keyframe_rot_t:
 
     def __init__(
             self,
-            defaultTime = None,
-            defaultRotation = None
+            defaultTime=None,
+            defaultRotation=None
             ):
         """
         initialize
@@ -990,9 +981,9 @@ class ms3d_keyframe_rot_t:
 
     def __repr__(self):
         return "\n<time={0}, rotation={1}>".format(
-            self.time,
-            self.rotation,
-            )
+                self.time,
+                self.rotation,
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_keyframe_rot_t.read (time)", PRINT_LEVEL1)
@@ -1016,9 +1007,9 @@ class ms3d_keyframe_pos_t:
     #float time; // time in seconds
     #float position[3]; // local position
     __slots__ = (
-        "time",
-        "_position"
-        )
+            "time",
+            "_position"
+            )
 
     @property
     def position(self):
@@ -1026,8 +1017,8 @@ class ms3d_keyframe_pos_t:
 
     def __init__(
             self,
-            defaultTime = None,
-            defaultPosition = None
+            defaultTime=None,
+            defaultPosition=None
             ):
         """
         initialize
@@ -1050,9 +1041,9 @@ class ms3d_keyframe_pos_t:
 
     def __repr__(self):
         return "\n<time={0}, position={1}>".format(
-            self.time,
-            self.position,
-            )
+                self.time,
+                self.position,
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_keyframe_pos_t.read (time)", PRINT_LEVEL1)
@@ -1083,16 +1074,16 @@ class ms3d_joint_t:
     #ms3d_keyframe_rot_t keyFramesRot[numKeyFramesRot]; // local animation matrices
     #ms3d_keyframe_pos_t keyFramesTrans[numKeyFramesTrans]; // local animation matrices
     __slots__ = (
-        PROP_NAME_FLAGS,
-        PROP_NAME_NAME,
-        PROP_NAME_PARENTNAME,
-        "_rotation",
-        "_position",
-        "_numKeyFramesRot",
-        "_numKeyFramesTrans",
-        "_keyFramesRot",
-        "_keyFramesTrans"
-        )
+            PROP_NAME_FLAGS,
+            PROP_NAME_NAME,
+            PROP_NAME_PARENTNAME,
+            "_rotation",
+            "_position",
+            "_numKeyFramesRot",
+            "_numKeyFramesTrans",
+            "_keyFramesRot",
+            "_keyFramesTrans"
+            )
 
     @property
     def rotation(self):
@@ -1124,15 +1115,15 @@ class ms3d_joint_t:
 
     def __init__(
             self,
-            defaultFlags = None,
-            defaultName = None,
-            defaultParentName = None,
-            defaultRotation = None,
-            defaultPosition = None,
-            defaultNumKeyFramesRot = None,
-            defaultNumKeyFramesTrans = None,
-            defaultKeyFramesRot = None,
-            defaultKeyFramesTrans = None
+            defaultFlags=None,
+            defaultName=None,
+            defaultParentName=None,
+            defaultRotation=None,
+            defaultPosition=None,
+            defaultNumKeyFramesRot=None,
+            defaultNumKeyFramesTrans=None,
+            defaultKeyFramesRot=None,
+            defaultKeyFramesTrans=None
             ):
         """
         initialize
@@ -1161,10 +1152,10 @@ class ms3d_joint_t:
         if (not defaultFlags):
             defaultFlags = FLAG_NONE
 
-        if (not defaultName):
+        if (defaultName is None):
             defaultName = ""
 
-        if (not defaultParentName):
+        if (defaultParentName is None):
             defaultParentName = ""
 
         if (not defaultRotation):
@@ -1197,16 +1188,16 @@ class ms3d_joint_t:
 
     def __repr__(self):
         return "\n<flags={0}, name='{1}', parentName='{2}', rotation={3}, position={4}, numKeyFramesRot={5}, numKeyFramesTrans={6}, keyFramesRot={7}, keyFramesTrans={8}>".format(
-            self.flags,
-            self.name,
-            self.parentName,
-            self.rotation,
-            self.position,
-            self.numKeyFramesRot,
-            self.numKeyFramesTrans,
-            self.keyFramesRot,
-            self.keyFramesTrans
-            )
+                self.flags,
+                self.name,
+                self.parentName,
+                self.rotation,
+                self.position,
+                self.numKeyFramesRot,
+                self.numKeyFramesTrans,
+                self.keyFramesRot,
+                self.keyFramesTrans
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_joint_t.read (flags)", PRINT_LEVEL1)
@@ -1265,10 +1256,10 @@ class ms3d_comment_t:
     #int commentLength; // length of comment (terminating '\0' is not saved), "MC" has comment length of 2 (not 3)
     #char comment[commentLength]; // comment
     __slots__ = (
-        "index",
-        "_commentLength",
-        PROP_NAME_COMMENT
-        )
+            "index",
+            "_commentLength",
+            PROP_NAME_COMMENT
+            )
 
     @property
     def commentLength(self):
@@ -1278,9 +1269,9 @@ class ms3d_comment_t:
 
     def __init__(
             self,
-            defaultIndex = None,
-            defaultCommentLength = None,
-            defaultComment = None
+            defaultIndex=None,
+            defaultCommentLength=None,
+            defaultComment=None
             ):
         """
         initialize
@@ -1300,8 +1291,8 @@ class ms3d_comment_t:
         #if (not defaultCommentLength):
         #    defaultCommentLength = 0
 
-        if (not defaultComment):
-            defaultComment = "" #chr()
+        if (defaultComment is None):
+            defaultComment = ""
 
         self.index = defaultIndex
         #self.commentLength = defaultCommentLength
@@ -1309,10 +1300,10 @@ class ms3d_comment_t:
 
     def __repr__(self):
         return "\n<index={0}, commentLength={1}, comment={2}>".format(
-            self.index,
-            self.commentLength,
-            self.comment
-            )
+                self.index,
+                self.commentLength,
+                self.comment
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_comment_t.read (index)", PRINT_LEVEL1)
@@ -1344,9 +1335,9 @@ class ms3d_vertex_ex1_t:
     #// weight[2] is the weight for boneIds[1]
     #// 1.0f - weight[0] - weight[1] - weight[2] is the weight for boneIds[2]
     __slots__ = (
-        "_boneIds",
-        "_weights"
-        )
+            "_boneIds",
+            "_weights"
+            )
 
     @property
     def boneIds(self):
@@ -1358,8 +1349,8 @@ class ms3d_vertex_ex1_t:
 
     def __init__(
             self,
-            defaultBoneIds = None,
-            defaultWeights = None
+            defaultBoneIds=None,
+            defaultWeights=None
             ):
         """
         initialize
@@ -1382,9 +1373,9 @@ class ms3d_vertex_ex1_t:
 
     def __repr__(self):
         return "\n<boneIds={0}, weights={1}>".format(
-            self.boneIds,
-            self.weights
-            )
+                self.boneIds,
+                self.weights
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_ex1_t.read (boneIds)", PRINT_LEVEL1)
@@ -1413,10 +1404,10 @@ class ms3d_vertex_ex2_t:
     #// 1.0f - weight[0] - weight[1] - weight[2] is the weight for boneIds[2]
     #unsigned int extra; // vertex extra, which can be used as color or anything else, since subVersion 2
     __slots__ = (
-        "_boneIds",
-        "_weights",
-        PROP_NAME_EXTRA
-        )
+            "_boneIds",
+            "_weights",
+            PROP_NAME_EXTRA
+            )
 
     @property
     def boneIds(self):
@@ -1428,9 +1419,9 @@ class ms3d_vertex_ex2_t:
 
     def __init__(
             self,
-            defaultBoneIds = None,
-            defaultWeights = None,
-            defaultExtra = None
+            defaultBoneIds=None,
+            defaultWeights=None,
+            defaultExtra=None
             ):
         """
         initialize
@@ -1459,10 +1450,10 @@ class ms3d_vertex_ex2_t:
 
     def __repr__(self):
         return "\n<boneIds={0}, weights={1}, extra={2}>".format(
-            self.boneIds,
-            self.weights,
-            self.extra
-            )
+                self.boneIds,
+                self.weights,
+                self.extra
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_ex2_t.read (boneIds)", PRINT_LEVEL1)
@@ -1495,10 +1486,10 @@ class ms3d_vertex_ex3_t:
     #// 1.0f - weight[0] - weight[1] - weight[2] is the weight for boneIds[2]
     #unsigned int extra; // vertex extra, which can be used as color or anything else, since subVersion 2
     __slots__ = (
-        "_boneIds",
-        "_weights",
-        PROP_NAME_EXTRA
-        )
+            "_boneIds",
+            "_weights",
+            PROP_NAME_EXTRA
+            )
 
     @property
     def boneIds(self):
@@ -1510,9 +1501,9 @@ class ms3d_vertex_ex3_t:
 
     def __init__(
             self,
-            defaultBoneIds = None,
-            defaultWeights = None,
-            defaultExtra = None
+            defaultBoneIds=None,
+            defaultWeights=None,
+            defaultExtra=None
             ):
         """
         initialize
@@ -1541,10 +1532,10 @@ class ms3d_vertex_ex3_t:
 
     def __repr__(self):
         return "\n<boneIds={0}, weights={1}, extra={2}>".format(
-            self.boneIds,
-            self.weights,
-            self.extra
-            )
+                self.boneIds,
+                self.weights,
+                self.extra
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_vertex_ex3_t.read (boneIds)", PRINT_LEVEL1)
@@ -1571,8 +1562,8 @@ class ms3d_joint_ex_t:
     """
     #float color[3]; // joint color, since subVersion == 1
     __slots__ = (
-        "_color"
-        )
+            "_color"
+            )
 
     @property
     def color(self):
@@ -1580,7 +1571,7 @@ class ms3d_joint_ex_t:
 
     def __init__(
             self,
-            defaultColor = None
+            defaultColor=None
             ):
         """
         initialize
@@ -1621,16 +1612,16 @@ class ms3d_model_ex_t:
     #int transparencyMode; // 0 = simple, 1 = depth buffered with alpha ref, 2 = depth sorted triangles, since subVersion == 1
     #float alphaRef; // alpha reference value for transparencyMode = 1, since subVersion == 1
     __slots__ = (
-        "jointSize",
-        "transparencyMode",
-        "alphaRef"
-        )
+            "jointSize",
+            "transparencyMode",
+            "alphaRef"
+            )
 
     def __init__(
             self,
-            defaultJointSize = None,
-            defaultTransparencyMode = None,
-            defaultAlphaRef = None
+            defaultJointSize=None,
+            defaultTransparencyMode=None,
+            defaultAlphaRef=None
             ):
         """
         initialize
@@ -1659,10 +1650,10 @@ class ms3d_model_ex_t:
 
     def __repr__(self):
         return "\n<jointSize={0}, transparencyMode={1}, alphaRef={2}>".format(
-            self.jointSize,
-            self.transparencyMode,
-            self.alphaRef
-            )
+                self.jointSize,
+                self.transparencyMode,
+                self.alphaRef
+                )
 
     def read(self, file):
         #DEBUG_print("ms3d_model_ex_t.read (jointSize)", PRINT_LEVEL1)
@@ -1692,40 +1683,40 @@ class ms3d_file_t:
     ms3d_file_t
     """
     __slot__ = (
-        "header",
-        "_nNumVertices",
-        "_vertices",
-        "_nNumTriangles",
-        "_triangles",
-        "_nNumGroups",
-        "_groups",
-        "_nNumMaterials",
-        "_materials",
-        "fAnimationFPS",
-        "fCurrentTime",
-        "iTotalFrames",
-        "_nNumJoints",
-        "_joints",
-        "subVersionComments",
-        "_nNumGroupComments",
-        "_groupComments",
-        "_nNumMaterialComments",
-        "_materialComments",
-        "_nNumJointComments",
-        "_jointComments",
-        "_nNumModelComment",
-        "_modelComments",
-        "subVersionVertexExtra",
-        "_vertex_ex1",
-        "_vertex_ex2",
-        "_vertex_ex3",
-        "subVersionJointExtra",
-        "_joint_ex",
-        "subVersionModelExtra",
-        "model_ex",
-        "_str_cash",
-        PROP_NAME_NAME
-        )
+            "header",
+            "_nNumVertices",
+            "_vertices",
+            "_nNumTriangles",
+            "_triangles",
+            "_nNumGroups",
+            "_groups",
+            "_nNumMaterials",
+            "_materials",
+            "fAnimationFPS",
+            "fCurrentTime",
+            "iTotalFrames",
+            "_nNumJoints",
+            "_joints",
+            "subVersionComments",
+            "_nNumGroupComments",
+            "_groupComments",
+            "_nNumMaterialComments",
+            "_materialComments",
+            "_nNumJointComments",
+            "_jointComments",
+            "_nNumModelComment",
+            "_modelComments",
+            "subVersionVertexExtra",
+            "_vertex_ex1",
+            "_vertex_ex2",
+            "_vertex_ex3",
+            "subVersionJointExtra",
+            "_joint_ex",
+            "subVersionModelExtra",
+            "model_ex",
+            "_str_cash",
+            PROP_NAME_NAME
+            )
 
     @property
     def nNumVertices(self):
@@ -1844,13 +1835,13 @@ class ms3d_file_t:
 
     def __init__(
             self,
-            defaultName = None
+            defaultName=None
             ):
         """
         initialize
         """
         #DEBUG_print("ms3d_file_t.__init__")
-        if (not defaultName):
+        if (defaultName is None):
             defaultName = ""
 
         self.name = defaultName
@@ -1965,99 +1956,6 @@ class ms3d_file_t:
         #DEBUG_print("ms3d_file_t.__init__ #finished")
 
 
-    #def __repr__(self):
-    #    seq = []
-
-    #    seq.append("header=")
-    #    seq.append(str(self.header))
-
-    #    seq.append("\nnNumVertices=")
-    #    seq.append(str(self.nNumVertices))
-    #    seq.append("\nvertices=")
-    #    seq.append(str(self.vertices))
-
-    #    seq.append("\nnNumTriangles=")
-    #    seq.append(str(self.nNumTriangles))
-    #    seq.append("\ntriangles=")
-    #    seq.append(str(self.triangles))
-
-    #    seq.append("\nnNumGroups=")
-    #    seq.append(str(self.nNumGroups))
-    #    seq.append("\ngroups=")
-    #    seq.append(str(self.groups))
-
-    #    seq.append("\nnNumMaterials=")
-    #    seq.append(str(self.nNumMaterials))
-    #    seq.append("\nmaterials=")
-    #    seq.append(str(self.materials))
-
-    #    seq.append("\nfAnimationFPS=")
-    #    seq.append(str(self.fAnimationFPS))
-    #    seq.append("\nfCurrentTime=")
-    #    seq.append(str(self.fCurrentTime))
-    #    seq.append("\niTotalFrames=")
-    #    seq.append(str(self.iTotalFrames))
-
-    #    seq.append("\nnNumJoints=")
-    #    seq.append(str(self.nNumJoints))
-    #    seq.append("\njoints=")
-    #    seq.append(str(self.joints))
-
-    #    seq.append("\nsubVersionComments=")
-    #    seq.append(str(self.subVersionComments))
-
-    #    seq.append("\nnNumGroupComments=")
-    #    seq.append(str(self.nNumGroupComments))
-    #    seq.append("\ngroupComments=")
-    #    seq.append(str(self.groupComments))
-
-    #    seq.append("\nnNumMaterialComments=")
-    #    seq.append(str(self.nNumMaterialComments))
-    #    seq.append("\nmaterialComments=")
-    #    seq.append(str(self.materialComments))
-
-    #    seq.append("\nnNumJointComments=")
-    #    seq.append(str(self.nNumJointComments))
-    #    seq.append("\njointComments=")
-    #    seq.append(str(self.jointComments))
-
-    #    seq.append("\nnNumModelComment=")
-    #    seq.append(str(self.nNumModelComment))
-    #    seq.append("\nmodelComments=")
-    #    seq.append(str(self.modelComments))
-
-    #    seq.append("\nsubVersionVertexExtra=")
-    #    seq.append(str(self.subVersionVertexExtra))
-    #    if (self.subVersionVertexExtra == 1):
-    #        seq.append("\nvertex_ex1=")
-    #        seq.append(str(self.vertex_ex1))
-    #    elif (self.subVersionVertexExtra == 2):
-    #        seq.append("\nvertex_ex2=")
-    #        seq.append(str(self.vertex_ex2))
-    #    elif (self.subVersionVertexExtra == 3):
-    #        seq.append("\nvertex_ex3=")
-    #        seq.append(str(self.vertex_ex3))
-    #    else:
-    #        seq.append("\nvertex_ex) {skipped}")
-
-    #    seq.append("\nsubVersionJointExtra=")
-    #    seq.append(str(self.subVersionJointExtra))
-    #    seq.append("\njoint_ex=")
-    #    seq.append(str(self.joint_ex))
-
-    #    seq.append("\nsubVersionModelExtra=")
-    #    seq.append(str(self.subVersionModelExtra))
-    #    seq.append("\nmodel_ex=")
-    #    seq.append(str(self.model_ex))
-
-    #    value = "".join(seq)
-
-    #    # raise an exception / error on huge strings
-    #    # <class 'IOError'>
-    #    # [Errno 12] Not enough space
-    #    return value
-
-
     def print_internal(self):
         print()
         print("######################################################################")
@@ -2067,31 +1965,31 @@ class ms3d_file_t:
         print("header={0}".format(self.header))
 
         print("nNumVertices={0}".format(self.nNumVertices))
-        print("vertices=[", end = "")
+        print("vertices=[", end="")
         if self.vertices:
             for obj in self.vertices:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("nNumTriangles={0}".format(self.nNumTriangles))
-        print("triangles=[", end = "")
+        print("triangles=[", end="")
         if self.triangles:
             for obj in self.triangles:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("nNumGroups={0}".format(self.nNumGroups))
-        print("groups=[", end = "")
+        print("groups=[", end="")
         if self.groups:
             for obj in self.groups:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("nNumMaterials={0}".format(self.nNumMaterials))
-        print("materials=[", end = "")
+        print("materials=[", end="")
         if self.materials:
             for obj in self.materials:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("fAnimationFPS={0}".format(self.fAnimationFPS))
@@ -2099,40 +1997,40 @@ class ms3d_file_t:
         print("iTotalFrames={0}".format(self.iTotalFrames))
 
         print("nNumJoints={0}".format(self.nNumJoints))
-        print("joints=[", end = "")
+        print("joints=[", end="")
         if self.joints:
             for obj in self.joints:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("subVersionComments={0}".format(self.subVersionComments))
 
         print("nNumGroupComments={0}".format(self.nNumGroupComments))
-        print("groupComments=[", end = "")
+        print("groupComments=[", end="")
         if self.groupComments:
             for obj in self.groupComments:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("nNumMaterialComments={0}".format(self.nNumMaterialComments))
-        print("materialComments=[", end = "")
+        print("materialComments=[", end="")
         if self.materialComments:
             for obj in self.materialComments:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("nNumJointComments={0}".format(self.nNumJointComments))
-        print("jointComments=[", end = "")
+        print("jointComments=[", end="")
         if self.jointComments:
             for obj in self.jointComments:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("nNumModelComment={0}".format(self.nNumModelComment))
-        print("modelComments=[", end = "")
+        print("modelComments=[", end="")
         if self.modelComments:
             for obj in self.modelComments:
-                print("{0}".format(obj), end = "")
+                print("{0}".format(obj), end="")
         print("]")
 
         print("subVersionVertexExtra={0}".format(self.subVersionVertexExtra))
@@ -2301,10 +2199,16 @@ class ms3d_file_t:
             #DEBUG_print("ms3d_file_t.read (model_ex)")
             self.model_ex.read(file)
 
-        except:
-            for i in range(len(sys.exc_info())):
-                #DEBUG_print("ms3d_file.read - exception in optional try block '{0}'".format(sys.exc_info()[i]))
-                pass
+        #except IOError:
+                #DEBUG_print("ms3d_file.read - exception in optional try block 'IOError'")
+        #except EOFError:
+                #DEBUG_print("ms3d_file.read - exception in optional try block 'EOFError'")
+        #except struct.error:
+                #DEBUG_print("ms3d_file.read - exception in optional try block 'struct.error'")
+        except Exception:
+            #for i in range(len(sys.exc_info())):
+            #    #DEBUG_print("ms3d_file.read - exception in optional try block '{0}', progressCount={1}".format(sys.exc_info()[i], progressCount))
+            #    pass
 
             if (progressCount):
                 if (progressCount <= 0):
@@ -2458,7 +2362,7 @@ class ms3d_file_t:
             #DEBUG_print("ms3d_file_t.write (model_ex)")
             self.model_ex.write(file)
 
-        except:
+        except Exception:
             for i in range(len(sys.exc_info())):
                 #DEBUG_print("ms3d_file.write - exception in optional try block '{0}'".format(sys.exc_info()[i]))
                 pass

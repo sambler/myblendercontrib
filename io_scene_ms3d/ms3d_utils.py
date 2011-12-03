@@ -30,13 +30,44 @@
 # ##### END COPYRIGHT BLOCK #####
 
 
+#import python stuff
+import math
+import mathutils
+import os
+import sys
+
+
+# To support reload properly, try to access a package var, if it's there, reload everything
+if ("bpy" in locals()):
+    import imp
+    #if "ms3d_export" in locals():
+    #    imp.reload(ms3d_export)
+    #if "ms3d_import" in locals():
+    #    imp.reload(ms3d_import)
+    #if "ms3d_spec" in locals():
+    #    imp.reload(ms3d_spec)
+    #if "ms3d_utils" in locals():
+    #    imp.reload(ms3d_utils)
+    #print("ms3d_utils.MS3D-add-on Reloaded")
+    pass
+
+else:
+    #from . import ms3d_export
+    #from . import ms3d_import
+    #from . import ms3d_spec
+    #from . import ms3d_utils
+    #print("ms3d_utils.MS3D-add-on Imported")
+    pass
+
+
+#import blender stuff
 import bpy
+import bpy.ops
 
 
 _DEBUG = bpy.app.debug
 _DEBUG_DEFAULT = bpy.app.debug
 _VERBOSE_DEFAULT = bpy.app.debug
-
 
 
 ###############################################################################
@@ -47,33 +78,34 @@ FILE_FILTER = "*.ms3d"
 
 
 ###############################################################################
-OPT_HIDDEN = "HIDDEN"
-OPT_ANIMATABLE = "ANIMATABLE"
-OPT_ENUM_FLAG = "ENUM_FLAG"
+OPT_HIDDEN = 'HIDDEN'
+OPT_ANIMATABLE = 'ANIMATABLE'
+OPT_ENUM_FLAG = 'ENUM_FLAG'
 
 LABEL_NAME_OPTIONS = "Advanced Options:"
-LABEL_ICON_OPTIONS = "LAMP"
+LABEL_ICON_OPTIONS = 'LAMP'
 
 LABEL_NAME_OBJECT = "World Processing:"
-LABEL_ICON_OBJECT = "WORLD"
+LABEL_ICON_OBJECT = 'WORLD'
 
 LABEL_NAME_PROCESSING = "Object Processing:"
-LABEL_ICON_PROCESSING = "OBJECT_DATAMODE"
+LABEL_ICON_PROCESSING = 'OBJECT_DATAMODE'
 
 LABEL_NAME_ANIMATION = "Animation Processing:"
-LABEL_ICON_ANIMATION = "RENDER_ANIMATION"
+LABEL_ICON_ANIMATION = 'RENDER_ANIMATION'
 
 LABLE_NAME_REUSE = "ReUse existing data"
-LABLE_ICON_REUSE = "FILE_REFRESH"
+LABLE_ICON_REUSE = 'FILE_REFRESH'
+
 
 ###############################################################################
 PROP_NAME_DEBUG = "DEBUG"
 PROP_DESC_DEBUG = "Run the converter in low level debug mode. Check the console for output (Warning, may be very slow)"
 PROP_DEFAULT_DEBUG = _DEBUG_DEFAULT
 PROP_OPT_DEBUG = {
-    #OPT_HIDDEN,
-    OPT_ANIMATABLE,
-    }
+        #OPT_HIDDEN,
+        OPT_ANIMATABLE,
+        }
 
 
 ###############################################################################
@@ -84,25 +116,25 @@ PROP_OPT_VERBOSE = {OPT_ANIMATABLE}
 
 
 ###############################################################################
-PROP_ITEM_COORDINATESYSTEM_1_BY_1 = "0"
-PROP_ITEM_COORDINATESYSTEM_IMP = "1"
-PROP_ITEM_COORDINATESYSTEM_EXP = "2"
+PROP_ITEM_COORDINATESYSTEM_1_BY_1 = '0'
+PROP_ITEM_COORDINATESYSTEM_IMP = '1'
+PROP_ITEM_COORDINATESYSTEM_EXP = '2'
 PROP_NAME_COORDINATESYSTEM = "Coordinate system"
 PROP_DESC_COORDINATESYSTEM = "Select a coordinate system to export to"
 PROP_DEFAULT_COORDINATESYSTEM_IMP = PROP_ITEM_COORDINATESYSTEM_IMP
 PROP_DEFAULT_COORDINATESYSTEM_EXP = PROP_ITEM_COORDINATESYSTEM_EXP
 PROP_ITEMS_COORDINATESYSTEM = (
-    (PROP_ITEM_COORDINATESYSTEM_1_BY_1, "xyz -> xyz (1:1)", "Take axis as is (1:1)"),
-    (PROP_ITEM_COORDINATESYSTEM_IMP, "yzx -> xyz (import)", "swap axis to fit to viewport (import ms3d to blender)"),
-    (PROP_ITEM_COORDINATESYSTEM_EXP, "xyz -> yzx (export)", "swap axis to fit to viewport (export blender to ms3d)"),
-    )
+        (PROP_ITEM_COORDINATESYSTEM_1_BY_1, "xyz -> xyz (1:1)", "Take axis as is (1:1)"),
+        (PROP_ITEM_COORDINATESYSTEM_IMP, "yzx -> xyz (import)", "swap axis to fit to viewport (import ms3d to blender)"),
+        (PROP_ITEM_COORDINATESYSTEM_EXP, "xyz -> yzx (export)", "swap axis to fit to viewport (export blender to ms3d)"),
+        )
 PROP_OPT_COORDINATESYSTEM = {OPT_ANIMATABLE}
 
 
 ###############################################################################
 PROP_NAME_SCALE = "Scale"
 PROP_DESC_SCALE = "Scale all data"
-PROP_DEFAULT_SCALE = 1.0 #0.1
+PROP_DEFAULT_SCALE = 1.0
 PROP_MIN_SCALE = 0.001
 PROP_MAX_SCALE = 1000.0
 PROP_SMIN_SCALE = 0.01
@@ -125,50 +157,50 @@ PROP_OPT_SELECTED = {OPT_ANIMATABLE}
 
 
 ###############################################################################
-PROP_ITEM_REUSE_NONE = "NONE"
-PROP_ITEM_REUSE_MATCH_HASH = "MATCH_HASH"
-PROP_ITEM_REUSE_MATCH_VALUES = "MATCH_VALUES"
+PROP_ITEM_REUSE_NONE = 'NONE'
+PROP_ITEM_REUSE_MATCH_HASH = 'MATCH_HASH'
+PROP_ITEM_REUSE_MATCH_VALUES = 'MATCH_VALUES'
 ###############################################################################
 PROP_NAME_REUSE = "Reuse existing data"
 PROP_DESC_REUSE = "Reuses existing blender data, by trying to find similar data objects to reduce the filesize. (With risk of taking the wrong existing data!)"
 PROP_DEFAULT_REUSE = PROP_ITEM_REUSE_NONE
 #PROP_DEFAULT_REUSE = PROP_ITEM_REUSE_MATCH_VALUES
 PROP_ITEMS_REUSE = (
-    (PROP_ITEM_REUSE_NONE, "Disabled", "Create every time new data."),
-    #(PROP_ITEM_REUSE_MATCH_HASH, "Match by hash ***)", "Take data with the same custom property 'ms3d_i_hash' value. (even if content is modified or different!)"),
-    (PROP_ITEM_REUSE_MATCH_VALUES, "Match by values ***)", "Take data with similar color values (diffuse_color, specular_color) and texture_slots (images). (even if untested content is different!)"),
-    )
+        (PROP_ITEM_REUSE_NONE, "Disabled", "Create every time new data."),
+        #(PROP_ITEM_REUSE_MATCH_HASH, "Match by hash ***)", "Take data with the same custom property 'ms3d_i_hash' value. (even if content is modified or different!)"),
+        (PROP_ITEM_REUSE_MATCH_VALUES, "Match by values ***)", "Take data with similar color values (diffuse_color, specular_color) and texture_slots (images). (even if untested content is different!)"),
+        )
 PROP_OPT_REUSE = {OPT_ANIMATABLE}
 
 
 ###############################################################################
-PROP_ITEM_OBJECT_ANIMATION = "ANIMATION"
-PROP_ITEM_OBJECT_GROUP = "GROUP"
-PROP_ITEM_OBJECT_JOINT = "JOINT"
-PROP_ITEM_OBJECT_MATERIAL = "MATERIAL"
-PROP_ITEM_OBJECT_MESH = "MESH"
-PROP_ITEM_OBJECT_SMOOTHGROUPS = "SMOOTHGROUPS"
-PROP_ITEM_OBJECT_TRI_TO_QUAD = "TRI_TO_QUAD"
+PROP_ITEM_OBJECT_ANIMATION = 'ANIMATION'
+PROP_ITEM_OBJECT_GROUP = 'GROUP'
+PROP_ITEM_OBJECT_JOINT = 'JOINT'
+PROP_ITEM_OBJECT_MATERIAL = 'MATERIAL'
+PROP_ITEM_OBJECT_MESH = 'MESH'
+PROP_ITEM_OBJECT_SMOOTHGROUPS = 'SMOOTHGROUPS'
+PROP_ITEM_OBJECT_TRI_TO_QUAD = 'TRI_TO_QUAD'
 ###############################################################################
 PROP_NAME_OBJECTS_IMP = "Import processing"
 PROP_DESC_OBJECTS_IMP = "What to process during import"
 PROP_DEFAULT_OBJECTS_IMP = {
-    #PROP_ITEM_OBJECT_MESH,
-    PROP_ITEM_OBJECT_MATERIAL,
-    #PROP_ITEM_OBJECT_JOINT,
-    PROP_ITEM_OBJECT_SMOOTHGROUPS,
-    PROP_ITEM_OBJECT_GROUP,
-    #PROP_ITEM_OBJECT_TRI_TO_QUAD,
-    }
+        #PROP_ITEM_OBJECT_MESH,
+        PROP_ITEM_OBJECT_MATERIAL,
+        #PROP_ITEM_OBJECT_JOINT,
+        PROP_ITEM_OBJECT_SMOOTHGROUPS,
+        PROP_ITEM_OBJECT_GROUP,
+        #PROP_ITEM_OBJECT_TRI_TO_QUAD,
+        }
 PROP_ITEMS_OBJECTS_IMP = (
-    #(PROP_ITEM_OBJECT_MESH, "Meshes", "vertices, triangles, uv"),
-    (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular, emissive, shininess, transparency, diffuse texture, alpha texture"),
-    (PROP_ITEM_OBJECT_JOINT, "Joints *)", "joints, bones"),
-    #(PROP_ITEM_OBJECT_ANIMATION, "Animation **)", "keyframes"),
-    (PROP_ITEM_OBJECT_SMOOTHGROUPS, "Smoothing Groups", "split mesh faces according its smoothing groups"),
-    (PROP_ITEM_OBJECT_GROUP, "Group", "organize all file objects to a single group, named with the filename"),
-    (PROP_ITEM_OBJECT_TRI_TO_QUAD, "Tris to Quad", "try to convert triangles to quads"),
-    )
+        #(PROP_ITEM_OBJECT_MESH, "Meshes", "vertices, triangles, uv"),
+        (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular, emissive, shininess, transparency, diffuse texture, alpha texture"),
+        (PROP_ITEM_OBJECT_JOINT, "Joints *)", "joints, bones"),
+        #(PROP_ITEM_OBJECT_ANIMATION, "Animation **)", "keyframes"),
+        (PROP_ITEM_OBJECT_SMOOTHGROUPS, "Smoothing Groups", "split mesh faces according its smoothing groups"),
+        (PROP_ITEM_OBJECT_GROUP, "Group", "organize all file objects to a single group, named with the filename"),
+        (PROP_ITEM_OBJECT_TRI_TO_QUAD, "Tris to Quad", "try to convert triangles to quads"),
+        )
 PROP_OPT_OBJECTS_IMP = {OPT_ENUM_FLAG}
 
 
@@ -176,15 +208,15 @@ PROP_OPT_OBJECTS_IMP = {OPT_ENUM_FLAG}
 PROP_NAME_OBJECTS_EXP = "Export processing"
 PROP_DESC_OBJECTS_EXP = "What to process during export"
 PROP_DEFAULT_OBJECTS_EXP = {
-    #PROP_ITEM_OBJECT_MESH,
-    PROP_ITEM_OBJECT_MATERIAL,
-    }
+        #PROP_ITEM_OBJECT_MESH,
+        PROP_ITEM_OBJECT_MATERIAL,
+        }
 PROP_ITEMS_OBJECTS_EXP = (
-    #(PROP_ITEM_OBJECT_MESH, "Meshes", "vertices, triangles, uv, normals"),
-    (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular, emissive, shininess, transparency, diffuse texture, alpha texture"),
-    (PROP_ITEM_OBJECT_JOINT, "Joints **)", "joints, bones"),
-    #(PROP_ITEM_OBJECT_ANIMATION, "Animation **)", "keyframes"),
-    )
+        #(PROP_ITEM_OBJECT_MESH, "Meshes", "vertices, triangles, uv, normals"),
+        (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular, emissive, shininess, transparency, diffuse texture, alpha texture"),
+        (PROP_ITEM_OBJECT_JOINT, "Joints **)", "joints, bones"),
+        #(PROP_ITEM_OBJECT_ANIMATION, "Animation **)", "keyframes"),
+        )
 PROP_OPT_OBJECTS_EXP = {OPT_ENUM_FLAG}
 
 
@@ -202,28 +234,28 @@ PROP_DEFAULT_ANIMATION_FP= True
 PROP_OPT_ANIMATION_FP = {OPT_ANIMATABLE}
 
 
-###############################################################################
-PROP_NAME_LAYER_GEOMETRY = "Geometry Layer"
-PROP_DESC_LAYER_GEOMETRY = "Apply geometry to layer"
-PROP_DEFAULT_LAYER_GEOMETRY = [
-    True, False, False, False, False, False, False, False, False, False,
-    False, False, False, False, False, False, False, False, False, False,
-    ]
-PROP_OPT_LAYER_GEOMETRY = {OPT_ANIMATABLE}
-PROP_STYPE_LAYER_GEOMETRY = "LAYER"
-PROP_SIZE_LAYER_GEOMETRY = 20
+##############################################################################
+# PROP_NAME_LAYER_GEOMETRY = "Geometry Layer"
+# PROP_DESC_LAYER_GEOMETRY = "Apply geometry to layer"
+# PROP_DEFAULT_LAYER_GEOMETRY = [
+        # True, False, False, False, False, False, False, False, False, False,
+        # False, False, False, False, False, False, False, False, False, False,
+        # ]
+# PROP_OPT_LAYER_GEOMETRY = {OPT_ANIMATABLE}
+# PROP_STYPE_LAYER_GEOMETRY = 'LAYER'
+# PROP_SIZE_LAYER_GEOMETRY = 20
 
 
-###############################################################################
-PROP_NAME_LAYER_ARMARTURE = "Armature Layer"
-PROP_DESC_LAYER_ARMARTURE= "Apply armature to layer"
-PROP_DEFAULT_LAYER_ARMARTURE = [
-    False, False, False, False, False, False, False, False, False, False,
-    True, False, False, False, False, False, False, False, False, False
-    ]
-PROP_OPT_LAYER_ARMARTURE = {OPT_ANIMATABLE}
-PROP_STYPE_LAYER_ARMARTURE= "LAYER"
-PROP_SIZE_LAYER_ARMARTURE = 20
+##############################################################################
+# PROP_NAME_LAYER_ARMARTURE = "Armature Layer"
+# PROP_DESC_LAYER_ARMARTURE= "Apply armature to layer"
+# PROP_DEFAULT_LAYER_ARMARTURE = [
+        # False, False, False, False, False, False, False, False, False, False,
+        # True, False, False, False, False, False, False, False, False, False
+        # ]
+# PROP_OPT_LAYER_ARMARTURE = {OPT_ANIMATABLE}
+# PROP_STYPE_LAYER_ARMARTURE= 'LAYER'
+# PROP_SIZE_LAYER_ARMARTURE = 20
 
 
 ###############################################################################
@@ -235,107 +267,71 @@ REMARKS_3 = "***) risk of unwanted results"
 ###############################################################################
 def SetupMenuImport(self, layout):
     box = layout.box()
-    box.label(LABEL_NAME_OPTIONS, icon = LABEL_ICON_OPTIONS)
+    box.label(LABEL_NAME_OPTIONS, icon=LABEL_ICON_OPTIONS)
     if (bpy.app.debug):
-        box.prop(self, "prop_debug", icon = "ERROR")
-    box.prop(self, "prop_verbose", icon = "SPEAKER")
+        box.prop(self, "prop_debug", icon='ERROR')
+    box.prop(self, "prop_verbose", icon='SPEAKER')
 
     box2 = box.box()
-    box2.label(LABLE_NAME_REUSE, icon = LABLE_ICON_REUSE)
-    box2.prop(self, "prop_reuse", icon = "FILE_REFRESH", expand = True)
+    box2.label(LABLE_NAME_REUSE, icon=LABLE_ICON_REUSE)
+    box2.prop(self, "prop_reuse", icon='FILE_REFRESH', expand=True)
     if (PROP_ITEM_REUSE_NONE != self.prop_reuse):
-        box2.label(REMARKS_3, icon = "ERROR")
+        box2.label(REMARKS_3, icon='ERROR')
 
     box = layout.box()
-    box.label(LABEL_NAME_OBJECT, icon = LABEL_ICON_OBJECT)
-    box.prop(self, "prop_unit_mm", icon = "SCENE_DATA", expand = True)
-    box.prop(self, "prop_coordinate_system", icon = "WORLD_DATA", expand = True)
-    box.prop(self, "prop_scale", icon = "MESH_DATA")
+    box.label(LABEL_NAME_OBJECT, icon=LABEL_ICON_OBJECT)
+    box.prop(self, "prop_unit_mm", icon='SCENE_DATA', expand=True)
+    box.prop(self, "prop_coordinate_system", icon='WORLD_DATA', expand=True)
+    box.prop(self, "prop_scale", icon='MESH_DATA')
 
     box = layout.box()
-    box.label(LABEL_NAME_PROCESSING, icon = LABEL_ICON_PROCESSING)
-    box.prop(self, "prop_objects", icon = "MESH_DATA", expand = True)
+    box.label(LABEL_NAME_PROCESSING, icon=LABEL_ICON_PROCESSING)
+    box.prop(self, "prop_objects", icon='MESH_DATA', expand=True)
 
 
     if (PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-        box.label(REMARKS_1, icon = "ERROR")
+        box.label(REMARKS_1, icon='ERROR')
 
         box = layout.box()
-        box.label(LABEL_NAME_ANIMATION, icon = LABEL_ICON_ANIMATION)
+        box.label(LABEL_NAME_ANIMATION, icon=LABEL_ICON_ANIMATION)
         box.prop(self, "prop_animation")
         if (self.prop_animation):
-            box.label(REMARKS_2, icon = "ERROR")
+            box.label(REMARKS_2, icon='ERROR')
 
 
 ###############################################################################
 def SetupMenuExport(self, layout):
     box = layout.box()
-    box.label(LABEL_NAME_OPTIONS, icon = LABEL_ICON_OPTIONS)
+    box.label(LABEL_NAME_OPTIONS, icon=LABEL_ICON_OPTIONS)
     if (bpy.app.debug):
-        box.prop(self, "prop_debug", icon = "ERROR")
-    box.prop(self, "prop_verbose", icon = "SPEAKER")
+        box.prop(self, "prop_debug", icon='ERROR')
+    box.prop(self, "prop_verbose", icon='SPEAKER')
 
     box = layout.box()
-    box.label(LABEL_NAME_OBJECT, icon = LABEL_ICON_OBJECT)
-    box.prop(self, "prop_coordinate_system", icon = "WORLD_DATA", expand = True)
-    box.prop(self, "prop_scale", icon = "MESH_DATA")
+    box.label(LABEL_NAME_OBJECT, icon=LABEL_ICON_OBJECT)
+    box.prop(self, "prop_coordinate_system", icon='WORLD_DATA', expand=True)
+    box.prop(self, "prop_scale", icon='MESH_DATA')
 
     box = layout.box()
-    box.label(LABEL_NAME_PROCESSING, icon = LABEL_ICON_PROCESSING)
-    box.prop(self, "prop_selected", icon = "ROTACTIVE")
-    box.prop(self, "prop_objects", icon = "MESH_DATA", expand = True)
+    box.label(LABEL_NAME_PROCESSING, icon=LABEL_ICON_PROCESSING)
+    box.prop(self, "prop_selected", icon='ROTACTIVE')
+    box.prop(self, "prop_objects", icon='MESH_DATA', expand=True)
 
     if (PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-        box.label(REMARKS_2, icon = "ERROR")
+        box.label(REMARKS_2, icon='ERROR')
 
         box = layout.box()
-        box.label(LABEL_NAME_ANIMATION, icon = LABEL_ICON_ANIMATION)
+        box.label(LABEL_NAME_ANIMATION, icon=LABEL_ICON_ANIMATION)
         box.prop(self, "prop_animation")
         if (self.prop_animation):
             box.prop(self, "prop_animation_fp")
-            box.label(REMARKS_2, icon = "ERROR")
+            box.label(REMARKS_2, icon='ERROR')
 
 
 ###############################################################################
 
 
 ###############################################################################
-
-
-# To support reload properly, try to access a package var, if it's there, reload everything
-if ("bpy" in locals()):
-    import imp
-    #if "ms3d_export" in locals():
-    #    imp.reload(ms3d_export)
-    #if "ms3d_import" in locals():
-    #    imp.reload(ms3d_import)
-    #if "ms3d_spec" in locals():
-    #    imp.reload(ms3d_spec)
-    #if "ms3d_utils" in locals():
-    #    imp.reload(ms3d_utils)
-    #print("MS3D-add-on Reloaded")
-    pass
-
-else:
-    #from . import ms3d_export
-    #from . import ms3d_import
-    #from . import ms3d_spec
-    #from . import ms3d_utils
-    #print("MS3D-add-on Imported")
-    pass
-
-
-
-#import python stuff
-import os
-import sys
-import math
-import mathutils
-
-
-#import blender stuff
-#import bpy
-import bpy.ops
 
 
 #
@@ -347,49 +343,49 @@ def DEBUG_print(s):
     pass
 
 
-TYPE_ARMATURE = "ARMATURE"
-TYPE_EMPTY = "EMPTY"
-TYPE_MESH = "MESH"
-APPLY_TO = "PREVIEW"
+TYPE_ARMATURE = 'ARMATURE'
+TYPE_EMPTY = 'EMPTY'
+TYPE_MESH = 'MESH'
+APPLY_TO = 'PREVIEW'
 
 
 ###############################################################################
 def EnableEditMode(enable):
     if enable:
-        modeString = "EDIT"
+        modeString = 'EDIT'
     else:
-        modeString = "OBJECT"
+        modeString = 'OBJECT'
 
     if bpy.ops.object.mode_set.poll():
-        bpy.ops.object.mode_set(mode = modeString)
+        bpy.ops.object.mode_set(mode=modeString)
 
 
 ###############################################################################
 def EnablePoseMode(enable):
     if enable:
-        modeString = "POSE"
+        modeString = 'POSE'
     else:
-        modeString = "OBJECT"
+        modeString = 'OBJECT'
 
     if bpy.ops.object.mode_set.poll():
-        bpy.ops.object.mode_set(mode = modeString)
+        bpy.ops.object.mode_set(mode=modeString)
 
 
 ###############################################################################
 def SelectAll(select):
     if select:
-        actionString = "SELECT"
+        actionString = 'SELECT'
     else:
-        actionString = "DESELECT"
+        actionString = 'DESELECT'
 
     if bpy.ops.object.select_all.poll():
-        bpy.ops.object.select_all(action = actionString)
+        bpy.ops.object.select_all(action=actionString)
 
     if bpy.ops.mesh.select_all.poll():
-        bpy.ops.mesh.select_all(action = actionString)
+        bpy.ops.mesh.select_all(action=actionString)
 
     if bpy.ops.pose.select_all.poll():
-        bpy.ops.pose.select_all(action = actionString)
+        bpy.ops.pose.select_all(action=actionString)
 
 
 ###############################################################################
@@ -399,29 +395,29 @@ def CreateMatrixViewport(coordinate_system, scale):
     if (coordinate_system == PROP_ITEM_COORDINATESYSTEM_IMP):
         # MS3D -> Blender
         matrixSwapAxis = mathutils.Matrix((
-            (0.0, 0.0, 1.0, 0.0),
-            (1.0, 0.0, 0.0, 0.0),
-            (0.0, 1.0, 0.0, 0.0),
-            (0.0, 0.0, 0.0, 1.0)
-            ))
+                (0.0, 0.0, 1.0, 0.0),
+                (1.0, 0.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0, 1.0)
+                ))
 
     elif (coordinate_system == PROP_ITEM_COORDINATESYSTEM_EXP):
         # Blender -> MS3D
         matrixSwapAxis = mathutils.Matrix((
-            (0.0, 1.0, 0.0, 0.0),
-            (0.0, 0.0, 1.0, 0.0),
-            (1.0, 0.0, 0.0, 0.0),
-            (0.0, 0.0, 0.0, 1.0)
-            ))
+                (0.0, 1.0, 0.0, 0.0),
+                (0.0, 0.0, 1.0, 0.0),
+                (1.0, 0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0, 1.0)
+                ))
 
     else:
         # 1:1
         matrixSwapAxis = mathutils.Matrix((
-            (1.0, 0.0, 0.0, 0.0),
-            (0.0, 1.0, 0.0, 0.0),
-            (0.0, 0.0, 1.0, 0.0),
-            (0.0, 0.0, 0.0, 1.0)
-            ))
+                (1.0, 0.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0, 0.0),
+                (0.0, 0.0, 1.0, 0.0),
+                (0.0, 0.0, 0.0, 1.0)
+                ))
 
     return matrixSwapAxis * scale, matrixSwapAxis
 
@@ -463,8 +459,8 @@ def PostSetupEnvironment(porterSelf, adjustView):
     if (adjustView):
         # set metrics
         #DEBUG_print("bpy.context.scene.unit_settings.system = 'METRIC'")
-        bpy.context.scene.unit_settings.system = "METRIC"
-        bpy.context.scene.unit_settings.system_rotation = "DEGREES"
+        bpy.context.scene.unit_settings.system = 'METRIC'
+        bpy.context.scene.unit_settings.system_rotation = 'DEGREES'
         bpy.context.scene.unit_settings.scale_length = 0.001 # 1.0mm
         bpy.context.scene.unit_settings.use_separate = False
         bpy.context.tool_settings.normal_size = 1.0 # 1.0mm
@@ -478,17 +474,17 @@ def PostSetupEnvironment(porterSelf, adjustView):
             for area in screen.areas:
                 #DEBUG_print("  area={0}".format(area.type))
             
-                if (area.type != "VIEW_3D"):
+                if (area.type != 'VIEW_3D'):
                     continue
             
                 for space in area.spaces:
                     #DEBUG_print("   space={0}".format(space.type))
                 
-                    if (space.type != "VIEW_3D"):
+                    if (space.type != 'VIEW_3D'):
                         continue
                 
-                    screen.scene.game_settings.material_mode = "MULTITEXTURE"
-                    space.viewport_shade = "SOLID"
+                    screen.scene.game_settings.material_mode = 'MULTITEXTURE'
+                    space.viewport_shade = 'SOLID'
                     space.show_textured_solid = True
                     space.clip_start = 0.1 # 0.1mm
                     space.clip_end = 1000000.0 # 1km
@@ -499,7 +495,7 @@ def PostSetupEnvironment(porterSelf, adjustView):
     # restore active object
     bpy.context.scene.objects.active = porterSelf.activeObject
 
-    if (not bpy.context.scene.objects.active) and (bpy.context.selected_objects) and (len(bpy.context.selected_objects) > 0):
+    if (not bpy.context.scene.objects.active) and (bpy.context.selected_objects):
         bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 
     # restore pre operator undo state

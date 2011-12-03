@@ -92,6 +92,17 @@ todo:
 
 
 changelog:
+changed: (0, 3, 3, "beta (2011-12-02 00:00)")
+add: importer adds additionally smoothingGroups as vertex_groups "ms3d_smoothingGroup{1...32}"
+fix: export smoothingGroups start index to 1
+mod: some blender like modifications ('ENUM' instead "ENUM" on enum values)
+mod: some pep8 like modifications (lay-out)
+mod: some pep8 like modifications (moved import in the right order)
+mod: some pep8 like modifications ("foo(arg, value = 0)" to "foo(arg, value=0)")
+mod: some pep8 like modifications (drop "if (sequence) and (len(sequence) > 0):..." to "if (sequence):...")
+mod: bit more specific exception blocks
+
+
 changed: (0, 3, 3, "beta (2011-12-01 00:00)")
 mod: if "name" in somedict: result = somedict["name"]  to  result = somedict.get("name") if result is not None: (comment by campbellbarton)
 mod: "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=29404"

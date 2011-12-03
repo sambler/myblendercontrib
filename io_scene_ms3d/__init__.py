@@ -41,7 +41,7 @@ if ("bpy" in locals()):
     #    imp.reload(ms3d_spec)
     #if "ms3d_utils" in locals():
     #    imp.reload(ms3d_utils)
-    #print("MS3D-add-on Reloaded")
+    #print("__init__.MS3D-add-on Reloaded")
     pass
 
 else:
@@ -49,7 +49,7 @@ else:
     from . import ms3d_import
     #from . import ms3d_spec
     #from . import ms3d_utils
-    #print("MS3D-add-on Imported")
+    #print("__init__.MS3D-add-on Imported")
     pass
 
 
@@ -58,19 +58,19 @@ import bpy
 import bpy_extras
 
 
-bl_info = { \
-    "name": "MilkShape3D MS3D format (.ms3d)",
-    "description":  "Import / Export MilkShape3D MS3D files (conform with v1.8.4)",
-    "author": "Alexander Nussbaumer",
-    "version": (0, 3, 3, "beta (2011-12-01 00:00)"),
-    "blender": (2, 6, 0),
-    "api": 41226,
-    "location": "File > Import-Export",
-    "warning": "imports and exports only geometry and material of ms3d file. (poor performance)",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/MilkShape3D_MS3D",
-    "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=29404",
-    "category": "Import-Export"
-    }
+bl_info = {
+        "name": "MilkShape3D MS3D format (.ms3d)",
+        "description":  "Import / Export MilkShape3D MS3D files (conform with v1.8.4)",
+        "author": "Alexander Nussbaumer",
+        "version": (0, 3, 3, "beta (2011-12-02 00:00)"),
+        "blender": (2, 6, 0),
+        "api": 41226,
+        "location": "File > Import-Export",
+        "warning": "imports and exports only geometry and material of ms3d file. (poor performance)",
+        "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/MilkShape3D_MS3D",
+        "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=29404",
+        "category": 'Import-Export',
+        }
 
 
 #
@@ -87,17 +87,17 @@ def DEBUG_print(s):
 def menu_func_import(self, context):
     #DEBUG_print("menu_func_import")
     self.layout.operator(
-        ms3d_import.ImportMS3D.bl_idname,
-        text = ms3d_utils.TEXT_OPERATOR
-        )
+            ms3d_import.ImportMS3D.bl_idname,
+            text = ms3d_utils.TEXT_OPERATOR
+            )
 
 
 def menu_func_export(self, context):
     #DEBUG_print("menu_func_export")
     self.layout.operator(
-        ms3d_export.ExportMS3D.bl_idname,
-        text = ms3d_utils.TEXT_OPERATOR
-        )
+            ms3d_export.ExportMS3D.bl_idname,
+            text = ms3d_utils.TEXT_OPERATOR
+            )
 
 
 def register():

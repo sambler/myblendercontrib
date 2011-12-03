@@ -30,6 +30,15 @@
 # ##### END COPYRIGHT BLOCK #####
 
 
+#import python stuff
+import io
+import math
+import mathutils
+import os
+import sys
+import time
+
+
 # To support reload properly, try to access a package var, if it's there, reload everything
 if ("bpy" in locals()):
     import imp
@@ -41,29 +50,23 @@ if ("bpy" in locals()):
         imp.reload(ms3d_spec)
     if "ms3d_utils" in locals():
         imp.reload(ms3d_utils)
-    #print("MS3D-add-on Reloaded")
+    #print("ms3d_import.MS3D-add-on Reloaded")
+    pass
 
 else:
     #from . import ms3d_export
     #from . import ms3d_import
     from . import ms3d_spec
     from . import ms3d_utils
-    #print("MS3D-add-on Imported")
+    #print("ms3d_import.MS3D-add-on Imported")
+    pass
 
-
-#import python stuff
-import io
-import sys
-import time
-import os
-import math
-import mathutils
 
 #import blender stuff
 import bpy
 import bpy_extras.io_utils
-from bpy_extras.image_utils import load_image
 
+from bpy_extras.image_utils import load_image
 from bpy.props import *
 
 
@@ -87,14 +90,14 @@ def hashStr(obj):
 
 
 PROP_NAME_HASH = "import_hash"
-
+PROP_NAME_SMOOTH_GROUP = "smoothingGroup{0}"
 
 ###############################################################################
 # registered entry point import
 class ImportMS3D(
-    bpy.types.Operator,
-    bpy_extras.io_utils.ImportHelper
-    ):
+        bpy.types.Operator,
+        bpy_extras.io_utils.ImportHelper
+        ):
     """
     Load a MilkShape3D MS3D File
     """
@@ -104,98 +107,98 @@ class ImportMS3D(
     bl_idname = "io_scene_ms3d.ms3d_import"
     bl_label = "Import MS3D"
     bl_description = "Import from a MS3D file format (.ms3d)"
-    bl_options = {"PRESET"}
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "TOOL" #"WINDOW"
+    bl_options = {'PRESET'}
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
 
     filename_ext = ms3d_utils.FILE_EXT
     filter_glob = bpy.props.StringProperty(
-        default = ms3d_utils.FILE_FILTER,
-        options = {"HIDDEN"}
-        )
+            default = ms3d_utils.FILE_FILTER,
+            options = {'HIDDEN'}
+            )
 
-    filepath = bpy.props.StringProperty(subtype = "FILE_PATH")
+    filepath = bpy.props.StringProperty(subtype='FILE_PATH')
 
     prop_debug = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_DEBUG,
-        description = ms3d_utils.PROP_DESC_DEBUG,
-        default = ms3d_utils.PROP_DEFAULT_DEBUG,
-        options = ms3d_utils.PROP_OPT_DEBUG,
-        )
+            name = ms3d_utils.PROP_NAME_DEBUG,
+            description = ms3d_utils.PROP_DESC_DEBUG,
+            default = ms3d_utils.PROP_DEFAULT_DEBUG,
+            options = ms3d_utils.PROP_OPT_DEBUG,
+            )
 
     prop_verbose = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_VERBOSE,
-        description = ms3d_utils.PROP_DESC_VERBOSE,
-        default = ms3d_utils.PROP_DEFAULT_VERBOSE,
-        options = ms3d_utils.PROP_OPT_VERBOSE,
-        )
+            name = ms3d_utils.PROP_NAME_VERBOSE,
+            description = ms3d_utils.PROP_DESC_VERBOSE,
+            default = ms3d_utils.PROP_DEFAULT_VERBOSE,
+            options = ms3d_utils.PROP_OPT_VERBOSE,
+            )
 
     prop_coordinate_system = EnumProperty(
-        name = ms3d_utils.PROP_NAME_COORDINATESYSTEM,
-        description = ms3d_utils.PROP_DESC_COORDINATESYSTEM,
-        items = ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
-        default = ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_IMP,
-        options = ms3d_utils.PROP_OPT_COORDINATESYSTEM,
-        )
+            name = ms3d_utils.PROP_NAME_COORDINATESYSTEM,
+            description = ms3d_utils.PROP_DESC_COORDINATESYSTEM,
+            items = ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
+            default = ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_IMP,
+            options = ms3d_utils.PROP_OPT_COORDINATESYSTEM,
+            )
 
     prop_scale = FloatProperty(
-        name = ms3d_utils.PROP_NAME_SCALE,
-        description = ms3d_utils.PROP_DESC_SCALE,
-        default = ms3d_utils.PROP_DEFAULT_SCALE,
-        min = ms3d_utils.PROP_MIN_SCALE,
-        max = ms3d_utils.PROP_MAX_SCALE,
-        soft_min = ms3d_utils.PROP_SMIN_SCALE,
-        soft_max = ms3d_utils.PROP_SMAX_SCALE,
-        options = ms3d_utils.PROP_OPT_SCALE,
-        )
+            name = ms3d_utils.PROP_NAME_SCALE,
+            description = ms3d_utils.PROP_DESC_SCALE,
+            default = ms3d_utils.PROP_DEFAULT_SCALE,
+            min = ms3d_utils.PROP_MIN_SCALE,
+            max = ms3d_utils.PROP_MAX_SCALE,
+            soft_min = ms3d_utils.PROP_SMIN_SCALE,
+            soft_max = ms3d_utils.PROP_SMAX_SCALE,
+            options = ms3d_utils.PROP_OPT_SCALE,
+            )
 
     prop_unit_mm = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_UNIT_MM,
-        description = ms3d_utils.PROP_DESC_UNIT_MM,
-        default = ms3d_utils.PROP_DEFAULT_UNIT_MM,
-        options = ms3d_utils.PROP_OPT_UNIT_MM,
-        )
+            name = ms3d_utils.PROP_NAME_UNIT_MM,
+            description = ms3d_utils.PROP_DESC_UNIT_MM,
+            default = ms3d_utils.PROP_DEFAULT_UNIT_MM,
+            options = ms3d_utils.PROP_OPT_UNIT_MM,
+            )
 
     prop_objects = EnumProperty(
-        name = ms3d_utils.PROP_NAME_OBJECTS_IMP,
-        description = ms3d_utils.PROP_DESC_OBJECTS_IMP,
-        items = ms3d_utils.PROP_ITEMS_OBJECTS_IMP,
-        default = ms3d_utils.PROP_DEFAULT_OBJECTS_IMP,
-        options = ms3d_utils.PROP_OPT_OBJECTS_IMP,
-        )
+            name = ms3d_utils.PROP_NAME_OBJECTS_IMP,
+            description = ms3d_utils.PROP_DESC_OBJECTS_IMP,
+            items = ms3d_utils.PROP_ITEMS_OBJECTS_IMP,
+            default = ms3d_utils.PROP_DEFAULT_OBJECTS_IMP,
+            options = ms3d_utils.PROP_OPT_OBJECTS_IMP,
+            )
 
     prop_animation = bpy.props.BoolProperty(
-        name = ms3d_utils.PROP_NAME_ANIMATION,
-        description = ms3d_utils.PROP_DESC_ANIMATION,
-        default = ms3d_utils.PROP_DEFAULT_ANIMATION,
-        options = ms3d_utils.PROP_OPT_ANIMATION,
-        )
+            name = ms3d_utils.PROP_NAME_ANIMATION,
+            description = ms3d_utils.PROP_DESC_ANIMATION,
+            default = ms3d_utils.PROP_DEFAULT_ANIMATION,
+            options = ms3d_utils.PROP_OPT_ANIMATION,
+            )
 
     #prop_layer_geometry = bpy.props.BoolVectorProperty(
-    #    name = ms3d_utils.PROP_NAME_LAYER_GEOMETRY,
-    #    description = ms3d_utils.PROP_DESC_LAYER_GEOMETRY,
-    #    default = ms3d_utils.PROP_DEFAULT_LAYER_GEOMETRY,
-    #    options = ms3d_utils.PROP_OPT_LAYER_GEOMETRY,
-    #    subtype = ms3d_utils.PROP_STYPE_LAYER_GEOMETRY,
-    #    size = ms3d_utils.PROP_SIZE_LAYER_GEOMETRY,
-    #    )
+        #    name = ms3d_utils.PROP_NAME_LAYER_GEOMETRY,
+        #    description = ms3d_utils.PROP_DESC_LAYER_GEOMETRY,
+        #    default = ms3d_utils.PROP_DEFAULT_LAYER_GEOMETRY,
+        #    options = ms3d_utils.PROP_OPT_LAYER_GEOMETRY,
+        #    subtype = ms3d_utils.PROP_STYPE_LAYER_GEOMETRY,
+        #    size = ms3d_utils.PROP_SIZE_LAYER_GEOMETRY,
+        #    )
 
     #prop_layer_armature = bpy.props.BoolVectorProperty(
-    #    name = ms3d_utils.PROP_NAME_LAYER_ARMARTURE,
-    #    description = ms3d_utils.PROP_DESC_LAYER_ARMARTURE,
-    #    default = ms3d_utils.PROP_DEFAULT_LAYER_ARMARTURE,
-    #    options = ms3d_utils.PROP_OPT_LAYER_ARMARTURE,
-    #    subtype = ms3d_utils.PROP_STYPE_LAYER_ARMARTURE,
-    #    size = ms3d_utils.PROP_SIZE_LAYER_ARMARTURE,
-    #    )
+        #    name = ms3d_utils.PROP_NAME_LAYER_ARMARTURE,
+        #    description = ms3d_utils.PROP_DESC_LAYER_ARMARTURE,
+        #    default = ms3d_utils.PROP_DEFAULT_LAYER_ARMARTURE,
+        #    options = ms3d_utils.PROP_OPT_LAYER_ARMARTURE,
+        #    subtype = ms3d_utils.PROP_STYPE_LAYER_ARMARTURE,
+        #    size = ms3d_utils.PROP_SIZE_LAYER_ARMARTURE,
+        #    )
 
     prop_reuse = EnumProperty(
-        name = ms3d_utils.PROP_NAME_REUSE,
-        description = ms3d_utils.PROP_DESC_REUSE,
-        items = ms3d_utils.PROP_ITEMS_REUSE,
-        default = ms3d_utils.PROP_DEFAULT_REUSE,
-        options = ms3d_utils.PROP_OPT_REUSE,
-        )
+            name = ms3d_utils.PROP_NAME_REUSE,
+            description = ms3d_utils.PROP_DESC_REUSE,
+            items = ms3d_utils.PROP_ITEMS_REUSE,
+            default = ms3d_utils.PROP_DEFAULT_REUSE,
+            options = ms3d_utils.PROP_OPT_REUSE,
+            )
 
 
     # draw the option panel
@@ -272,7 +275,7 @@ class ImportMS3D(
             # finalize/restore environment
             ms3d_utils.PostSetupEnvironment(self, self.prop_unit_mm)
 
-        except:
+        except Exception:
             for i in range(len(sys.exc_info())):
                 print("ReadMs3d - exception in try block '{0}'".format(sys.exc_info()[i]))
 
@@ -360,7 +363,7 @@ class ImportMS3D(
 
         blenderArmature, setupArmature = self.GetArmature(ms3dTemplate)
         if setupArmature:
-            blenderArmature.draw_type = "STICK"
+            blenderArmature.draw_type = 'STICK'
             blenderArmature.show_axes = True
             blenderArmature.use_auto_ik = True
 
@@ -397,7 +400,7 @@ class ImportMS3D(
             else:
                 # some models have more than one initial bone (with no parent)
                 # no idea how to handle correctly
-                if (not ms3dJoint.parentName) or (len(ms3dJoint.parentName) <= 0):
+                if (not ms3dJoint.parentName):
                     blenderBoneParent = bones[bones_parentName][0]
                 else:
                     blenderBoneParent = bones[ms3dJoint.parentName][0]
@@ -411,10 +414,13 @@ class ImportMS3D(
                     key = blenderBoneParent.name
 
                     # correct rotaion axis
-                    rotationAxis = mathutils.Vector((-bones[key][1].rotation[0], -bones[key][1].rotation[1], -bones[key][1].rotation[2]))
+                    rotationAxis = mathutils.Vector((
+                            -bones[key][1].rotation[0],
+                            -bones[key][1].rotation[1],
+                            -bones[key][1].rotation[2]))
                     rotationAxis = rotationAxis * self.matrixSwapAxis
 
-                    rotation = mathutils.Euler(rotationAxis, "XZY")
+                    rotation = mathutils.Euler(rotationAxis, 'XZY')
 
                     matrixRotation = matrixRotation * rotation.to_matrix().to_4x4()
 
@@ -439,9 +445,9 @@ class ImportMS3D(
         #    blenderBones.active = blenderBone
 
         #    mathRotation = mathutils.Vector(ms3dJoint.rotation) * self.matrixSwapAxis
-        #    matrixRotationX = mathutils.Matrix.Rotation(mathRotation[0], 4, "X")
-        #    matrixRotationY = mathutils.Matrix.Rotation(mathRotation[1], 4, "Y")
-        #    matrixRotationZ = mathutils.Matrix.Rotation(mathRotation[2], 4, "Z")
+        #    matrixRotationX = mathutils.Matrix.Rotation(mathRotation[0], 4, 'X')
+        #    matrixRotationY = mathutils.Matrix.Rotation(mathRotation[1], 4, 'Y')
+        #    matrixRotationZ = mathutils.Matrix.Rotation(mathRotation[2], 4, 'Z')
         #    matrixRotation = matrixRotationX * matrixRotationY * matrixRotationZ
         #    mathVectorUp = mathutils.Vector([0.0, 0.0, 1.0])
         #    mathVectorUp = mathVectorUp * matrixRotation
@@ -452,12 +458,12 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def CreateImageTexture(self, ms3dMaterial, alphamap, allow_create = True):
-        blenderImage, setupImage = self.GetImage(ms3dMaterial, alphamap, allow_create = allow_create)
+    def CreateImageTexture(self, ms3dMaterial, alphamap, allow_create=True):
+        blenderImage, setupImage = self.GetImage(ms3dMaterial, alphamap, allow_create=allow_create)
         if setupImage:
             pass
     
-        blenderTexture, setupTexture = self.GetTexture(ms3dMaterial, alphamap, blenderImage, allow_create = allow_create)
+        blenderTexture, setupTexture = self.GetTexture(ms3dMaterial, alphamap, blenderImage, allow_create=allow_create)
         if setupTexture:
             blenderTexture.image = blenderImage
         
@@ -498,16 +504,16 @@ class ImportMS3D(
 
             if (blenderMaterial.game_settings):
                 blenderMaterial.game_settings.use_backface_culling = False
-                blenderMaterial.game_settings.alpha_blend = "ALPHA"
+                blenderMaterial.game_settings.alpha_blend = 'ALPHA'
 
             # diffuse texture
-            if (ms3dMaterial.texture) and (len(ms3dMaterial.texture) > 0):
+            if (ms3dMaterial.texture):
                 blenderMaterial[prop(ms3d_spec.PROP_NAME_TEXTURE)] = ms3dMaterial.texture
                 blenderTexture = self.CreateImageTexture(ms3dMaterial, False)
 
                 blenderTextureSlot = blenderMaterial.texture_slots.add()
                 blenderTextureSlot.texture = blenderTexture
-                blenderTextureSlot.texture_coords = "UV"
+                blenderTextureSlot.texture_coords = 'UV'
                 blenderTextureSlot.uv_layer = blenderUvLayer.name
                 blenderTextureSlot.use_map_color_diffuse = True
                 blenderTextureSlot.use_map_alpha = False
@@ -517,7 +523,7 @@ class ImportMS3D(
                     blenderTextureFace.image = blenderTexture.image
 
             # alpha texture
-            if (ms3dMaterial.alphamap) and (len(ms3dMaterial.alphamap) > 0):
+            if (ms3dMaterial.alphamap):
                 blenderMaterial[prop(ms3d_spec.PROP_NAME_ALPHAMAP)] = ms3dMaterial.alphamap
                 blenderMaterial.alpha = 0
                 blenderMaterial.specular_alpha = 0
@@ -526,15 +532,15 @@ class ImportMS3D(
 
                 blenderTextureSlot = blenderMaterial.texture_slots.add()
                 blenderTextureSlot.texture = blenderTexture
-                blenderTextureSlot.texture_coords = "UV"
+                blenderTextureSlot.texture_coords = 'UV'
                 blenderTextureSlot.uv_layer = blenderUvLayer.name
                 blenderTextureSlot.use_map_color_diffuse = False
                 blenderTextureSlot.use_map_alpha = True
                 blenderTextureSlot.use_rgb_to_intensity = True
 
         else:
-            if (ms3dMaterial.texture) and (len(ms3dMaterial.texture) > 0):
-                blenderTexture = self.CreateImageTexture(ms3dMaterial, False, allow_create = False)
+            if (ms3dMaterial.texture):
+                blenderTexture = self.CreateImageTexture(ms3dMaterial, False, allow_create=False)
 
                 # apply image also to uv's
                 if blenderTexture:
@@ -572,8 +578,8 @@ class ImportMS3D(
         #DEBUG_print("from_pydata:\nvertices={0}\nedges={1}\nfaces={2}".format(vertices, edges, faces))
 
         blenderMesh.from_pydata(vertices, edges, faces)
-        if (not edges) or (len(edges) <= 0):
-            blenderMesh.update(calc_edges = True)
+        if (not edges):
+            blenderMesh.update(calc_edges=True)
 
         ##DEBUG_print("blenderMesh:")
         #for v in blenderMesh.vertices:
@@ -609,20 +615,20 @@ class ImportMS3D(
 
     
         if (ms3d_utils.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-            #bpy.ops.object.modifier_add(type = "ARMATURE")
+            #bpy.ops.object.modifier_add(type='ARMATURE')
             pass
 
         # remove double vertices
         ms3d_utils.SelectAll(True) # mesh
         if bpy.ops.mesh.remove_doubles.poll():
-            bpy.ops.mesh.remove_doubles(limit = 0.0001)
+            bpy.ops.mesh.remove_doubles(limit=0.0001)
 
         # remove deserted vertices
         ms3d_utils.SelectAll(False) # mesh
         if bpy.ops.mesh.select_by_number_vertices.poll():
-            bpy.ops.mesh.select_by_number_vertices(type = "OTHER")
+            bpy.ops.mesh.select_by_number_vertices(type='OTHER')
         if bpy.ops.mesh.delete.poll():
-            bpy.ops.mesh.delete(type = "VERT")
+            bpy.ops.mesh.delete(type='VERT')
 
         ms3d_utils.EnableEditMode(False)
 
@@ -705,7 +711,12 @@ class ImportMS3D(
             # duplicate selected faces
             if bpy.ops.mesh.duplicate.poll():
                 bpy.ops.mesh.duplicate()
-
+                
+            # put selected to vertex_group
+            blenderVertexGroup = bpy.context.active_object.vertex_groups.new(prop(PROP_NAME_SMOOTH_GROUP).format(smoothGroupKey))
+            bpy.context.active_object.vertex_groups.active = blenderVertexGroup
+            if bpy.ops.object.vertex_group_assign.poll():
+                bpy.ops.object.vertex_group_assign()
 
         ## SPLIT WORKAROUND START part 2
         # cleanup old faces
@@ -725,7 +736,7 @@ class ImportMS3D(
 
         # delete old faces and its vertices
         if bpy.ops.mesh.delete.poll():
-            bpy.ops.mesh.delete(type = "VERT")
+            bpy.ops.mesh.delete(type='VERT')
         #
         ## SPLIT WORKAROUND END part 2
 
@@ -810,7 +821,7 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def GetImage(self, ms3dMaterial, alphamap, allow_create = True):
+    def GetImage(self, ms3dMaterial, alphamap, allow_create=True):
         if alphamap:
             nameImageRaw = ms3dMaterial.alphamap
             propName = ms3d_spec.PROP_NAME_ALPHAMAP
@@ -831,10 +842,9 @@ class ImportMS3D(
             testBlenderImage = bpy.data.images.get(nameImage, None)
             if (testBlenderImage):
                 # take a closer look to its content
-                if (
-                    (not testBlenderImage.library)
-                    and (os.path.split(testBlenderImage.filepath)[1] == nameImage)
-                ):
+                if ((not testBlenderImage.library)
+                        and (os.path.split(testBlenderImage.filepath)[1] == nameImage)
+                        ):
                     return testBlenderImage, False
 
         #elif (self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH):
@@ -859,7 +869,7 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def GetTexture(self, ms3dMaterial, alphamap, blenderImage, allow_create = True):
+    def GetTexture(self, ms3dMaterial, alphamap, blenderImage, allow_create=True):
         if alphamap:
             nameTextureRaw = ms3dMaterial.alphamap
             propName = ms3d_spec.PROP_NAME_ALPHAMAP
@@ -879,13 +889,12 @@ class ImportMS3D(
             testBlenderTexture = bpy.data.textures.get(nameTexture, None)
             if (testBlenderTexture):
                 # take a closer look to its content
-                if (
-                    (not testBlenderTexture.library)
-                    and (testBlenderTexture.type == "IMAGE")
-                    and (testBlenderTexture.image)
-                    and (blenderImage)
-                    and (testBlenderTexture.image.filepath == blenderImage.filepath)
-                ):
+                if ((not testBlenderTexture.library)
+                        and (testBlenderTexture.type == 'IMAGE')
+                        and (testBlenderTexture.image)
+                        and (blenderImage)
+                        and (testBlenderTexture.image.filepath == blenderImage.filepath)
+                        ):
                     return testBlenderTexture, False
 
         #elif self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH:
@@ -901,7 +910,7 @@ class ImportMS3D(
             return None, False
 
         # create new
-        blenderTexture = bpy.data.textures.new(name = nameTexture, type = "IMAGE")
+        blenderTexture = bpy.data.textures.new(name=nameTexture, type='IMAGE')
         self.dict_textures[nameTexture] = blenderTexture
         if blenderTexture:
             blenderTexture[prop(ms3d_spec.PROP_NAME_NAME)] = ms3dMaterial.name
@@ -925,26 +934,25 @@ class ImportMS3D(
             epsilon = 0.00001
             for testBlenderMaterial in bpy.data.materials:
                 # take a closer look to its content
-                if (
-                    (testBlenderMaterial)
-                    and (not testBlenderMaterial.library)
-                    and (epsilon > abs(testBlenderMaterial.ambient - ((ms3dMaterial._ambient[0] + ms3dMaterial._ambient[1] + ms3dMaterial._ambient[2]) / 3.0) * ms3dMaterial._ambient[3]))
-                    and (epsilon > abs(testBlenderMaterial.diffuse_color[0] - ms3dMaterial._diffuse[0]))
-                    and (epsilon > abs(testBlenderMaterial.diffuse_color[1] - ms3dMaterial._diffuse[1]))
-                    and (epsilon > abs(testBlenderMaterial.diffuse_color[2] - ms3dMaterial._diffuse[2]))
-                    and (epsilon > abs(testBlenderMaterial.diffuse_intensity - ms3dMaterial._diffuse[3]))
-                    and (epsilon > abs(testBlenderMaterial.specular_color[0] - ms3dMaterial._specular[0]))
-                    and (epsilon > abs(testBlenderMaterial.specular_color[1] - ms3dMaterial._specular[1]))
-                    and (epsilon > abs(testBlenderMaterial.specular_color[2] - ms3dMaterial._specular[2]))
-                    and (epsilon > abs(testBlenderMaterial.specular_intensity - ms3dMaterial._specular[3]))
-                    and (epsilon > abs(testBlenderMaterial.emit - ((ms3dMaterial._emissive[0] + ms3dMaterial._emissive[1] + ms3dMaterial._emissive[2]) / 3.0) * ms3dMaterial._emissive[3]))
-                ):
+                if ((testBlenderMaterial)
+                        and (not testBlenderMaterial.library)
+                        and (epsilon > abs(testBlenderMaterial.ambient - ((ms3dMaterial._ambient[0] + ms3dMaterial._ambient[1] + ms3dMaterial._ambient[2]) / 3.0) * ms3dMaterial._ambient[3]))
+                        and (epsilon > abs(testBlenderMaterial.diffuse_color[0] - ms3dMaterial._diffuse[0]))
+                        and (epsilon > abs(testBlenderMaterial.diffuse_color[1] - ms3dMaterial._diffuse[1]))
+                        and (epsilon > abs(testBlenderMaterial.diffuse_color[2] - ms3dMaterial._diffuse[2]))
+                        and (epsilon > abs(testBlenderMaterial.diffuse_intensity - ms3dMaterial._diffuse[3]))
+                        and (epsilon > abs(testBlenderMaterial.specular_color[0] - ms3dMaterial._specular[0]))
+                        and (epsilon > abs(testBlenderMaterial.specular_color[1] - ms3dMaterial._specular[1]))
+                        and (epsilon > abs(testBlenderMaterial.specular_color[2] - ms3dMaterial._specular[2]))
+                        and (epsilon > abs(testBlenderMaterial.specular_intensity - ms3dMaterial._specular[3]))
+                        and (epsilon > abs(testBlenderMaterial.emit - ((ms3dMaterial._emissive[0] + ms3dMaterial._emissive[1] + ms3dMaterial._emissive[2]) / 3.0) * ms3dMaterial._emissive[3]))
+                        ):
                     #DEBUG_print("passed test color")
 
                     # diffuse texture
                     fitTexture = False
                     testTexture = False
-                    if (ms3dMaterial.texture) and (len(ms3dMaterial.texture) > 0):
+                    if (ms3dMaterial.texture):
                         testTexture = True
                         #DEBUG_print("test texture")
 
@@ -952,25 +960,20 @@ class ImportMS3D(
                             nameTexture = os.path.split(ms3dMaterial.texture)[1]
 
                             for blenderTextureSlot in testBlenderMaterial.texture_slots:
-                                if (
-                                    (blenderTextureSlot)
-                                    and (blenderTextureSlot.use_map_color_diffuse)
-                                    and (blenderTextureSlot.texture)
-                                    and (blenderTextureSlot.texture.type == "IMAGE")
-                                    and
-                                    (
-                                        (
-                                            (blenderTextureSlot.texture.image)
-                                            and (blenderTextureSlot.texture.image.filepath)
-                                            and (os.path.split(blenderTextureSlot.texture.image.filepath)[1] == nameTexture)
-                                        )
-                                        or
-                                        (
-                                            (not blenderTextureSlot.texture.image)
-                                            and (blenderTextureSlot.texture.name == nameTexture)
-                                        )
-                                    )
-                                ):
+                                if ((blenderTextureSlot)
+                                        and (blenderTextureSlot.use_map_color_diffuse)
+                                        and (blenderTextureSlot.texture)
+                                        and (blenderTextureSlot.texture.type == 'IMAGE')
+                                        and (
+                                            ((blenderTextureSlot.texture.image)
+                                                and (blenderTextureSlot.texture.image.filepath)
+                                                and (os.path.split(blenderTextureSlot.texture.image.filepath)[1] == nameTexture)
+                                            )
+                                            or
+                                            ((not blenderTextureSlot.texture.image)
+                                                and (blenderTextureSlot.texture.name == nameTexture)
+                                            )
+                                        )):
                                     fitTexture = True
                                     #DEBUG_print("passed test texture")
                                     break;
@@ -978,7 +981,7 @@ class ImportMS3D(
                     fitAlpha = False
                     testAlpha = False
                     # alpha texture
-                    if (ms3dMaterial.alphamap) and (len(ms3dMaterial.alphamap) > 0):
+                    if (ms3dMaterial.alphamap):
                         testAlpha = True
                         #DEBUG_print("test alpha")
 
@@ -986,30 +989,25 @@ class ImportMS3D(
                             nameAlpha = os.path.split(ms3dMaterial.alphamap)[1]
 
                             for blenderTextureSlot in testBlenderMaterial.texture_slots:
-                                if (
-                                    (blenderTextureSlot)
-                                    and (blenderTextureSlot.use_map_alpha)
-                                    and (blenderTextureSlot.texture)
-                                    and (blenderTextureSlot.texture.type == "IMAGE")
-                                    and
-                                    (
-                                        (
-                                            (blenderTextureSlot.texture.image)
-                                            and (blenderTextureSlot.texture.image.filepath)
-                                            and (os.path.split(blenderTextureSlot.texture.image.filepath)[1] == nameAlpha)
-                                        )
-                                        or
-                                        (
-                                            (not blenderTextureSlot.texture.image)
-                                            and (blenderTextureSlot.texture.name == nameAlpha)
+                                if ((blenderTextureSlot)
+                                        and (blenderTextureSlot.use_map_alpha)
+                                        and (blenderTextureSlot.texture)
+                                        and (blenderTextureSlot.texture.type == 'IMAGE')
+                                        and (
+                                            ((blenderTextureSlot.texture.image)
+                                                and (blenderTextureSlot.texture.image.filepath)
+                                                and (os.path.split(blenderTextureSlot.texture.image.filepath)[1] == nameAlpha)
                                             )
-                                    )
-                                ):
+                                            or
+                                            ((not blenderTextureSlot.texture.image)
+                                                and (blenderTextureSlot.texture.name == nameAlpha)
+                                                )
+                                        )):
                                     fitAlpha = True
                                     #DEBUG_print("passed test alpha")
                                     break;
 
-                    if ((testTexture and fitTexture) or (not testTexture)) and ((testAlpha and fitAlpha) or (not testAlpha)):
+                    if ((not testTexture) or (testTexture and fitTexture))  and ((not testAlpha) or (testAlpha and fitAlpha)):
                         return testBlenderMaterial, False
 
         #elif self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH:
