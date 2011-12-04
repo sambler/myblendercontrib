@@ -37,36 +37,11 @@ import os
 import sys
 
 
-# To support reload properly, try to access a package var, if it's there, reload everything
-if ("bpy" in locals()):
-    import imp
-    #if "ms3d_export" in locals():
-    #    imp.reload(ms3d_export)
-    #if "ms3d_import" in locals():
-    #    imp.reload(ms3d_import)
-    #if "ms3d_spec" in locals():
-    #    imp.reload(ms3d_spec)
-    #if "ms3d_utils" in locals():
-    #    imp.reload(ms3d_utils)
-    #print("ms3d_utils.MS3D-add-on Reloaded")
-    pass
-
-else:
-    #from . import ms3d_export
-    #from . import ms3d_import
-    #from . import ms3d_spec
-    #from . import ms3d_utils
-    #print("ms3d_utils.MS3D-add-on Imported")
-    pass
-
-
 #import blender stuff
 import bpy
 import bpy.ops
 
 
-_DEBUG = bpy.app.debug
-_DEBUG_DEFAULT = bpy.app.debug
 _VERBOSE_DEFAULT = bpy.app.debug
 
 
@@ -96,16 +71,6 @@ LABEL_ICON_ANIMATION = 'RENDER_ANIMATION'
 
 LABLE_NAME_REUSE = "ReUse existing data"
 LABLE_ICON_REUSE = 'FILE_REFRESH'
-
-
-###############################################################################
-PROP_NAME_DEBUG = "DEBUG"
-PROP_DESC_DEBUG = "Run the converter in low level debug mode. Check the console for output (Warning, may be very slow)"
-PROP_DEFAULT_DEBUG = _DEBUG_DEFAULT
-PROP_OPT_DEBUG = {
-        #OPT_HIDDEN,
-        OPT_ANIMATABLE,
-        }
 
 
 ###############################################################################
@@ -234,30 +199,6 @@ PROP_DEFAULT_ANIMATION_FP= True
 PROP_OPT_ANIMATION_FP = {OPT_ANIMATABLE}
 
 
-##############################################################################
-# PROP_NAME_LAYER_GEOMETRY = "Geometry Layer"
-# PROP_DESC_LAYER_GEOMETRY = "Apply geometry to layer"
-# PROP_DEFAULT_LAYER_GEOMETRY = [
-        # True, False, False, False, False, False, False, False, False, False,
-        # False, False, False, False, False, False, False, False, False, False,
-        # ]
-# PROP_OPT_LAYER_GEOMETRY = {OPT_ANIMATABLE}
-# PROP_STYPE_LAYER_GEOMETRY = 'LAYER'
-# PROP_SIZE_LAYER_GEOMETRY = 20
-
-
-##############################################################################
-# PROP_NAME_LAYER_ARMARTURE = "Armature Layer"
-# PROP_DESC_LAYER_ARMARTURE= "Apply armature to layer"
-# PROP_DEFAULT_LAYER_ARMARTURE = [
-        # False, False, False, False, False, False, False, False, False, False,
-        # True, False, False, False, False, False, False, False, False, False
-        # ]
-# PROP_OPT_LAYER_ARMARTURE = {OPT_ANIMATABLE}
-# PROP_STYPE_LAYER_ARMARTURE= 'LAYER'
-# PROP_SIZE_LAYER_ARMARTURE = 20
-
-
 ###############################################################################
 REMARKS_1 = "*)   partial implemented yet"
 REMARKS_2 = "**) not implemented yet"
@@ -268,8 +209,6 @@ REMARKS_3 = "***) risk of unwanted results"
 def SetupMenuImport(self, layout):
     box = layout.box()
     box.label(LABEL_NAME_OPTIONS, icon=LABEL_ICON_OPTIONS)
-    if (bpy.app.debug):
-        box.prop(self, "prop_debug", icon='ERROR')
     box.prop(self, "prop_verbose", icon='SPEAKER')
 
     box2 = box.box()
@@ -287,7 +226,6 @@ def SetupMenuImport(self, layout):
     box = layout.box()
     box.label(LABEL_NAME_PROCESSING, icon=LABEL_ICON_PROCESSING)
     box.prop(self, "prop_objects", icon='MESH_DATA', expand=True)
-
 
     if (PROP_ITEM_OBJECT_JOINT in self.prop_objects):
         box.label(REMARKS_1, icon='ERROR')
@@ -332,15 +270,6 @@ def SetupMenuExport(self, layout):
 
 
 ###############################################################################
-
-
-#
-# DEBUG
-#
-def DEBUG_print(s):
-    if(_DEBUG):
-        print("ms3d_utils.{0}".format(s))
-    pass
 
 
 TYPE_ARMATURE = 'ARMATURE'
@@ -424,9 +353,6 @@ def CreateMatrixViewport(coordinate_system, scale):
 
 ###############################################################################
 def PreSetupEnvironment(porterSelf):
-    # setup debug
-    _DEBUG = porterSelf.prop_debug
-
     # inject undo to self
     # and turn off undo
     porterSelf.undo = bpy.context.user_preferences.edit.use_global_undo
@@ -458,7 +384,6 @@ def PreSetupEnvironment(porterSelf):
 def PostSetupEnvironment(porterSelf, adjustView):
     if (adjustView):
         # set metrics
-        #DEBUG_print("bpy.context.scene.unit_settings.system = 'METRIC'")
         bpy.context.scene.unit_settings.system = 'METRIC'
         bpy.context.scene.unit_settings.system_rotation = 'DEGREES'
         bpy.context.scene.unit_settings.scale_length = 0.001 # 1.0mm
@@ -469,17 +394,11 @@ def PostSetupEnvironment(porterSelf, adjustView):
         # set all 3D views to texture shaded
         # and set up the clipping
         for screen in bpy.context.blend_data.screens:
-            #DEBUG_print(" screen={0}".format(screen))
-
             for area in screen.areas:
-                #DEBUG_print("  area={0}".format(area.type))
-
                 if (area.type != 'VIEW_3D'):
                     continue
 
                 for space in area.spaces:
-                    #DEBUG_print("   space={0}".format(space.type))
-
                     if (space.type != 'VIEW_3D'):
                         continue
 

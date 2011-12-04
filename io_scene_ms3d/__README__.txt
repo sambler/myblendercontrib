@@ -73,7 +73,6 @@ known issues:
     - does not import bones
     - does not import joints
     - does not import keyframes
-    - does not import comments (will never be supported - blender doesn't have similar stuff)
 
   exporter issues:
     - does only export the first existing material, if more than one material is used per mesh
@@ -92,7 +91,11 @@ todo:
 
 
 changelog:
-changed: (0, 3, 3, "beta (2011-12-03 00:00)")
+changed: (0, 3, 4, "beta (2011-12-04 00:00)"),
+add: importer adds ms3d_comment custom properties for modelComment (to a blender empty), groupComments (to its blender meshes), materialComments (to its blender materials) and jointComments (to its blender bones)
+add: importer adds raw data ms3d_ambient and ms3d_emissive custom properties to material, because blender does not have an exact similar color definition
+fix: ms3d_spec, modelComment, only one comment is allowed and a modelComment does not have an index value
+mod: droped most of DEBUG_... code
 mod: class __init__(self, ...) default parameter handling
 mod: droped some tuple constructions: replaced with regular expression "tuple[(].*[[](.*)[]].*[)]" with "(\1)"
 
@@ -161,3 +164,23 @@ installation instruction:
   - open blender
   - File | User Preferences | Addons | Import-Export
   - enable "Import-Export: MilkShape3D MS3D format (.ms3d)"
+
+# To support reload properly, try to access a package var, if it's there, reload everything
+if ("bpy" in locals()):
+    import imp
+    #if "ms3d_export" in locals():
+    #    imp.reload(ms3d_export)
+    #if "ms3d_import" in locals():
+    #    imp.reload(ms3d_import)
+    #if "ms3d_spec" in locals():
+    #    imp.reload(ms3d_spec)
+    #if "ms3d_utils" in locals():
+    #    imp.reload(ms3d_utils)
+    pass
+
+else:
+    #from . import ms3d_export
+    #from . import ms3d_import
+    #from . import ms3d_spec
+    #from . import ms3d_utils
+    pass

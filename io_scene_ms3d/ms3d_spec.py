@@ -37,51 +37,8 @@ import struct
 import sys
 
 
-# To support reload properly, try to access a package var, if it's there, reload everything
-if ("bpy" in locals()):
-    import imp
-    #if "ms3d_export" in locals():
-    #    imp.reload(ms3d_export)
-    #if "ms3d_import" in locals():
-    #    imp.reload(ms3d_import)
-    #if "ms3d_spec" in locals():
-    #    imp.reload(ms3d_spec)
-    if "ms3d_utils" in locals():
-        imp.reload(ms3d_utils)
-    #print("ms3d_spec.MS3D-add-on Reloaded")
-    pass
-
-else:
-    #from . import ms3d_export
-    #from . import ms3d_import
-    #from . import ms3d_spec
-    from . import ms3d_utils
-    #print("ms3d_spec.MS3D-add-on Imported")
-    pass
-
-
 #import blender stuff
 import bpy_extras.io_utils
-
-
-#
-# DEBUG
-#
-def DEBUG_print(s="", i=0):
-    """
-    shows a log on the console
-    :arg s: messate to print
-    :type s: :class:`string`
-    :arg i: count of spaces
-    :type i: :class:`int`
-    """
-    if(ms3d_utils._DEBUG):
-        for ii in range(i):
-            print(" ", end="")
-
-        print("ms3d_spec.{0}".format(s))
-
-    pass
 
 
 PROP_NAME_NAME = "name"
@@ -92,6 +49,8 @@ PROP_NAME_FLAGS = "flags"
 PROP_NAME_PARENTNAME = "parentName"
 PROP_NAME_EXTRA = "extra"
 PROP_NAME_COMMENT = "comment"
+PROP_NAME_AMBIENT = "ambient"
+PROP_NAME_EMISSIVE = "emissive"
 
 PRINT_LEVEL1 = 3
 PRINT_LEVEL1x = 6
@@ -163,60 +122,50 @@ LENGTH_FILENAME = 128
 def read_byte(file):
     """ read a single byte from file """
     value = struct.unpack("<B", file.read(SIZE_BYTE))[0]
-    #DEBUG_print("read_byte: {0}".format(value))
     return value
 
 def write_byte(file, value):
     """ write a single byte to file """
-    #DEBUG_print("write_byte: {0}".format(value))
     file.write(struct.pack("<B", value))
 
 ###############################################################################
 def read_char(file):
     """ read a single char (signed byte) from file """
     value = struct.unpack("<b", file.read(SIZE_CHAR))[0]
-    #DEBUG_print("read_char: {0}".format(value))
     return value
 
 def write_char(file, value):
     """ write a single char (signed byte) to file """
-    #DEBUG_print("write_char: {0}".format(value))
     file.write(struct.pack("<b", value))
 
 ###############################################################################
 def read_word(file):
     """ read a single word from file """
     value = struct.unpack("<H", file.read(SIZE_WORD))[0]
-    #DEBUG_print("read_word: {0}".format(value))
     return value
 
 def write_word(file, value):
     """ write a single word to file """
-    #DEBUG_print("write_word: {0}".format(value))
     file.write(struct.pack("<H", value))
 
 ###############################################################################
 def read_dword(file):
     """ read a single double word from file """
     value = struct.unpack("<I", file.read(SIZE_DWORD))[0]
-    #DEBUG_print("read_dword: {0}".format(value))
     return value
 
 def write_dword(file, value):
     """ write a single double word to file """
-    #DEBUG_print("write_dword: {0}".format(value))
     file.write(struct.pack("<I", value))
 
 ###############################################################################
 def read_float(file):
     """ read a single float from file """
     value = struct.unpack("<f", file.read(SIZE_FLOAT))[0]
-    #DEBUG_print("read_float: {0}".format(value))
     return value
 
 def write_float(file, value):
     """ write a single float to file """
-    #DEBUG_print("write_float: {0}".format(value))
     file.write(struct.pack("<f", value))
 
 ###############################################################################
@@ -225,7 +174,6 @@ def read_array(file, itemReader, count):
     value = []
     for i in range(count):
         itemValue = itemReader(file)
-        #DEBUG_print("read_array: item={0}".format(itemValue))
         value.append(itemValue)
     return tuple(value)
 
@@ -234,7 +182,6 @@ def write_array(file, itemWriter, count, value):
     """ write an array[count] of objects to file, by using a itemWriter """
     for i in range(count):
         itemValue = value[i]
-        #DEBUG_print("write_array: item={0}".format(itemValue))
         itemWriter(file, itemValue)
 
 ###############################################################################
@@ -243,7 +190,6 @@ def read_array2(file, itemReader, count, count2):
     value = []
     for i in range(count):
         itemValue = read_array(file, itemReader, count2)
-        #DEBUG_print("read_array2: item={0}".format(itemValue))
         value.append(tuple(itemValue))
     return value #tuple(value)
 
@@ -252,7 +198,6 @@ def write_array2(file, itemWriter, count, count2, value):
     """ write an array[count][count2] of objects to file, by using a itemWriter """
     for i in range(count):
         itemValue = value[i]
-        #DEBUG_print("write_array2: item={0}".format(itemValue))
         write_array(file, itemWriter, count2, itemValue)
 
 ###############################################################################
@@ -277,13 +222,11 @@ def read_string(file, length):
             value.append(c)
 
     finalValue = "".join(value)
-    #DEBUG_print("read_string: length={0}, value='{1}'".format(length, finalValue))
     return finalValue
 
 ###############################################################################
 def write_string(file, length, value):
     """ write a string of a specific length to file """
-    #DEBUG_print("write_string: length={0}, value='{1}'".format(length, value))
     l = len(value)
     for i in range(length):
         if(i < l):
@@ -331,7 +274,6 @@ class ms3d_header_t:
         :arg version: version number of file
         :type version: :class:`dword`
         """
-        #DEBUG_print("ms3d_header_t.__init__", PRINT_LEVEL1)
 
         self.id = defaultId
         self.version = defaultVersion
@@ -351,16 +293,12 @@ class ms3d_header_t:
                 and (self.version == other.version))
 
     def read(self, file):
-        #DEBUG_print("ms3d_header_t.read (id)", PRINT_LEVEL1)
         self.id = read_string(file, LENGTH_ID)
-        #DEBUG_print("ms3d_header_t.read (version)", PRINT_LEVEL1)
         self.version = read_dword(file)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_header_t.write (id)")
         write_string(file, LENGTH_ID, self.id)
-        #DEBUG_print("ms3d_header_t.write (version)", PRINT_LEVEL1)
         write_dword(file, self.version)
 
 
@@ -399,7 +337,6 @@ class ms3d_vertex_t:
         :arg referenceCount: reference count
         :type referenceCount: :class:`byte`
         """
-        #DEBUG_print("ms3d_vertex_t.__init__", PRINT_LEVEL1)
 
         self.flags = defaultFlags
         self._vertex = defaultVertex
@@ -436,24 +373,16 @@ class ms3d_vertex_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_vertex_t.read (flags)", PRINT_LEVEL1)
         self.flags = read_byte(file)
-        #DEBUG_print("ms3d_vertex_t.read (vertex)", PRINT_LEVEL1)
         self._vertex = read_array(file, read_float, 3)
-        #DEBUG_print("ms3d_vertex_t.read (boneId)", PRINT_LEVEL1)
         self.boneId = read_char(file)
-        #DEBUG_print("ms3d_vertex_t.read (referenceCount)", PRINT_LEVEL1)
         self.referenceCount = read_byte(file)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_vertex_t.write (flags)", PRINT_LEVEL1)
         write_byte(file, self.flags)
-        #DEBUG_print("ms3d_vertex_t.write (vertex)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.vertex)
-        #DEBUG_print("ms3d_vertex_t.write (boneId)", PRINT_LEVEL1)
         write_char(file, self.boneId)
-        #DEBUG_print("ms3d_vertex_t.write (referenceCount)", PRINT_LEVEL1)
         write_byte(file, self.referenceCount)
 
 
@@ -507,7 +436,6 @@ class ms3d_triangle_t:
         :arg groupIndex: group index
         :type groupIndex: :class:`byte`
         """
-        #DEBUG_print("ms3d_triangle_t.__init__", PRINT_LEVEL1)
 
         self.flags = defaultFlags
         self._vertexIndices = defaultVertexIndices
@@ -547,36 +475,22 @@ class ms3d_triangle_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_triangle_t.read (flags)", PRINT_LEVEL1)
         self.flags = read_word(file)
-        #DEBUG_print("ms3d_triangle_t.read (vertexIndices)", PRINT_LEVEL1)
         self._vertexIndices = read_array(file, read_word, 3)
-        #DEBUG_print("ms3d_triangle_t.read (vertexNormals)", PRINT_LEVEL1)
         self._vertexNormals = read_array2(file, read_float, 3, 3)
-        #DEBUG_print("ms3d_triangle_t.read (s)", PRINT_LEVEL1)
         self._s = read_array(file, read_float, 3)
-        #DEBUG_print("ms3d_triangle_t.read (t)", PRINT_LEVEL1)
         self._t = read_array(file, read_float, 3)
-        #DEBUG_print("ms3d_triangle_t.read (smoothingGroup)", PRINT_LEVEL1)
         self.smoothingGroup = read_byte(file)
-        #DEBUG_print("ms3d_triangle_t.read (groupIndex)", PRINT_LEVEL1)
         self.groupIndex = read_byte(file)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_triangle_t.write (flags)", PRINT_LEVEL1)
         write_word(file, self.flags)
-        #DEBUG_print("ms3d_triangle_t.write (vertexIndices)", PRINT_LEVEL1)
         write_array(file, write_word, 3, self.vertexIndices)
-        #DEBUG_print("ms3d_triangle_t.write (vertexNormals)", PRINT_LEVEL1)
         write_array2(file, write_float, 3, 3, self.vertexNormals)
-        #DEBUG_print("ms3d_triangle_t.write (s)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.s)
-        #DEBUG_print("ms3d_triangle_t.write (t)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.t)
-        #DEBUG_print("ms3d_triangle_t.write (smoothingGroup)", PRINT_LEVEL1)
         write_byte(file, self.smoothingGroup)
-        #DEBUG_print("ms3d_triangle_t.write (groupIndex)", PRINT_LEVEL1)
         write_byte(file, self.groupIndex)
 
 
@@ -620,7 +534,6 @@ class ms3d_group_t:
         :arg materialIndex: material index
         :type materialIndex: :class:`char`
         """
-        #DEBUG_print("ms3d_group_t.__init__", PRINT_LEVEL1)
 
         if (defaultName is None):
             defaultName = ""
@@ -630,7 +543,7 @@ class ms3d_group_t:
 
         self.flags = defaultFlags
         self.name = defaultName
-        #self.numtriangles = defaultNumtriangles
+        #self._numtriangles = defaultNumtriangles
         self._triangleIndices = defaultTriangleIndices
         self.materialIndex = defaultMaterialIndex
 
@@ -646,7 +559,7 @@ class ms3d_group_t:
 
     @property
     def numtriangles(self):
-        if not self.triangleIndices:
+        if self.triangleIndices is None:
             return 0
         return len(self.triangleIndices)
 
@@ -656,28 +569,18 @@ class ms3d_group_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_group_t.read (flags)", PRINT_LEVEL1)
         self.flags = read_byte(file)
-        #DEBUG_print("ms3d_group_t.read (name)", PRINT_LEVEL1)
         self.name = read_string(file, LENGTH_NAME)
-        #DEBUG_print("ms3d_group_t.read (numtriangles)", PRINT_LEVEL1)
         _numtriangles = read_word(file)
-        #DEBUG_print("ms3d_group_t.read (triangleIndices)", PRINT_LEVEL1)
         self._triangleIndices = read_array(file, read_word, _numtriangles)
-        #DEBUG_print("ms3d_group_t.read (materialIndex)", PRINT_LEVEL1)
         self.materialIndex = read_char(file)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_group_t.write (flags)", PRINT_LEVEL1)
         write_byte(file, self.flags)
-        #DEBUG_print("ms3d_group_t.write (name)", PRINT_LEVEL1)
         write_string(file, LENGTH_NAME, self.name)
-        #DEBUG_print("ms3d_group_t.write (numtriangles)", PRINT_LEVEL1)
         write_word(file, self.numtriangles)
-        #DEBUG_print("ms3d_group_t.write (triangleIndices)", PRINT_LEVEL1)
         write_array(file, write_word, self.numtriangles, self.triangleIndices)
-        #DEBUG_print("ms3d_group_t.write (materialIndex)", PRINT_LEVEL1)
         write_char(file, self.materialIndex)
 
 
@@ -746,7 +649,6 @@ class ms3d_material_t:
         :arg alphamap: alphamap name
         :type alphamap: :class:`string`
         """
-        #DEBUG_print("ms3d_material_t.__init__", PRINT_LEVEL1)
 
         if (defaultName is None):
             defaultName = ""
@@ -831,48 +733,28 @@ class ms3d_material_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_material_t.read (name)", PRINT_LEVEL1)
         self.name = read_string(file, LENGTH_NAME)
-        #DEBUG_print("ms3d_material_t.read (ambient)", PRINT_LEVEL1)
         self._ambient = read_array(file, read_float, 4)
-        #DEBUG_print("ms3d_material_t.read (diffuse)", PRINT_LEVEL1)
         self._diffuse = read_array(file, read_float, 4)
-        #DEBUG_print("ms3d_material_t.read (specular)", PRINT_LEVEL1)
         self._specular = read_array(file, read_float, 4)
-        #DEBUG_print("ms3d_material_t.read (emissive)", PRINT_LEVEL1)
         self._emissive = read_array(file, read_float, 4)
-        #DEBUG_print("ms3d_material_t.read (shininess)", PRINT_LEVEL1)
         self.shininess = read_float(file)
-        #DEBUG_print("ms3d_material_t.read (transparency)", PRINT_LEVEL1)
         self.transparency = read_float(file)
-        #DEBUG_print("ms3d_material_t.read (mode)", PRINT_LEVEL1)
         self.mode = read_char(file)
-        #DEBUG_print("ms3d_material_t.read (texture)", PRINT_LEVEL1)
         self.texture = read_string(file, LENGTH_FILENAME)
-        #DEBUG_print("ms3d_material_t.read (alphamap)", PRINT_LEVEL1)
         self.alphamap = read_string(file, LENGTH_FILENAME)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_material_t.write (name)", PRINT_LEVEL1)
         write_string(file, LENGTH_NAME, self.name)
-        #DEBUG_print("ms3d_material_t.write (ambient)", PRINT_LEVEL1)
         write_array(file, write_float, 4, self.ambient)
-        #DEBUG_print("ms3d_material_t.write (diffuse)", PRINT_LEVEL1)
         write_array(file, write_float, 4, self.diffuse)
-        #DEBUG_print("ms3d_material_t.write (specular)", PRINT_LEVEL1)
         write_array(file, write_float, 4, self.specular)
-        #DEBUG_print("ms3d_material_t.write (emissive)", PRINT_LEVEL1)
         write_array(file, write_float, 4, self.emissive)
-        #DEBUG_print("ms3d_material_t.write (shininess)", PRINT_LEVEL1)
         write_float(file, self.shininess)
-        #DEBUG_print("ms3d_material_t.write (transparency)", PRINT_LEVEL1)
         write_float(file, self.transparency)
-        #DEBUG_print("ms3d_material_t.write (mode)", PRINT_LEVEL1)
         write_char(file, self.mode)
-        #DEBUG_print("ms3d_material_t.write (texture)", PRINT_LEVEL1)
         write_string(file, LENGTH_FILENAME, self.texture)
-        #DEBUG_print("ms3d_material_t.write (alphamap)", PRINT_LEVEL1)
         write_string(file, LENGTH_FILENAME, self.alphamap)
 
 
@@ -901,7 +783,6 @@ class ms3d_keyframe_rot_t:
         :arg rotation: rotation
         :type rotation: :class:`float[3]`
         """
-        #DEBUG_print("ms3d_keyframe_rot_t.__init__", PRINT_LEVEL1)
 
         self.time = defaultTime
         self._rotation = defaultRotation
@@ -919,16 +800,12 @@ class ms3d_keyframe_rot_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_keyframe_rot_t.read (time)", PRINT_LEVEL1)
         self.time = read_float(file)
-        #DEBUG_print("ms3d_keyframe_rot_t.read (rotation)", PRINT_LEVEL1)
         self._rotation = read_array(file, read_float, 3)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_keyframe_rot_t.write (time)", PRINT_LEVEL1)
         write_float(file, self.time)
-        #DEBUG_print("ms3d_keyframe_rot_t.write (rotation)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.rotation)
 
 
@@ -957,7 +834,6 @@ class ms3d_keyframe_pos_t:
         :arg position: position
         :type position: :class:`float[3]`
         """
-        #DEBUG_print("ms3d_keyframe_pos_t.__init__", PRINT_LEVEL1)
 
         self.time = defaultTime
         self._position = defaultPosition
@@ -975,16 +851,12 @@ class ms3d_keyframe_pos_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_keyframe_pos_t.read (time)", PRINT_LEVEL1)
         self.time = read_float(file)
-        #DEBUG_print("ms3d_keyframe_pos_t.read (position)", PRINT_LEVEL1)
         self._position = read_array(file, read_float, 3)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_keyframe_pos_t.write (time)", PRINT_LEVEL1)
         write_float(file, self.time)
-        #DEBUG_print("ms3d_keyframe_pos_t.write (position)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.position)
 
 
@@ -1048,7 +920,6 @@ class ms3d_joint_t:
         :arg keyFramesTrans: keyFramesTrans
         :type keyFramesTrans: :class:`ms3d_spec.ms3d_keyframe_pos_t[]`
         """
-        #DEBUG_print("ms3d_joint_t.__init__", PRINT_LEVEL1)
 
         if (defaultName is None):
             defaultName = ""
@@ -1067,8 +938,8 @@ class ms3d_joint_t:
         self.parentName = defaultParentName
         self._rotation = defaultRotation
         self._position = defaultPosition
-        #self.numKeyFramesRot = defaultNumKeyFramesRot
-        #self.numKeyFramesTrans = defaultNumKeyFramesTrans
+        #self._numKeyFramesRot = defaultNumKeyFramesRot
+        #self._numKeyFramesTrans = defaultNumKeyFramesTrans
         self._keyFramesRot = defaultKeyFramesRot
         self._keyFramesTrans = defaultKeyFramesTrans
 
@@ -1096,13 +967,13 @@ class ms3d_joint_t:
 
     @property
     def numKeyFramesRot(self):
-        if not self.keyFramesRot:
+        if self.keyFramesRot is None:
             return 0
         return len(self.keyFramesRot)
 
     @property
     def numKeyFramesTrans(self):
-        if not self.keyFramesTrans:
+        if self.keyFramesTrans is None:
             return 0
         return len(self.keyFramesTrans)
 
@@ -1116,50 +987,32 @@ class ms3d_joint_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_joint_t.read (flags)", PRINT_LEVEL1)
         self.flags = read_byte(file)
-        #DEBUG_print("ms3d_joint_t.read (name)", PRINT_LEVEL1)
         self.name = read_string(file, LENGTH_NAME)
-        #DEBUG_print("ms3d_joint_t.read (parentName)", PRINT_LEVEL1)
         self.parentName = read_string(file, LENGTH_NAME)
-        #DEBUG_print("ms3d_joint_t.read (rotation)", PRINT_LEVEL1)
         self._rotation = read_array(file, read_float, 3)
-        #DEBUG_print("ms3d_joint_t.read (position)", PRINT_LEVEL1)
         self._position = read_array(file, read_float, 3)
-        #DEBUG_print("ms3d_joint_t.read (numKeyFramesRot)", PRINT_LEVEL1)
         _numKeyFramesRot = read_word(file)
-        #DEBUG_print("ms3d_joint_t.read (numKeyFramesTrans)", PRINT_LEVEL1)
         _numKeyFramesTrans = read_word(file)
         self._keyFramesRot = []
         for i in range(_numKeyFramesRot):
-            #DEBUG_print("ms3d_joint_t.read (keyFramesRot)[{0}]".format(i), PRINT_LEVEL1)
             self.keyFramesRot.append(ms3d_keyframe_rot_t().read(file))
         self._keyFramesTrans = []
         for i in range(_numKeyFramesTrans):
-            #DEBUG_print("ms3d_joint_t.read (keyFramesTrans)[{0}]".format(i), PRINT_LEVEL1)
             self.keyFramesTrans.append(ms3d_keyframe_pos_t().read(file))
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_joint_t.write (flags)", PRINT_LEVEL1)
         write_byte(file, self.flags)
-        #DEBUG_print("ms3d_joint_t.write (name)", PRINT_LEVEL1)
         write_string(file, LENGTH_NAME, self.name)
-        #DEBUG_print("ms3d_joint_t.write (parentName)", PRINT_LEVEL1)
         write_string(file, LENGTH_NAME, self.parentName)
-        #DEBUG_print("ms3d_joint_t.write (rotation)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.rotation)
-        #DEBUG_print("ms3d_joint_t.write (position)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.position)
-        #DEBUG_print("ms3d_joint_t.write (numKeyFramesRot)", PRINT_LEVEL1)
         write_word(file, self.numKeyFramesRot)
-        #DEBUG_print("ms3d_joint_t.write (numKeyFramesTrans)", PRINT_LEVEL1)
         write_word(file, self.numKeyFramesTrans)
         for i in range(self.numKeyFramesRot):
-            #DEBUG_print("ms3d_joint_t.write (keyFramesRot)[{0}]".format(i), PRINT_LEVEL1)
             self.keyFramesRot[i].write(file)
         for i in range(self.numKeyFramesTrans):
-            #DEBUG_print("ms3d_joint_t.write (keyFramesTrans)[{0}]".format(i), PRINT_LEVEL1)
             self.keyFramesTrans[i].write(file)
 
 
@@ -1193,13 +1046,12 @@ class ms3d_comment_t:
         :arg comment: comment
         :type comment: :class:`string`
         """
-        #DEBUG_print("ms3d_comment_t.__init__", PRINT_LEVEL1)
 
         if (defaultComment is None):
             defaultComment = ""
 
         self.index = defaultIndex
-        #self.commentLength = defaultCommentLength
+        #self._commentLength = defaultCommentLength
         self.comment = defaultComment
 
     def __repr__(self):
@@ -1212,26 +1064,76 @@ class ms3d_comment_t:
 
     @property
     def commentLength(self):
-        if not self.comment:
+        if self.comment is None:
             return 0
         return len(self.comment)
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_comment_t.read (index)", PRINT_LEVEL1)
         self.index = read_dword(file)
-        #DEBUG_print("ms3d_comment_t.read (commentLength)", PRINT_LEVEL1)
         _commentLength = read_dword(file)
-        #DEBUG_print("ms3d_comment_t.read (comment)", PRINT_LEVEL1)
         self.comment = read_string(file, _commentLength)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_comment_t.write (index)", PRINT_LEVEL1)
         write_dword(file, self.index)
-        #DEBUG_print("ms3d_comment_t.write (commentLength)", PRINT_LEVEL1)
         write_dword(file, self.commentLength)
-        #DEBUG_print("ms3d_comment_t.write (comment)", PRINT_LEVEL1)
+        write_string(file, self.commentLength, self.comment)
+
+
+###############################################################################
+class ms3d_modelcomment_t:
+    """
+    ms3d_modelcomment_t
+    """
+    #int commentLength; // length of comment (terminating '\0' is not saved), "MC" has comment length of 2 (not 3)
+    #char comment[commentLength]; // comment
+    __slots__ = (
+            "_commentLength",
+            PROP_NAME_COMMENT
+            )
+
+    def __init__(
+            self,
+            defaultCommentLength=0,
+            defaultComment=""
+            ):
+        """
+        initialize
+
+        :arg commentLength: commentLength
+        :type commentLength: :class:`dword`
+        :arg comment: comment
+        :type comment: :class:`string`
+        """
+
+        if (defaultComment is None):
+            defaultComment = ""
+
+        #self._commentLength = defaultCommentLength
+        self.comment = defaultComment
+
+    def __repr__(self):
+        return "\n<commentLength={0}, comment={1}>".format(
+                self.commentLength,
+                self.comment
+                )
+
+
+    @property
+    def commentLength(self):
+        if self.comment is None:
+            return 0
+        return len(self.comment)
+
+
+    def read(self, file):
+        _commentLength = read_dword(file)
+        self.comment = read_string(file, _commentLength)
+        return self
+
+    def write(self, file):
+        write_dword(file, self.commentLength)
         write_string(file, self.commentLength, self.comment)
 
 
@@ -1264,7 +1166,6 @@ class ms3d_vertex_ex1_t:
         :arg weights: weights
         :type weights: :class:`byte[3]`
         """
-        #DEBUG_print("ms3d_vertex_ex1_t.__init__", PRINT_LEVEL1)
 
         self._boneIds = defaultBoneIds
         self._weights = defaultWeights
@@ -1286,16 +1187,12 @@ class ms3d_vertex_ex1_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_vertex_ex1_t.read (boneIds)", PRINT_LEVEL1)
         self._boneIds = read_array(file, read_char, 3)
-        #DEBUG_print("ms3d_vertex_ex1_t.read (weights)", PRINT_LEVEL1)
         self._weights = read_array(file, read_byte, 3)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_vertex_ex1_t.write (boneIds)", PRINT_LEVEL1)
         write_array(file, write_char, 3, self.boneIds)
-        #DEBUG_print("ms3d_vertex_ex1_t.write (weights)", PRINT_LEVEL1)
         write_array(file, write_byte, 3, self.weights)
 
 
@@ -1333,7 +1230,6 @@ class ms3d_vertex_ex2_t:
         :arg extra: extra
         :type extra: :class:`dword`
         """
-        #DEBUG_print("ms3d_vertex_ex2_t.__init__", PRINT_LEVEL1)
 
         self._boneIds = defaultBoneIds
         self._weights = defaultWeights
@@ -1357,20 +1253,14 @@ class ms3d_vertex_ex2_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_vertex_ex2_t.read (boneIds)", PRINT_LEVEL1)
         self._boneIds = read_array(file, read_char, 3)
-        #DEBUG_print("ms3d_vertex_ex2_t.read (weights)", PRINT_LEVEL1)
         self._weights = read_array(file, read_byte, 3)
-        #DEBUG_print("ms3d_vertex_ex2_t.read (extra)", PRINT_LEVEL1)
         self.extra = read_dword(file)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_vertex_ex2_t.write (boneIds)", PRINT_LEVEL1)
         write_array(file, write_char, 3, self.boneIds)
-        #DEBUG_print("ms3d_vertex_ex2_t.write (weights)", PRINT_LEVEL1)
         write_array(file, write_byte, 3, self.weights)
-        #DEBUG_print("ms3d_vertex_ex2_t.write (extra)", PRINT_LEVEL1)
         write_dword(file, self.extra)
 
 
@@ -1408,7 +1298,6 @@ class ms3d_vertex_ex3_t:
         :arg extra: extra
         :type extra: :class:`dword`
         """
-        #DEBUG_print("ms3d_vertex_ex3_t.__init__", PRINT_LEVEL1)
 
         self._boneIds = defaultBoneIds
         self._weights = defaultWeights
@@ -1432,20 +1321,14 @@ class ms3d_vertex_ex3_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_vertex_ex3_t.read (boneIds)", PRINT_LEVEL1)
         self._boneIds = read_array(file, read_char, 3)
-        #DEBUG_print("ms3d_vertex_ex3_t.read (weights)", PRINT_LEVEL1)
         self._weights = read_array(file, read_byte, 3)
-        #DEBUG_print("ms3d_vertex_ex3_t.read (extra)", PRINT_LEVEL1)
         self.extra = read_dword(file)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_vertex_ex3_t.write (boneIds)", PRINT_LEVEL1)
         write_array(file, write_char, 3, self.boneIds)
-        #DEBUG_print("ms3d_vertex_ex3_t.write (weights)", PRINT_LEVEL1)
         write_array(file, write_byte, 3, self.weights)
-        #DEBUG_print("ms3d_vertex_ex3_t.write (extra)", PRINT_LEVEL1)
         write_dword(file, self.extra)
 
 
@@ -1469,7 +1352,6 @@ class ms3d_joint_ex_t:
         :arg color: color
         :type color: :class:`float[3]`
         """
-        #DEBUG_print("ms3d_joint_ex_t.__init__", PRINT_LEVEL1)
 
         self._color = defaultColor
 
@@ -1483,12 +1365,10 @@ class ms3d_joint_ex_t:
 
 
     def read(self, file):
-        #DEBUG_print("ms3d_joint_ex_t.read (color)", PRINT_LEVEL1)
         self._color = read_array(file, read_float, 3)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_joint_ex_t.write (color)", PRINT_LEVEL1)
         write_array(file, write_float, 3, self.color)
 
 
@@ -1522,7 +1402,6 @@ class ms3d_model_ex_t:
         :arg alphaRef: alphaRef
         :type alphaRef: :class:`float[3]`
         """
-        #DEBUG_print("ms3d_model_ex_t.__init__", PRINT_LEVEL1)
 
         self.jointSize = defaultJointSize
         self.transparencyMode = defaultTransparencyMode
@@ -1536,20 +1415,14 @@ class ms3d_model_ex_t:
                 )
 
     def read(self, file):
-        #DEBUG_print("ms3d_model_ex_t.read (jointSize)", PRINT_LEVEL1)
         self.jointSize = read_float(file)
-        #DEBUG_print("ms3d_model_ex_t.read (transparencyMode)", PRINT_LEVEL1)
         self.transparencyMode = read_dword(file)
-        #DEBUG_print("ms3d_model_ex_t.read (alphaRef)", PRINT_LEVEL1)
         self.alphaRef = read_float(file)
         return self
 
     def write(self, file):
-        #DEBUG_print("ms3d_model_ex_t.write (jointSize)", PRINT_LEVEL1)
         write_float(file, self.jointSize)
-        #DEBUG_print("ms3d_model_ex_t.write (transparencyMode)", PRINT_LEVEL1)
         write_dword(file, self.transparencyMode)
-        #DEBUG_print("ms3d_model_ex_t.write (alphaRef)", PRINT_LEVEL1)
         write_float(file, self.alphaRef)
 
 
@@ -1584,8 +1457,8 @@ class ms3d_file_t:
             "_materialComments",
             "_nNumJointComments",
             "_jointComments",
-            "_nNumModelComment",
-            "_modelComments",
+            "_nHasModelComment",
+            "_modelComment",
             "subVersionVertexExtra",
             "_vertex_ex1",
             "_vertex_ex2",
@@ -1605,13 +1478,12 @@ class ms3d_file_t:
         """
         initialize
         """
-        #DEBUG_print("ms3d_file_t.__init__")
+
         if (defaultName is None):
             defaultName = ""
 
         self.name = defaultName
 
-        #DEBUG_print("ms3d_file_t.__init__ (header)")
         # First comes the header (sizeof(ms3d_header_t) == 14)
         self.header = ms3d_header_t()
 
@@ -1681,10 +1553,10 @@ class ms3d_file_t:
 
 
         # Then comes the number of model comments, which is always 0 or 1
-        #self.nNumModelComment = 0
+        #self.nHasModelComment = 0
 
-        # Then comes nNumModelComment times model comments, which are dynamic, because the comment can be any length
-        self._modelComments = [] #ms3d_comment_t()
+        # Then comes nHasModelComment times model comments, which are dynamic, because the comment can be any length
+        self._modelComment = None #ms3d_modelcomment_t()
 
 
         # Then comes the subversion of the vertex extra information like bone weights, extra etc.
@@ -1698,7 +1570,6 @@ class ms3d_file_t:
 
         # ms3d_vertex_ex_t for subVersionVertexExtra == 3
         self._vertex_ex3 = [] #ms3d_vertex_ex3_t()
-
         # Then comes nNumVertices times ms3d_vertex_ex_t structs (sizeof(ms3d_vertex_ex_t) == 10)
         ##
 
@@ -1707,23 +1578,19 @@ class ms3d_file_t:
 
         # ms3d_joint_ex_t for subVersionJointExtra == 1
         self._joint_ex = [] #ms3d_joint_ex_t()
-
         # Then comes nNumJoints times ms3d_joint_ex_t structs (sizeof(ms3d_joint_ex_t) == 12)
         ##
 
         # Then comes the subversion of the model extra information
         self.subVersionModelExtra = 1
 
-        #DEBUG_print("ms3d_file_t.__init__ (model_ex)")
         # ms3d_model_ex_t for subVersionModelExtra == 1
         self.model_ex = ms3d_model_ex_t()
-
-        #DEBUG_print("ms3d_file_t.__init__ #finished")
 
 
     @property
     def nNumVertices(self):
-        if not self.vertices:
+        if self.vertices is None:
             return 0
         return len(self.vertices)
 
@@ -1734,7 +1601,7 @@ class ms3d_file_t:
 
     @property
     def nNumTriangles(self):
-        if not self.triangles:
+        if self.triangles is None:
             return 0
         return len(self.triangles)
 
@@ -1745,7 +1612,7 @@ class ms3d_file_t:
 
     @property
     def nNumGroups(self):
-        if not self.groups:
+        if self.groups is None:
             return 0
         return len(self.groups)
 
@@ -1756,7 +1623,7 @@ class ms3d_file_t:
 
     @property
     def nNumMaterials(self):
-        if not self.materials:
+        if self.materials is None:
             return 0
         return len(self.materials)
 
@@ -1767,7 +1634,7 @@ class ms3d_file_t:
 
     @property
     def nNumJoints(self):
-        if not self.joints:
+        if self.joints is None:
             return 0
         return len(self.joints)
 
@@ -1778,7 +1645,7 @@ class ms3d_file_t:
 
     @property
     def nNumGroupComments(self):
-        if not self.groupComments:
+        if self.groupComments is None:
             return 0
         return len(self.groupComments)
 
@@ -1789,7 +1656,7 @@ class ms3d_file_t:
 
     @property
     def nNumMaterialComments(self):
-        if not self.materialComments:
+        if self.materialComments is None:
             return 0
         return len(self.materialComments)
 
@@ -1800,7 +1667,7 @@ class ms3d_file_t:
 
     @property
     def nNumJointComments(self):
-        if not self.jointComments:
+        if self.jointComments is None:
             return 0
         return len(self.jointComments)
 
@@ -1810,14 +1677,14 @@ class ms3d_file_t:
 
 
     @property
-    def nNumModelComment(self):
-        if not self.modelComments:
+    def nHasModelComment(self):
+        if self.modelComment is None:
             return 0
-        return len(self.modelComments)
+        return 1
 
     @property
-    def modelComments(self):
-        return self._modelComments
+    def modelComment(self):
+        return self._modelComment
 
 
     @property
@@ -1907,12 +1774,8 @@ class ms3d_file_t:
                 print("{0}".format(obj), end="")
         print("]")
 
-        print("nNumModelComment={0}".format(self.nNumModelComment))
-        print("modelComments=[", end="")
-        if self.modelComments:
-            for obj in self.modelComments:
-                print("{0}".format(obj), end="")
-        print("]")
+        print("nHasModelComment={0}".format(self.nHasModelComment))
+        print("modelComment={0}".format(self.modelComment))
 
         print("subVersionVertexExtra={0}".format(self.subVersionVertexExtra))
         if (self.subVersionVertexExtra == 1):
@@ -1946,42 +1809,31 @@ class ms3d_file_t:
         :arg file: file
         :type file: :class:`io.FileIO`
         """
-        #DEBUG_print("ms3d_file_t.read (header)")
+
         self.header.read(file)
 
-        #DEBUG_print("ms3d_file_t.read (nNumVertices)")
         _nNumVertices = read_word(file)
         self._vertices = []
         for i in range(_nNumVertices):
-            #DEBUG_print("ms3d_file_t.read (vertices)[{0}]".format(i))
             self.vertices.append(ms3d_vertex_t().read(file))
 
-        #DEBUG_print("ms3d_file_t.read (nNumTriangles)")
         _nNumTriangles = read_word(file)
         self._triangles = []
         for i in range(_nNumTriangles):
-            #DEBUG_print("ms3d_file_t.read (triangles)[{0}]".format(i))
             self.triangles.append(ms3d_triangle_t().read(file))
 
-        #DEBUG_print("ms3d_file_t.read (nNumGroups)")
         _nNumGroups = read_word(file)
         self._groups = []
         for i in range(_nNumGroups):
-            #DEBUG_print("ms3d_file_t.read (groups)[{0}]".format(i))
             self.groups.append(ms3d_group_t().read(file))
 
-        #DEBUG_print("ms3d_file_t.read (nNumMaterials)")
         _nNumMaterials = read_word(file)
         self._materials = []
         for i in range(_nNumMaterials):
-            #DEBUG_print("ms3d_file_t.read (materials)[{0}]".format(i))
             self.materials.append(ms3d_material_t().read(file))
 
-        #DEBUG_print("ms3d_file_t.read (fAnimationFPS)")
         self.fAnimationFPS = read_float(file)
-        #DEBUG_print("ms3d_file_t.read (fCurrentTime)")
         self.fCurrentTime = read_float(file)
-        #DEBUG_print("ms3d_file_t.read (iTotalFrames)")
         self.iTotalFrames = read_dword(file)
 
         progressCount = 0
@@ -1990,105 +1842,80 @@ class ms3d_file_t:
             # optional part
             # doesn't matter if doesn't existing.
 
-            #DEBUG_print("ms3d_file_t.read - entering try block")
-
-            #DEBUG_print("ms3d_file_t.read (nNumJoints)")
             _nNumJoints = read_word(file)
             self._joints = []
             for i in range(_nNumJoints):
-                #DEBUG_print("ms3d_file_t.read (joints)[{0}]".format(i))
                 self.joints.append(ms3d_joint_t().read(file))
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (subVersionComments)")
             self.subVersionComments = read_dword(file)
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (nNumGroupComments)")
             _nNumGroupComments = read_dword(file)
             self._groupComments = []
             for i in range(_nNumGroupComments):
-                #DEBUG_print("ms3d_file_t.read (groupComments)[{0}]".format(i))
                 self.groupComments.append(ms3d_comment_t().read(file))
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (nNumMaterialComments)")
             _nNumMaterialComments = read_dword(file)
             self._materialComments = []
             for i in range(_nNumMaterialComments):
-                #DEBUG_print("ms3d_file_t.read (materialComments)[{0}]".format(i))
                 self.materialComments.append(ms3d_comment_t().read(file))
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (nNumJointComments)")
             _nNumJointComments = read_dword(file)
             self._jointComments = []
             for i in range(_nNumJointComments):
-                #DEBUG_print("ms3d_file_t.read (jointComments)[{0}]".format(i))
                 self.jointComments.append(ms3d_comment_t().read(file))
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (nNumModelComment)")
-            _nNumModelComment = read_dword(file)
-            self._modelComments = []
-            for i in range(_nNumModelComment):
-                #DEBUG_print("ms3d_file_t.read (modelComments)[{0}]".format(i))
-                self.modelComments.append(ms3d_comment_t().read(file))
+            _nHasModelComment = read_dword(file)
+            if (_nHasModelComment != 0):
+                self._modelComment = ms3d_modelcomment_t().read(file)
+            else:
+                self._modelComment = None
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (subVersionVertexExtra)")
             self.subVersionVertexExtra = read_dword(file)
             self._vertex_ex1 = []
             self._vertex_ex2 = []
             self._vertex_ex3 = []
-            for i in range(_nNumVertices):
-                if (self.subVersionVertexExtra == 1):
-                    #DEBUG_print("ms3d_file_t.read (vertex_ex1)[{0}]".format(i))
+            if (self.subVersionVertexExtra == 1):
+                for i in range(_nNumVertices):
                     self.vertex_ex1.append(ms3d_vertex_ex1_t().read(file))
-                elif (self.subVersionVertexExtra == 2):
-                    #DEBUG_print("ms3d_file_t.read (vertex_ex2)[{0}]".format(i))
+            elif (self.subVersionVertexExtra == 2):
+                for i in range(_nNumVertices):
                     self.vertex_ex2.append(ms3d_vertex_ex2_t().read(file))
-                elif (self.subVersionVertexExtra == 3):
-                    #DEBUG_print("ms3d_file_t.read (vertex_ex3)[{0}]".format(i))
+            elif (self.subVersionVertexExtra == 3):
+                for i in range(_nNumVertices):
                     self.vertex_ex3.append(ms3d_vertex_ex3_t().read(file))
-                else:
-                    #DEBUG_print("ms3d_file_t.read (vertex_ex)[{0}] {skipped}".format(i))
-                    continue
+            else:
+                pass
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (subVersionJointExtra)")
             self.subVersionJointExtra = read_dword(file)
             self._joint_ex = []
             for i in range(_nNumJoints):
-                #DEBUG_print("ms3d_file_t.read (joint_ex)[{0}]".format(i))
                 self.joint_ex.append(ms3d_joint_ex_t().read(file))
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (subVersionModelExtra)")
             self.subVersionModelExtra = read_dword(file)
 
             progressCount += 1
 
-            #DEBUG_print("ms3d_file_t.read (model_ex)")
             self.model_ex.read(file)
 
-        #except IOError:
-                #DEBUG_print("ms3d_file.read - exception in optional try block 'IOError'")
-        #except EOFError:
-                #DEBUG_print("ms3d_file.read - exception in optional try block 'EOFError'")
-        #except struct.error:
-                #DEBUG_print("ms3d_file.read - exception in optional try block 'struct.error'")
         except Exception:
             #type, value, traceback = sys.exc_info()
-            #DEBUG_print("ms3d_file.read - exception in optional try block, progressCount={0}\n  type: '{1}'\n  value: '{2}'".format(progressCount, type, value, traceback))
+            #print("ms3d_file.read - exception in optional try block, progressCount={0}\n  type: '{1}'\n  value: '{2}'".format(progressCount, type, value, traceback))
 
             if (progressCount):
                 if (progressCount <= 0):
@@ -2111,8 +1938,8 @@ class ms3d_file_t:
                     self._jointComments = None
 
                 if (progressCount <= 5):
-                    _nNumModelComment = None
-                    self._modelComments = None
+                    _nHasModelComment = None
+                    self._modelComment = None
 
                 if (progressCount <= 6):
                     self.subVersionVertexExtra = None
@@ -2131,7 +1958,6 @@ class ms3d_file_t:
                     self.model_ex = None
 
         else:
-            #DEBUG_print("ms3d_file.read - passed optional try block")
             pass
 
         return
@@ -2145,111 +1971,80 @@ class ms3d_file_t:
         :arg file: file
         :type file: :class:`io.FileIO`
         """
-        #DEBUG_print("ms3d_file_t.write (header)")
+
         self.header.write(file)
 
-        #DEBUG_print("ms3d_file_t.write (nNumVertices)")
         write_word(file, self.nNumVertices)
         for i in range(self.nNumVertices):
-            #DEBUG_print("ms3d_file_t.write (vertices)[{0}]".format(i))
             self.vertices[i].write(file)
 
-        #DEBUG_print("ms3d_file_t.write (nNumTriangles)")
         write_word(file, self.nNumTriangles)
         for i in range(self.nNumTriangles):
-            #DEBUG_print("ms3d_file_t.write (triangles)[{0}]".format(i))
             self.triangles[i].write(file)
 
-        #DEBUG_print("ms3d_file_t.write (nNumGroups)")
         write_word(file, self.nNumGroups)
         for i in range(self.nNumGroups):
-            #DEBUG_print("ms3d_file_t.write (groups)[{0}]".format(i))
             self.groups[i].write(file)
 
-        #DEBUG_print("ms3d_file_t.write (nNumMaterials)")
         write_word(file, self.nNumMaterials)
         for i in range(self.nNumMaterials):
-            #DEBUG_print("ms3d_file_t.write (materials)[{0}]".format(i))
             self.materials[i].write(file)
 
-        #DEBUG_print("ms3d_file_t.write (fAnimationFPS)")
         write_float(file, self.fAnimationFPS)
-        #DEBUG_print("ms3d_file_t.write (fCurrentTime)")
         write_float(file, self.fCurrentTime)
-        #DEBUG_print("ms3d_file_t.write (iTotalFrames)")
         write_dword(file, self.iTotalFrames)
 
         try:
             # optional part
             # doesn't matter if it doesn't complete.
-
-            #DEBUG_print("ms3d_file_t.write (nNumJoints)")
             write_word(file, self.nNumJoints)
             for i in range(self.nNumJoints):
-                #DEBUG_print("ms3d_file_t.write (joints)[{0}]".format(i))
                 self.joints[i].write(file)
 
-            #DEBUG_print("ms3d_file_t.write (subVersionComments)")
             write_dword(file, self.subVersionComments)
 
-            #DEBUG_print("ms3d_file_t.write (nNumGroupComments)")
             write_dword(file, self.nNumGroupComments)
             for i in range(self.nNumGroupComments):
-                #DEBUG_print("ms3d_file_t.write (groupComments)[{0}]".format(i))
                 self.groupComments[i].write(file)
 
-            #DEBUG_print("ms3d_file_t.write (nNumMaterialComments)")
             write_dword(file, self.nNumMaterialComments)
             for i in range(self.nNumMaterialComments):
-                #DEBUG_print("ms3d_file_t.write (materialComments)[{0}]".format(i))
                 self.materialComments[i].write(file)
 
-            #DEBUG_print("ms3d_file_t.write (nNumJointComments)")
             write_dword(file, self.nNumJointComments)
             for i in range(self.nNumJointComments):
-                #DEBUG_print("ms3d_file_t.write (jointComments)[{0}]".format(i))
                 self.jointComments[i].write(file)
 
-            #DEBUG_print("ms3d_file_t.write (nNumModelComment)")
-            write_dword(file, self.nNumModelComment)
-            for i in range(self.nNumModelComment):
-                #DEBUG_print("ms3d_file_t.write (modelComments)[{0}]".format(i))
-                self.modelComments[i].write(file)
+            write_dword(file, self.nHasModelComment)
+            if (self.nHasModelComment != 0):
+                self.modelComment.write(file)
 
-            #DEBUG_print("ms3d_file_t.write (subVersionVertexExtra)")
             write_dword(file, self.subVersionVertexExtra)
-            for i in range(self.nNumVertices):
-                if (self.subVersionVertexExtra == 1):
-                    #DEBUG_print("ms3d_file_t.write (vertex_ex1)[{0}]".format(i))
+            if (self.subVersionVertexExtra == 1):
+                for i in range(self.nNumVertices):
                     self.vertex_ex1[i].write(file)
-                elif (self.subVersionVertexExtra == 2):
-                    #DEBUG_print("ms3d_file_t.write (vertex_ex2)[{0}]".format(i))
+            elif (self.subVersionVertexExtra == 2):
+                for i in range(self.nNumVertices):
                     self.vertex_ex2[i].write(file)
-                elif (self.subVersionVertexExtra == 3):
-                    #DEBUG_print("ms3d_file_t.write (vertex_ex3)[{0}]".format(i))
+            elif (self.subVersionVertexExtra == 3):
+                for i in range(self.nNumVertices):
                     self.vertex_ex3[i].write(file)
-                else:
-                    #DEBUG_print("ms3d_file_t.write (vertex_ex)[{0}] {skipped}".format(i))
-                    continue
+            else:
+                pass
 
-            #DEBUG_print("ms3d_file_t.write (subVersionJointExtra)")
             write_dword(file, self.subVersionJointExtra)
             for i in range(self.nNumJoints):
-                #DEBUG_print("ms3d_file_t.write (joint_ex)[{0}]".format(i))
                 self.joint_ex[i].write(file)
 
-            #DEBUG_print("ms3d_file_t.write (subVersionModelExtra)")
             write_dword(file, self.subVersionModelExtra)
-            #DEBUG_print("ms3d_file_t.write (model_ex)")
             self.model_ex.write(file)
 
         except Exception:
             #type, value, traceback = sys.exc_info()
-            #DEBUG_print("ms3d_file.write - exception in optional try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+            #print("ms3d_file.write - exception in optional try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
             pass
 
         else:
-            #DEBUG_print("ms3d_file.write - passed optional try block")
             pass
 
         return
@@ -2288,7 +2083,7 @@ class ms3d_file_t:
             result.append(format2.format(MAX_JOINTS))
             valid &= False
 
-        result.append(format1.format("model comments ..", self.nNumModelComment))
+        result.append(format1.format("model comments ..", self.nHasModelComment))
         result.append(format1.format("group comments ..", self.nNumGroupComments))
         result.append(format1.format("material comments", self.nNumMaterialComments))
         result.append(format1.format("joint comments ..", self.nNumJointComments))
@@ -2301,90 +2096,129 @@ class ms3d_file_t:
 
     # some other helper
     def get_group_by_key(self, key):
-        if not key:
+        if key is None:
             return None
 
         items = self.groups
 
-        if not items:
+        if items is None:
             return None
 
         elif isinstance(key, int):
-            if (key < 0) or (key >= self.nNumGroups):
-                return None
-            return items[key]
+            if (key >= 0) and (key < self.nNumGroups):
+                return items[key]
 
         elif isinstance(key, string):
             for item in items:
                 if item.name == key:
                     return item
-            return None
 
         elif isinstance(key, ms3d_spec.ms3d_triangle_t):
-            if (key.groupIndex < 0) or (key.groupIndex >= self.nNumGroups):
-                return None
-            return item[key.groupIndex]
+            if (key.groupIndex >= 0) and (key.groupIndex < self.nNumGroups):
+                return item[key.groupIndex]
 
-        else:
+        return None
+
+
+    def get_group_comment_by_key(self, key):
+        if key is None:
             return None
+
+        items = self.groupComments
+
+        if items is None:
+            return None
+
+        elif isinstance(key, int):
+            for item in items:
+                if (item.index == key):
+                    return item
+
+        return None
 
 
     def get_material_by_key(self, key):
-        if not key:
+        if key is None:
             return None
 
         items = self.materials
 
-        if not items:
+        if items is None:
             return None
 
         elif isinstance(key, int):
-            if (key < 0) or (key >= self.nNumMaterials):
-                return None
-            return items[key]
+            if (key >= 0) and (key < self.nNumMaterials):
+                return items[key]
 
         elif isinstance(key, string):
             for item in items:
                 if item.name == key:
                     return item
-            return None
 
         elif isinstance(key, ms3d_spec.ms3d_group_t):
-            if (key.materialIndex < 0) or (key.materialIndex >= self.nNumMaterials):
-                return None
-            return item[key.materialIndex]
+            if (key.materialIndex >= 0) and (key.materialIndex < self.nNumMaterials):
+                return item[key.materialIndex]
 
-        else:
+        return None
+
+
+    def get_material_comment_by_key(self, key):
+        if key is None:
             return None
+
+        items = self.materialComments
+
+        if items is None:
+            return None
+
+        elif isinstance(key, int):
+            for item in items:
+                if (item.index == key):
+                    return item
+
+        return None
 
 
     def get_joint_by_key(self, key):
-        if not key:
+        if key is None:
             return None
 
         items = self.joints
 
-        if not items:
+        if items is None:
             return None
 
         elif isinstance(key, int):
-            if (key < 0) or (key >= self.nNumJoints):
-                return None
-            return items[key]
+            if (key >= 0) and (key < self.nNumJoints):
+                return items[key]
 
         elif isinstance(key, string):
             for item in items:
                 if item.name == key:
                     return item
-            return None
 
         elif isinstance(key, ms3d_spec.ms3d_vertex_t):
-            if (key.boneId < 0) or (key.boneId >= self.nNumJoints):
-                return None
-            return item[key.boneId]
+            if (key.boneId >= 0) and (key.boneId < self.nNumJoints):
+                return item[key.boneId]
 
-        else:
+        return None
+
+
+    def get_joint_comment_by_key(self, key):
+        if key is None:
             return None
+
+        items = self.jointComments
+
+        if items is None:
+            return None
+
+        elif isinstance(key, int):
+            for item in items:
+                if (item.index == key):
+                    return item
+
+        return None
 
 
 ###############################################################################
