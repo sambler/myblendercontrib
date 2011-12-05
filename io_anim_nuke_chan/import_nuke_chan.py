@@ -15,31 +15,12 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-bl_info = {
-    "name": "Import animation from chan file (.chan)",
-    "author": "Michael Krupa",
-    "version": (1, 0),
-    "blender": (2, 6, 0),
-    "api": 36079,
-    "location": "File > Import > Nuke (.chan)",
-    "description": "Import object's animation from nuke",
-    "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
-        "Scripts/Import-Export/Nuke",
-    "tracker_url": "http://projects.blender.org/tracker/index.php?"\
-        "func=detail&atid=467&aid=28368&group_id=153",
-    "category": "Import-Export"}
 
 """ This script is an importer for the nuke's .chan files"""
 
 import bpy
-from mathutils import Matrix
-from mathutils import Euler
-from mathutils import Vector
-from math import radians
-from math import degrees
-from math import atan
-from math import tan
+from mathutils import Vector, Matrix, Euler
+from math import radians, degrees, atan, tan
 
 
 def read_chan(context, filepath, z_up, rot_ord):
@@ -129,59 +110,3 @@ def read_chan(context, filepath, z_up, rot_ord):
     f.close()
 
     return {'FINISHED'}
-
-
-from bpy_extras.io_utils import ImportHelper
-from bpy.props import StringProperty, BoolProperty, EnumProperty
-
-
-class ImportChan(bpy.types.Operator, ImportHelper):
-    '''Import animation from .chan file, exported from nuke or houdini.
-    The importer uses frame numbers from the file.'''
-    bl_idname = "import_scene.import_chan"
-    bl_label = "Import chan file"
-
-    filename_ext = ".chan"
-
-    filter_glob = StringProperty(default="*.chan", options={'HIDDEN'})
-
-    z_up = BoolProperty(name="Make Z up",
-                        description="Switch the Y and Z axis",
-                        default=True)
-    rot_ord = EnumProperty(items=(('XYZ', "XYZ", "XYZ"),
-                               ('XZY', "XZY", "XZY"),
-                               ('YXZ', "YXZ", "YXZ"),
-                               ('YZX', "YZX", "YZX"),
-                               ('ZXY', "ZXY", "ZXY"),
-                               ('ZYX', "ZYX", "ZYX"),
-                               ),
-                        name="Rotation order",
-                        description="Choose the rotation order with whitch \
-                        the chan file has been exported",
-                        default='XYZ')
-
-    @classmethod
-    def poll(cls, context):
-        return context.active_object != None
-
-    def execute(self, context):
-        return read_chan(context, self.filepath, self.z_up, self.rot_ord)
-
-
-def menu_func_import(self, context):
-    self.layout.operator(ImportChan.bl_idname, text="Nuke (.chan)")
-
-
-def register():
-    bpy.utils.register_class(ImportChan)
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
-
-
-def unregister():
-    bpy.utils.unregister_class(ImportChan)
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
-
-
-if __name__ == "__main__":
-    register()
-    bpy.ops.import_scene.import_chan('INVOKE_DEFAULT')
