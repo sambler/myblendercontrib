@@ -40,11 +40,12 @@ from mathutils import Euler
 from math import radians
 from math import degrees
 from math import atan
+from math import atan2
 from math import tan
 
 
 def save_chan(context, filepath, y_up, rot_ord):
-    #check if we have anything selected, if not, finish without doing anything.
+    #check if we have anything selected, if not, end with no action
     if not bpy.context.active_object:
         return {'FINISHED'}
 
@@ -97,7 +98,19 @@ def save_chan(context, filepath, y_up, rot_ord):
 
         #if we have a camera, add the focal length
         if obj.type == 'CAMERA':
-            vfov = degrees(2 * atan(tan((obj.data.angle / 2.0) * res_ratio)))
+            #I've found via the experiments that this is a blenders 
+            #default sensor size (in mm)
+            sensor_x = 32.0
+            #the vertical sensor size we get by multiplying the sensor_x by
+            #resolution ratio
+            sensor_y = sensor_x * res_ratio
+            cam_lens = obj.data.lens
+            #calculate the vertical field of view
+            #we know the vertical size of (virtual) sensor, the focal length
+            #of the camera so all we need to do is to feed this data to
+            #atan2 function whitch returns the degree (in radians) of 
+            #an angle formed by a triangle with two legs of a given lengths
+            vfov = degrees(atan2(sensor_y / 2, cam_lens))*2
             export_string.append("%f\n" % vfov)
 
         #when all is set and done write the new line

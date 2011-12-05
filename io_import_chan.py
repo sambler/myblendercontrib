@@ -42,7 +42,7 @@ from math import atan
 from math import tan
 
 
-def read_chan(context, filepath, Zup, rot_ord):
+def read_chan(context, filepath, z_up, rot_ord):
     #check if we have anything selected, if not, finish without doing anything.
     if not bpy.context.active_object:
         return {'FINISHED'}
@@ -99,7 +99,7 @@ def read_chan(context, filepath, Zup, rot_ord):
 
             #correct the world space
             #(nuke's and blenders scene spaces are different)
-            if Zup:
+            if z_up:
                 m_trans_mat = rot_mat * m_trans_mat
 
             #break the matrix into a set of the coordinates
@@ -118,16 +118,14 @@ def read_chan(context, filepath, Zup, rot_ord):
                 obj.rotation_euler = trns[1]
                 obj.keyframe_insert('rotation_quaternion')
 
-            #if the target object is camera test for the vfov data. If present,
-            #calculate the horizontal angle and set the keyframe on camera lens
-            if obj.data.type == "PERSP":
-                if len(data) > 7:
-                    v_fov = float(data[7])
-                    lenslen = (res_ratio/2)  / (tan(radians(v_fov/2)))
-                    h_fov = (atan( .5 / lenslen ) * 2)
-                    print(h_fov)
-                    obj.data.angle = h_fov
-                    obj.data.keyframe_insert('lens')
+            #check if the object is camera and fov data is present
+            if obj.type == "CAMERA" and len(data) > 7:
+                v_fov = float(data[7])
+                sensor_v = 32.0
+                sensor_h = sensor_v * res_ratio
+                lenslen = ((sensor_h/2) / tan(radians(v_fov / 2)))
+                obj.data.lens = lenslen
+                obj.data.keyframe_insert('lens')
     f.close()
 
     return {'FINISHED'}
@@ -147,7 +145,7 @@ class ImportChan(bpy.types.Operator, ImportHelper):
 
     filter_glob = StringProperty(default="*.chan", options={'HIDDEN'})
 
-    Zup = BoolProperty(name="Make Z up",
+    z_up = BoolProperty(name="Make Z up",
                         description="Switch the Y and Z axis",
                         default=True)
     rot_ord = EnumProperty(items=(('XYZ', "XYZ", "XYZ"),
@@ -167,7 +165,7 @@ class ImportChan(bpy.types.Operator, ImportHelper):
         return context.active_object != None
 
     def execute(self, context):
-        return read_chan(context, self.filepath, self.Zup, self.rot_ord)
+        return read_chan(context, self.filepath, self.z_up, self.rot_ord)
 
 
 def menu_func_import(self, context):
