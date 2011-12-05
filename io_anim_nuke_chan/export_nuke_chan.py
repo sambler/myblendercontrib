@@ -26,36 +26,34 @@ from math import radians, degrees, atan, atan2, tan
 
 
 def save_chan(context, filepath, y_up, rot_ord):
-    #check if we have anything selected, if not, end with no action
-    if not bpy.context.active_object:
-        return {'FINISHED'}
 
-    #get the active object
-    obj = bpy.context.active_object
+    #get the active scene and object
+    scene = context.scene
+    obj = context.active_object
 
     #get the range of an animation
-    f_start = bpy.context.scene.frame_start
-    f_end = bpy.context.scene.frame_end
+    f_start = scene.frame_start
+    f_end = scene.frame_end
 
     #get the resolution (needed by nuke)
-    res_x = bpy.context.scene.render.resolution_x
-    res_y = bpy.context.scene.render.resolution_y
+    res_x = scene.render.resolution_x
+    res_y = scene.render.resolution_y
     res_ratio = res_y / res_x
 
     #prepare the correcting matrix
-    rot_mat = Matrix.Rotation(radians(-90), 4, "X").to_4x4()
+    rot_mat = Matrix.Rotation(radians(-90.0), 4, 'X').to_4x4()
 
-    f = open(filepath, 'w')
+    filehandle = open(filepath, 'w')
+    fw = filehandle.write
+
     #iterate the frames
-    for a in range(f_start, f_end, 1):
-        #reset the new line of a chan file
-        export_string = []
+    for frame in range(f_start, f_end, 1):
 
         #set the current frame
-        bpy.context.scene.frame_set(a)
+        scene.frame_set(frame)
 
         #get the objects world matrix
-        mat = obj.matrix_world
+        mat = obj.matrix_world.copy()
 
         #if the setting is proper use the rotation matrix
         #to flip the Z and Y axis
@@ -63,19 +61,16 @@ def save_chan(context, filepath, y_up, rot_ord):
             mat = rot_mat * mat
 
         #create the first component of a new line, the frame number
-        export_string.append("%i\t" % a)
+        fw("%i\t" % frame)
 
         #create transform component
         t = mat.to_translation()
-        export_string.append("%f\t%f\t%f\t" % t[:])
+        fw("%f\t%f\t%f\t" % t[:])
 
         #create rotation component
         r = mat.to_euler(rot_ord)
 
-        #export_string += "%f\t%f\t%f\t" % (r[0], r[1], r[2])
-        export_string.append("%f\t%f\t%f\t" % (degrees(r[0]),
-                                           degrees(r[1]),
-                                           degrees(r[2])))
+        fw("%f\t%f\t%f\t" % (degrees(r[0]), degrees(r[1]), degrees(r[2])))
 
         #if we have a camera, add the focal length
         if obj.type == 'CAMERA':
@@ -92,12 +87,11 @@ def save_chan(context, filepath, y_up, rot_ord):
             #atan2 function whitch returns the degree (in radians) of 
             #an angle formed by a triangle with two legs of a given lengths
             vfov = degrees(atan2(sensor_y / 2, cam_lens))*2
-            export_string.append("%f\n" % vfov)
+            fw("%f" % vfov)
 
-        #when all is set and done write the new line
-        f.write("".join(export_string))
+        fw("\n")
 
     #after the whole loop close the file
-    f.close()
+    filehandle.close()
 
     return {'FINISHED'}

@@ -24,42 +24,41 @@ from math import radians, degrees, atan, tan
 
 
 def read_chan(context, filepath, z_up, rot_ord):
-    #check if we have anything selected, if not, finish without doing anything.
-    if not bpy.context.active_object:
-        return {'FINISHED'}
 
     #get the active object
-    obj = bpy.context.active_object
+    scene = context.scene
+    obj = context.active_object
 
     #get the resolution (needed to calculate the camera lens)
-    res_x = bpy.context.scene.render.resolution_x
-    res_y = bpy.context.scene.render.resolution_y
+    res_x = scene.render.resolution_x
+    res_y = scene.render.resolution_y
     res_ratio = res_y / res_x
 
     #prepare the correcting matrix
-    rot_mat = Matrix.Rotation(radians(90), 4, "X").to_4x4()
+    rot_mat = Matrix.Rotation(radians(90.0), 4, 'X').to_4x4()
 
     #read the file
-    f = open(filepath, 'r')
+    filehandle = open(filepath, 'r')
 
     #iterate throug the files lines
-    for line in f.readlines():
+    for line in filehandle:
         #reset the target objects matrix
         #(the one from whitch one we'll extract the final transforms)
         m_trans_mat = Matrix()
-        m_trans_mat.to_4x4()
 
         #strip the line
         data = line.split()
 
         #test if the line is not commented out
-        if data[0] != "#":
+        if data and not data[0].startswith("#"):
 
             #set the frame number basing on the chan file
-            bpy.context.scene.frame_set(int(data[0]))
+            scene.frame_set(int(data[0]))
 
             #read the translation values from the first three columns of line
-            v_transl = Vector([float(data[1]), float(data[2]), float(data[3])])
+            v_transl = Vector((float(data[1]),
+                               float(data[2]),
+                               float(data[3])))
             translation_mat = Matrix.Translation(v_transl)
             translation_mat.to_4x4()
 
@@ -68,9 +67,9 @@ def read_chan(context, filepath, z_up, rot_ord):
             #you have to keep it noted somewhere
             #the actual objects rotation order doesn't matter since the
             #rotations are being extracted from the matrix afterwards
-            e_rot = Euler([radians(float(data[4])),
-                            radians(float(data[5])),
-                            radians(float(data[6]))])
+            e_rot = Euler((radians(float(data[4])),
+                           radians(float(data[5])),
+                           radians(float(data[6]))))
             e_rot.order = rot_ord
             mrot_mat = e_rot.to_matrix()
             mrot_mat.resize_4x4()
@@ -88,25 +87,31 @@ def read_chan(context, filepath, z_up, rot_ord):
 
             #set the location and the location's keyframe
             obj.location = trns[0]
-            obj.keyframe_insert('location')
+            obj.keyframe_insert("location")
 
             #convert the rotation to euler angles (or not)
             #basing on the objects rotation mode
-            if obj.rotation_mode != "QUATERNION":
-                obj.rotation_euler = trns[1].to_euler(obj.rotation_mode)
-                obj.keyframe_insert('rotation_euler')
+            if obj.rotation_mode == 'QUATERNION':
+                obj.rotation_quaternion = trns[1]
+                obj.keyframe_insert("rotation_quaternion")
+            elif obj.rotation_mode == 'AXIS_ANGLE':
+                tmp_rot = trns[1].to_axis_angle()
+                obj.rotation_axis_angle = (tmp_rot[1], ) + tmp_rot[0][:]
+                obj.keyframe_insert("rotation_axis_angle")
+                del tmp_rot
             else:
-                obj.rotation_euler = trns[1]
-                obj.keyframe_insert('rotation_quaternion')
+                obj.rotation_euler = trns[1].to_euler(obj.rotation_mode)
+                obj.keyframe_insert("rotation_euler")
+
 
             #check if the object is camera and fov data is present
-            if obj.type == "CAMERA" and len(data) > 7:
+            if obj.type == 'CAMERA' and len(data) > 7:
                 v_fov = float(data[7])
                 sensor_v = 32.0
                 sensor_h = sensor_v * res_ratio
-                lenslen = ((sensor_h/2) / tan(radians(v_fov / 2)))
+                lenslen = ((sensor_h / 2.0) / tan(radians(v_fov / 2.0)))
                 obj.data.lens = lenslen
-                obj.data.keyframe_insert('lens')
-    f.close()
+                obj.data.keyframe_insert("lens")
+    filehandle.close()
 
     return {'FINISHED'}
