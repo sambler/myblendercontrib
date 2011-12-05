@@ -293,10 +293,13 @@ class ImportMS3D(
                 if setupGroup:
                     for item in self.dict_mesh_objects.values():
                         blenderGroup.objects.link(item)
+                        item.select = True
                     for item in self.dict_armature_objects.values():
                         blenderGroup.objects.link(item)
+                        item.select = True
                     for item in self.dict_comment_objects.values():
                         blenderGroup.objects.link(item)
+                        item.select = True
 
             print()
             print("######################################################################")
@@ -340,6 +343,7 @@ class ImportMS3D(
             blenderBone = blenderBones.new(ms3dJoint.name)
             bones[ms3dJoint.name] = (blenderBone, ms3dJoint)
 
+            blenderBone[prop(ms3d_spec.PROP_NAME_FLAGS)] = ms3dJoint.flags
             ms3dComment = ms3dTemplate.get_joint_comment_by_key(iBone)
             if ms3dComment is not None:
                 blenderBone[prop(ms3d_spec.PROP_NAME_COMMENT)] = ms3dComment.comment
@@ -353,6 +357,7 @@ class ImportMS3D(
                 blenderBone.tail = mathVector
                 blenderBone.head = blenderBone.tail + mathutils.Vector((-1.0, 0.0, 0.0))
                 bones_parentName = ms3dJoint.name
+                matrixRotation = None
 
             else:
                 # some models have more than one initial bone (with no parent)
@@ -375,9 +380,8 @@ class ImportMS3D(
                             -bones[key][1].rotation[2]))
                     rotationAxis = rotationAxis * self.matrixSwapAxis
 
-                    rotation = mathutils.Euler(rotationAxis, 'XZY')
-
-                    matrixRotation = matrixRotation * rotation.to_matrix().to_4x4()
+                    mathRotation = mathutils.Euler(rotationAxis, 'XZY')
+                    matrixRotation = matrixRotation * mathRotation.to_matrix().to_4x4()
 
                 blenderBone.tail = blenderBone.parent.tail + (mathVector * matrixRotation)
 
@@ -385,6 +389,9 @@ class ImportMS3D(
             blenderBone.use_local_location = True
             blenderBone.use_connect = True
             blenderBone.select = True
+
+            if matrixRotation is not None:
+                blenderBone.align_roll(mathutils.Vector([0.0, 0.0, 1.0]) * matrixRotation)
 
         ms3d_utils.EnableEditMode(False)
 
@@ -514,6 +521,7 @@ class ImportMS3D(
         blenderObject.location = blenderScene.cursor_location
         blenderScene.objects.link(blenderObject)
         if setupObject:
+            blenderObject[prop(ms3d_spec.PROP_NAME_FLAGS)] = ms3dGroup.flags
             ms3dComment = ms3dTemplate.get_group_comment_by_key(ms3dGroupIndex)
             if ms3dComment is not None:
                 blenderObject[prop(ms3d_spec.PROP_NAME_COMMENT)] = ms3dComment.comment

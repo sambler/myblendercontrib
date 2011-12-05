@@ -152,7 +152,7 @@ PROP_DESC_OBJECTS_IMP = "What to process during import"
 PROP_DEFAULT_OBJECTS_IMP = {
         #PROP_ITEM_OBJECT_MESH,
         PROP_ITEM_OBJECT_MATERIAL,
-        #PROP_ITEM_OBJECT_JOINT,
+        PROP_ITEM_OBJECT_JOINT,
         PROP_ITEM_OBJECT_SMOOTHGROUPS,
         PROP_ITEM_OBJECT_GROUP,
         #PROP_ITEM_OBJECT_TRI_TO_QUAD,
@@ -188,7 +188,7 @@ PROP_OPT_OBJECTS_EXP = {OPT_ENUM_FLAG}
 ###############################################################################
 PROP_NAME_ANIMATION = "Animation **)"
 PROP_DESC_ANIMATION = "keyframes (rotations, positions)"
-PROP_DEFAULT_ANIMATION = True
+PROP_DEFAULT_ANIMATION = False
 PROP_OPT_ANIMATION = {OPT_ANIMATABLE}
 
 
@@ -366,7 +366,7 @@ def PreSetupEnvironment(porterSelf):
     EnableEditMode(True)
 
     # enable face-selection-mode
-    bpy.context.tool_settings.mesh_select_mode = [False, False, True]
+    bpy.context.tool_settings.mesh_select_mode = (False, False, True)
 
     # change back to object mode
     EnableEditMode(False)
