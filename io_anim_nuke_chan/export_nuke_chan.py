@@ -20,9 +20,8 @@
 It takes the currently active object and writes it's transformation data
 into a text file with .chan extension."""
 
-import bpy
-from mathutils import Matrix, Euler
-from math import radians, degrees, atan, atan2, tan
+from mathutils import Matrix
+from math import radians, degrees, atan2
 
 
 def save_chan(context, filepath, y_up, rot_ord):

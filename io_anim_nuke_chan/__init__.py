@@ -43,13 +43,27 @@ if "bpy" in locals():
 
 
 import bpy
+from bpy.types import Operator
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import (StringProperty,
                        BoolProperty,
                        EnumProperty)
 
+# property shared by both operators
+rot_ord = EnumProperty(
+        name="Rotation order",
+        description="Choose the export rotation order",
+        items=(('XYZ', "XYZ", "XYZ"),
+               ('XZY', "XZY", "XZY"),
+               ('YXZ', "YXZ", "YXZ"),
+               ('YZX', "YZX", "YZX"),
+               ('ZXY', "ZXY", "ZXY"),
+               ('ZYX', "ZYX", "ZYX"),
+               ),
+        default='XYZ')
 
-class ImportChan(bpy.types.Operator, ImportHelper):
+
+class ImportChan(Operator, ImportHelper):
     '''Import animation from .chan file, exported from nuke or houdini. ''' \
     '''The importer uses frame numbers from the file'''
     bl_idname = "import_scene.import_chan"
@@ -59,22 +73,11 @@ class ImportChan(bpy.types.Operator, ImportHelper):
 
     filter_glob = StringProperty(default="*.chan", options={'HIDDEN'})
 
+    rot_ord = rot_ord
     z_up = BoolProperty(
             name="Make Z up",
             description="Switch the Y and Z axis",
             default=True)
-    rot_ord = EnumProperty(
-            name="Rotation order",
-            description="Choose the rotation order with whitch "
-                        "the chan file has been exported",
-            items=(('XYZ', "XYZ", "XYZ"),
-                   ('XZY', "XZY", "XZY"),
-                   ('YXZ', "YXZ", "YXZ"),
-                   ('YZX', "YZX", "YZX"),
-                   ('ZXY', "ZXY", "ZXY"),
-                   ('ZYX', "ZYX", "ZYX"),
-                   ),
-            default='XYZ')
 
     @classmethod
     def poll(cls, context):
@@ -88,7 +91,7 @@ class ImportChan(bpy.types.Operator, ImportHelper):
                                           self.rot_ord)
 
 
-class ExportChan(bpy.types.Operator, ExportHelper):
+class ExportChan(Operator, ExportHelper):
     '''Export the animation to .chan file, readable by nuke and houdini. ''' \
     '''The exporter uses frames from the frames range'''
     bl_idname = "export.export_chan"
@@ -100,19 +103,7 @@ class ExportChan(bpy.types.Operator, ExportHelper):
             name="Make Y up",
             description="Switch the Y and Z axis",
             default=True)
-    rot_ord = EnumProperty(
-            name="Rotation order",
-            description="Choose the export rotation order",
-            items=(('XYZ', "XYZ", "XYZ"),
-                   ('XZY', "XZY", "XZY"),
-                   ('YXZ', "YXZ", "YXZ"),
-                   ('YZX', "YZX", "YZX"),
-                   ('ZXY', "ZXY", "ZXY"),
-                   ('ZYX', "ZYX", "ZYX"),
-                   ),
-            default='XYZ')
-
-    settings = {"y_up": y_up, "rot_ord": rot_ord}
+    rot_ord = rot_ord
 
     @classmethod
     def poll(cls, context):

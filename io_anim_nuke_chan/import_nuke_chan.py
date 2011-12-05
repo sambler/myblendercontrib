@@ -18,9 +18,8 @@
 
 """ This script is an importer for the nuke's .chan files"""
 
-import bpy
 from mathutils import Vector, Matrix, Euler
-from math import radians, degrees, atan, tan
+from math import radians, tan
 
 
 def read_chan(context, filepath, z_up, rot_ord):
