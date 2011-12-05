@@ -37,19 +37,11 @@ if ("bpy" in locals()):
         imp.reload(ms3d_export)
     if "ms3d_import" in locals():
         imp.reload(ms3d_import)
-    #if "ms3d_spec" in locals():
-    #    imp.reload(ms3d_spec)
-    #if "ms3d_utils" in locals():
-    #    imp.reload(ms3d_utils)
-    #print("__init__.MS3D-add-on Reloaded")
     pass
 
 else:
     from . import ms3d_export
     from . import ms3d_import
-    #from . import ms3d_spec
-    #from . import ms3d_utils
-    #print("__init__.MS3D-add-on Imported")
     pass
 
 
@@ -62,7 +54,7 @@ bl_info = {
         "name": "MilkShape3D MS3D format (.ms3d)",
         "description":  "Import / Export MilkShape3D MS3D files (conform with v1.8.4)",
         "author": "Alexander Nussbaumer",
-        "version": (0, 3, 3, "beta (2011-12-02 00:00)"),
+        "version": (0, 3, 4, "beta (2011-12-04 00:00)"),
         "blender": (2, 6, 0),
         "api": 41226,
         "location": "File > Import-Export",
@@ -73,19 +65,9 @@ bl_info = {
         }
 
 
-#
-# DEBUG
-#
-def DEBUG_print(s):
-    if (ms3d_utils._DEBUG):
-        print("ms3d__init__.{0}".format(s))
-    pass
-
-
 ###############################################################################
 # registration
 def menu_func_import(self, context):
-    #DEBUG_print("menu_func_import")
     self.layout.operator(
             ms3d_import.ImportMS3D.bl_idname,
             text = ms3d_utils.TEXT_OPERATOR
@@ -93,7 +75,6 @@ def menu_func_import(self, context):
 
 
 def menu_func_export(self, context):
-    #DEBUG_print("menu_func_export")
     self.layout.operator(
             ms3d_export.ExportMS3D.bl_idname,
             text = ms3d_utils.TEXT_OPERATOR
@@ -101,7 +82,6 @@ def menu_func_export(self, context):
 
 
 def register():
-    #DEBUG_print("register build{0}".format(bl_info["version"]))
     bpy.utils.register_module(__name__)
 
     bpy.types.INFO_MT_file_export.append(menu_func_export)
@@ -109,7 +89,6 @@ def register():
 
 
 def unregister():
-    #DEBUG_print("unregister")
     bpy.utils.unregister_module(__name__)
 
     bpy.types.INFO_MT_file_export.remove(menu_func_export)
@@ -119,7 +98,6 @@ def unregister():
 ###############################################################################
 # global entry point
 if (__name__ == "__main__"):
-    #DEBUG_print("__name__ == __main__")
     register()
 
 

@@ -42,23 +42,15 @@ import time
 # To support reload properly, try to access a package var, if it's there, reload everything
 if ("bpy" in locals()):
     import imp
-    #if "ms3d_export" in locals():
-    #    imp.reload(ms3d_export)
-    #if "ms3d_import" in locals():
-    #    imp.reload(ms3d_import)
     if "ms3d_spec" in locals():
         imp.reload(ms3d_spec)
     if "ms3d_utils" in locals():
         imp.reload(ms3d_utils)
-    #print("ms3d_export.MS3D-add-on Reloaded")
     pass
 
 else:
-    #from . import ms3d_export
-    #from . import ms3d_import
     from . import ms3d_spec
     from . import ms3d_utils
-    #print("ms3d_export.MS3D-add-on Imported")
     pass
 
 
@@ -69,17 +61,6 @@ import bpy_extras.io_utils
 from bpy.props import *
 
 
-#
-# DEBUG
-#
-def DEBUG_print(s):
-    if(ms3d_utils._DEBUG):
-        print("ms3d_export.{0}".format(s))
-    pass
-
-
-
-
 # registered entry point export
 class ExportMS3D(
         bpy.types.Operator,
@@ -88,8 +69,6 @@ class ExportMS3D(
     """
     Save a MilkShape3D MS3D File
     """
-
-    #DEBUG_print("ExportMS3D")
 
     bl_idname = "io_scene_ms3d.ms3d_export"
     bl_label = "Export MS3D"
@@ -105,14 +84,6 @@ class ExportMS3D(
             )
 
     filepath = bpy.props.StringProperty(subtype='FILE_PATH')
-
-
-    prop_debug = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_DEBUG,
-            description = ms3d_utils.PROP_DESC_DEBUG,
-            default = ms3d_utils.PROP_DEFAULT_DEBUG,
-            options = ms3d_utils.PROP_OPT_DEBUG,
-            )
 
     prop_verbose = bpy.props.BoolProperty(
             name = ms3d_utils.PROP_NAME_VERBOSE,
@@ -180,12 +151,10 @@ class ExportMS3D(
         """
         start executing
         """
-        #DEBUG_print("ExportMS3D.execute")
         return self.WriteMs3d(blenderContext)
 
     #
     def invoke(self, blenderContext, event):
-        #DEBUG_print("ExportMS3D.invoke")
         blenderContext.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
@@ -196,52 +165,47 @@ class ExportMS3D(
         """
         convert bender content to ms3d content and write it to file
         """
-        #DEBUG_print("WriteMs3d")
 
         t1 = time.time()
+        t2 = None
 
         try:
             # setup environment
             ms3d_utils.PreSetupEnvironment(self)
 
-            #DEBUG_print("WriteMs3d - entering try block")
-            #DEBUG_print(self.properties.filepath)
-
             # create an empty ms3d template
             ms3dTemplate = ms3d_spec.ms3d_file_t()
-            #DEBUG_print("WriteMs3d - empty ms3d template created")
 
             # inject blender data to ms3d file
-            #DEBUG_print("WriteMs3d - traverse and inject blender data")
             self.Ms3dFromBlender(blenderContext, ms3dTemplate)
-            #DEBUG_print("WriteMs3d - data injected")
+
+            t2 = time.time()
 
             # write ms3d file to disk
             self.file = io.FileIO(self.filepath, "w")
-            #DEBUG_print("WriteMs3d - file opend to write")
 
             ms3dTemplate.write(self.file)
-            #DEBUG_print("WriteMs3d - data written to file")
 
             self.file.flush()
             self.file.close()
-            #DEBUG_print("WriteMs3d - file closed")
 
             # finalize/restore environment
             ms3d_utils.PostSetupEnvironment(self, False)
 
         except Exception:
-            for i in range(len(sys.exc_info())):
-                print("WriteMs3d - exception in try block '{0}'".format(sys.exc_info()[i]))
+            type, value, traceback = sys.exc_info()
+            print("WriteMs3d - exception in try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+
+            if t2 is None:
+                t2 = time.time()
 
             raise
 
         else:
-            #DEBUG_print("WriteMs3d - passed try block")
             pass
 
-        t2 = time.time()
-        print("elapsed time: {0:.4}s".format(t2 - t1))
+        t3 = time.time()
+        print("elapsed time: {0:.4}s (converter: ~{1:.4}s, disk io: ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
         return {"FINISHED"}
 
@@ -258,7 +222,6 @@ class ExportMS3D(
             - interpreating a blender-mesh-objects as ms3d-group
             - only one material allowed per group in ms3d, maybe sub-split a mesh in to material groups???
         """
-        #DEBUG_print("Ms3dFromBlender")
 
         blender = blenderContext.blend_data
 
@@ -363,7 +326,6 @@ class ExportMS3D(
                     tmpMaterial2 = ms3dMaterials[ms3dGroup.materialIndex]
                     if (tmpMaterial1.texture) and (not tmpMaterial2.texture):
                         tmpMaterial2.texture = tmpMaterial1.texture
-                        #print("inject texture")
 
             # put group
             ms3dGroups.append(ms3dGroup)
@@ -388,16 +350,6 @@ class ExportMS3D(
             else:
                 continue
 
-        #meshObjects = [o for o in blenderContext.scene.objects
-        #    if o.type in {TYPE_MESH}
-        #    and o.parent is None
-        #    and o.users > 0]
-
-        #bones = [o for o in blenderContext.scene.objects
-        #    if o.type in {TYPE_ARMATURE}
-        #    and o.parent is None
-        #    and o.users > 0]
-
         if (self.prop_verbose):
             ms3dTemplate.print_internal()
 
@@ -407,8 +359,6 @@ class ExportMS3D(
         print("Blender -> MS3D : [{0}]".format(self.filepath_splitted[1]))
         print(statistics)
         print("######################################################################")
-
-        #DEBUG_print("Ms3dFromBlender #finished")
 
 
     ###############################################################################
@@ -497,8 +447,6 @@ class ExportMS3D(
 
     ###############################################################################
     def CreateNormal(self,  matrixObject, blenderVertex):
-        ms3dNormal = [None for i in range(3)]
-
         mathVector = mathutils.Vector(blenderVertex.normal)
 
         # apply its object matrix (translation, rotation, scale)
@@ -508,7 +456,6 @@ class ExportMS3D(
         mathVector = mathVector * self.matrixSwapAxis
 
         ms3dNormal = tuple(mathVector)
-        #DEBUG_print("ms3dNormal: {0}".format(ms3dNormal))
 
         return ms3dNormal
 
@@ -541,7 +488,7 @@ class ExportMS3D(
                 return None
 
             # no order-translation needed
-            tx = tuple([0, 1, 2])
+            tx = (0, 1, 2)
 
         elif (l == 4):
             # it is a quad geometry
@@ -550,16 +497,14 @@ class ExportMS3D(
 
             if (subIndex == 0):
                 # order-translation for 1'st triangle
-                tx = tuple([0, 1, 3])
+                tx = (0, 1, 3)
             else:
                 # order-translation for 2'nd triangle
-                tx = tuple([3, 1, 2])
+                tx = (3, 1, 2)
 
         else:
             # it is any unhandled geometry
             return None
-
-        #DEBUG_print("tx={0}".format(tx))
 
         # take blender-vertex from blender-mesh
         # to get its vertex and normal coordinates
@@ -587,14 +532,12 @@ class ExportMS3D(
                 ])
 
         # put the normales
-        ms3dTriangle._vertexNormals = tuple([n0, n1, n2])
+        ms3dTriangle._vertexNormals = (n0, n1, n2)
 
         # if uv's present
         if (blenderMesh.uv_textures):
-            #DEBUG_print("uv's present")
             # take 1'st uv_texture-data
             blenderUv = blenderMesh.uv_textures[0].data[blenderFace.index].uv_raw
-            #DEBUG_print("uv's present 1 uv_raw={0}".format(blenderUv))
 
             # translate uv to st
             #
@@ -616,11 +559,10 @@ class ExportMS3D(
             s0, t0 = blenderUv[tx[0] << 1], 1.0 - blenderUv[(tx[0] << 1) + 1]
             s1, t1 = blenderUv[tx[1] << 1], 1.0 - blenderUv[(tx[1] << 1) + 1]
             s2, t2 = blenderUv[tx[2] << 1], 1.0 - blenderUv[(tx[2] << 1) + 1]
-            #DEBUG_print("uv's present 2")
 
             # put the uv-coordinates
-            ms3dTriangle._s = tuple([s0, s1, s2])
-            ms3dTriangle._t = tuple([t0, t1, t2])
+            ms3dTriangle._s = (s0, s1, s2)
+            ms3dTriangle._t = (t0, t1, t2)
 
         return ms3dTriangle
 
@@ -648,14 +590,12 @@ class ExportMS3D(
         mathVector = mathVector * self.matrixViewport
 
         ms3dVertex._vertex = tuple(mathVector)
-        #DEBUG_print("ms3dVertex: {0}".format(ms3dVertex))
 
         return ms3dVertex
 
 
     ###############################################################################
     def GenerateSmoothGroups(self, blenderContext, ms3dTemplate, blenderFaces):
-        #DEBUG_print("GenerateSmoothGroups")
 
         ms3d_utils.EnableEditMode(True)
 
@@ -671,24 +611,16 @@ class ExportMS3D(
         smoothGroupFaces = {}
         smoothGroup = 0
 
-        #DEBUG_print("GenerateSmoothGroups 1")
-
         # run throug the faces
         # mark linked faces and set its smoothGroup value
         nFaces = len(blenderFaces)
 
         for iFace in range(nFaces):
-            #DEBUG_print("GenerateSmoothGroups iFace={0}, nFaces={1}".format(iFace, nFaces))
             if (blenderFaces[iFace].select):
-                #DEBUG_print("GenerateSmoothGroups 1a")
                 continue
 
             # a new unhandled face found
-            #DEBUG_print("GenerateSmoothGroups 1b")
-
             blenderFaces[iFace].select = True
-            #smoothGroup += 1
-            #DEBUG_print("GenerateSmoothGroups smoothGroup={0}".format(smoothGroup))
 
             ms3d_utils.EnableEditMode(True)
 
@@ -700,14 +632,11 @@ class ExportMS3D(
             for iiFace in range(nFaces):
                 if (blenderFaces[iiFace].select):
                     if (iiFace not in smoothGroupFaces):
-                        #DEBUG_print("GenerateSmoothGroups iiFace={0}, smoothGroup={1}".format(iiFace, smoothGroup))
                         smoothGroupFaces[iiFace] = smoothGroup
 
             smoothGroup += 1
             if (smoothGroup > ms3d_spec.MAX_SMOOTH_GROUP):
                 smoothGroup = 1
-                
-        #DEBUG_print("GenerateSmoothGroups smoothGroupFaces= {0}".format(smoothGroupFaces))
 
         return smoothGroupFaces
 
