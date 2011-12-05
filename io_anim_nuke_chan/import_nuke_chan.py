@@ -25,48 +25,48 @@ from math import radians, degrees, atan, tan
 
 def read_chan(context, filepath, z_up, rot_ord):
 
-    #get the active object
+    # get the active object
     scene = context.scene
     obj = context.active_object
 
-    #get the resolution (needed to calculate the camera lens)
+    # get the resolution (needed to calculate the camera lens)
     res_x = scene.render.resolution_x
     res_y = scene.render.resolution_y
     res_ratio = res_y / res_x
 
-    #prepare the correcting matrix
+    # prepare the correcting matrix
     rot_mat = Matrix.Rotation(radians(90.0), 4, 'X').to_4x4()
 
-    #read the file
+    # read the file
     filehandle = open(filepath, 'r')
 
-    #iterate throug the files lines
+    # iterate throug the files lines
     for line in filehandle:
-        #reset the target objects matrix
-        #(the one from whitch one we'll extract the final transforms)
+        # reset the target objects matrix
+        # (the one from whitch one we'll extract the final transforms)
         m_trans_mat = Matrix()
 
-        #strip the line
+        # strip the line
         data = line.split()
 
-        #test if the line is not commented out
+        # test if the line is not commented out
         if data and not data[0].startswith("#"):
 
-            #set the frame number basing on the chan file
+            # set the frame number basing on the chan file
             scene.frame_set(int(data[0]))
 
-            #read the translation values from the first three columns of line
+            # read the translation values from the first three columns of line
             v_transl = Vector((float(data[1]),
                                float(data[2]),
                                float(data[3])))
             translation_mat = Matrix.Translation(v_transl)
             translation_mat.to_4x4()
 
-            #read the rotations, and set the rotation order basing on the order
-            #set during the export (it's not being saved in the chan file
-            #you have to keep it noted somewhere
-            #the actual objects rotation order doesn't matter since the
-            #rotations are being extracted from the matrix afterwards
+            # read the rotations, and set the rotation order basing on the order
+            # set during the export (it's not being saved in the chan file
+            # you have to keep it noted somewhere
+            # the actual objects rotation order doesn't matter since the
+            # rotations are being extracted from the matrix afterwards
             e_rot = Euler((radians(float(data[4])),
                            radians(float(data[5])),
                            radians(float(data[6]))))
@@ -74,23 +74,23 @@ def read_chan(context, filepath, z_up, rot_ord):
             mrot_mat = e_rot.to_matrix()
             mrot_mat.resize_4x4()
 
-            #merge the rotation and translation
+            # merge the rotation and translation
             m_trans_mat = translation_mat * mrot_mat
 
-            #correct the world space
-            #(nuke's and blenders scene spaces are different)
+            # correct the world space
+            # (nuke's and blenders scene spaces are different)
             if z_up:
                 m_trans_mat = rot_mat * m_trans_mat
 
-            #break the matrix into a set of the coordinates
+            # break the matrix into a set of the coordinates
             trns = m_trans_mat.decompose()
 
-            #set the location and the location's keyframe
+            # set the location and the location's keyframe
             obj.location = trns[0]
             obj.keyframe_insert("location")
 
-            #convert the rotation to euler angles (or not)
-            #basing on the objects rotation mode
+            # convert the rotation to euler angles (or not)
+            # basing on the objects rotation mode
             if obj.rotation_mode == 'QUATERNION':
                 obj.rotation_quaternion = trns[1]
                 obj.keyframe_insert("rotation_quaternion")
@@ -104,7 +104,7 @@ def read_chan(context, filepath, z_up, rot_ord):
                 obj.keyframe_insert("rotation_euler")
 
 
-            #check if the object is camera and fov data is present
+            # check if the object is camera and fov data is present
             if obj.type == 'CAMERA' and len(data) > 7:
                 v_fov = float(data[7])
                 sensor_v = 32.0
