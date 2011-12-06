@@ -52,10 +52,6 @@ PROP_NAME_COMMENT = "comment"
 PROP_NAME_AMBIENT = "ambient"
 PROP_NAME_EMISSIVE = "emissive"
 
-PRINT_LEVEL1 = 3
-PRINT_LEVEL1x = 6
-PRINT_LEVEL2 = 9
-
 #
 #
 #
@@ -1460,9 +1456,7 @@ class ms3d_file_t:
             "_nHasModelComment",
             "_modelComment",
             "subVersionVertexExtra",
-            "_vertex_ex1",
-            "_vertex_ex2",
-            "_vertex_ex3",
+            "_vertex_ex",
             "subVersionJointExtra",
             "_joint_ex",
             "subVersionModelExtra",
@@ -1562,14 +1556,8 @@ class ms3d_file_t:
         # Then comes the subversion of the vertex extra information like bone weights, extra etc.
         self.subVersionVertexExtra = 2
 
-        # ms3d_vertex_ex_t for subVersionVertexExtra == 1
-        self._vertex_ex1 = [] #ms3d_vertex_ex1_t()
-
-        # ms3d_vertex_ex_t for subVersionVertexExtra == 2
-        self._vertex_ex2 = [] #ms3d_vertex_ex2_t()
-
-        # ms3d_vertex_ex_t for subVersionVertexExtra == 3
-        self._vertex_ex3 = [] #ms3d_vertex_ex3_t()
+        # ms3d_vertex_ex_t for subVersionVertexExtra in {1, 2, 3}
+        self._vertex_ex = [] #ms3d_vertex_ex1_t() #ms3d_vertex_ex2_t() #ms3d_vertex_ex3_t()
         # Then comes nNumVertices times ms3d_vertex_ex_t structs (sizeof(ms3d_vertex_ex_t) == 10)
         ##
 
@@ -1688,16 +1676,8 @@ class ms3d_file_t:
 
 
     @property
-    def vertex_ex1(self):
-        return self._vertex_ex1
-
-    @property
-    def vertex_ex2(self):
-        return self._vertex_ex2
-
-    @property
-    def vertex_ex3(self):
-        return self._vertex_ex3
+    def vertex_ex(self):
+        return self._vertex_ex
 
     @property
     def joint_ex(self):
@@ -1778,16 +1758,7 @@ class ms3d_file_t:
         print("modelComment={0}".format(self.modelComment))
 
         print("subVersionVertexExtra={0}".format(self.subVersionVertexExtra))
-        if (self.subVersionVertexExtra == 1):
-            print("vertex_ex1={0}".format(self.vertex_ex1))
-        elif (self.subVersionVertexExtra == 2):
-            print("vertex_ex2={0}".format(self.vertex_ex2))
-        elif (self.subVersionVertexExtra == 3):
-            print("vertex_ex3={0}".format(self.vertex_ex3))
-        else:
-            print("vertex_ex1={0}".format(self.vertex_ex1))
-            print("vertex_ex2={0}".format(self.vertex_ex2))
-            print("vertex_ex3={0}".format(self.vertex_ex3))
+        print("vertex_ex={0}".format(self.vertex_ex))
 
         print("subVersionJointExtra={0}".format(self.subVersionJointExtra))
         print("joint_ex={0}".format(self.joint_ex))
@@ -1883,20 +1854,18 @@ class ms3d_file_t:
             progressCount += 1
 
             self.subVersionVertexExtra = read_dword(file)
-            self._vertex_ex1 = []
-            self._vertex_ex2 = []
-            self._vertex_ex3 = []
-            if (self.subVersionVertexExtra == 1):
+            if (self.subVersionVertexExtra in {1, 2, 3}):
+                self._vertex_ex = []
                 for i in range(_nNumVertices):
-                    self.vertex_ex1.append(ms3d_vertex_ex1_t().read(file))
-            elif (self.subVersionVertexExtra == 2):
-                for i in range(_nNumVertices):
-                    self.vertex_ex2.append(ms3d_vertex_ex2_t().read(file))
-            elif (self.subVersionVertexExtra == 3):
-                for i in range(_nNumVertices):
-                    self.vertex_ex3.append(ms3d_vertex_ex3_t().read(file))
+                    if self.subVersionVertexExtra == 1:
+                        item = ms3d_vertex_ex1_t()
+                    if self.subVersionVertexExtra == 2:
+                        item = ms3d_vertex_ex2_t()
+                    if self.subVersionVertexExtra == 3:
+                        item = ms3d_vertex_ex3_t()
+                    self.vertex_ex.append(item.read(file))
             else:
-                pass
+                self._vertex_ex = None
 
             progressCount += 1
 
@@ -1943,9 +1912,7 @@ class ms3d_file_t:
 
                 if (progressCount <= 6):
                     self.subVersionVertexExtra = None
-                    self._vertex_ex1 = None
-                    self._vertex_ex2 = None
-                    self._vertex_ex3 = None
+                    self._vertex_ex = None
 
                 if (progressCount <= 7):
                     self.subVersionJointExtra = None
@@ -2020,17 +1987,9 @@ class ms3d_file_t:
                 self.modelComment.write(file)
 
             write_dword(file, self.subVersionVertexExtra)
-            if (self.subVersionVertexExtra == 1):
+            if (self.subVersionVertexExtra in {1, 2, 3}):
                 for i in range(self.nNumVertices):
-                    self.vertex_ex1[i].write(file)
-            elif (self.subVersionVertexExtra == 2):
-                for i in range(self.nNumVertices):
-                    self.vertex_ex2[i].write(file)
-            elif (self.subVersionVertexExtra == 3):
-                for i in range(self.nNumVertices):
-                    self.vertex_ex3[i].write(file)
-            else:
-                pass
+                    self.vertex_ex[i].write(file)
 
             write_dword(file, self.subVersionJointExtra)
             for i in range(self.nNumJoints):
