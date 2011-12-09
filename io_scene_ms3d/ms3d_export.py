@@ -39,7 +39,8 @@ import sys
 import time
 
 
-# To support reload properly, try to access a package var, if it's there, reload everything
+# To support reload properly, try to access a package var,
+# if it's there, reload everything
 if ("bpy" in locals()):
     import imp
     if "ms3d_spec" in locals():
@@ -194,7 +195,8 @@ class ExportMS3D(
 
         except Exception:
             type, value, traceback = sys.exc_info()
-            print("WriteMs3d - exception in try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+            print("WriteMs3d - exception in try block\n  type: '{0}'\n"
+                    "  value: '{1}'".format(type, value, traceback))
 
             if t2 is None:
                 t2 = time.time()
@@ -205,12 +207,13 @@ class ExportMS3D(
             pass
 
         t3 = time.time()
-        print("elapsed time: {0:.4}s (converter: ~{1:.4}s, disk io: ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
+        print("elapsed time: {0:.4}s (converter: ~{1:.4}s, disk io:"
+                " ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
         return {"FINISHED"}
 
 
-    ###############################################################################
+    ###########################################################################
     def Ms3dFromBlender(self, blenderContext, ms3dTemplate):
         """
         known limitations:
@@ -220,18 +223,22 @@ class ExportMS3D(
 
         notes:
             - interpreating a blender-mesh-objects as ms3d-group
-            - only one material allowed per group in ms3d, maybe sub-split a mesh in to material groups???
+            - only one material allowed per group in ms3d,
+              maybe sub-split a mesh in to material groups???
         """
 
         blender = blenderContext.blend_data
 
-        ms3dVertices = [] # todo: use an optimized collection for quick search vertices; with ~(o log n); currently its (o**n)
+        # todo: use an optimized collection for quick search vertices;
+        # with ~(o log n); currently its (o**n)
+        ms3dVertices = []
 
         ms3dTriangles = []
         ms3dMaterials = []
         ms3dGroups = []
 
-        flagHandleMaterials = (ms3d_utils.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects)
+        flagHandleMaterials = \
+                (ms3d_utils.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects)
 
         # handle blender-materials (without mesh's uv texture image)
         if (flagHandleMaterials):
@@ -258,7 +265,8 @@ class ExportMS3D(
             # skip meshes of invisible layers
             skip = True
             for iLayer in range(nLayers):
-                if (blenderObject.layers[iLayer] and blenderContext.scene.layers[iLayer]):
+                if ((blenderObject.layers[iLayer]
+                        and blenderContext.scene.layers[iLayer])):
                     skip = False
                     break
             if (skip):
@@ -281,13 +289,15 @@ class ExportMS3D(
                 # handle referenceCount and/or
                 # put vertex without duplicates
                 if (ms3dVertex in ms3dVertices):
-                    ms3dVertices[ms3dVertices.index(ms3dVertex)].referenceCount += 1
+                    ms3dVertices[ms3dVertices.index(ms3dVertex)]\
+                            .referenceCount += 1
                 else:
                     ms3dVertex.referenceCount = 1
                     ms3dVertices.append(ms3dVertex)
 
             # handle smoothing groups
-            smoothGroupFaces = self.GenerateSmoothGroups(blenderContext, ms3dTemplate, blenderMesh.faces)
+            smoothGroupFaces = self.GenerateSmoothGroups(
+                    blenderContext, ms3dTemplate, blenderMesh.faces)
 
             # handle blender-faces
             groupIndex = len(ms3dGroups)
@@ -299,25 +309,41 @@ class ExportMS3D(
 
                 if (len(blenderFace.vertices) == 4):
                     # 1'st tri of quad
-                    ms3dTriangle = self.CreateTriangle(matrixObject, ms3dVertices, blenderMesh, blenderFace, groupIndex, smoothingGroup, 0)
-                    ms3dTriangles.append(ms3dTriangle) # put triangle
-                    ms3dGroup.triangleIndices.append(ms3dTriangles.index(ms3dTriangle)) # put triangle index
+                    ms3dTriangle = self.CreateTriangle(matrixObject,
+                            ms3dVertices, blenderMesh, blenderFace,
+                            groupIndex, smoothingGroup, 0)
+                    # put triangle
+                    ms3dTriangles.append(ms3dTriangle)
+                    # put triangle index
+                    ms3dGroup.triangleIndices.append(
+                            ms3dTriangles.index(ms3dTriangle))
 
                     # 2'nd tri of quad
-                    ms3dTriangle = self.CreateTriangle(matrixObject, ms3dVertices, blenderMesh, blenderFace, groupIndex, smoothingGroup, 1)
+                    ms3dTriangle = self.CreateTriangle(matrixObject,
+                            ms3dVertices, blenderMesh, blenderFace,
+                            groupIndex, smoothingGroup, 1)
 
                 else:
-                    ms3dTriangle = self.CreateTriangle(matrixObject, ms3dVertices, blenderMesh, blenderFace, groupIndex, smoothingGroup)
+                    ms3dTriangle = self.CreateTriangle(matrixObject,
+                            ms3dVertices, blenderMesh, blenderFace,
+                            groupIndex, smoothingGroup)
 
-                ms3dTriangles.append(ms3dTriangle) # put triangle
-                ms3dGroup.triangleIndices.append(ms3dTriangles.index(ms3dTriangle)) # put triangle index
+                # put triangle
+                ms3dTriangles.append(ms3dTriangle)
+                # put triangle index
+                ms3dGroup.triangleIndices.append(
+                        ms3dTriangles.index(ms3dTriangle))
 
             # handle material (take the first one)
             if (flagHandleMaterials) and (blenderMesh.materials):
                 if (blenderMesh.uv_textures):
-                    tmpMaterial1 = self.CreateMaterial(blenderMesh.materials[0], blenderMesh.uv_textures[0])
+                    tmpMaterial1 = self.CreateMaterial(
+                            blenderMesh.materials[0],
+                            blenderMesh.uv_textures[0])
                 else:
-                    tmpMaterial1 = self.CreateMaterial(blenderMesh.materials[0], None)
+                    tmpMaterial1 = self.CreateMaterial(
+                            blenderMesh.materials[0],
+                            None)
 
                 if tmpMaterial1:
                     ms3dGroup.materialIndex = ms3dMaterials.index(tmpMaterial1)
@@ -337,31 +363,31 @@ class ExportMS3D(
         ms3dTemplate._materials = ms3dMaterials
 
         # inject currently unsupported data
-        ms3dTemplate._vertex_ex1 = []
-        ms3dTemplate._vertex_ex2 = []
-        ms3dTemplate._vertex_ex3 = []
-        for i in range(ms3dTemplate.nNumVertices):
-            if (ms3dTemplate.subVersionVertexExtra == 1):
-                ms3dTemplate.vertex_ex1.append(ms3d_spec.ms3d_vertex_ex1_t())
-            elif (ms3dTemplate.subVersionVertexExtra == 2):
-                ms3dTemplate.vertex_ex2.append(ms3d_spec.ms3d_vertex_ex2_t())
-            elif (ms3dTemplate.subVersionVertexExtra == 3):
-                ms3dTemplate.vertex_ex3.append(ms3d_spec.ms3d_vertex_ex3_t())
-            else:
-                continue
+        ms3dTemplate._vertex_ex = []
+        if (ms3dTemplate.subVersionVertexExtra == 1):
+            for i in range(ms3dTemplate.nNumVertices):
+                ms3dTemplate.vertex_ex.append(ms3d_spec.ms3d_vertex_ex1_t())
+        elif (ms3dTemplate.subVersionVertexExtra == 2):
+            for i in range(ms3dTemplate.nNumVertices):
+                ms3dTemplate.vertex_ex.append(ms3d_spec.ms3d_vertex_ex2_t())
+        elif (ms3dTemplate.subVersionVertexExtra == 3):
+            for i in range(ms3dTemplate.nNumVertices):
+                ms3dTemplate.vertex_ex.append(ms3d_spec.ms3d_vertex_ex3_t())
+        else:
+            pass
 
         if (self.prop_verbose):
             ms3dTemplate.print_internal()
 
         isValid, statistics = ms3dTemplate.isValid()
         print()
-        print("######################################################################")
+        print("##############################################################")
         print("Blender -> MS3D : [{0}]".format(self.filepath_splitted[1]))
         print(statistics)
-        print("######################################################################")
+        print("##############################################################")
 
 
-    ###############################################################################
+    ###########################################################################
     def CreateMaterial(self, blenderMaterial, blenderUvLayer):
         if (not blenderMaterial):
             return None
@@ -415,25 +441,35 @@ class ExportMS3D(
                         ):
                     continue
 
-                if (not imageDiffuse) and (blenderTextureSlot.use_map_color_diffuse):
-                    if (blenderTextureSlot.texture.image) and (blenderTextureSlot.texture.image.filepath):
-                        imageDiffuse = os.path.split(blenderTextureSlot.texture.image.filepath)[1]
+                if ((not imageDiffuse)
+                        and (blenderTextureSlot.use_map_color_diffuse)):
+                    if ((blenderTextureSlot.texture.image)
+                            and (blenderTextureSlot.texture.image.filepath)):
+                        imageDiffuse = os.path.split(
+                                blenderTextureSlot.texture.image.filepath)[1]
                     elif (not blenderTextureSlot.texture.image):
                         # case it image was not loaded
-                        imageDiffuse = os.path.split(blenderTextureSlot.texture.name)[1]
+                        imageDiffuse = os.path.split(
+                                blenderTextureSlot.texture.name)[1]
 
-                elif (not imageAlpha) and (blenderTextureSlot.use_map_color_alpha):
-                    if (blenderTextureSlot.texture.image) and (blenderTextureSlot.texture.image.filepath):
-                        imageAlpha = os.path.split(blenderTextureSlot.texture.image.filepath)[1]
+                elif ((not imageAlpha)
+                        and (blenderTextureSlot.use_map_color_alpha)):
+                    if ((blenderTextureSlot.texture.image)
+                            and (blenderTextureSlot.texture.image.filepath)):
+                        imageAlpha = os.path.split(
+                                blenderTextureSlot.texture.image.filepath)[1]
                     elif (not blenderTextureSlot.texture.image):
                         # case it image was not loaded
-                        imageAlpha = os.path.split(blenderTextureSlot.texture.name)[1]
+                        imageAlpha = os.path.split(
+                                blenderTextureSlot.texture.name)[1]
 
             # if no diffuse image was found, try to find a uv texture image
             if (not imageDiffuse) and (blenderUvLayer):
                 for blenderTextureFace in blenderUvLayer.data:
-                    if (blenderTextureFace) and (blenderTextureFace.image) and (blenderTextureFace.image.filepath):
-                        imageDiffuse = os.path.split(blenderTextureFace.image.filepath)[1]
+                    if ((blenderTextureFace) and (blenderTextureFace.image)
+                            and (blenderTextureFace.image.filepath)):
+                        imageDiffuse = os.path.split(
+                                blenderTextureFace.image.filepath)[1]
                         break
 
             if (imageDiffuse):
@@ -445,7 +481,7 @@ class ExportMS3D(
         return ms3dMaterial
 
 
-    ###############################################################################
+    ###########################################################################
     def CreateNormal(self,  matrixObject, blenderVertex):
         mathVector = mathutils.Vector(blenderVertex.normal)
 
@@ -460,18 +496,22 @@ class ExportMS3D(
         return ms3dNormal
 
 
-    ###############################################################################
-    def CreateTriangle(self,  matrixObject, ms3dVertices, blenderMesh, blenderFace, groupIndex=0, smoothingGroup=None, subIndex=0):
+    ###########################################################################
+    def CreateTriangle(self, matrixObject, ms3dVertices,
+            blenderMesh, blenderFace,
+            groupIndex=0, smoothingGroup=None, subIndex=0):
         """
         known limitations:
-            - it will take only the first uv_texture-data, if one or more are present
+            - it will take only the first uv_texture-data,
+              if one or more are present
         """
         ms3dTriangle = ms3d_spec.ms3d_triangle_t()
 
         ms3dTriangle.groupIndex = groupIndex
 
         if (smoothingGroup) and (smoothingGroup > 0):
-            ms3dTriangle.smoothingGroup = (smoothingGroup % ms3d_spec.MAX_GROUPS) + 1
+            ms3dTriangle.smoothingGroup = \
+                    (smoothingGroup % ms3d_spec.MAX_GROUPS) + 1
 
         if (blenderFace.select):
             ms3dTriangle.flags |= ms3d_spec.FLAG_SELECTED
@@ -537,7 +577,8 @@ class ExportMS3D(
         # if uv's present
         if (blenderMesh.uv_textures):
             # take 1'st uv_texture-data
-            blenderUv = blenderMesh.uv_textures[0].data[blenderFace.index].uv_raw
+            blenderUv = \
+                    blenderMesh.uv_textures[0].data[blenderFace.index].uv_raw
 
             # translate uv to st
             #
@@ -567,7 +608,7 @@ class ExportMS3D(
         return ms3dTriangle
 
 
-    ###############################################################################
+    ###########################################################################
     def CreateVertex(self,  matrixObject, blenderVertex):
         """
         known limitations:
@@ -594,7 +635,7 @@ class ExportMS3D(
         return ms3dVertex
 
 
-    ###############################################################################
+    ###########################################################################
     def GenerateSmoothGroups(self, blenderContext, ms3dTemplate, blenderFaces):
 
         ms3d_utils.EnableEditMode(True)

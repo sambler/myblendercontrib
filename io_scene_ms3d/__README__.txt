@@ -91,8 +91,9 @@ todo:
 
 
 changelog:
-changed: (0, 3, 4, "beta (2011-12-05 00:00)"),
-add: importer adds ms3d_flags custom properties for some objects 
+changed: (0, 3, 4, "beta (2011-12-09 00:00)"),
+fix: exporter forgot to change changed vertex_ex handling in ms3d_exporter.py
+add: importer adds ms3d_flags custom properties for some objects
 fix: importer corrects the roll of blender bones
 add: importer adds ms3d_comment custom properties for modelComment (to a blender empty), groupComments (to its blender meshes), materialComments (to its blender materials) and jointComments (to its blender bones)
 add: importer adds raw data ms3d_ambient and ms3d_emissive custom properties to material, because blender does not have an exact similar color definition

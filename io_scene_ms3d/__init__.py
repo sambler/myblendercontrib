@@ -30,7 +30,8 @@
 # ##### END COPYRIGHT BLOCK #####
 
 
-# To support reload properly, try to access a package var, if it's there, reload everything
+# To support reload properly, try to access a package var,
+# if it's there, reload everything
 if ("bpy" in locals()):
     import imp
     if "ms3d_export" in locals():
@@ -52,15 +53,19 @@ import bpy_extras
 
 bl_info = {
         "name": "MilkShape3D MS3D format (.ms3d)",
-        "description":  "Import / Export MilkShape3D MS3D files (conform with v1.8.4)",
+        "description":  "Import / Export MilkShape3D MS3D files"
+                " (conform with v1.8.4)",
         "author": "Alexander Nussbaumer",
-        "version": (0, 3, 4, "beta (2011-12-04 00:00)"),
+        "version": (0, 3, 4, "beta (2011-12-09 00:00)"),
         "blender": (2, 6, 0),
         "api": 41226,
         "location": "File > Import-Export",
-        "warning": "imports and exports only geometry and material of ms3d file. (poor performance)",
-        "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/MilkShape3D_MS3D",
-        "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=29404",
+        "warning": "imports and exports only geometry and material of ms3d"\
+                " file. (poor performance)",
+        "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
+                "Scripts/Import-Export/MilkShape3D_MS3D",
+        "tracker_url": "http://projects.blender.org/tracker/index.php"\
+                "?func=detail&aid=29404",
         "category": 'Import-Export',
         }
 

@@ -75,7 +75,8 @@ LABLE_ICON_REUSE = 'FILE_REFRESH'
 
 ###############################################################################
 PROP_NAME_VERBOSE = "Verbose"
-PROP_DESC_VERBOSE = "Run the converter in debug mode. Check the console for output (Warning, may be very slow)"
+PROP_DESC_VERBOSE = "Run the converter in debug mode. Check the console for"\
+        " output (Warning, may be very slow)"
 PROP_DEFAULT_VERBOSE = _VERBOSE_DEFAULT
 PROP_OPT_VERBOSE = {OPT_ANIMATABLE}
 
@@ -89,9 +90,12 @@ PROP_DESC_COORDINATESYSTEM = "Select a coordinate system to export to"
 PROP_DEFAULT_COORDINATESYSTEM_IMP = PROP_ITEM_COORDINATESYSTEM_IMP
 PROP_DEFAULT_COORDINATESYSTEM_EXP = PROP_ITEM_COORDINATESYSTEM_EXP
 PROP_ITEMS_COORDINATESYSTEM = (
-        (PROP_ITEM_COORDINATESYSTEM_1_BY_1, "xyz -> xyz (1:1)", "Take axis as is (1:1)"),
-        (PROP_ITEM_COORDINATESYSTEM_IMP, "yzx -> xyz (import)", "swap axis to fit to viewport (import ms3d to blender)"),
-        (PROP_ITEM_COORDINATESYSTEM_EXP, "xyz -> yzx (export)", "swap axis to fit to viewport (export blender to ms3d)"),
+        (PROP_ITEM_COORDINATESYSTEM_1_BY_1, "xyz -> xyz (1:1)", "Take axis as"\
+                " is (1:1)"),
+        (PROP_ITEM_COORDINATESYSTEM_IMP, "yzx -> xyz (import)", "swap axis to"\
+                " fit to viewport (import ms3d to blender)"),
+        (PROP_ITEM_COORDINATESYSTEM_EXP, "xyz -> yzx (export)", "swap axis to"\
+                " fit to viewport (export blender to ms3d)"),
         )
 PROP_OPT_COORDINATESYSTEM = {OPT_ANIMATABLE}
 
@@ -127,13 +131,19 @@ PROP_ITEM_REUSE_MATCH_HASH = 'MATCH_HASH'
 PROP_ITEM_REUSE_MATCH_VALUES = 'MATCH_VALUES'
 ###############################################################################
 PROP_NAME_REUSE = "Reuse existing data"
-PROP_DESC_REUSE = "Reuses existing blender data, by trying to find similar data objects to reduce the filesize. (With risk of taking the wrong existing data!)"
+PROP_DESC_REUSE = "Reuses existing blender data, by trying to find similar"\
+        " data objects to reduce the filesize. (With risk of taking the wrong"\
+        " existing data!)"
 PROP_DEFAULT_REUSE = PROP_ITEM_REUSE_NONE
 #PROP_DEFAULT_REUSE = PROP_ITEM_REUSE_MATCH_VALUES
 PROP_ITEMS_REUSE = (
         (PROP_ITEM_REUSE_NONE, "Disabled", "Create every time new data."),
-        #(PROP_ITEM_REUSE_MATCH_HASH, "Match by hash ***)", "Take data with the same custom property 'ms3d_i_hash' value. (even if content is modified or different!)"),
-        (PROP_ITEM_REUSE_MATCH_VALUES, "Match by values ***)", "Take data with similar color values (diffuse_color, specular_color) and texture_slots (images). (even if untested content is different!)"),
+        #(PROP_ITEM_REUSE_MATCH_HASH, "Match by hash ***)", "Take data with"\
+        #        " the same custom property 'ms3d_i_hash' value. (even if content is modified or different!)"),
+        (PROP_ITEM_REUSE_MATCH_VALUES, "Match by values ***)", "Take data"\
+                " with similar color values (diffuse_color, specular_color)"\
+                " and texture_slots (images). (even if untested content is"\
+                " different!)"),
         )
 PROP_OPT_REUSE = {OPT_ANIMATABLE}
 
@@ -159,12 +169,17 @@ PROP_DEFAULT_OBJECTS_IMP = {
         }
 PROP_ITEMS_OBJECTS_IMP = (
         #(PROP_ITEM_OBJECT_MESH, "Meshes", "vertices, triangles, uv"),
-        (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular, emissive, shininess, transparency, diffuse texture, alpha texture"),
+        (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular,"\
+                " emissive, shininess, transparency, diffuse texture,"\
+                " alpha texture"),
         (PROP_ITEM_OBJECT_JOINT, "Joints *)", "joints, bones"),
         #(PROP_ITEM_OBJECT_ANIMATION, "Animation **)", "keyframes"),
-        (PROP_ITEM_OBJECT_SMOOTHGROUPS, "Smoothing Groups", "split mesh faces according its smoothing groups"),
-        (PROP_ITEM_OBJECT_GROUP, "Group", "organize all file objects to a single group, named with the filename"),
-        (PROP_ITEM_OBJECT_TRI_TO_QUAD, "Tris to Quad", "try to convert triangles to quads"),
+        (PROP_ITEM_OBJECT_SMOOTHGROUPS, "Smoothing Groups", "split mesh faces"\
+                " according its smoothing groups"),
+        (PROP_ITEM_OBJECT_GROUP, "Group", "organize all file objects to a"\
+                " single group, named with the filename"),
+        (PROP_ITEM_OBJECT_TRI_TO_QUAD, "Tris to Quad", "try to convert"\
+                " triangles to quads"),
         )
 PROP_OPT_OBJECTS_IMP = {OPT_ENUM_FLAG}
 
@@ -178,7 +193,9 @@ PROP_DEFAULT_OBJECTS_EXP = {
         }
 PROP_ITEMS_OBJECTS_EXP = (
         #(PROP_ITEM_OBJECT_MESH, "Meshes", "vertices, triangles, uv, normals"),
-        (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular, emissive, shininess, transparency, diffuse texture, alpha texture"),
+        (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular,"\
+                " emissive, shininess, transparency, diffuse texture,"\
+                " alpha texture"),
         (PROP_ITEM_OBJECT_JOINT, "Joints **)", "joints, bones"),
         #(PROP_ITEM_OBJECT_ANIMATION, "Animation **)", "keyframes"),
         )
@@ -194,7 +211,8 @@ PROP_OPT_ANIMATION = {OPT_ANIMATABLE}
 
 ###############################################################################
 PROP_NAME_ANIMATION_FP = "Generate FuturePinball Script **)"
-PROP_DESC_ANIMATION_FP = "Generates an animation script for FuturePinball and exports bones as separate file"
+PROP_DESC_ANIMATION_FP = "Generates an animation script for FuturePinball and"\
+        " exports bones as separate file"
 PROP_DEFAULT_ANIMATION_FP= True
 PROP_OPT_ANIMATION_FP = {OPT_ANIMATABLE}
 
@@ -374,7 +392,10 @@ def PreSetupEnvironment(porterSelf):
     bpy.context.scene.update()
 
     # inject matrixViewport to self
-    porterSelf.matrixViewport, porterSelf.matrixSwapAxis = CreateMatrixViewport(porterSelf.prop_coordinate_system, porterSelf.prop_scale)
+    porterSelf.matrixViewport, porterSelf.matrixSwapAxis =\
+            CreateMatrixViewport(
+                    porterSelf.prop_coordinate_system,
+                    porterSelf.prop_scale)
 
     # inject splitted filepath
     porterSelf.filepath_splitted = os.path.split(porterSelf.filepath)
@@ -414,7 +435,8 @@ def PostSetupEnvironment(porterSelf, adjustView):
     # restore active object
     bpy.context.scene.objects.active = porterSelf.activeObject
 
-    if (not bpy.context.scene.objects.active) and (bpy.context.selected_objects):
+    if ((not bpy.context.scene.objects.active)
+            and (bpy.context.selected_objects)):
         bpy.context.scene.objects.active = bpy.context.selected_objects[0]
 
     # restore pre operator undo state
