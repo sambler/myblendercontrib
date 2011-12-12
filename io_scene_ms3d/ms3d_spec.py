@@ -55,13 +55,14 @@ PROP_NAME_EMISSIVE = "emissive"
 #
 #
 #
-#                MilkShape 3D 1.8.5 File Format Specification
+# MilkShape 3D 1.8.5 File Format Specification
 #
 #
-#                  This specifcation is written in Python 3.1 style. (C was original)
+# This specifcation is written in Python 3.1 style. (C was original)
 #
 #
-# The data structures are defined in the order as they appear in the .ms3d file.
+# The data structures are defined in the order as they appear
+# in the .ms3d file.
 #
 #
 #
@@ -182,7 +183,8 @@ def write_array(file, itemWriter, count, value):
 
 ###############################################################################
 def read_array2(file, itemReader, count, count2):
-    """ read an array[count][count2] of objects from file, by using a itemReader """
+    """ read an array[count][count2] of objects from file,
+        by using a itemReader """
     value = []
     for i in range(count):
         itemValue = read_array(file, itemReader, count2)
@@ -191,7 +193,8 @@ def read_array2(file, itemReader, count, count2):
 
 ###############################################################################
 def write_array2(file, itemWriter, count, count2, value):
-    """ write an array[count][count2] of objects to file, by using a itemWriter """
+    """ write an array[count][count2] of objects to file,
+        by using a itemWriter """
     for i in range(count):
         itemValue = value[i]
         write_array(file, itemWriter, count2, itemValue)
@@ -341,7 +344,8 @@ class ms3d_vertex_t:
         __hash_cash = None
 
     def __repr__(self):
-        return "\n<flags={0}, vertex={1}, boneId={2}, referenceCount={3}>".format(
+        return "\n<flags={0}, vertex={1}, boneId={2},"\
+                " referenceCount={3}>".format(
                 self.flags,
                 self._vertex,
                 self.boneId,
@@ -408,7 +412,10 @@ class ms3d_triangle_t:
             self,
             defaultFlags=FLAG_NONE,
             defaultVertexIndices=(0, 0, 0),
-            defaultVertexNormals=((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+            defaultVertexNormals=(
+                    (0.0, 0.0, 0.0),
+                    (0.0, 0.0, 0.0),
+                    (0.0, 0.0, 0.0)),
             defaultS=(0.0, 0.0, 0.0),
             defaultT=(0.0, 0.0, 0.0),
             defaultSmoothingGroup=1,
@@ -442,7 +449,8 @@ class ms3d_triangle_t:
         self.groupIndex = defaultGroupIndex
 
     def __repr__(self):
-        return "\n<flags={0}, vertexIndices={1}, vertexNormals={2}, s={3}, t={4}, smoothingGroup={5}, groupIndex={6}>".format(
+        return "\n<flags={0}, vertexIndices={1}, vertexNormals={2}, s={3},"\
+                " t={4}, smoothingGroup={5}, groupIndex={6}>".format(
                 self.flags,
                 self.vertexIndices,
                 self.vertexNormals,
@@ -544,7 +552,8 @@ class ms3d_group_t:
         self.materialIndex = defaultMaterialIndex
 
     def __repr__(self):
-        return "\n<flags={0}, name='{1}', numtriangles={2}, triangleIndices={3}, materialIndex={4}>".format(
+        return "\n<flags={0}, name='{1}', numtriangles={2},"\
+                " triangleIndices={3}, materialIndex={4}>".format(
                 self.flags,
                 self.name,
                 self.numtriangles,
@@ -667,7 +676,9 @@ class ms3d_material_t:
         self.alphamap = defaultAlphamap
 
     def __repr__(self):
-        return "\n<name='{0}', ambient={1}, diffuse={2}, specular={3}, emissive={4}, shininess={5}, transparency={6}, mode={7}, texture='{8}', alphamap='{9}'>".format(
+        return "\n<name='{0}', ambient={1}, diffuse={2}, specular={3},"\
+                " emissive={4}, shininess={5}, transparency={6}, mode={7},"\
+                " texture='{8}', alphamap='{9}'>".format(
                 self.name,
                 self.ambient,
                 self.diffuse,
@@ -868,8 +879,10 @@ class ms3d_joint_t:
     #float position[3];
     #word numKeyFramesRot;
     #word numKeyFramesTrans;
-    #ms3d_keyframe_rot_t keyFramesRot[numKeyFramesRot]; // local animation matrices
-    #ms3d_keyframe_pos_t keyFramesTrans[numKeyFramesTrans]; // local animation matrices
+    #// local animation matrices
+    #ms3d_keyframe_rot_t keyFramesRot[numKeyFramesRot];
+    #// local animation matrices
+    #ms3d_keyframe_pos_t keyFramesTrans[numKeyFramesTrans];
     __slots__ = (
             PROP_NAME_FLAGS,
             PROP_NAME_NAME,
@@ -940,7 +953,9 @@ class ms3d_joint_t:
         self._keyFramesTrans = defaultKeyFramesTrans
 
     def __repr__(self):
-        return "\n<flags={0}, name='{1}', parentName='{2}', rotation={3}, position={4}, numKeyFramesRot={5}, numKeyFramesTrans={6}, keyFramesRot={7}, keyFramesTrans={8}>".format(
+        return "\n<flags={0}, name='{1}', parentName='{2}', rotation={3},"\
+                " position={4}, numKeyFramesRot={5}, numKeyFramesTrans={6},"\
+                " keyFramesRot={7}, keyFramesTrans={8}>".format(
                 self.flags,
                 self.name,
                 self.parentName,
@@ -1018,7 +1033,8 @@ class ms3d_comment_t:
     ms3d_comment_t
     """
     #int index; // index of group, material or joint
-    #int commentLength; // length of comment (terminating '\0' is not saved), "MC" has comment length of 2 (not 3)
+    #int commentLength; // length of comment (terminating '\0' is not saved),
+    #    "MC" has comment length of 2 (not 3)
     #char comment[commentLength]; // comment
     __slots__ = (
             "index",
@@ -1082,7 +1098,8 @@ class ms3d_modelcomment_t:
     """
     ms3d_modelcomment_t
     """
-    #int commentLength; // length of comment (terminating '\0' is not saved), "MC" has comment length of 2 (not 3)
+    #int commentLength; // length of comment (terminating '\0' is not saved),
+    #    "MC" has comment length of 2 (not 3)
     #char comment[commentLength]; // comment
     __slots__ = (
             "_commentLength",
@@ -1138,8 +1155,10 @@ class ms3d_vertex_ex1_t:
     """
     ms3d_vertex_ex1_t
     """
-    #char boneIds[3]; // index of joint or -1, if -1, then that weight is ignored, since subVersion 1
-    #byte weights[3]; // vertex weight ranging from 0 - 255, last weight is computed by 1.0 - sum(all weights), since subVersion 1
+    #char boneIds[3]; // index of joint or -1, if -1, then that weight is
+    #    ignored, since subVersion 1
+    #byte weights[3]; // vertex weight ranging from 0 - 255, last weight is
+    #    computed by 1.0 - sum(all weights), since subVersion 1
     #// weight[0] is the weight for boneId in ms3d_vertex_t
     #// weight[1] is the weight for boneIds[0]
     #// weight[2] is the weight for boneIds[1]
@@ -1197,13 +1216,16 @@ class ms3d_vertex_ex2_t:
     """
     ms3d_vertex_ex2_t
     """
-    #char boneIds[3]; // index of joint or -1, if -1, then that weight is ignored, since subVersion 1
-    #byte weights[3]; // vertex weight ranging from 0 - 100, last weight is computed by 1.0 - sum(all weights), since subVersion 1
+    #char boneIds[3]; // index of joint or -1, if -1, then that weight is
+    #    ignored, since subVersion 1
+    #byte weights[3]; // vertex weight ranging from 0 - 100, last weight is
+    #    computed by 1.0 - sum(all weights), since subVersion 1
     #// weight[0] is the weight for boneId in ms3d_vertex_t
     #// weight[1] is the weight for boneIds[0]
     #// weight[2] is the weight for boneIds[1]
     #// 1.0f - weight[0] - weight[1] - weight[2] is the weight for boneIds[2]
-    #unsigned int extra; // vertex extra, which can be used as color or anything else, since subVersion 2
+    #unsigned int extra; // vertex extra, which can be used as color or
+    #    anything else, since subVersion 2
     __slots__ = (
             "_boneIds",
             "_weights",
@@ -1265,13 +1287,16 @@ class ms3d_vertex_ex3_t:
     """
     ms3d_vertex_ex3_t
     """
-    #char boneIds[3]; // index of joint or -1, if -1, then that weight is ignored, since subVersion 1
-    #byte weights[3]; // vertex weight ranging from 0 - 100, last weight is computed by 1.0 - sum(all weights), since subVersion 1
+    #char boneIds[3]; // index of joint or -1, if -1, then that weight is
+    #    ignored, since subVersion 1
+    #byte weights[3]; // vertex weight ranging from 0 - 100, last weight is
+    #    computed by 1.0 - sum(all weights), since subVersion 1
     #// weight[0] is the weight for boneId in ms3d_vertex_t
     #// weight[1] is the weight for boneIds[0]
     #// weight[2] is the weight for boneIds[1]
     #// 1.0f - weight[0] - weight[1] - weight[2] is the weight for boneIds[2]
-    #unsigned int extra; // vertex extra, which can be used as color or anything else, since subVersion 2
+    #unsigned int extra; // vertex extra, which can be used as color or
+    #    anything else, since subVersion 2
     __slots__ = (
             "_boneIds",
             "_weights",
@@ -1374,8 +1399,10 @@ class ms3d_model_ex_t:
     ms3d_model_ex_t
     """
     #float jointSize; // joint size, since subVersion == 1
-    #int transparencyMode; // 0 = simple, 1 = depth buffered with alpha ref, 2 = depth sorted triangles, since subVersion == 1
-    #float alphaRef; // alpha reference value for transparencyMode = 1, since subVersion == 1
+    #int transparencyMode; // 0 = simple, 1 = depth buffered with alpha ref,
+    #    2 = depth sorted triangles, since subVersion == 1
+    #float alphaRef; // alpha reference value for transparencyMode = 1,
+    #    since subVersion == 1
     __slots__ = (
             "jointSize",
             "transparencyMode",
@@ -1484,27 +1511,31 @@ class ms3d_file_t:
         # Then comes the number of vertices
         #self.nNumVertices = 0
 
-        # Then comes nNumVertices times ms3d_vertex_t structs (sizeof(ms3d_vertex_t) == 15)
+        # Then comes nNumVertices times ms3d_vertex_t structs
+        # (sizeof(ms3d_vertex_t) == 15)
         self._vertices = [] #ms3d_vertex_t()
 
         # Then comes the number of triangles
         #self.nNumTriangles = 0
 
-        # Then come nNumTriangles times ms3d_triangle_t structs (sizeof(ms3d_triangle_t) == 70)
+        # Then come nNumTriangles times ms3d_triangle_t structs
+        # (sizeof(ms3d_triangle_t) == 70)
         self._triangles = [] #ms3d_triangle_t()
 
 
         # Then comes the number of groups
         #self.nNumGroups = 0
 
-        # Then comes nNumGroups times groups (the sizeof a group is dynamic, because of triangleIndices is numtriangles long)
+        # Then comes nNumGroups times groups (the sizeof a group is dynamic,
+        # because of triangleIndices is numtriangles long)
         self._groups = [] #ms3d_group_t()
 
 
         # number of materials
         #self.nNumMaterials = 0
 
-        # Then comes nNumMaterials times ms3d_material_t structs (sizeof(ms3d_material_t) == 361)
+        # Then comes nNumMaterials times ms3d_material_t structs
+        # (sizeof(ms3d_material_t) == 361)
         self._materials = [] #ms3d_material_t()
 
 
@@ -1517,56 +1548,68 @@ class ms3d_file_t:
         # number of joints
         #self.nNumJoints = 0
 
-        # Then comes nNumJoints joints (the size of joints are dynamic, because each joint has a differnt count of keys
+        # Then comes nNumJoints joints (the size of joints are dynamic,
+        # because each joint has a differnt count of keys
         self._joints = [] #ms3d_joint_t()
 
 
-        # Then comes the subVersion of the comments part, which is not available in older files
+        # Then comes the subVersion of the comments part, which is not
+        # available in older files
         self.subVersionComments = 1
 
 
         # Then comes the numer of group comments
         #self.nNumGroupComments = 0
 
-        # Then comes nNumGroupComments times group comments, which are dynamic, because the comment can be any length
+        # Then comes nNumGroupComments times group comments, which are dynamic,
+        # because the comment can be any length
         self._groupComments = [] #ms3d_comment_t()
 
 
         # Then comes the number of material comments
         #self.nNumMaterialComments = 0
 
-        # Then comes nNumMaterialComments times material comments, which are dynamic, because the comment can be any length
+        # Then comes nNumMaterialComments times material comments, which are
+        # dynamic, because the comment can be any length
         self._materialComments = [] #ms3d_comment_t()
 
 
         # Then comes the number of joint comments
         #self.nNumJointComments = 0
 
-        # Then comes nNumJointComments times joint comments, which are dynamic, because the comment can be any length
+        # Then comes nNumJointComments times joint comments, which are dynamic,
+        # because the comment can be any length
         self._jointComments = [] #ms3d_comment_t()
 
 
         # Then comes the number of model comments, which is always 0 or 1
         #self.nHasModelComment = 0
 
-        # Then comes nHasModelComment times model comments, which are dynamic, because the comment can be any length
+        # Then comes nHasModelComment times model comments, which are dynamic,
+        # because the comment can be any length
         self._modelComment = None #ms3d_modelcomment_t()
 
 
-        # Then comes the subversion of the vertex extra information like bone weights, extra etc.
+        # Then comes the subversion of the vertex extra information like bone
+        # weights, extra etc.
         self.subVersionVertexExtra = 2
 
         # ms3d_vertex_ex_t for subVersionVertexExtra in {1, 2, 3}
-        self._vertex_ex = [] #ms3d_vertex_ex1_t() #ms3d_vertex_ex2_t() #ms3d_vertex_ex3_t()
-        # Then comes nNumVertices times ms3d_vertex_ex_t structs (sizeof(ms3d_vertex_ex_t) == 10)
+        #ms3d_vertex_ex1_t() #ms3d_vertex_ex2_t() #ms3d_vertex_ex3_t()
+        self._vertex_ex = []
+        # Then comes nNumVertices times ms3d_vertex_ex_t structs
+        # (sizeof(ms3d_vertex_ex_t) == 10)
         ##
 
-        # Then comes the subversion of the joint extra information like color etc.
-        self.subVersionJointExtra = 1 # ??? in spec it is 2, but in MilkShake3D 1.8.4 a joint subversion of 2 is unknown
+        # Then comes the subversion of the joint extra information like
+        # color etc.
+        self.subVersionJointExtra = 1 # ??? in spec it is 2,
+        # but in MilkShake3D 1.8.4 a joint subversion of 2 is unknown
 
         # ms3d_joint_ex_t for subVersionJointExtra == 1
         self._joint_ex = [] #ms3d_joint_ex_t()
-        # Then comes nNumJoints times ms3d_joint_ex_t structs (sizeof(ms3d_joint_ex_t) == 12)
+        # Then comes nNumJoints times ms3d_joint_ex_t structs
+        # (sizeof(ms3d_joint_ex_t) == 12)
         ##
 
         # Then comes the subversion of the model extra information
@@ -1686,7 +1729,7 @@ class ms3d_file_t:
 
     def print_internal(self):
         print()
-        print("######################################################################")
+        print("##############################################################")
         print("## the internal data of ms3d_file_t object...")
         print("##")
 
@@ -1768,7 +1811,7 @@ class ms3d_file_t:
 
         print("##")
         print("## ...end")
-        print("######################################################################")
+        print("##############################################################")
         print()
 
 
@@ -1884,7 +1927,9 @@ class ms3d_file_t:
 
         except Exception:
             #type, value, traceback = sys.exc_info()
-            #print("ms3d_file.read - exception in optional try block, progressCount={0}\n  type: '{1}'\n  value: '{2}'".format(progressCount, type, value, traceback))
+            #print("ms3d_file.read - exception in optional try block,"
+            #        " progressCount={0}\n  type: '{1}'\n  value: '{2}'".format(
+            #        progressCount, type, value, traceback))
 
             if (progressCount):
                 if (progressCount <= 0):
@@ -2000,7 +2045,9 @@ class ms3d_file_t:
 
         except Exception:
             #type, value, traceback = sys.exc_info()
-            #print("ms3d_file.write - exception in optional try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+            #print("ms3d_file.write - exception in optional try block"
+            #        "\n  type: '{0}'\n  value: '{1}'".format(
+            #        type, value, traceback))
             pass
 
         else:
@@ -2042,10 +2089,14 @@ class ms3d_file_t:
             result.append(format2.format(MAX_JOINTS))
             valid &= False
 
-        result.append(format1.format("model comments ..", self.nHasModelComment))
-        result.append(format1.format("group comments ..", self.nNumGroupComments))
-        result.append(format1.format("material comments", self.nNumMaterialComments))
-        result.append(format1.format("joint comments ..", self.nNumJointComments))
+        result.append(format1.format("model comments ..",
+                self.nHasModelComment))
+        result.append(format1.format("group comments ..",
+                self.nNumGroupComments))
+        result.append(format1.format("material comments",
+                self.nNumMaterialComments))
+        result.append(format1.format("joint comments ..",
+                self.nNumJointComments))
 
         #if (not valid):
         #    result.append("\n\nthe data may be corrupted.")

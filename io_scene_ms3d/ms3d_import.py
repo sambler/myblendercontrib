@@ -39,7 +39,8 @@ import sys
 import time
 
 
-# To support reload properly, try to access a package var, if it's there, reload everything
+# To support reload properly, try to access a package var,
+# if it's there, reload everything
 if ("bpy" in locals()):
     import imp
     if "ms3d_spec" in locals():
@@ -225,7 +226,8 @@ class ImportMS3D(
 
         except Exception:
             type, value, traceback = sys.exc_info()
-            print("ReadMs3d - exception in try block\n  type: '{0}'\n  value: '{1}'".format(type, value, traceback))
+            print("ReadMs3d - exception in try block\n  type: '{0}'\n"
+                    "  value: '{1}'".format(type, value, traceback))
 
             if t2 is None:
                 t2 = time.time()
@@ -236,7 +238,8 @@ class ImportMS3D(
             pass
 
         t3 = time.time()
-        print("elapsed time: {0:.4}s (disk io: ~{1:.4}s, converter: ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
+        print("elapsed time: {0:.4}s (disk io: ~{1:.4}s, converter:"
+                " ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
         return {"FINISHED"}
 
@@ -254,25 +257,33 @@ class ImportMS3D(
                 blenderEmpty, setupEmpty = self.GetCommentObject(ms3dTemplate)
                 blenderContext.scene.objects.link(blenderEmpty)
                 if setupEmpty:
-                    blenderEmpty[prop(ms3d_spec.PROP_NAME_COMMENT)] = ms3dTemplate.modelComment.comment
+                    blenderEmpty[prop(ms3d_spec.PROP_NAME_COMMENT)] = \
+                            ms3dTemplate.modelComment.comment
 
             if (ms3d_utils.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
                 bones = self.CreateArmature(blenderContext, ms3dTemplate)
 
             for ms3dGroupIndex, ms3dGroup in enumerate(ms3dTemplate.groups):
-                blenderMesh = self.CreateMesh(blenderContext, ms3dTemplate, ms3dGroup, ms3dGroupIndex)
+                blenderMesh = self.CreateMesh(blenderContext, ms3dTemplate,
+                        ms3dGroup, ms3dGroupIndex)
 
                 # apply material if available
-                if (ms3d_utils.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects) and (ms3dGroup.materialIndex >= 0):
-                    blenderMaterial = self.CreateMaterial(blenderContext, ms3dTemplate, ms3dGroup.materialIndex, blenderMesh.uv_textures[0])
+                if ((ms3d_utils.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects)
+                        and (ms3dGroup.materialIndex >= 0)):
+                    blenderMaterial = self.CreateMaterial(blenderContext,
+                            ms3dTemplate, ms3dGroup.materialIndex,
+                            blenderMesh.uv_textures[0])
                     blenderMesh.materials.append(blenderMaterial)
 
                 # apply smoothing groups
-                if (ms3d_utils.PROP_ITEM_OBJECT_SMOOTHGROUPS in self.prop_objects):
-                    self.GenerateSmoothGroups(blenderContext, ms3dTemplate, ms3dGroup, blenderMesh.faces)
+                if (ms3d_utils.PROP_ITEM_OBJECT_SMOOTHGROUPS in
+                        self.prop_objects):
+                    self.GenerateSmoothGroups(blenderContext, ms3dTemplate,
+                            ms3dGroup, blenderMesh.faces)
 
                 # apply tris to quads
-                if (ms3d_utils.PROP_ITEM_OBJECT_TRI_TO_QUAD in self.prop_objects):
+                if (ms3d_utils.PROP_ITEM_OBJECT_TRI_TO_QUAD in
+                        self.prop_objects):
                     ms3d_utils.EnableEditMode(True)
 
                     # remove double vertices
@@ -302,10 +313,10 @@ class ImportMS3D(
                         item.select = True
 
             print()
-            print("######################################################################")
+            print("##########################################################")
             print("MS3D -> Blender : [{0}]".format(self.filepath_splitted[1]))
             print(statistics)
-            print("######################################################################")
+            print("##########################################################")
 
 
     ###########################################################################
@@ -324,7 +335,8 @@ class ImportMS3D(
             blenderArmature.show_axes = True
             blenderArmature.use_auto_ik = True
 
-        blenderObject, setupObject = self.GetArmatureObject(ms3dTemplate, blenderArmature)
+        blenderObject, setupObject = self.GetArmatureObject(ms3dTemplate,
+                blenderArmature)
         if setupObject:
             blenderObject.location = blenderContext.scene.cursor_location
             blenderObject.show_x_ray = True
@@ -346,7 +358,8 @@ class ImportMS3D(
             blenderBone[prop(ms3d_spec.PROP_NAME_FLAGS)] = ms3dJoint.flags
             ms3dComment = ms3dTemplate.get_joint_comment_by_key(iBone)
             if ms3dComment is not None:
-                blenderBone[prop(ms3d_spec.PROP_NAME_COMMENT)] = ms3dComment.comment
+                blenderBone[prop(ms3d_spec.PROP_NAME_COMMENT)] = \
+                        ms3dComment.comment
 
             blenderBones.active = blenderBone
 
@@ -355,7 +368,8 @@ class ImportMS3D(
 
             if (iBone == 0):
                 blenderBone.tail = mathVector
-                blenderBone.head = blenderBone.tail + mathutils.Vector((-1.0, 0.0, 0.0))
+                blenderBone.head = blenderBone.tail + mathutils.Vector(
+                        (-1.0, 0.0, 0.0))
                 bones_parentName = ms3dJoint.name
                 matrixRotation = None
 
@@ -381,9 +395,11 @@ class ImportMS3D(
                     rotationAxis = rotationAxis * self.matrixSwapAxis
 
                     mathRotation = mathutils.Euler(rotationAxis, 'XZY')
-                    matrixRotation = matrixRotation * mathRotation.to_matrix().to_4x4()
+                    matrixRotation = matrixRotation * mathRotation.to_matrix(
+                            ).to_4x4()
 
-                blenderBone.tail = blenderBone.parent.tail + (mathVector * matrixRotation)
+                blenderBone.tail = blenderBone.parent.tail + (mathVector
+                        * matrixRotation)
 
 
             blenderBone.use_local_location = True
@@ -391,7 +407,8 @@ class ImportMS3D(
             blenderBone.select = True
 
             if matrixRotation is not None:
-                blenderBone.align_roll(mathutils.Vector([0.0, 0.0, 1.0]) * matrixRotation)
+                blenderBone.align_roll(
+                        mathutils.Vector([0.0, 0.0, 1.0]) * matrixRotation)
 
         ms3d_utils.EnableEditMode(False)
 
@@ -400,11 +417,13 @@ class ImportMS3D(
 
     ###########################################################################
     def CreateImageTexture(self, ms3dMaterial, alphamap, allow_create=True):
-        blenderImage, setupImage = self.GetImage(ms3dMaterial, alphamap, allow_create=allow_create)
+        blenderImage, setupImage = self.GetImage(ms3dMaterial, alphamap,
+                allow_create=allow_create)
         if setupImage:
             pass
 
-        blenderTexture, setupTexture = self.GetTexture(ms3dMaterial, alphamap, blenderImage, allow_create=allow_create)
+        blenderTexture, setupTexture = self.GetTexture(ms3dMaterial, alphamap,
+                blenderImage, allow_create=allow_create)
         if setupTexture:
             blenderTexture.image = blenderImage
 
@@ -415,22 +434,31 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def CreateMaterial(self, blenderContext, ms3dTemplate, ms3dMaterialIndex, blenderUvLayer):
+    def CreateMaterial(self, blenderContext, ms3dTemplate, ms3dMaterialIndex,
+            blenderUvLayer):
         ms3dMaterial = ms3dTemplate.materials[ms3dMaterialIndex]
 
         blenderMaterial, setupMaterial = self.GetMaterial(ms3dMaterial)
         if setupMaterial:
             blenderMaterial[prop(PROP_NAME_HASH)] = hashStr(ms3dMaterial)
             blenderMaterial[prop(ms3d_spec.PROP_NAME_MODE)] = ms3dMaterial.mode
-            blenderMaterial[prop(ms3d_spec.PROP_NAME_AMBIENT)] = ms3dMaterial.ambient
-            blenderMaterial[prop(ms3d_spec.PROP_NAME_EMISSIVE)] = ms3dMaterial.emissive
+            blenderMaterial[prop(ms3d_spec.PROP_NAME_AMBIENT)] = \
+                    ms3dMaterial.ambient
+            blenderMaterial[prop(ms3d_spec.PROP_NAME_EMISSIVE)] = \
+                    ms3dMaterial.emissive
 
-            ms3dComment = ms3dTemplate.get_material_comment_by_key(ms3dMaterialIndex)
+            ms3dComment = \
+                    ms3dTemplate.get_material_comment_by_key(ms3dMaterialIndex)
             if ms3dComment is not None:
-                blenderMaterial[prop(ms3d_spec.PROP_NAME_COMMENT)] = ms3dComment.comment
+                blenderMaterial[prop(ms3d_spec.PROP_NAME_COMMENT)] = \
+                        ms3dComment.comment
 
 
-            blenderMaterial.ambient = ((ms3dMaterial.ambient[0] + ms3dMaterial.ambient[1] + ms3dMaterial.ambient[2]) / 3.0) * ms3dMaterial.ambient[3]
+            blenderMaterial.ambient = ((
+                    (ms3dMaterial.ambient[0]
+                    + ms3dMaterial.ambient[1]
+                    + ms3dMaterial.ambient[2]) / 3.0)
+                    * ms3dMaterial.ambient[3])
 
             blenderMaterial.diffuse_color[0] = ms3dMaterial.diffuse[0]
             blenderMaterial.diffuse_color[1] = ms3dMaterial.diffuse[1]
@@ -442,7 +470,11 @@ class ImportMS3D(
             blenderMaterial.specular_color[2] = ms3dMaterial.specular[2]
             blenderMaterial.specular_intensity = ms3dMaterial.specular[3]
 
-            blenderMaterial.emit = ((ms3dMaterial.emissive[0] + ms3dMaterial.emissive[1] + ms3dMaterial.emissive[2]) / 3.0) * ms3dMaterial.emissive[3]
+            blenderMaterial.emit = ((
+                    (ms3dMaterial.emissive[0]
+                    + ms3dMaterial.emissive[1]
+                    + ms3dMaterial.emissive[2]) / 3.0)
+                    * ms3dMaterial.emissive[3])
 
             blenderMaterial.specular_hardness = ms3dMaterial.shininess * 2.0
 
@@ -457,7 +489,8 @@ class ImportMS3D(
 
             # diffuse texture
             if (ms3dMaterial.texture):
-                blenderMaterial[prop(ms3d_spec.PROP_NAME_TEXTURE)] = ms3dMaterial.texture
+                blenderMaterial[prop(ms3d_spec.PROP_NAME_TEXTURE)] = \
+                        ms3dMaterial.texture
                 blenderTexture = self.CreateImageTexture(ms3dMaterial, False)
 
                 blenderTextureSlot = blenderMaterial.texture_slots.add()
@@ -473,7 +506,8 @@ class ImportMS3D(
 
             # alpha texture
             if (ms3dMaterial.alphamap):
-                blenderMaterial[prop(ms3d_spec.PROP_NAME_ALPHAMAP)] = ms3dMaterial.alphamap
+                blenderMaterial[prop(ms3d_spec.PROP_NAME_ALPHAMAP)] = \
+                        ms3dMaterial.alphamap
                 blenderMaterial.alpha = 0
                 blenderMaterial.specular_alpha = 0
 
@@ -489,7 +523,8 @@ class ImportMS3D(
 
         else:
             if (ms3dMaterial.texture):
-                blenderTexture = self.CreateImageTexture(ms3dMaterial, False, allow_create=False)
+                blenderTexture = self.CreateImageTexture(ms3dMaterial, False,
+                        allow_create=False)
 
                 # apply image also to uv's
                 if blenderTexture:
@@ -500,7 +535,8 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def CreateMesh(self, blenderContext, ms3dTemplate, ms3dGroup, ms3dGroupIndex):
+    def CreateMesh(self, blenderContext, ms3dTemplate, ms3dGroup,
+            ms3dGroupIndex):
         vertices = []
         edges = []
         faces = []
@@ -524,7 +560,8 @@ class ImportMS3D(
             blenderObject[prop(ms3d_spec.PROP_NAME_FLAGS)] = ms3dGroup.flags
             ms3dComment = ms3dTemplate.get_group_comment_by_key(ms3dGroupIndex)
             if ms3dComment is not None:
-                blenderObject[prop(ms3d_spec.PROP_NAME_COMMENT)] = ms3dComment.comment
+                blenderObject[prop(ms3d_spec.PROP_NAME_COMMENT)] = \
+                        ms3dComment.comment
 
         # setup mesh
         blenderMesh.from_pydata(vertices, edges, faces)
@@ -539,14 +576,21 @@ class ImportMS3D(
 
         # handle UVs
         # add UVs
-        if (not blenderMesh.uv_textures) and bpy.ops.mesh.uv_texture_add.poll():
+        if ((not blenderMesh.uv_textures)
+                and bpy.ops.mesh.uv_texture_add.poll()):
             bpy.ops.mesh.uv_texture_add()
 
         # convert ms3d-ST to blender-UV
         for i, blenderUv in enumerate(blenderMesh.uv_textures[0].data):
-            blenderUv.uv1[0], blenderUv.uv1[1] = ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].s[0], (1.0 - ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].t[0])
-            blenderUv.uv2[0], blenderUv.uv2[1] = ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].s[1], (1.0 - ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].t[1])
-            blenderUv.uv3[0], blenderUv.uv3[1] = ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].s[2], (1.0 - ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].t[2])
+            blenderUv.uv1[0], blenderUv.uv1[1] = ms3dTemplate.triangles[
+                    ms3dGroup.triangleIndices[i]].s[0], (1.0 -
+                    ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].t[0])
+            blenderUv.uv2[0], blenderUv.uv2[1] = ms3dTemplate.triangles[
+                    ms3dGroup.triangleIndices[i]].s[1], (1.0 -
+                    ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].t[1])
+            blenderUv.uv3[0], blenderUv.uv3[1] = ms3dTemplate.triangles[
+                    ms3dGroup.triangleIndices[i]].s[2], (1.0 -
+                    ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].t[2])
 
 
         # remove double and deserted vertices
@@ -576,7 +620,8 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def GenerateSmoothGroups(self, blenderContext, ms3dTemplate, ms3dGroup, blenderFaces):
+    def GenerateSmoothGroups(self, blenderContext, ms3dTemplate, ms3dGroup,
+            blenderFaces):
         """
         split faces of a smoothingGroup.
         it will preserve the UVs and materials.
@@ -592,8 +637,10 @@ class ImportMS3D(
 
         # collect smoothgroups and its faces
         smoothGroupFaceIndices = {}
-        for iTriangle, ms3dTriangleIndex in enumerate(ms3dGroup.triangleIndices):
-            smoothGroupKey = ms3dTemplate.triangles[ms3dTriangleIndex].smoothingGroup
+        for iTriangle, ms3dTriangleIndex in \
+                enumerate(ms3dGroup.triangleIndices):
+            smoothGroupKey = \
+                    ms3dTemplate.triangles[ms3dTriangleIndex].smoothingGroup
 
             if (smoothGroupKey == 0):
                 continue
@@ -626,21 +673,12 @@ class ImportMS3D(
             # enable edit-mode again
             ms3d_utils.EnableEditMode(True)
 
-            #debug = []
-            #for f in blenderFaces:
-            #    debug.append((f.vertices_raw[0],f.vertices_raw[1],f.vertices_raw[2]))
-            #print("blenderFaces before split = {0}".format(debug))
-
             ## split selected faces
             ## WARNING: it will reorder the faces!
-            ## after that, with that logic, it is impossible to use the dictionary for the next outstanding smoothgroups anymore
-            #if bpy.ops.mesh.split.poll():
-            #    bpy.ops.mesh.split()
-
-            #debug = []
-            #for f in blenderFaces:
-            #    debug.append((f.vertices_raw[0],f.vertices_raw[1],f.vertices_raw[2]))
-            #print("blenderFaces after split = {0}".format(debug))
+            ## after that, with that logic, it is impossible to use the
+            ## dictionary for the next outstanding smoothgroups anymore
+            # if bpy.ops.mesh.split.poll():
+            #     bpy.ops.mesh.split()
 
             # SPLIT WORKAROUND part 1
             # duplicate selected faces
@@ -648,7 +686,8 @@ class ImportMS3D(
                 bpy.ops.mesh.duplicate()
 
             # put selected to vertex_group
-            blenderVertexGroup = bpy.context.active_object.vertex_groups.new(prop(PROP_NAME_SMOOTH_GROUP).format(smoothGroupKey))
+            blenderVertexGroup = bpy.context.active_object.vertex_groups.new(
+                    prop(PROP_NAME_SMOOTH_GROUP).format(smoothGroupKey))
             bpy.context.active_object.vertex_groups.active = blenderVertexGroup
             if bpy.ops.object.vertex_group_assign.poll():
                 bpy.ops.object.vertex_group_assign()
@@ -795,24 +834,27 @@ class ImportMS3D(
             if (testBlenderImage):
                 # take a closer look to its content
                 if ((not testBlenderImage.library)
-                        and (os.path.split(testBlenderImage.filepath)[1] == nameImage)
-                        ):
+                        and (os.path.split(
+                        testBlenderImage.filepath)[1] == nameImage)):
                     return testBlenderImage, False
 
-        #elif (self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH):
-        #    # irrespecting its real content
-        #    # take materials, that have the same "ms3d_import_hash" custom property (of an previous import)
-        #    propKey = prop(PROP_NAME_HASH)
-        #    hexHash = hex(hash(nameImage))
-        #    for testBlenderImage in bpy.data.images:
-        #        if (testBlenderImage) and (not testBlenderImage.library) and (propKey in testBlenderImage) and (testBlenderImage[propKey] == hexHash):
-        #            return testBlenderImage, False
+        # elif (self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH):
+        #     # irrespecting its real content
+        #     # take materials, that have the same "ms3d_import_hash"
+        #     # custom property (of an previous import)
+        #     propKey = prop(PROP_NAME_HASH)
+        #     hexHash = hex(hash(nameImage))
+        #     for testBlenderImage in bpy.data.images:
+        #         if ((testBlenderImage) and (not testBlenderImage.library)
+        #                 and (propKey in testBlenderImage)
+        #                 and (testBlenderImage[propKey] == hexHash)):
+        #             return testBlenderImage, False
 
         if not allow_create:
             return None, False
 
         # create new
-        blenderImage = load_image(nameImage, nameDirectory) #bpy.data.images.new(nameImage)
+        blenderImage = load_image(nameImage, nameDirectory)
         self.dict_images[nameImage] = blenderImage
         if blenderImage:
             blenderImage[prop(ms3d_spec.PROP_NAME_NAME)] = ms3dMaterial.name
@@ -821,7 +863,8 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def GetTexture(self, ms3dMaterial, alphamap, blenderImage, allow_create=True):
+    def GetTexture(self, ms3dMaterial, alphamap, blenderImage,
+            allow_create=True):
         if alphamap:
             nameTextureRaw = ms3dMaterial.alphamap
             propName = ms3d_spec.PROP_NAME_ALPHAMAP
@@ -845,17 +888,21 @@ class ImportMS3D(
                         and (testBlenderTexture.type == 'IMAGE')
                         and (testBlenderTexture.image)
                         and (blenderImage)
-                        and (testBlenderTexture.image.filepath == blenderImage.filepath)
+                        and (testBlenderTexture.image.filepath
+                        == blenderImage.filepath)
                         ):
                     return testBlenderTexture, False
 
         #elif self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH:
         #    # irrespecting its real content
-        #    # take materials, that have the same "ms3d_import_hash" custom property (of an previous import)
+        #    # take materials, that have the same "ms3d_import_hash"
+        #    # custom property (of an previous import)
         #    propKey = prop(PROP_NAME_HASH)
         #    hexHash = hex(hash(nameTexture))
         #    for testBlenderTexture in bpy.data.textures:
-        #        if (testBlenderTexture) and (not testBlenderTexture.library) and (propKey in testBlenderTexture) and (testBlenderTexture[propKey] == hexHash):
+        #        if ((testBlenderTexture) and (not testBlenderTexture.library)
+        #                 and (propKey in testBlenderTexture)
+        #                 and (testBlenderTexture[propKey] == hexHash)):
         #            return testBlenderTexture, False
 
         if not allow_create:
@@ -888,17 +935,38 @@ class ImportMS3D(
                 # take a closer look to its content
                 if ((testBlenderMaterial)
                         and (not testBlenderMaterial.library)
-                        and (epsilon > abs(testBlenderMaterial.ambient - ((ms3dMaterial.ambient[0] + ms3dMaterial.ambient[1] + ms3dMaterial.ambient[2]) / 3.0) * ms3dMaterial.ambient[3]))
-                        and (epsilon > abs(testBlenderMaterial.diffuse_color[0] - ms3dMaterial.diffuse[0]))
-                        and (epsilon > abs(testBlenderMaterial.diffuse_color[1] - ms3dMaterial.diffuse[1]))
-                        and (epsilon > abs(testBlenderMaterial.diffuse_color[2] - ms3dMaterial.diffuse[2]))
-                        and (epsilon > abs(testBlenderMaterial.diffuse_intensity - ms3dMaterial.diffuse[3]))
-                        and (epsilon > abs(testBlenderMaterial.specular_color[0] - ms3dMaterial.specular[0]))
-                        and (epsilon > abs(testBlenderMaterial.specular_color[1] - ms3dMaterial.specular[1]))
-                        and (epsilon > abs(testBlenderMaterial.specular_color[2] - ms3dMaterial.specular[2]))
-                        and (epsilon > abs(testBlenderMaterial.specular_intensity - ms3dMaterial.specular[3]))
-                        and (epsilon > abs(testBlenderMaterial.emit - ((ms3dMaterial.emissive[0] + ms3dMaterial.emissive[1] + ms3dMaterial.emissive[2]) / 3.0) * ms3dMaterial.emissive[3]))
-                        and (epsilon > abs(testBlenderMaterial.specular_hardness - (ms3dMaterial.shininess * 2.0)))
+                        and (epsilon > abs(testBlenderMaterial.ambient - ((
+                            ms3dMaterial.ambient[0] + ms3dMaterial.ambient[1]
+                            + ms3dMaterial.ambient[2]) / 3.0)
+                            * ms3dMaterial.ambient[3]))
+                        and (epsilon > abs(testBlenderMaterial.diffuse_color[0]
+                            - ms3dMaterial.diffuse[0]))
+                        and (epsilon > abs(testBlenderMaterial.diffuse_color[1]
+                            - ms3dMaterial.diffuse[1]))
+                        and (epsilon > abs(testBlenderMaterial.diffuse_color[2]
+                            - ms3dMaterial.diffuse[2]))
+                        and (epsilon > abs(
+                            testBlenderMaterial.diffuse_intensity
+                            - ms3dMaterial.diffuse[3]))
+                        and (epsilon > abs(
+                            testBlenderMaterial.specular_color[0]
+                            - ms3dMaterial.specular[0]))
+                        and (epsilon > abs(
+                            testBlenderMaterial.specular_color[1]
+                            - ms3dMaterial.specular[1]))
+                        and (epsilon > abs(
+                            testBlenderMaterial.specular_color[2]
+                            - ms3dMaterial.specular[2]))
+                        and (epsilon > abs(
+                            testBlenderMaterial.specular_intensity
+                            - ms3dMaterial.specular[3]))
+                        and (epsilon > abs(testBlenderMaterial.emit - ((
+                            ms3dMaterial.emissive[0] + ms3dMaterial.emissive[1]
+                            + ms3dMaterial.emissive[2]) / 3.0)
+                            * ms3dMaterial.emissive[3]))
+                        and (epsilon > abs(
+                            testBlenderMaterial.specular_hardness
+                            - (ms3dMaterial.shininess * 2.0)))
                         ):
                     #DEBUG_print("passed test color")
 
@@ -956,16 +1024,20 @@ class ImportMS3D(
                                     fitAlpha = True
                                     break;
 
-                    if ((not testTexture) or (testTexture and fitTexture))  and ((not testAlpha) or (testAlpha and fitAlpha)):
+                    if (((not testTexture) or (testTexture and fitTexture))
+                            and ((not testAlpha) or (testAlpha and fitAlpha))):
                         return testBlenderMaterial, False
 
-        #elif self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH:
+        # elif self.prop_reuse == ms3d_utils.PROP_ITEM_REUSE_MATCH_HASH:
         #    # irrespecting its real content
-        #    # take materials, that have the same "ms3d_import_hash" custom property (of an previous import)
+        #    # take materials, that have the same "ms3d_import_hash"
+        #    # custom property (of an previous import)
         #    propKey = prop(PROP_NAME_HASH)
         #    hexHash = hex(hash(ms3dMaterial))
         #    for testBlenderMaterial in bpy.data.materials:
-        #        if (testBlenderMaterial) and (not testBlenderMaterial.library) and (propKey in testBlenderMaterial) and (testBlenderMaterial[propKey] == hexHash):
+        #        if ((testBlenderMaterial) and (not testBlenderMaterial.library)
+        #                and (propKey in testBlenderMaterial)
+        #                and (testBlenderMaterial[propKey] == hexHash)):
         #            return testBlenderMaterial, False
 
         # create new
