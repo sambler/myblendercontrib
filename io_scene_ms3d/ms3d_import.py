@@ -75,6 +75,8 @@ def hashStr(obj):
 
 PROP_NAME_HASH = "import_hash"
 PROP_NAME_SMOOTH_GROUP = "smoothingGroup{0}"
+PROP_NAME_BONE_ID = "boneId{0}"
+
 
 ###############################################################################
 # registered entry point import
@@ -209,7 +211,6 @@ class ImportMS3D(
             # with same names but different content
             self.dict_armatures = {}
             self.dict_armature_objects = {}
-            self.dict_bones = {}
             self.dict_groups = {}
             self.dict_images = {}
             self.dict_materials = {}
@@ -261,11 +262,21 @@ class ImportMS3D(
                             ms3dTemplate.modelComment.comment
 
             if (ms3d_utils.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-                bones = self.CreateArmature(blenderContext, ms3dTemplate)
+                dict_bones = self.CreateArmature(blenderContext, ms3dTemplate)
+
+                if self.prop_animation:
+                    bpy.context.scene.render.fps = ms3dTemplate.fAnimationFPS
+                    bpy.context.scene.render.fps_base = (bpy.context.scene.render.fps
+                            / ms3dTemplate.fAnimationFPS)
+                    bpy.context.scene.frame_start = 1
+                    bpy.context.scene.frame_end = (ms3dTemplate.iTotalFrames
+                            + bpy.context.scene.frame_start) - 1
+                    bpy.context.scene.frame_current = (ms3dTemplate.fCurrentTime
+                            * bpy.context.scene.render.fps)
 
             for ms3dGroupIndex, ms3dGroup in enumerate(ms3dTemplate.groups):
                 blenderMesh = self.CreateMesh(blenderContext, ms3dTemplate,
-                        ms3dGroup, ms3dGroupIndex)
+                        ms3dGroup, ms3dGroupIndex, dict_bones)
 
                 # apply material if available
                 if ((ms3d_utils.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects)
@@ -297,7 +308,6 @@ class ImportMS3D(
 
                 self.PostSetupMesh()
 
-
             # put all objects to group
             if (ms3d_utils.PROP_ITEM_OBJECT_GROUP in self.prop_objects):
                 blenderGroup, setupGroup = self.GetGroup(ms3dTemplate)
@@ -321,9 +331,6 @@ class ImportMS3D(
 
     ###########################################################################
     def CreateArmature(self, blenderContext, ms3dTemplate):
-        """
-        known issues: roll angle of the bones may be different as in ms3d
-        """
         if (ms3dTemplate.nNumJoints <= 0):
             return None
 
@@ -346,40 +353,43 @@ class ImportMS3D(
 
         ms3d_utils.EnableEditMode(True)
 
-        blenderBones = blenderArmature.edit_bones
-
-        bones = {}
-        bones_parentName = None
+        dict_bones = {}
         for iBone, ms3dJoint in enumerate(ms3dTemplate.joints):
 
-            blenderBone = blenderBones.new(ms3dJoint.name)
-            bones[ms3dJoint.name] = (blenderBone, ms3dJoint)
-
+            blenderBone = blenderArmature.edit_bones.new(ms3dJoint.name)
             blenderBone[prop(ms3d_spec.PROP_NAME_FLAGS)] = ms3dJoint.flags
+
             ms3dComment = ms3dTemplate.get_joint_comment_by_key(iBone)
             if ms3dComment is not None:
                 blenderBone[prop(ms3d_spec.PROP_NAME_COMMENT)] = \
                         ms3dComment.comment
 
-            blenderBones.active = blenderBone
+            ms3dJointEx = ms3dTemplate.get_joint_ex_by_key(iBone)
+            if ms3dJointEx is not None:
+                blenderBone[prop(ms3d_spec.PROP_NAME_COLOR)] = \
+                        ms3dJointEx.color
+
+            blenderBone.select = True
+            blenderArmature.edit_bones.active = blenderBone
+
+            # [blender bone, ms3d bone, number of references, roll vector]
+            dict_bones[ms3dJoint.name] = [blenderBone, ms3dJoint, 0, None]
 
             mathVector = mathutils.Vector(ms3dJoint.position)
             mathVector = mathVector * self.matrixViewport
 
-            if (iBone == 0):
-                blenderBone.tail = mathVector
-                blenderBone.head = blenderBone.tail + mathutils.Vector(
-                        (-1.0, 0.0, 0.0))
-                bones_parentName = ms3dJoint.name
+            if (not ms3dJoint.parentName):
+                blenderBone.head = mathVector
                 matrixRotation = None
 
+                #dummy tail
+                blenderBone.tail = blenderBone.head + mathutils.Vector(
+                        (0.00001, 0.0, 0.0))
+
             else:
-                # some models have more than one initial bone (with no parent)
-                # no idea how to handle correctly
-                if (not ms3dJoint.parentName):
-                    blenderBoneParent = bones[bones_parentName][0]
-                else:
-                    blenderBoneParent = bones[ms3dJoint.parentName][0]
+                boneItem = dict_bones[ms3dJoint.parentName]
+                boneItem[2] += 1
+                blenderBoneParent = boneItem[0]
 
                 blenderBone.parent = blenderBoneParent
 
@@ -389,30 +399,55 @@ class ImportMS3D(
 
                     # correct rotaion axis
                     rotationAxis = mathutils.Vector((
-                            -bones[key][1].rotation[0],
-                            -bones[key][1].rotation[1],
-                            -bones[key][1].rotation[2]))
+                            -dict_bones[key][1].rotation[0],
+                            -dict_bones[key][1].rotation[1],
+                            -dict_bones[key][1].rotation[2]))
                     rotationAxis = rotationAxis * self.matrixSwapAxis
 
                     mathRotation = mathutils.Euler(rotationAxis, 'XZY')
                     matrixRotation = matrixRotation * mathRotation.to_matrix(
                             ).to_4x4()
 
-                blenderBone.tail = blenderBone.parent.tail + (mathVector
+                blenderBone.head = blenderBone.parent.head + (mathVector
                         * matrixRotation)
 
-
-            blenderBone.use_local_location = True
-            blenderBone.use_connect = True
-            blenderBone.select = True
+                # dummy tail
+                blenderBone.tail = blenderBone.head + (
+                        mathutils.Vector((0.00001, 0.0, 0.0))
+                        * self.matrixSwapAxis
+                        * matrixRotation)
 
             if matrixRotation is not None:
-                blenderBone.align_roll(
-                        mathutils.Vector([0.0, 0.0, 1.0]) * matrixRotation)
+                mathRollVector = mathutils.Vector((0.0, 0.0, 1.0)) * matrixRotation
+                boneItem[3] = mathRollVector
+
+        # an adjustment pass
+        # to adjust connection and tails of its parent bones
+        for key in dict_bones:
+            boneItem = dict_bones[key]
+            blenderBone = boneItem[0]
+            ms3dBone = boneItem[1]
+
+            # skip if parent has more than one bone references
+            parentBoneItem = dict_bones.get(ms3dBone.parentName)
+            if (parentBoneItem is None) or (parentBoneItem[2] > 1):
+                continue
+
+            blenderBone.parent.tail = blenderBone.head
+            blenderBone.use_connect = True
+
+        # an extra additional adjustment pass
+        # to re-correct possible modified bonerolls
+        for key in dict_bones:
+            boneItem = dict_bones[key]
+            blenderBone = boneItem[0]
+            mathRollVector = boneItem[3]
+            if mathRollVector is not None:
+                blenderBone.align_roll(mathRollVector)
 
         ms3d_utils.EnableEditMode(False)
 
-        return bones
+        return dict_bones
 
 
     ###########################################################################
@@ -452,7 +487,6 @@ class ImportMS3D(
             if ms3dComment is not None:
                 blenderMaterial[prop(ms3d_spec.PROP_NAME_COMMENT)] = \
                         ms3dComment.comment
-
 
             blenderMaterial.ambient = ((
                     (ms3dMaterial.ambient[0]
@@ -536,18 +570,37 @@ class ImportMS3D(
 
     ###########################################################################
     def CreateMesh(self, blenderContext, ms3dTemplate, ms3dGroup,
-            ms3dGroupIndex):
+            ms3dGroupIndex, bones):
         vertices = []
         edges = []
         faces = []
 
-        for ms3dVertex in ms3dTemplate.vertices:
-            mathVector = mathutils.Vector(ms3dVertex.vertex)
-            mathVector = mathVector * self.matrixViewport
-            vertices.append(mathVector)
+        boneIds = {}
+        dict_vertices = {}
 
-        for i in ms3dGroup.triangleIndices:
-            faces.append(ms3dTemplate.triangles[i].vertexIndices)
+        for iTriangle in ms3dGroup.triangleIndices:
+            face = []
+            for iVertex in ms3dTemplate.triangles[iTriangle].vertexIndices:
+                iiVertex = dict_vertices.get(iVertex)
+                if iiVertex is None:
+                    # add to ms3d to blender translation dictionary
+                    dict_vertices[iVertex] = iiVertex = len(vertices)
+
+                    # prepare vertices of mesh
+                    ms3dVertex = ms3dTemplate.vertices[iVertex]
+                    mathVector = mathutils.Vector(ms3dVertex.vertex)
+                    mathVector = mathVector * self.matrixViewport
+                    vertices.append(mathVector)
+
+                    # prepare boneId dictionary for later use
+                    iBone = boneIds.get(ms3dVertex.boneId)
+                    if iBone is not None:
+                        iBone.append(iiVertex)
+                    else:
+                        boneIds[ms3dVertex.boneId] = [iiVertex]
+
+                face.append(iiVertex)
+            faces.append(face)
 
         blenderScene = blenderContext.scene
 
@@ -570,9 +623,36 @@ class ImportMS3D(
 
         # make new object as active and only selected object
         ms3d_utils.SelectAll(False) # object
-
         blenderObject.select = True
         bpy.context.scene.objects.active = blenderObject
+
+        # create vertex groups for boneIds
+        for boneId, vertexIndices in boneIds.items():
+            if boneId < 0:
+                continue
+
+            # put selected to vertex_group
+            #n = ms3dTemplate.get_joint_by_key(boneId)
+            n = ms3dTemplate.joints[boneId]
+            blenderBoneIdKey = n.name
+            blenderVertexGroup = \
+                bpy.context.active_object.vertex_groups.new(blenderBoneIdKey)
+
+            for iiVertex in vertexIndices:
+                blenderVertexGroup.add([iiVertex], 1.0, 'REPLACE')
+
+            # add group to armature modifier
+            if (ms3d_utils.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
+                blenderArmatureObject = self.GetArmatureObject(
+                        ms3dTemplate, None)
+                if blenderArmatureObject[0] is not None:
+                    name = ms3dTemplate.get_joint_by_key(boneId).name
+                    blenderBone = blenderArmatureObject[0].data.bones.get(name)
+                    if blenderBone is not None:
+                        blenderModifier = blenderObject.modifiers.new(
+                                name, type='ARMATURE')
+                        blenderModifier.object = blenderArmatureObject[0]
+                        blenderModifier.vertex_group = blenderVertexGroup.name
 
         # handle UVs
         # add UVs
@@ -591,28 +671,6 @@ class ImportMS3D(
             blenderUv.uv3[0], blenderUv.uv3[1] = ms3dTemplate.triangles[
                     ms3dGroup.triangleIndices[i]].s[2], (1.0 -
                     ms3dTemplate.triangles[ms3dGroup.triangleIndices[i]].t[2])
-
-
-        # remove double and deserted vertices
-        ms3d_utils.EnableEditMode(True)
-
-
-        if (ms3d_utils.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-            # TODO: ...
-            #bpy.ops.object.modifier_add(type='ARMATURE')
-            pass
-
-        # remove double vertices
-        ms3d_utils.SelectAll(True) # mesh
-        if bpy.ops.mesh.remove_doubles.poll():
-            bpy.ops.mesh.remove_doubles(limit=0.0001)
-
-        # remove deserted vertices
-        ms3d_utils.SelectAll(False) # mesh
-        if bpy.ops.mesh.select_by_number_vertices.poll():
-            bpy.ops.mesh.select_by_number_vertices(type='OTHER')
-        if bpy.ops.mesh.delete.poll():
-            bpy.ops.mesh.delete(type='VERT')
 
         ms3d_utils.EnableEditMode(False)
 
@@ -732,13 +790,13 @@ class ImportMS3D(
     def GetAction(self, nameAction):
         # already available
         blenderAction = self.dict_actions.get(nameAction)
-        if (blenderAction):
+        if blenderAction is not None:
             return blenderAction, False
 
         # create new
         blenderAction = bpy.data.actions.new(nameAction)
         self.dict_actions[nameAction] = blenderAction
-        if blenderAction:
+        if blenderAction is not None:
             blenderAction[prop(ms3d_spec.PROP_NAME_NAME)] = nameAction
         return blenderAction, True
 
@@ -749,13 +807,13 @@ class ImportMS3D(
 
         # already available
         blenderArmature = self.dict_armatures.get(nameArmature)
-        if (blenderArmature):
+        if blenderArmature is not None:
             return blenderArmature, False
 
         # create new
         blenderArmature = bpy.data.armatures.new(nameArmature)
         self.dict_armatures[nameArmature] = blenderArmature
-        if blenderArmature:
+        if blenderArmature is not None:
             blenderArmature[prop(ms3d_spec.PROP_NAME_NAME)] = nameArmature
         return blenderArmature, True
 
@@ -766,32 +824,15 @@ class ImportMS3D(
 
         # already available
         blenderObject = self.dict_armature_objects.get(nameObject)
-        if (blenderObject):
+        if blenderObject is not None:
             return blenderObject, False
 
         # create new
         blenderObject = bpy.data.objects.new(nameObject, objectData)
         self.dict_armature_objects[nameObject] = blenderObject
-        if blenderObject:
+        if blenderObject is not None:
             blenderObject[prop(ms3d_spec.PROP_NAME_NAME)] = nameObject
         return blenderObject, True
-
-
-    ###########################################################################
-    def GetBone(self, ms3dJoint):
-        nameBone = ms3dJoint.name
-
-        # already available
-        blenderBone = self.dict_bones.get(nameBone)
-        if (blenderBone):
-            return blenderBone, False
-
-        # create new
-        blenderBone = bpy.data.armatures.new(nameBone)
-        self.dict_bones[nameBone] = blenderArmature
-        if blenderBone:
-            blenderBone[prop(ms3d_spec.PROP_NAME_NAME)] = nameBone
-        return blenderBone, True
 
 
     ###########################################################################
@@ -800,13 +841,13 @@ class ImportMS3D(
 
         # already available
         blenderGroup = self.dict_groups.get(nameGroup)
-        if (blenderGroup):
+        if blenderGroup is not None:
             return blenderGroup, False
 
         # create new
         blenderGroup = bpy.data.groups.new(nameGroup)
         self.dict_groups[nameGroup] = blenderGroup
-        if blenderGroup:
+        if blenderGroup is not None:
             blenderGroup[prop(ms3d_spec.PROP_NAME_NAME)] = nameGroup
         return blenderGroup, True
 
@@ -825,7 +866,7 @@ class ImportMS3D(
 
         # already available
         blenderImage = self.dict_images.get(nameImage)
-        if (blenderImage):
+        if blenderImage is not None:
             return blenderImage, False
 
         # OPTIONAL: try to find an existing one, that fits
@@ -856,7 +897,7 @@ class ImportMS3D(
         # create new
         blenderImage = load_image(nameImage, nameDirectory)
         self.dict_images[nameImage] = blenderImage
-        if blenderImage:
+        if blenderImage is not None:
             blenderImage[prop(ms3d_spec.PROP_NAME_NAME)] = ms3dMaterial.name
             blenderImage[prop(propName)] = nameImageRaw
         return blenderImage, True
@@ -876,7 +917,7 @@ class ImportMS3D(
 
         # already available
         blenderTexture = self.dict_textures.get(nameTexture)
-        if (blenderTexture):
+        if blenderTexture is not None:
             return blenderTexture, False
 
         # OPTIONAL: try to find an existing one, that fits
@@ -911,7 +952,7 @@ class ImportMS3D(
         # create new
         blenderTexture = bpy.data.textures.new(name=nameTexture, type='IMAGE')
         self.dict_textures[nameTexture] = blenderTexture
-        if blenderTexture:
+        if blenderTexture is not None:
             blenderTexture[prop(ms3d_spec.PROP_NAME_NAME)] = ms3dMaterial.name
             blenderTexture[prop(propName)] = nameTextureRaw
         return blenderTexture, True
@@ -923,7 +964,7 @@ class ImportMS3D(
 
         # already available
         blenderMaterial = self.dict_materials.get(nameMaterial)
-        if (blenderMaterial):
+        if blenderMaterial is not None:
             return blenderMaterial, False
 
         # OPTIONAL: try to find an existing one, that fits
@@ -968,7 +1009,6 @@ class ImportMS3D(
                             testBlenderMaterial.specular_hardness
                             - (ms3dMaterial.shininess * 2.0)))
                         ):
-                    #DEBUG_print("passed test color")
 
                     # diffuse texture
                     fitTexture = False
@@ -1043,7 +1083,7 @@ class ImportMS3D(
         # create new
         blenderMaterial = bpy.data.materials.new(nameMaterial)
         self.dict_materials[nameMaterial] = blenderMaterial
-        if blenderMaterial:
+        if blenderMaterial is not None:
             blenderMaterial[prop(ms3d_spec.PROP_NAME_NAME)] = nameMaterial
         return blenderMaterial, True
 
@@ -1054,13 +1094,13 @@ class ImportMS3D(
 
         # already available
         blenderMesh = self.dict_meshes.get(nameMesh)
-        if (blenderMesh):
+        if blenderMesh is not None:
             return blenderMesh, False
 
         # create new
         blenderMesh = bpy.data.meshes.new(nameMesh)
         self.dict_meshes[nameMesh] = blenderMesh
-        if blenderMesh:
+        if blenderMesh is not None:
             blenderMesh[prop(ms3d_spec.PROP_NAME_NAME)] = nameMesh
         return blenderMesh, True
 
@@ -1071,13 +1111,13 @@ class ImportMS3D(
 
         # already available
         blenderObject = self.dict_mesh_objects.get(nameObject)
-        if (blenderObject):
+        if blenderObject is not None:
             return blenderObject, False
 
         # create new
         blenderObject = bpy.data.objects.new(nameObject, objectData)
         self.dict_mesh_objects[nameObject] = blenderObject
-        if blenderObject:
+        if blenderObject is not None:
             blenderObject[prop(ms3d_spec.PROP_NAME_NAME)] = nameObject
         return blenderObject, True
 
@@ -1088,13 +1128,13 @@ class ImportMS3D(
 
         # already available
         blenderObject = self.dict_comment_objects.get(nameObject)
-        if (blenderObject):
+        if blenderObject is not None:
             return blenderObject, False
 
         # create new
         blenderObject = bpy.data.objects.new(nameObject, None)
         self.dict_comment_objects[nameObject] = blenderObject
-        if blenderObject:
+        if blenderObject is not None:
             blenderObject[prop(ms3d_spec.PROP_NAME_NAME)] = nameObject
         return blenderObject, True
 

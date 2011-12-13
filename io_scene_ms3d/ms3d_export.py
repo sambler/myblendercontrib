@@ -396,35 +396,39 @@ class ExportMS3D(
 
         ms3dMaterial.name = blenderMaterial.name
 
-        ms3dMaterial._ambient = tuple([
+        ms3dMaterial._ambient = (
                 blenderMaterial.diffuse_color[0],
                 blenderMaterial.diffuse_color[1],
                 blenderMaterial.diffuse_color[2],
                 blenderMaterial.ambient
-                ])
+                )
 
-        ms3dMaterial._diffuse = tuple([
+        ms3dMaterial._diffuse = (
                 blenderMaterial.diffuse_color[0],
                 blenderMaterial.diffuse_color[1],
                 blenderMaterial.diffuse_color[2],
                 blenderMaterial.diffuse_intensity
-                ])
+                )
 
-        ms3dMaterial._specular = tuple([
+        ms3dMaterial._specular = (
                 blenderMaterial.specular_color[0],
                 blenderMaterial.specular_color[1],
                 blenderMaterial.specular_color[2],
                 blenderMaterial.specular_intensity
-                ])
+                )
 
-        ms3dMaterial._emissive = tuple([
+        ms3dMaterial._emissive = (
                 blenderMaterial.diffuse_color[0],
                 blenderMaterial.diffuse_color[1],
                 blenderMaterial.diffuse_color[2],
                 blenderMaterial.emit
-                ])
+                )
 
-        ms3dMaterial.shininess = blenderMaterial.specular_hardness
+        ms3dMaterial.shininess = blenderMaterial.specular_hardness / 2.0
+        if ms3dMaterial.shininess > 128:
+            ms3dMaterial.shininess = 128
+        if ms3dMaterial.shininess < 1:
+            ms3dMaterial.shininess = 1
 
         if (blenderMaterial.use_transparency):
             ms3dMaterial.transparency = blenderMaterial.alpha
@@ -565,11 +569,11 @@ class ExportMS3D(
         n2 = self.CreateNormal(matrixObject, v)
 
         # put the indices of ms3d-vertices!
-        ms3dTriangle._vertexIndices = tuple([
+        ms3dTriangle._vertexIndices = (
                 ms3dVertices.index(v0),
                 ms3dVertices.index(v1),
                 ms3dVertices.index(v2)
-                ])
+                )
 
         # put the normales
         ms3dTriangle._vertexNormals = (n0, n1, n2)
