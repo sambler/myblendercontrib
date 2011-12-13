@@ -89,7 +89,8 @@ todo:
 
 
 changelog:
-changed: (0, 3, 5, "beta (2011-12-12 00:00)"),
+changed: (0, 3, 5, "beta (2011-12-13 00:00)"),
+fix: division by zero in importer
 mod: import armature bones (head-tail to tail-head + additional post process to connect for better auto IK handling)
 add: import bones and joints with armature modifier
 mod: changed mesh generation (take only used vertices, instead of take all vertices and delete deserted in an extra pass)

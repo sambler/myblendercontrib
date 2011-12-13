@@ -266,8 +266,10 @@ class ImportMS3D(
 
                 if self.prop_animation:
                     bpy.context.scene.render.fps = ms3dTemplate.fAnimationFPS
-                    bpy.context.scene.render.fps_base = (bpy.context.scene.render.fps
-                            / ms3dTemplate.fAnimationFPS)
+                    if ms3dTemplate.fAnimationFPS:
+                        bpy.context.scene.render.fps_base = (
+                                bpy.context.scene.render.fps /
+                                ms3dTemplate.fAnimationFPS)
                     bpy.context.scene.frame_start = 1
                     bpy.context.scene.frame_end = (ms3dTemplate.iTotalFrames
                             + bpy.context.scene.frame_start) - 1
