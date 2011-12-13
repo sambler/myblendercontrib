@@ -67,9 +67,7 @@ class ExportMS3D(
         bpy.types.Operator,
         bpy_extras.io_utils.ExportHelper
         ):
-    """
-    Save a MilkShape3D MS3D File
-    """
+    """Save a MilkShape3D MS3D File"""
 
     bl_idname = "io_scene_ms3d.ms3d_export"
     bl_label = "Export MS3D"
@@ -80,65 +78,65 @@ class ExportMS3D(
 
     filename_ext = ms3d_utils.FILE_EXT
     filter_glob = bpy.props.StringProperty(
-            default = ms3d_utils.FILE_FILTER,
-            options = {'HIDDEN'}
+            default=ms3d_utils.FILE_FILTER,
+            options={'HIDDEN'}
             )
 
     filepath = bpy.props.StringProperty(subtype='FILE_PATH')
 
     prop_verbose = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_VERBOSE,
-            description = ms3d_utils.PROP_DESC_VERBOSE,
-            default = ms3d_utils.PROP_DEFAULT_VERBOSE,
-            options = ms3d_utils.PROP_OPT_VERBOSE,
+            name=ms3d_utils.PROP_NAME_VERBOSE,
+            description=ms3d_utils.PROP_DESC_VERBOSE,
+            default=ms3d_utils.PROP_DEFAULT_VERBOSE,
+            options=ms3d_utils.PROP_OPT_VERBOSE,
             )
 
     prop_coordinate_system = EnumProperty(
-            name = ms3d_utils.PROP_NAME_COORDINATESYSTEM,
-            description = ms3d_utils.PROP_DESC_COORDINATESYSTEM,
-            items = ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
-            default = ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_EXP,
-            options = ms3d_utils.PROP_OPT_COORDINATESYSTEM,
+            name=ms3d_utils.PROP_NAME_COORDINATESYSTEM,
+            description=ms3d_utils.PROP_DESC_COORDINATESYSTEM,
+            items=ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
+            default=ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_EXP,
+            options=ms3d_utils.PROP_OPT_COORDINATESYSTEM,
             )
 
     prop_scale = FloatProperty(
-            name = ms3d_utils.PROP_NAME_SCALE,
-            description = ms3d_utils.PROP_DESC_SCALE,
-            default = 1.0 / ms3d_utils.PROP_DEFAULT_SCALE,
-            min = ms3d_utils.PROP_MIN_SCALE,
-            max = ms3d_utils.PROP_MAX_SCALE,
-            soft_min = ms3d_utils.PROP_SMIN_SCALE,
-            soft_max = ms3d_utils.PROP_SMAX_SCALE,
-            options = ms3d_utils.PROP_OPT_SCALE,
+            name=ms3d_utils.PROP_NAME_SCALE,
+            description=ms3d_utils.PROP_DESC_SCALE,
+            default=1.0 / ms3d_utils.PROP_DEFAULT_SCALE,
+            min=ms3d_utils.PROP_MIN_SCALE,
+            max=ms3d_utils.PROP_MAX_SCALE,
+            soft_min=ms3d_utils.PROP_SMIN_SCALE,
+            soft_max=ms3d_utils.PROP_SMAX_SCALE,
+            options=ms3d_utils.PROP_OPT_SCALE,
             )
 
     prop_objects = EnumProperty(
-            name = ms3d_utils.PROP_NAME_OBJECTS_EXP,
-            description = ms3d_utils.PROP_DESC_OBJECTS_EXP,
-            items = ms3d_utils.PROP_ITEMS_OBJECTS_EXP,
-            default = ms3d_utils.PROP_DEFAULT_OBJECTS_EXP,
-            options = ms3d_utils.PROP_OPT_OBJECTS_EXP,
+            name=ms3d_utils.PROP_NAME_OBJECTS_EXP,
+            description=ms3d_utils.PROP_DESC_OBJECTS_EXP,
+            items=ms3d_utils.PROP_ITEMS_OBJECTS_EXP,
+            default=ms3d_utils.PROP_DEFAULT_OBJECTS_EXP,
+            options=ms3d_utils.PROP_OPT_OBJECTS_EXP,
             )
 
     prop_selected = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_SELECTED,
-            description = ms3d_utils.PROP_DESC_SELECTED,
-            default = ms3d_utils.PROP_DEFAULT_SELECTED,
-            options = ms3d_utils.PROP_OPT_SELECTED,
+            name=ms3d_utils.PROP_NAME_SELECTED,
+            description=ms3d_utils.PROP_DESC_SELECTED,
+            default=ms3d_utils.PROP_DEFAULT_SELECTED,
+            options=ms3d_utils.PROP_OPT_SELECTED,
             )
 
     prop_animation = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_ANIMATION,
-            description = ms3d_utils.PROP_DESC_ANIMATION,
-            default = ms3d_utils.PROP_DEFAULT_ANIMATION,
-            options = ms3d_utils.PROP_OPT_ANIMATION,
+            name=ms3d_utils.PROP_NAME_ANIMATION,
+            description=ms3d_utils.PROP_DESC_ANIMATION,
+            default=ms3d_utils.PROP_DEFAULT_ANIMATION,
+            options=ms3d_utils.PROP_OPT_ANIMATION,
             )
 
     prop_animation_fp = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_ANIMATION_FP,
-            description = ms3d_utils.PROP_DESC_ANIMATION_FP,
-            default = ms3d_utils.PROP_DEFAULT_ANIMATION_FP,
-            options = ms3d_utils.PROP_OPT_ANIMATION_FP,
+            name=ms3d_utils.PROP_NAME_ANIMATION_FP,
+            description=ms3d_utils.PROP_DESC_ANIMATION_FP,
+            default=ms3d_utils.PROP_DEFAULT_ANIMATION_FP,
+            options=ms3d_utils.PROP_OPT_ANIMATION_FP,
             )
 
 
@@ -149,9 +147,7 @@ class ExportMS3D(
 
     # entrypoint for blender -> MS3D
     def execute(self, blenderContext):
-        """
-        start executing
-        """
+        """start executing"""
         return self.WriteMs3d(blenderContext)
 
     #
@@ -163,9 +159,7 @@ class ExportMS3D(
     # fill ms3dTemplate with blender content
     # writer ms3d file
     def WriteMs3d(self, blenderContext):
-        """
-        convert bender content to ms3d content and write it to file
-        """
+        """convert bender content to ms3d content and write it to file"""
 
         t1 = time.time()
         t2 = None
@@ -215,8 +209,7 @@ class ExportMS3D(
 
     ###########################################################################
     def Ms3dFromBlender(self, blenderContext, ms3dTemplate):
-        """
-        known limitations:
+        """ known limitations:
             - bones unsupported yet
             - joints unsupported yet
             - very bad performance
@@ -224,8 +217,7 @@ class ExportMS3D(
         notes:
             - interpreating a blender-mesh-objects as ms3d-group
             - only one material allowed per group in ms3d,
-              maybe sub-split a mesh in to material groups???
-        """
+              maybe sub-split a mesh in to material groups???"""
 
         blender = blenderContext.blend_data
 
@@ -614,10 +606,8 @@ class ExportMS3D(
 
     ###########################################################################
     def CreateVertex(self,  matrixObject, blenderVertex):
-        """
-        known limitations:
-            - boneId not supported
-        """
+        """ known limitations:
+            - boneId not supported """
         ms3dVertex = ms3d_spec.ms3d_vertex_t()
 
         if (blenderVertex.select):
@@ -641,7 +631,6 @@ class ExportMS3D(
 
     ###########################################################################
     def GenerateSmoothGroups(self, blenderContext, ms3dTemplate, blenderFaces):
-
         ms3d_utils.EnableEditMode(True)
 
         # enable face-selection-mode
@@ -653,15 +642,17 @@ class ExportMS3D(
         # enable object-mode (important for face.select = value)
         ms3d_utils.EnableEditMode(False)
 
-        smoothGroupFaces = {}
-        smoothGroup = 0
+        handledFacesSet = set()
+        smoothGroupVertices = {}
+
+        blenderVertices = blenderContext.active_object.data.vertices
 
         # run throug the faces
         # mark linked faces and set its smoothGroup value
         nFaces = len(blenderFaces)
 
         for iFace in range(nFaces):
-            if (blenderFaces[iFace].select):
+            if (blenderFaces[iFace].select) or (iFace in handledFacesSet):
                 continue
 
             # a new unhandled face found
@@ -674,14 +665,65 @@ class ExportMS3D(
 
             ms3d_utils.EnableEditMode(False)
 
+            # build a set of vertices hashes
+            currentFaceSet = set()
+            currentVertexSet = set()
             for iiFace in range(nFaces):
-                if (blenderFaces[iiFace].select):
-                    if (iiFace not in smoothGroupFaces):
-                        smoothGroupFaces[iiFace] = smoothGroup
+                if ((blenderFaces[iiFace].select)
+                        and (iiFace not in handledFacesSet)):
+                    handledFacesSet.add(iiFace)
+                    currentFaceSet.add(iiFace)
 
-            smoothGroup += 1
-            if (smoothGroup > ms3d_spec.MAX_SMOOTH_GROUP):
-                smoothGroup = 1
+                    iVertex = blenderFaces[iiFace].vertices[0]
+                    mathVector = blenderVertices[iVertex].co
+                    currentVertexSet.add(
+                            hash(mathVector[0])
+                            ^ hash(mathVector[1])
+                            ^ hash(mathVector[2]))
+
+                    iVertex = blenderFaces[iiFace].vertices[1]
+                    mathVector = blenderVertices[iVertex].co
+                    currentVertexSet.add(
+                            hash(mathVector[0])
+                            ^ hash(mathVector[1])
+                            ^ hash(mathVector[2]))
+
+                    iVertex = blenderFaces[iiFace].vertices[2]
+                    mathVector = blenderVertices[iVertex].co
+                    currentVertexSet.add(
+                            hash(mathVector[0])
+                            ^ hash(mathVector[1])
+                            ^ hash(mathVector[2]))
+
+                    if(len(blenderFaces[iiFace].vertices) == 4):
+                        iVertex = blenderFaces[iiFace].vertices[3]
+                        mathVector = blenderVertices[iVertex].co
+                        currentVertexSet.add(
+                                hash(mathVector[0])
+                                ^ hash(mathVector[1])
+                                ^ hash(mathVector[2]))
+
+            # search for collision set
+            reused_smoothgroup = False
+            for iSmoothGroup in smoothGroupVertices:
+                smoothVertexSet = smoothGroupVertices[iSmoothGroup][1]
+                intersectionVertexSet = currentVertexSet & smoothVertexSet
+                if(len(intersectionVertexSet) == 0):
+                    # no shared vertices, you can use that smoothgroup without collision
+                    item = smoothGroupVertices[iSmoothGroup]
+                    item[0] |= currentFaceSet
+                    item[1] |= currentVertexSet
+                    reused_smoothgroup = True
+                    break
+
+            if not reused_smoothgroup:
+                smoothGroupVertices[len(smoothGroupVertices)] = [currentFaceSet, currentVertexSet]
+
+        # put result to a smoothGroupFaces dictionary
+        smoothGroupFaces = {}
+        for iSmoothGroup in smoothGroupVertices:
+            for iFace in smoothGroupVertices[iSmoothGroup][0]:
+                smoothGroupFaces[iFace] = iSmoothGroup
 
         return smoothGroupFaces
 

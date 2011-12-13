@@ -89,7 +89,9 @@ todo:
 
 
 changelog:
-changed: (0, 3, 5, "beta (2011-12-13 00:00)"),
+changed: (0, 3, 6, "beta (2011-12-13 00:00)"),
+mod: exporter use an other logic to reduces the total number of smooth groups
+mod: correct "version" and "blender" in __init__.py
 fix: division by zero in importer
 mod: import armature bones (head-tail to tail-head + additional post process to connect for better auto IK handling)
 add: import bones and joints with armature modifier

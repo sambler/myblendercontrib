@@ -213,7 +213,7 @@ PROP_OPT_ANIMATION = {OPT_ANIMATABLE}
 PROP_NAME_ANIMATION_FP = "Generate FuturePinball Script **)"
 PROP_DESC_ANIMATION_FP = "Generates an animation script for FuturePinball and"\
         " exports bones as separate file"
-PROP_DEFAULT_ANIMATION_FP= False
+PROP_DEFAULT_ANIMATION_FP = False
 PROP_OPT_ANIMATION_FP = {OPT_ANIMATABLE}
 
 
@@ -377,7 +377,6 @@ def PreSetupEnvironment(porterSelf):
     # inject activeObject to self
     porterSelf.activeObject = bpy.context.scene.objects.active
 
-
     # change to a well defined mode
     EnableEditMode(True)
 
@@ -409,7 +408,6 @@ def PostSetupEnvironment(porterSelf, adjustView):
         bpy.context.scene.unit_settings.use_separate = False
         bpy.context.tool_settings.normal_size = 1.0 # 1.0mm
 
-
         # set all 3D views to texture shaded
         # and set up the clipping
         for screen in bpy.context.blend_data.screens:
@@ -426,7 +424,6 @@ def PostSetupEnvironment(porterSelf, adjustView):
                     space.show_textured_solid = True
                     space.clip_start = 0.1 # 0.1mm
                     space.clip_end = 1000000.0 # 1km
-
 
     bpy.context.scene.update()
 

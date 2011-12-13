@@ -75,7 +75,6 @@ def hashStr(obj):
 
 PROP_NAME_HASH = "import_hash"
 PROP_NAME_SMOOTH_GROUP = "smoothingGroup{0}"
-PROP_NAME_BONE_ID = "boneId{0}"
 
 
 ###############################################################################
@@ -84,9 +83,7 @@ class ImportMS3D(
         bpy.types.Operator,
         bpy_extras.io_utils.ImportHelper
         ):
-    """
-    Load a MilkShape3D MS3D File
-    """
+    """ Load a MilkShape3D MS3D File """
 
     bl_idname = "io_scene_ms3d.ms3d_import"
     bl_label = "Import MS3D"
@@ -97,66 +94,66 @@ class ImportMS3D(
 
     filename_ext = ms3d_utils.FILE_EXT
     filter_glob = bpy.props.StringProperty(
-            default = ms3d_utils.FILE_FILTER,
-            options = {'HIDDEN'}
+            default=ms3d_utils.FILE_FILTER,
+            options={'HIDDEN'}
             )
 
     filepath = bpy.props.StringProperty(subtype='FILE_PATH')
 
     prop_verbose = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_VERBOSE,
-            description = ms3d_utils.PROP_DESC_VERBOSE,
-            default = ms3d_utils.PROP_DEFAULT_VERBOSE,
-            options = ms3d_utils.PROP_OPT_VERBOSE,
+            name=ms3d_utils.PROP_NAME_VERBOSE,
+            description=ms3d_utils.PROP_DESC_VERBOSE,
+            default=ms3d_utils.PROP_DEFAULT_VERBOSE,
+            options=ms3d_utils.PROP_OPT_VERBOSE,
             )
 
     prop_coordinate_system = EnumProperty(
-            name = ms3d_utils.PROP_NAME_COORDINATESYSTEM,
-            description = ms3d_utils.PROP_DESC_COORDINATESYSTEM,
-            items = ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
-            default = ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_IMP,
-            options = ms3d_utils.PROP_OPT_COORDINATESYSTEM,
+            name=ms3d_utils.PROP_NAME_COORDINATESYSTEM,
+            description=ms3d_utils.PROP_DESC_COORDINATESYSTEM,
+            items=ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
+            default=ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_IMP,
+            options=ms3d_utils.PROP_OPT_COORDINATESYSTEM,
             )
 
     prop_scale = FloatProperty(
-            name = ms3d_utils.PROP_NAME_SCALE,
-            description = ms3d_utils.PROP_DESC_SCALE,
-            default = ms3d_utils.PROP_DEFAULT_SCALE,
-            min = ms3d_utils.PROP_MIN_SCALE,
-            max = ms3d_utils.PROP_MAX_SCALE,
-            soft_min = ms3d_utils.PROP_SMIN_SCALE,
-            soft_max = ms3d_utils.PROP_SMAX_SCALE,
-            options = ms3d_utils.PROP_OPT_SCALE,
+            name=ms3d_utils.PROP_NAME_SCALE,
+            description=ms3d_utils.PROP_DESC_SCALE,
+            default=ms3d_utils.PROP_DEFAULT_SCALE,
+            min=ms3d_utils.PROP_MIN_SCALE,
+            max=ms3d_utils.PROP_MAX_SCALE,
+            soft_min=ms3d_utils.PROP_SMIN_SCALE,
+            soft_max=ms3d_utils.PROP_SMAX_SCALE,
+            options=ms3d_utils.PROP_OPT_SCALE,
             )
 
     prop_unit_mm = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_UNIT_MM,
-            description = ms3d_utils.PROP_DESC_UNIT_MM,
-            default = ms3d_utils.PROP_DEFAULT_UNIT_MM,
-            options = ms3d_utils.PROP_OPT_UNIT_MM,
+            name=ms3d_utils.PROP_NAME_UNIT_MM,
+            description=ms3d_utils.PROP_DESC_UNIT_MM,
+            default=ms3d_utils.PROP_DEFAULT_UNIT_MM,
+            options=ms3d_utils.PROP_OPT_UNIT_MM,
             )
 
     prop_objects = EnumProperty(
-            name = ms3d_utils.PROP_NAME_OBJECTS_IMP,
-            description = ms3d_utils.PROP_DESC_OBJECTS_IMP,
-            items = ms3d_utils.PROP_ITEMS_OBJECTS_IMP,
-            default = ms3d_utils.PROP_DEFAULT_OBJECTS_IMP,
-            options = ms3d_utils.PROP_OPT_OBJECTS_IMP,
+            name=ms3d_utils.PROP_NAME_OBJECTS_IMP,
+            description=ms3d_utils.PROP_DESC_OBJECTS_IMP,
+            items=ms3d_utils.PROP_ITEMS_OBJECTS_IMP,
+            default=ms3d_utils.PROP_DEFAULT_OBJECTS_IMP,
+            options=ms3d_utils.PROP_OPT_OBJECTS_IMP,
             )
 
     prop_animation = bpy.props.BoolProperty(
-            name = ms3d_utils.PROP_NAME_ANIMATION,
-            description = ms3d_utils.PROP_DESC_ANIMATION,
-            default = ms3d_utils.PROP_DEFAULT_ANIMATION,
-            options = ms3d_utils.PROP_OPT_ANIMATION,
+            name=ms3d_utils.PROP_NAME_ANIMATION,
+            description=ms3d_utils.PROP_DESC_ANIMATION,
+            default=ms3d_utils.PROP_DEFAULT_ANIMATION,
+            options=ms3d_utils.PROP_OPT_ANIMATION,
             )
 
     prop_reuse = EnumProperty(
-            name = ms3d_utils.PROP_NAME_REUSE,
-            description = ms3d_utils.PROP_DESC_REUSE,
-            items = ms3d_utils.PROP_ITEMS_REUSE,
-            default = ms3d_utils.PROP_DEFAULT_REUSE,
-            options = ms3d_utils.PROP_OPT_REUSE,
+            name=ms3d_utils.PROP_NAME_REUSE,
+            description=ms3d_utils.PROP_DESC_REUSE,
+            items=ms3d_utils.PROP_ITEMS_REUSE,
+            default=ms3d_utils.PROP_DEFAULT_REUSE,
+            options=ms3d_utils.PROP_OPT_REUSE,
             )
 
 
@@ -167,9 +164,7 @@ class ImportMS3D(
 
     # entrypoint for MS3D -> blender
     def execute(self, blenderContext):
-        """
-        start executing
-        """
+        """ start executing """
         return self.ReadMs3d(blenderContext)
 
     def invoke(self, blenderContext, event):
@@ -180,9 +175,7 @@ class ImportMS3D(
     # read ms3d file
     # fill blender with ms3dTemplate content
     def ReadMs3d(self, blenderContext):
-        """
-        read ms3d file and convert ms3d content to bender content
-        """
+        """ read ms3d file and convert ms3d content to bender content """
 
         t1 = time.time()
         t2 = None
@@ -247,7 +240,6 @@ class ImportMS3D(
 
     ###########################################################################
     def BlenderFromMs3d(self, blenderContext, ms3dTemplate):
-
         isValid, statistics = ms3dTemplate.isValid()
 
         if (self.prop_verbose):
@@ -273,7 +265,8 @@ class ImportMS3D(
                     bpy.context.scene.frame_start = 1
                     bpy.context.scene.frame_end = (ms3dTemplate.iTotalFrames
                             + bpy.context.scene.frame_start) - 1
-                    bpy.context.scene.frame_current = (ms3dTemplate.fCurrentTime
+                    bpy.context.scene.frame_current = (
+                            ms3dTemplate.fCurrentTime
                             * bpy.context.scene.render.fps)
 
             for ms3dGroupIndex, ms3dGroup in enumerate(ms3dTemplate.groups):
@@ -420,7 +413,8 @@ class ImportMS3D(
                         * matrixRotation)
 
             if matrixRotation is not None:
-                mathRollVector = mathutils.Vector((0.0, 0.0, 1.0)) * matrixRotation
+                mathRollVector = (mathutils.Vector((0.0, 0.0, 1.0))
+                        * matrixRotation)
                 boneItem[3] = mathRollVector
 
         # an adjustment pass
@@ -682,12 +676,10 @@ class ImportMS3D(
     ###########################################################################
     def GenerateSmoothGroups(self, blenderContext, ms3dTemplate, ms3dGroup,
             blenderFaces):
-        """
-        split faces of a smoothingGroup.
-        it will preserve the UVs and materials.
+        """ split faces of a smoothingGroup.
+            it will preserve the UVs and materials.
 
-        SIDE-EFFECT: it will change the order of faces!
-        """
+            SIDE-EFFECT: it will change the order of faces! """
 
         # smooth mesh to see its smoothed region
         if bpy.ops.object.shade_smooth.poll():
