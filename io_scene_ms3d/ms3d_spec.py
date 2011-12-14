@@ -51,6 +51,7 @@ PROP_NAME_EXTRA = "extra"
 PROP_NAME_COMMENT = "comment"
 PROP_NAME_AMBIENT = "ambient"
 PROP_NAME_EMISSIVE = "emissive"
+PROP_NAME_COLOR = "color"
 
 #
 #
@@ -693,8 +694,6 @@ class ms3d_material_t:
 
     def __hash__(self):
         return (hash(self.name)
-                ^ hash(self.texture)
-                ^ hash(self.alphamap)
 
                 ^ hash(self.ambient)
                 ^ hash(self.diffuse)
@@ -703,12 +702,16 @@ class ms3d_material_t:
 
                 ^ hash(self.shininess)
                 ^ hash(self.transparency)
-                ^ hash(self.mode))
+                ^ hash(self.mode)
+
+                ^ hash(self.texture)
+                ^ hash(self.alphamap)
+                )
 
     def __eq__(self, other):
         return ((self.name == other.name)
 
-        and (self.ambient == other.ambient)
+                and (self.ambient == other.ambient)
                 and (self.diffuse == other.diffuse)
                 and (self.specular == other.specular)
                 and (self.emissive == other.emissive)
@@ -2206,6 +2209,36 @@ class ms3d_file_t:
             for item in items:
                 if item.name == key:
                     return item
+
+        elif isinstance(key, ms3d_spec.ms3d_vertex_t):
+            if (key.boneId >= 0) and (key.boneId < self.nNumJoints):
+                return item[key.boneId]
+
+        return None
+
+
+    def get_joint_ex_by_key(self, key):
+        if key is None:
+            return None
+
+        items = self.joint_ex
+
+        if items is None:
+            return None
+
+        elif isinstance(key, int):
+            if (key >= 0) and (key < self.nNumJoints):
+                return items[key]
+
+        elif isinstance(key, string):
+            for i, item in enumerate(self.joints):
+                if item.name == key:
+                    return items[i]
+
+        elif isinstance(key, ms3d_spec.ms3d_joint_t):
+            for i, item in enumerate(self.joints):
+                if item.name == key.name:
+                    return items[i]
 
         elif isinstance(key, ms3d_spec.ms3d_vertex_t):
             if (key.boneId >= 0) and (key.boneId < self.nNumJoints):

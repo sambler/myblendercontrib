@@ -70,8 +70,6 @@ ms3d_utils.py       : most of the strings used in the addon to have a central po
 
 known issues:
   importer issues:
-    - does not import bones
-    - does not import joints
     - does not import keyframes
 
   exporter issues:
@@ -85,12 +83,20 @@ known issues:
 
 todo:
 - change internal data structure for more performance on searching vertex indices and double vertices
-- add support for bones and joints
+- add support for bones and joints in exporter
 - add support for keyframes
 
 
 
 changelog:
+changed: (0, 3, 6, "beta (2011-12-13 00:00)"),
+mod: exporter use an other logic to reduces the total number of smooth groups
+mod: correct "version" and "blender" in __init__.py
+fix: division by zero in importer
+mod: import armature bones (head-tail to tail-head + additional post process to connect for better auto IK handling)
+add: import bones and joints with armature modifier
+mod: changed mesh generation (take only used vertices, instead of take all vertices and delete deserted in an extra pass)
+
 changed: (0, 3, 4, "beta (2011-12-09 00:00)"),
 fix: exporter forgot to change changed vertex_ex handling in ms3d_exporter.py
 add: importer adds ms3d_flags custom properties for some objects

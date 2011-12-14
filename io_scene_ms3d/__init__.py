@@ -56,8 +56,8 @@ bl_info = {
         "description":  "Import / Export MilkShape3D MS3D files"
                 " (conform with v1.8.4)",
         "author": "Alexander Nussbaumer",
-        "version": (0, 3, 4, "beta (2011-12-09 00:00)"),
-        "blender": (2, 6, 0),
+        "version": (0, 3, 6),
+        "blender": (2, 60, 0),
         "api": 41226,
         "location": "File > Import-Export",
         "warning": "imports and exports only geometry and material of ms3d"\
@@ -75,14 +75,14 @@ bl_info = {
 def menu_func_import(self, context):
     self.layout.operator(
             ms3d_import.ImportMS3D.bl_idname,
-            text = ms3d_utils.TEXT_OPERATOR
+            text=ms3d_utils.TEXT_OPERATOR
             )
 
 
 def menu_func_export(self, context):
     self.layout.operator(
             ms3d_export.ExportMS3D.bl_idname,
-            text = ms3d_utils.TEXT_OPERATOR
+            text=ms3d_utils.TEXT_OPERATOR
             )
 
 

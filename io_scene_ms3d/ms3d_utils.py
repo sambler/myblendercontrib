@@ -172,7 +172,7 @@ PROP_ITEMS_OBJECTS_IMP = (
         (PROP_ITEM_OBJECT_MATERIAL, "Materials", "ambient, diffuse, specular,"\
                 " emissive, shininess, transparency, diffuse texture,"\
                 " alpha texture"),
-        (PROP_ITEM_OBJECT_JOINT, "Joints *)", "joints, bones"),
+        (PROP_ITEM_OBJECT_JOINT, "Joints", "joints, bones"),
         #(PROP_ITEM_OBJECT_ANIMATION, "Animation **)", "keyframes"),
         (PROP_ITEM_OBJECT_SMOOTHGROUPS, "Smoothing Groups", "split mesh faces"\
                 " according its smoothing groups"),
@@ -205,7 +205,7 @@ PROP_OPT_OBJECTS_EXP = {OPT_ENUM_FLAG}
 ###############################################################################
 PROP_NAME_ANIMATION = "Animation **)"
 PROP_DESC_ANIMATION = "keyframes (rotations, positions)"
-PROP_DEFAULT_ANIMATION = False
+PROP_DEFAULT_ANIMATION = True
 PROP_OPT_ANIMATION = {OPT_ANIMATABLE}
 
 
@@ -213,7 +213,7 @@ PROP_OPT_ANIMATION = {OPT_ANIMATABLE}
 PROP_NAME_ANIMATION_FP = "Generate FuturePinball Script **)"
 PROP_DESC_ANIMATION_FP = "Generates an animation script for FuturePinball and"\
         " exports bones as separate file"
-PROP_DEFAULT_ANIMATION_FP= True
+PROP_DEFAULT_ANIMATION_FP = False
 PROP_OPT_ANIMATION_FP = {OPT_ANIMATABLE}
 
 
@@ -246,8 +246,6 @@ def SetupMenuImport(self, layout):
     box.prop(self, "prop_objects", icon='MESH_DATA', expand=True)
 
     if (PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-        box.label(REMARKS_1, icon='ERROR')
-
         box = layout.box()
         box.label(LABEL_NAME_ANIMATION, icon=LABEL_ICON_ANIMATION)
         box.prop(self, "prop_animation")
@@ -379,7 +377,6 @@ def PreSetupEnvironment(porterSelf):
     # inject activeObject to self
     porterSelf.activeObject = bpy.context.scene.objects.active
 
-
     # change to a well defined mode
     EnableEditMode(True)
 
@@ -411,7 +408,6 @@ def PostSetupEnvironment(porterSelf, adjustView):
         bpy.context.scene.unit_settings.use_separate = False
         bpy.context.tool_settings.normal_size = 1.0 # 1.0mm
 
-
         # set all 3D views to texture shaded
         # and set up the clipping
         for screen in bpy.context.blend_data.screens:
@@ -428,7 +424,6 @@ def PostSetupEnvironment(porterSelf, adjustView):
                     space.show_textured_solid = True
                     space.clip_start = 0.1 # 0.1mm
                     space.clip_end = 1000000.0 # 1km
-
 
     bpy.context.scene.update()
 
