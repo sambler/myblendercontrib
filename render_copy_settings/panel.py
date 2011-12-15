@@ -19,6 +19,7 @@
 # <pep8 compliant>
 
 import bpy
+from . import presets
 
 
 class RENDER_PT_copy_settings(bpy.types.Panel):
@@ -42,46 +43,17 @@ class RENDER_PT_copy_settings(bpy.types.Panel):
 
         split = layout.split(0.75)
         split.template_list(cp_sett, "affected_settings", cp_sett, "aff_sett_idx",
-                            enum_ctrls_name="template_list_controls", rows=6)
+                            prop_list="template_list_controls", rows=6)
+
         col = split.column()
-        label = ""
-        if (cp_sett.affected_settings["resolution_x"].copy and
-            cp_sett.affected_settings["resolution_y"].copy and
-            cp_sett.affected_settings["pixel_aspect_x"].copy and
-            cp_sett.affected_settings["pixel_aspect_y"].copy):
-            label = "Clear Resolution"
-        else:
-            label = "Set Resolution"
-        col.operator("scene.render_copy_settings_preset", text=label, ).presets = {"resolution"}
-        if cp_sett.affected_settings["resolution_percentage"].copy:
-            label = "Clear Scale"
-        else:
-            label = "Set Scale"
-        col.operator("scene.render_copy_settings_preset", text=label).presets = {"scale"}
-        if (cp_sett.affected_settings["use_antialiasing"].copy and
-            cp_sett.affected_settings["antialiasing_samples"].copy):
-            label = "Clear OSA"
-        else:
-            label = "Set OSA"
-        col.operator("scene.render_copy_settings_preset", text=label).presets = {"osa"}
-        if (cp_sett.affected_settings["threads_mode"].copy and
-            cp_sett.affected_settings["threads"].copy):
-            label = "Clear Threads"
-        else:
-            label = "Set Threads"
-        col.operator("scene.render_copy_settings_preset", text=label).presets = {"threads"}
-        if (cp_sett.affected_settings["use_fields"].copy and
-            cp_sett.affected_settings["field_order"].copy and
-            cp_sett.affected_settings["use_fields_still"].copy):
-            label = "Clear Fields"
-        else:
-            label = "Set Fields"
-        col.operator("scene.render_copy_settings_preset", text=label).presets = {"fields"}
-        if cp_sett.affected_settings["use_stamp"].copy:
-            label = "Clear Stamp"
-        else:
-            label = "Set Stamp"
-        col.operator("scene.render_copy_settings_preset", text=label).presets = {"stamp"}
+        all_set = {sett.strid for sett in cp_sett.affected_settings if sett.copy}
+        for p in presets.presets:
+            label = ""
+            if p.elements & all_set == p.elements:
+                label = "Clear {}".format(p.ui_name)
+            else:
+                label = "Set {}".format(p.ui_name)
+            col.operator("scene.render_copy_settings_preset", text=label, ).presets = {p.rna_enum[0]}
 
         layout.prop(cp_sett, "filter_scene")
         if len(cp_sett.allowed_scenes):

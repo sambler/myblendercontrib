@@ -63,9 +63,9 @@
 bl_info = {
     "name": "Copy Settings",
     "author": "Bastien Montagne",
-    "version": (0, 1, 3),
-    "blender": (2, 5, 9),
-    "api": 36380,
+    "version": (0, 1, 4),
+    "blender": (2, 6, 1),
+    "api": 42648,
     "location": "Render buttons (Properties window)",
     "description": "Allows to copy a selection of render settings from current scene to others.",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
@@ -100,6 +100,7 @@ class RenderCopySettingsScene(bpy.types.PropertyGroup):
 
 
 class RenderCopySettingsSetting(bpy.types.PropertyGroup):
+    strid = StringProperty(default="")
     copy = BoolProperty(default=False)
 
     # A string of identifiers (colon delimited) which property’s controls should be displayed
