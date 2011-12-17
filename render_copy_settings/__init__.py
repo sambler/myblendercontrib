@@ -113,7 +113,7 @@ class RenderCopySettings(bpy.types.PropertyGroup):
     #      It should only contain one element for each render setting.
     affected_settings = CollectionProperty(type=RenderCopySettingsSetting,
                                            name="Affected Settings",
-                                           description="The list of all available render settings.")
+                                           description="The list of all available render settings")
     # XXX Unused, but needed for template_list…
     aff_sett_idx = IntProperty()
 
@@ -121,12 +121,12 @@ class RenderCopySettings(bpy.types.PropertyGroup):
     #      It should only contain one element for each scene.
     allowed_scenes = CollectionProperty(type=RenderCopySettingsScene,
                                         name="Allowed Scenes",
-                                        description="The list all scenes in the file.")
+                                        description="The list all scenes in the file")
     # XXX Unused, but needed for template_list…
     allw_scenes_idx = IntProperty()
 
     filter_scene = StringProperty(name="Filter Scene",
-                                  description="Regex to only affect scenes which name matches it.",
+                                  description="Regex to only affect scenes which name matches it",
                                   default="")
 
 
