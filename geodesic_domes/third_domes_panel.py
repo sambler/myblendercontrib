@@ -92,9 +92,9 @@ class GenerateGeodesicDome(bpy.types.Operator):
 #    faceimporttoggle = BoolProperty(name="faceimporttoggle", default = False )
     face_use_imported_object = BoolProperty(name="Use: Imported Object",\
                 description = "Activate faces on your Imported object",	default = False)
-    facewidth = FloatProperty(name="facewidth", min = -1, soft_min = 0.001,  max = 4, default = .50)
+    facewidth = FloatProperty(name="facewidth", min = -8,   max = 8, default = .50)
     fwtog = BoolProperty(name="fwtog", default = False )
-    faceheight = FloatProperty(name="faceheight", min = 0.001, max = 4, default = 1 )
+    faceheight = FloatProperty(name="faceheight", min = -8, max = 8, default = 1 )
     fhtog = BoolProperty(name="fhtog", default = False )
     face_detach = BoolProperty(name="face_detach", default = False )
     fmeshname = StringProperty(name="fmeshname", default = "defaultface")
@@ -173,7 +173,7 @@ class GenerateGeodesicDome(bpy.types.Operator):
               description = "scale in z direction", default = 1 )    
     cyxell= FloatProperty(name="Stretch x",  min = 0.001, max = 4,\
               description = "stretch in x direction", default = 1 )
-    cygap= FloatProperty(name="Gap",  min = -2, max = 2,\
+    cygap= FloatProperty(name="Gap",  min = -2, max = 2, precision = 4,\
               description = "shrink in % around radius", default = 1 )
     cygphase= FloatProperty(name="Phase", min = -4, max = 4,\
               description = "rotate around pivot x/y", default = 0 )
@@ -189,7 +189,7 @@ class GenerateGeodesicDome(bpy.types.Operator):
     paxell= FloatProperty(name="Stretch x", min = 0.001, max = 4,\
            description = "stretch in x direction",	default = 1 )
     pagap= FloatProperty(name="Gap", min = -2, max = 2,\
-           description = "shrink in % around radius",	default = 1 )
+           description = "shrink in % around radius", precision = 4, default = 1 )
     pagphase= FloatProperty(name="Phase", min = -4, max = 4,\
            description = "rotate around pivot x/y",	default = 0 )
 #Torus            
@@ -205,13 +205,13 @@ class GenerateGeodesicDome(bpy.types.Operator):
             description = "number of faces in z direction",	default = 1 )
     vellipse= FloatProperty(name="Stretch z", min = 0.001, max = 10,\
             description = "number of faces in z direction",	default = 1 )
-    upart= FloatProperty(name="Gap x/y", min = -4, max = 4,\
+    upart= FloatProperty(name="Gap x/y", min = -4, max = 4, precision = 4,\
             description = "shrink faces around x/y",	default = 1 )
-    vpart= FloatProperty(name="Gap z", min = -4, max = 4,\
+    vpart= FloatProperty(name="Gap z", min = -4, max = 4,  precision = 4,\
             description = "shrink faces in z direction",	default = 1 )
-    ugap= FloatProperty(name="Phase x/y",  min = -4, max = 4,\
+    ugap= FloatProperty(name="Phase x/y",  min = -4, max = 4, precision = 4,\
            description = "rotate around pivot x/y", default = 0 )
-    vgap= FloatProperty(name="Phase z",  min = -4, max = 4,\
+    vgap= FloatProperty(name="Phase z",  min = -4, max = 4, precision = 4,\
            description = "rotate around pivot z", default = 0 )
     uphase= FloatProperty(name="uphase", min = -4, max = 4,\
             description = "number of faces in z direction",	default = 0 )
@@ -237,9 +237,9 @@ class GenerateGeodesicDome(bpy.types.Operator):
             description = "number of faces in z direction",	default = 8 )
     burad= FloatProperty(name="Radius",  min = -4, max = 4,\
             description = "overall radius",	default = 1 )
-    bupart= FloatProperty(name="Gap x/y", min = -4, max = 4,\
+    bupart= FloatProperty(name="Gap x/y", min = -4, max = 4, precision = 4,\
             description = "shrink faces around x/y",	default = 1 )
-    bvpart= FloatProperty(name="Gap z", min = -4, max = 4,\
+    bvpart= FloatProperty(name="Gap z", min = -4, max = 4, precision = 4,\
             description = "shrink faces in z direction",	default = 1 )
     buphase= FloatProperty(name="Phase x/y",  min = -4, max = 4,
             description = "rotate around pivot x/y",	default = 0 )
@@ -309,7 +309,7 @@ class GenerateGeodesicDome(bpy.types.Operator):
     vb = FloatProperty(name = 'vb', min = 0, soft_min=0.1, soft_max=5,max = 10,\
                  description = "to do",	default =  1)
 
-    uturn = FloatProperty(name = 'uturn', min = 0, soft_min=0.1, soft_max=5,max = 10,\
+    uturn = FloatProperty(name = 'uturn', min = -5, soft_min=0, soft_max=5,max = 10,\
                  description = "to do",	default =  0)
     vturn = FloatProperty(name = 'vturn', min = 0, soft_min=0.1, soft_max=5,max = 10,\
                  description = "to do",	default =  0)
@@ -672,13 +672,14 @@ class GenerateGeodesicDome(bpy.types.Operator):
                         ui.label(text=el[y])
 
             box = layout.box() 
-            help_text = ["NEW!", 
-                "New facility: save or load (nearly all) parameters",
-                 "A file GD_0.GD will be used, living in:",
-                 "geodesic_domes/tmp",
+            help_text = ["NEW! ", 
+                "New facility: save or load (nearly all) parameters ",
+                 "A file GD_0.GD will be used, living in: ",
+                 "geodesic_domes/tmp ",
+                 "and if possible two backups "
                  "--------",
                  "After loading you have to change a ",
-                 "parameter back and forth"
+                 "parameter back and forth "
                  "to see it"]
             text_width = self.gd_help_text_width
             box.prop(self,"gd_help_text_width",slider=True)
@@ -862,7 +863,8 @@ class GenerateGeodesicDome(bpy.types.Operator):
                     if last_imported_mesh: 
                         faceobject = vefm_259.facetype(last_imported_mesh, facedata,self.facewidth,self.faceheight,self.fwtog)
                     else:
-                        message = "***ERROR***\nno imported message available\n" + "last geodesic used" 
+                        message = "***ERROR***\nno imported message available\n" + "last geodesic used"
+                        self.face_use_imported_object = False
                         context.scene.error_message = message
                         bpy.ops.object.dialog_operator('INVOKE_DEFAULT')
                         print("\n***ERROR*** no imported mesh available")
@@ -880,25 +882,51 @@ class GenerateGeodesicDome(bpy.types.Operator):
         if self.save_parameters:
             self.save_parameters = False
             try:
+                print("DBG L884")
+                message = ""
                 scriptpath = bpy.utils.script_paths()[0]
                 sep = os.path.sep
                 tmpdir = os.path.join(scriptpath,"addons", "geodesic_domes" , "tmp")
-#scriptpath + sep + "addons" + sep + "geodesic_domes" + sep + "tmp"                              
+#scriptpath + sep + "addons" + sep + "geodesic_domes" + sep + "tmp"
+                print("tmpdirL890 = ",tmpdir)
                 if not os.path.isdir(tmpdir):
-                    message = "***ERROR***\n" + tmpdir + "\nnot (yet) available"  
-                    
-                filename = tmpdir + sep + "GD_0.GD"
-#        self.read_file(filename)
-                try:
-                    self.write_params(filename)
-                    message = "***OK***\nparameters saved in\n" + filename
+                    message += "***ERROR***\n" + tmpdir + "\nnot (yet) available\n"
                     print(message)
-                except:
-                    message = "***ERRROR***\n" + "writing " + filename + "\nnot possible"
-                #bpy.context.scene.instant_filenames = filenames
-                
+                else:
+                    filename = tmpdir + sep + "GD_0.GD"
+                    filename_ren = tmpdir + sep + "GD_0.GD.bak"
+                    filename_ren2 = tmpdir + sep + "GD_0.GD.2bak"
+                    if os.path.isfile(filename_ren2):
+                        try:
+                            os.remove(filename_ren2)
+                            message = "***Info***\nGD_0.GD.2bak removed\n"
+                        except:
+                            message = "***ERROR***\n,GD_0.GD.2bak could not be removed\n"
+                        print(message)
+                    if os.path.isfile(filename_ren):
+                        try:
+                            os.rename(filename_ren,filename_ren2)
+                            message += "***INFO***\nGD_0.GD.bak renamed into GD_0.GD.2bak\n"
+                        except:
+                            message += "***Info***\nrenaming GD_0.GD.bak not possible\n"
+                    if os.path.isfile(filename):
+                        try:
+                            os.rename(filename,filename_ren)
+                            message += "***INFO***\nGD_0.GD renamed into GD_0.GD.bak\n"
+                        except:
+                            message += "***ERROR***\ncreation of GD_0.GD.bak not possible\n"
+                    try:
+                        print("DBG L921")
+                        self.write_params(filename)
+                        message += "***OK***\nparameters saved in\n" + filename
+                        print(message)
+                    except:
+                        message = "***ERRROR***\n" + "writing " + filename + "\nnot possible"
+                        print(message)                 
             except:
-                message = "***ERROR***\n Contakt PKHG, something wrong happened"
+                
+                message += "***ERROR***\n Contakt PKHG, something wrong happened"
+                print(message)
                 
             context.scene.error_message = message
             bpy.ops.object.dialog_operator('INVOKE_DEFAULT')
