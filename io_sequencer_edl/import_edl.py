@@ -1,4 +1,22 @@
-#!BPY
+# ##### BEGIN GPL LICENSE BLOCK #####
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ##### END GPL LICENSE BLOCK #####
+
+# <pep8 compliant>
  
 """
 Name: 'Video Sequence (.edl)...'
@@ -6,24 +24,6 @@ Blender: 248
 Group: 'Import'
 Tooltip: 'Load a CMX formatted EDL into the sequencer'
 """
-
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# Copyright (C) 2009: Campbell Barton, ideasman42@gmail.com
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# --------------------------------------------------------------------------
 
 class TimeCode(object):
 	'''
@@ -59,7 +59,7 @@ class TimeCode(object):
 			self.frame= int(text[3])
 			return self
 		else:
-			print 'ERROR: could not convert this into timecode "%s"' % test
+			print('ERROR: could not convert this into timecode "%s"' % test)
 			return self
 
 		
@@ -416,7 +416,7 @@ class EditList(object):
 				m2.read(line, fps)
 				edits_m2.append( m2 )
 			elif not line.split()[0].isdigit():
-				print 'Ignoring:', line
+				print('Ignoring:', line)
 			else:
 				self.edits.append( EditDecision(line, fps) )
 				edits_m2.append( self.edits[-1] )
@@ -458,7 +458,7 @@ class EditList(object):
 					# Note, docs say time should also match with edit start time
 					# but from final cut pro, this seems not to be the case
 					if not isinstance(edit, EditDecision):
-						print "ERROR!", 'M2 incorrect'
+						print("ERROR!", 'M2 incorrect')
 					else:
 						edit.m2 = item
 			
@@ -546,7 +546,7 @@ def apply_dissolve_ipo(mov, blendin):
 	len_disp = float(mov.endDisp - mov.startDisp)
 	
 	if len_disp <= 0.0:
-		print 'Error, strip is zero length'
+		print('Error, strip is zero length')
 		return
 	
 	mov.ipo= ipo= bpy.data.ipos.new("fade", "Sequence")
@@ -590,7 +590,7 @@ def load_edl(filename, reel_files, reel_offsets):
 	
 	prev_edit = None
 	for edit in edits:
-		print edit
+		print(edit)
 		frame_offset = reel_offsets[edit.reel]
 		
 		
@@ -650,7 +650,7 @@ def load_edl(filename, reel_files, reel_offsets):
 				
 				if edit.transition_duration:
 					if not prev_edit:
-						print "Error no previous strip"
+						print("Error no previous strip")
 					else:
 						new_end = rec_start + int(edit.transition_duration)
 						for other in prev_edit.custom_data:
