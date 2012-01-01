@@ -59,7 +59,11 @@ else:
 import bpy
 import bpy_extras.io_utils
 
-from bpy.props import *
+from bpy.props import (StringProperty,
+                       BoolProperty,
+                       EnumProperty,
+                       FloatProperty,
+                       )
 
 
 # registered entry point export
@@ -77,14 +81,14 @@ class ExportMS3D(
     bl_region_type = 'WINDOW'
 
     filename_ext = ms3d_utils.FILE_EXT
-    filter_glob = bpy.props.StringProperty(
+    filter_glob = StringProperty(
             default=ms3d_utils.FILE_FILTER,
             options={'HIDDEN'}
             )
 
-    filepath = bpy.props.StringProperty(subtype='FILE_PATH')
+    filepath = StringProperty(subtype='FILE_PATH')
 
-    prop_verbose = bpy.props.BoolProperty(
+    prop_verbose = BoolProperty(
             name=ms3d_utils.PROP_NAME_VERBOSE,
             description=ms3d_utils.PROP_DESC_VERBOSE,
             default=ms3d_utils.PROP_DEFAULT_VERBOSE,
@@ -118,21 +122,21 @@ class ExportMS3D(
             options=ms3d_utils.PROP_OPT_OBJECTS_EXP,
             )
 
-    prop_selected = bpy.props.BoolProperty(
+    prop_selected = BoolProperty(
             name=ms3d_utils.PROP_NAME_SELECTED,
             description=ms3d_utils.PROP_DESC_SELECTED,
             default=ms3d_utils.PROP_DEFAULT_SELECTED,
             options=ms3d_utils.PROP_OPT_SELECTED,
             )
 
-    prop_animation = bpy.props.BoolProperty(
+    prop_animation = BoolProperty(
             name=ms3d_utils.PROP_NAME_ANIMATION,
             description=ms3d_utils.PROP_DESC_ANIMATION,
             default=ms3d_utils.PROP_DEFAULT_ANIMATION,
             options=ms3d_utils.PROP_OPT_ANIMATION,
             )
 
-    prop_animation_fp = bpy.props.BoolProperty(
+    prop_animation_fp = BoolProperty(
             name=ms3d_utils.PROP_NAME_ANIMATION_FP,
             description=ms3d_utils.PROP_DESC_ANIMATION_FP,
             default=ms3d_utils.PROP_DEFAULT_ANIMATION_FP,

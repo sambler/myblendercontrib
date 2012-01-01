@@ -60,8 +60,11 @@ import bpy
 import bpy_extras.io_utils
 
 from bpy_extras.image_utils import load_image
-from bpy.props import *
-
+from bpy.props import (StringProperty,
+                       BoolProperty,
+                       EnumProperty,
+                       FloatProperty,
+                       )
 
 ###############################################################################
 def prop(name):
@@ -93,14 +96,14 @@ class ImportMS3D(
     bl_region_type = 'WINDOW'
 
     filename_ext = ms3d_utils.FILE_EXT
-    filter_glob = bpy.props.StringProperty(
+    filter_glob = StringProperty(
             default=ms3d_utils.FILE_FILTER,
             options={'HIDDEN'}
             )
 
-    filepath = bpy.props.StringProperty(subtype='FILE_PATH')
+    filepath = StringProperty(subtype='FILE_PATH')
 
-    prop_verbose = bpy.props.BoolProperty(
+    prop_verbose = BoolProperty(
             name=ms3d_utils.PROP_NAME_VERBOSE,
             description=ms3d_utils.PROP_DESC_VERBOSE,
             default=ms3d_utils.PROP_DEFAULT_VERBOSE,
@@ -126,7 +129,7 @@ class ImportMS3D(
             options=ms3d_utils.PROP_OPT_SCALE,
             )
 
-    prop_unit_mm = bpy.props.BoolProperty(
+    prop_unit_mm = BoolProperty(
             name=ms3d_utils.PROP_NAME_UNIT_MM,
             description=ms3d_utils.PROP_DESC_UNIT_MM,
             default=ms3d_utils.PROP_DEFAULT_UNIT_MM,
@@ -141,7 +144,7 @@ class ImportMS3D(
             options=ms3d_utils.PROP_OPT_OBJECTS_IMP,
             )
 
-    prop_animation = bpy.props.BoolProperty(
+    prop_animation = BoolProperty(
             name=ms3d_utils.PROP_NAME_ANIMATION,
             description=ms3d_utils.PROP_DESC_ANIMATION,
             default=ms3d_utils.PROP_DEFAULT_ANIMATION,
