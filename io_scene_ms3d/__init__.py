@@ -16,12 +16,29 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
+bl_info = {
+        "name": "MilkShape3D MS3D format (.ms3d)",
+        "description": "Import / Export MilkShape3D MS3D files"
+                " (conform with v1.8.4)",
+        "author": "Alexander Nussbaumer",
+        "version": (0, 3, 6),
+        "blender": (2, 60, 0),
+        "api": 41226,
+        "location": "File > Import-Export",
+        "warning": "imports and exports only geometry and material of ms3d"\
+                " file. (poor performance)",
+        "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
+                "Scripts/Import-Export/MilkShape3D_MS3D",
+        "tracker_url": "http://projects.blender.org/tracker/index.php"\
+                "?func=detail&aid=29404",
+        "category": 'Import-Export',
+        }
 
 ###############################################################################
 #234567890123456789012345678901234567890123456789012345678901234567890123456789
 #--------1---------2---------3---------4---------5---------6---------7---------
-# <pep8 compliant>
-
 
 # ##### BEGIN COPYRIGHT BLOCK #####
 #
@@ -49,26 +66,6 @@ else:
 #import blender stuff
 import bpy
 import bpy_extras
-
-
-bl_info = {
-        "name": "MilkShape3D MS3D format (.ms3d)",
-        "description":  "Import / Export MilkShape3D MS3D files"
-                " (conform with v1.8.4)",
-        "author": "Alexander Nussbaumer",
-        "version": (0, 3, 6),
-        "blender": (2, 60, 0),
-        "api": 41226,
-        "location": "File > Import-Export",
-        "warning": "imports and exports only geometry and material of ms3d"\
-                " file. (poor performance)",
-        "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
-                "Scripts/Import-Export/MilkShape3D_MS3D",
-        "tracker_url": "http://projects.blender.org/tracker/index.php"\
-                "?func=detail&aid=29404",
-        "category": 'Import-Export',
-        }
-
 
 ###############################################################################
 # registration
