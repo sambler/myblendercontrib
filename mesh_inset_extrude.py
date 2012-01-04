@@ -577,7 +577,7 @@ class MESH_OT_inset_extrude(bpy.types.Operator):
             self.run_modal = False
             return {'FINISHED'}
 
-        elif event.type in ('RIGHTMOUSE', 'ESC'):
+        elif event.type in {'RIGHTMOUSE', 'ESC'}:
             context.area.header_text_set()
             context.region.callback_remove(self._handle)
             self.run_modal = False
