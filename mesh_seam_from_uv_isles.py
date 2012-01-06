@@ -34,60 +34,60 @@ bl_info = {
 import bpy
 
 def main(context):
-	obj = context.active_object
-	mesh = obj.data
+    obj = context.active_object
+    mesh = obj.data
 
-	if not obj or obj.type != 'MESH':
-		print("no active Mesh")
-		return 
-	if not mesh.uv_textures.active:
-		print("no active UV Texture")
-		return 
-	bpy.ops.object.mode_set(mode='OBJECT')
+    if not obj or obj.type != 'MESH':
+        print("no active Mesh")
+        return
+    if not mesh.uv_textures.active:
+        print("no active UV Texture")
+        return
+    bpy.ops.object.mode_set(mode='OBJECT')
 
 
-	uvtex=mesh.uv_textures.active.data
-	
-	wrap_q = [1,2,3,0]
-	wrap_t = [1,2,0]
-	edge_uvs = {}
+    uvtex=mesh.uv_textures.active.data
 
-	for i,uvface in enumerate(uvtex):
-		f=mesh.faces[i]
-		f_uv = [(round(uv[0], 6), round(uv[1], 6)) for uv in uvface.uv]
-		f_vi = [vertices for vertices in f.vertices]
-		for i, key in enumerate(f.edge_keys):
-			if len(f.vertices)==3:
-				uv1, uv2 = f_uv[i], f_uv[wrap_t[i]]
-				vi1, vi2 = f_vi[i], f_vi[wrap_t[i]]
-			else: # quad
-				uv1, uv2 = f_uv[i], f_uv[wrap_q[i]]
-				vi1, vi2 = f_vi[i], f_vi[wrap_q[i]]
-				
-			if vi1 > vi2: vi1,uv1,uv2 = vi2,uv2,uv1
-			
-			edge_uvs.setdefault(key, []).append((uv1, uv2))
+    wrap_q = [1,2,3,0]
+    wrap_t = [1,2,0]
+    edge_uvs = {}
 
-	for ed in mesh.edges:
-			if(len(set(edge_uvs[ed.key])) > 1):
-				ed.use_seam=1	
+    for i,uvface in enumerate(uvtex):
+        f=mesh.faces[i]
+        f_uv = [(round(uv[0], 6), round(uv[1], 6)) for uv in uvface.uv]
+        f_vi = [vertices for vertices in f.vertices]
+        for i, key in enumerate(f.edge_keys):
+            if len(f.vertices)==3:
+                uv1, uv2 = f_uv[i], f_uv[wrap_t[i]]
+                vi1, vi2 = f_vi[i], f_vi[wrap_t[i]]
+            else: # quad
+                uv1, uv2 = f_uv[i], f_uv[wrap_q[i]]
+                vi1, vi2 = f_vi[i], f_vi[wrap_q[i]]
 
-	bpy.ops.object.mode_set(mode='EDIT')
+            if vi1 > vi2: vi1,uv1,uv2 = vi2,uv2,uv1
+
+            edge_uvs.setdefault(key, []).append((uv1, uv2))
+
+    for ed in mesh.edges:
+            if(len(set(edge_uvs[ed.key])) > 1):
+                ed.use_seam=1
+
+    bpy.ops.object.mode_set(mode='EDIT')
 
 class UvIsleSeamsOperator(bpy.types.Operator):
-	''''''
-	bl_idname = "mesh.seam_from_uv_isles"
-	bl_label = "Seams from UV isles"
-	bl_options = {'REGISTER', 'UNDO'}
+    ''''''
+    bl_idname = "mesh.seam_from_uv_isles"
+    bl_label = "Seams from UV isles"
+    bl_options = {'REGISTER', 'UNDO'}
 
 #  def poll(self, context):
-#	   obj = context.active_object
-#		return (obj and obj.type == 'MESH')
+#      obj = context.active_object
+#       return (obj and obj.type == 'MESH')
 
-	def execute(self, context):
-		main(context)
-		return {'FINISHED'}
-	
+    def execute(self, context):
+        main(context)
+        return {'FINISHED'}
+
 
 def menu_func(self, context):
     self.layout.operator(UvIsleSeamsOperator.bl_idname)

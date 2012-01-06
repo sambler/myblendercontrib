@@ -359,7 +359,7 @@ class VertexSlideOperator(bpy.types.Operator):
             context.region.callback_remove(self._handle)
             return {'FINISHED'}
 
-        elif event.type in ('RIGHTMOUSE', 'ESC'):  # Restore and exit
+        elif event.type in {'RIGHTMOUSE', 'ESC'}:  # Restore and exit
             Vertices = bpy.context.object.data.vertices
             bpy.ops.mesh.select_all(action='DESELECT')
             bpy.ops.object.mode_set(mode='OBJECT')
