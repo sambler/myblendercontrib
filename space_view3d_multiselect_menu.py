@@ -37,26 +37,6 @@ bl_info = {
                    'func=detail&aid=22132',
     'category': '3D View'}
 
-"""
-Add multiselect options to ctrl-tab menu
-Name: 'Multiselect Menu'
-Blender: 258
-
-Multiselect Menu
-This adds a the multiselect Menu in the EditMode 3d view.
-
-Usage:
-*  This script gives adds the multiselect options to the ctrl-tab menu
-
-Version history:
-v0.1 -first working version
-v1.0 -first uploaded version
-v1.0 -update for 256
-v1.1 -update for 257
-v1.2 -update for 258
-     -added support for other keymaps
-"""
-
 import bpy
 
 # multiselect menu
@@ -104,11 +84,7 @@ class VIEW3D_MT_Multiselect_Menu(bpy.types.Menu):
             text="Vertex & Edge & Face Select", icon='SNAP_VOLUME')
         prop.value = "(True, True, True)"
         prop.data_path = "tool_settings.mesh_select_mode"
-
         layout.separator()
-
-        if view.viewport_shade in {'SOLID', 'SHADED', 'TEXTURED'}:
-            layout.prop(view, "use_occlude_geometry", text="Occlude Geometry", icon='ORTHO')
 
 def register():
     bpy.utils.register_module(__name__)
@@ -125,7 +101,6 @@ def register():
             if kmi.properties.name == "VIEW3D_MT_edit_mesh_select_mode":
                 km.keymap_items.remove(kmi)
                 break
-
 
 def unregister():
     bpy.utils.unregister_module(__name__)
