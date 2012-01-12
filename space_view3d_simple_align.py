@@ -20,12 +20,12 @@
 # ***** END GPL LICENCE BLOCK *****
 
 bl_info = {
-    "name": "Align Tools",
+    "name": "Simple Align",
     "author": "Gabriel Beaudin (gabhead)",
     "version": (0,1),
-    "blender": (2, 5, 7),
-    "api": 35853,
-    "location": "View3D > Tool Shelf > Align Tools Panel",
+    "blender": (2, 6, 1),
+    "api": 43252,
+    "location": "View3D > Tool Shelf > Simple Align Panel",
     "description": "Align Selected Objects to Active Object",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
@@ -43,7 +43,7 @@ class AlignUi(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
 
-    bl_label = "Align Tools"
+    bl_label = "Simple Align"
     bl_context = "objectmode"
 
     def draw(self, context):

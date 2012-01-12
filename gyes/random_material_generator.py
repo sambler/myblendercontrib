@@ -66,7 +66,7 @@ class random_material_class:
         
         if hasattr(bpy.context.scene , "historybak")==False:
             bpy.types.Scene.historybak = StringProperty()
-            print("created history backup")
+            print("Gyes log : created history backup")
             
          # non read only material properties where keyframes can be inserted or removed
         self.animated_properties=["alpha",
@@ -231,7 +231,7 @@ class random_material_class:
         history_index = scn.history_index
         h_name = scn.h_selected
         self.rm_history[h_name][history_index]={"name" : mat.name}
-        print("mat stored : "+self.rm_history[h_name][history_index]["name"]+" in history name : "+h_name+" in index : "+str(history_index))
+        print("Gyes log : mat stored : "+self.rm_history[h_name][history_index]["name"]+" in history name : "+h_name+" in index : "+str(history_index))
         mat.use_fake_user = True
                  
         bpy.context.scene.historybak = str(self.rm_history)
@@ -241,19 +241,19 @@ class random_material_class:
         h_name = bpy.context.scene.h_selected
         for i in bpy.context.selected_objects :
             
-            if random_assign == False and i.type == 'MESH' and ( bpy.context.scene.history_index in rm.rm_history[h_name] ) and rm.rm_history[h_name][bpy.context.scene.history_index] and rm.rm_history[h_name][bpy.context.scene.history_index]["name"]:                
+            if random_assign == False and ( bpy.context.scene.history_index in rm.rm_history[h_name] ) and rm.rm_history[h_name][bpy.context.scene.history_index] and rm.rm_history[h_name][bpy.context.scene.history_index]["name"]:                
                 scn = bpy.context.scene
                 mat = i.active_material
                 index = scn.history_index
                 
                 if len(i.material_slots) == 0:
-                    print("no slot found creating a new one")
+                    print("Gyes log : no slot found creating a new one")
                     i.active_material= bpy.data.materials[self.rm_history[h_name][index]["name"]]
                 else:
-                    print("found slot assigning material")
+                    print("Gyes log : found slot assigning material")
                     i.material_slots[i.active_material_index].material= bpy.data.materials[self.rm_history[h_name][index]["name"]]
                 
-            if random_assign == True and i.type == 'MESH' and ( bpy.context.scene.history_index in rm.rm_history[h_name] ) and rm.rm_history[h_name][bpy.context.scene.history_index] and rm.rm_history[h_name][bpy.context.scene.history_index]["name"]:
+            if random_assign == True and ( bpy.context.scene.history_index in rm.rm_history[h_name] ) and rm.rm_history[h_name][bpy.context.scene.history_index] and rm.rm_history[h_name][bpy.context.scene.history_index]["name"]:
             
                 index = round(len(self.rm_history) * random.random())
                 
@@ -265,10 +265,10 @@ class random_material_class:
                 scn.history_index=index
                 
                 if len(i.material_slots) == 0:
-                    print("no slot found creating a new one")
+                    print("Gyes log : no slot found creating a new one")
                     i.active_material= bpy.data.materials[self.rm_history[h_name][index]["name"]]
                 else:
-                    print("found slot assigning material")
+                    print("Gyes log : found slot assigning material")
                     i.material_slots[i.active_material_index].material= bpy.data.materials[self.rm_history[h_name][index]["name"]]
               
             
@@ -452,24 +452,22 @@ class gyes_random_material(bpy.types.Operator):
     
     def execute(self, context):
         for i in context.selected_objects :
-            if i.type == 'MESH' :
-
-                if not i.material_slots:
-                    print("no material_slot found , creating new with material")
-                    new_random = bpy.data.materials.new("Random")
-                    i.active_material=new_random
-                    rm.random_material(i.active_material,'Random')
+            if not i.material_slots:
+                print("Gyes log : no material_slot found , creating new with material")
+                new_random = bpy.data.materials.new("Random")
+                i.active_material=new_random
+                rm.random_material(i.active_material,'Random')
 
 
-                if i.material_slots[0].material:
-                    print("found an existing material, using this one ")
-                    rm.random_material(i.active_material,'Random')
+            if i.material_slots[0].material:
+                print("Gyes log : found an existing material, using this one ")
+                rm.random_material(i.active_material,'Random')
 
-                if not i.material_slots[0].material:
-                    print("no material found , creating new")
-                    new_random = bpy.data.materials.new("Random")
-                    i.active_material=new_random
-                    rm.random_material(i.active_material,'Random')
+            if not i.material_slots[0].material:
+                print("Gyes log : no material found , creating new")
+                new_random = bpy.data.materials.new("Random")
+                i.active_material=new_random
+                rm.random_material(i.active_material,'Random')
 
         return{'FINISHED'}
 
@@ -634,7 +632,7 @@ class restore_history(bpy.types.Operator):
        
         rm.rm_history=eval(s)
         
-        print("restored history dictionary") 
+        print("Gyes log : restored history dictionary") 
         
         return{'FINISHED'} 
     
