@@ -23,7 +23,6 @@ bl_info = {
     "author": "Valter Battioli (ValterVB) and PKHG",
     "version": (1, 1, 6),
     "blender": (2, 6, 0),
-    "api": 41099,
     "location": "View3D > Mesh > Vertices (CTRL V-key)",
     "description": "Slide a vertex along an edge or a line",
     "warning": "",

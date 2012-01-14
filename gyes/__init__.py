@@ -25,7 +25,6 @@ bl_info = {
     "author": "Kilon",
     "version": (1, 0, 0),
     "blender": (2, 6, 0),
-    "api": 40500,
     "location": "View3D > Left panel ",
     "warning": '',  # used for warning icon and text in addons panel
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/System/Gyes",

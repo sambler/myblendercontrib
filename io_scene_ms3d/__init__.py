@@ -25,7 +25,6 @@ bl_info = {
         "author": "Alexander Nussbaumer",
         "version": (0, 3, 6),
         "blender": (2, 60, 0),
-        "api": 41226,
         "location": "File > Import-Export",
         "warning": "imports and exports only geometry and material of ms3d"\
                 " file. (poor performance)",

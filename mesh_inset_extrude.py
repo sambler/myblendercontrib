@@ -4,7 +4,6 @@ bl_info = {
     'author': "Jon Sandstrom",
     'version': (0, 6),
     'blender': (2, 5, 9),
-    'api': 39514,
     'location': 'Search for Inset Extrude, map a key to the operator "mesh.inset_extrude", or use the default "I-key"',
     'warning': "",
     'category': 'Mesh',

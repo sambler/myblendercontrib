@@ -28,7 +28,6 @@ bl_info = {
     "author": "Jim Bates, jambay",
     "version": (0, 11),
     "blender": (2, 5, 7),
-    "api": 36339,
     "location": "View3D > Add > Mesh > Columns",
     "description": "Add architectural column(s).",
     "warning": "WIP - Initial implementation; updates pending and API not final for Blender",

@@ -20,7 +20,6 @@ bl_info = {
     "author": "Remigiusz Fiedler (AKA migius), Vaclav Klecanda",
     "version": (2, 1, 2),
     "blender": (2, 6, 0),
-    "api": 40791,
     "location": "File > Export > Autodesk (.dxf)",
     "description": "The script exports Blender geometry to DXF format r12 version.",
     "warning": "Only subset of DXF specification is supported, work in progress.",
