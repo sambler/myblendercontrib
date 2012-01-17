@@ -16,11 +16,11 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
 
 ###############################################################################
 #234567890123456789012345678901234567890123456789012345678901234567890123456789
 #--------1---------2---------3---------4---------5---------6---------7---------
-# <pep8 compliant>
 
 
 # ##### BEGIN COPYRIGHT BLOCK #####
@@ -59,11 +59,12 @@ else:
 import bpy
 import bpy_extras.io_utils
 
-from bpy.props import (StringProperty,
-                       BoolProperty,
-                       EnumProperty,
-                       FloatProperty,
-                       )
+from bpy.props import (
+        BoolProperty,
+        EnumProperty,
+        FloatProperty,
+        StringProperty,
+        )
 
 
 # registered entry point export
@@ -134,13 +135,6 @@ class ExportMS3D(
             description=ms3d_utils.PROP_DESC_ANIMATION,
             default=ms3d_utils.PROP_DEFAULT_ANIMATION,
             options=ms3d_utils.PROP_OPT_ANIMATION,
-            )
-
-    prop_animation_fp = BoolProperty(
-            name=ms3d_utils.PROP_NAME_ANIMATION_FP,
-            description=ms3d_utils.PROP_DESC_ANIMATION_FP,
-            default=ms3d_utils.PROP_DEFAULT_ANIMATION_FP,
-            options=ms3d_utils.PROP_OPT_ANIMATION_FP,
             )
 
 
