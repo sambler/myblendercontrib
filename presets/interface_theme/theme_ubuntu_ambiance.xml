@@ -23,7 +23,7 @@
                    extra_face_angle="#002000"
                    extra_face_area="#0059ee"
                    face_dot="#ff8500"
-                   facedot_size="4"
+                   facedot_size="3"
                    normal="#19b6ee"
                    face_select="#ff85003c"
                    handle_free="#000000"
@@ -44,11 +44,11 @@
                    transform="#ffffff"
                    handle_vect="#409030"
                    handle_sel_vect="#82c036"
-                   vertex="#b61f96"
+                   vertex="#c96cb8"
                    vertex_normal="#19b6ee"
-                   vertex_select="#f47421"
-                   vertex_size="3"
-                   wire="#360027">
+                   vertex_select="#f15800"
+                   vertex_size="2"
+                   wire="#862074">
         <space>
           <ThemeSpaceGeneric header="#464541"
                              header_text="#000000"
@@ -327,27 +327,27 @@
       </ThemeNLAEditor>
     </nla_editor>
     <node_editor>
-      <ThemeNodeEditor converter_node="#4e4e48"
-                       group_node="#4e4d49"
-                       in_out_node="#161616"
-                       node_backdrop="#3c3b37c0"
+      <ThemeNodeEditor converter_node="#93be00"
+                       group_node="#19b6ee"
+                       in_out_node="#f40051"
+                       node_backdrop="#52524ed1"
                        noodle_curving="5"
-                       operator_node="#141414"
+                       operator_node="#000000"
                        selected_text="#7f7070"
-                       wire_select="#ffffff"
-                       wire="#df5106">
+                       wire_select="#f4b696"
+                       wire="#f45b00">
         <space>
           <ThemeSpaceGeneric header="#464541"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#3c3b37"
+                             button="#353430"
                              button_text="#acacac"
                              button_text_hi="#ffffff"
                              button_title="#acacac"
                              text="#eeedeb"
                              text_hi="#cbcbcb"
                              title="#000000"
-                             back="#230017">
+                             back="#29001b">
           </ThemeSpaceGeneric>
         </space>
         <space_list>
@@ -599,13 +599,13 @@
           </ThemeWidgetColors>
         </wcol_radio>
         <wcol_regular>
-          <ThemeWidgetColors inner="#999999ff"
-                             inner_sel="#646464ff"
-                             item="#191919ff"
-                             outline="#191919"
-                             shadedown="0"
-                             shadetop="0"
-                             show_shaded="FALSE"
+          <ThemeWidgetColors inner="#3c3b37ff"
+                             inner_sel="#131311ff"
+                             item="#3c3b37ff"
+                             outline="#000000"
+                             shadedown="-21"
+                             shadetop="21"
+                             show_shaded="TRUE"
                              text="#000000"
                              text_sel="#ffffff">
           </ThemeWidgetColors>
