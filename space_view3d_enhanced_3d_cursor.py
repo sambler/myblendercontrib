@@ -21,7 +21,7 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (2, 8, 0),
+    "version": (2, 8, 1),
     "blender": (2, 6, 0),
     "api": 35853, # just copied from some Blender 2.59 script # 31236 ?
     "location": "View3D > Action mouse; F10; Properties panel",
@@ -599,7 +599,11 @@ class EnhancedSetCursor(bpy.types.Operator):
             
             sys_matrix = self.csu.get_matrix()
             
-            view_dir = sys_matrix.inverted().to_3x3() * view_dir
+            try:
+                view_dir = sys_matrix.inverted().to_3x3() * view_dir
+            except:
+                # this is some degenerate system
+                pass
             view_dir.normalize()
             
             rot = Matrix.Rotation(offset, 3, view_dir)
@@ -637,7 +641,11 @@ class EnhancedSetCursor(bpy.types.Operator):
     def rotate_matrix(self, matrix):
         sys_matrix = self.csu.get_matrix()
         
-        matrix = sys_matrix.inverted() * matrix
+        try:
+            matrix = sys_matrix.inverted() * matrix
+        except:
+            # this is some degenerate system
+            pass
         
         # Blender's order of rotation [in local axes]
         rotation_order = [2, 1, 0]
@@ -687,7 +695,11 @@ class EnhancedSetCursor(bpy.types.Operator):
     def scale_matrix(self, matrix):
         sys_matrix = self.csu.get_matrix()
         
-        matrix = sys_matrix.inverted() * matrix
+        try:
+            matrix = sys_matrix.inverted() * matrix
+        except:
+            # this is some degenerate system
+            pass
         
         for i in range(3):
             sys_matrix[i] *= self.scales[i]
@@ -735,7 +747,11 @@ class EnhancedSetCursor(bpy.types.Operator):
             pivot = self.csu.get_pivot_name(raw=force_pivot)
             p = self.csu.get_origin(relative=False, pivot=pivot)
             m = self.csu.get_matrix()
-            p = m.inverted() * p
+            try:
+                p = m.inverted() * p
+            except:
+                # this is some degenerate system
+                pass
             for i in range(3):
                 self.set_axis_input(i, str(p[i]))
         elif self.transform_mode == 'ROTATE':
@@ -748,7 +764,7 @@ class EnhancedSetCursor(bpy.types.Operator):
     def get_axes_values(self, as_string=False):
         if self.transform_mode == 'MOVE':
             localmat = CursorDynamicSettings.local_matrix
-            raw_axes = localmat[3]
+            raw_axes = localmat.translation
         elif self.transform_mode == 'ROTATE':
             raw_axes = Vector(self.angles) * (180.0 / math.pi)
         elif self.transform_mode == 'SCALE':
@@ -884,7 +900,7 @@ class EnhancedSetCursor(bpy.types.Operator):
         
         sys_matrix = self.csu.get_matrix()
         if tfm_opts.use_relative_coords:
-            sys_matrix[3] = initial_matrix[3].copy()
+            sys_matrix.translation = initial_matrix.translation.copy()
         sys_origin = sys_matrix.to_translation()
         dest_point = self.particles[0].get_location()
         
@@ -923,7 +939,11 @@ class EnhancedSetCursor(bpy.types.Operator):
         
         if settings.draw_guides:
             p0 = dest_point
-            p00 = sys_matrix.inverted() * p0
+            try:
+                p00 = sys_matrix.inverted() * p0
+            except:
+                # this is some degenerate system
+                p00 = p0.copy()
             
             axes_line_params = [
                 (Vector((0, p00.y, p00.z)), (1, 0, 0)),
@@ -1349,14 +1369,10 @@ class View3D_Cursor(Particle):
         self.set_location(self.initial_pos)
     
     def get_location(self):
-        return self.v3d.cursor_location.copy()
+        return get_cursor_location(v3d=self.v3d)
     
     def set_location(self, value):
-        # !!! ATTENTION !!!
-        # Accessing scene.cursor_location is SLOW
-        # (well, at least assigning to it).
-        # Accessing v3d.cursor_location is fast.
-        self.v3d.cursor_location = Vector(value).to_3d()
+        set_cursor_location(Vector(value), v3d=self.v3d)
     
     def get_rotation(self):
         return Quaternion()
@@ -1536,7 +1552,7 @@ def gather_particles(**kwargs):
             elif context_mode == 'POSE':
                 active_bone = active_object.data.bones.active
                 if active_bone:
-                    active_element = active_bone.matrix_local[3].to_3d()
+                    active_element = active_bone.matrix_local.translation.to_3d()
                     active_element = active_object.\
                         matrix_world * active_element
                 
@@ -1552,7 +1568,7 @@ def gather_particles(**kwargs):
                         parents.add(bone)
                 
                 for bone in parents:
-                    positions.append(bone.matrix_local[3].to_3d())
+                    positions.append(bone.matrix_local.translation.to_3d())
             else:
                 for spline in active_object.data.splines:
                     for point in spline.bezier_points:
@@ -1638,8 +1654,8 @@ def gather_particles(**kwargs):
                     matrix_world.to_translation()
         
         # These are equivalent (though scene's is slower)
-        #cursor_pos = scene.cursor_location
-        cursor_pos = space_data.cursor_location
+        #cursor_pos = get_cursor_location(scene=scene)
+        cursor_pos = get_cursor_location(v3d=space_data)
     
     #elif area_type == 'IMAGE_EDITOR':
         # currently there is no way to get UV editor's
@@ -2056,7 +2072,7 @@ class View3DUtility:
                 else:
                     return obj.matrix_world.to_translation()
             elif v3d.lock_cursor:
-                return v3d.cursor_location.copy()
+                return get_cursor_location(v3d=v3d)
             else:
                 return rv3d.view_location.copy()
     
@@ -2072,16 +2088,19 @@ class View3DUtility:
         
         if rv3d.view_perspective == 'CAMERA':
             d = self.get_direction()
-            v3d.camera.matrix_world[3][:3] = pos - d * rv3d.view_distance
+            v3d.camera.matrix_world.translation[:3] = pos - d * rv3d.view_distance
         else:
             if v3d.lock_object:
                 obj, bone = self._get_lock_obj_bone()
                 if bone:
-                    bone.matrix[3][:3] = obj.matrix_world.inverted() * pos
+                    try:
+                        bone.matrix.translation[:3] = obj.matrix_world.inverted() * pos
+                    except:
+                        # this is some degenerate object
+                        bone.matrix.translation[:3] = pos
                 else:
-                    obj.matrix_world[3][:3] = pos
+                    obj.matrix_world.translation[:3] = pos
             elif v3d.lock_cursor:
-                #v3d.cursor_location = pos
                 set_cursor_location(pos, v3d=v3d)
             else:
                 rv3d.view_location = pos
@@ -2116,7 +2135,7 @@ class View3DUtility:
     def get_matrix(self):
         m = self.get_rotation().to_matrix()
         m.resize_4x4()
-        m[3][:3] = self.get_viewpoint()
+        m.translation[:3] = self.get_viewpoint()
         return m
     
     def get_point(self, xy, pos):
@@ -2217,7 +2236,7 @@ class SnapUtilityBase:
         
         sys_matrix = csu.get_matrix()
         if use_relative_coords:
-            sys_matrix[3] = initial_matrix[3].copy()
+            sys_matrix.translation = initial_matrix.translation.copy()
         
         # Axes of freedom and line/plane parameters
         start = Vector(((0 if v is None else v) for v in axes_coords))
@@ -2276,8 +2295,13 @@ class SnapUtilityBase:
                 else:
                     pos = orig_obj.matrix_world.to_translation()
                 
-                set_stick_obj(csu.tou.scene, orig_obj.name,
-                    orig_obj.matrix_world.inverted() * pos)
+                try:
+                    local_pos = orig_obj.matrix_world.inverted() * pos
+                except:
+                    # this is some degenerate object
+                    local_pos = pos
+                
+                set_stick_obj(csu.tou.scene, orig_obj.name, local_pos)
                 
                 modify_Surface = modify_Surface and \
                     (snap_type != 'VOLUME') and (not use_object_centers)
@@ -2320,7 +2344,11 @@ class SnapUtilityBase:
                             pos = i_p[1]
         #end if do_raycast
         
-        sys_matrix_inv = sys_matrix.inverted()
+        try:
+            sys_matrix_inv = sys_matrix.inverted()
+        except:
+            # this is some degenerate system
+            sys_matrix_inv = Matrix()
         
         _pos = sys_matrix_inv * pos
         
@@ -2421,7 +2449,11 @@ class Snap3DUtility(SnapUtilityBase):
             m = obj.matrix_world
             if is_local:
                 sys_matrix = m.copy()
-                sys_matrix_inv = sys_matrix.inverted()
+                try:
+                    sys_matrix_inv = sys_matrix.inverted()
+                except:
+                    # this is some degenerate system
+                    sys_matrix_inv = Matrix()
             m_combined = sys_matrix_inv * m
             bbox = [None, None]
             
@@ -2452,7 +2484,7 @@ class Snap3DUtility(SnapUtilityBase):
         m[0][:3] = sys_matrix3 * Vector((half[0], 0, 0))
         m[1][:3] = sys_matrix3 * Vector((0, half[1], 0))
         m[2][:3] = sys_matrix3 * Vector((0, 0, half[2]))
-        m[3][:3] = sys_matrix * (bbox[0] + half)
+        m.translation[:3] = sys_matrix * (bbox[0] + half)
         self.bbox_obj.matrix_world = m
         
         return self.bbox_obj
@@ -2496,7 +2528,11 @@ class Snap3DUtility(SnapUtilityBase):
                 continue
             
             m = obj.matrix_world.copy()
-            mi = m.inverted()
+            try:
+                mi = m.inverted()
+            except:
+                # this is some degenerate object
+                continue
             la = mi * a
             lb = mi * b
             
@@ -2570,7 +2606,11 @@ class Snap3DUtility(SnapUtilityBase):
         sys_matrix_key = list(c for v in sys_matrix for c in v)
         sys_matrix_key.append(self.editmode)
         sys_matrix = sys_matrix.to_4x4()
-        sys_matrix_inv = sys_matrix.inverted()
+        try:
+            sys_matrix_inv = sys_matrix.inverted()
+        except:
+            # this is some degenerate system
+            return None
         
         if self.sys_matrix_key != sys_matrix_key:
             self.bbox_cache.clear()
@@ -2707,7 +2747,7 @@ class Snap3DUtility(SnapUtilityBase):
         matrix[0][:3] = t1
         matrix[1][:3] = t2
         matrix[2][:3] = n
-        matrix[3][:3] = p
+        matrix.translation[:3] = p
         
         return (matrix, face_id, obj, orig_obj)
     
@@ -3147,9 +3187,8 @@ def update_history_id(self, context):
     
     pos = history.get_pos()
     if pos is not None:
-        cursor_pos = scene.cursor_location.copy()
+        cursor_pos = get_cursor_location(scene=scene)
         if pos != cursor_pos:
-            #scene.cursor_location = pos.copy()
             set_cursor_location(pos, scene=scene)
             
             if (history.current_id == 0) and (history.last_id <= 1):
@@ -3225,7 +3264,7 @@ class CursorHistoryProp(bpy.types.PropertyGroup):
         bgl.glColor4f(1.0, 0.75, 0.5, 1.0)
         bgl.glVertex3f(p[0], p[1], p[2])
         
-        p = context.scene.cursor_location.copy()
+        p = get_cursor_location(scene=scene)
         bgl.glColor4f(1.0, 1.0, 0.25, 1.0)
         bgl.glVertex3f(p[0], p[1], p[2])
         
@@ -3276,7 +3315,7 @@ class NewCursor3DBookmark(bpy.types.Operator):
         
         bookmark = library.bookmarks.add(name=self.name)
         
-        cusor_pos = context.scene.cursor_location.copy()
+        cusor_pos = get_cursor_location(scene=context.scene)
         
         try:
             bookmark.pos = library.convert_from_abs(cusor_pos, True)
@@ -3323,7 +3362,7 @@ class OverwriteCursor3DBookmark(bpy.types.Operator):
         if not bookmark:
             return {'CANCELLED'}
         
-        cusor_pos = context.scene.cursor_location.copy()
+        cusor_pos = get_cursor_location(scene=context.scene)
         
         try:
             bookmark.pos = library.convert_from_abs(cusor_pos, True)
@@ -3356,7 +3395,6 @@ class RecallCursor3DBookmark(bpy.types.Operator):
         
         try:
             bookmark_pos = library.convert_to_abs(bookmark.pos, True)
-            #context.scene.cursor_location = bookmark_pos.copy()
             set_cursor_location(bookmark_pos, scene=context.scene)
         except Exception as exc:
             self.report('ERROR_INVALID_CONTEXT', exc.args[0])
@@ -3385,12 +3423,11 @@ class SwapCursor3DBookmark(bpy.types.Operator):
         if not bookmark:
             return {'CANCELLED'}
         
-        cusor_pos = context.scene.cursor_location.copy()
+        cusor_pos = get_cursor_location(scene=context.scene)
         
         try:
             bookmark_pos = library.convert_to_abs(bookmark.pos, True)
             
-            #context.scene.cursor_location = bookmark_pos.copy()
             set_cursor_location(bookmark_pos, scene=context.scene)
             
             bookmark.pos = library.convert_from_abs(cusor_pos, True,
@@ -3505,7 +3542,7 @@ class BookmarkLibraryProp(bpy.types.PropertyGroup):
         if self.offset:
             # history? or keep separate for each scene?
             if not use_history:
-                csu.source_pos = csu.tou.scene.cursor_location.copy()
+                csu.source_pos = get_cursor_location(scene=csu.tou.scene)
             else:
                 settings = find_settings()
                 history = settings.history
@@ -3564,7 +3601,12 @@ class BookmarkLibraryProp(bpy.types.PropertyGroup):
         matrix = self.get_matrix(use_history, warn, **kwargs)
         if not matrix:
             return None
-        return matrix.inverted() * pos
+        
+        try:
+            return matrix.inverted() * pos
+        except:
+            # this is some degenerate object
+            return Vector()
     
     def draw_bookmark(self, context):
         r = context.region
@@ -3900,7 +3942,6 @@ class SetCursorDialog(bpy.types.Operator):
         self.matrix = self.csu.get_matrix()
         
         pos = self.matrix * self.pos
-        #scene.cursor_location = pos
         set_cursor_location(pos, scene=context.scene)
         
         return {'FINISHED'}
@@ -3908,14 +3949,18 @@ class SetCursorDialog(bpy.types.Operator):
     def invoke(self, context, event):
         scene = context.scene
         
-        cursor_pos = scene.cursor_location.copy()
+        cursor_pos = get_cursor_location(scene=scene)
         
         particles, self.csu = gather_particles(context=context)
         self.csu.source_pos = cursor_pos
         
         self.matrix = self.csu.get_matrix()
         
-        self.pos = self.matrix.inverted() * cursor_pos
+        try:
+            self.pos = self.matrix.inverted() * cursor_pos
+        except:
+            # this is some degenerate system
+            self.pos = Vector()
         
         wm = context.window_manager
         return wm.invoke_props_dialog(self, width=160)
@@ -4031,7 +4076,7 @@ class CursorMonitor(bpy.types.Operator):
         last_locations = {}
         
         for scene in bpy.data.scenes:
-            curr_pos = scene.cursor_location.copy()
+            curr_pos = get_cursor_location(scene=scene)
             
             last_locations[scene.name] = curr_pos
             
@@ -4056,7 +4101,7 @@ class CursorMonitor(bpy.types.Operator):
                     break
         
         if v3d is not None:
-            curr_pos = v3d.cursor_location.copy()
+            curr_pos = get_cursor_location(v3d=v3d)
             
             last_locations[scene.name] = curr_pos
             
@@ -4164,7 +4209,7 @@ def to_matrix4x4(orient, pos):
     if not isinstance(orient, Matrix):
         orient = orient.to_matrix()
     m = orient.to_4x4()
-    m[3] = pos.to_4d()
+    m.translation = pos.to_3d()
     return m
 
 def angle_axis_to_quat(angle, axis):
@@ -4636,17 +4681,29 @@ def update_stick_to_obj(context):
         obj = scene.objects[name]
         pos = settings_scene.stick_obj_pos
         pos = obj.matrix_world * pos
-        #scene.cursor_location = pos
         context.space_data.cursor_location = pos
     except Exception as e:
         pass
 
-def set_cursor_location(pos, v3d=None, scene=None):
+def get_cursor_location(v3d=None, scene=None):
     if v3d:
-        v3d.cursor_location = pos.to_3d()
-        scene = bpy.context.scene
+        pos = v3d.cursor_location
     elif scene:
-        scene.cursor_location = pos.to_3d()
+        pos = scene.cursor_location
+    
+    return pos.copy()
+
+def set_cursor_location(pos, v3d=None, scene=None):
+    pos = pos.to_3d().copy()
+    
+    if v3d:
+        scene = bpy.context.scene
+        # Accessing scene.cursor_location is SLOW
+        # (well, at least assigning to it).
+        # Accessing v3d.cursor_location is fast.
+        v3d.cursor_location = pos
+    elif scene:
+        scene.cursor_location = pos
     
     set_stick_obj(scene, None)
 

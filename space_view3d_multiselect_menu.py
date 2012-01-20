@@ -27,7 +27,6 @@ bl_info = {
     'author': 'Sean Olson (liquidApe)',
     'version': (1, 2),
     'blender': (2, 6, 1),
-    'api': 43252,
     'location': 'View3D > Mouse > Menu ',
     'warning':'',
     'description': 'Added options for multiselect to the ctrl-tab menu',

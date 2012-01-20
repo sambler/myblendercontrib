@@ -16,11 +16,11 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
 
 ###############################################################################
 #234567890123456789012345678901234567890123456789012345678901234567890123456789
 #--------1---------2---------3---------4---------5---------6---------7---------
-# <pep8 compliant>
 
 
 # ##### BEGIN COPYRIGHT BLOCK #####
@@ -89,6 +89,10 @@ todo:
 
 
 changelog:
+changed: (0, 3, 8),
+mod: changed matrix handling, in account to matrix changes since blender rev.42816; for a while with side-by-side implementation by checking 'bpy.app.build_revision'
+del: removed unused option for export FuturePinball animation script (i will make an extra addon future_pinball_tool collection)
+
 changed: (0, 3, 6, "beta (2011-12-13 00:00)"),
 mod: exporter use an other logic to reduces the total number of smooth groups
 mod: correct "version" and "blender" in __init__.py

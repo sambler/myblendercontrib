@@ -21,7 +21,6 @@ bl_info = {
     "author": "Fredrik Hansson",
     "version": (1,1),
     "blender": (2, 5, 7),
-    "api": 37360,
     "location": "UV/Image editor> UVs > Seam from UV isles",
     "description": "Marks seams based on UV isles",
     "warning": "", # used for warning icon and text in addons panel

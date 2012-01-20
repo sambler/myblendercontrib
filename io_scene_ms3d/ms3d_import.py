@@ -16,11 +16,11 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
 
 ###############################################################################
 #234567890123456789012345678901234567890123456789012345678901234567890123456789
 #--------1---------2---------3---------4---------5---------6---------7---------
-# <pep8 compliant>
 
 
 # ##### BEGIN COPYRIGHT BLOCK #####
@@ -60,11 +60,13 @@ import bpy
 import bpy_extras.io_utils
 
 from bpy_extras.image_utils import load_image
-from bpy.props import (StringProperty,
-                       BoolProperty,
-                       EnumProperty,
-                       FloatProperty,
-                       )
+from bpy.props import (
+        BoolProperty,
+        EnumProperty,
+        FloatProperty,
+        StringProperty,
+        )
+
 
 ###############################################################################
 def prop(name):
@@ -78,6 +80,15 @@ def hashStr(obj):
 
 PROP_NAME_HASH = "import_hash"
 PROP_NAME_SMOOTH_GROUP = "smoothingGroup{0}"
+
+
+###############################################################################
+_idb_ms3d = 0
+_idb_blender = 1
+_idb_roll = 2
+
+_bone_dummy = 1.0
+_bone_distort = 0.00001 # sys.float_info.epsilon
 
 
 ###############################################################################
@@ -205,6 +216,7 @@ class ImportMS3D(
             # handle internal ms3d names to external blender names
             # to prevent potential name collisions on multiple imports
             # with same names but different content
+            self.dict_actions = {}
             self.dict_armatures = {}
             self.dict_armature_objects = {}
             self.dict_groups = {}
@@ -257,24 +269,17 @@ class ImportMS3D(
                             ms3dTemplate.modelComment.comment
 
             if (ms3d_utils.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-                dict_bones = self.CreateArmature(blenderContext, ms3dTemplate)
+                dict_bones, blenderArmatureObject = self.CreateArmature(
+                        blenderContext, ms3dTemplate)
 
                 if self.prop_animation:
-                    bpy.context.scene.render.fps = ms3dTemplate.fAnimationFPS
-                    if ms3dTemplate.fAnimationFPS:
-                        bpy.context.scene.render.fps_base = (
-                                bpy.context.scene.render.fps /
-                                ms3dTemplate.fAnimationFPS)
-                    bpy.context.scene.frame_start = 1
-                    bpy.context.scene.frame_end = (ms3dTemplate.iTotalFrames
-                            + bpy.context.scene.frame_start) - 1
-                    bpy.context.scene.frame_current = (
-                            ms3dTemplate.fCurrentTime
-                            * bpy.context.scene.render.fps)
+                    self.CreateAnimation(blenderContext, ms3dTemplate,
+                            dict_bones, blenderArmatureObject)
+                    pass
 
             for ms3dGroupIndex, ms3dGroup in enumerate(ms3dTemplate.groups):
                 blenderMesh = self.CreateMesh(blenderContext, ms3dTemplate,
-                        ms3dGroup, ms3dGroupIndex, dict_bones)
+                        ms3dGroup, ms3dGroupIndex)
 
                 # apply material if available
                 if ((ms3d_utils.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects)
@@ -330,7 +335,7 @@ class ImportMS3D(
     ###########################################################################
     def CreateArmature(self, blenderContext, ms3dTemplate):
         if (ms3dTemplate.nNumJoints <= 0):
-            return None
+            return None, None
 
         blenderScene = blenderContext.scene
 
@@ -353,8 +358,8 @@ class ImportMS3D(
 
         dict_bones = {}
         for iBone, ms3dJoint in enumerate(ms3dTemplate.joints):
-
             blenderBone = blenderArmature.edit_bones.new(ms3dJoint.name)
+            blenderBone[prop(ms3d_spec.PROP_NAME_NAME)] = ms3dJoint.name
             blenderBone[prop(ms3d_spec.PROP_NAME_FLAGS)] = ms3dJoint.flags
 
             ms3dComment = ms3dTemplate.get_joint_comment_by_key(iBone)
@@ -370,8 +375,8 @@ class ImportMS3D(
             blenderBone.select = True
             blenderArmature.edit_bones.active = blenderBone
 
-            # [blender bone, ms3d bone, number of references, roll vector]
-            dict_bones[ms3dJoint.name] = [blenderBone, ms3dJoint, 0, None]
+            # [ms3d bone, number of references, blender bone, roll vector]
+            dict_bones[ms3dJoint.name] = [ms3dJoint, blenderBone, None]
 
             mathVector = mathutils.Vector(ms3dJoint.position)
             mathVector = mathVector * self.matrixViewport
@@ -382,14 +387,16 @@ class ImportMS3D(
 
                 #dummy tail
                 blenderBone.tail = blenderBone.head + mathutils.Vector(
-                        (0.00001, 0.0, 0.0))
+                        (_bone_dummy, 0.0, 0.0))
 
             else:
                 boneItem = dict_bones[ms3dJoint.parentName]
-                boneItem[2] += 1
-                blenderBoneParent = boneItem[0]
+                blenderBoneParent = boneItem[_idb_blender]
 
                 blenderBone.parent = blenderBoneParent
+                if self.prop_animation:
+                    blenderBone.use_inherit_rotation = False
+                    blenderBone.use_inherit_scale = False
 
                 matrixRotation = mathutils.Matrix()
                 for blenderBoneParent in blenderBone.parent_recursive:
@@ -397,56 +404,155 @@ class ImportMS3D(
 
                     # correct rotaion axis
                     rotationAxis = mathutils.Vector((
-                            -dict_bones[key][1].rotation[0],
-                            -dict_bones[key][1].rotation[1],
-                            -dict_bones[key][1].rotation[2]))
+                            -dict_bones[key][_idb_ms3d].rotation[0],
+                            -dict_bones[key][_idb_ms3d].rotation[1],
+                            -dict_bones[key][_idb_ms3d].rotation[2]))
                     rotationAxis = rotationAxis * self.matrixSwapAxis
 
                     mathRotation = mathutils.Euler(rotationAxis, 'XZY')
                     matrixRotation = matrixRotation * mathRotation.to_matrix(
                             ).to_4x4()
 
-                blenderBone.head = blenderBone.parent.head + (mathVector
+                mathVector = blenderBone.parent.head + (mathVector
                         * matrixRotation)
+
+                # at some very rare models, bones share the same place.
+                # but blender removes bones that share the same space,
+                # so distort the location a little bit
+                if mathVector ==  blenderBone.parent.head:
+                    mathVector -= mathutils.Vector((_bone_distort, 0.0, 0.0))
+                    print("Info: distort bone in blender: '{0}'".format(blenderBone.name))
+
+                blenderBone.head = mathVector
 
                 # dummy tail
                 blenderBone.tail = blenderBone.head + (
-                        mathutils.Vector((0.00001, 0.0, 0.0))
+                        mathutils.Vector((_bone_dummy, 0.0, 0.0))
                         * self.matrixSwapAxis
                         * matrixRotation)
 
             if matrixRotation is not None:
                 mathRollVector = (mathutils.Vector((0.0, 0.0, 1.0))
                         * matrixRotation)
-                boneItem[3] = mathRollVector
+                boneItem[_idb_roll] = mathRollVector
 
         # an adjustment pass
-        # to adjust connection and tails of its parent bones
-        for key in dict_bones:
-            boneItem = dict_bones[key]
-            blenderBone = boneItem[0]
-            ms3dBone = boneItem[1]
-
-            # skip if parent has more than one bone references
-            parentBoneItem = dict_bones.get(ms3dBone.parentName)
-            if (parentBoneItem is None) or (parentBoneItem[2] > 1):
+        # to adjust connection and tails of bones
+        for blenderBone in blenderArmature.edit_bones:
+            # skip if it has no parent
+            if blenderBone.parent is None:
                 continue
 
-            blenderBone.parent.tail = blenderBone.head
-            blenderBone.use_connect = True
+            # make nice blunt ending
+            if not blenderBone.children:
+                blenderBone.tail = blenderBone.parent.head
+
+            # skip if parent has more than one children
+            numberChildren = len(blenderBone.children)
+            if (numberChildren == 1):
+                blenderBone.tail = blenderBone.children[0].head
+                blenderBone.children[0].use_connect = True
 
         # an extra additional adjustment pass
         # to re-correct possible modified bonerolls
         for key in dict_bones:
             boneItem = dict_bones[key]
-            blenderBone = boneItem[0]
-            mathRollVector = boneItem[3]
+            blenderBone = boneItem[_idb_blender]
+            mathRollVector = boneItem[_idb_roll]
             if mathRollVector is not None:
                 blenderBone.align_roll(mathRollVector)
 
+            # make dict lightweight
+            boneItem[_idb_blender] = boneItem[_idb_blender].name
+            #boneItem[_idb_ms3d] = boneItem[_idb_ms3d]
+            boneItem[_idb_roll] = None
+
         ms3d_utils.EnableEditMode(False)
 
-        return dict_bones
+        return dict_bones, blenderObject
+
+
+    ###########################################################################
+    def CreateAnimation(self, blenderContext, ms3dTemplate, dict_bones, blenderObject):
+        if (ms3dTemplate.nNumJoints <= 0):
+            return None
+
+        blenderScene = blenderContext.scene
+
+        blenderScene.render.fps = ms3dTemplate.fAnimationFPS
+        if ms3dTemplate.fAnimationFPS:
+            blenderScene.render.fps_base = (blenderScene.render.fps /
+                    ms3dTemplate.fAnimationFPS)
+        blenderScene.frame_start = 1
+        blenderScene.frame_end = (ms3dTemplate.iTotalFrames
+                + blenderScene.frame_start) - 1
+        blenderScene.frame_current = (ms3dTemplate.fCurrentTime
+                * blenderScene.render.fps
+                / blenderScene.render.fps_base)
+
+        blenderAction, setupAction = self.GetAction(ms3dTemplate)
+        if blenderObject.animation_data is None:
+            blenderObject.animation_data_create()
+        blenderObject.animation_data.action = blenderAction
+
+        for boneName in dict_bones:
+            item = dict_bones[boneName]
+            blenderBoneName = item[_idb_blender]
+            ms3dJoint =  item[_idb_ms3d]
+
+            blenderBoneObject = blenderObject.pose.bones.get(blenderBoneName)
+            if blenderBoneObject is None:
+                # no idea why at some models are
+                # bones are missing in blender, but are present in dict
+                print("Info: missing bone in blender: '{0}'".format(blenderBoneName))
+                continue
+
+            blenderBone = blenderObject.data.bones.get(blenderBoneName)
+
+            data_path = blenderBoneObject.path_from_id("location")
+            fcurveTransX = blenderAction.fcurves.new(data_path, index=0)
+            fcurveTransY = blenderAction.fcurves.new(data_path, index=1)
+            fcurveTransZ = blenderAction.fcurves.new(data_path, index=2)
+            for keyFramesTrans in ms3dJoint.keyFramesTrans:
+                frame = (keyFramesTrans.time
+                        * blenderScene.render.fps
+                        / blenderScene.render.fps_base)
+                translationAxis = mathutils.Vector((
+                        keyFramesTrans.position[0],
+                        keyFramesTrans.position[1],
+                        keyFramesTrans.position[2]))
+                translationAxis = translationAxis * self.matrixSwapAxis
+                fcurveTransX.keyframe_points.insert(frame, translationAxis[0])
+                fcurveTransY.keyframe_points.insert(frame, translationAxis[1])
+                fcurveTransZ.keyframe_points.insert(frame, translationAxis[2])
+
+            data_path = blenderBoneObject.path_from_id("rotation_euler")
+            blenderBoneObject.rotation_mode = 'XZY'
+            #data_path = blenderBoneObject.path_from_id("rotation_quaternion")
+            #fcurveRotW = blenderAction.fcurves.new(data_path, index=0)
+            fcurveRotX = blenderAction.fcurves.new(data_path, index=0)
+            fcurveRotY = blenderAction.fcurves.new(data_path, index=1)
+            fcurveRotZ = blenderAction.fcurves.new(data_path, index=2)
+            for keyFramesRot in ms3dJoint.keyFramesRot:
+                frame = (keyFramesRot.time
+                        * blenderScene.render.fps
+                        / blenderScene.render.fps_base)
+                rotationAxis = mathutils.Vector((
+                        -keyFramesRot.rotation[0],
+                        -keyFramesRot.rotation[1],
+                        -keyFramesRot.rotation[2]))
+                rotationAxis = rotationAxis * self.matrixSwapAxis
+                mathRotEuler = mathutils.Euler(rotationAxis, 'XZY')
+
+                fcurveRotX.keyframe_points.insert(frame, mathRotEuler.x)
+                fcurveRotY.keyframe_points.insert(frame, mathRotEuler.y)
+                fcurveRotZ.keyframe_points.insert(frame, mathRotEuler.z)
+
+                #mathRotQuaternion = mathRotEuler.to_quaternion()
+                #fcurveRotW.keyframe_points.insert(frame, mathRotQuaternion.w)
+                #fcurveRotX.keyframe_points.insert(frame, mathRotQuaternion.x)
+                #fcurveRotY.keyframe_points.insert(frame, mathRotQuaternion.y)
+                #fcurveRotZ.keyframe_points.insert(frame, mathRotQuaternion.z)
 
 
     ###########################################################################
@@ -569,7 +675,7 @@ class ImportMS3D(
 
     ###########################################################################
     def CreateMesh(self, blenderContext, ms3dTemplate, ms3dGroup,
-            ms3dGroupIndex, bones):
+            ms3dGroupIndex):
         vertices = []
         edges = []
         faces = []
@@ -596,7 +702,7 @@ class ImportMS3D(
                     if iBone is not None:
                         iBone.append(iiVertex)
                     else:
-                        boneIds[ms3dVertex.boneId] = [iiVertex]
+                        boneIds[ms3dVertex.boneId] = [iiVertex, ]
 
                 face.append(iiVertex)
             faces.append(face)
@@ -784,7 +890,9 @@ class ImportMS3D(
 
 
     ###########################################################################
-    def GetAction(self, nameAction):
+    def GetAction(self, ms3dObject):
+        nameAction = ms3dObject.name
+
         # already available
         blenderAction = self.dict_actions.get(nameAction)
         if blenderAction is not None:

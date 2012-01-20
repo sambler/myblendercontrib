@@ -16,11 +16,11 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
 
 ###############################################################################
 #234567890123456789012345678901234567890123456789012345678901234567890123456789
 #--------1---------2---------3---------4---------5---------6---------7---------
-# <pep8 compliant>
 
 
 # ##### BEGIN COPYRIGHT BLOCK #####
@@ -210,14 +210,6 @@ PROP_OPT_ANIMATION = {OPT_ANIMATABLE}
 
 
 ###############################################################################
-PROP_NAME_ANIMATION_FP = "Generate FuturePinball Script **)"
-PROP_DESC_ANIMATION_FP = "Generates an animation script for FuturePinball and"\
-        " exports bones as separate file"
-PROP_DEFAULT_ANIMATION_FP = False
-PROP_OPT_ANIMATION_FP = {OPT_ANIMATABLE}
-
-
-###############################################################################
 REMARKS_1 = "*)   partial implemented yet"
 REMARKS_2 = "**) not implemented yet"
 REMARKS_3 = "***) risk of unwanted results"
@@ -277,9 +269,6 @@ def SetupMenuExport(self, layout):
         box = layout.box()
         box.label(LABEL_NAME_ANIMATION, icon=LABEL_ICON_ANIMATION)
         box.prop(self, "prop_animation")
-        if (self.prop_animation):
-            box.prop(self, "prop_animation_fp")
-            box.label(REMARKS_2, icon='ERROR')
 
 
 ###############################################################################
@@ -337,32 +326,63 @@ def SelectAll(select):
 def CreateMatrixViewport(coordinate_system, scale):
     matrixSwapAxis = None
 
-    if (coordinate_system == PROP_ITEM_COORDINATESYSTEM_IMP):
-        # MS3D -> Blender
-        matrixSwapAxis = mathutils.Matrix((
-                (0.0, 0.0, 1.0, 0.0),
-                (1.0, 0.0, 0.0, 0.0),
-                (0.0, 1.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0, 1.0)
-                ))
+    if bpy.app.build_revision < '42816':
+        # for OLD implementation, older than blender rev. 42816
+        if (coordinate_system == PROP_ITEM_COORDINATESYSTEM_IMP):
+            # MS3D -> Blender
+            matrixSwapAxis = mathutils.Matrix((
+                    (0.0, 0.0, 1.0, 0.0),
+                    (1.0, 0.0, 0.0, 0.0),
+                    (0.0, 1.0, 0.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0)
+                    ))
 
-    elif (coordinate_system == PROP_ITEM_COORDINATESYSTEM_EXP):
-        # Blender -> MS3D
-        matrixSwapAxis = mathutils.Matrix((
-                (0.0, 1.0, 0.0, 0.0),
-                (0.0, 0.0, 1.0, 0.0),
-                (1.0, 0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0, 1.0)
-                ))
+        elif (coordinate_system == PROP_ITEM_COORDINATESYSTEM_EXP):
+            # Blender -> MS3D
+            matrixSwapAxis = mathutils.Matrix((
+                    (0.0, 1.0, 0.0, 0.0),
+                    (0.0, 0.0, 1.0, 0.0),
+                    (1.0, 0.0, 0.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0)
+                    ))
 
+        else:
+            # 1:1
+            matrixSwapAxis = mathutils.Matrix((
+                    (1.0, 0.0, 0.0, 0.0),
+                    (0.0, 1.0, 0.0, 0.0),
+                    (0.0, 0.0, 1.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0)
+                    ))
     else:
-        # 1:1
-        matrixSwapAxis = mathutils.Matrix((
-                (1.0, 0.0, 0.0, 0.0),
-                (0.0, 1.0, 0.0, 0.0),
-                (0.0, 0.0, 1.0, 0.0),
-                (0.0, 0.0, 0.0, 1.0)
-                ))
+        # for new implementation since blender rev. 42816
+        if (coordinate_system == PROP_ITEM_COORDINATESYSTEM_IMP):
+            # MS3D -> Blender (since Blender rev.42816)
+            matrixSwapAxis = mathutils.Matrix((
+                    (0.0, 1.0, 0.0, 0.0),
+                    (0.0, 0.0, 1.0, 0.0),
+                    (1.0, 0.0, 0.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0)
+                    ))
+
+        elif (coordinate_system == PROP_ITEM_COORDINATESYSTEM_EXP):
+            # Blender -> MS3D (since Blender rev.42816)
+            matrixSwapAxis = mathutils.Matrix((
+                    (0.0, 0.0, 1.0, 0.0),
+                    (1.0, 0.0, 0.0, 0.0),
+                    (0.0, 1.0, 0.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0)
+                    ))
+
+        else:
+            # 1:1
+            matrixSwapAxis = mathutils.Matrix((
+                    (1.0, 0.0, 0.0, 0.0),
+                    (0.0, 1.0, 0.0, 0.0),
+                    (0.0, 0.0, 1.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0)
+                    ))
+
 
     return matrixSwapAxis * scale, matrixSwapAxis
 

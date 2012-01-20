@@ -24,7 +24,6 @@ bl_info = {
     "author": "FunkyWyrm",
     "version": (0,2),
     "blender": (2, 5, 5),
-    "api": 31965,
     "location": "View 3D > Tool Shelf > BRIK Panel",
     "description": "Kit for creating ragdoll structures from armatures and implementing them in the game engine.",
     "warning": "Preliminary release for testing purposes. Use with caution on important files.",
