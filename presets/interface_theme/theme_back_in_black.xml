@@ -11,25 +11,25 @@
                    bone_pose="#50c8ff"
                    bone_solid="#c8c8c8"
                    bundle_solid="#c8c8c8"
-                   camera_path="#000000"
+                   camera_path="#5a5a5a"
                    frame_current="#60c040"
                    edge_crease="#cc0099"
                    extra_edge_len="#200000"
                    edge_seam="#db2512"
                    edge_select="#ffa000"
                    edge_sharp="#ff2020"
-                   edge_facesel="#4b4b4b"
-                   face="#00000012"
+                   edge_facesel="#6b6b6b"
+                   face="#54658f12"
                    extra_face_angle="#002000"
                    extra_face_area="#000080"
                    face_dot="#ff8500"
                    facedot_size="4"
                    normal="#22dddd"
-                   face_select="#ff85003c"
-                   handle_free="#000000"
-                   handle_sel_free="#000000"
+                   face_select="#ffa4003c"
+                   handle_free="#7f7f7f"
+                   handle_sel_free="#3b3b3b"
                    grid="#222222"
-                   lamp="#00000028"
+                   lamp="#3a410028"
                    lastsel_point="#ffffff"
                    nurb_uline="#909000"
                    nurb_vline="#803060"
@@ -40,15 +40,15 @@
                    object_selected="#f15800"
                    outline_width="1"
                    panel="#a5a5a57f"
-                   speaker="#000000"
+                   speaker="#535353"
                    transform="#ffffff"
                    handle_vect="#409030"
                    handle_sel_vect="#40c030"
-                   vertex="#000000"
+                   vertex="#8eb1b9"
                    vertex_normal="#2361dd"
                    vertex_select="#ff8500"
                    vertex_size="3"
-                   wire="#0a0a0a">
+                   wire="#888888">
         <space>
           <ThemeSpaceGeneric header="#000000"
                              header_text="#979797"
@@ -60,14 +60,14 @@
                              text="#7d7d7d"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#0f0f0f">
           </ThemeSpaceGeneric>
         </space>
       </ThemeView3D>
     </view_3d>
     <clip_editor>
       <ThemeClipEditor active_marker="#ffffff"
-                       frame_current="#60c040"
+                       frame_current="#1b501b"
                        disabled_marker="#7f0000"
                        grid="#5e5e5e"
                        handle_vertex="#000000"
@@ -99,7 +99,7 @@
       <ThemeConsole cursor="#dc6060"
                     line_error="#dc6060"
                     line_info="#00aa00"
-                    line_input="#828282"
+                    line_input="#cecece"
                     line_output="#6080ff">
         <space>
           <ThemeSpaceGeneric header="#000000"
@@ -112,7 +112,7 @@
                              text="#7d7d7d"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#0f0f0f">
           </ThemeSpaceGeneric>
         </space>
       </ThemeConsole>
@@ -122,7 +122,7 @@
                       channel_group="#4f6549"
                       channels="#707070"
                       channels_selected="#60c040"
-                      frame_current="#60c040"
+                      frame_current="#2a5c1c"
                       dopesheet_channel="#52606e"
                       dopesheet_subchannel="#7c8996"
                       grid="#212121"
@@ -193,7 +193,7 @@
                         handle_sel_auto_clamped="#f0af90"
                         channel_group="#4f6549"
                         channels_region="#6d6d6d"
-                        frame_current="#60c040"
+                        frame_current="#336622"
                         dopesheet_channel="#52606e"
                         dopesheet_subchannel="#7c8996"
                         handle_free="#000000"
@@ -304,7 +304,7 @@
     <nla_editor>
       <ThemeNLAEditor bars="#707070"
                       bars_selected="#60c040"
-                      frame_current="#60c040"
+                      frame_current="#2f6421"
                       grid="#5e5e5e"
                       strips="#0c0a0a"
                       strips_selected="#ff8c00"
@@ -403,7 +403,7 @@
     </properties>
     <sequence_editor>
       <ThemeSequenceEditor audio_strip="#2e8f8f"
-                           frame_current="#60c040"
+                           frame_current="#2f5f23"
                            draw_action="#50c8ff"
                            effect_strip="#a9547c"
                            grid="#282828"
@@ -433,8 +433,8 @@
     </sequence_editor>
     <text_editor>
       <ThemeTextEditor cursor="#ff0000"
-                       line_numbers_background="#272727"
-                       scroll_bar="#8f8f8f"
+                       line_numbers_background="#191919"
+                       scroll_bar="#a3a3a3"
                        selected_text="#ffffff"
                        syntax_builtin="#cf3d99"
                        syntax_comment="#249d60"
@@ -446,13 +446,13 @@
                              header_text="#979797"
                              header_text_hi="#ffffff"
                              button="#000000"
-                             button_text="#c3c3c3"
+                             button_text="#b9b9b9"
                              button_text_hi="#ffffff"
-                             button_title="#c5c5c5"
-                             text="#7d7d7d"
+                             button_title="#b4b4b4"
+                             text="#e0e0e0"
                              text_hi="#ffffff"
-                             title="#5d5d5d"
-                             back="#000000">
+                             title="#9e9e9e"
+                             back="#0f0f0f">
           </ThemeSpaceGeneric>
         </space>
       </ThemeTextEditor>
@@ -658,7 +658,7 @@
                              shadedown="0"
                              shadetop="-100"
                              show_shaded="TRUE"
-                             text="#929292"
+                             text="#e4e4e4"
                              text_sel="#ffffff">
           </ThemeWidgetColors>
         </wcol_text>
