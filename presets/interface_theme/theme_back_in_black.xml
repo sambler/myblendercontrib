@@ -631,8 +631,8 @@
         </wcol_scroll>
         <wcol_numslider>
           <ThemeWidgetColors inner="#111111ff"
-                             inner_sel="#33406bff"
-                             item="#191919ff"
+                             inner_sel="#111111ff"
+                             item="#33406bff"
                              outline="#2a2a2a"
                              shadedown="0"
                              shadetop="-100"
