@@ -176,9 +176,9 @@
         </space>
         <space_list>
           <ThemeSpaceListGeneric list="#343434"
-                                 list_text="#000000"
+                                 list_text="#5d5d5d"
                                  list_text_hi="#ffffff"
-                                 list_title="#000000">
+                                 list_title="#9e9e9e">
           </ThemeSpaceListGeneric>
         </space_list>
       </ThemeFileBrowser>
@@ -366,8 +366,8 @@
       </ThemeNodeEditor>
     </node_editor>
     <outliner>
-      <ThemeOutliner match="#337f33"
-                     selected_highlight="#262626">
+      <ThemeOutliner match="#245824"
+                     selected_highlight="#212844">
         <space>
           <ThemeSpaceGeneric header="#000000"
                              header_text="#979797"
@@ -379,7 +379,7 @@
                              text="#7d7d7d"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#050505">
           </ThemeSpaceGeneric>
         </space>
       </ThemeOutliner>
