@@ -44,7 +44,27 @@
 #       - "T" staircase
 #
 # Last Modified By: Paul "brikbot" Marshall
-# Last Modification: November 20, 2011
+# Last Modification: January 29, 2011
+#
+# ##### BEGIN GPL LICENSE BLOCK #####
+#
+#  Stairbuilder is for quick stair generation.
+#  Copyright (C) 2011  Paul Marshall
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ##### END GPL LICENSE BLOCK #####
 
 #-----------------------------------------------------------
 # BEGIN NEW B2.5/Py3.2 CODE
@@ -497,6 +517,27 @@ class stairs(bpy.types.Operator):
                          self.string_tp,
                          not self.string_g,
                          1, False, False)
+            elif typ == "id4":
+                Stringer(G,
+                         typ,
+                         typ_s,
+                         rise,
+                         self.deg,
+                         self.string_w,
+                         self.string_h,
+                         self.tread_n,
+                         self.tread_h,
+                         self.rad2 - self.rad1,
+                         self.tread_t,
+                         self.rad1,
+                         self.string_tw,
+                         self.string_tf,
+                         self.string_tp,
+                         not self.string_g,
+                         self.string_n,
+                         self.string_dis,
+                         self.use_original,
+                         self.tread_slc)
             else:
                 Stringer(G,
                          typ,
