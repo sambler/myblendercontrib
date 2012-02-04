@@ -1,8 +1,8 @@
 <bpy>
   <Theme name="Default">
     <view_3d>
-      <ThemeView3D object_active="#ffffff"
-                   editmesh_active="#ffffff80"
+      <ThemeView3D object_active="#6ed8ff"
+                   editmesh_active="#00e8ff80"
                    act_spline="#db2512"
                    handle_align="#803060"
                    handle_sel_align="#f090a0"
@@ -16,16 +16,16 @@
                    edge_crease="#cc0099"
                    extra_edge_len="#200000"
                    edge_seam="#e69632"
-                   edge_select="#50c8ff"
+                   edge_select="#1151ce"
                    edge_sharp="#ff2020"
                    edge_facesel="#4b4b4b"
-                   face="#d8d8d880"
-                   extra_face_angle="#000080"
+                   face="#affff418"
+                   extra_face_angle="#00008a"
                    extra_face_area="#002000"
-                   face_dot="#3e9cc6"
-                   facedot_size="1"
-                   normal="#22dddd"
-                   face_select="#50c8ff66"
+                   face_dot="#4fc9ff"
+                   facedot_size="3"
+                   normal="#00ffff"
+                   face_select="#1151ce66"
                    handle_free="#000000"
                    handle_sel_free="#000000"
                    grid="#5e5e83"
@@ -37,7 +37,7 @@
                    nurb_sel_vline="#f090a0"
                    object_grouped="#104010"
                    object_grouped_active="#55bb55"
-                   object_selected="#50c8ff"
+                   object_selected="#52c6ff"
                    outline_width="1"
                    panel="#a5a5a5ff"
                    speaker="#000000"
@@ -46,7 +46,7 @@
                    handle_sel_vect="#40c030"
                    vertex="#334cca"
                    vertex_normal="#2361dd"
-                   vertex_select="#50c8ff"
+                   vertex_select="#0097da"
                    vertex_size="3"
                    wire="#000000">
         <space>
@@ -310,7 +310,7 @@
                       strips_selected="#ff8c00"
                       view_sliders="#969696">
         <space>
-          <ThemeSpaceGeneric header="#b4b4b4"
+          <ThemeSpaceGeneric header="#5c606c"
                              header_text="#000000"
                              header_text_hi="#ffffff"
                              button="#727272"
@@ -320,11 +320,11 @@
                              text="#000000"
                              text_hi="#ffffff"
                              title="#000000"
-                             back="#757575">
+                             back="#7c7e88">
           </ThemeSpaceGeneric>
         </space>
         <space_list>
-          <ThemeSpaceListGeneric list="#b4b4b4"
+          <ThemeSpaceListGeneric list="#646875"
                                  list_text="#000000"
                                  list_text_hi="#ffffff"
                                  list_title="#000000">
@@ -366,7 +366,8 @@
       </ThemeNodeEditor>
     </node_editor>
     <outliner>
-      <ThemeOutliner >
+      <ThemeOutliner match="#245824"
+                     selected_highlight="#212844">
         <space>
           <ThemeSpaceGeneric header="#6c717f"
                              header_text="#000000"
@@ -433,7 +434,7 @@
     </sequence_editor>
     <text_editor>
       <ThemeTextEditor cursor="#ff0000"
-                       line_numbers_background="#404040"
+                       line_numbers_background="#5a5e6a"
                        scroll_bar="#8f8f8f"
                        selected_text="#c67777"
                        syntax_builtin="#800050"
@@ -445,14 +446,14 @@
           <ThemeSpaceGeneric header="#5c606c"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#6c717f"
+                             button="#646875"
                              button_text="#000000"
                              button_text_hi="#ffffff"
                              button_title="#000000"
                              text="#000000"
                              text_hi="#ffffff"
                              title="#000000"
-                             back="#7c7e88">
+                             back="#999999">
           </ThemeSpaceGeneric>
         </space>
       </ThemeTextEditor>
@@ -565,7 +566,7 @@
         </wcol_option>
         <panel>
           <ThemePanelColors header="#00000019"
-                            show_header="FALSE">
+                            show_header="TRUE">
           </ThemePanelColors>
         </panel>
         <wcol_progress>
@@ -596,7 +597,7 @@
           <ThemeWidgetColors inner="#8b8d9aff"
                              inner_sel="#859cb9ff"
                              item="#ffffffff"
-                             outline="#393939"
+                             outline="#000000"
                              shadedown="0"
                              shadetop="10"
                              show_shaded="TRUE"
@@ -676,9 +677,9 @@
         </wcol_toggle>
         <wcol_tool>
           <ThemeWidgetColors inner="#8d909fff"
-                             inner_sel="#646464ff"
+                             inner_sel="#859cb9ff"
                              item="#191919ff"
-                             outline="#464646"
+                             outline="#000000"
                              shadedown="0"
                              shadetop="10"
                              show_shaded="TRUE"
