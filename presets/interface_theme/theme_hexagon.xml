@@ -1,5 +1,5 @@
 <bpy>
-  <Theme>
+  <Theme name="Default">
     <view_3d>
       <ThemeView3D object_active="#6ed8ff"
                    editmesh_active="#00e8ff80"
@@ -53,14 +53,14 @@
           <ThemeSpaceGeneric header="#646875"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#646875"
+                             button="#6c717f"
                              button_text="#d7d7d7"
                              button_text_hi="#ffffff"
                              button_title="#eaeaea"
                              text="#000000"
                              text_hi="#ffffff"
                              title="#000000"
-                             back="#7c7e88">
+                             back="#7f818d">
           </ThemeSpaceGeneric>
         </space>
       </ThemeView3D>
@@ -97,7 +97,7 @@
     </clip_editor>
     <console>
       <ThemeConsole cursor="#dc6060"
-                    line_error="#dc6060"
+                    line_error="#dc0606"
                     line_info="#00aa00"
                     line_input="#ffffff"
                     line_output="#000000">
@@ -112,7 +112,7 @@
                              text="#000000"
                              text_hi="#ffffff"
                              title="#000000"
-                             back="#72747c">
+                             back="#7c7e88">
           </ThemeSpaceGeneric>
         </space>
       </ThemeConsole>
@@ -171,7 +171,7 @@
                              text="#000000"
                              text_hi="#0f0f0f"
                              title="#000000"
-                             back="#7c7e88">
+                             back="#646875">
           </ThemeSpaceGeneric>
         </space>
         <space_list>
@@ -214,7 +214,7 @@
           <ThemeSpaceGeneric header="#5c606c"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#6c717f"
+                             button="#646875"
                              button_text="#000000"
                              button_text_hi="#ffffff"
                              button_title="#000000"
@@ -239,7 +239,7 @@
                         face_dot="#50c8ff"
                         facedot_size="3"
                         face_select="#50c8ff3c"
-                        scope_back="#727272ff"
+                        scope_back="#646875ff"
                         preview_stitch_active="#e1d2c323"
                         preview_stitch_edge="#ff8500b2"
                         preview_stitch_face="#1242b026"
@@ -253,7 +253,7 @@
           <ThemeSpaceGeneric header="#5c606c"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#6c717f"
+                             button="#646875"
                              button_text="#eeeeee"
                              button_text_hi="#ffffff"
                              button_title="#eeeeee"
@@ -313,7 +313,7 @@
           <ThemeSpaceGeneric header="#5c606c"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#727272"
+                             button="#646875"
                              button_text="#000000"
                              button_text_hi="#ffffff"
                              button_title="#000000"
@@ -333,12 +333,12 @@
       </ThemeNLAEditor>
     </nla_editor>
     <node_editor>
-      <ThemeNodeEditor converter_node="#686a75"
+      <ThemeNodeEditor converter_node="#686a84"
                        group_node="#69756e"
-                       in_out_node="#646464"
-                       node_backdrop="#9b9b9ba0"
+                       in_out_node="#64647b"
+                       node_backdrop="#9b9baca0"
                        noodle_curving="5"
-                       operator_node="#6c696f"
+                       operator_node="#6c697e"
                        selected_text="#7f7070"
                        wire_select="#ffffff"
                        wire="#000000">
@@ -346,7 +346,7 @@
           <ThemeSpaceGeneric header="#5c606c"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#727272"
+                             button="#646875"
                              button_text="#000000"
                              button_text_hi="#ffffff"
                              button_title="#000000"
@@ -357,7 +357,7 @@
           </ThemeSpaceGeneric>
         </space>
         <space_list>
-          <ThemeSpaceListGeneric list="#a5a5a5"
+          <ThemeSpaceListGeneric list="#a7a7a7"
                                  list_text="#000000"
                                  list_text_hi="#ffffff"
                                  list_title="#000000">
@@ -420,7 +420,7 @@
           <ThemeSpaceGeneric header="#5c606c"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#b4b4b4"
+                             button="#646875"
                              button_text="#000000"
                              button_text_hi="#ffffff"
                              button_title="#000000"
@@ -453,7 +453,7 @@
                              text="#000000"
                              text_hi="#ffffff"
                              title="#000000"
-                             back="#999999">
+                             back="#7c7e88">
           </ThemeSpaceGeneric>
         </space>
       </ThemeTextEditor>
@@ -465,14 +465,14 @@
           <ThemeSpaceGeneric header="#565863"
                              header_text="#000000"
                              header_text_hi="#ffffff"
-                             button="#727272"
+                             button="#5a5e6a"
                              button_text="#000000"
                              button_text_hi="#ffffff"
                              button_title="#000000"
                              text="#000000"
                              text_hi="#ffffff"
                              title="#000000"
-                             back="#7c7e88">
+                             back="#646875">
           </ThemeSpaceGeneric>
         </space>
       </ThemeTimeline>
@@ -606,8 +606,8 @@
           </ThemeWidgetColors>
         </wcol_radio>
         <wcol_regular>
-          <ThemeWidgetColors inner="#999999ff"
-                             inner_sel="#646464ff"
+          <ThemeWidgetColors inner="#8d909fff"
+                             inner_sel="#859cb9ff"
                              item="#191919ff"
                              outline="#191919"
                              shadedown="0"
