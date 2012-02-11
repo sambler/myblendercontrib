@@ -70,12 +70,12 @@
                        frame_current="#1b501b"
                        disabled_marker="#7f0000"
                        grid="#5e5e5e"
-                       handle_vertex="#000000"
+                       handle_vertex="#e2e2e2"
                        handle_vertex_select="#ffff00"
                        handle_vertex_size="4"
                        locked_marker="#7f7f7f"
                        marker="#7f7f00"
-                       marker_outline="#000000"
+                       marker_outline="#0094af"
                        path_after="#0000ff"
                        path_before="#ff0000"
                        selected_marker="#ffff00">
@@ -83,14 +83,14 @@
           <ThemeSpaceGeneric header="#000000"
                              header_text="#979797"
                              header_text_hi="#ffffff"
-                             button="#000000"
+                             button="#070707"
                              button_text="#c3c3c3"
                              button_text_hi="#ffffff"
                              button_title="#c5c5c5"
                              text="#ffffff"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#0d0d0d">
           </ThemeSpaceGeneric>
         </space>
       </ThemeClipEditor>
@@ -141,14 +141,14 @@
                              text="#ffffff"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#080808">
           </ThemeSpaceGeneric>
         </space>
         <space_list>
-          <ThemeSpaceListGeneric list="#272727"
-                                 list_text="#000000"
+          <ThemeSpaceListGeneric list="#020202"
+                                 list_text="#ebebeb"
                                  list_text_hi="#ffffff"
-                                 list_title="#000000">
+                                 list_title="#2c2c2c">
           </ThemeSpaceListGeneric>
         </space_list>
       </ThemeDopeSheet>
@@ -175,7 +175,7 @@
           </ThemeSpaceGeneric>
         </space>
         <space_list>
-          <ThemeSpaceListGeneric list="#343434"
+          <ThemeSpaceListGeneric list="#181818"
                                  list_text="#5d5d5d"
                                  list_text_hi="#ffffff"
                                  list_title="#9e9e9e">
@@ -196,17 +196,17 @@
                         frame_current="#336622"
                         dopesheet_channel="#52606e"
                         dopesheet_subchannel="#7c8996"
-                        handle_free="#000000"
-                        handle_sel_free="#000000"
+                        handle_free="#808080"
+                        handle_sel_free="#808080"
                         grid="#262626"
-                        handle_vertex="#000000"
+                        handle_vertex="#808080"
                         handle_vertex_select="#ff8500"
                         handle_vertex_size="3"
-                        lastsel_point="#000000"
+                        lastsel_point="#808080"
                         panel="#ffffff"
                         handle_vect="#409030"
                         handle_sel_vect="#40c030"
-                        vertex="#000000"
+                        vertex="#ffffff"
                         vertex_select="#ff8500"
                         vertex_size="3"
                         window_sliders="#969696">
@@ -221,12 +221,12 @@
                              text="#ffffff"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#0d0d0d">
           </ThemeSpaceGeneric>
         </space>
         <space_list>
-          <ThemeSpaceListGeneric list="#272727"
-                                 list_text="#000000"
+          <ThemeSpaceListGeneric list="#1a1a1a"
+                                 list_text="#bbbbbb"
                                  list_text_hi="#ffffff"
                                  list_title="#000000">
           </ThemeSpaceListGeneric>
@@ -239,14 +239,14 @@
                         face_dot="#ff8500"
                         facedot_size="3"
                         face_select="#ff85003c"
-                        scope_back="#272727ff"
+                        scope_back="#050505ff"
                         preview_stitch_active="#e1d2c323"
                         preview_stitch_edge="#ff8500b2"
                         preview_stitch_face="#1242b026"
                         preview_stitch_stitchable="#00ff00ff"
                         preview_stitch_unstitchable="#ff0000ff"
                         preview_stitch_vert="#ff85007f"
-                        vertex="#000000"
+                        vertex="#0f13bb"
                         vertex_select="#ff8500"
                         vertex_size="3">
         <space>
@@ -269,13 +269,13 @@
       <ThemeInfo >
         <space>
           <ThemeSpaceGeneric header="#000000"
-                             header_text="#979797"
+                             header_text="#adadad"
                              header_text_hi="#ffffff"
                              button="#000000"
                              button_text="#c3c3c3"
                              button_text_hi="#ffffff"
                              button_title="#c5c5c5"
-                             text="#7d7d7d"
+                             text="#9b9b9b"
                              text_hi="#ffffff"
                              title="#5d5d5d"
                              back="#000000">
@@ -296,7 +296,7 @@
                              text="#7d7d7d"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#070707">
           </ThemeSpaceGeneric>
         </space>
       </ThemeLogicEditor>
@@ -306,7 +306,7 @@
                       bars_selected="#60c040"
                       frame_current="#2f6421"
                       grid="#5e5e5e"
-                      strips="#0c0a0a"
+                      strips="#aa8d8d"
                       strips_selected="#ff8c00"
                       view_sliders="#969696">
         <space>
@@ -316,35 +316,35 @@
                              button="#000000"
                              button_text="#c3c3c3"
                              button_text_hi="#ffffff"
-                             button_title="#c5c5c5"
+                             button_title="#c3c3c3"
                              text="#ffffff"
                              text_hi="#ffffff"
-                             title="#5d5d5d"
-                             back="#000000">
+                             title="#585858"
+                             back="#0d0d0d">
           </ThemeSpaceGeneric>
         </space>
         <space_list>
-          <ThemeSpaceListGeneric list="#202020"
-                                 list_text="#000000"
+          <ThemeSpaceListGeneric list="#0c0c0c"
+                                 list_text="#d8d8d8"
                                  list_text_hi="#ffffff"
-                                 list_title="#000000">
+                                 list_title="#383838">
           </ThemeSpaceListGeneric>
         </space_list>
       </ThemeNLAEditor>
     </nla_editor>
     <node_editor>
-      <ThemeNodeEditor converter_node="#3b3b41"
-                       group_node="#181a1a"
-                       in_out_node="#161616"
-                       node_backdrop="#343434c0"
+      <ThemeNodeEditor converter_node="#113941"
+                       group_node="#091a07"
+                       in_out_node="#273053"
+                       node_backdrop="#202030bc"
                        noodle_curving="5"
-                       operator_node="#141414"
+                       operator_node="#0e3157"
                        selected_text="#7f7070"
-                       wire_select="#ffffff"
-                       wire="#3e5f8e">
+                       wire_select="#0019ff"
+                       wire="#6eafff">
         <space>
           <ThemeSpaceGeneric header="#000000"
-                             header_text="#979797"
+                             header_text="#c7c7c7"
                              header_text_hi="#ffffff"
                              button="#000000"
                              button_text="#c3c3c3"
@@ -358,9 +358,9 @@
         </space>
         <space_list>
           <ThemeSpaceListGeneric list="#a5a5a5"
-                                 list_text="#000000"
-                                 list_text_hi="#ffffff"
-                                 list_title="#000000">
+                                 list_text="#ffffff"
+                                 list_text_hi="#b8ffff"
+                                 list_title="#ffffff">
           </ThemeSpaceListGeneric>
         </space_list>
       </ThemeNodeEditor>
@@ -376,10 +376,10 @@
                              button_text="#c3c3c3"
                              button_text_hi="#ffffff"
                              button_title="#c5c5c5"
-                             text="#7d7d7d"
+                             text="#cccccc"
                              text_hi="#ffffff"
-                             title="#5d5d5d"
-                             back="#050505">
+                             title="#9b9b9b"
+                             back="#070707">
           </ThemeSpaceGeneric>
         </space>
       </ThemeOutliner>
@@ -420,14 +420,14 @@
           <ThemeSpaceGeneric header="#000000"
                              header_text="#f3f3f3"
                              header_text_hi="#ffffff"
-                             button="#000000"
+                             button="#020202"
                              button_text="#dddddd"
                              button_text_hi="#ffffff"
                              button_title="#bdbdbd"
                              text="#ffffff"
                              text_hi="#ffffff"
                              title="#5d5d5d"
-                             back="#000000">
+                             back="#202020">
           </ThemeSpaceGeneric>
         </space>
       </ThemeSequenceEditor>
@@ -435,25 +435,25 @@
     <text_editor>
       <ThemeTextEditor cursor="#ff0000"
                        line_numbers_background="#191919"
-                       scroll_bar="#a3a3a3"
+                       scroll_bar="#acacac"
                        selected_text="#ffffff"
                        syntax_builtin="#cf3d99"
                        syntax_comment="#249d60"
                        syntax_numbers="#3c68ff"
-                       syntax_special="#8c8c28"
+                       syntax_special="#969629"
                        syntax_string="#cc3535">
         <space>
           <ThemeSpaceGeneric header="#000000"
-                             header_text="#979797"
+                             header_text="#b9b9b9"
                              header_text_hi="#ffffff"
                              button="#000000"
-                             button_text="#b9b9b9"
+                             button_text="#cccccc"
                              button_text_hi="#ffffff"
-                             button_title="#b4b4b4"
-                             text="#e0e0e0"
+                             button_title="#d8d8d8"
+                             text="#ebebeb"
                              text_hi="#ffffff"
                              title="#9e9e9e"
-                             back="#0f0f0f">
+                             back="#050505">
           </ThemeSpaceGeneric>
         </space>
       </ThemeTextEditor>
@@ -469,7 +469,7 @@
                              button_text="#c3c3c3"
                              button_text_hi="#ffffff"
                              button_title="#c5c5c5"
-                             text="#7d7d7d"
+                             text="#c7c7c7"
                              text_hi="#ffffff"
                              title="#5d5d5d"
                              back="#000000">
