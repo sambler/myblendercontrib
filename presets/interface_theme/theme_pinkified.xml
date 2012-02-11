@@ -566,7 +566,7 @@
         </wcol_option>
         <panel>
           <ThemePanelColors header="#00000000"
-                            show_header="TRUE">
+                            show_header="FALSE">
           </ThemePanelColors>
         </panel>
         <wcol_progress>

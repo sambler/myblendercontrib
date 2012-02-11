@@ -1,5 +1,5 @@
 <bpy>
-  <Theme name="Default">
+  <Theme name="Ubuntu Ambiance">
     <view_3d>
       <ThemeView3D object_active="#f58032"
                    editmesh_active="#ffffff80"
@@ -240,6 +240,12 @@
                         facedot_size="3"
                         face_select="#ff85003c"
                         scope_back="#3c3b37ff"
+                        preview_stitch_active="#e1d2c323"
+                        preview_stitch_edge="#ff8500b2"
+                        preview_stitch_face="#1242b026"
+                        preview_stitch_stitchable="#00ff00ff"
+                        preview_stitch_unstitchable="#ff0000ff"
+                        preview_stitch_vert="#ff85007f"
                         vertex="#000000"
                         vertex_select="#f47421"
                         vertex_size="3">
@@ -360,7 +366,8 @@
       </ThemeNodeEditor>
     </node_editor>
     <outliner>
-      <ThemeOutliner >
+      <ThemeOutliner match="#337f33"
+                     selected_highlight="#6a3859">
         <space>
           <ThemeSpaceGeneric header="#464541"
                              header_text="#000000"
@@ -488,19 +495,19 @@
         <wcol_list_item>
           <ThemeWidgetColors inner="#00000000"
                              inner_sel="#6a3859ff"
-                             item="#000000ff"
+                             item="#cbc3bbff"
                              outline="#0d0d0d"
                              shadedown="1"
                              shadetop="0"
                              show_shaded="FALSE"
-                             text="#a5a5a5"
+                             text="#cbc3bb"
                              text_sel="#ffffff">
           </ThemeWidgetColors>
         </wcol_list_item>
         <wcol_menu_back>
           <ThemeWidgetColors inner="#131312db"
                              inner_sel="#2d2d2de6"
-                             item="#646464ff"
+                             item="#cbc3bbff"
                              outline="#0d0d0d"
                              shadedown="-20"
                              shadetop="25"
@@ -536,7 +543,7 @@
         <wcol_num>
           <ThemeWidgetColors inner="#3c3b37ff"
                              inner_sel="#171717ff"
-                             item="#404040ff"
+                             item="#ffffffff"
                              outline="#080808"
                              shadedown="-20"
                              shadetop="20"
@@ -548,7 +555,7 @@
         <wcol_option>
           <ThemeWidgetColors inner="#272727ff"
                              inner_sel="#080808ff"
-                             item="#ffffffff"
+                             item="#fff8ecff"
                              outline="#0d0d0d"
                              shadedown="-5"
                              shadetop="15"
@@ -570,8 +577,8 @@
                              shadedown="0"
                              shadetop="0"
                              show_shaded="FALSE"
-                             text="#000000"
-                             text_sel="#000000">
+                             text="#cbc3bb"
+                             text_sel="#ffffff">
           </ThemeWidgetColors>
         </wcol_progress>
         <wcol_pulldown>
@@ -601,12 +608,12 @@
         <wcol_regular>
           <ThemeWidgetColors inner="#3c3b37ff"
                              inner_sel="#131311ff"
-                             item="#3c3b37ff"
+                             item="#cbc3bbff"
                              outline="#000000"
                              shadedown="-21"
                              shadetop="21"
                              show_shaded="TRUE"
-                             text="#000000"
+                             text="#dfdfdf"
                              text_sel="#ffffff">
           </ThemeWidgetColors>
         </wcol_regular>
@@ -618,7 +625,7 @@
                              shadedown="-5"
                              shadetop="5"
                              show_shaded="TRUE"
-                             text="#000000"
+                             text="#cbc3bb"
                              text_sel="#ffffff">
           </ThemeWidgetColors>
         </wcol_scroll>
@@ -659,7 +666,7 @@
         <wcol_toggle>
           <ThemeWidgetColors inner="#464640ff"
                              inner_sel="#151515ff"
-                             item="#292926ff"
+                             item="#cbc3bbff"
                              outline="#000000"
                              shadedown="-3"
                              shadetop="7"
@@ -671,7 +678,7 @@
         <wcol_tool>
           <ThemeWidgetColors inner="#3c3b37ff"
                              inner_sel="#3c3b37ff"
-                             item="#616161ff"
+                             item="#cbc3bbff"
                              outline="#000000"
                              shadedown="-17"
                              shadetop="17"

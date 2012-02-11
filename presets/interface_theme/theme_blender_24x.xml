@@ -353,7 +353,7 @@
                              text="#000000"
                              text_hi="#ffffff"
                              title="#000000"
-                             back="#393939">
+                             back="#757575">
           </ThemeSpaceGeneric>
         </space>
         <space_list>
@@ -366,7 +366,8 @@
       </ThemeNodeEditor>
     </node_editor>
     <outliner>
-      <ThemeOutliner >
+      <ThemeOutliner match="#337f33"
+                     selected_highlight="#82878c">
         <space>
           <ThemeSpaceGeneric header="#b4b4b4"
                              header_text="#000000"
@@ -433,7 +434,7 @@
     </sequence_editor>
     <text_editor>
       <ThemeTextEditor cursor="#ff0000"
-                       line_numbers_background="#404040"
+                       line_numbers_background="#818181"
                        scroll_bar="#8f8f8f"
                        selected_text="#c67777"
                        syntax_builtin="#800050"
@@ -504,13 +505,13 @@
           </ThemeWidgetColors>
         </wcol_list_item>
         <wcol_menu_back>
-          <ThemeWidgetColors inner="#b4b4b4ff"
+          <ThemeWidgetColors inner="#c6bab0ff"
                              inner_sel="#2d2d2dff"
                              item="#646464ff"
                              outline="#000000"
                              shadedown="25"
                              shadetop="-25"
-                             show_shaded="TRUE"
+                             show_shaded="FALSE"
                              text="#000000"
                              text_sel="#ffffff">
           </ThemeWidgetColors>
