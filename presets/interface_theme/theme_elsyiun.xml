@@ -433,15 +433,15 @@
       </ThemeSequenceEditor>
     </sequence_editor>
     <text_editor>
-      <ThemeTextEditor cursor="#ff0000"
-                       line_numbers_background="#404040"
+      <ThemeTextEditor cursor="#8b8bff"
+                       line_numbers_background="#2e2e2e"
                        scroll_bar="#8f8f8f"
-                       selected_text="#c67777"
-                       syntax_builtin="#800050"
-                       syntax_comment="#006432"
-                       syntax_numbers="#0000c8"
-                       syntax_special="#5f5f00"
-                       syntax_string="#640000">
+                       selected_text="#4e4e8f"
+                       syntax_builtin="#808bed"
+                       syntax_comment="#cd8b00"
+                       syntax_numbers="#f0ad6d"
+                       syntax_special="#c080d0"
+                       syntax_string="#ffcd8b">
         <space>
           <ThemeSpaceGeneric header="#3b3b3b"
                              header_text="#000000"
@@ -450,10 +450,10 @@
                              button_text="#8b8b8b"
                              button_text_hi="#ffffff"
                              button_title="#8b8b8b"
-                             text="#b8b8b8"
+                             text="#cfbfad"
                              text_hi="#ffffff"
                              title="#8b8b8b"
-                             back="#4b4b4b">
+                             back="#1e1e27">
           </ThemeSpaceGeneric>
         </space>
       </ThemeTextEditor>
