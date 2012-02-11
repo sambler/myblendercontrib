@@ -1,5 +1,5 @@
 <bpy>
-  <Theme name="Ubuntu Ambiance">
+  <Theme>
     <view_3d>
       <ThemeView3D object_active="#f58032"
                    editmesh_active="#ffffff80"
