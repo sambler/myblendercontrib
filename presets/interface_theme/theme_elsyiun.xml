@@ -195,7 +195,7 @@
                         channels_region="#707070"
                         frame_current="#60c040"
                         dopesheet_channel="#52606e"
-                        dopesheet_subchannel="#7c8996"
+                        dopesheet_subchannel="#545d66"
                         handle_free="#000000"
                         handle_sel_free="#000000"
                         grid="#585858"
@@ -613,7 +613,7 @@
                              shadedown="0"
                              shadetop="0"
                              show_shaded="FALSE"
-                             text="#000000"
+                             text="#b8b8b8"
                              text_sel="#ffffff">
           </ThemeWidgetColors>
         </wcol_regular>
