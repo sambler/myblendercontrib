@@ -1,5 +1,5 @@
 <bpy>
-  <Theme>
+  <Theme >
     <view_3d>
       <ThemeView3D object_active="#ff7c00"
                    editmesh_active="#ffffff80"
@@ -606,8 +606,8 @@
           </ThemeWidgetColors>
         </wcol_radio>
         <wcol_regular>
-          <ThemeWidgetColors inner="#999999ff"
-                             inner_sel="#646464ff"
+          <ThemeWidgetColors inner="#4e4e4eff"
+                             inner_sel="#796348ff"
                              item="#191919ff"
                              outline="#191919"
                              shadedown="0"
@@ -642,13 +642,13 @@
           </ThemeWidgetColors>
         </wcol_numslider>
         <wcol_state>
-          <ThemeWidgetStateColors inner_anim="#73be4c"
-                                  inner_anim_sel="#5aa633"
+          <ThemeWidgetStateColors inner_anim="#339900"
+                                  inner_anim_sel="#2b8000"
                                   blend="0.5"
                                   inner_driven="#b400ff"
                                   inner_driven_sel="#9900e6"
-                                  inner_key="#f0eb64"
-                                  inner_key_sel="#d7d34b">
+                                  inner_key="#999300"
+                                  inner_key_sel="#666200">
           </ThemeWidgetStateColors>
         </wcol_state>
         <wcol_text>
