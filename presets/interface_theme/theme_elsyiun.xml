@@ -607,7 +607,7 @@
         </wcol_radio>
         <wcol_regular>
           <ThemeWidgetColors inner="#4e4e4eff"
-                             inner_sel="#796348ff"
+                             inner_sel="#b67e3eff"
                              item="#191919ff"
                              outline="#191919"
                              shadedown="0"
