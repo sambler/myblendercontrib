@@ -266,7 +266,7 @@
       </ThemeImageEditor>
     </image_editor>
     <info>
-      <ThemeInfo >
+      <ThemeInfo>
         <space>
           <ThemeSpaceGeneric header="#b4b4b4"
                              header_text="#000000"
@@ -621,7 +621,7 @@
           <ThemeWidgetColors inner="#b4b4b42e"
                              inner_sel="#646464b4"
                              item="#b4b4b4ff"
-                             outline="#959595"
+                             outline="#505050"
                              shadedown="0"
                              shadetop="0"
                              show_shaded="TRUE"
@@ -630,7 +630,7 @@
           </ThemeWidgetColors>
         </wcol_scroll>
         <wcol_numslider>
-          <ThemeWidgetColors inner="#b4b4b4ff"
+          <ThemeWidgetColors inner="#808080ff"
                              inner_sel="#999999ff"
                              item="#d2d2d2ff"
                              outline="#505050"
@@ -680,8 +680,8 @@
                              inner_sel="#646464ff"
                              item="#191919ff"
                              outline="#505050"
-                             shadedown="0"
-                             shadetop="5"
+                             shadedown="-10"
+                             shadetop="10"
                              show_shaded="TRUE"
                              text="#000000"
                              text_sel="#ffffff">
@@ -690,7 +690,7 @@
       </ThemeUserInterface>
     </user_interface>
     <user_preferences>
-      <ThemeUserPreferences >
+      <ThemeUserPreferences>
         <space>
           <ThemeSpaceGeneric header="#b4b4b4"
                              header_text="#000000"
