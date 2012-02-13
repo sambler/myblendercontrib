@@ -1,7 +1,7 @@
 <bpy>
   <Theme >
     <view_3d>
-      <ThemeView3D object_active="#ff7c00"
+      <ThemeView3D object_active="#ffbd80"
                    editmesh_active="#ffffff80"
                    act_spline="#db2512"
                    handle_align="#803060"
@@ -37,7 +37,7 @@
                    nurb_sel_vline="#f090a0"
                    object_grouped="#083008"
                    object_grouped_active="#55bb55"
-                   object_selected="#ffffff"
+                   object_selected="#ff7c00"
                    outline_width="1"
                    panel="#a5a5a57f"
                    speaker="#000000"
