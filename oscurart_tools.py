@@ -331,14 +331,16 @@ class resym (bpy.types.Operator):
         return{"FINISHED"}     
         
 ## -----------------------------------SELECT LEFT---------------------
-def side (self, nombre): 
-            
-    ## LEVANTO EL MODO ACTUAL
-    VARMODE=0
+def side (self, nombre, offset): 
+    
+    OBJECT=bpy.context.active_object        
+
     MODE=bpy.context.mode
-    if MODE == "EDIT_MESH":
-        bpy.ops.object.mode_set(mode="OBJECT", toggle=0)
-        VARMODE=1  
+
+    bpy.ops.object.mode_set(mode="EDIT", toggle=0)
+    bpy.ops.mesh.select_all(action='DESELECT')    
+    bpy.ops.object.mode_set(mode="OBJECT", toggle=0)
+
 
     ##SETEO VERTEX MODE
     
@@ -347,27 +349,20 @@ def side (self, nombre):
     bpy.context.tool_settings.mesh_select_mode[2]=0
     
     ## DESELECCIONA TODO
-    for object in bpy.context.selected_objects:
-        print ("LA DATA DEL OBJETO SE LLAMA:  "+str(object.data.name))
-        for vertices in bpy.data.meshes[object.data.name].vertices:
-            vertices.select = 0
+    for VERTICE in OBJECT.data.vertices[:]:
+        VERTICE.select = False
+    
     if nombre == False:
-        ## CONDICION QUE SI EL VERTICE ES MENOR A 0 LO SELECCIONA        
-        for object in bpy.context.selected_objects:
-                print (object.data.name)
-                for vertices in bpy.data.meshes[object.data.name].vertices:
-                    if vertices.co[0] < 0:
-                        print ("es menor")
-                        vertices.select = True   
+        ## CONDICION QUE SI EL VERTICE ES MENOR A 0 LO SELECCIONA  
+        for VERTICES in OBJECT.data.vertices[:]:
+            if VERTICES.co[0] < (offset):
+                VERTICES.select = 1  
     else:
         ## CONDICION QUE SI EL VERTICE ES MENOR A 0 LO SELECCIONA        
-        for object in bpy.context.selected_objects:
-                print (object.data.name)
-                for vertices in bpy.data.meshes[object.data.name].vertices:
-                    if vertices.co[0] > 0:
-                        print ("es menor")
-                        vertices.select = True                             
-    
+        for VERTICES in OBJECT.data.vertices[:]:
+            if VERTICES.co[0] > (offset):
+                VERTICES.select = 1                              
+
     bpy.ops.object.mode_set(mode="EDIT", toggle=0)    
 
 
@@ -377,10 +372,10 @@ class SelectMenor (bpy.types.Operator):
     bl_options =  {"REGISTER","UNDO"}
     
     side = bpy.props.BoolProperty(name="Greater than zero", default=False)
-    
+    offset = bpy.props.FloatProperty(name="Offset", default=0)
     def execute(self,context):  
         
-        side(self, self.side)
+        side(self, self.side, self.offset)
                
         return{"FINISHED"}        
            
