@@ -5,7 +5,7 @@ bl_info = {
     'version': (0, 6),
     'blender': (2, 5, 9),
     'location': 'Search for Inset Extrude, map a key to the operator "mesh.inset_extrude", or use the default "I-key"',
-    'warning': "",
+    'warning': "Broken",
     'category': 'Mesh',
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Modeling/Inset-Extrude'}
 
