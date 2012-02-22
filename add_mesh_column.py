@@ -1058,7 +1058,7 @@ Add a column mesh.
             bpy.ops.object.join()
             bpy.ops.object.editmode_toggle()
             bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.remove_doubles(limit=0.0001)
+            bpy.ops.mesh.remove_doubles(mergedist=0.0001)
             bpy.ops.object.editmode_toggle()
 
         ob_new.location = tuple(context.scene.cursor_location)
