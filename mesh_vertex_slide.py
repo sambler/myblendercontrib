@@ -19,13 +19,13 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "Vertex slide",
+    "name": "Vertex slide for Bmesh",
     "author": "Valter Battioli (ValterVB) and PKHG",
-    "version": (1, 1, 6),
-    "blender": (2, 6, 0),
+    "version": (2, 0, 0),
+    "blender": (2, 6, 2),
     "location": "View3D > Mesh > Vertices (CTRL V-key)",
     "description": "Slide a vertex along an edge or a line",
-    "warning": "Broken, under developement",
+    "warning": "Work only with Blender 2.62 or higher",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
         "Scripts/Modeling/Vertex_Slide2",
     "tracker_url": "http://projects.blender.org/tracker/index.php?"\
@@ -60,22 +60,22 @@ bl_info = {
 #ver. 1.1.5: Changed Lay out of the Help and the Key for reverse the 
 #            movement. Left/Right arrow rather than Pus/Minus numpad
 #ver. 1.1.6: Now the vertex movement is always coherent with Mouse movement
+#ver. 2.0.0: Update to Bmesh and remove all mode switching
 #***********************************************************************
 
 import bpy
+import bmesh
 import bgl
 import blf
 from mathutils import Vector
 from bpy_extras.view3d_utils import location_3d_to_region_2d as loc3d2d
-
 
 # Equation of the line
 # Changing t we have a new point coordinate on the line along v0 v1
 # With t from 0 to 1  I move from v0 to v1
 def NewCoordinate(v0, v1, t):
     return v0 + t * (v1 - v0)
-
-
+    
 #  This class store Vertex data
 class Point():
     def __init__(self):
@@ -90,9 +90,8 @@ class Point():
         def __init__(self):
             self.co = None
             self.idx = None
-
-
-class VertexSlideOperator(bpy.types.Operator):
+            
+class BVertexSlideOperator(bpy.types.Operator):
     bl_idname = "vertex.slide"
     bl_label = "Vertex Slide"
     bl_options = {'REGISTER', 'UNDO', 'GRAB_POINTER', 'BLOCKING', 'INTERNAL'}
@@ -109,9 +108,13 @@ class VertexSlideOperator(bpy.types.Operator):
     VertLinkedIdx = 0  # Index of LinkedVertices1. Used only for 1 vertex select case
     LeftAltPress = False  # Flag to know if ALT is hold on
     LeftShiftPress = False  # Flag to know if SHIFT is hold on
-
+    obj = None  #Object
+    mesh = None  #Mesh
+    bm = None  #BMesh
+    
     # Convert a 3D coord to screen 2D coord
-    def Conv3DtoScreen2D(self, context, index):  # ^^^ could this function be replaced by bpy_extras.view3d_utils.location_3d_to_region_2d ?
+    #To be replaced with bpy_extras.view3d_utils.location_3d_to_region_2d
+    def Conv3DtoScreen2D(self, context, index):
         # Get screen information
         mid_x = context.region.width / 2.0
         mid_y = context.region.height / 2.0
@@ -123,7 +126,7 @@ class VertexSlideOperator(bpy.types.Operator):
         ob_mat = context.active_object.matrix_world
         total_mat = view_mat * ob_mat
 
-        Vertices = bpy.context.object.data.vertices
+        Vertices = self.bm.verts
         loc = Vertices[index].co.to_4d()  # Where I want draw
 
         vec = total_mat * loc
@@ -135,6 +138,7 @@ class VertexSlideOperator(bpy.types.Operator):
         y = int(mid_y + vec[1] * height / 2.0)
         return x, y
 
+    # OpenGL Function to draw on the screen help and pointer *
     def draw_callback_px(self, context):
         x, y = self.Conv3DtoScreen2D(context, self.ActiveVertex)
 
@@ -178,7 +182,6 @@ class VertexSlideOperator(bpy.types.Operator):
             bgl.glVertex2f(p.x2D, p.y2D)
         bgl.glEnd()
 
-
     # Compute the screen distance of two vertices
     def ScreenDistance(self, vertex_zero_co, vertex_one_co):
         matw = bpy.context.active_object.matrix_world
@@ -191,8 +194,7 @@ class VertexSlideOperator(bpy.types.Operator):
 
     def modal(self, context, event):
         if event.type == 'MOUSEMOVE':
-            bpy.ops.object.mode_set(mode='OBJECT')
-            Vertices = bpy.context.object.data.vertices
+            Vertices = self.bm.verts
             # Calculate the temp t valuse. Stored in td
             tmpMouse = Vector((event.mouse_x, event.mouse_y))
             t_diff = (tmpMouse - self.tmpMouse).length
@@ -236,22 +238,45 @@ class VertexSlideOperator(bpy.types.Operator):
                                                                            self.LinkedVertices1[self.VertLinkedIdx].t)
                 self.ActiveVertex = self.Vertex1.original.idx
             self.tmpMouse_x = event.mouse_x
-            bpy.ops.object.mode_set(mode='EDIT')
+            context.area.tag_redraw()
+
+        elif event.type == 'LEFT_SHIFT':  # Hold left SHIFT for precision
+            self.LeftShiftPress = not self.LeftShiftPress
+            if self.LeftShiftPress:
+                self.Direction *= 0.1
+            else:
+                if self.Direction < 0:
+                    self.Direction = -1
+                else:
+                    self.Direction = 1
+
+        elif event.type == 'LEFT_ALT':  # Hold ALT to use continuous slide
+            self.LeftAltPress = not self.LeftAltPress
+            if self.LeftAltPress and self.Vertex2.original.idx is None:
+                vert = bpy.context.object.data.vertices[self.Vertex1.original.idx]
+                self.Vertex2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
+                self.Vertex2.t = 0
+
+        elif event.type == 'LEFT_ARROW':  # Reverse direction
+            if self.Direction < 0.0:
+                self.Direction = - self.Direction
+
+        elif event.type == 'RIGHT_ARROW':  # Restore direction
+            if self.Direction > 0.0:
+                self.Direction = - self.Direction
 
         elif event.type == 'WHEELDOWNMOUSE':  # Change the vertex to be moved
             if self.Vertex2.original.idx is None:
                 if self.LeftAltPress:
-                    vert = bpy.context.object.data.vertices[self.Vertex1.original.idx]
+                    vert=self.bm.verts[self.Vertex1.original.idx]
                     self.Vertex2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
                     self.Vertex2.t = 0
                 self.VertLinkedIdx = self.VertLinkedIdx + 1
                 if self.VertLinkedIdx > len(self.LinkedVertices1) - 1:
                     self.VertLinkedIdx = 0
                 bpy.ops.mesh.select_all(action='DESELECT')
-                bpy.ops.object.mode_set(mode='OBJECT')
-                bpy.context.object.data.vertices[self.Vertex1.original.idx].select = True
-                bpy.context.object.data.vertices[self.LinkedVertices1[self.VertLinkedIdx].original.idx].select = True
-                bpy.ops.object.mode_set(mode='EDIT')
+                self.bm.verts[self.Vertex1.original.idx].select = True
+                self.bm.verts[self.LinkedVertices1[self.VertLinkedIdx].original.idx].select = True
             else:
                 self.FirstVertexMove = not self.FirstVertexMove
                 if self.LeftAltPress == False:
@@ -283,17 +308,15 @@ class VertexSlideOperator(bpy.types.Operator):
         elif event.type == 'WHEELUPMOUSE':  # Change the vertex to be moved
             if self.Vertex2.original.idx is None:
                 if self.LeftAltPress:
-                    vert = bpy.context.object.data.vertices[self.Vertex1.original.idx]
+                    vert = self.bm.verts[self.Vertex1.original.idx]
                     self.Vertex2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
                     self.Vertex2.t = 0
                 self.VertLinkedIdx = self.VertLinkedIdx - 1
                 if self.VertLinkedIdx < 0:
                     self.VertLinkedIdx = len(self.LinkedVertices1) - 1
                 bpy.ops.mesh.select_all(action='DESELECT')
-                bpy.ops.object.mode_set(mode='OBJECT')
-                bpy.context.object.data.vertices[self.Vertex1.original.idx].select = True
-                bpy.context.object.data.vertices[self.LinkedVertices1[self.VertLinkedIdx].original.idx].select = True
-                bpy.ops.object.mode_set(mode='EDIT')
+                self.bm.verts[self.Vertex1.original.idx].select = True
+                self.bm.verts[self.LinkedVertices1[self.VertLinkedIdx].original.idx].select = True
             else:
                 self.FirstVertexMove = not self.FirstVertexMove
                 if self.LeftAltPress == False:
@@ -322,52 +345,24 @@ class VertexSlideOperator(bpy.types.Operator):
                     self.Direction = -self.Direction
             context.area.tag_redraw()
 
-        elif event.type == 'LEFT_SHIFT':  # Hold left SHIFT for precision
-            self.LeftShiftPress = not self.LeftShiftPress
-            if self.LeftShiftPress:
-                self.Direction *= 0.1
-            else:
-                if self.Direction < 0:
-                    self.Direction = -1
-                else:
-                    self.Direction = 1
-
-        elif event.type == 'LEFT_ALT':  # Hold ALT to use continuous slide
-            self.LeftAltPress = not self.LeftAltPress
-            if self.LeftAltPress and self.Vertex2.original.idx is None:
-                vert = bpy.context.object.data.vertices[self.Vertex1.original.idx]
-                self.Vertex2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
-                self.Vertex2.t = 0
-
-        elif event.type == 'LEFT_ARROW':  # Reverse direction
-            if self.Direction < 0.0:
-                self.Direction = - self.Direction
-
-        elif event.type == 'RIGHT_ARROW':  # Restore direction
-            if self.Direction > 0.0:
-                self.Direction = - self.Direction
-
         elif event.type == 'LEFTMOUSE':  # Confirm and exit
-            Vertices = bpy.context.object.data.vertices
+            Vertices = self.bm.verts
             bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.object.mode_set(mode='OBJECT')
             Vertices[self.Vertex1.original.idx].select = True
             if self.Vertex2.original.idx is not None:
                 Vertices[self.Vertex2.original.idx].select = True
-            bpy.ops.object.mode_set(mode='EDIT')
             context.region.callback_remove(self._handle)
+            context.area.tag_redraw()
             return {'FINISHED'}
 
         elif event.type in {'RIGHTMOUSE', 'ESC'}:  # Restore and exit
-            Vertices = bpy.context.object.data.vertices
+            Vertices = self.bm.verts
             bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.object.mode_set(mode='OBJECT')
             Vertices[self.Vertex1.original.idx].co = self.Vertex1.original.co
             Vertices[self.Vertex1.original.idx].select = True
             if self.Vertex2.original.idx is not None:
                 Vertices[self.Vertex2.original.idx].co = self.Vertex2.original.co
                 Vertices[self.Vertex2.original.idx].select = True
-            bpy.ops.object.mode_set(mode='EDIT')
             context.region.callback_remove(self._handle)
             context.area.tag_redraw()
             return {'CANCELLED'}
@@ -376,27 +371,31 @@ class VertexSlideOperator(bpy.types.Operator):
 
     def invoke(self, context, event):
         if context.active_object == None or context.active_object.type != "MESH":
-            print("Not any active object or not an mesh object:")
             self.report({'WARNING'}, "Not any active object or not an mesh object:")
             return {'CANCELLED'}
 
-        obj = bpy.context.object
-        mesh = obj.data
-        Selected = False
-        Count = 0
+        if context.active_object.mode != 'EDIT':
+            self.report({'WARNING'}, "Mesh isn't in Edit Mode")
+            return {'CANCELLED'}
+        
+        self.obj = bpy.context.object
+        self.mesh = self.obj.data
+        self.bm = bmesh.from_mesh(self.mesh)
+
+        Count=0
+        Selected=False
         SelectedVertices = []  # Index of selected vertices
-        bpy.ops.object.mode_set(mode='OBJECT')
-        for vert in mesh.vertices:
-            if vert.select:
+        for i, v in enumerate(self.bm.verts):
+            if v.select and v.is_valid:
+                SelectedVertices.append(v.index)
                 Selected = True
-                SelectedVertices.append(vert.index)
-                Count += 1
+                Count += 1 
                 if (Count > 2):  # More than 2 vertices selected
                     Selected = False
                     break
+
         if Selected == False:
             self.report({'WARNING'}, "0 or more then 2 vertices selected, could not start")
-            bpy.ops.object.mode_set(mode='EDIT')
             return {'CANCELLED'}
 
         self.tmpMouse[0], self.tmpMouse[1] = (event.mouse_x, event.mouse_y)
@@ -407,68 +406,55 @@ class VertexSlideOperator(bpy.types.Operator):
         self.LinkedVertices1 = []
         self.LinkedVertices2 = []
 
-        # Store selected vertices data
+        # Store selected vertices data. To move in the first Loop
         self.Vertex1.original.idx = SelectedVertices[0]
-        self.Vertex1.original.co = mesh.vertices[SelectedVertices[0]].co.copy()
+        self.Vertex1.original.co = self.bm.verts[SelectedVertices[0]].co.copy()
         self.Vertex1.new = self.Vertex1.original
         x, y = self.Conv3DtoScreen2D(context, SelectedVertices[0])  # For draw edge
         self.Vertex1.x2D = x
         self.Vertex1.y2D = y
         if len(SelectedVertices) == 2:
             self.Vertex2.original.idx = SelectedVertices[1]
-            self.Vertex2.original.co = mesh.vertices[SelectedVertices[1]].co.copy()
+            self.Vertex2.original.co = self.bm.verts[SelectedVertices[1]].co.copy()
             self.Vertex2.new = self.Vertex2.original
             x, y = self.Conv3DtoScreen2D(context, SelectedVertices[1])  # For draw edge
             self.Vertex2.x2D = x
             self.Vertex2.y2D = y
 
         if len(SelectedVertices) == 2:
-            mesh.vertices[self.Vertex2.original.idx].select = False  # Unselect the second selected vertex
-        
+            self.bm.verts[self.Vertex2.original.idx].select = False  # Unselect the second selected vertex
+
         # Store linked vertices data, except the selected vertices
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_more()  # Select the linked vertices
-        bpy.ops.object.mode_set(mode='OBJECT')
-        mesh.vertices[self.Vertex1.original.idx].select = False  #So are selected only the linked vertices
-        for vert in mesh.vertices:
-            if vert.select:
-                self.LinkedVertices1.append(Point())
-                self.LinkedVertices1[-1].original.idx = vert.index
-                self.LinkedVertices1[-1].original.co = vert.co.copy()
-                self.LinkedVertices1[-1].new = self.LinkedVertices1[-1].original
-                x, y = self.Conv3DtoScreen2D(context, vert.index)  # For draw edge
-                self.LinkedVertices1[-1].x2D = x
-                self.LinkedVertices1[-1].y2D = y
-                vert.select = False
+        for i, vert in enumerate(self.bm.verts[self.Vertex1.original.idx].link_edges):
+            self.LinkedVertices1.append(Point())
+            self.LinkedVertices1[-1].original.idx = vert.other_vert(self.bm.verts[self.Vertex1.original.idx]).index   #e_0.other_vert(v_0).index
+            self.LinkedVertices1[-1].original.co = vert.other_vert(self.bm.verts[self.Vertex1.original.idx]).co.copy()
+            self.LinkedVertices1[-1].new = self.LinkedVertices1[-1].original
+            x, y = self.Conv3DtoScreen2D(context, vert.other_vert(self.bm.verts[self.Vertex1.original.idx]).index)  # For draw edge
+            self.LinkedVertices1[-1].x2D = x
+            self.LinkedVertices1[-1].y2D = y
         if len(SelectedVertices) == 2:
-            mesh.vertices[self.Vertex2.original.idx].select = True  # Select the second selected vertex
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_more()  # Select the linked vertices
-            bpy.ops.object.mode_set(mode='OBJECT')
-            mesh.vertices[self.Vertex2.original.idx].select = False  #So are selected only the linked vertices
-            for vert in mesh.vertices:
-                if vert.select:
-                    self.LinkedVertices2.append(Point())
-                    self.LinkedVertices2[-1].original.idx = vert.index
-                    self.LinkedVertices2[-1].original.co = vert.co.copy()
-                    self.LinkedVertices2[-1].new = self.LinkedVertices1[-1].original
-                    x, y = self.Conv3DtoScreen2D(context, vert.index)  # For draw edge
-                    self.LinkedVertices2[-1].x2D = x
-                    self.LinkedVertices2[-1].y2D = y
-                    vert.select = False
+            for i, vert in enumerate(self.bm.verts[self.Vertex2.original.idx].link_edges):
+                self.LinkedVertices2.append(Point())
+                self.LinkedVertices2[-1].original.idx = vert.other_vert(self.bm.verts[self.Vertex2.original.idx]).index
+                self.LinkedVertices2[-1].original.co = vert.other_vert(self.bm.verts[self.Vertex2.original.idx]).co.copy()
+                self.LinkedVertices2[-1].new = self.LinkedVertices1[-1].original
+                x, y = self.Conv3DtoScreen2D(context, vert.other_vert(self.bm.verts[self.Vertex2.original.idx]).index)  # For draw edge
+                self.LinkedVertices2[-1].x2D = x
+                self.LinkedVertices2[-1].y2D = y
 
         # Check for no linked vertex. Can be happen also with a mix of Select Mode
         # Need only with 1 vertex selected
+        # To be Check
         if len(SelectedVertices) == 1 and len(self.LinkedVertices1) == 0:
-            bpy.ops.object.mode_set(mode='EDIT')
             self.report({'WARNING'}, "Isolated vertex or mixed Select Mode!")
             return {'CANCELLED'}
 
-        mesh.vertices[self.Vertex1.original.idx].select = True  # Select the firs selected vertex
+        self.bm.verts[self.Vertex1.original.idx].select = True  # Select the first selected vertex
         if len(SelectedVertices) == 2:
-            mesh.vertices[self.Vertex2.original.idx].select = True  # Select the second selected vertex
+            self.bm.verts[self.Vertex2.original.idx].select = True  # Select the second selected vertex
         else:
-            mesh.vertices[self.LinkedVertices1[0].original.idx].select = True  # Select the first linked vertex
+            self.bm.verts[self.LinkedVertices1[0].original.idx].select = True  # Select the first linked vertex
         self.ActiveVertex = self.Vertex1.original.idx
 
         # Keep Vertex movement coherent with Mouse movement
@@ -479,19 +465,17 @@ class VertexSlideOperator(bpy.types.Operator):
             tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.LinkedVertices1[0].original.idx)
         if tmpX2 - tmpX1 < 0:
             self.Direction = -self.Direction
-        bpy.ops.object.mode_set(mode='EDIT')  #I must stay in Edit mode
 
         # Add the region OpenGL drawing callback
         # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
         context.window_manager.modal_handler_add(self)
         self._handle = context.region.callback_add(self.__class__.draw_callback_px, (self, context), 'POST_PIXEL')
-        context.area.tag_redraw()
+        context.area.tag_redraw()  # Force the redraw of the 3D View
         return {'RUNNING_MODAL'}
-
 
 def menu_func(self, context):
     self.layout.operator_context = "INVOKE_DEFAULT"
-    self.layout.operator(VertexSlideOperator.bl_idname, text="Vertex Slide")
+    self.layout.operator(BVertexSlideOperator.bl_idname, text="Vertex Slide Bmesh")
 
 
 def register():
