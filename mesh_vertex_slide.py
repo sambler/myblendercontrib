@@ -253,7 +253,7 @@ class BVertexSlideOperator(bpy.types.Operator):
         elif event.type == 'LEFT_ALT':  # Hold ALT to use continuous slide
             self.LeftAltPress = not self.LeftAltPress
             if self.LeftAltPress and self.Vertex2.original.idx is None:
-                vert = bpy.context.object.data.vertices[self.Vertex1.original.idx]
+                vert = self.bm.verts[self.Vertex1.original.idx]
                 self.Vertex2.original.co = Vector((vert.co.x, vert.co.y, vert.co.z))
                 self.Vertex2.t = 0
 
