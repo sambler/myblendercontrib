@@ -128,7 +128,8 @@ class OscPanelObject(OscPollObject, bpy.types.Panel):
         col = layout.column(align=1)
         row = col.row()           
         
-        colrow = col.row(align=1)            
+        colrow = col.row(align=1)  
+        col.operator("objects.relink_objects_between_scenes",icon="LINKED")          
         col.operator("object.distribute_apply_osc",icon="OBJECT_DATAMODE") 
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene,"SearchAndSelectOt",text="")
@@ -2343,7 +2344,57 @@ class OscImportVG (bpy.types.Operator):
         # PASO A MODO PINTURA DE PESO       
         bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
         return{"FINISHED"}
+
+
+## ------------------------------------ RELINK OBJECTS--------------------------------------   
+
+
+def relinkObjects (self,MODE):   
+    SCENES = bpy.data.scenes[:]
+    
+    if MODE == "ALL":
+        OBJECTS = bpy.data.objects[:]
+    else:
+        OBJECTS = bpy.selection[:]
+    
+    ## REMUEVO ESCENA ACTIVA
+    SCENES.remove(bpy.context.scene)
+    
+    ## DESELECT
+    bpy.ops.object.select_all(action='DESELECT')
+    
+    ## SELECT
+    for OBJETO in OBJECTS:
+        if OBJETO.users != len(bpy.data.scenes):
+            print(OBJETO.name)
+            OBJETO.select = True
+        
+    ## LINK
+    for SCENE in SCENES:
+        bpy.ops.object.make_links_scene(scene=SCENE.name)           
+    
+
+class OscRelinkObjectsBetween (bpy.types.Operator):
+    bl_idname = "objects.relink_objects_between_scenes"
+    bl_label = "Relink Objects Between Scenes" 
+    bl_options =  {"REGISTER","UNDO"}  
+    
+    type = bpy.props.EnumProperty(
+            name="Object Mode",
+            description="Object Mode.",
+            items=(('ALL', "All Objects", "Relink all Objects."),
+                   ('SEL', "Selected Objects", "Relink Only The Selected Objects")),
+            default='SEL',
+            )
+   
       
+    def execute (self, context):
+        relinkObjects(self,self.type)        
+        return {'FINISHED'}
+    
+
+
+   
 ##======================================================================================FIN DE SCRIPTS    
     
     
@@ -2395,3 +2446,4 @@ bpy.utils.register_class(renderCurrent)
 bpy.utils.register_class(renderCurrentCF)
 bpy.utils.register_class(renderSelected)
 bpy.utils.register_class(renderSelectedCF)
+bpy.utils.register_class(OscRelinkObjectsBetween)
