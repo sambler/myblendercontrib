@@ -256,78 +256,88 @@ class reloadImages (bpy.types.Operator):
 
 ##-----------------------------RESYM---------------------------
 
+def defResym(self, OFFSET, SUBD):
+    ##SETEO VERTEX MODE        
+    bpy.context.tool_settings.mesh_select_mode[0]=1
+    bpy.context.tool_settings.mesh_select_mode[1]=0
+    bpy.context.tool_settings.mesh_select_mode[2]=0
+    
+    OBJETO = bpy.context.active_object
+
+    if SUBD > 0:
+        USESUB=True
+        SUBLEV=SUBD
+    else:
+        USESUB=False
+        SUBLEV=1
+    
+    ## IGUALO VERTICES CERCANOS A CERO
+    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)        
+    for vertice in bpy.context.object.data.vertices:
+        if abs(vertice.co[0]) < OFFSET  : 
+            vertice.co[0] = 0                
+    bpy.ops.object.mode_set(mode='EDIT', toggle=False)    
+    
+
+    ## OBJETO ACTIVO
+    bpy.data.scenes[0].objects.active = OBJETO
+    ##BORRA IZQUIERDA
+    bpy.ops.object.mode_set(mode="EDIT", toggle=False)
+    bpy.ops.mesh.select_all(action="DESELECT")
+    bpy.ops.object.mode_set(mode="OBJECT", toggle=False)
+    for vertices in OBJETO.data.vertices:
+      if vertices.co[0] < 0:
+        vertices.select = 1
+    ## EDIT    
+    bpy.ops.object.mode_set(mode="EDIT", toggle=False)
+    ## BORRA COMPONENTES
+    bpy.ops.mesh.delete()
+    ## SUMA MIRROR
+    bpy.ops.object.modifier_add(type='MIRROR')
+    ## PASO A EDIT MODE
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## SELECCIONO TODOS LOS COMPONENTES
+    bpy.ops.mesh.select_all(action="SELECT")
+    ## CREO UV TEXTURE DEL SIMETRICO
+    bpy.ops.mesh.uv_texture_add()
+    ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
+    LENUVLISTSIM = len(bpy.data.objects[OBJETO.name].data.uv_textures)
+    LENUVLISTSIM = LENUVLISTSIM - 1
+    OBJETO.data.uv_textures[LENUVLISTSIM:][0].name = "SYMMETRICAL"
+    ## MODO EDICION
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## UNWRAP
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    ## MODO OBJETO
+    bpy.ops.object.mode_set(mode="OBJECT", toggle= False) 
+    ## APLICO MIRROR
+    bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Mirror")
+    ## VUELVO A EDIT MODE
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## CREO UV TEXTURE DEL ASIMETRICO
+    bpy.ops.mesh.uv_texture_add()
+    ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
+    LENUVLISTASIM = len(OBJETO.data.uv_textures)
+    LENUVLISTASIM = LENUVLISTASIM  - 1
+    OBJETO.data.uv_textures[LENUVLISTASIM:][0].name = "ASYMMETRICAL"
+    ## SETEO UV ACTIVO
+    OBJETO.data.uv_textures.active = OBJETO.data.uv_textures["ASYMMETRICAL"]
+    ## EDIT MODE
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## UNWRAP
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    ## PASO A OBJECT MODE
+    bpy.ops.object.mode_set(mode="OBJECT", toggle= False)    
+
+
 class resym (bpy.types.Operator):
     bl_idname = "mesh.resym_osc"
     bl_label = "ReSym Mesh" 
     bl_options =  {"REGISTER","UNDO"}
+    OFFSET=bpy.props.FloatProperty(name="Offset", default=0.001, min=-0, max=0.1)
+    SUBD=bpy.props.IntProperty(name="Subdivisions Levels", default=0, min=0, max=4) 
     def execute(self,context):
-        ##SETEO VERTEX MODE        
-        bpy.context.tool_settings.mesh_select_mode[0]=1
-        bpy.context.tool_settings.mesh_select_mode[1]=0
-        bpy.context.tool_settings.mesh_select_mode[2]=0
-        
-        OBJLIST = bpy.context.selected_objects
-        
-        ## IGUALO VERTICES CERCANOS A CERO
-        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)        
-        for vertice in bpy.context.object.data.vertices:
-            if abs(vertice.co[0]) < 0.001 :
-                print(vertice.index) 
-                vertice.co[0] = 0                
-        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-        
-        for OBJETOS in OBJLIST:
-            ## OBJETO ACTIVO
-            bpy.data.scenes[0].objects.active = bpy.data.objects[OBJETOS.name]
-            ##BORRA IZQUIERDA
-            bpy.ops.object.mode_set(mode="EDIT", toggle=False)
-            bpy.ops.mesh.select_all(action="DESELECT")
-            bpy.ops.object.mode_set(mode="OBJECT", toggle=False)
-            for vertices in bpy.data.objects[OBJETOS.name].data.vertices:
-              if vertices.co[0] < 0:
-                vertices.select = 1
-            ## EDIT    
-            bpy.ops.object.mode_set(mode="EDIT", toggle=False)
-            ## BORRA COMPONENTES
-            bpy.ops.mesh.delete()
-            ## SUMA MIRROR
-            bpy.ops.object.modifier_add(type='MIRROR')
-            ## PASO A EDIT MODE
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## SELECCIONO TODOS LOS COMPONENTES
-            bpy.ops.mesh.select_all(action="SELECT")
-            ## CREO UV TEXTURE DEL SIMETRICO
-            bpy.ops.mesh.uv_texture_add()
-            ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
-            LENUVLISTSIM = len(bpy.data.objects[OBJETOS.name].data.uv_textures)
-            LENUVLISTSIM = LENUVLISTSIM - 1
-            print ("LA CANTIDAD DE UVS QUE TIENE ES: "+ str(LENUVLISTSIM))
-            bpy.data.objects[OBJETOS.name].data.uv_textures[LENUVLISTSIM:][0].name = "SIMETRICO"
-            ## MODO EDICION
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## UNWRAP
-            bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=True)
-            ## MODO OBJETO
-            bpy.ops.object.mode_set(mode="OBJECT", toggle= False) 
-            ## APLICO MIRROR
-            bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Mirror")
-            ## VUELVO A EDIT MODE
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## CREO UV TEXTURE DEL ASIMETRICO
-            bpy.ops.mesh.uv_texture_add()
-            ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
-            LENUVLISTASIM = len(bpy.data.objects[OBJETOS.name].data.uv_textures)
-            LENUVLISTASIM = LENUVLISTASIM  - 1
-            print ("LA CANTIDAD DE UVS QUE TIENE ES: "+ str(LENUVLISTASIM))
-            bpy.data.objects[OBJETOS.name].data.uv_textures[LENUVLISTASIM:][0].name = "ASIMETRICO"
-            ## SETEO UV ACTIVO
-            bpy.data.objects[OBJETOS.name].data.uv_textures.active = bpy.data.meshes[OBJETOS.data.name].uv_textures["ASIMETRICO"]
-            ## EDIT MODE
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## UNWRAP
-            bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=True)
-            ## PASO A OBJECT MODE
-            bpy.ops.object.mode_set(mode="OBJECT", toggle= False)
+        defResym(self, self.OFFSET, self.SUBD)
         return{"FINISHED"}     
         
 ## -----------------------------------SELECT LEFT---------------------
@@ -1947,11 +1957,13 @@ def defoscBatchMaker(TYPE):
     if sys.platform.startswith("w"):
         print ("PLATFORM: WINDOWS")
         SYSBAR="\\" 
-        EXTSYS=".bat"           
+        EXTSYS=".bat" 
+        QUOTES='"'          
     else:
         print ("PLATFORM:LINUX")    
         SYSBAR="/"
         EXTSYS=".sh"
+        QUOTES=''
     
     print(TYPE)
     
@@ -1965,7 +1977,7 @@ def defoscBatchMaker(TYPE):
 
     
     # DEFINO ARCHIVO DE BATCH
-    FILEBATCH.writelines("%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (BINDIR,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
+    FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
     FILEBATCH.close()        
     
     # SI ES LINUX LE DOY PERMISOS CHMOD
