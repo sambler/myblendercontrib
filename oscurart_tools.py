@@ -870,6 +870,8 @@ def defRenderAll (FRAMETYPE):
     FC=bpy.context.scene.frame_current 
     FS=bpy.context.scene.frame_start
     FE=bpy.context.scene.frame_end
+
+    print("---------------------")
            
     ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
@@ -880,7 +882,7 @@ def defRenderAll (FRAMETYPE):
                     SLOTLIST.append(SLOT.material)
                
                 LISTMAT.append((OBJECT,SLOTLIST))
-                print(LISTMAT)
+
         except:
             pass
         
@@ -904,7 +906,7 @@ def defRenderAll (FRAMETYPE):
             bpy.context.scene.frame_end=FC 
             bpy.context.scene.frame_start=FC
         
-        print(PROPTOLIST)
+
         ## SETEO MATERIALES  DE OVERRIDES
         try:
             for OVERRIDE in PROPTOLIST:
@@ -921,7 +923,7 @@ def defRenderAll (FRAMETYPE):
         else:
             print ("PLATFORM:LINUX")    
             SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-        print (PATH)
+
         LAYERLIST=[]
         for layer in SCENE.render.layers:
             if layer.use == 1:
@@ -930,11 +932,17 @@ def defRenderAll (FRAMETYPE):
         for layers in LAYERLIST:
             for rl in LAYERLIST:
                 rl.use= 0
-            print (layers.name)
+
+            print("SCENE: "+CURSC)    
+            print ("LAYER: "+layers.name)
+            print("OVERRIDE: "+str(PROPTOLIST))            
+            
             SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
             SCENE.render.layers[layers.name].use = 1
             bpy.ops.render.render(animation=1, layer=layers.name, scene= SCENE.name)
-        print ("TERMINATED")
+
+            print ("DONE")
+            print("---------------------")
         
         ## REESTABLECE LOS LAYERS
         for layer in LAYERLIST:
@@ -946,13 +954,12 @@ def defRenderAll (FRAMETYPE):
         #RESTAURO MATERIALES  DE OVERRIDES  
         for OBJECT in LISTMAT:
             SLOTIND=0
-            print(OBJECT[0])
             try:
                 for SLOT in OBJECT[1]:
                     OBJECT[0].material_slots[SLOTIND].material=SLOT
                     SLOTIND+=1
             except:
-                print("FUERA DE RANGO")
+                print("OUT OF RANGE")
         # RESTAURO FRAMES
         if FRAMETYPE == True:
             SCENE.frame_start=FS
@@ -1009,7 +1016,6 @@ def defRenderSelected(FRAMETYPE):
                     SLOTLIST.append(SLOT.material)
                
                 LISTMAT.append((OBJECT,SLOTLIST))
-                print(LISTMAT)
         except:
             pass
         
@@ -1022,7 +1028,7 @@ def defRenderSelected(FRAMETYPE):
             ENDPATH = PATH
             FILEPATH=bpy.data.filepath
 
-
+            print("---------------------")
 
             # CAMBIO SCENE
             bpy.context.window.screen.scene=SCENE
@@ -1033,8 +1039,6 @@ def defRenderSelected(FRAMETYPE):
                 bpy.context.scene.frame_end=FC 
                 bpy.context.scene.frame_start=FC
         
-
-            print(PROPTOLIST)
             ## SETEO MATERIALES  DE OVERRIDES
             try:
                 for OVERRIDE in PROPTOLIST:
@@ -1051,7 +1055,7 @@ def defRenderSelected(FRAMETYPE):
             else:
                 print ("PLATFORM:LINUX")    
                 SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-            print (PATH)
+
             LAYERLIST=[]
             for layer in SCENE.render.layers:
                 if layer.use == 1:
@@ -1060,12 +1064,18 @@ def defRenderSelected(FRAMETYPE):
             for layers in LAYERLIST:
                 for rl in LAYERLIST:
                     rl.use= 0
-                print (layers.name)
+                    
+                print("SCENE: "+CURSC)    
+                print ("LAYER: "+layers.name)
+                print("OVERRIDE: "+str(PROPTOLIST))  
+            
                 SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
                 SCENE.render.layers[layers.name].use = 1
                 bpy.ops.render.render(animation=1, layer=layers.name, scene= SCENE.name)
-            print ("TERMINATED")
-            
+
+                print ("DONE")
+                print("---------------------")
+                
             ## REESTABLECE LOS LAYERS
             for layer in LAYERLIST:
                 layer.use = 1
@@ -1076,13 +1086,12 @@ def defRenderSelected(FRAMETYPE):
             #RESTAURO MATERIALES  DE OVERRIDES  
             for OBJECT in LISTMAT:
                 SLOTIND=0
-                print(OBJECT[0])
                 try:
                     for SLOT in OBJECT[1]:
                         OBJECT[0].material_slots[SLOTIND].material=SLOT
                         SLOTIND+=1
                 except:
-                    print("FUERA DE RANGO")
+                    print("OUT OF RANGE")
                     
             # RESTAURO FRAMES
             if FRAMETYPE == True:
@@ -1127,6 +1136,8 @@ def defRenderCurrent (FRAMETYPE):
     FC=bpy.context.scene.frame_current    
     FS=bpy.context.scene.frame_start
     FE=bpy.context.scene.frame_end 
+    
+    print("---------------------")
         
     ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
@@ -1134,13 +1145,10 @@ def defRenderCurrent (FRAMETYPE):
         try:
             if OBJECT.type=="MESH":
                 for SLOT in OBJECT.material_slots[:]:
-                    SLOTLIST.append(SLOT.material)
-               
+                    SLOTLIST.append(SLOT.material)               
                 LISTMAT.append((OBJECT,SLOTLIST))
-                print(LISTMAT)
         except:
-            pass
-        
+            pass        
 
 
     PROPTOLIST=list(eval(SCENE['OVERRIDE']))
@@ -1156,7 +1164,6 @@ def defRenderCurrent (FRAMETYPE):
         bpy.context.scene.frame_end=FC 
         bpy.context.scene.frame_start=FC  
     
-    print(PROPTOLIST)
     ## SETEO MATERIALES  DE OVERRIDES
     try:
         for OVERRIDE in PROPTOLIST:
@@ -1173,7 +1180,7 @@ def defRenderCurrent (FRAMETYPE):
     else:
         print ("PLATFORM:LINUX")    
         SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-    print (PATH)
+
     LAYERLIST=[]
     for layer in SCENE.render.layers:
         if layer.use == 1:
@@ -1182,11 +1189,18 @@ def defRenderCurrent (FRAMETYPE):
     for layers in LAYERLIST:
         for rl in LAYERLIST:
             rl.use= 0
-        print (layers.name)
+
+        print("SCENE: "+CURSC)    
+        print ("LAYER: "+layers.name)
+        print("OVERRIDE: "+str(PROPTOLIST))
+
+
         SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
         SCENE.render.layers[layers.name].use = 1
         bpy.ops.render.render(animation=1, layer=layers.name, scene= SCENE.name)
-    print ("TERMINATED")
+        
+        print ("DONE")
+        print("---------------------")
     
     ## REESTABLECE LOS LAYERS
     for layer in LAYERLIST:
@@ -1198,7 +1212,6 @@ def defRenderCurrent (FRAMETYPE):
     #RESTAURO MATERIALES  DE OVERRIDES  
     for OBJECT in LISTMAT:
         SLOTIND=0
-        print(OBJECT[0])
         try:
             for SLOT in OBJECT[1]:
                 OBJECT[0].material_slots[SLOTIND].material=SLOT
