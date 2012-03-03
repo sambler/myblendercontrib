@@ -61,6 +61,7 @@ bl_info = {
 #            movement. Left/Right arrow rather than Pus/Minus numpad
 #ver. 1.1.6: Now the vertex movement is always coherent with Mouse movement
 #ver. 2.0.0: Update to Bmesh and remove all mode switching
+#ver. 2.0.1: Replaced Conv3DtoScreen2D function with location_3d_to_region_2d
 #***********************************************************************
 
 import bpy
@@ -82,8 +83,8 @@ class Point():
         self.original = self.Vertex()  # Original position
         self.new = self.Vertex()  # New position
         self.t = 0  # Used for move the vertex
-        self.x2D = 0  # Screen 2D cooord
-        self.y2D = 0  # Screen 2D cooord
+        self.x2D = 0  # Screen 2D cooord of the point
+        self.y2D = 0  # Screen 2D cooord of the point
         self.selected = False
 
     class Vertex():
@@ -97,10 +98,10 @@ class BVertexSlideOperator(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'GRAB_POINTER', 'BLOCKING', 'INTERNAL'}
 
     Vertex1 = Point()  # First selected vertex data
-    LinkedVertices1 = []  # List of index of linked vertices of Vertex1
+    LinkedVertices1 = []  # List of index of linked verts of Vertex1
     Vertex2 = Point()  # Second selected vertex data
-    LinkedVertices2 = []  # List of index of linked vertices of Vertex2
-    ActiveVertex = None
+    LinkedVertices2 = []  # List of index of linked verts of Vertex2
+    ActiveVertex = None  # Index of vertex to be moved
     tmpMouse_x = 0
     tmpMouse = Vector((0, 0))
     Direction = 1.0  # Used for direction and precision of the movement
@@ -108,39 +109,13 @@ class BVertexSlideOperator(bpy.types.Operator):
     VertLinkedIdx = 0  # Index of LinkedVertices1. Used only for 1 vertex select case
     LeftAltPress = False  # Flag to know if ALT is hold on
     LeftShiftPress = False  # Flag to know if SHIFT is hold on
-    obj = None  #Object
-    mesh = None  #Mesh
-    bm = None  #BMesh
-    
-    # Convert a 3D coord to screen 2D coord
-    #To be replaced with bpy_extras.view3d_utils.location_3d_to_region_2d
-    def Conv3DtoScreen2D(self, context, index):
-        # Get screen information
-        mid_x = context.region.width / 2.0
-        mid_y = context.region.height / 2.0
-        width = context.region.width
-        height = context.region.height
-
-        # Get matrices
-        view_mat = context.space_data.region_3d.perspective_matrix
-        ob_mat = context.active_object.matrix_world
-        total_mat = view_mat * ob_mat
-
-        Vertices = self.bm.verts
-        loc = Vertices[index].co.to_4d()  # Where I want draw
-
-        vec = total_mat * loc
-        if vec[3] != 0:
-            vec = vec / vec[3]
-        else:
-            vec = vec
-        x = int(mid_x + vec[0] * width / 2.0)
-        y = int(mid_y + vec[1] * height / 2.0)
-        return x, y
+    obj = None  # Object
+    mesh = None  # Mesh
+    bm = None  # BMesh
 
     # OpenGL Function to draw on the screen help and pointer *
     def draw_callback_px(self, context):
-        x, y = self.Conv3DtoScreen2D(context, self.ActiveVertex)
+        x, y = loc3d2d(context.region, context.space_data.region_3d, self.bm.verts[self.ActiveVertex].co)
 
         # Draw an * at the active vertex
         blf.position(0, x, y, 0)
@@ -195,7 +170,7 @@ class BVertexSlideOperator(bpy.types.Operator):
     def modal(self, context, event):
         if event.type == 'MOUSEMOVE':
             Vertices = self.bm.verts
-            # Calculate the temp t valuse. Stored in td
+            # Calculate the temp t value. Stored in td
             tmpMouse = Vector((event.mouse_x, event.mouse_y))
             t_diff = (tmpMouse - self.tmpMouse).length
             self.tmpMouse = tmpMouse
@@ -289,18 +264,18 @@ class BVertexSlideOperator(bpy.types.Operator):
             # Keep Vertex movement coherent with Mouse movement
             if self.Vertex2.original.idx is not None:
                 if self.FirstVertexMove: 
-                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
-                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+                    tmpX1, tmpY1 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex1.original.co)
+                    tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex2.original.co)
                     if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction >= 0)):
                         self.Direction = -self.Direction
                 else:
-                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
-                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                    tmpX1, tmpY1 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex2.original.co)
+                    tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex1.original.co)
                     if (tmpX1 < tmpX2 and self.Direction < 0) or (tmpX2 < tmpX1 and self.Direction >= 0):
                         self.Direction = -self.Direction
             else:
-                tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
-                tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.LinkedVertices1[self.VertLinkedIdx].original.idx)
+                tmpX1, tmpY1 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex1.original.co)
+                tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.LinkedVertices1[self.VertLinkedIdx].original.co)
                 if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction < 0)):
                     self.Direction = -self.Direction
             context.area.tag_redraw()
@@ -329,18 +304,18 @@ class BVertexSlideOperator(bpy.types.Operator):
             # Keep Vertex movement coherent with Mouse movement
             if self.Vertex2.original.idx is not None:
                 if self.FirstVertexMove: 
-                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
-                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+                    tmpX1, tmpY1 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex1.original.co)
+                    tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex2.original.co)
                     if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction >= 0)):
                         self.Direction = -self.Direction
                 else:
-                    tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
-                    tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+                    tmpX1, tmpY1 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex2.original.co)
+                    tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex1.original.co)
                     if (tmpX1 < tmpX2 and self.Direction < 0) or (tmpX2 < tmpX1 and self.Direction >= 0):
                         self.Direction = -self.Direction
             else:
-                tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
-                tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.LinkedVertices1[self.VertLinkedIdx].original.idx)
+                tmpX1, tmpY1 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex1.original.co)
+                tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.LinkedVertices1[self.VertLinkedIdx].original.co)
                 if ((tmpX1 > tmpX2 and self.Direction >= 0) or (tmpX2 > tmpX1 and self.Direction < 0)):
                     self.Direction = -self.Direction
             context.area.tag_redraw()
@@ -410,14 +385,14 @@ class BVertexSlideOperator(bpy.types.Operator):
         self.Vertex1.original.idx = SelectedVertices[0]
         self.Vertex1.original.co = self.bm.verts[SelectedVertices[0]].co.copy()
         self.Vertex1.new = self.Vertex1.original
-        x, y = self.Conv3DtoScreen2D(context, SelectedVertices[0])  # For draw edge
+        x, y = loc3d2d(context.region, context.space_data.region_3d, self.bm.verts[SelectedVertices[0]].co)  # For draw edge
         self.Vertex1.x2D = x
         self.Vertex1.y2D = y
         if len(SelectedVertices) == 2:
             self.Vertex2.original.idx = SelectedVertices[1]
             self.Vertex2.original.co = self.bm.verts[SelectedVertices[1]].co.copy()
             self.Vertex2.new = self.Vertex2.original
-            x, y = self.Conv3DtoScreen2D(context, SelectedVertices[1])  # For draw edge
+            x, y = loc3d2d(context.region, context.space_data.region_3d, self.bm.verts[SelectedVertices[1]].co)  # For draw edge
             self.Vertex2.x2D = x
             self.Vertex2.y2D = y
 
@@ -430,7 +405,7 @@ class BVertexSlideOperator(bpy.types.Operator):
             self.LinkedVertices1[-1].original.idx = vert.other_vert(self.bm.verts[self.Vertex1.original.idx]).index   #e_0.other_vert(v_0).index
             self.LinkedVertices1[-1].original.co = vert.other_vert(self.bm.verts[self.Vertex1.original.idx]).co.copy()
             self.LinkedVertices1[-1].new = self.LinkedVertices1[-1].original
-            x, y = self.Conv3DtoScreen2D(context, vert.other_vert(self.bm.verts[self.Vertex1.original.idx]).index)  # For draw edge
+            x, y = loc3d2d(context.region, context.space_data.region_3d, vert.other_vert(self.bm.verts[self.Vertex1.original.idx]).co)  # For draw edge
             self.LinkedVertices1[-1].x2D = x
             self.LinkedVertices1[-1].y2D = y
         if len(SelectedVertices) == 2:
@@ -439,13 +414,12 @@ class BVertexSlideOperator(bpy.types.Operator):
                 self.LinkedVertices2[-1].original.idx = vert.other_vert(self.bm.verts[self.Vertex2.original.idx]).index
                 self.LinkedVertices2[-1].original.co = vert.other_vert(self.bm.verts[self.Vertex2.original.idx]).co.copy()
                 self.LinkedVertices2[-1].new = self.LinkedVertices1[-1].original
-                x, y = self.Conv3DtoScreen2D(context, vert.other_vert(self.bm.verts[self.Vertex2.original.idx]).index)  # For draw edge
+                x, y = loc3d2d(context.region, context.space_data.region_3d, vert.other_vert(self.bm.verts[self.Vertex2.original.idx]).co)  # For draw edge
                 self.LinkedVertices2[-1].x2D = x
                 self.LinkedVertices2[-1].y2D = y
 
         # Check for no linked vertex. Can be happen also with a mix of Select Mode
         # Need only with 1 vertex selected
-        # To be Check
         if len(SelectedVertices) == 1 and len(self.LinkedVertices1) == 0:
             self.report({'WARNING'}, "Isolated vertex or mixed Select Mode!")
             return {'CANCELLED'}
@@ -458,11 +432,11 @@ class BVertexSlideOperator(bpy.types.Operator):
         self.ActiveVertex = self.Vertex1.original.idx
 
         # Keep Vertex movement coherent with Mouse movement
-        tmpX1, tmpY1 = self.Conv3DtoScreen2D(context, self.Vertex1.original.idx)
+        tmpX1, tmpY1 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex1.original.co)
         if len(SelectedVertices) == 2:
-            tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.Vertex2.original.idx)
+            tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.Vertex2.original.co)
         else:
-            tmpX2, tmpY2 = self.Conv3DtoScreen2D(context, self.LinkedVertices1[0].original.idx)
+            tmpX2, tmpY2 = loc3d2d(context.region, context.space_data.region_3d, self.LinkedVertices1[0].original.co)
         if tmpX2 - tmpX1 < 0:
             self.Direction = -self.Direction
 
