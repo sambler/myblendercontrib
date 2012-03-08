@@ -128,7 +128,8 @@ class OscPanelObject(OscPollObject, bpy.types.Panel):
         col = layout.column(align=1)
         row = col.row()           
         
-        colrow = col.row(align=1)            
+        colrow = col.row(align=1)  
+        col.operator("objects.relink_objects_between_scenes",icon="LINKED")          
         col.operator("object.distribute_apply_osc",icon="OBJECT_DATAMODE") 
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene,"SearchAndSelectOt",text="")
@@ -256,78 +257,88 @@ class reloadImages (bpy.types.Operator):
 
 ##-----------------------------RESYM---------------------------
 
+def defResym(self, OFFSET, SUBD):
+    ##SETEO VERTEX MODE        
+    bpy.context.tool_settings.mesh_select_mode[0]=1
+    bpy.context.tool_settings.mesh_select_mode[1]=0
+    bpy.context.tool_settings.mesh_select_mode[2]=0
+    
+    OBJETO = bpy.context.active_object
+
+    if SUBD > 0:
+        USESUB=True
+        SUBLEV=SUBD
+    else:
+        USESUB=False
+        SUBLEV=1
+    
+    ## IGUALO VERTICES CERCANOS A CERO
+    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)        
+    for vertice in bpy.context.object.data.vertices:
+        if abs(vertice.co[0]) < OFFSET  : 
+            vertice.co[0] = 0                
+    bpy.ops.object.mode_set(mode='EDIT', toggle=False)    
+    
+
+    ## OBJETO ACTIVO
+    bpy.data.scenes[0].objects.active = OBJETO
+    ##BORRA IZQUIERDA
+    bpy.ops.object.mode_set(mode="EDIT", toggle=False)
+    bpy.ops.mesh.select_all(action="DESELECT")
+    bpy.ops.object.mode_set(mode="OBJECT", toggle=False)
+    for vertices in OBJETO.data.vertices:
+      if vertices.co[0] < 0:
+        vertices.select = 1
+    ## EDIT    
+    bpy.ops.object.mode_set(mode="EDIT", toggle=False)
+    ## BORRA COMPONENTES
+    bpy.ops.mesh.delete()
+    ## SUMA MIRROR
+    bpy.ops.object.modifier_add(type='MIRROR')
+    ## PASO A EDIT MODE
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## SELECCIONO TODOS LOS COMPONENTES
+    bpy.ops.mesh.select_all(action="SELECT")
+    ## CREO UV TEXTURE DEL SIMETRICO
+    bpy.ops.mesh.uv_texture_add()
+    ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
+    LENUVLISTSIM = len(bpy.data.objects[OBJETO.name].data.uv_textures)
+    LENUVLISTSIM = LENUVLISTSIM - 1
+    OBJETO.data.uv_textures[LENUVLISTSIM:][0].name = "SYMMETRICAL"
+    ## MODO EDICION
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## UNWRAP
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    ## MODO OBJETO
+    bpy.ops.object.mode_set(mode="OBJECT", toggle= False) 
+    ## APLICO MIRROR
+    bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Mirror")
+    ## VUELVO A EDIT MODE
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## CREO UV TEXTURE DEL ASIMETRICO
+    bpy.ops.mesh.uv_texture_add()
+    ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
+    LENUVLISTASIM = len(OBJETO.data.uv_textures)
+    LENUVLISTASIM = LENUVLISTASIM  - 1
+    OBJETO.data.uv_textures[LENUVLISTASIM:][0].name = "ASYMMETRICAL"
+    ## SETEO UV ACTIVO
+    OBJETO.data.uv_textures.active = OBJETO.data.uv_textures["ASYMMETRICAL"]
+    ## EDIT MODE
+    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    ## UNWRAP
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    ## PASO A OBJECT MODE
+    bpy.ops.object.mode_set(mode="OBJECT", toggle= False)    
+
+
 class resym (bpy.types.Operator):
     bl_idname = "mesh.resym_osc"
     bl_label = "ReSym Mesh" 
     bl_options =  {"REGISTER","UNDO"}
+    OFFSET=bpy.props.FloatProperty(name="Offset", default=0.001, min=-0, max=0.1)
+    SUBD=bpy.props.IntProperty(name="Subdivisions Levels", default=0, min=0, max=4) 
     def execute(self,context):
-        ##SETEO VERTEX MODE        
-        bpy.context.tool_settings.mesh_select_mode[0]=1
-        bpy.context.tool_settings.mesh_select_mode[1]=0
-        bpy.context.tool_settings.mesh_select_mode[2]=0
-        
-        OBJLIST = bpy.context.selected_objects
-        
-        ## IGUALO VERTICES CERCANOS A CERO
-        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)        
-        for vertice in bpy.context.object.data.vertices:
-            if abs(vertice.co[0]) < 0.001 :
-                print(vertice.index) 
-                vertice.co[0] = 0                
-        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-        
-        for OBJETOS in OBJLIST:
-            ## OBJETO ACTIVO
-            bpy.data.scenes[0].objects.active = bpy.data.objects[OBJETOS.name]
-            ##BORRA IZQUIERDA
-            bpy.ops.object.mode_set(mode="EDIT", toggle=False)
-            bpy.ops.mesh.select_all(action="DESELECT")
-            bpy.ops.object.mode_set(mode="OBJECT", toggle=False)
-            for vertices in bpy.data.objects[OBJETOS.name].data.vertices:
-              if vertices.co[0] < 0:
-                vertices.select = 1
-            ## EDIT    
-            bpy.ops.object.mode_set(mode="EDIT", toggle=False)
-            ## BORRA COMPONENTES
-            bpy.ops.mesh.delete()
-            ## SUMA MIRROR
-            bpy.ops.object.modifier_add(type='MIRROR')
-            ## PASO A EDIT MODE
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## SELECCIONO TODOS LOS COMPONENTES
-            bpy.ops.mesh.select_all(action="SELECT")
-            ## CREO UV TEXTURE DEL SIMETRICO
-            bpy.ops.mesh.uv_texture_add()
-            ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
-            LENUVLISTSIM = len(bpy.data.objects[OBJETOS.name].data.uv_textures)
-            LENUVLISTSIM = LENUVLISTSIM - 1
-            print ("LA CANTIDAD DE UVS QUE TIENE ES: "+ str(LENUVLISTSIM))
-            bpy.data.objects[OBJETOS.name].data.uv_textures[LENUVLISTSIM:][0].name = "SIMETRICO"
-            ## MODO EDICION
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## UNWRAP
-            bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=True)
-            ## MODO OBJETO
-            bpy.ops.object.mode_set(mode="OBJECT", toggle= False) 
-            ## APLICO MIRROR
-            bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Mirror")
-            ## VUELVO A EDIT MODE
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## CREO UV TEXTURE DEL ASIMETRICO
-            bpy.ops.mesh.uv_texture_add()
-            ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
-            LENUVLISTASIM = len(bpy.data.objects[OBJETOS.name].data.uv_textures)
-            LENUVLISTASIM = LENUVLISTASIM  - 1
-            print ("LA CANTIDAD DE UVS QUE TIENE ES: "+ str(LENUVLISTASIM))
-            bpy.data.objects[OBJETOS.name].data.uv_textures[LENUVLISTASIM:][0].name = "ASIMETRICO"
-            ## SETEO UV ACTIVO
-            bpy.data.objects[OBJETOS.name].data.uv_textures.active = bpy.data.meshes[OBJETOS.data.name].uv_textures["ASIMETRICO"]
-            ## EDIT MODE
-            bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-            ## UNWRAP
-            bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=True)
-            ## PASO A OBJECT MODE
-            bpy.ops.object.mode_set(mode="OBJECT", toggle= False)
+        defResym(self, self.OFFSET, self.SUBD)
         return{"FINISHED"}     
         
 ## -----------------------------------SELECT LEFT---------------------
@@ -859,6 +870,8 @@ def defRenderAll (FRAMETYPE):
     FC=bpy.context.scene.frame_current 
     FS=bpy.context.scene.frame_start
     FE=bpy.context.scene.frame_end
+
+    print("---------------------")
            
     ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
@@ -869,7 +882,7 @@ def defRenderAll (FRAMETYPE):
                     SLOTLIST.append(SLOT.material)
                
                 LISTMAT.append((OBJECT,SLOTLIST))
-                print(LISTMAT)
+
         except:
             pass
         
@@ -893,7 +906,7 @@ def defRenderAll (FRAMETYPE):
             bpy.context.scene.frame_end=FC 
             bpy.context.scene.frame_start=FC
         
-        print(PROPTOLIST)
+
         ## SETEO MATERIALES  DE OVERRIDES
         try:
             for OVERRIDE in PROPTOLIST:
@@ -910,7 +923,7 @@ def defRenderAll (FRAMETYPE):
         else:
             print ("PLATFORM:LINUX")    
             SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-        print (PATH)
+
         LAYERLIST=[]
         for layer in SCENE.render.layers:
             if layer.use == 1:
@@ -919,11 +932,17 @@ def defRenderAll (FRAMETYPE):
         for layers in LAYERLIST:
             for rl in LAYERLIST:
                 rl.use= 0
-            print (layers.name)
+
+            print("SCENE: "+CURSC)    
+            print ("LAYER: "+layers.name)
+            print("OVERRIDE: "+str(PROPTOLIST))            
+            
             SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
             SCENE.render.layers[layers.name].use = 1
             bpy.ops.render.render(animation=1, layer=layers.name, scene= SCENE.name)
-        print ("TERMINATED")
+
+            print ("DONE")
+            print("---------------------")
         
         ## REESTABLECE LOS LAYERS
         for layer in LAYERLIST:
@@ -935,13 +954,12 @@ def defRenderAll (FRAMETYPE):
         #RESTAURO MATERIALES  DE OVERRIDES  
         for OBJECT in LISTMAT:
             SLOTIND=0
-            print(OBJECT[0])
             try:
                 for SLOT in OBJECT[1]:
                     OBJECT[0].material_slots[SLOTIND].material=SLOT
                     SLOTIND+=1
             except:
-                print("FUERA DE RANGO")
+                print("OUT OF RANGE")
         # RESTAURO FRAMES
         if FRAMETYPE == True:
             SCENE.frame_start=FS
@@ -998,7 +1016,6 @@ def defRenderSelected(FRAMETYPE):
                     SLOTLIST.append(SLOT.material)
                
                 LISTMAT.append((OBJECT,SLOTLIST))
-                print(LISTMAT)
         except:
             pass
         
@@ -1011,7 +1028,7 @@ def defRenderSelected(FRAMETYPE):
             ENDPATH = PATH
             FILEPATH=bpy.data.filepath
 
-
+            print("---------------------")
 
             # CAMBIO SCENE
             bpy.context.window.screen.scene=SCENE
@@ -1022,8 +1039,6 @@ def defRenderSelected(FRAMETYPE):
                 bpy.context.scene.frame_end=FC 
                 bpy.context.scene.frame_start=FC
         
-
-            print(PROPTOLIST)
             ## SETEO MATERIALES  DE OVERRIDES
             try:
                 for OVERRIDE in PROPTOLIST:
@@ -1040,7 +1055,7 @@ def defRenderSelected(FRAMETYPE):
             else:
                 print ("PLATFORM:LINUX")    
                 SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-            print (PATH)
+
             LAYERLIST=[]
             for layer in SCENE.render.layers:
                 if layer.use == 1:
@@ -1049,12 +1064,18 @@ def defRenderSelected(FRAMETYPE):
             for layers in LAYERLIST:
                 for rl in LAYERLIST:
                     rl.use= 0
-                print (layers.name)
+                    
+                print("SCENE: "+CURSC)    
+                print ("LAYER: "+layers.name)
+                print("OVERRIDE: "+str(PROPTOLIST))  
+            
                 SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
                 SCENE.render.layers[layers.name].use = 1
                 bpy.ops.render.render(animation=1, layer=layers.name, scene= SCENE.name)
-            print ("TERMINATED")
-            
+
+                print ("DONE")
+                print("---------------------")
+                
             ## REESTABLECE LOS LAYERS
             for layer in LAYERLIST:
                 layer.use = 1
@@ -1065,13 +1086,12 @@ def defRenderSelected(FRAMETYPE):
             #RESTAURO MATERIALES  DE OVERRIDES  
             for OBJECT in LISTMAT:
                 SLOTIND=0
-                print(OBJECT[0])
                 try:
                     for SLOT in OBJECT[1]:
                         OBJECT[0].material_slots[SLOTIND].material=SLOT
                         SLOTIND+=1
                 except:
-                    print("FUERA DE RANGO")
+                    print("OUT OF RANGE")
                     
             # RESTAURO FRAMES
             if FRAMETYPE == True:
@@ -1116,6 +1136,8 @@ def defRenderCurrent (FRAMETYPE):
     FC=bpy.context.scene.frame_current    
     FS=bpy.context.scene.frame_start
     FE=bpy.context.scene.frame_end 
+    
+    print("---------------------")
         
     ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
@@ -1123,13 +1145,10 @@ def defRenderCurrent (FRAMETYPE):
         try:
             if OBJECT.type=="MESH":
                 for SLOT in OBJECT.material_slots[:]:
-                    SLOTLIST.append(SLOT.material)
-               
+                    SLOTLIST.append(SLOT.material)               
                 LISTMAT.append((OBJECT,SLOTLIST))
-                print(LISTMAT)
         except:
-            pass
-        
+            pass        
 
 
     PROPTOLIST=list(eval(SCENE['OVERRIDE']))
@@ -1145,7 +1164,6 @@ def defRenderCurrent (FRAMETYPE):
         bpy.context.scene.frame_end=FC 
         bpy.context.scene.frame_start=FC  
     
-    print(PROPTOLIST)
     ## SETEO MATERIALES  DE OVERRIDES
     try:
         for OVERRIDE in PROPTOLIST:
@@ -1162,7 +1180,7 @@ def defRenderCurrent (FRAMETYPE):
     else:
         print ("PLATFORM:LINUX")    
         SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-    print (PATH)
+
     LAYERLIST=[]
     for layer in SCENE.render.layers:
         if layer.use == 1:
@@ -1171,11 +1189,18 @@ def defRenderCurrent (FRAMETYPE):
     for layers in LAYERLIST:
         for rl in LAYERLIST:
             rl.use= 0
-        print (layers.name)
+
+        print("SCENE: "+CURSC)    
+        print ("LAYER: "+layers.name)
+        print("OVERRIDE: "+str(PROPTOLIST))
+
+
         SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
         SCENE.render.layers[layers.name].use = 1
         bpy.ops.render.render(animation=1, layer=layers.name, scene= SCENE.name)
-    print ("TERMINATED")
+        
+        print ("DONE")
+        print("---------------------")
     
     ## REESTABLECE LOS LAYERS
     for layer in LAYERLIST:
@@ -1187,7 +1212,6 @@ def defRenderCurrent (FRAMETYPE):
     #RESTAURO MATERIALES  DE OVERRIDES  
     for OBJECT in LISTMAT:
         SLOTIND=0
-        print(OBJECT[0])
         try:
             for SLOT in OBJECT[1]:
                 OBJECT[0].material_slots[SLOTIND].material=SLOT
@@ -1947,11 +1971,13 @@ def defoscBatchMaker(TYPE):
     if sys.platform.startswith("w"):
         print ("PLATFORM: WINDOWS")
         SYSBAR="\\" 
-        EXTSYS=".bat"           
+        EXTSYS=".bat" 
+        QUOTES='"'          
     else:
         print ("PLATFORM:LINUX")    
         SYSBAR="/"
         EXTSYS=".sh"
+        QUOTES=''
     
     print(TYPE)
     
@@ -1965,7 +1991,7 @@ def defoscBatchMaker(TYPE):
 
     
     # DEFINO ARCHIVO DE BATCH
-    FILEBATCH.writelines("%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (BINDIR,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
+    FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
     FILEBATCH.close()        
     
     # SI ES LINUX LE DOY PERMISOS CHMOD
@@ -2331,7 +2357,57 @@ class OscImportVG (bpy.types.Operator):
         # PASO A MODO PINTURA DE PESO       
         bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
         return{"FINISHED"}
+
+
+## ------------------------------------ RELINK OBJECTS--------------------------------------   
+
+
+def relinkObjects (self,MODE):   
+    SCENES = bpy.data.scenes[:]
+    
+    if MODE == "ALL":
+        OBJECTS = bpy.data.objects[:]
+    else:
+        OBJECTS = bpy.selection[:]
+    
+    ## REMUEVO ESCENA ACTIVA
+    SCENES.remove(bpy.context.scene)
+    
+    ## DESELECT
+    bpy.ops.object.select_all(action='DESELECT')
+    
+    ## SELECT
+    for OBJETO in OBJECTS:
+        if OBJETO.users != len(bpy.data.scenes):
+            print(OBJETO.name)
+            OBJETO.select = True
+        
+    ## LINK
+    for SCENE in SCENES:
+        bpy.ops.object.make_links_scene(scene=SCENE.name)           
+    
+
+class OscRelinkObjectsBetween (bpy.types.Operator):
+    bl_idname = "objects.relink_objects_between_scenes"
+    bl_label = "Relink Objects Between Scenes" 
+    bl_options =  {"REGISTER","UNDO"}  
+    
+    type = bpy.props.EnumProperty(
+            name="Object Mode",
+            description="Object Mode.",
+            items=(('ALL', "All Objects", "Relink all Objects."),
+                   ('SEL', "Selected Objects", "Relink Only The Selected Objects")),
+            default='SEL',
+            )
+   
       
+    def execute (self, context):
+        relinkObjects(self,self.type)        
+        return {'FINISHED'}
+    
+
+
+   
 ##======================================================================================FIN DE SCRIPTS    
     
     
@@ -2383,3 +2459,4 @@ bpy.utils.register_class(renderCurrent)
 bpy.utils.register_class(renderCurrentCF)
 bpy.utils.register_class(renderSelected)
 bpy.utils.register_class(renderSelectedCF)
+bpy.utils.register_class(OscRelinkObjectsBetween)

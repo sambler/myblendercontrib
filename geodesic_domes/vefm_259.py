@@ -41,7 +41,7 @@ def vefm_add_object(selfobj):
     m = bpy.data.meshes.new(name= selfobj.name)
     m.from_pydata(v, e, f )
     # useful for development when the mesh may be invalid.
-    m.validate(verbose = False)
+#PKHG not needed, as ideasman_42 says    m.validate(verbose = False)
     add_object_data(bpy.context, m, operator = None)    
 #???ERROR PKHG in AddSelf    setMaterial(bpy.context.active_object,pkhg_red_color)
 
