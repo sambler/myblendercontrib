@@ -21,7 +21,6 @@ bl_info = {
     "author": "Oscurart",
     "version": (2,9),
     "blender": (2, 6, 2),
-    "api": 3900,
     "location": "View3D > Tools > Oscurart Tools",
     "description": "Tools for objects, render, shapes, and files.",
     "warning": "",
