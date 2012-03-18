@@ -355,7 +355,7 @@ class BVertexSlideOperator(bpy.types.Operator):
         
         self.obj = bpy.context.object
         self.mesh = self.obj.data
-        self.bm = bmesh.from_mesh(self.mesh)
+        self.bm = bmesh.from_edit_mesh(self.mesh)
 
         Count=0
         Selected=False
