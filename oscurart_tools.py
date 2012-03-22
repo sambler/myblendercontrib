@@ -128,7 +128,8 @@ class OscPanelObject(OscPollObject, bpy.types.Panel):
         row = col.row()           
         
         colrow = col.row(align=1)  
-        col.operator("objects.relink_objects_between_scenes",icon="LINKED")          
+        colrow.operator("objects.relink_objects_between_scenes",icon="LINKED")     
+        colrow.operator("objects.copy_objects_groups_layers",icon="LINKED")      
         col.operator("object.distribute_apply_osc",icon="OBJECT_DATAMODE") 
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene,"SearchAndSelectOt",text="")
@@ -2412,6 +2413,34 @@ class OscRelinkObjectsBetween (bpy.types.Operator):
     
 
 
+## ------------------------------------ COPY GROUPS AND LAYERS--------------------------------------   
+
+
+def CopyObjectGroupsAndLayers (self):            
+    OBSEL=bpy.selection[:]
+    ACTSCENE=bpy.context.scene
+    GROUPS=OBSEL[-1].users_group
+    
+    for OBJECT in OBSEL[:-1]:
+        for scene in bpy.data.scenes[:]:
+            bpy.context.window.screen.scene=scene
+            scene.objects[OBJECT.name].layers=OBSEL[-1].layers
+            scene.objects.active=OBJECT
+            for GROUP in GROUPS:
+                bpy.ops.object.group_link(group=GROUP.name)            
+            print(OBJECT.name)
+    
+    bpy.context.window.screen.scene=ACTSCENE    
+
+class OscCopyObjectGAL (bpy.types.Operator):
+    bl_idname = "objects.copy_objects_groups_layers"
+    bl_label = "Copy Groups And Layers" 
+    bl_options =  {"REGISTER","UNDO"}  
+   
+      
+    def execute (self, context):
+        CopyObjectGroupsAndLayers (self)        
+        return {'FINISHED'}
    
 ##======================================================================================FIN DE SCRIPTS    
     
@@ -2465,3 +2494,4 @@ bpy.utils.register_class(renderCurrentCF)
 bpy.utils.register_class(renderSelected)
 bpy.utils.register_class(renderSelectedCF)
 bpy.utils.register_class(OscRelinkObjectsBetween)
+bpy.utils.register_class(OscCopyObjectGAL) 
