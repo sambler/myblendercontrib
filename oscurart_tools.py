@@ -862,7 +862,7 @@ class DistributeMinMaxApply (bpy.types.Operator):
 ##--------------------------------RENDER LAYER AT TIME----------------------------
 
 
-def defRenderAll (FRAMETYPE,ANIMATION):
+def defRenderAll (FRAMETYPE):
         
     LISTMAT=[]
     SCENES=bpy.data.scenes[:]
@@ -939,7 +939,7 @@ def defRenderAll (FRAMETYPE,ANIMATION):
             
             SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
             SCENE.render.layers[layers.name].use = 1
-            bpy.ops.render.render(animation=ANIMATION, write_still=True, layer=layers.name, scene= SCENE.name)
+            bpy.ops.render.render(animation=True, write_still=True, layer=layers.name, scene= SCENE.name)
 
             print ("DONE")
             print("---------------------")
@@ -975,10 +975,10 @@ class renderAll (bpy.types.Operator):
     bl_label="Render layers at time"
     
     FRAMETYPE=bpy.props.BoolProperty(default=False)
-    ANIMATION=bpy.props.BoolProperty(default=True)
+
     
     def execute(self,context):
-        defRenderAll(self.FRAMETYPE,self.ANIMATION)
+        defRenderAll(self.FRAMETYPE)
         return{"FINISHED"}
 
 class renderAllCF (bpy.types.Operator):
@@ -986,10 +986,10 @@ class renderAllCF (bpy.types.Operator):
     bl_label="Render layers at time Current Frame"
     
     FRAMETYPE=bpy.props.BoolProperty(default=True)
-    ANIMATION=bpy.props.BoolProperty(default=False)
+
     
     def execute(self,context):
-        defRenderAll(self.FRAMETYPE,self.ANIMATION)
+        defRenderAll(self.FRAMETYPE)
         return{"FINISHED"}
 
 
@@ -1000,7 +1000,7 @@ class renderAllCF (bpy.types.Operator):
 bpy.types.Scene.OscSelScenes = bpy.props.StringProperty(default="[]")
 
 
-def defRenderSelected(FRAMETYPE,ANIMATION):    
+def defRenderSelected(FRAMETYPE):    
         
     ACTSCENE=bpy.context.scene
     LISTMAT=[]
@@ -1073,7 +1073,7 @@ def defRenderSelected(FRAMETYPE,ANIMATION):
             
                 SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
                 SCENE.render.layers[layers.name].use = 1
-                bpy.ops.render.render(animation=ANIMATION, layer=layers.name, write_still=True, scene= SCENE.name)
+                bpy.ops.render.render(animation=True, layer=layers.name, write_still=True, scene= SCENE.name)
 
                 print ("DONE")
                 print("---------------------")
@@ -1112,10 +1112,9 @@ class renderSelected (bpy.types.Operator):
     bl_label="Render Selected Scenes"
 
     FRAMETYPE=bpy.props.BoolProperty(default=False)
-    ANIMATION=bpy.props.BoolProperty(default=True)
-
+ 
     def execute(self,context):
-        defRenderSelected(self.FRAMETYPE,self.ANIMATION)
+        defRenderSelected(self.FRAMETYPE)
         return{"FINISHED"}
     
 class renderSelectedCF (bpy.types.Operator):
@@ -1123,10 +1122,9 @@ class renderSelectedCF (bpy.types.Operator):
     bl_label="Render Selected Scenes Curent Frame"
 
     FRAMETYPE=bpy.props.BoolProperty(default=True)
-    ANIMATION=bpy.props.BoolProperty(default=False)
 
     def execute(self,context):
-        defRenderSelected(self.FRAMETYPE,self.ANIMATION)
+        defRenderSelected(self.FRAMETYPE)
         return{"FINISHED"}
 
 
@@ -1134,7 +1132,7 @@ class renderSelectedCF (bpy.types.Operator):
 ##--------------------------------RENDER CURRENT SCENE----------------------------
 
 
-def defRenderCurrent (FRAMETYPE,ANIMATION):
+def defRenderCurrent (FRAMETYPE):
     LISTMAT=[]
     SCENE=bpy.context.scene
     FC=bpy.context.scene.frame_current    
@@ -1201,7 +1199,7 @@ def defRenderCurrent (FRAMETYPE,ANIMATION):
 
         SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
         SCENE.render.layers[layers.name].use = 1
-        bpy.ops.render.render(animation=ANIMATION, layer=layers.name, write_still=1, scene= SCENE.name)
+        bpy.ops.render.render(animation=True, layer=layers.name, write_still=1, scene= SCENE.name)
         
         print ("DONE")
         print("---------------------")
@@ -1236,11 +1234,10 @@ class renderCurrent (bpy.types.Operator):
     bl_label="Render Current Scene"
 
     FRAMETYPE=bpy.props.BoolProperty(default=False)
-    ANIMATION=bpy.props.BoolProperty(default=True)
 
     def execute(self,context):
         
-        defRenderCurrent(self.FRAMETYPE,self.ANIMATION)
+        defRenderCurrent(self.FRAMETYPE)
         
         return{"FINISHED"}
 
@@ -1250,11 +1247,10 @@ class renderCurrentCF (bpy.types.Operator):
     bl_label="Render Current Scene Current Frame"
 
     FRAMETYPE=bpy.props.BoolProperty(default=True)
-    ANIMATION=bpy.props.BoolProperty(default=False)
 
     def execute(self,context):
                
-        defRenderCurrent(self.FRAMETYPE,self.ANIMATION)
+        defRenderCurrent(self.FRAMETYPE)
         
         return{"FINISHED"}
 
