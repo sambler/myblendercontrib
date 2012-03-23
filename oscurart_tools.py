@@ -128,7 +128,8 @@ class OscPanelObject(OscPollObject, bpy.types.Panel):
         row = col.row()           
         
         colrow = col.row(align=1)  
-        col.operator("objects.relink_objects_between_scenes",icon="LINKED")          
+        colrow.operator("objects.relink_objects_between_scenes",icon="LINKED")     
+        colrow.operator("objects.copy_objects_groups_layers",icon="LINKED")      
         col.operator("object.distribute_apply_osc",icon="OBJECT_DATAMODE") 
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene,"SearchAndSelectOt",text="")
@@ -861,7 +862,7 @@ class DistributeMinMaxApply (bpy.types.Operator):
 ##--------------------------------RENDER LAYER AT TIME----------------------------
 
 
-def defRenderAll (FRAMETYPE,ANIMATION):
+def defRenderAll (FRAMETYPE):
         
     LISTMAT=[]
     SCENES=bpy.data.scenes[:]
@@ -938,7 +939,7 @@ def defRenderAll (FRAMETYPE,ANIMATION):
             
             SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
             SCENE.render.layers[layers.name].use = 1
-            bpy.ops.render.render(animation=ANIMATION, write_still=True, layer=layers.name, scene= SCENE.name)
+            bpy.ops.render.render(animation=True, write_still=True, layer=layers.name, scene= SCENE.name)
 
             print ("DONE")
             print("---------------------")
@@ -974,10 +975,10 @@ class renderAll (bpy.types.Operator):
     bl_label="Render layers at time"
     
     FRAMETYPE=bpy.props.BoolProperty(default=False)
-    ANIMATION=bpy.props.BoolProperty(default=True)
+
     
     def execute(self,context):
-        defRenderAll(self.FRAMETYPE,self.ANIMATION)
+        defRenderAll(self.FRAMETYPE)
         return{"FINISHED"}
 
 class renderAllCF (bpy.types.Operator):
@@ -985,10 +986,10 @@ class renderAllCF (bpy.types.Operator):
     bl_label="Render layers at time Current Frame"
     
     FRAMETYPE=bpy.props.BoolProperty(default=True)
-    ANIMATION=bpy.props.BoolProperty(default=False)
+
     
     def execute(self,context):
-        defRenderAll(self.FRAMETYPE,self.ANIMATION)
+        defRenderAll(self.FRAMETYPE)
         return{"FINISHED"}
 
 
@@ -999,7 +1000,7 @@ class renderAllCF (bpy.types.Operator):
 bpy.types.Scene.OscSelScenes = bpy.props.StringProperty(default="[]")
 
 
-def defRenderSelected(FRAMETYPE,ANIMATION):    
+def defRenderSelected(FRAMETYPE):    
         
     ACTSCENE=bpy.context.scene
     LISTMAT=[]
@@ -1072,7 +1073,7 @@ def defRenderSelected(FRAMETYPE,ANIMATION):
             
                 SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
                 SCENE.render.layers[layers.name].use = 1
-                bpy.ops.render.render(animation=ANIMATION, layer=layers.name, write_still=True, scene= SCENE.name)
+                bpy.ops.render.render(animation=True, layer=layers.name, write_still=True, scene= SCENE.name)
 
                 print ("DONE")
                 print("---------------------")
@@ -1111,10 +1112,9 @@ class renderSelected (bpy.types.Operator):
     bl_label="Render Selected Scenes"
 
     FRAMETYPE=bpy.props.BoolProperty(default=False)
-    ANIMATION=bpy.props.BoolProperty(default=True)
-
+ 
     def execute(self,context):
-        defRenderSelected(self.FRAMETYPE,self.ANIMATION)
+        defRenderSelected(self.FRAMETYPE)
         return{"FINISHED"}
     
 class renderSelectedCF (bpy.types.Operator):
@@ -1122,10 +1122,9 @@ class renderSelectedCF (bpy.types.Operator):
     bl_label="Render Selected Scenes Curent Frame"
 
     FRAMETYPE=bpy.props.BoolProperty(default=True)
-    ANIMATION=bpy.props.BoolProperty(default=False)
 
     def execute(self,context):
-        defRenderSelected(self.FRAMETYPE,self.ANIMATION)
+        defRenderSelected(self.FRAMETYPE)
         return{"FINISHED"}
 
 
@@ -1133,7 +1132,7 @@ class renderSelectedCF (bpy.types.Operator):
 ##--------------------------------RENDER CURRENT SCENE----------------------------
 
 
-def defRenderCurrent (FRAMETYPE,ANIMATION):
+def defRenderCurrent (FRAMETYPE):
     LISTMAT=[]
     SCENE=bpy.context.scene
     FC=bpy.context.scene.frame_current    
@@ -1200,7 +1199,7 @@ def defRenderCurrent (FRAMETYPE,ANIMATION):
 
         SCENE.render.filepath = PATH+"/"+SCENENAME+"/"+CURSC+"/"+layers.name+"/"+SCENENAME+"_"+SCENE.name+"_"+layers.name+"_"
         SCENE.render.layers[layers.name].use = 1
-        bpy.ops.render.render(animation=ANIMATION, layer=layers.name, write_still=1, scene= SCENE.name)
+        bpy.ops.render.render(animation=True, layer=layers.name, write_still=1, scene= SCENE.name)
         
         print ("DONE")
         print("---------------------")
@@ -1235,11 +1234,10 @@ class renderCurrent (bpy.types.Operator):
     bl_label="Render Current Scene"
 
     FRAMETYPE=bpy.props.BoolProperty(default=False)
-    ANIMATION=bpy.props.BoolProperty(default=True)
 
     def execute(self,context):
         
-        defRenderCurrent(self.FRAMETYPE,self.ANIMATION)
+        defRenderCurrent(self.FRAMETYPE)
         
         return{"FINISHED"}
 
@@ -1249,11 +1247,10 @@ class renderCurrentCF (bpy.types.Operator):
     bl_label="Render Current Scene Current Frame"
 
     FRAMETYPE=bpy.props.BoolProperty(default=True)
-    ANIMATION=bpy.props.BoolProperty(default=False)
 
     def execute(self,context):
                
-        defRenderCurrent(self.FRAMETYPE,self.ANIMATION)
+        defRenderCurrent(self.FRAMETYPE)
         
         return{"FINISHED"}
 
@@ -2412,6 +2409,34 @@ class OscRelinkObjectsBetween (bpy.types.Operator):
     
 
 
+## ------------------------------------ COPY GROUPS AND LAYERS--------------------------------------   
+
+
+def CopyObjectGroupsAndLayers (self):            
+    OBSEL=bpy.selection[:]
+    ACTSCENE=bpy.context.scene
+    GROUPS=OBSEL[-1].users_group
+    
+    for OBJECT in OBSEL[:-1]:
+        for scene in bpy.data.scenes[:]:
+            bpy.context.window.screen.scene=scene
+            scene.objects[OBJECT.name].layers=OBSEL[-1].layers
+            scene.objects.active=OBJECT
+            for GROUP in GROUPS:
+                bpy.ops.object.group_link(group=GROUP.name)            
+            print(OBJECT.name)
+    
+    bpy.context.window.screen.scene=ACTSCENE    
+
+class OscCopyObjectGAL (bpy.types.Operator):
+    bl_idname = "objects.copy_objects_groups_layers"
+    bl_label = "Copy Groups And Layers" 
+    bl_options =  {"REGISTER","UNDO"}  
+   
+      
+    def execute (self, context):
+        CopyObjectGroupsAndLayers (self)        
+        return {'FINISHED'}
    
 ##======================================================================================FIN DE SCRIPTS    
     
@@ -2465,3 +2490,4 @@ bpy.utils.register_class(renderCurrentCF)
 bpy.utils.register_class(renderSelected)
 bpy.utils.register_class(renderSelectedCF)
 bpy.utils.register_class(OscRelinkObjectsBetween)
+bpy.utils.register_class(OscCopyObjectGAL) 
