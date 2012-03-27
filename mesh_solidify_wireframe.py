@@ -210,8 +210,8 @@ def create_wired_mesh(me2, me, thick):
                     cfaces.extend(fill_cube_face(me2, n_idx[k], i))
 
     # adding faces to the mesh
-    me2.faces.add(len(cfaces) // 4)
-    me2.faces.foreach_set("vertices_raw", cfaces)
+    me2.tessfaces.add(len(cfaces) // 4)
+    me2.tessfaces.foreach_set("vertices_raw", cfaces)
     me2.update(calc_edges=True)
 
 # panel containing tools
