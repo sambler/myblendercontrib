@@ -22,7 +22,7 @@
 bl_info = {
     "name": "Marmalade Cross-platform Apps (.group)",
     "author": "Benoit Muller",
-    "version": (0, 5, 2),
+    "version": (0, 5, 4),
     "blender": (2, 6, 0),
     "location": "File > Export > Marmalade cross-platform Apps (.group)",
     "description": "Export Marmalade Format files (.group)",
@@ -54,7 +54,6 @@ class MarmaladeExporterSettings:
     def __init__(self,
                  context,
                  FilePath,
-                 Optimized=True,
                  CoordinateSystem=1,
                  FlipNormals=False,
                  ApplyModifiers=False,
@@ -71,7 +70,6 @@ class MarmaladeExporterSettings:
                  Verbose=False):
         self.context = context
         self.FilePath = FilePath
-        self.Optimized = Optimized
         self.CoordinateSystem = int(CoordinateSystem)
         self.FlipNormals = FlipNormals
         self.ApplyModifiers = ApplyModifiers
@@ -97,10 +95,6 @@ def ExportMadeWithMarmaladeGroup(Config):
 
     if Config.Verbose:
         print("Done")
-
-    if Config.MergeModes > 0:
-        # Merge mode only work with Optimised setting
-        Config.Optimized = True
 
     if Config.Verbose:
         print("writing group header")
@@ -160,14 +154,6 @@ def ExportMadeWithMarmaladeGroup(Config):
 def GetObjectChildren(Parent):
     return [Object for Object in Parent.children
             if Object.type in {'ARMATURE', 'EMPTY', 'MESH'}]
-
-
-#Returns the vertex count of Mesh in not optimized version, counting each vertex for every face.
-def GetNonOptimizedMeshVertexCount(Mesh):
-    VertexCount = 0
-    for Face in Mesh.faces:
-        VertexCount += len(Face.vertices)
-    return VertexCount
 
 
 #Returns the file path of first image texture from Material.
@@ -283,15 +269,14 @@ def WriteObjects(Config, ObjectList, geoFile=None, mtlFile=None, GeoModel=None, 
             else:
                 # In Merge mode, we need to keep relative postion of each objects, so we export in WORLD SPACE
                 SCALE_MAT = mathutils.Matrix.Scale(Config.Scale, 4)
-                Mesh.transform(Object.matrix_world * SCALE_MAT * X_ROT)
+                Mesh.transform(SCALE_MAT * X_ROT * Object.matrix_world)
 
              # manage merge options
    
             if Config.MergeModes == 0:
                 #one geo per Object, so use name of Object for the Geo file
                 geoFile, mtlFile = CreateGeoMtlFiles(Config, StripName(Object.name))
-                if Config.Optimized == True:
-                    GeoModel = CGeoModel(StripName(Object.name))  
+                GeoModel = CGeoModel(StripName(Object.name))  
                 
             # Write the Mesh in the Geo file   
             WriteMesh(Config, Object, Mesh, geoFile, mtlFile, GeoModel)
@@ -327,8 +312,24 @@ def WriteObjects(Config, ObjectList, geoFile=None, mtlFile=None, GeoModel=None, 
                 # we have Merges all objects in one Mesh, so time to write this big mesh in the file
                 GeoModel.PrintGeoMesh(geoFile)
                 # time to write skinfile if any
-                len(GeoModel.useBonesDict)
                 if len(GeoModel.useBonesDict) > 0:
+                    # some mesh was not modified by the armature. so we must skinned the merged mesh.
+                    # So unskinned vertices from unarmatured meshes, are assigned to the root bone of the armature
+                    for i in range(0, len(GeoModel.vList)):
+                        if not i in GeoModel.skinnedVertices:
+                            GeoModel.skinnedVertices.append(i)
+                            useBonesKey = pow(2, GeoModel.armatureRootBoneIndex)
+                            vertexGroupIndices = list((GeoModel.armatureRootBoneIndex,))
+                            if useBonesKey not in GeoModel.useBonesDict:                          
+                                GeoModel.mapVertexGroupNames[GeoModel.armatureRootBoneIndex] = StripBoneName(GeoModel.armatureRootBone.name)
+                                VertexList = []
+                                VertexList.append("\t\tvertWeights { %d, 1.0}" % i)
+                                GeoModel.useBonesDict[useBonesKey] = (vertexGroupIndices, VertexList)
+                            else:
+                                pair_ListGroupIndices_ListAssignedVertices = GeoModel.useBonesDict[useBonesKey]
+                                pair_ListGroupIndices_ListAssignedVertices[1].append("\t\tvertWeights { %d, 1.0}" % i)
+                                GeoModel.useBonesDict[useBonesKey] = pair_ListGroupIndices_ListAssignedVertices
+                    # now generates the skin file
                     PrintSkinWeights(Config, GeoModel.armatureObjectName, GeoModel.useBonesDict, GeoModel.mapVertexGroupNames, GeoModel.name)
             if Config.MergeModes > 0:
                 WriteMeshMaterialsForGeoModel(Config, mtlFile, GeoModel)
@@ -377,63 +378,29 @@ def WriteMesh(Config, Object, Mesh,  geoFile=None, mtlFile=None, GeoModel=None):
         print (" ERROR not geo file arguments in WriteMesh method")
         return
 
-    if Config.Optimized:
-        if GeoModel == None:
-            print (" ERROR not GeoModel arguments in WriteMesh method")
-            return
+    if GeoModel == None:
+        print (" ERROR not GeoModel arguments in WriteMesh method")
+        return
 
-        BuildOptimizedGeo(Config, Object, Mesh, GeoModel)
-        if Config.MergeModes == 0 or Config.MergeModes == 2:
-            #if we don't merge, or if we write several meshes into one file ... write the mesh everytime we do an object
-            GeoModel.PrintGeoMesh(geoFile)
+    BuildOptimizedGeo(Config, Object, Mesh, GeoModel)
+    if Config.MergeModes == 0 or Config.MergeModes == 2:
+        #if we don't merge, or if we write several meshes into one file ... write the mesh everytime we do an object
+        GeoModel.PrintGeoMesh(geoFile)
  
-    else:
-        #exports not optimized by face (duplicated vertex, normals might be better in rare cases)
-        if Config.Verbose:
-            print("      Writing Mesh Vertices and normals...")
-        WriteMeshVerticesAndNormals(Config, Object, Mesh, geoFile)
-        if Config.Verbose:
-            print("      Done\n      Writing Mesh Vertices and Normals...")
-        bVertexColors = False
-        if Config.ExportVertexColors and (len(Mesh.vertex_colors) > 0):
-            if Config.Verbose:
-                print("      Writing Mesh Vertices Colors...")
-            bVertexColors = WriteMeshVerticesColors(Config, Mesh, geoFile)
-            if Config.Verbose:
-                print("      Done")
-        bUVTextures = False
-        if Config.ExportTextures and (len(Mesh.uv_textures) > 0):
-            if Config.Verbose:
-                print("      Writing Mesh UV Coordinates...")
-            bUVTextures = WriteMeshUVCoordinates(Config, Mesh, geoFile)
-            if Config.Verbose:
-                print("      Done")
-        if Config.Verbose:
-            print("      Writing Poly QuadsTris...")
-        WriteMeshPoly(Config, Mesh, geoFile, bVertexColors, bUVTextures)
-        if Config.Verbose:
-            print("      Done")
     if Config.Verbose:
         print("      Done\n      Writing Mesh Materials...")
 
     if Config.MergeModes == 0:
         #No merge, so we can diretly write the Mtl file associated to this object
-        if Config.Optimized == False:
-            WriteMeshMaterials(Config, Mesh, mtlFile)
-            geoFile.write("\t}\n")
-        else:
-            WriteMeshMaterialsForGeoModel(Config, mtlFile, GeoModel)
+        WriteMeshMaterialsForGeoModel(Config, mtlFile, GeoModel)
 
     if Config.Verbose:
         print("      Done")
   
     if Config.ExportArmatures:
         if Config.Verbose:
-            print("      Writing Mes Weights...")
-        if Config.Optimized:
-            WriteMeshSkinWeightsForGeoModel(Config, Object, Mesh, GeoModel)
-        else:
-            WriteMeshSkinWeights(Config, Object, Mesh)
+            print("      Writing Mesh Weights...")
+        WriteMeshSkinWeightsForGeoModel(Config, Object, Mesh, GeoModel)
         if Config.Verbose:
             print("      Done")
 
@@ -551,7 +518,7 @@ class CGeoMaterialPolys:
 class CGeoModel:
     __slots__ = ("name", "MaterialsDict", "vList", "vnList", "vcList", "uv0List", "uv1List",
                 "currentMaterialPolys", "vbaseIndex","vnbaseIndex", "uv0baseIndex", "uv1baseIndex",
-                "armatureObjectName", "useBonesDict", "mapVertexGroupNames")
+                "armatureObjectName", "useBonesDict", "mapVertexGroupNames", "armatureRootBone", "armatureRootBoneIndex", "skinnedVertices")
                 
     def __init__(self, name):
         self.name = name
@@ -575,6 +542,9 @@ class CGeoModel:
         #useBonesDict[useBonesKey] = tuple(VertexGroups.group, list(Vertex))
         self.useBonesDict = {}
         self.mapVertexGroupNames = {}
+        self.armatureRootBone = None
+        self.armatureRootBoneIndex = 0
+        self.skinnedVertices = []
 
 
 
@@ -651,6 +621,9 @@ class CGeoModel:
         self.useBonesDict = {}
         self.mapVertexGroupNames = {}
         self.armatureObjectName = ""
+        self.armatureRootBone = None
+        self.armatureRootBoneIndex = 0
+        self.skinnedVertices = []
 
     def PrintGeoMesh(self, geoFile):
         geoFile.write("\tCMesh\n")
@@ -797,6 +770,7 @@ def BuildOptimizedGeo(Config, Object, Mesh, GeoModel):
 
         GeoModel.EndPoly()
 
+
                               
 #############
 # Get the list of Material in use by the CGeoModel
@@ -804,284 +778,6 @@ def WriteMeshMaterialsForGeoModel(Config, mtlFile, GeoModel):
     for matName in GeoModel.GetMaterialList():
         Material = GeoModel.GetMaterialByName(matName)
         WriteMaterial(Config, mtlFile, Material)
-
-
-##################### Not Optimized Export, we use a Face export
-
-
-def WriteMeshVerticesAndNormals(Config,  Object, Mesh, geoFile):
-    # Not optimized, simply iterate Blender Face, and writes all face vertices
-    # Marmalade groups per material, and then groups per Tir and Quad.
-    # So generate vertices grouped together per Tri of the same material, and same quad of the same material
-    geoFile.write("\tname \"%s\"\n" % (StripName(Object.name)))
-    geoFile.write("\tCMesh\n")
-    geoFile.write("\t{\n")
-    geoFile.write("\t\tname \"%s\"\n" % (StripName(Object.name)))
-    geoFile.write("\t\tCVerts\n")
-    geoFile.write("\t\t{\n")
-    Index = 0
-    VertexCount = GetNonOptimizedMeshVertexCount(Mesh)
-    geoFile.write("\t\t\tnumVerts %d\n" % VertexCount)
-                
-    if Config.Verbose:
-            print("      Writing Mesh vertices...%d => %d" % (len(Mesh.vertices), VertexCount))
-    matCount =  len(Mesh.materials)
-    if matCount == 0:
-        matCount = 1  #No material defined for the Mesh !!!! => generate a default Material
-    for matIndex in range(0, matCount):
-        if Config.Verbose:
-            print("      Material Index: %d >" % matIndex)
-        for polyCount in range(3, 5):
-            faceCount = 0
-            for Face in Mesh.faces:
-                if Face.material_index == matIndex:
-                    if len(Face.vertices) == polyCount:
-                        Vertices = list(Face.vertices)
-                        faceCount = faceCount + 1                           
-                        if Config.CoordinateSystem == 1:
-                            Vertices = Vertices[::-1]
-                        for Vertex in [Mesh.vertices[Vertex] for Vertex in Vertices]:
-                            Position = Vertex.co
-                            geoFile.write("\t\t\tv { %.9f, %.9f, %.9f }\n" % (Position[0], Position[1], Position[2]))            
-            if Config.Verbose and polyCount == 3:
-                print("         Tri Poly count  Index: %d" % faceCount)
-            elif Config.Verbose and polyCount == 4:
-                print("         Quad Poly count  Index: %d" % faceCount)
-    geoFile.write("\t\t}\n")
-
-    #WriteMeshNormals
-    geoFile.write("\t\tCVertNorms\n")
-    geoFile.write("\t\t{\n")
-    geoFile.write("\t\t\tnumVertNorms  %d\n" % VertexCount)
-      
-    if Config.Verbose:
-            print("      Writing Mesh normals...")
-    matCount =  len(Mesh.materials)
-    if matCount == 0:
-        matCount = 1  # No material defined for the Mesh !!!! => generate a default Material
-    for matIndex in range(0, matCount):
-        if Config.Verbose:
-            print("      Material Index: %d >" % matIndex)
-        for polyCount in range(3, 5):
-            faceCount = 0
-            for Face in Mesh.faces:
-                 if Face.material_index == matIndex:
-                    if len(Face.vertices) == polyCount:
-                        Vertices = list(Face.vertices)
-                        faceCount = faceCount + 1
-                        if Config.CoordinateSystem == 1:
-                            Vertices = Vertices[::-1]
-                        for Vertex in [Mesh.vertices[Vertex] for Vertex in Vertices]:
-                            if Face.use_smooth:
-                                Normal = Vertex.normal
-                            else:
-                                Normal = Face.normal
-                            if Config.FlipNormals:
-                                Normal = -Normal
-                            geoFile.write("\t\t\tvn { %.9f, %.9f, %.9f }\n" % (Normal[0], Normal[1], Normal[2]))            
-            if Config.Verbose and polyCount == 3:
-                print("         Tri Poly count  Index: %d" % faceCount)
-            elif Config.Verbose and polyCount == 4:
-                print("         Quad Poly count  Index: %d" % faceCount)
-    geoFile.write("\t\t}\n")
-
-
-def WriteMeshVerticesColors (Config, Mesh, geoFile):
-    if len(Mesh.vertex_colors) > 0:
-        vertexColours = Mesh.vertex_colors[0].data
-        if len(vertexColours) > 0:
-            geoFile.write("\t\tCVertCols\n")
-            geoFile.write("\t\t{\n")
-            Index = 0
-            VertexCount = GetNonOptimizedMeshVertexCount(Mesh)
-            geoFile.write("\t\t\tnumVertCols %d\n" % VertexCount)
-                                
-            if Config.Verbose:
-                    print("      Writing Mesh vertices Colors...%d" % (len(Mesh.vertices)))
-                    
-            matCount =  len(Mesh.materials)
-            if matCount == 0:
-                matCount = 1  #No material defined for the Mesh !!!! => generate a default Material
-            for matIndex in range(0, matCount):
-                if Config.Verbose:
-                    print("      Material Index: %d >" % matIndex)
-                for polyCount in range(3, 5):
-                    faceCount = 0
-                    for Face in Mesh.faces:
-                        if Face.material_index == matIndex:
-                            if len(Face.vertices) == polyCount:
-                                Vertices = list(Face.vertices)
-                                print("       - Face Index: %d / %d" % (Face.index, len(vertexColours)))
-                                print(vertexColours)
-                                MeshColor = vertexColours[Face.index]
-                                if polyCount == 3:
-                                    FaceColors = list((MeshColor.color1, MeshColor.color2, MeshColor.color3))
-                                else:
-                                    FaceColors = list((MeshColor.color1, MeshColor.color2, MeshColor.color3, MeshColor.color4))
-                                faceCount = faceCount + 1                           
-                                if Config.CoordinateSystem == 1:
-                                    Vertices = Vertices[::-1]
-                                    FaceColors = FaceColors[::-1]
-                                for color in FaceColors:
-                                    geoFile.write("\t\t\tcol { %.6f, %.6f, %.6f, 1 }\n" % (color[0], color[1], color[2]))            
-                    if Config.Verbose and polyCount == 3:
-                        print("         Tri Poly count  Index: %d" % faceCount)
-                    elif Config.Verbose and polyCount == 4:
-                        print("         Quad Poly count  Index: %d" % faceCount)
-            geoFile.write("\t\t}\n")
-            return True
-    return False
-
-
-def WriteMeshUVCoordinates(Config, Mesh, geoFile):
-    geoFile.write("\t\tCUVs\n")
-    geoFile.write("\t\t{\n")
-    geoFile.write("\t\t\tsetID 0\n")
-    
-    UVCoordinates = None
-    for UV in Mesh.uv_textures:
-        if UV.active_render:
-            UVCoordinates = UV.data
-            break
-    if UVCoordinates:
-        uvCount = 0
-        VertexCount = GetNonOptimizedMeshVertexCount(Mesh)
-        geoFile.write("\t\t\tnumUVs %d\n" % VertexCount)
-
-        if Config.Verbose:
-            print("      Writing Mesh UVs...")
-        matCount =  len(Mesh.materials)
-        if matCount == 0:
-            matCount = 1  #No material defined for the Mesh !!!! => generate a default Material
-        for matIndex in range(0, matCount):
-            if Config.Verbose:
-                print("      Material Index: %d >" % matIndex)
-            for polyCount in range(3, 5):
-                faceCount = 0         
-                #for Face in UVCoordinates:
-                #for Face in Mesh.faces:
-                for i in range(0, len(Mesh.faces)):
-                    Face = Mesh.faces[i]
-                    uvFace = UVCoordinates[i]
-                    Vertices = []
-                    if Face.material_index == matIndex:
-                        if len(Face.vertices) == polyCount:
-                            for Vertex in uvFace.uv:
-                                Vertices.append(tuple(Vertex))
-                            if Config.CoordinateSystem == 1:
-                                Vertices = Vertices[::-1]
-                            for Vertex in Vertices:
-                                geoFile.write("\t\t\tuv { %.9f, %.9f }\n" % (Vertex[0], 1 - Vertex[1]))                        
-                            faceCount = faceCount + 1
-                            uvCount = uvCount + len(Vertices)
-                if Config.Verbose and polyCount == 3:
-                    print("         Tri Poly count  Index: %d" % faceCount)
-                elif Config.Verbose and polyCount == 4:
-                    print("         Quad Poly count  Index: %d" % faceCount)
-
-        geoFile.write("\t\t}\n")
-        if Config.Verbose:
-             print("         Total UVCount : %d" % uvCount)
-        return True
-    return False
-
-
-
-def WriteMeshPoly(Config, Mesh, geoFile, bVertexColors, bUVTextures):
-    # groups per tri and per Quad belonging to the same material
-    Index = 0
-    VertexCount = GetNonOptimizedMeshVertexCount(Mesh)
-
-    matCount =  len(Mesh.materials)
-    if matCount == 0:
-        matCount = 1  #No material defined for the Mesh !!!! => generate a default Material
-    for matIndex in range(0, matCount):
-        if Config.Verbose:
-            print("      Material Index: %d >" % matIndex)
-            
-        #first check if there is Tri, Quad , or both, or ... none :-)
-        TriCount = 0
-        QuadCount = 0
-        for polyCount in range(3, 5):
-            for Face in Mesh.faces:
-                if Face.material_index == matIndex:
-                    if len(Face.vertices) == polyCount:
-                        if polyCount == 3:
-                            TriCount = TriCount + 1
-                        elif polyCount == 4:
-                            QuadCount = QuadCount + 1
-                            
-        if Config.Verbose:
-            print("            Poly Count Tris %d - Quads %d " % (TriCount, QuadCount))
-            
-        if TriCount > 0 or QuadCount > 0:
-            geoFile.write("\t\tCSurface\n")
-            geoFile.write("\t\t{\n")
-            if matIndex < len(Mesh.materials):
-                geoFile.write("\t\t\tmaterial \"%s\"\n" % Mesh.materials[matIndex].name)
-            else:
-                geoFile.write("\t\t\tmaterial NoMaterialAssigned // There is no material assigned in blender !!!, exporter have generated a default one\n")
-            streamIndex = 0
-            #Write the Tri for this material, if any
-            if TriCount > 0:
-                geoFile.write("\t\t\tCTris\n")
-                geoFile.write("\t\t\t{\n")
-                geoFile.write("\t\t\t\tnumTris %d\n" % (TriCount))
-                for Face in Mesh.faces:
-                    if Face.material_index == matIndex:
-                        if len(Face.vertices) == 3:
-                            vc1 = vc2 = vc3 = -1
-                            if bVertexColors:
-                                vc1 = streamIndex
-                                vc2 = streamIndex + 1
-                                vc3 = streamIndex + 2
-                            uv1 = uv2 = uv3 = -1
-                            if bUVTextures:
-                                uv1 = streamIndex
-                                uv2 = streamIndex+1
-                                uv3 = streamIndex+2
-                            geoFile.write("\t\t\t\tt {%d, %d, %d, -1, %d} {%d, %d, %d, -1, %d} {%d, %d, %d, -1, %d}\n"
-                                          % (streamIndex, streamIndex, uv1, vc1, streamIndex+1, streamIndex+1, uv2, vc2, streamIndex+2, streamIndex+2, uv3, vc3))
-                            streamIndex = streamIndex + 3
-                geoFile.write("\t\t\t}\n")
-            #Write the Quad for this material, if any
-            if QuadCount > 0:
-                geoFile.write("\t\t\tCQuads\n")
-                geoFile.write("\t\t\t{\n")
-                geoFile.write("\t\t\t\tnumQuads %d\n" % (QuadCount))
-                for Face in Mesh.faces:
-                    if Face.material_index == matIndex:
-                        if len(Face.vertices) == 4:
-                            vc1 = vc2 = vc3 = vc4 = -1
-                            if bVertexColors:
-                                vc1 = streamIndex
-                                vc2 = streamIndex + 1
-                                vc3 = streamIndex + 2
-                                vc3 = streamIndex + 3
-                            uv1 = uv2 = uv3 = uv4 = -1
-                            if bUVTextures:
-                                uv1 = streamIndex
-                                uv2 = streamIndex + 1
-                                uv3 = streamIndex + 2
-                                uv4 = streamIndex + 3
-                            geoFile.write("\t\t\t\tq {%d, %d, %d, -1, %d} {%d, %d, %d, -1, %d} {%d, %d, %d, -1, %d} {%d, %d, %d, -1, %d}\n"
-                                          % (streamIndex, streamIndex, uv1, vc1, streamIndex+1, streamIndex+1, uv2, vc2,
-                                             streamIndex+2, streamIndex+2, uv3, vc3, streamIndex+3, streamIndex+3, uv4, vc4))
-                            streamIndex = streamIndex + 4
-                geoFile.write("\t\t\t}\n")
-
-            geoFile.write("\t\t}\n")
-
-
-def WriteMeshMaterials(Config, Mesh, mtlFile):    
-    Materials = Mesh.materials
-    if Materials.keys():
-        for Material in Materials:
-            WriteMaterial(Config, mtlFile, Material)
-    else:
-        if Config.Verbose :
-            print("         NO MATERIAL ASSIGNED TO THE MESH in Blender !!! generating a default material")
-        WriteMaterial(Config, mtlFile)         
 
 
 def WriteMaterial(Config, mtlFile, Material=None):
@@ -1100,9 +796,7 @@ def WriteMaterial(Config, mtlFile, Material=None):
             MatSpecularColor = Material.specular_intensity * Material.specular_color
             mtlFile.write("\tcolSpecular  {%.2f,%.2f,%.2f} \n" % (MatSpecularColor * 255)[:])
             # EmitColor = Material.emit * Material.diffuse_color
-            # mtlFile.write("\tcolEmissive {%.2f,%.2f,%.2f} \n" % (EmitColor* 255)[:])
-
-            
+            # mtlFile.write("\tcolEmissive {%.2f,%.2f,%.2f} \n" % (EmitColor* 255)[:])    
     else:
         mtlFile.write("\tname \"NoMaterialAssigned\" // There is no material assigned in blender !!!, exporter have generated a default one\n")
 
@@ -1127,41 +821,29 @@ def WriteMaterial(Config, mtlFile, Material=None):
                         print("      CANNOT Copy texture file (not found) %s" % (Texture))
     mtlFile.write("}\n")
 
+def GetFirstRootBone(ArmatureObject):
+    ArmatureBones = ArmatureObject.data.bones
+    ParentBoneList = [Bone for Bone in ArmatureBones if Bone.parent is None]
+    if ParentBoneList:
+        return ParentBoneList[0]
+    return None
 
-def WriteMeshSkinWeights(Config, Object, Mesh):
-    ArmatureList = [Modifier for Modifier in Object.modifiers if Modifier.type == "ARMATURE"]
-    if ArmatureList:
-        ArmatureObject = ArmatureList[0].object
-        if ArmatureObject is None:
-            return
-        ArmatureBones = ArmatureObject.data.bones
 
-        # Marmlade need to declare a vertex per list of affected bones
-        # so first we have to get all the combinations of affected bones that exist int he mesh
-        # to build thoses groups, we build a unique key (like a bit field, where each bit is a VertexGroup.Index): Sum(2^VertGroupIndex)... so we have a unique Number per combinations
+def GetVertexGroupFromBone(Object, Bone):
+    if Bone:
+        rootBoneList = [VertexGroup for VertexGroup in Object.vertex_groups  if VertexGroup.name == Bone.name]
+        if rootBoneList:
+            return rootBoneList[0]
+    return None
 
-        useBonesDict = {}
-        #useBonesKey => pair_ListGroupIndices_ListAssignedVertices
-        #useBonesDict[useBonesKey] = tuple(VertexGroups.group, list(Vertex))
 
-        mapVertexGroupNames = {} 
-        matCount = len(Mesh.materials)
-        if matCount == 0:
-            matCount = 1 #No material defined for the Mesh !!!! => generate a default Material
-        for matIndex in range(0, matCount):
-            streamIndex = 0
-            for polyCount in range(3, 5):
-                for Face in Mesh.faces:
-                    if Face.material_index == matIndex:
-                        if len(Face.vertices) == polyCount:
-                            Vertices = list(Face.vertices)
-                            if Config.CoordinateSystem == 1:
-                                Vertices = Vertices[::-1]
-                            for Vertex in [Mesh.vertices[Vertex] for Vertex in Vertices]:
-                                AddVertexToDicionarySkinWeights(Config, Object, Mesh, Vertex, useBonesDict, mapVertexGroupNames, streamIndex) 
-                                streamIndex = streamIndex + 1
-
-        PrintSkinWeights(Config, StripName(ArmatureObject.name), useBonesDict, mapVertexGroupNames, StripName(Object.name))
+def FindUniqueIndexForRootBone(Object, RootVertexGroup):
+    if RootVertexGroup:
+        return RootVertexGroup.index
+    else:
+        #If there is not VertexGroup associated to the root bone name, we don't have a vertex index.
+        #so use the next available free index
+        return len(Object.vertex_groups)
 
          
 def WriteMeshSkinWeightsForGeoModel(Config, Object, Mesh, GeoModel):
@@ -1170,17 +852,22 @@ def WriteMeshSkinWeightsForGeoModel(Config, Object, Mesh, GeoModel):
         ArmatureObject = ArmatureList[0].object
         if ArmatureObject is None:
             return
-        ArmatureBones = ArmatureObject.data.bones
+        RootBone = GetFirstRootBone(ArmatureObject)
+        RootVertexGroup = GetVertexGroupFromBone(Object, RootBone)
 
         GeoModel.armatureObjectName = StripName(ArmatureObject.name)
+        if RootBone:
+            GeoModel.armatureRootBone = RootBone
+            GeoModel.armatureRootBoneIndex = FindUniqueIndexForRootBone(Object, RootVertexGroup)
 
-        # Marmlade need to declare a vertex per list of affected bones
-        # so first we have to get all the combinations of affected bones that exist int he mesh
+        # Marmalade need to declare a vertex per list of affected bones
+        # so first we have to get all the combinations of affected bones that exist in the mesh
         # to build thoses groups, we build a unique key (like a bit field, where each bit is a VertexGroup.Index): Sum(2^VertGroupIndex)... so we have a unique Number per combinations
         
         for Vertex in Mesh.vertices:
             VertexIndex = Vertex.index + GeoModel.vbaseIndex
-            AddVertexToDicionarySkinWeights(Config, Object, Mesh, Vertex, GeoModel.useBonesDict, GeoModel.mapVertexGroupNames, VertexIndex)
+            AddVertexToDicionarySkinWeights(Config, Object, Mesh, Vertex, GeoModel.useBonesDict, GeoModel.mapVertexGroupNames, VertexIndex, RootBone, RootVertexGroup)
+            GeoModel.skinnedVertices.append(VertexIndex)
 
         if Config.MergeModes != 1:
             # write skin file directly
@@ -1219,7 +906,7 @@ def PrintSkinWeights(Config, ArmatureObjectName, useBonesDict, mapVertexGroupNam
         skinFile.close()
 
 
-def AddVertexToDicionarySkinWeights(Config, Object, Mesh, Vertex, useBonesDict, mapVertexGroupNames, VertexIndex):
+def AddVertexToDicionarySkinWeights(Config, Object, Mesh, Vertex, useBonesDict, mapVertexGroupNames, VertexIndex, RootBone, RootVertexGroup):
     #build useBones
     useBonesKey = 0
     vertexGroupIndices = []
@@ -1227,15 +914,23 @@ def AddVertexToDicionarySkinWeights(Config, Object, Mesh, Vertex, useBonesDict, 
     if (len(Vertex.groups)) > 4:
         print ("ERROR Vertex %d is influenced by more than 4 bones\n" % (VertexIndex))
     for VertexGroup in Vertex.groups:
-        mapVertexGroupNames[VertexGroup.group] = StripBoneName(Object.vertex_groups[VertexGroup.group].name)
-        if (len(vertexGroupIndices))<4:  #ignore if more 4 bones are influencing the vertex
-            useBonesKey = useBonesKey + pow(2, VertexGroup.group)
-            vertexGroupIndices.append(VertexGroup.group)
-            weightTotal = weightTotal + VertexGroup.weight
+        if (VertexGroup.weight > 0):
+            mapVertexGroupNames[VertexGroup.group] = StripBoneName(Object.vertex_groups[VertexGroup.group].name)
+            if (len(vertexGroupIndices))<4:  #ignore if more 4 bones are influencing the vertex
+                useBonesKey = useBonesKey + pow(2, VertexGroup.group)
+                vertexGroupIndices.append(VertexGroup.group)
+                weightTotal = weightTotal + VertexGroup.weight
     if (weightTotal == 0):
-        print(" ERROR Weight is ZERO for vertex %d " % (VertexIndex))
-        print(vertexGroupIndices)
-        bWeightTotZero = True  #avoid divide by zero
+        bWeightTotZero = True  #avoid divide by zero later on
+        if (RootBone):
+            if Config.Verbose:
+                print(" Warning Weight is ZERO for vertex %d => Add it to the root bone" % (VertexIndex))
+            RootBoneGroupIndex = FindUniqueIndexForRootBone(Object, RootVertexGroup)
+            mapVertexGroupNames[RootBoneGroupIndex] = StripBoneName(RootBone.name)
+            useBonesKey = pow(2, RootBoneGroupIndex)
+            vertexGroupIndices = list((RootBoneGroupIndex,))
+
+            weightTotal = 1
     else:
         bWeightTotZero = False
     
@@ -1257,7 +952,7 @@ def AddVertexToDicionarySkinWeights(Config, Object, Mesh, Vertex, useBonesDict, 
                 VertexWeightString += ", %.7f" % (1.0 / len(vertexGroupIndices))
         VertexWeightString += "}"
         if bWeightTotZero:
-            VertexWeightString += " // total weight was zero in blender , export assign default weighting." 
+            VertexWeightString += " // total weight was zero in blender , export assign it to the RootBone with weight 1." 
         if (len(Vertex.groups)) > 4:
             VertexWeightString += " // vertex is associated to more than 4 bones in blender !! skip some bone association (was associated to %d bones)." % (len(Vertex.groups))
         VertexWeightString += "\n"
@@ -1670,11 +1365,6 @@ class MarmaladeExporter(bpy.types.Operator):
         default=defFPS, min=1, max=300)
 
     #Advance Options
-    Optimized = BoolProperty(
-        name="Optimized the Vertices count",
-        description="Optimize the vertices counts, uncheck if you fill that exported normals or vertex colors are not suitable",
-        default=True)
-     
     CoordinateSystem = EnumProperty(
         name="System",
         description="Select a coordinate system to export to",
@@ -1693,7 +1383,6 @@ class MarmaladeExporter(bpy.types.Operator):
         Config = MarmaladeExporterSettings(context,
                                          FilePath,
                                          CoordinateSystem=self.CoordinateSystem,
-                                         Optimized=self.Optimized,
                                          FlipNormals=self.FlipNormals,
                                          ApplyModifiers=self.ApplyModifiers,
                                          Scale=self.Scale,

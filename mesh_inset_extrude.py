@@ -9,7 +9,7 @@ bl_info = {
     'category': 'Mesh',
     'wiki_url': 'http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Modeling/Inset-Extrude'}
 
-import bpy
+import bpy, bmesh
 import bgl
 import blf
 from math import *
@@ -20,12 +20,12 @@ def find_sel_faces(mesh, individual_faces):
     selected_faces = []
     selected_islands = []
     if individual_faces:
-        for face in mesh.faces:
+        for face in mesh.polygons:
             if face.select and not face.hide:
                 selected_islands.append([face.index])
         return(selected_islands)
     
-    for face in mesh.faces:
+    for face in mesh.polygons:
         if face.select and not face.hide: selected_faces.append(face.index)
     selected_islands = []
     while len(selected_faces) != 0:
@@ -56,8 +56,8 @@ def island_extend(mesh, active_faces, selected_faces):
     for face in active_faces:
         cf = []
         for f in selected_faces:
-            for edge in mesh.faces[face].edge_keys:
-                if edge in mesh.faces[f].edge_keys and f not in connected_faces:
+            for edge in mesh.polygons[face].edge_keys:
+                if edge in mesh.polygons[f].edge_keys and f not in connected_faces:
                     connected_faces.append(f)
                     cf.append(f)
                     break
@@ -68,7 +68,7 @@ def island_extend(mesh, active_faces, selected_faces):
 def find_outer_edge(mesh, island):
     edges = []
     for face in island:
-        for edge in mesh.faces[face].edge_keys: edges.append(edge)
+        for edge in mesh.polygons[face].edge_keys: edges.append(edge)
     outer_edges = []
     for edge in edges:
         if edges.count(edge) == 1:
@@ -115,10 +115,10 @@ def find_norm_vectors(mesh, vert_dict):
 def find_edge_faces(mesh, sel_faces, vert_dict):
     edge_faces = []
     for face in sel_faces:
-        for vert in mesh.faces[face].vertices:
+        for vert in mesh.polygons[face].vertices:
             if vert in vert_dict:
-                vert_dict[vert].faces.append(mesh.faces[face].index)
-                if face not in edge_faces: edge_faces.append(mesh.faces[face].index)
+                vert_dict[vert].faces.append(mesh.polygons[face].index)
+                if face not in edge_faces: edge_faces.append(mesh.polygons[face].index)
     return edge_faces
 
 def find_offset_vec(mesh, vert_dict):
@@ -127,7 +127,7 @@ def find_offset_vec(mesh, vert_dict):
             rel_vec = []         # vertex vectors relative to active vertex
             a = 0       # nr of verts on side 'a' of plane
             b = 0       # on side b
-            for v in mesh.faces[face].vertices:
+            for v in mesh.polygons[face].vertices:
                 if v == vert: continue
                 rel_co = mesh.vertices[vert].co.copy() - mesh.vertices[v].co.copy()
                 rel_vec = rel_co/rel_co.length
@@ -144,7 +144,7 @@ def find_offset_vec(mesh, vert_dict):
                 break
         
         # find offset_vector
-        offset_vec_raw = Vector.cross(mesh.faces[middle_face].normal, vert_dict[vert].norm_vec)
+        offset_vec_raw = Vector.cross(mesh.polygons[middle_face].normal, vert_dict[vert].norm_vec)
         offset_vec_norm = offset_vec_raw / offset_vec_raw.length
         angle = acos(offset_vec_norm * vert_dict[vert].edge_vec)
         if sin(angle) == 0:
@@ -153,9 +153,9 @@ def find_offset_vec(mesh, vert_dict):
         
         if len(vert_dict[vert].faces) == 1:
             face_center = Vector([0, 0, 0])
-            for v in mesh.faces[middle_face].vertices:
+            for v in mesh.polygons[middle_face].vertices:
                 face_center += mesh.vertices[v].co.copy()
-            face_center /= len(mesh.faces[middle_face].vertices)
+            face_center /= len(mesh.polygons[middle_face].vertices)
             
             case1 = (face_center - mesh.vertices[vert].co.copy()) + offset_vec
             case2 = (face_center - mesh.vertices[vert].co.copy()) - offset_vec
@@ -163,11 +163,11 @@ def find_offset_vec(mesh, vert_dict):
                 offset_vec.negate()        
         
         else:
-            for edge in mesh.faces[middle_face].edge_keys:
+            for edge in mesh.polygons[middle_face].edge_keys:
                 test = False
                 for face in vert_dict[vert].faces:
                     if face == middle_face: continue
-                    if edge in mesh.faces[face].edge_keys: 
+                    if edge in mesh.polygons[face].edge_keys: 
                         test = True
                         break
                 if test:
@@ -190,7 +190,7 @@ def new_faces(mesh, island_dicts, edge_faces, outer_edges):
         vert_dict = island_dicts[edge_faces.index(island)]
         for face in island:
             f_verts = []
-            for vert in mesh.faces[face].vertices:
+            for vert in mesh.polygons[face].vertices:
                 if vert in vert_dict:
                     f_verts.append(vert_dict[vert].new_index)
                 else:
@@ -210,12 +210,12 @@ def new_faces(mesh, island_dicts, edge_faces, outer_edges):
     
     ef_size = 0
     for i in edge_faces: ef_size += len(i)
-    n_faces_old = len(mesh.faces)
+    n_faces_old = len(mesh.polygons)
     rim_select = range(n_faces_old - ef_size, (n_faces_old+len(faces_new)) - not_selected - ef_size)
     rim_noSelect = range((n_faces_old - ef_size) + (len(faces_new) - not_selected), n_faces_old - ef_size + len(faces_new))
-    mesh.faces.add(len(faces_new))
+    mesh.polygons.add(len(faces_new))
     for i in range(len(faces_new)):
-        mesh.faces[n_faces_old + i].vertices_raw = faces_new[i]
+        mesh.polygons[n_faces_old + i].vertices = faces_new[i]
     mesh.update(calc_edges = True)
     
     bpy.ops.object.mode_set(mode = 'EDIT')
@@ -223,7 +223,7 @@ def new_faces(mesh, island_dicts, edge_faces, outer_edges):
     bpy.ops.object.mode_set(mode = 'OBJECT')
     for island in edge_faces:
         for face in island:
-            mesh.faces[face].select = True
+            mesh.polygons[face].select = True
     bpy.ops.object.mode_set(mode = 'EDIT')
     bpy.ops.mesh.delete(type='FACE')
     bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -235,12 +235,12 @@ def find_shortest_edge(mesh, edge_faces, vert_dict, outer_edges):
     # will be used for scaling the sensitivity of the interface
     shortest_edge = -1
     if len(edge_faces) == 1:
-        for edge in mesh.faces[edge_faces[0]].edge_keys:
+        for edge in mesh.polygons[edge_faces[0]].edge_keys:
             edgeco = mesh.vertices[edge[0]].co - mesh.vertices[edge[1]].co
             if shortest_edge < 0 or edgeco.length < shortest_edge:
                 shortest_edge = edgeco.length
     for face in edge_faces:        
-        for edge in mesh.faces[face].edge_keys:
+        for edge in mesh.polygons[face].edge_keys:
             if (edge not in outer_edges) and (edge[0] in vert_dict or edge[1] in vert_dict):
                 edgeco = mesh.vertices[edge[0]].co - mesh.vertices[edge[1]].co
                 if shortest_edge < 0 or edgeco.length < shortest_edge:
@@ -251,12 +251,12 @@ def find_displace_vecs(mesh, sel_faces, vert_dict):
     area = 0
     inside_verts = {}
     for face in sel_faces:
-        for vert in mesh.faces[face].vertices:
+        for vert in mesh.polygons[face].vertices:
             if vert in inside_verts:
-                inside_verts[vert].append(mesh.faces[face].normal)
+                inside_verts[vert].append(mesh.polygons[face].normal)
             else:
-                inside_verts[vert] = [mesh.faces[face].normal]
-        area += mesh.faces[face].area
+                inside_verts[vert] = [mesh.polygons[face].normal]
+        area += mesh.polygons[face].area
     displace_vecs = {}
     for vert in list(inside_verts.keys()):
         vec_norm = Vector([0,0,0])
@@ -279,8 +279,8 @@ def select_faces(mesh, rim_select, rim_noSelect, edge_faces, n_faces_old, ref_no
     all.extend(rim_select)
     all.extend(rim_noSelect)
     for face in all:
-        mesh.faces[face].select = True
-        mesh.faces[face].use_smooth = use_smooth
+        face = bpy.context.object.data.polygons.active = True
+        mesh.polygons[face].use_smooth = use_smooth
     bpy.ops.object.mode_set(mode = 'EDIT')
     bpy.ops.object.vertex_group_select()
     bpy.ops.mesh.normals_make_consistent()
@@ -289,15 +289,14 @@ def select_faces(mesh, rim_select, rim_noSelect, edge_faces, n_faces_old, ref_no
     bpy.ops.object.mode_set(mode = 'EDIT')
     ef_size = 0
     for i in edge_faces: ef_size += len(i)
-    if mesh.faces[n_faces_old - ef_size].normal * ref_normal < 0.9:
+    if mesh.polygons[n_faces_old - ef_size].normal * ref_normal < 0.9:
         bpy.ops.mesh.flip_normals()
     bpy.ops.mesh.select_all(action='DESELECT')
     bpy.ops.object.vertex_group_select()
     bpy.ops.object.vertex_group_remove()
     bpy.ops.object.mode_set(mode = 'OBJECT')
     for face in rim_select:
-        mesh.faces[face].select = True
-
+        bpy.context.object.data.polygons.active = True
 
 def run_inset_extrude(mesh, individual_faces):
     sel_faces = find_sel_faces(mesh, individual_faces)
@@ -318,8 +317,8 @@ def run_inset_extrude(mesh, individual_faces):
         
         edge_faces = find_edge_faces(mesh, island, vert_dict)
         edge_faces_islands.append(edge_faces)
-        ref_normal = mesh.faces[edge_faces[0]].normal.copy()
-        use_smooth = mesh.faces[edge_faces[0]].use_smooth
+        ref_normal = mesh.polygons[edge_faces[0]].normal.copy()
+        use_smooth = mesh.polygons[edge_faces[0]].use_smooth
         find_offset_vec(mesh, vert_dict)
         
         short_edge = find_shortest_edge(mesh, edge_faces, vert_dict, out_edges)
