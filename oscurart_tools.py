@@ -2468,7 +2468,7 @@ class OscApplyOverrides(bpy.types.Operator):
         FILEPATH=bpy.data.filepath
         ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
         ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER,SYSBAR,bpy.context.scene.name)
-        XML=open("/home/eugenio/Desktop/Scene_OVERRIDE.xml",mode="w")        
+        XML=open(ENTFILEPATH ,mode="w")        
         ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
         for OBJECT in bpy.data.objects[:]:
             SLOTLIST=[]
@@ -2510,7 +2510,7 @@ class OscRestoreOverrides(bpy.types.Operator):
         FILEPATH=bpy.data.filepath
         ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
         ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER,SYSBAR,bpy.context.scene.name)
-        XML=open("/home/eugenio/Desktop/Scene_OVERRIDE.xml",mode="r")
+        XML=open(ENTFILEPATH,mode="r")
         RXML=XML.readlines(0)
         
         LISTMAT=list(eval(RXML[0]))     
