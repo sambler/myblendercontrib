@@ -234,13 +234,19 @@ class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
 
         obj = context.object
         
-        col = layout.column(align=1)
+        col = layout.box().column(align=1)
+
         colrow = col.row()
         col.operator("render.overrides_set_list", text="Create Override List",icon="GREASEPENCIL")
         col.label(text="Active Scene: " + bpy.context.scene.name)
         col.label(text="Example: [[Group,Material]]")        
         col.prop(bpy.context.scene, '["OVERRIDE"]', text="")
         
+        boxcol=layout.box().column(align=1)
+        boxcol.label(text="Danger Zone")
+        boxcolrow=boxcol.row()
+        boxcolrow.operator("render.apply_overrides", text="Apply Overrides",icon="ERROR")
+        boxcolrow.operator("render.restore_overrides", text="Restore Overrides",icon="ERROR")        
 
 
         
@@ -2437,6 +2443,92 @@ class OscCopyObjectGAL (bpy.types.Operator):
     def execute (self, context):
         CopyObjectGroupsAndLayers (self)        
         return {'FINISHED'}
+    
+    
+## ------------------------------------ APPLY AND RESTORE OVERRIDES --------------------------------------   
+
+   
+
+class OscApplyOverrides(bpy.types.Operator):
+    bl_idname = "render.apply_overrides"
+    bl_label = "Apply Overrides in this Scene" 
+    bl_options =  {"REGISTER","UNDO"}  
+   
+      
+    def execute (self, context):
+        LISTMAT=[]
+        PROPTOLIST=list(eval(bpy.context.scene['OVERRIDE']))        
+        # REVISO SISTEMA
+        if sys.platform.startswith("w"):
+            print ("PLATFORM: WINDOWS")
+            SYSBAR="\\"           
+        else:
+            print ("PLATFORM:LINUX")    
+            SYSBAR="/"        
+        FILEPATH=bpy.data.filepath
+        ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
+        ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER,SYSBAR,bpy.context.scene.name)
+        XML=open("/home/eugenio/Desktop/Scene_OVERRIDE.xml",mode="w")        
+        ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
+        for OBJECT in bpy.data.objects[:]:
+            SLOTLIST=[]
+            try:
+                if OBJECT.type=="MESH":
+                    for SLOT in OBJECT.material_slots[:]:
+                        SLOTLIST.append(SLOT.material)                   
+                    LISTMAT.append((OBJECT,SLOTLIST))        
+            except:
+                pass        
+        try:
+            for OVERRIDE in PROPTOLIST:
+                for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
+                    if OBJECT.type == "MESH":
+                        for SLOT in OBJECT.material_slots[:]:
+                            SLOT.material=bpy.data.materials[OVERRIDE[1]]             
+        except:
+            pass
+        
+        XML.writelines(str(LISTMAT))
+        XML.close()       
+        return {'FINISHED'}   
+    
+class OscRestoreOverrides(bpy.types.Operator):
+    bl_idname = "render.restore_overrides"
+    bl_label = "Restore Overrides in this Scene" 
+    bl_options =  {"REGISTER","UNDO"}  
+   
+      
+    def execute (self, context):
+        # REVISO SISTEMA
+        if sys.platform.startswith("w"):
+            print ("PLATFORM: WINDOWS")
+            SYSBAR="\\"           
+        else:
+            print ("PLATFORM:LINUX")    
+            SYSBAR="/"   
+        
+        FILEPATH=bpy.data.filepath
+        ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
+        ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER,SYSBAR,bpy.context.scene.name)
+        XML=open("/home/eugenio/Desktop/Scene_OVERRIDE.xml",mode="r")
+        RXML=XML.readlines(0)
+        
+        LISTMAT=list(eval(RXML[0]))     
+        
+        # RESTAURO MATERIALES  DE OVERRIDES  
+        for OBJECT in LISTMAT:
+            SLOTIND=0
+            try:
+                for SLOT in OBJECT[1]:
+                    OBJECT[0].material_slots[SLOTIND].material=SLOT
+                    SLOTIND+=1
+            except:
+                print("OUT OF RANGE")
+        # CIERRO
+        XML.close()
+       
+        return {'FINISHED'}       
+     
    
 ##======================================================================================FIN DE SCRIPTS    
     
@@ -2491,3 +2583,5 @@ bpy.utils.register_class(renderSelected)
 bpy.utils.register_class(renderSelectedCF)
 bpy.utils.register_class(OscRelinkObjectsBetween)
 bpy.utils.register_class(OscCopyObjectGAL) 
+bpy.utils.register_class(OscApplyOverrides)
+bpy.utils.register_class(OscRestoreOverrides)
