@@ -55,10 +55,6 @@ class INFO_MT_curve_extras_add(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
-        layout.menu("INFO_MT_mesh_gemstones_add", text="Gemstones")
-        layout.menu("INFO_MT_mesh_gears_add", text="Gears")
-        layout.menu("INFO_MT_mesh_math_add", text="Math Function")
-        layout.menu("INFO_MT_mesh_basic_add", text="Basic Objects")
         layout.operator("curve.rectangle",
             text="Rectangle")
         layout.operator("curve.spirals",
