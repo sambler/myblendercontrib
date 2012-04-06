@@ -33,9 +33,6 @@ How to use:
 # advanced the timeline.  If you don't, the current frame changes on you 
 # when you change the particle tracer options.
 '''
-import bpy
-
-
 bl_info = {
     'name': 'Particle Tracer',
     'author': 'Phil Cote, cotejrp1, (http://www.blenderaddons.com)',
@@ -47,11 +44,7 @@ bl_info = {
     'warning': '', # used for warning icon and text in addons panel
     'category': 'Add Curve'}
 
-
 import bpy
-
-
-    
 
 def getParticleSys( ob ):
     """
@@ -144,33 +137,18 @@ class PTracerOp(bpy.types.Operator):
         for point in spline.bezier_points:
             point.handle_left_type = "AUTO"
             point.handle_right_type = "AUTO"
-        
-        
+       
         scn = context.scene
         crvob = bpy.data.objects.new( self.curveName, crv )
         scn.objects.link( crvob )
         
         return {'FINISHED'}
-
-class PTracerPanel( bpy.types.Panel ):
-    
-    bl_label = "Particle Tracer"
-    bl_region_type = "TOOLS"
-    bl_space_type = "VIEW_3D"
-    
-    def draw( self, context ):
-        layout = self.layout
-        layout.row().operator( "curve.particle_tracer", text="Make Curve" )
     
 def register():
     bpy.utils.register_class(PTracerOp)
-    bpy.utils.register_class(PTracerPanel)
-
 
 def unregister():
     bpy.utils.unregister_class(PTracerOp)
-    bpy.utils.unregister_class(PTracerPanel)
 
-    
 if __name__ == "__main__":
     register()

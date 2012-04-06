@@ -1,3 +1,4 @@
+'''
 # string_it.py (c) 2011 Phil Cote (cotejrp1)
 #
 # ***** BEGIN GPL LICENSE BLOCK *****
@@ -19,8 +20,6 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-import bpy
-
 bl_info = {
     'name': 'String It',
     'author': 'Phil Cote, cotejrp1, (http://www.blenderpythontutorials.com)',
@@ -31,7 +30,8 @@ bl_info = {
     'description': 'Run a curve through each selected object in a scene.',
     'warning': '', # used for warning icon and text in addons panel
     'category': 'Add Curve'}
-
+'''
+import bpy
 
 def makeBezier( spline, vertList ):
     numPoints = ( len( vertList ) / 3 ) - 1
@@ -94,25 +94,11 @@ class StringItOperator(bpy.types.Operator):
         scn.objects.link( crvOb )            
         return {'FINISHED'}
 
-
-class StringItPanel( bpy.types.Panel ):
-    bl_label = "String It"
-    bl_region_type = "TOOLS"
-    bl_space_type = "VIEW_3D"
-    
-    def draw( self, context ):
-        self.layout.row().operator( "curve.string_it_operator", text="Make Curve" )
-    
-    
 def register():
     bpy.utils.register_class(StringItOperator)
-    bpy.utils.register_class(StringItPanel)
-
 
 def unregister():
     bpy.utils.unregister_class(StringItOperator)
-    bpy.utils.unregister_class(StringItPanel)
-
 
 if __name__ == "__main__":
     register()

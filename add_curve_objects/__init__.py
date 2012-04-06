@@ -37,12 +37,14 @@ if "bpy" in locals():
     imp.reload(add_curve_spirals)
     imp.reload(cotejrp1_particle_tracer)
     imp.reload(cotejrp1_string_it)
-
+    imp.reload(curve_simplify)
+	
 else:
     from . import add_curve_rectangle_259
     from . import add_curve_spirals
     from . import cotejrp1_particle_tracer
     from . import cotejrp1_string_it
+    from . import curve_simplify
 
 import bpy
 
@@ -63,7 +65,8 @@ class INFO_MT_curve_extras_add(bpy.types.Menu):
             text="Particle Tracer")
         layout.operator("curve.string_it_operator",
             text="String It")
-
+        layout.operator("curve.simplify",
+            text="Curve Simplify")
 
 # Register all operators and panels
 
