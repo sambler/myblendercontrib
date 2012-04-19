@@ -241,6 +241,7 @@ class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
         col.label(text="Active Scene: " + bpy.context.scene.name)
         col.label(text="Example: [[Group,Material]]")        
         col.prop(bpy.context.scene, '["OVERRIDE"]', text="")
+        col.operator("render.check_overrides", text="Check List",icon="ZOOM_ALL")
         
         boxcol=layout.box().column(align=1)
         boxcol.label(text="Danger Zone")
@@ -2527,7 +2528,60 @@ class OscRestoreOverrides(bpy.types.Operator):
         # CIERRO
         XML.close()
        
-        return {'FINISHED'}       
+        return {'FINISHED'}     
+    
+    
+## ------------------------------------ CHECK OVERRIDES --------------------------------------   
+
+class OscCheckOverrides (bpy.types.Operator):
+    bl_idname = "render.check_overrides"
+    bl_label = "Check Overrides" 
+    bl_options =  {"REGISTER","UNDO"}  
+   
+      
+    def execute (self, context):
+        MATLIST=[]
+        MATI=False
+        GROUPI=False
+        
+        print("==== STARTING CHECKING ====")
+        print("")
+        
+        for SCENE in bpy.data.scenes[:]:            
+            
+            for MATERIAL in bpy.data.materials[:]:
+                MATLIST.append(MATERIAL.name)
+                
+            GROUPLIST=[]
+            for GROUP in bpy.data.groups[:]:
+                if GROUP.users > 0:
+                    GROUPLIST.append(GROUP.name)
+                
+            print("   %s Scene is checking" % (SCENE.name))
+            
+            for OVERRIDE in list(eval(SCENE['OVERRIDE'])):
+                # REVISO OVERRIDES EN GRUPOS
+                if OVERRIDE[0] in GROUPLIST:
+                    pass
+                else:
+                    print("** %s group are in conflict." % (OVERRIDE[0]))
+                    GROUPI=True
+                # REVISO OVERRIDES EN GRUPOS    
+                if OVERRIDE[1] in MATLIST:
+                    pass
+                else:
+                    print("* %s material are in conflict." % (OVERRIDE[1]))
+                    MATI=True
+            
+            if MATI is False:
+                print("-- Materials are ok.") 
+            if GROUPI is False:
+                print("-- Groups are ok.")    
+                    
+            print("")
+
+        return {'FINISHED'}
+          
      
    
 ##======================================================================================FIN DE SCRIPTS    
@@ -2585,3 +2639,4 @@ bpy.utils.register_class(OscRelinkObjectsBetween)
 bpy.utils.register_class(OscCopyObjectGAL) 
 bpy.utils.register_class(OscApplyOverrides)
 bpy.utils.register_class(OscRestoreOverrides)
+bpy.utils.register_class(OscCheckOverrides)
