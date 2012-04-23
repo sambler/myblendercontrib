@@ -884,7 +884,7 @@ def defRenderAll (FRAMETYPE):
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST=[]
         try:
-            if OBJECT.type=="MESH":
+            if OBJECT.type=="MESH" or OBJECT.type == "META":
                 for SLOT in OBJECT.material_slots[:]:
                     SLOTLIST.append(SLOT.material)
                
@@ -918,7 +918,7 @@ def defRenderAll (FRAMETYPE):
         try:
             for OVERRIDE in PROPTOLIST:
                 for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
-                    if OBJECT.type == "MESH":
+                    if OBJECT.type == "MESH" or OBJECT.type == "META":
                         for SLOT in OBJECT.material_slots[:]:
                             SLOT.material=bpy.data.materials[OVERRIDE[1]]             
         except:
@@ -1020,7 +1020,7 @@ def defRenderSelected(FRAMETYPE):
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST=[]
         try:
-            if OBJECT.type=="MESH":
+            if OBJECT.type=="MESH" or OBJECT.type == "META":
                 for SLOT in OBJECT.material_slots[:]:
                     SLOTLIST.append(SLOT.material)
                
@@ -1052,7 +1052,7 @@ def defRenderSelected(FRAMETYPE):
             try:
                 for OVERRIDE in PROPTOLIST:
                     for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
-                        if OBJECT.type == "MESH":
+                        if OBJECT.type == "MESH" or OBJECT.type == "META":
                             for SLOT in OBJECT.material_slots[:]:
                                 SLOT.material=bpy.data.materials[OVERRIDE[1]]             
             except:
@@ -1152,7 +1152,7 @@ def defRenderCurrent (FRAMETYPE):
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST=[]
         try:
-            if OBJECT.type=="MESH":
+            if OBJECT.type=="MESH" or OBJECT.type == "META":
                 for SLOT in OBJECT.material_slots[:]:
                     SLOTLIST.append(SLOT.material)               
                 LISTMAT.append((OBJECT,SLOTLIST))
@@ -1177,7 +1177,7 @@ def defRenderCurrent (FRAMETYPE):
     try:
         for OVERRIDE in PROPTOLIST:
             for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
-                if OBJECT.type == "MESH":
+                if OBJECT.type == "MESH" or OBJECT.type == "META":
                     for SLOT in OBJECT.material_slots[:]:
                         SLOT.material=bpy.data.materials[OVERRIDE[1]]             
     except:
@@ -2474,7 +2474,7 @@ class OscApplyOverrides(bpy.types.Operator):
         for OBJECT in bpy.data.objects[:]:
             SLOTLIST=[]
             try:
-                if OBJECT.type=="MESH":
+                if OBJECT.type=="MESH" or OBJECT.type == "META":
                     for SLOT in OBJECT.material_slots[:]:
                         SLOTLIST.append(SLOT.material)                   
                     LISTMAT.append((OBJECT,SLOTLIST))        
@@ -2483,7 +2483,7 @@ class OscApplyOverrides(bpy.types.Operator):
         try:
             for OVERRIDE in PROPTOLIST:
                 for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
-                    if OBJECT.type == "MESH":
+                    if OBJECT.type == "MESH" or OBJECT.type == "META":
                         for SLOT in OBJECT.material_slots[:]:
                             SLOT.material=bpy.data.materials[OVERRIDE[1]]             
         except:
