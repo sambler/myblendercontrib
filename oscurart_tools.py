@@ -2423,17 +2423,29 @@ def CopyObjectGroupsAndLayers (self):
     OBSEL=bpy.selection[:]
     ACTSCENE=bpy.context.scene
     GROUPS=OBSEL[-1].users_group
+    ERROR=False
+    
+    OBSELLAYERS = OBSEL[-1].layers
     
     for OBJECT in OBSEL[:-1]:
         for scene in bpy.data.scenes[:]:
-            bpy.context.window.screen.scene=scene
-            scene.objects[OBJECT.name].layers=OBSEL[-1].layers
-            scene.objects.active=OBJECT
-            for GROUP in GROUPS:
-                bpy.ops.object.group_link(group=GROUP.name)            
-            print(OBJECT.name)
+            try:
+                bpy.context.window.screen.scene=scene
+                scene.objects[OBJECT.name].layers=OBSELLAYERS
+                scene.objects.active=OBJECT
+                for GROUP in GROUPS:
+                    bpy.ops.object.group_link(group=GROUP.name)            
+                print("-- %s was successfully copied" % (OBJECT.name))
+            except:
+                print ("** %s hello was not copied in %s" % (OBJECT.name,scene.name))  
+                ERROR = True 
+    bpy.context.window.screen.scene=ACTSCENE 
     
-    bpy.context.window.screen.scene=ACTSCENE    
+    if ERROR == False:
+        self.report({'INFO'}, "All Objects was Successfully Copied")
+    else:
+        self.report({'WARNING'}, "Some objects could not be copied")    
+           
 
 class OscCopyObjectGAL (bpy.types.Operator):
     bl_idname = "objects.copy_objects_groups_layers"
