@@ -2371,16 +2371,18 @@ class OscImportVG (bpy.types.Operator):
 ## ------------------------------------ RELINK OBJECTS--------------------------------------   
 
 
-def relinkObjects (self,MODE):   
-    SCENES = bpy.data.scenes[:]
+def relinkObjects (self):  
     
-    if MODE == "ALL":
-        OBJECTS = bpy.data.objects[:]
-    else:
-        OBJECTS = bpy.selection[:]
+    LISTSCENE=[]
+    
+    for SCENE in bpy.data.scenes[:]:
+        if bpy.selection[-1] in SCENE.objects[:]:
+            LISTSCENE.append(SCENE)    
+
+    OBJECTS = bpy.selection[:-1]
     
     ## REMUEVO ESCENA ACTIVA
-    SCENES.remove(bpy.context.scene)
+    LISTSCENE.remove(bpy.context.scene)
     
     ## DESELECT
     bpy.ops.object.select_all(action='DESELECT')
@@ -2392,7 +2394,7 @@ def relinkObjects (self,MODE):
             OBJETO.select = True
         
     ## LINK
-    for SCENE in SCENES:
+    for SCENE in LISTSCENE:
         bpy.ops.object.make_links_scene(scene=SCENE.name)           
     
 
@@ -2401,17 +2403,10 @@ class OscRelinkObjectsBetween (bpy.types.Operator):
     bl_label = "Relink Objects Between Scenes" 
     bl_options =  {"REGISTER","UNDO"}  
     
-    type = bpy.props.EnumProperty(
-            name="Object Mode",
-            description="Object Mode.",
-            items=(('ALL', "All Objects", "Relink all Objects."),
-                   ('SEL', "Selected Objects", "Relink Only The Selected Objects")),
-            default='SEL',
-            )
    
       
     def execute (self, context):
-        relinkObjects(self,self.type)        
+        relinkObjects(self)        
         return {'FINISHED'}
     
 
@@ -2419,23 +2414,36 @@ class OscRelinkObjectsBetween (bpy.types.Operator):
 ## ------------------------------------ COPY GROUPS AND LAYERS--------------------------------------   
 
 
-def CopyObjectGroupsAndLayers (self):            
+def CopyObjectGroupsAndLayers (self): 
+              
     OBSEL=bpy.selection[:]
+    GLOBALLAYERS=str(OBSEL[-1].layers[:])
     ACTSCENE=bpy.context.scene
     GROUPS=OBSEL[-1].users_group
-    ERROR=False
-    
-    OBSELLAYERS = OBSEL[-1].layers
+    ERROR=False    
     
     for OBJECT in OBSEL[:-1]:
         for scene in bpy.data.scenes[:]:
             try:
+                ISINLAYER=False
                 bpy.context.window.screen.scene=scene
-                scene.objects[OBJECT.name].layers=OBSELLAYERS
+                
+                if OBSEL[-1] in bpy.context.scene.objects[:]:
+                    scene.objects[OBJECT.name].layers=OBSEL[-1].layers
+                else:
+                    scene.objects[OBJECT.name].layers=list(eval(GLOBALLAYERS))
+                    ISINLAYER=True
+                    
+                
                 scene.objects.active=OBJECT
+                
                 for GROUP in GROUPS:
-                    bpy.ops.object.group_link(group=GROUP.name)            
-                print("-- %s was successfully copied" % (OBJECT.name))
+                    bpy.ops.object.group_link(group=GROUP.name)      
+                
+                if ISINLAYER == False:                          
+                    print("-- %s was successfully copied in %s" % (OBJECT.name,scene.name))
+                else:
+                    print("++ %s copy data from %s in %s" % (OBJECT.name,ACTSCENE.name,scene.name))    
             except:
                 print ("** %s was not copied in %s" % (OBJECT.name,scene.name))  
                 ERROR = True 
