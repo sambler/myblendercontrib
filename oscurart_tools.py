@@ -2437,14 +2437,14 @@ def CopyObjectGroupsAndLayers (self):
                     bpy.ops.object.group_link(group=GROUP.name)            
                 print("-- %s was successfully copied" % (OBJECT.name))
             except:
-                print ("** %s hello was not copied in %s" % (OBJECT.name,scene.name))  
+                print ("** %s was not copied in %s" % (OBJECT.name,scene.name))  
                 ERROR = True 
     bpy.context.window.screen.scene=ACTSCENE 
     
     if ERROR == False:
-        self.report({'INFO'}, "All Objects was Successfully Copied")
+        self.report({'INFO'}, "All Objects were Successfully Copied")
     else:
-        self.report({'WARNING'}, "Some objects could not be copied")    
+        self.report({'WARNING'}, "Some Objects Could not be Copied")    
            
 
 class OscCopyObjectGAL (bpy.types.Operator):
