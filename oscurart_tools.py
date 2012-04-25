@@ -35,6 +35,7 @@ import math
 import sys
 import os
 import stat
+import bmesh
 
 ## CREA PANELES EN TOOLS
 
@@ -351,15 +352,14 @@ class resym (bpy.types.Operator):
 ## -----------------------------------SELECT LEFT---------------------
 def side (self, nombre, offset): 
     
+    bpy.ops.object.mode_set(mode="EDIT", toggle=0)
+    
     OBJECT=bpy.context.active_object        
-
+    ODATA = bmesh.from_edit_mesh(OBJECT.data)
     MODE=bpy.context.mode
 
-    bpy.ops.object.mode_set(mode="EDIT", toggle=0)
-    bpy.ops.mesh.select_all(action='DESELECT')    
-    bpy.ops.object.mode_set(mode="OBJECT", toggle=0)
-
-
+    
+    
     ##SETEO VERTEX MODE
     
     bpy.context.tool_settings.mesh_select_mode[0]=1
@@ -367,20 +367,22 @@ def side (self, nombre, offset):
     bpy.context.tool_settings.mesh_select_mode[2]=0
     
     ## DESELECCIONA TODO
-    for VERTICE in OBJECT.data.vertices[:]:
+    for VERTICE in ODATA.verts[:]:
         VERTICE.select = False
     
     if nombre == False:
         ## CONDICION QUE SI EL VERTICE ES MENOR A 0 LO SELECCIONA  
-        for VERTICES in OBJECT.data.vertices[:]:
+        for VERTICES in ODATA.verts[:]:
             if VERTICES.co[0] < (offset):
                 VERTICES.select = 1  
     else:
         ## CONDICION QUE SI EL VERTICE ES MENOR A 0 LO SELECCIONA        
-        for VERTICES in OBJECT.data.vertices[:]:
+        for VERTICES in ODATA.verts[:]:
             if VERTICES.co[0] > (offset):
                 VERTICES.select = 1                              
 
+    ODATA.select_flush(False)
+    
     bpy.ops.object.mode_set(mode="EDIT", toggle=0)    
 
 
