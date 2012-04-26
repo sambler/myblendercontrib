@@ -266,12 +266,18 @@ class reloadImages (bpy.types.Operator):
 ##-----------------------------RESYM---------------------------
 
 def defResym(self, OFFSET, SUBD):
+    
+    ##EDIT    
+    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+    
     ##SETEO VERTEX MODE        
     bpy.context.tool_settings.mesh_select_mode[0]=1
     bpy.context.tool_settings.mesh_select_mode[1]=0
     bpy.context.tool_settings.mesh_select_mode[2]=0
     
     OBJETO = bpy.context.active_object
+    OBDATA = bmesh.from_edit_mesh(OBJETO.data)
+    OBDATA.select_flush(False)
 
     if SUBD > 0:
         USESUB=True
@@ -280,31 +286,22 @@ def defResym(self, OFFSET, SUBD):
         USESUB=False
         SUBLEV=1
     
-    ## IGUALO VERTICES CERCANOS A CERO
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)        
-    for vertice in bpy.context.object.data.vertices:
+    ## IGUALO VERTICES CERCANOS A CERO      
+    for vertice in OBDATA.verts[:]:
         if abs(vertice.co[0]) < OFFSET  : 
-            vertice.co[0] = 0                
-    bpy.ops.object.mode_set(mode='EDIT', toggle=False)    
-    
-
-    ## OBJETO ACTIVO
-    bpy.data.scenes[0].objects.active = OBJETO
+            vertice.co[0] = 0              
+            
     ##BORRA IZQUIERDA
-    bpy.ops.object.mode_set(mode="EDIT", toggle=False)
     bpy.ops.mesh.select_all(action="DESELECT")
-    bpy.ops.object.mode_set(mode="OBJECT", toggle=False)
-    for vertices in OBJETO.data.vertices:
+       
+    for vertices in OBDATA.verts[:]:
       if vertices.co[0] < 0:
         vertices.select = 1
-    ## EDIT    
-    bpy.ops.object.mode_set(mode="EDIT", toggle=False)
+    
     ## BORRA COMPONENTES
     bpy.ops.mesh.delete()
     ## SUMA MIRROR
-    bpy.ops.object.modifier_add(type='MIRROR')
-    ## PASO A EDIT MODE
-    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    bpy.ops.object.modifier_add(type='MIRROR')    
     ## SELECCIONO TODOS LOS COMPONENTES
     bpy.ops.mesh.select_all(action="SELECT")
     ## CREO UV TEXTURE DEL SIMETRICO
@@ -313,8 +310,6 @@ def defResym(self, OFFSET, SUBD):
     LENUVLISTSIM = len(bpy.data.objects[OBJETO.name].data.uv_textures)
     LENUVLISTSIM = LENUVLISTSIM - 1
     OBJETO.data.uv_textures[LENUVLISTSIM:][0].name = "SYMMETRICAL"
-    ## MODO EDICION
-    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
     ## UNWRAP
     bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
     ## MODO OBJETO
@@ -323,6 +318,8 @@ def defResym(self, OFFSET, SUBD):
     bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Mirror")
     ## VUELVO A EDIT MODE
     bpy.ops.object.mode_set(mode="EDIT", toggle= False)
+    OBDATA = bmesh.from_edit_mesh(OBJETO.data)
+    OBDATA.select_flush(0)
     ## CREO UV TEXTURE DEL ASIMETRICO
     bpy.ops.mesh.uv_texture_add()
     ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
@@ -331,13 +328,9 @@ def defResym(self, OFFSET, SUBD):
     OBJETO.data.uv_textures[LENUVLISTASIM:][0].name = "ASYMMETRICAL"
     ## SETEO UV ACTIVO
     OBJETO.data.uv_textures.active = OBJETO.data.uv_textures["ASYMMETRICAL"]
-    ## EDIT MODE
-    bpy.ops.object.mode_set(mode="EDIT", toggle= False)
     ## UNWRAP
     bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
-    ## PASO A OBJECT MODE
-    bpy.ops.object.mode_set(mode="OBJECT", toggle= False)    
-
+    
 
 class resym (bpy.types.Operator):
     bl_idname = "mesh.resym_osc"
