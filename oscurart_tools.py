@@ -2555,8 +2555,6 @@ class OscCheckOverrides (bpy.types.Operator):
    
       
     def execute (self, context):
-        MATLIST=[]
-        MATI=False
         GROUPI=False
         GLOBAL=0
         GLOBALERROR=0
@@ -2565,7 +2563,9 @@ class OscCheckOverrides (bpy.types.Operator):
         print("")
         
         for SCENE in bpy.data.scenes[:]:            
-            
+            MATLIST=[]
+            MATI=False       
+                 
             for MATERIAL in bpy.data.materials[:]:
                 MATLIST.append(MATERIAL.name)
                 
@@ -2594,15 +2594,18 @@ class OscCheckOverrides (bpy.types.Operator):
             
             if MATI is False:
                 print("-- Materials are ok.") 
+            else:    
                 GLOBAL+=1
             if GROUPI is False:
                 print("-- Groups are ok.")   
+            else:    
                 GLOBAL+=1
-            if GLOBAL == 2:     
-                self.report({'INFO'}, "Materials And Groups are Ok")     
-            if GLOBALERROR > 0:
-                self.report({'WARNING'}, "Override Error: Look in the Console")    
-            print("")
+      
+        if GLOBAL < 1:     
+            self.report({'INFO'}, "Materials And Groups are Ok")     
+        if GLOBALERROR > 0:
+            self.report({'WARNING'}, "Override Error: Look in the Console")    
+        print("")
 
         return {'FINISHED'}
           
