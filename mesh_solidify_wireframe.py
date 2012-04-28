@@ -106,30 +106,24 @@ def solid_wire(bm_src, depth=0.01, use_boundary=True, use_even_offset=True):
     for f in bm_src.faces:
         for l in f.loops:
             l.index = len(verts_loop)
-            in_scale = l.calc_tangent() * inset
+            fac = inset
 
             if use_even_offset:
-                in_scale *= shell_angle_to_dist((math.pi - l.calc_angle()) * 0.5)
+                fac *= shell_angle_to_dist((math.pi - l.calc_angle()) * 0.5)
 
-            verts_loop.append(bm_dst.verts.new(l.vert.co + in_scale))
+            verts_loop.append(bm_dst.verts.new(l.vert.co + (l.calc_tangent() * fac)))
 
             # boundary
             if use_boundary:
+                l.edge.tag = False
                 if l.edge.is_boundary:
+                    l.edge.tag = True
                     for v in (l.vert, l.link_loop_next.vert):
                         if not v.tag:
                             is_boundary = True
                             v.tag = True             # don't copy the vert again
-                            l.edge.tag = False  # we didn't make a face yet
-
                             v_boundary_tangent = calc_boundary_tangent(v)
-
-                            in_scale = v_boundary_tangent * inset
-
-                            if use_even_offset:
-                                in_scale *= shell_angle_to_dist((math.pi - l.calc_angle()) * 0.5)
-
-                            v_boundary = verts_boundary[v.index] = bm_dst.verts.new(v.co + in_scale)
+                            v_boundary = verts_boundary[v.index] = bm_dst.verts.new(v.co + (v_boundary_tangent * fac))
 
                             # TODO, make into generic function
 
@@ -158,7 +152,7 @@ def solid_wire(bm_src, depth=0.01, use_boundary=True, use_even_offset=True):
             #
             if use_boundary:
 
-                if v_src_l1.tag and v_src_l2.tag:
+                if l.edge.tag:
                     # paranoid check, probably not needed
                     assert(l.edge.is_boundary)
 
