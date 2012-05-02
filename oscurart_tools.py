@@ -2609,6 +2609,45 @@ class OscCheckOverrides (bpy.types.Operator):
 
         return {'FINISHED'}
           
+
+## ------------------------------------ SELECTION -------------------------------------- 
+
+def select():
+
+    if bpy.context.mode=="OBJECT":
+        obj = bpy.context.object
+        sel = len(bpy.context.selected_objects)
+
+        if sel==0:
+            bpy.selection=[]
+        else:
+            if sel==1:
+                bpy.selection=[]
+                bpy.selection.append(obj)
+            elif sel>len(bpy.selection):
+                for sobj in bpy.context.selected_objects:
+                    if (sobj in bpy.selection)==False:
+                        bpy.selection.append(sobj)
+
+            elif sel<len(bpy.selection):
+                for it in bpy.selection:
+                    if (it in bpy.context.selected_objects)==False:
+                        bpy.selection.remove(it)
+
+
+
+class Selection(bpy.types.Header):
+    bl_label = "Selection"
+    bl_space_type = "VIEW_3D"
+
+    def __init__(self):
+        select()
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Sel: "+str(len(bpy.selection)))
+
      
    
 ##======================================================================================FIN DE SCRIPTS    
@@ -2667,3 +2706,4 @@ bpy.utils.register_class(OscCopyObjectGAL)
 bpy.utils.register_class(OscApplyOverrides)
 bpy.utils.register_class(OscRestoreOverrides)
 bpy.utils.register_class(OscCheckOverrides)
+bpy.utils.register_class(Selection)
