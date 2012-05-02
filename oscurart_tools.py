@@ -2613,11 +2613,11 @@ class OscCheckOverrides (bpy.types.Operator):
 ## ------------------------------------ SELECTION -------------------------------------- 
 
 def select():
-
+    bpy.selection=[]
     if bpy.context.mode=="OBJECT":
         obj = bpy.context.object
         sel = len(bpy.context.selected_objects)
-	bpy.selection=[]
+	
 
         if sel==0:
             bpy.selection=[]
