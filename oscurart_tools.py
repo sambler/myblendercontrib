@@ -63,10 +63,7 @@ class OscPanelControl(bpy.types.Panel):
         col.prop(bpy.context.scene,"osc_render_tools",text="Render",icon="SCENE")
         col.prop(bpy.context.scene,"osc_files_tools",text="Files",icon="IMASEL")
         col.prop(bpy.context.scene,"osc_overrides_tools",text="Overrides",icon="GREASEPENCIL")
-        
-    # RECARGO EL SELECTION    
-    def __init__(self):
-        select_osc()
+
 
 # POLLS
 class OscPollObject():
@@ -2639,7 +2636,20 @@ def select_osc():
                     if (it in bpy.context.selected_objects)==False:
                         bpy.selection_osc.remove(it)
 
-   
+class OscSelection(bpy.types.Header):
+    bl_label = "Selection Osc"
+    bl_space_type = "VIEW_3D"
+
+    def __init__(self):
+        select_osc()
+
+    def draw(self, context):
+        """
+        layout = self.layout
+        row = layout.row()
+        row.label("Sels: "+str(len(bpy.selection_osc))) 
+        """
+        
 ##======================================================================================FIN DE SCRIPTS    
     
     
@@ -2696,4 +2706,4 @@ bpy.utils.register_class(OscCopyObjectGAL)
 bpy.utils.register_class(OscApplyOverrides)
 bpy.utils.register_class(OscRestoreOverrides)
 bpy.utils.register_class(OscCheckOverrides)
-
+bpy.utils.register_class(OscSelection)
