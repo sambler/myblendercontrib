@@ -62,6 +62,22 @@ def align_to_view(context):
         v = em.location - pos_cur
         sd.cursor_location =  v
 
+def applyimage(context):        
+        img = bpy.data.textures['Texture for BProjection'].image
+        em = bpy.data.objects['Empty for BProjection']
+        ob = context.object
+               
+        face = ob.data.polygons
+        uvdata = ob.data.uv_textures.active.data 
+            
+        for f,d in zip(face,uvdata):
+            if f.select:
+                d.image = img
+               
+        align_to_view(context)
+        print(len(uvdata))
+        ob.data.update()
+
 # Function to update the properties
 def update_Location(self, context):          
     align_to_view(context)
@@ -105,7 +121,7 @@ def update_UVScale(self, context):
 
     em.custom_old_scaleuv = s  
     
-    bpy.ops.object.applyimage()
+    applyimage(context)
 
 def update_PropUVScale(self, context):
     em = bpy.data.objects['Empty for BProjection']
@@ -133,7 +149,7 @@ def update_UVOffset(self, context):
             d.uv = [d.uv[0] - oo[0]/10 + o[0]/10, d.uv[1] - oo[1]/10 + o[1]/10]   
     em.custom_old_offsetuv = o
     
-    bpy.ops.object.applyimage()
+    applyimage(context)
 
 # Function to update the flip horizontal
 def update_FlipUVX(self, context):
@@ -144,7 +160,7 @@ def update_FlipUVX(self, context):
             x = d.uv.x
             d.uv.x = 1 - x
     
-    bpy.ops.object.applyimage()
+    applyimage(context)
 
 # Function to update the flip vertical
 def update_FlipUVY(self, context):
@@ -155,7 +171,7 @@ def update_FlipUVY(self, context):
             y = d.uv[1]
             d.uv[1] = 1 - y
     
-    bpy.ops.object.applyimage()
+    applyimage(context)
 
 # Function to update
 def update_Rotation(self, context):              
@@ -354,14 +370,13 @@ class CreateView(Operator):
     def execute(self, context):              
         ob = context.object
         em = bpy.data.objects['Empty for BProjection']
-        new_props = em.custom_props.add()
-        
+        new_props = em.custom_props.add()        
         em.custom_active_view = new_props.custom_active_view               
-        new_props.custom_index = len(em.custom_props)-1
-        bpy.ops.object.active_view(index = new_props.custom_index)
         ob.data.shape_keys.key_blocks[ob.active_shape_key_index].mute = True
         bpy.ops.object.shape_key_add(from_mix = False)
         ob.data.shape_keys.key_blocks[ob.active_shape_key_index].value = 1.0
+        new_props.custom_index = len(em.custom_props)-1
+        bpy.ops.object.active_view(index = new_props.custom_index)
         return {'FINISHED'}
 
 # Oprerator Class to copy view 
@@ -416,7 +431,7 @@ class PasteView(Operator):
         if prop.custom_image != '':
             if bpy.data.textures['Texture for BProjection'].image.name != prop.custom_image:
                 bpy.data.textures['Texture for BProjection'].image = bpy.data.images[prop.custom_image]
-                bpy.ops.object.applyimage()
+                applyimage(context)
         if em.custom_flipuvx != prop.custom_flipuvx:
             em.custom_flipuvx = prop.custom_flipuvx
         if em.custom_flipuvy != prop.custom_flipuvy:
@@ -590,35 +605,7 @@ class ApplyImage(Operator):
     bl_label = "Apply image"
 
     def execute(self, context):        
-        img = bpy.data.textures['Texture for BProjection'].image
-        em = bpy.data.objects['Empty for BProjection']
-        ob = context.object
-        em = bpy.data.objects['Empty for BProjection']
-        cm = context.object.mode
-               
-        bpy.ops.object.editmode_toggle()
-        f = ob.data.polygons
-        nbface = len(ob.data.polygons)
-        uvdata = ob.data.uv_textures.active.data 
-        wasnul = False
-        if len(uvdata) == 0:
-            bpy.ops.object.editmode_toggle()
-            uvdata = ob.data.uv_textures.active.data
-            wasnul = True                        
-        
-        
-        vglen = trunc(pow(em.custom_sub+1, 2))
-        
-        for i,d in zip(f,uvdata):
-            if i.select:
-                d.image = img
-                        
-        if wasnul == False:
-            bpy.ops.object.editmode_toggle()
-        else:
-            bpy.ops.object.mode_set(mode = cm, toggle=False)
-                
-        align_to_view(context)
+        applyimage(context)
         
         return {'FINISHED'}
 
@@ -704,12 +691,12 @@ class AddBProjectionPlane(Operator):
         except:                 
             createcustomprops(context)
             cm = bpy.context.object.mode
-            tmp = context.object
-            '''for ob in (ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.hide == False and context.scene in ob.users_scene):
+            '''tmp = context.object
+            for ob in (ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.hide == False and context.scene in ob.users_scene):
                 context.scene.objects.active = ob
-                bpy.ops.object.mode_set(mode = cm, toggle=False)''' 
+                bpy.ops.object.mode_set(mode = cm, toggle=False) 
             
-            context.scene.objects.active = tmp
+            context.scene.objects.active = tmp'''
             bpy.ops.object.mode_set(mode = 'OBJECT', toggle=False)
             
             context.space_data.show_relationship_lines = False
@@ -767,18 +754,18 @@ class AddBProjectionPlane(Operator):
             km.keymap_items[20-1].idname = 'view3d.zoom_view3d'
             km.keymap_items[20-1].properties.delta = -1.0
             km.keymap_items[4-1].idname = 'view3d.pan_view3d'
-            km.keymap_items[26-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[26-1].properties.view = 'FRONT'
             km.keymap_items[28-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[28-1].properties.view = 'RIGHT'            
-            km.keymap_items[32-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[32-1].properties.view = 'TOP'
+            km.keymap_items[28-1].properties.view = 'FRONT'
+            km.keymap_items[30-1].idname = 'view3d.preset_view3d'
+            km.keymap_items[30-1].properties.view = 'RIGHT'            
             km.keymap_items[34-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[34-1].properties.view = 'BACK'
-            km.keymap_items[35-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[35-1].properties.view = 'LEFT'            
+            km.keymap_items[34-1].properties.view = 'TOP'
             km.keymap_items[36-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[36-1].properties.view = 'BOTTOM'                                   
+            km.keymap_items[36-1].properties.view = 'BACK'
+            km.keymap_items[37-1].idname = 'view3d.preset_view3d'
+            km.keymap_items[37-1].properties.view = 'LEFT'            
+            km.keymap_items[38-1].idname = 'view3d.preset_view3d'
+            km.keymap_items[38-1].properties.view = 'BOTTOM'                                   
             km = context.window_manager.keyconfigs.default.keymaps['Image Paint']
             kmi = km.keymap_items.new("object.intuitivescale", 'LEFTMOUSE', 'PRESS', shift=True)
                         
@@ -853,30 +840,30 @@ class RemoveBProjectionPlane(Operator):
             km.keymap_items[20-1].idname = 'view3d.zoom'
             km.keymap_items[20-1].properties.delta = -1.0
             km.keymap_items[4-1].idname = 'view3d.move'
-            km.keymap_items[26-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[26-1].properties.type = 'FRONT'
             km.keymap_items[28-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[28-1].properties.type = 'RIGHT'            
-            km.keymap_items[32-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[32-1].properties.type = 'TOP'
+            km.keymap_items[28-1].properties.type = 'FRONT'
+            km.keymap_items[30-1].idname = 'view3d.viewnumpad'
+            km.keymap_items[30-1].properties.type = 'RIGHT'            
             km.keymap_items[34-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[34-1].properties.type = 'BACK'
-            km.keymap_items[35-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[35-1].properties.type = 'LEFT'            
+            km.keymap_items[34-1].properties.type = 'TOP'
             km.keymap_items[36-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[36-1].properties.type = 'BOTTOM'            
+            km.keymap_items[36-1].properties.type = 'BACK'
+            km.keymap_items[37-1].idname = 'view3d.viewnumpad'
+            km.keymap_items[37-1].properties.type = 'LEFT'            
+            km.keymap_items[38-1].idname = 'view3d.viewnumpad'
+            km.keymap_items[38-1].properties.type = 'BOTTOM'            
             
             km = context.window_manager.keyconfigs.default.keymaps['Image Paint']
             #to do
             for kmi in (kmi for kmi in km.keymap_items if kmi.idname in {"object.intuitivescale", }):
                     km.keymap_items.remove(kmi)
             
-            tmp = context.object
-            '''for ob in (ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.hide == False and context.scene in ob.users_scene):
+            '''tmp = context.object
+            for ob in (ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.hide == False and context.scene in ob.users_scene):
                 context.scene.objects.active = ob
-                bpy.ops.object.mode_set(mode = 'OBJECT', toggle=False) '''
+                bpy.ops.object.mode_set(mode = 'OBJECT', toggle=False) 
             
-            context.scene.objects.active = tmp
+            context.scene.objects.active = tmp'''
             ob = context.object           
             
             
