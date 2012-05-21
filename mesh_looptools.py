@@ -19,19 +19,21 @@
 bl_info = {
     'name': "LoopTools",
     'author': "Bart Crouch",
-    'version': (3, 2, 4),
-    'blender': (2, 6, 2),
+    'version': (4, 0, 0),
+    'blender': (2, 6, 3),
     'location': "View3D > Toolbar and View3D > Specials (W-key)",
-    'warning': "Bridge & Loft functions removed",
+    'warning': "",
     'description': "Mesh modelling toolkit. Several tools to aid modelling",
-    'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+    'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
         "Scripts/Modeling/LoopTools",
     'tracker_url': "http://projects.blender.org/tracker/index.php?"\
         "func=detail&aid=26189",
     'category': 'Mesh'}
 
 
+import bmesh
 import bpy
+import collections
 import mathutils
 import math
 
@@ -52,7 +54,7 @@ def cache_delete(tool):
 
 
 # check cache for stored information
-def cache_read(tool, object, mesh, input_method, boundaries):
+def cache_read(tool, object, bm, input_method, boundaries):
     # current tool not cached yet
     if tool not in looptools_cache:
         return(False, False, False, False, False)
@@ -68,7 +70,7 @@ def cache_read(tool, object, mesh, input_method, boundaries):
         and mod.type == 'MIRROR']
     if modifiers != looptools_cache[tool]["modifiers"]:
         return(False, False, False, False, False)
-    input = [v.index for v in mesh.vertices if v.select and not v.hide]
+    input = [v.index for v in bm.verts if v.select and not v.hide]
     if input != looptools_cache[tool]["input"]:
         return(False, False, False, False, False)
     # reading values
@@ -81,13 +83,13 @@ def cache_read(tool, object, mesh, input_method, boundaries):
 
 
 # store information in the cache
-def cache_write(tool, object, mesh, input_method, boundaries, single_loops,
+def cache_write(tool, object, bm, input_method, boundaries, single_loops,
 loops, derived, mapping):
     # clear cache of current tool
     if tool in looptools_cache:
         del looptools_cache[tool]
     # prepare values to be saved to cache
-    input = [v.index for v in mesh.vertices if v.select and not v.hide]
+    input = [v.index for v in bm.verts if v.select and not v.hide]
     modifiers = [mod.name for mod in object.modifiers if mod.show_viewport \
         and mod.type == 'MIRROR']
     # update cache
@@ -98,7 +100,7 @@ loops, derived, mapping):
 
 
 # calculates natural cubic splines through all given knots
-def calculate_cubic_splines(mesh_mod, tknots, knots):
+def calculate_cubic_splines(bm_mod, tknots, knots):
     # hack for circular loops
     if knots[0] == knots[-1] and len(knots) > 1:
         circular = True
@@ -142,7 +144,7 @@ def calculate_cubic_splines(mesh_mod, tknots, knots):
     if n < 2:
         return False
     x = tknots[:]
-    locs = [mesh_mod.vertices[k].co[:] for k in knots]
+    locs = [bm_mod.verts[k].co[:] for k in knots]
     result = []
     for j in range(3):
         a = []
@@ -189,11 +191,11 @@ def calculate_cubic_splines(mesh_mod, tknots, knots):
 
 
 # calculates linear splines through all given knots
-def calculate_linear_splines(mesh_mod, tknots, knots):
+def calculate_linear_splines(bm_mod, tknots, knots):
     splines = []
     for i in range(len(knots)-1):
-        a = mesh_mod.vertices[knots[i]].co
-        b = mesh_mod.vertices[knots[i+1]].co
+        a = bm_mod.verts[knots[i]].co
+        b = bm_mod.verts[knots[i+1]].co
         d = b-a
         t = tknots[i]
         u = tknots[i+1]-t
@@ -203,9 +205,9 @@ def calculate_linear_splines(mesh_mod, tknots, knots):
 
 
 # calculate a best-fit plane to the given vertices
-def calculate_plane(mesh_mod, loop, method="best_fit", object=False):
+def calculate_plane(bm_mod, loop, method="best_fit", object=False):
     # getting the vertex locations
-    locs = [mesh_mod.vertices[v].co.copy() for v in loop[0]]
+    locs = [bm_mod.verts[v].co.copy() for v in loop[0]]
     
     # calculating the center of masss
     com = mathutils.Vector()
@@ -260,7 +262,7 @@ def calculate_plane(mesh_mod, loop, method="best_fit", object=False):
     
     elif method == 'normal':
         # averaging the vertex normals
-        v_normals = [mesh_mod.vertices[v].normal for v in loop[0]]
+        v_normals = [bm_mod.verts[v].normal for v in loop[0]]
         normal = mathutils.Vector()
         for v_normal in v_normals:
             normal += v_normal
@@ -280,17 +282,17 @@ def calculate_plane(mesh_mod, loop, method="best_fit", object=False):
 
 
 # calculate splines based on given interpolation method (controller function)
-def calculate_splines(interpolation, mesh_mod, tknots, knots):
+def calculate_splines(interpolation, bm_mod, tknots, knots):
     if interpolation == 'cubic':
-        splines = calculate_cubic_splines(mesh_mod, tknots, knots[:])
+        splines = calculate_cubic_splines(bm_mod, tknots, knots[:])
     else: # interpolations == 'linear'
-        splines = calculate_linear_splines(mesh_mod, tknots, knots[:])
+        splines = calculate_linear_splines(bm_mod, tknots, knots[:])
     
     return(splines)
 
 
 # check loops and only return valid ones
-def check_loops(loops, mapping, mesh_mod):
+def check_loops(loops, mapping, bm_mod):
     valid_loops = []
     for loop, circular in loops:
         # loop needs to have at least 3 vertices
@@ -308,8 +310,8 @@ def check_loops(loops, mapping, mesh_mod):
         # vertices can not all be at the same location
         stacked = True
         for i in range(len(loop) - 1):
-            if (mesh_mod.vertices[loop[i]].co - \
-            mesh_mod.vertices[loop[i+1]].co).length > 1e-6:
+            if (bm_mod.verts[loop[i]].co - \
+            bm_mod.verts[loop[i+1]].co).length > 1e-6:
                 stacked = False
                 break
         if stacked:
@@ -320,28 +322,30 @@ def check_loops(loops, mapping, mesh_mod):
     return(valid_loops)
 
 
-# input: mesh, output: dict with the edge-key as key and face-index as value
-def dict_edge_faces(mesh):
-    edge_faces = dict([[edge.key, []] for edge in mesh.edges if not edge.hide])
-    for face in mesh.tessfaces:
+# input: bmesh, output: dict with the edge-key as key and face-index as value
+def dict_edge_faces(bm):
+    edge_faces = dict([[edgekey(edge), []] for edge in bm.edges if \
+        not edge.hide])
+    for face in bm.faces:
         if face.hide:
             continue
-        for key in face.edge_keys:
+        for key in face_edgekeys(face):
             edge_faces[key].append(face.index)
     
     return(edge_faces)
 
-# input: mesh (edge-faces optional), output: dict with face-face connections
-def dict_face_faces(mesh, edge_faces=False):
+
+# input: bmesh (edge-faces optional), output: dict with face-face connections
+def dict_face_faces(bm, edge_faces=False):
     if not edge_faces:
-        edge_faces = dict_edge_faces(mesh)
+        edge_faces = dict_edge_faces(bm)
     
-    connected_faces = dict([[face.index, []] for face in mesh.tessfaces if \
+    connected_faces = dict([[face.index, []] for face in bm.faces if \
         not face.hide])
-    for face in mesh.tessfaces:
+    for face in bm.faces:
         if face.hide:
             continue
-        for edge_key in face.edge_keys:
+        for edge_key in face_edgekeys(face):
             for connected_face in edge_faces[edge_key]:
                 if connected_face == face.index:
                     continue
@@ -350,25 +354,26 @@ def dict_face_faces(mesh, edge_faces=False):
     return(connected_faces)
 
 
-# input: mesh, output: dict with the vert index as key and edge-keys as value
-def dict_vert_edges(mesh):
-    vert_edges = dict([[v.index, []] for v in mesh.vertices if not v.hide])
-    for edge in mesh.edges:
+# input: bmesh, output: dict with the vert index as key and edge-keys as value
+def dict_vert_edges(bm):
+    vert_edges = dict([[v.index, []] for v in bm.verts if not v.hide])
+    for edge in bm.edges:
         if edge.hide:
             continue
-        for vert in edge.key:
-            vert_edges[vert].append(edge.key)
+        ek = edgekey(edge)
+        for vert in ek:
+            vert_edges[vert].append(ek)
     
     return(vert_edges)
 
 
-# input: mesh, output: dict with the vert index as key and face index as value
-def dict_vert_faces(mesh):
-    vert_faces = dict([[v.index, []] for v in mesh.vertices if not v.hide])
-    for face in mesh.tessfaces:
+# input: bmesh, output: dict with the vert index as key and face index as value
+def dict_vert_faces(bm):
+    vert_faces = dict([[v.index, []] for v in bm.verts if not v.hide])
+    for face in bm.faces:
         if not face.hide:
-            for vert in face.vertices:
-                vert_faces[vert].append(face.index)
+            for vert in face.verts:
+                vert_faces[vert.index].append(face.index)
                 
     return(vert_faces)
 
@@ -387,23 +392,34 @@ def dict_vert_verts(edge_keys):
     return(vert_verts)
 
 
+# return the edgekey ([v1.index, v2.index]) of a bmesh edge
+def edgekey(edge):
+    return((edge.verts[0].index, edge.verts[1].index))
+
+
+# returns the edgekeys of a bmesh face
+def face_edgekeys(face):
+    return([(edge.verts[0].index, edge.verts[1].index) for \
+        edge in face.edges])
+
+
 # calculate input loops
-def get_connected_input(object, mesh, scene, input):
+def get_connected_input(object, bm, scene, input):
     # get mesh with modifiers applied
-    derived, mesh_mod = get_derived_mesh(object, mesh, scene)
+    derived, bm_mod = get_derived_bmesh(object, bm, scene)
     
     # calculate selected loops
-    edge_keys = [edge.key for edge in mesh_mod.edges if \
+    edge_keys = [edgekey(edge) for edge in bm_mod.edges if \
         edge.select and not edge.hide]
     loops = get_connected_selections(edge_keys)
     
     # if only selected loops are needed, we're done
     if input == 'selected':
-        return(derived, mesh_mod, loops)
+        return(derived, bm_mod, loops)
     # elif input == 'all':    
-    loops = get_parallel_loops(mesh_mod, loops)
+    loops = get_parallel_loops(bm_mod, loops)
     
-    return(derived, mesh_mod, loops)
+    return(derived, bm_mod, loops)
 
 
 # sorts all edge-keys into a list of loops
@@ -478,7 +494,7 @@ def get_connected_selections(edge_keys):
 
 
 # get the derived mesh data, if there is a mirror modifier
-def get_derived_mesh(object, mesh, scene):
+def get_derived_bmesh(object, bm, scene):
     # check for mirror modifiers
     if 'MIRROR' in [mod.type for mod in object.modifiers if mod.show_viewport]:
         derived = True
@@ -489,32 +505,35 @@ def get_derived_mesh(object, mesh, scene):
             if mod.type != 'MIRROR':
                 mod.show_viewport = False
         # get derived mesh
+        bm_mod = bmesh.new()
         mesh_mod = object.to_mesh(scene, True, 'PREVIEW')
+        bm_mod.from_mesh(mesh_mod)
+        bpy.context.blend_data.meshes.remove(mesh_mod)
         # re-enable other modifiers
         for mod_name in show_viewport:
             object.modifiers[mod_name].show_viewport = True
     # no mirror modifiers, so no derived mesh necessary
     else:
         derived = False
-        mesh_mod = mesh
+        bm_mod = bm
     
-    return(derived, mesh_mod)
+    return(derived, bm_mod)
 
 
 # return a mapping of derived indices to indices
-def get_mapping(derived, mesh, mesh_mod, single_vertices, full_search, loops):
+def get_mapping(derived, bm, bm_mod, single_vertices, full_search, loops):
     if not derived:
         return(False)
     
     if full_search:
-        verts = [v for v in mesh.vertices if not v.hide]
+        verts = [v for v in bm.verts if not v.hide]
     else:
-        verts = [v for v in mesh.vertices if v.select and not v.hide]
+        verts = [v for v in bm.verts if v.select and not v.hide]
     
     # non-selected vertices around single vertices also need to be mapped
     if single_vertices:
         mapping = dict([[vert, -1] for vert in single_vertices])
-        verts_mod = [mesh_mod.vertices[vert] for vert in single_vertices]
+        verts_mod = [bm_mod.verts[vert] for vert in single_vertices]
         for v in verts:
             for v_mod in verts_mod:
                 if (v.co - v_mod.co).length < 1e-6:
@@ -523,14 +542,14 @@ def get_mapping(derived, mesh, mesh_mod, single_vertices, full_search, loops):
         real_singles = [v_real for v_real in mapping.values() if v_real>-1]
         
         verts_indices = [vert.index for vert in verts]
-        for face in [face for face in mesh.tessfaces if not face.select \
+        for face in [face for face in bm.faces if not face.select \
         and not face.hide]:
-            for vert in face.vertices:
-                if vert in real_singles:
-                    for v in face.vertices:
-                        if not v in verts_indices:
-                            if mesh.vertices[v] not in verts:
-                                verts.append(mesh.vertices[v])
+            for vert in face.verts:
+                if vert.index in real_singles:
+                    for v in face.verts:
+                        if not v.index in verts_indices:
+                            if v not in verts:
+                                verts.append(v)
                     break
     
     # create mapping of derived indices to indices
@@ -538,7 +557,7 @@ def get_mapping(derived, mesh, mesh_mod, single_vertices, full_search, loops):
     if single_vertices:
         for single in single_vertices:
             mapping[single] = -1
-    verts_mod = [mesh_mod.vertices[i] for i in mapping.keys()]
+    verts_mod = [bm_mod.verts[i] for i in mapping.keys()]
     for v in verts:
         for v_mod in verts_mod:
             if (v.co - v_mod.co).length < 1e-6:
@@ -550,10 +569,10 @@ def get_mapping(derived, mesh, mesh_mod, single_vertices, full_search, loops):
 
 
 # returns a list of all loops parallel to the input, input included
-def get_parallel_loops(mesh_mod, loops):
+def get_parallel_loops(bm_mod, loops):
     # get required dictionaries
-    edge_faces = dict_edge_faces(mesh_mod)
-    connected_faces = dict_face_faces(mesh_mod, edge_faces)
+    edge_faces = dict_edge_faces(bm_mod)
+    connected_faces = dict_face_faces(bm_mod, edge_faces)
     # turn vertex loops into edge loops
     edgeloops = []
     for loop in loops:
@@ -630,7 +649,7 @@ def get_parallel_loops(mesh_mod, loops):
             for side in sides:
                 extraloop = []
                 for fi in side:
-                    for key in mesh_mod.tessfaces[fi].edge_keys:
+                    for key in face_edgekeys(bm_mod.faces[fi]):
                         if key[0] not in verts_used and key[1] not in \
                         verts_used:
                             extraloop.append(key)
@@ -683,15 +702,14 @@ def get_parallel_loops(mesh_mod, loops):
 def initialise():
     global_undo = bpy.context.user_preferences.edit.use_global_undo
     bpy.context.user_preferences.edit.use_global_undo = False
-    bpy.ops.object.mode_set(mode='OBJECT')
     object = bpy.context.active_object
-    mesh = bpy.context.active_object.data
+    bm = bmesh.from_edit_mesh(object.data)
     
-    return(global_undo, object, mesh)
+    return(global_undo, object, bm)
 
 
 # move the vertices to their new locations
-def move_verts(mesh, mapping, move, influence):
+def move_verts(object, bm, mapping, move, influence):
     for loop in move:
         for index, loc in loop:
             if mapping:
@@ -700,10 +718,12 @@ def move_verts(mesh, mapping, move, influence):
                 else:
                     index = mapping[index]
             if influence >= 0:
-                mesh.vertices[index].co = loc*(influence/100) + \
-                    mesh.vertices[index].co*((100-influence)/100)
+                bm.verts[index].co = loc*(influence/100) + \
+                    bm.verts[index].co*((100-influence)/100)
             else:
-                mesh.vertices[index].co = loc
+                bm.verts[index].co = loc
+    bm.normal_update()
+    object.data.update()
 
 
 # load custom tool settings 
@@ -726,7 +746,6 @@ def settings_write(self):
 
 # clean up and set settings back to original state
 def terminate(global_undo):
-    bpy.ops.object.mode_set(mode='EDIT')
     bpy.context.user_preferences.edit.use_global_undo = global_undo
 
 
@@ -735,7 +754,7 @@ def terminate(global_undo):
 ##########################################
 
 # calculate a cubic spline through the middle section of 4 given coordinates
-def bridge_calculate_cubic_spline(mesh, coordinates):
+def bridge_calculate_cubic_spline(bm, coordinates):
     result = []
     x = [0, 1, 2, 3]
     
@@ -775,15 +794,15 @@ def bridge_calculate_cubic_spline(mesh, coordinates):
 
 # return a list with new vertex location vectors, a list with face vertex 
 # integers, and the highest vertex integer in the virtual mesh
-def bridge_calculate_geometry(mesh, lines, vertex_normals, segments,
+def bridge_calculate_geometry(bm, lines, vertex_normals, segments,
 interpolation, cubic_strength, min_width, max_vert_index):
     new_verts = []
     faces = []
     
     # calculate location based on interpolation method
     def get_location(line, segment, splines):
-        v1 = mesh.vertices[lines[line][0]].co
-        v2 = mesh.vertices[lines[line][1]].co
+        v1 = bm.verts[lines[line][0]].co
+        v2 = bm.verts[lines[line][1]].co
         if interpolation == 'linear':
             return v1 + (segment/segments) * (v2-v1)
         else: # interpolation == 'cubic'
@@ -807,18 +826,18 @@ interpolation, cubic_strength, min_width, max_vert_index):
         if interpolation == 'cubic':
             splines = []
             for line in lines:
-                v1 = mesh.vertices[line[0]].co
-                v2 = mesh.vertices[line[1]].co
+                v1 = bm.verts[line[0]].co
+                v2 = bm.verts[line[1]].co
                 size = (v2-v1).length * cubic_strength
-                splines.append(bridge_calculate_cubic_spline(mesh,
+                splines.append(bridge_calculate_cubic_spline(bm,
                     [v1+size*vertex_normals[line[0]], v1, v2,
                     v2+size*vertex_normals[line[1]]]))
         else:
             splines = False
         
         # create starting situation
-        virtual_width = [(mesh.vertices[lines[i][0]].co -
-                          mesh.vertices[lines[i+1][0]].co).length for i
+        virtual_width = [(bm.verts[lines[i][0]].co -
+                          bm.verts[lines[i+1][0]].co).length for i
                           in range(len(lines)-1)]
         new_verts = [get_location(0, seg, splines) for seg in range(1,
             segments)]
@@ -877,7 +896,7 @@ interpolation, cubic_strength, min_width, max_vert_index):
 
 
 # calculate lines (list of lists, vertex indices) that are used for bridging
-def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
+def bridge_calculate_lines(bm, loops, mode, twist, reverse):
     lines = []
     loop1, loop2 = [i[0] for i in loops]
     loop1_circular, loop2_circular = [i[1] for i in loops]
@@ -889,12 +908,12 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
     for loop in [loop1, loop2]:
         center = mathutils.Vector()
         for vertex in loop:
-            center += mesh.vertices[vertex].co
+            center += bm.verts[vertex].co
         center /= len(loop)
         centers.append(center)
     for i, loop in enumerate([loop1, loop2]):
         for vertex in loop:
-            if mesh.vertices[vertex].co == centers[i]:
+            if bm.verts[vertex].co == centers[i]:
                 # prevent zero-length vectors in angle comparisons
                 centers[i] += mathutils.Vector((0.01, 0, 0))
                 break
@@ -909,7 +928,7 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
                                 (0.0, 0.0, 0.0),
                                 (0.0, 0.0, 0.0)))
         x, y, z = centers[i]
-        for loc in [mesh.vertices[vertex].co for vertex in loop]:
+        for loc in [bm.verts[vertex].co for vertex in loop]:
             mat[0][0] += (loc[0]-x)**2
             mat[1][0] += (loc[0]-x)*(loc[1]-y)
             mat[2][0] += (loc[0]-x)*(loc[2]-z)
@@ -972,15 +991,15 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
             loop1, loop2 = loop2, loop1
         
         # match start vertex of loop1 with loop2
-        target_vector = mesh.vertices[loop2[0]].co - center2
-        dif_angles = [[(rotation_matrix * (mesh.vertices[vertex].co - center1)
+        target_vector = bm.verts[loop2[0]].co - center2
+        dif_angles = [[(rotation_matrix * (bm.verts[vertex].co - center1)
                        ).angle(target_vector, 0), False, i] for
                        i, vertex in enumerate(loop1)]
         dif_angles.sort()
         if len(loop1) != len(loop2):
             angle_limit = dif_angles[0][0] * 1.2 # 20% margin
-            dif_angles = [[(mesh.vertices[loop2[0]].co - \
-                mesh.vertices[loop1[index]].co).length, angle, index] for \
+            dif_angles = [[(bm.verts[loop2[0]].co - \
+                bm.verts[loop1[index]].co).length, angle, index] for \
                 angle, distance, index in dif_angles if angle <= angle_limit]
             dif_angles.sort()
         loop1 = loop1[dif_angles[0][2]:] + loop1[:dif_angles[0][2]]
@@ -988,10 +1007,10 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
     # have both loops face the same way
     if normal_plurity and not circular:
         second_to_first, second_to_second, second_to_last = \
-            [(mesh.vertices[loop1[1]].co - center1).\
-            angle(mesh.vertices[loop2[i]].co - center2) for i in [0, 1, -1]]
-        last_to_first, last_to_second = [(mesh.vertices[loop1[-1]].co - \
-            center1).angle(mesh.vertices[loop2[i]].co - center2) for \
+            [(bm.verts[loop1[1]].co - center1).\
+            angle(bm.verts[loop2[i]].co - center2) for i in [0, 1, -1]]
+        last_to_first, last_to_second = [(bm.verts[loop1[-1]].co - \
+            center1).angle(bm.verts[loop2[i]].co - center2) for \
             i in [0, 1]]
         if (min(last_to_first, last_to_second)*1.1 < min(second_to_first, \
         second_to_second)) or (loop2_circular and second_to_last*1.1 < \
@@ -1000,10 +1019,10 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
             if circular:
                 loop1 = [loop1[-1]] + loop1[:-1]
     else:
-        angle = (mesh.vertices[loop1[0]].co - center1).\
-            cross(mesh.vertices[loop1[1]].co - center1).angle(normals[0], 0)
-        target_angle = (mesh.vertices[loop2[0]].co - center2).\
-            cross(mesh.vertices[loop2[1]].co - center2).angle(normals[1], 0)
+        angle = (bm.verts[loop1[0]].co - center1).\
+            cross(bm.verts[loop1[1]].co - center1).angle(normals[0], 0)
+        target_angle = (bm.verts[loop2[0]].co - center2).\
+            cross(bm.verts[loop2[1]].co - center2).angle(normals[1], 0)
         limit = 1.5707964 # 0.5*pi, 90 degrees
         if not ((angle > limit and target_angle > limit) or \
         (angle < limit and target_angle < limit)):
@@ -1050,8 +1069,8 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
                     shifting = False
                     break
                 to_last, to_first = [(rotation_matrix *
-                    (mesh.vertices[loop1[-1]].co - center1)).angle((mesh.\
-                    vertices[loop2[i]].co - center2), 0) for i in [-1, 0]]
+                    (bm.verts[loop1[-1]].co - center1)).angle((bm.\
+                    verts[loop2[i]].co - center2), 0) for i in [-1, 0]]
                 if to_first < to_last:
                     loop1 = [loop1[-1]] + loop1[:-1]
                     shifting += 1
@@ -1080,8 +1099,8 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
                     tri, quad = 0, 1
                 elif prev_vert2 == len(loop2) - 1 and loop2_circular:
                     # at end of loop2, but circular, so check with first vert
-                    tri, quad = [(mesh.vertices[loop1[i+1]].co -
-                                  mesh.vertices[loop2[j]].co).length
+                    tri, quad = [(bm.verts[loop1[i+1]].co -
+                                  bm.verts[loop2[j]].co).length
                                  for j in [prev_vert2, 0]]
 
                     circle_full = 2
@@ -1091,8 +1110,8 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
                     tri, quad = 1, 0
                 else:
                     # calculate if tri or quad gives shortest edge
-                    tri, quad = [(mesh.vertices[loop1[i+1]].co -
-                                  mesh.vertices[loop2[j]].co).length
+                    tri, quad = [(bm.verts[loop1[i+1]].co -
+                                  bm.verts[loop2[j]].co).length
                                  for j in range(prev_vert2, prev_vert2+2)]
                 
                 # triangle
@@ -1118,23 +1137,23 @@ def bridge_calculate_lines(mesh, loops, mode, twist, reverse):
 
 
 # calculate number of segments needed
-def bridge_calculate_segments(mesh, lines, loops, segments):
+def bridge_calculate_segments(bm, lines, loops, segments):
     # return if amount of segments is set by user
     if segments != 0:
         return segments
     
     # edge lengths
-    average_edge_length = [(mesh.vertices[vertex].co - \
-        mesh.vertices[loop[0][i+1]].co).length for loop in loops for \
+    average_edge_length = [(bm.verts[vertex].co - \
+        bm.verts[loop[0][i+1]].co).length for loop in loops for \
         i, vertex in enumerate(loop[0][:-1])]
     # closing edges of circular loops
-    average_edge_length += [(mesh.vertices[loop[0][-1]].co - \
-        mesh.vertices[loop[0][0]].co).length for loop in loops if loop[1]] 
+    average_edge_length += [(bm.verts[loop[0][-1]].co - \
+        bm.verts[loop[0][0]].co).length for loop in loops if loop[1]] 
     
     # average lengths
     average_edge_length = sum(average_edge_length) / len(average_edge_length)
-    average_bridge_length = sum([(mesh.vertices[v1].co - \
-        mesh.vertices[v2].co).length for v1, v2 in lines]) / len(lines)
+    average_bridge_length = sum([(bm.verts[v1].co - \
+        bm.verts[v2].co).length for v1, v2 in lines]) / len(lines)
     
     segments = max(1, round(average_bridge_length / average_edge_length))
         
@@ -1142,7 +1161,7 @@ def bridge_calculate_segments(mesh, lines, loops, segments):
 
 
 # return dictionary with vertex index as key, and the normal vector as value
-def bridge_calculate_virtual_vertex_normals(mesh, lines, loops, edge_faces,
+def bridge_calculate_virtual_vertex_normals(bm, lines, loops, edge_faces,
 edgekey_to_edge):
     if not edge_faces: # interpolation isn't set to cubic
         return False
@@ -1177,11 +1196,11 @@ edgekey_to_edge):
     """
     vertex_normals = dict([(vertex, []) for vertex in loops[0][0]+loops[1][0]])
     for edge in edges:
-        faces = edge_faces[edge.key] # valid faces connected to edge
+        faces = edge_faces[edgekey(edge)] # valid faces connected to edge
         
         if faces:
             # get edge coordinates
-            v1, v2 = [mesh.vertices[edge.key[i]].co for i in [0,1]]
+            v1, v2 = [bm.verts[edgekey(edge)[i]].co for i in [0,1]]
             edge_vector = v1 - v2
             if edge_vector.length < 1e-4:
                 # zero-length edge, vertices at same location
@@ -1194,12 +1213,12 @@ edgekey_to_edge):
                 face_center = mathutils.Vector()
                 for face in faces:
                     face_normal += face.normal
-                    face_center += face.center
+                    face_center += face.calc_center_median()
                 face_normal /= len(faces)
                 face_center /= len(faces)
             else:
                 face_normal = faces[0].normal
-                face_center = faces[0].center
+                face_center = faces[0].calc_center_median()
             if face_normal.length < 1e-4:
                 # faces with a surface of 0 have no face normal
                 continue
@@ -1213,7 +1232,7 @@ edgekey_to_edge):
                 edge_normal.negate()
             edge_normal.normalize()
             # add virtual edge normal as entry for both vertices it connects
-            for vertex in edge.key:
+            for vertex in edgekey(edge):
                 vertex_normals[vertex].append(edge_normal)
     
     """ 
@@ -1230,10 +1249,10 @@ edgekey_to_edge):
         # edge vectors connected to vertices
         edge_vectors = dict([[vertex, []] for vertex in vertices])
         for edge in edges:
-            for v in edge.key:
+            for v in edgekey(edge):
                 if v in edge_vectors:
-                    edge_vector = mesh.vertices[edge.key[0]].co - \
-                        mesh.vertices[edge.key[1]].co
+                    edge_vector = bm.verts[edgekey(edge)[0]].co - \
+                        bm.verts[edgekey(edge)[1]].co
                     if edge_vector.length < 1e-4:
                         # zero-length edge, vertices at same location
                         continue
@@ -1244,7 +1263,7 @@ edgekey_to_edge):
         connections = dict([[vertex, []] for vertex in vertices])
         for v1, v2 in lines:
             if v1 in connection_vectors or v2 in connection_vectors:
-                new_vector = mesh.vertices[v1].co - mesh.vertices[v2].co
+                new_vector = bm.verts[v1].co - bm.verts[v2].co
                 if new_vector.length < 1e-4:
                     # zero-length connection vector,
                     # vertices in different loops at same location
@@ -1269,7 +1288,7 @@ edgekey_to_edge):
             # used to determine what way to flip the normal
             connected_center = mathutils.Vector()
             for v in connections[vertex]:
-                connected_center += mesh.vertices[v].co
+                connected_center += bm.verts[v].co
             if len(connections[vertex]) > 1:
                 connected_center /= len(connections[vertex])
             if len(connections[vertex]) == 0:
@@ -1279,9 +1298,9 @@ edgekey_to_edge):
             
             # can't do proper calculations, because of zero-length vector
             if not values:
-                if (connected_center - (mesh.vertices[vertex].co + \
+                if (connected_center - (bm.verts[vertex].co + \
                 connection_vectors[vertex])).length < (connected_center - \
-                (mesh.vertices[vertex].co - connection_vectors[vertex])).\
+                (bm.verts[vertex].co - connection_vectors[vertex])).\
                 length:
                     connection_vectors[vertex].negate()
                 vertex_normals[vertex] = [connection_vectors[vertex].\
@@ -1294,9 +1313,9 @@ edgekey_to_edge):
                 plane_normal = edge_vector.cross(connection_vectors[vertex])
                 vertex_normal = edge_vector.cross(plane_normal)
                 vertex_normal.length = 0.1
-                if (connected_center - (mesh.vertices[vertex].co + \
+                if (connected_center - (bm.verts[vertex].co + \
                 vertex_normal)).length < (connected_center - \
-                (mesh.vertices[vertex].co - vertex_normal)).length:
+                (bm.verts[vertex].co - vertex_normal)).length:
                 # make normal face the correct way
                     vertex_normal.negate()
                 vertex_normal.normalize()
@@ -1311,15 +1330,13 @@ edgekey_to_edge):
 
 
 # add vertices to mesh
-def bridge_create_vertices(mesh, vertices):
-    start_index = len(mesh.vertices)
-    mesh.vertices.add(len(vertices))
+def bridge_create_vertices(bm, vertices):
     for i in range(len(vertices)):
-        mesh.vertices[start_index + i].co = vertices[i]
+        bm.verts.new(vertices[i])
 
 
 # add faces to mesh
-def bridge_create_faces(mesh, faces, twist):
+def bridge_create_faces(object, bm, faces, twist):
     # have the normal point the correct way
     if twist < 0:
         [face.reverse() for face in faces]
@@ -1333,19 +1350,21 @@ def bridge_create_faces(mesh, faces, twist):
                 faces[i] = [faces[i][1], faces[i][2], faces[i][3], faces[i][1]]
             else:
                 faces[i] = [faces[i][-1]] + faces[i][:-1]
+        # result of converting from pre-bmesh period
+        if faces[i][-1] == faces[i][-2]:
+            faces[i] = faces[i][:-1]
     
-    start_faces = len(mesh.tessfaces)
-    mesh.tessfaces.add(len(faces))
     for i in range(len(faces)):
-        mesh.tessfaces[start_faces + i].vertices_raw = faces[i]
-    mesh.update(calc_edges = True) # calc_edges prevents memory-corruption
+        bm.faces.new([bm.verts[v] for v in faces[i]])
+    bm.normal_update()
+    object.data.update(calc_edges=True) # calc_edges prevents memory-corruption
 
 
 # calculate input loops
-def bridge_get_input(mesh):
+def bridge_get_input(bm):
     # create list of internal edges, which should be skipped
-    eks_of_selected_faces = [item for sublist in [face.edge_keys for face \
-        in mesh.tessfaces if face.select and not face.hide] for item in sublist]
+    eks_of_selected_faces = [item for sublist in [face_edgekeys(face) for \
+        face in bm.faces if face.select and not face.hide] for item in sublist]
     edge_count = {}
     for ek in eks_of_selected_faces:
         if ek in edge_count:
@@ -1355,41 +1374,41 @@ def bridge_get_input(mesh):
     internal_edges = [ek for ek in edge_count if edge_count[ek] > 1]
     
     # sort correct edges into loops
-    selected_edges = [edge.key for edge in mesh.edges if edge.select \
-        and not edge.hide and edge.key not in internal_edges]
+    selected_edges = [edgekey(edge) for edge in bm.edges if edge.select \
+        and not edge.hide and edgekey(edge) not in internal_edges]
     loops = get_connected_selections(selected_edges)
     
     return(loops)
 
 
 # return values needed by the bridge operator
-def bridge_initialise(mesh, interpolation):
+def bridge_initialise(bm, interpolation):
     if interpolation == 'cubic':
         # dict with edge-key as key and list of connected valid faces as value
-        face_blacklist = [face.index for face in mesh.tessfaces if face.select or \
+        face_blacklist = [face.index for face in bm.faces if face.select or \
             face.hide]
-        edge_faces = dict([[edge.key, []] for edge in mesh.edges if not \
+        edge_faces = dict([[edgekey(edge), []] for edge in bm.edges if not \
             edge.hide])
-        for face in mesh.tessfaces:
+        for face in bm.faces:
             if face.index in face_blacklist:
                 continue
-            for key in face.edge_keys:
+            for key in face_edgekeys(face):
                 edge_faces[key].append(face)
         # dictionary with the edge-key as key and edge as value
-        edgekey_to_edge = dict([[edge.key, edge] for edge in mesh.edges if \
-            edge.select and not edge.hide])
+        edgekey_to_edge = dict([[edgekey(edge), edge] for edge in \
+            bm.edges if edge.select and not edge.hide])
     else:
         edge_faces = False
         edgekey_to_edge = False
     
     # selected faces input
-    old_selected_faces = [face.index for face in mesh.tessfaces if face.select \
+    old_selected_faces = [face.index for face in bm.faces if face.select \
         and not face.hide]
     
     # find out if faces created by bridging should be smoothed
     smooth = False
-    if mesh.tessfaces:
-        if sum([face.use_smooth for face in mesh.tessfaces])/len(mesh.tessfaces) \
+    if bm.faces:
+        if sum([face.smooth for face in bm.faces])/len(bm.faces) \
         >= 0.5:
             smooth = True
     
@@ -1411,7 +1430,7 @@ def bridge_input_method(loft, loft_loop):
 
 
 # match up loops in pairs, used for multi-input bridging
-def bridge_match_loops(mesh, loops):
+def bridge_match_loops(bm, loops):
     # calculate average loop normals and centers
     normals = []
     centers = []
@@ -1419,8 +1438,8 @@ def bridge_match_loops(mesh, loops):
         normal = mathutils.Vector()
         center = mathutils.Vector()
         for vertex in vertices:
-            normal += mesh.vertices[vertex].normal
-            center += mesh.vertices[vertex].co
+            normal += bm.verts[vertex].normal
+            center += bm.verts[vertex].co
         normals.append(normal / len(vertices) / 10)
         centers.append(center / len(vertices))
     
@@ -1471,53 +1490,27 @@ def bridge_match_loops(mesh, loops):
     return(loops)
 
 
-# have normals of selection face outside
-def bridge_recalculate_normals():
-    bpy.ops.object.mode_set(mode = 'EDIT')
-    bpy.ops.mesh.normals_make_consistent()
-
-
 # remove old_selected_faces
-def bridge_remove_internal_faces(mesh, old_selected_faces):
-    select_mode = [i for i in bpy.context.tool_settings.mesh_select_mode]
-    bpy.context.tool_settings.mesh_select_mode = [False, False, True]
+def bridge_remove_internal_faces(bm, old_selected_faces):
+    # collect bmesh faces and internal bmesh edges
+    remove_faces = [bm.faces[face] for face in old_selected_faces]
+    edges = collections.Counter([edge.index for face in remove_faces for \
+        edge in face.edges])
+    remove_edges = [bm.edges[edge] for edge in edges if edges[edge] > 1]
     
-    # hack to keep track of the current selection
-    for edge in mesh.edges:
-        if edge.select and not edge.hide:
-            edge.bevel_weight = (edge.bevel_weight/3) + 0.2
-        else:
-            edge.bevel_weight = (edge.bevel_weight/3) + 0.6
-    
-    # remove faces
-    bpy.ops.object.mode_set(mode = 'EDIT')
-    bpy.ops.mesh.select_all(action = 'DESELECT')
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    for face in old_selected_faces:
-        mesh.tessfaces[face].select = True
-    bpy.ops.object.mode_set(mode = 'EDIT')
-    bpy.ops.mesh.delete(type = 'FACE')
-    
-    # restore old selection, using hack
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.context.tool_settings.mesh_select_mode = [False, True, False]
-    for edge in mesh.edges:
-        if edge.bevel_weight < 0.6:
-            edge.bevel_weight = (edge.bevel_weight-0.2) * 3
-            edge.select = True
-        else:
-            edge.bevel_weight = (edge.bevel_weight-0.6) * 3
-    bpy.ops.object.mode_set(mode = 'EDIT')
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.context.tool_settings.mesh_select_mode = select_mode
+    # remove internal faces and edges
+    for face in remove_faces:
+        bm.faces.remove(face)
+    for edge in remove_edges:
+        bm.edges.remove(edge)
 
 
 # update list of internal faces that are flagged for removal
-def bridge_save_unused_faces(mesh, old_selected_faces, loops):
+def bridge_save_unused_faces(bm, old_selected_faces, loops):
     # key: vertex index, value: lists of selected faces using it
-    vertex_to_face = dict([[i, []] for i in range(len(mesh.vertices))])
-    [[vertex_to_face[vertex_index].append(face) for vertex_index in \
-        mesh.tessfaces[face].vertices] for face in old_selected_faces]
+    vertex_to_face = dict([[i, []] for i in range(len(bm.verts))])
+    [[vertex_to_face[vertex.index].append(face) for vertex in \
+        bm.faces[face].verts] for face in old_selected_faces]
     
     # group selected faces that are connected
     groups = []
@@ -1530,9 +1523,9 @@ def bridge_save_unused_faces(mesh, old_selected_faces, loops):
         new_faces = [face]
         while new_faces:
             grow_face = new_faces[0]
-            for vertex in mesh.tessfaces[grow_face].vertices:
-                vertex_face_group = [face for face in vertex_to_face[vertex] \
-                    if face not in grouped_faces]
+            for vertex in bm.faces[grow_face].verts:
+                vertex_face_group = [face for face in vertex_to_face[\
+                    vertex.index] if face not in grouped_faces]
                 new_faces += vertex_face_group
                 grouped_faces += vertex_face_group
                 group += vertex_face_group
@@ -1540,7 +1533,7 @@ def bridge_save_unused_faces(mesh, old_selected_faces, loops):
         groups.append(group)
     
     # key: vertex index, value: True/False (is it in a loop that is used)
-    used_vertices = dict([[i, 0] for i in range(len(mesh.vertices))])
+    used_vertices = dict([[i, 0] for i in range(len(bm.verts))])
     for loop in loops:
         for vertex in loop[0]:
             used_vertices[vertex] = True
@@ -1551,8 +1544,8 @@ def bridge_save_unused_faces(mesh, old_selected_faces, loops):
         for face in group:
             if used:
                 break
-            for vertex in mesh.tessfaces[face].vertices:
-                if used_vertices[vertex]:
+            for vertex in bm.faces[face].verts:
+                if used_vertices[vertex.index]:
                     used = True
                     break
         if not used:
@@ -1561,21 +1554,16 @@ def bridge_save_unused_faces(mesh, old_selected_faces, loops):
 
 
 # add the newly created faces to the selection
-def bridge_select_new_faces(mesh, amount, smooth):
-    select_mode = [i for i in bpy.context.tool_settings.mesh_select_mode]
-    bpy.context.tool_settings.mesh_select_mode = [False, False, True]
+def bridge_select_new_faces(bm, amount, smooth):
     for i in range(amount):
-        mesh.tessfaces[-(i+1)].select = True
-        mesh.tessfaces[-(i+1)].use_smooth = smooth
-    bpy.ops.object.mode_set(mode = 'EDIT')
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.context.tool_settings.mesh_select_mode = select_mode
+        bm.faces[-(i+1)].select_set(True)
+        bm.faces[-(i+1)].smooth = smooth
 
 
 # sort loops, so they are connected in the correct order when lofting
-def bridge_sort_loops(mesh, loops, loft_loop):
+def bridge_sort_loops(bm, loops, loft_loop):
     # simplify loops to single points, and prepare for pathfinding
-    x, y, z = [[sum([mesh.vertices[i].co[j] for i in loop[0]]) / \
+    x, y, z = [[sum([bm.verts[i].co[j] for i in loop[0]]) / \
         len(loop[0]) for loop in loops] for j in range(3)]
     nodes = [mathutils.Vector((x[i], y[i], z[i])) for i in range(len(loops))]
     
@@ -1610,9 +1598,9 @@ def bridge_sort_loops(mesh, loops, loft_loop):
 ##########################################
 
 # convert 3d coordinates to 2d coordinates on plane
-def circle_3d_to_2d(mesh_mod, loop, com, normal):
+def circle_3d_to_2d(bm_mod, loop, com, normal):
     # project vertices onto the plane
-    verts = [mesh_mod.vertices[v] for v in loop[0]]
+    verts = [bm_mod.verts[v] for v in loop[0]]
     verts_projected = [[v.co - (v.co - com).dot(normal) * normal, v.index]
                        for v in verts]
 
@@ -1696,7 +1684,7 @@ def circle_calculate_min_fit(locs_2d):
 
 
 # calculate the new locations of the vertices that need to be moved
-def circle_calculate_verts(flatten, mesh_mod, locs_2d, com, p, q, normal):
+def circle_calculate_verts(flatten, bm_mod, locs_2d, com, p, q, normal):
     # changing 2d coordinates back to 3d coordinates
     locs_3d = []
     for loc in locs_2d:
@@ -1706,30 +1694,29 @@ def circle_calculate_verts(flatten, mesh_mod, locs_2d, com, p, q, normal):
         return(locs_3d)
     
     else: # project the locations on the existing mesh
-        vert_edges = dict_vert_edges(mesh_mod)
-        vert_faces = dict_vert_faces(mesh_mod)
-        faces = [f for f in mesh_mod.tessfaces if not f.hide]
+        vert_edges = dict_vert_edges(bm_mod)
+        vert_faces = dict_vert_faces(bm_mod)
+        faces = [f for f in bm_mod.faces if not f.hide]
         rays = [normal, -normal]
         new_locs = []
         for loc in locs_3d:
             projection = False
-            if mesh_mod.vertices[loc[0]].co == loc[1]: # vertex hasn't moved
+            if bm_mod.verts[loc[0]].co == loc[1]: # vertex hasn't moved
                 projection = loc[1]
             else:
-                dif = normal.angle(loc[1]-mesh_mod.vertices[loc[0]].co)
+                dif = normal.angle(loc[1]-bm_mod.verts[loc[0]].co)
                 if -1e-6 < dif < 1e-6 or math.pi-1e-6 < dif < math.pi+1e-6:
                     # original location is already along projection normal
-                    projection = mesh_mod.vertices[loc[0]].co
+                    projection = bm_mod.verts[loc[0]].co
                 else:
                     # quick search through adjacent faces
                     for face in vert_faces[loc[0]]:
-                        verts = [mesh_mod.vertices[v].co for v in \
-                            mesh_mod.tessfaces[face].vertices]
+                        verts = [v.co for v in bm_mod.faces[face].verts]
                         if len(verts) == 3: # triangle
                             v1, v2, v3 = verts
                             v4 = False
-                        else: # quad
-                            v1, v2, v3, v4 = verts
+                        else: # assume quad
+                            v1, v2, v3, v4 = verts[:4]
                         for ray in rays:
                             intersect = mathutils.geometry.\
                             intersect_ray_tri(v1, v2, v3, ray, loc[1])
@@ -1747,8 +1734,8 @@ def circle_calculate_verts(flatten, mesh_mod, locs_2d, com, p, q, normal):
             if not projection:
                 # check if projection is on adjacent edges
                 for edgekey in vert_edges[loc[0]]:
-                    line1 = mesh_mod.vertices[edgekey[0]].co
-                    line2 = mesh_mod.vertices[edgekey[1]].co
+                    line1 = bm_mod.verts[edgekey[0]].co
+                    line2 = bm_mod.verts[edgekey[1]].co
                     intersect, dist = mathutils.geometry.intersect_point_line(\
                         loc[1], line1, line2)
                     if 1e-6 < dist < 1 - 1e-6:
@@ -1758,12 +1745,12 @@ def circle_calculate_verts(flatten, mesh_mod, locs_2d, com, p, q, normal):
                 # full search through the entire mesh
                 hits = []
                 for face in faces:
-                    verts = [mesh_mod.vertices[v].co for v in face.vertices]
+                    verts = [v.co for v in face.verts]
                     if len(verts) == 3: # triangle
                         v1, v2, v3 = verts
                         v4 = False
-                    else: # quad
-                        v1, v2, v3, v4 = verts
+                    else: # assume quad
+                        v1, v2, v3, v4 = verts[:4]
                     for ray in rays:
                         intersect = mathutils.geometry.intersect_ray_tri(\
                             v1, v2, v3, ray, loc[1])
@@ -1792,7 +1779,7 @@ def circle_calculate_verts(flatten, mesh_mod, locs_2d, com, p, q, normal):
 
 
 # check loops and only return valid ones
-def circle_check_loops(single_loops, loops, mapping, mesh_mod):
+def circle_check_loops(single_loops, loops, mapping, bm_mod):
     valid_single_loops = {}
     valid_loops = []
     for i, [loop, circular] in enumerate(loops):
@@ -1810,10 +1797,10 @@ def circle_check_loops(single_loops, loops, mapping, mesh_mod):
                 continue
         # loop has to be non-collinear
         collinear = True
-        loc0 = mathutils.Vector(mesh_mod.vertices[loop[0]].co[:])
-        loc1 = mathutils.Vector(mesh_mod.vertices[loop[1]].co[:])
+        loc0 = mathutils.Vector(bm_mod.verts[loop[0]].co[:])
+        loc1 = mathutils.Vector(bm_mod.verts[loop[1]].co[:])
         for v in loop[2:]:
-            locn = mathutils.Vector(mesh_mod.vertices[v].co[:])
+            locn = mathutils.Vector(bm_mod.verts[v].co[:])
             if loc0 == loc1 or loc1 == locn:
                 loc0 = loc1
                 loc1 = locn
@@ -1836,58 +1823,60 @@ def circle_check_loops(single_loops, loops, mapping, mesh_mod):
 
 
 # calculate the location of single input vertices that need to be flattened
-def circle_flatten_singles(mesh_mod, com, p, q, normal, single_loop):
+def circle_flatten_singles(bm_mod, com, p, q, normal, single_loop):
     new_locs = []
     for vert in single_loop:
-        loc = mathutils.Vector(mesh_mod.vertices[vert].co[:])
+        loc = mathutils.Vector(bm_mod.verts[vert].co[:])
         new_locs.append([vert,  loc - (loc-com).dot(normal)*normal])
     
     return(new_locs)
 
 
 # calculate input loops
-def circle_get_input(object, mesh, scene):
+def circle_get_input(object, bm, scene):
     # get mesh with modifiers applied
-    derived, mesh_mod = get_derived_mesh(object, mesh, scene)
+    derived, bm_mod = get_derived_bmesh(object, bm, scene)
     
     # create list of edge-keys based on selection state
     faces = False
-    for face in mesh.tessfaces:
+    for face in bm.faces:
         if face.select and not face.hide:
             faces = True
             break
     if faces:
         # get selected, non-hidden , non-internal edge-keys
-        eks_selected = [key for keys in [face.edge_keys for face in \
-            mesh_mod.tessfaces if face.select and not face.hide] for key in keys]
+        eks_selected = [key for keys in [face_edgekeys(face) for face in \
+            bm_mod.faces if face.select and not face.hide] for key in keys]
         edge_count = {}
         for ek in eks_selected:
             if ek in edge_count:
                 edge_count[ek] += 1
             else:
                 edge_count[ek] = 1
-        edge_keys = [edge.key for edge in mesh_mod.edges if edge.select \
-            and not edge.hide and edge_count.get(edge.key, 1)==1]
+        edge_keys = [edgekey(edge) for edge in bm_mod.edges if edge.select \
+            and not edge.hide and edge_count.get(edgekey(edge), 1)==1]
     else:
         # no faces, so no internal edges either
-        edge_keys = [edge.key for edge in mesh_mod.edges if edge.select \
+        edge_keys = [edgekey(edge) for edge in bm_mod.edges if edge.select \
             and not edge.hide]
     
     # add edge-keys around single vertices
     verts_connected = dict([[vert, 1] for edge in [edge for edge in \
-        mesh_mod.edges if edge.select and not edge.hide] for vert in edge.key])
-    single_vertices = [vert.index for vert in mesh_mod.vertices if \
+        bm_mod.edges if edge.select and not edge.hide] for vert in \
+        edgekey(edge)])
+    single_vertices = [vert.index for vert in bm_mod.verts if \
         vert.select and not vert.hide and not \
         verts_connected.get(vert.index, False)]
     
-    if single_vertices and len(mesh.tessfaces)>0:
-        vert_to_single = dict([[v.index, []] for v in mesh_mod.vertices \
+    if single_vertices and len(bm.faces)>0:
+        vert_to_single = dict([[v.index, []] for v in bm_mod.verts \
             if not v.hide])
-        for face in [face for face in mesh_mod.tessfaces if not face.select \
+        for face in [face for face in bm_mod.faces if not face.select \
         and not face.hide]:
-            for vert in face.vertices:
+            for vert in face.verts:
+                vert = vert.index
                 if vert in single_vertices:
-                    for ek in face.edge_keys:
+                    for ek in face_edgekeys(face):
                         if not vert in ek:
                             edge_keys.append(ek)
                             if vert not in vert_to_single[ek[0]]:
@@ -1901,7 +1890,7 @@ def circle_get_input(object, mesh, scene):
     
     # find out to which loops the single vertices belong
     single_loops = dict([[i, []] for i in range(len(loops))])
-    if single_vertices and len(mesh.tessfaces)>0:
+    if single_vertices and len(bm.faces)>0:
         for i, [loop, circular] in enumerate(loops):
             for vert in loop:
                 if vert_to_single[vert]:
@@ -1909,7 +1898,7 @@ def circle_get_input(object, mesh, scene):
                         if single not in single_loops[i]:
                             single_loops[i].append(single)
     
-    return(derived, mesh_mod, single_vertices, single_loops, loops)
+    return(derived, bm_mod, single_vertices, single_loops, loops)
 
 
 # recalculate positions based on the influence of the circle shape
@@ -1962,9 +1951,9 @@ def circle_project_regular(locs_2d, x0, y0, r):
 
 
 # shift loop, so the first vertex is closest to the center
-def circle_shift_loop(mesh_mod, loop, com):
+def circle_shift_loop(bm_mod, loop, com):
     verts, circular = loop
-    distances = [[(mesh_mod.vertices[vert].co - com).length, i] \
+    distances = [[(bm_mod.verts[vert].co - com).length, i] \
         for i, vert in enumerate(verts)]
     distances.sort()
     shift = distances[0][1]
@@ -2055,7 +2044,7 @@ def curve_calculate_knots(loop, verts_selected):
 
 
 # calculate relative positions compared to first knot
-def curve_calculate_t(mesh_mod, knots, points, pknots, regular, circular):
+def curve_calculate_t(bm_mod, knots, points, pknots, regular, circular):
     tpoints = []
     loc_prev = False
     len_total = 0
@@ -2064,7 +2053,7 @@ def curve_calculate_t(mesh_mod, knots, points, pknots, regular, circular):
         if p in knots:
             loc = pknots[knots.index(p)] # use projected knot location
         else:
-            loc = mathutils.Vector(mesh_mod.vertices[p].co[:])
+            loc = mathutils.Vector(bm_mod.verts[p].co[:])
         if not loc_prev:
             loc_prev = loc
         len_total += (loc-loc_prev).length
@@ -2092,7 +2081,7 @@ def curve_calculate_t(mesh_mod, knots, points, pknots, regular, circular):
 
 
 # change the location of non-selected points to their place on the spline
-def curve_calculate_vertices(mesh_mod, knots, tknots, points, tpoints, splines,
+def curve_calculate_vertices(bm_mod, knots, tknots, points, tpoints, splines,
 interpolation, restriction):
     newlocs = {}
     move = []
@@ -2135,10 +2124,10 @@ interpolation, restriction):
             if p in newlocs:
                 newloc = newlocs[p]
             else:
-                move.append([p, mesh_mod.vertices[p].co])
+                move.append([p, bm_mod.verts[p].co])
                 continue
-            oldloc = mesh_mod.vertices[p].co
-            normal = mesh_mod.vertices[p].normal
+            oldloc = bm_mod.verts[p].co
+            normal = bm_mod.verts[p].normal
             dloc = newloc - oldloc
             if dloc.length < 1e-6:
                 move.append([p, newloc])
@@ -2153,14 +2142,14 @@ interpolation, restriction):
 
 
 # trim loops to part between first and last selected vertices (including)
-def curve_cut_boundaries(mesh_mod, loops):
+def curve_cut_boundaries(bm_mod, loops):
     cut_loops = []
     for loop, circular in loops:
         if circular:
             # don't cut
             cut_loops.append([loop, circular])
             continue
-        selected = [mesh_mod.vertices[v].select for v in loop]
+        selected = [bm_mod.verts[v].select for v in loop]
         first = selected.index(True)
         selected.reverse()
         last = -selected.index(True)
@@ -2173,21 +2162,21 @@ def curve_cut_boundaries(mesh_mod, loops):
 
 
 # calculate input loops
-def curve_get_input(object, mesh, boundaries, scene):
+def curve_get_input(object, bm, boundaries, scene):
     # get mesh with modifiers applied
-    derived, mesh_mod = get_derived_mesh(object, mesh, scene)
+    derived, bm_mod = get_derived_bmesh(object, bm, scene)
     
     # vertices that still need a loop to run through it
-    verts_unsorted = [v.index for v in mesh_mod.vertices if \
+    verts_unsorted = [v.index for v in bm_mod.verts if \
         v.select and not v.hide]
     # necessary dictionaries
-    vert_edges = dict_vert_edges(mesh_mod)
-    edge_faces = dict_edge_faces(mesh_mod)
+    vert_edges = dict_vert_edges(bm_mod)
+    edge_faces = dict_edge_faces(bm_mod)
     correct_loops = []
     
     # find loops through each selected vertex
     while len(verts_unsorted) > 0:
-        loops = curve_vertex_loops(mesh_mod, verts_unsorted[0], vert_edges,
+        loops = curve_vertex_loops(bm_mod, verts_unsorted[0], vert_edges,
             edge_faces)
         verts_unsorted.pop(0)
         
@@ -2196,7 +2185,7 @@ def curve_get_input(object, mesh, boundaries, scene):
         i = -1
         for loop, circular in loops:
             i += 1
-            selected = [v for v in loop if mesh_mod.vertices[v].select]
+            selected = [v for v in loop if bm_mod.verts[v].select]
             if len(selected) < 2:
                 # only one selected vertex on loop, don't use
                 loops.pop(i)
@@ -2209,7 +2198,7 @@ def curve_get_input(object, mesh, boundaries, scene):
             for vert in loop:
                 if vert in verts_unsorted:
                     verts_unsorted.remove(vert)
-            perp_loops = curve_perpendicular_loops(mesh_mod, loop,
+            perp_loops = curve_perpendicular_loops(bm_mod, loop,
                 vert_edges, edge_faces)
             for perp_loop in perp_loops:
                 correct_loops.append(perp_loop)
@@ -2220,20 +2209,20 @@ def curve_get_input(object, mesh, boundaries, scene):
     
     # boundaries option
     if boundaries:
-        correct_loops = curve_cut_boundaries(mesh_mod, correct_loops)
+        correct_loops = curve_cut_boundaries(bm_mod, correct_loops)
     
-    return(derived, mesh_mod, correct_loops)
+    return(derived, bm_mod, correct_loops)
 
 
 # return all loops that are perpendicular to the given one
-def curve_perpendicular_loops(mesh_mod, start_loop, vert_edges, edge_faces):
+def curve_perpendicular_loops(bm_mod, start_loop, vert_edges, edge_faces):
     # find perpendicular loops
     perp_loops = []
     for start_vert in start_loop:
-        loops = curve_vertex_loops(mesh_mod, start_vert, vert_edges,
+        loops = curve_vertex_loops(bm_mod, start_vert, vert_edges,
             edge_faces)
         for loop, circular in loops:
-            selected = [v for v in loop if mesh_mod.vertices[v].select]
+            selected = [v for v in loop if bm_mod.verts[v].select]
             if len(selected) == len(loop):
                 continue
             else:
@@ -2281,7 +2270,7 @@ def curve_perpendicular_loops(mesh_mod, start_loop, vert_edges, edge_faces):
 
 
 # project knots on non-selected geometry
-def curve_project_knots(mesh_mod, verts_selected, knots, points, circular):
+def curve_project_knots(bm_mod, verts_selected, knots, points, circular):
     # function to project vertex on edge
     def project(v1, v2, v3):
         # v1 and v2 are part of a line
@@ -2298,7 +2287,7 @@ def curve_project_knots(mesh_mod, verts_selected, knots, points, circular):
     else: # first and last knot shouldn't be projected
         start = 1
         end = -1
-        pknots = [mathutils.Vector(mesh_mod.vertices[knots[0]].co[:])]
+        pknots = [mathutils.Vector(bm_mod.verts[knots[0]].co[:])]
     for knot in knots[start:end]:
         if knot in verts_selected:
             knot_left = knot_right = False
@@ -2314,23 +2303,23 @@ def curve_project_knots(mesh_mod, verts_selected, knots, points, circular):
                     break
             if knot_left and knot_right and knot_left != knot_right:
                 knot_left = mathutils.Vector(\
-                    mesh_mod.vertices[knot_left].co[:])
+                    bm_mod.verts[knot_left].co[:])
                 knot_right = mathutils.Vector(\
-                    mesh_mod.vertices[knot_right].co[:])
-                knot = mathutils.Vector(mesh_mod.vertices[knot].co[:])
+                    bm_mod.verts[knot_right].co[:])
+                knot = mathutils.Vector(bm_mod.verts[knot].co[:])
                 pknots.append(project(knot_left, knot_right, knot))
             else:
-                pknots.append(mathutils.Vector(mesh_mod.vertices[knot].co[:]))
+                pknots.append(mathutils.Vector(bm_mod.verts[knot].co[:]))
         else: # knot isn't selected, so shouldn't be changed
-            pknots.append(mathutils.Vector(mesh_mod.vertices[knot].co[:]))
+            pknots.append(mathutils.Vector(bm_mod.verts[knot].co[:]))
     if not circular:
-        pknots.append(mathutils.Vector(mesh_mod.vertices[knots[-1]].co[:]))
+        pknots.append(mathutils.Vector(bm_mod.verts[knots[-1]].co[:]))
     
     return(pknots)
 
 
 # find all loops through a given vertex
-def curve_vertex_loops(mesh_mod, start_vert, vert_edges, edge_faces):
+def curve_vertex_loops(bm_mod, start_vert, vert_edges, edge_faces):
     edges_used = []
     loops = []
         
@@ -2389,10 +2378,10 @@ def curve_vertex_loops(mesh_mod, start_vert, vert_edges, edge_faces):
 ##########################################
 
 # sort input into loops
-def flatten_get_input(mesh):
-    vert_verts = dict_vert_verts([edge.key for edge in mesh.edges \
+def flatten_get_input(bm):
+    vert_verts = dict_vert_verts([edgekey(edge) for edge in bm.edges \
         if edge.select and not edge.hide])
-    verts = [v.index for v in mesh.vertices if v.select and not v.hide]
+    verts = [v.index for v in bm.verts if v.select and not v.hide]
     
     # no connected verts, consider all selected verts as a single input
     if not vert_verts:
@@ -2423,8 +2412,8 @@ def flatten_get_input(mesh):
 
 
 # calculate position of vertex projections on plane
-def flatten_project(mesh, loop, com, normal):
-    verts = [mesh.vertices[v] for v in loop[0]]
+def flatten_project(bm, loop, com, normal):
+    verts = [bm.verts[v] for v in loop[0]]
     verts_projected = [[v.index, mathutils.Vector(v.co[:]) - \
         (mathutils.Vector(v.co[:])-com).dot(normal)*normal] for v in verts]
     
@@ -2479,7 +2468,7 @@ def relax_calculate_knots(loops):
 
 
 # calculate relative positions compared to first knot
-def relax_calculate_t(mesh_mod, knots, points, regular):
+def relax_calculate_t(bm_mod, knots, points, regular):
     all_tknots = []
     all_tpoints = []
     for i in range(len(knots)):
@@ -2497,7 +2486,7 @@ def relax_calculate_t(mesh_mod, knots, points, regular):
         tknots = []
         tpoints = []
         for m in mix:
-            loc = mathutils.Vector(mesh_mod.vertices[m[1]].co[:])
+            loc = mathutils.Vector(bm_mod.verts[m[1]].co[:])
             if not loc_prev:
                 loc_prev = loc
             len_total += (loc - loc_prev).length
@@ -2517,7 +2506,7 @@ def relax_calculate_t(mesh_mod, knots, points, regular):
 
 
 # change the location of the points to their place on the spline
-def relax_calculate_verts(mesh_mod, interpolation, tknots, knots, tpoints,
+def relax_calculate_verts(bm_mod, interpolation, tknots, knots, tpoints,
 points, splines):
     change = []
     move = []
@@ -2550,7 +2539,7 @@ points, splines):
                     u = 1e-8
                 change.append([p, ((m-t)/u)*d + a])
     for c in change:
-        move.append([c[0], (mesh_mod.vertices[c[0]].co + c[1]) / 2])
+        move.append([c[0], (bm_mod.verts[c[0]].co + c[1]) / 2])
     
     return(move)
 
@@ -2560,12 +2549,12 @@ points, splines):
 ##########################################
 
 # calculate relative positions compared to first knot
-def space_calculate_t(mesh_mod, knots):
+def space_calculate_t(bm_mod, knots):
     tknots = []
     loc_prev = False
     len_total = 0
     for k in knots:
-        loc = mathutils.Vector(mesh_mod.vertices[k].co[:])
+        loc = mathutils.Vector(bm_mod.verts[k].co[:])
         if not loc_prev:
             loc_prev = loc
         len_total += (loc - loc_prev).length
@@ -2579,7 +2568,7 @@ def space_calculate_t(mesh_mod, knots):
 
 
 # change the location of the points to their place on the spline
-def space_calculate_verts(mesh_mod, interpolation, tknots, tpoints, points,
+def space_calculate_verts(bm_mod, interpolation, tknots, tpoints, points,
 splines):
     move = []
     for p in points:
@@ -2713,47 +2702,47 @@ class Bridge(bpy.types.Operator):
     
     def execute(self, context):
         # initialise
-        global_undo, object, mesh = initialise()
+        global_undo, object, bm = initialise()
         edge_faces, edgekey_to_edge, old_selected_faces, smooth = \
-            bridge_initialise(mesh, self.interpolation)
+            bridge_initialise(bm, self.interpolation)
         settings_write(self)
         
         # check cache to see if we can save time
         input_method = bridge_input_method(self.loft, self.loft_loop)
         cached, single_loops, loops, derived, mapping = cache_read("Bridge",
-            object, mesh, input_method, False)
+            object, bm, input_method, False)
         if not cached:
             # get loops
-            loops = bridge_get_input(mesh)
+            loops = bridge_get_input(bm)
             if loops:
                 # reorder loops if there are more than 2
                 if len(loops) > 2:
                     if self.loft:
-                        loops = bridge_sort_loops(mesh, loops, self.loft_loop)
+                        loops = bridge_sort_loops(bm, loops, self.loft_loop)
                     else:
-                        loops = bridge_match_loops(mesh, loops)
+                        loops = bridge_match_loops(bm, loops)
         
         # saving cache for faster execution next time
         if not cached:
-            cache_write("Bridge", object, mesh, input_method, False, False,
+            cache_write("Bridge", object, bm, input_method, False, False,
                 loops, False, False)
         
         if loops:
             # calculate new geometry
             vertices = []
             faces = []
-            max_vert_index = len(mesh.vertices)-1
+            max_vert_index = len(bm.verts)-1
             for i in range(1, len(loops)):
                 if not self.loft and i%2 == 0:
                     continue
-                lines = bridge_calculate_lines(mesh, loops[i-1:i+1],
+                lines = bridge_calculate_lines(bm, loops[i-1:i+1],
                     self.mode, self.twist, self.reverse)
-                vertex_normals = bridge_calculate_virtual_vertex_normals(mesh,
+                vertex_normals = bridge_calculate_virtual_vertex_normals(bm,
                     lines, loops[i-1:i+1], edge_faces, edgekey_to_edge)
-                segments = bridge_calculate_segments(mesh, lines,
+                segments = bridge_calculate_segments(bm, lines,
                     loops[i-1:i+1], self.segments)
                 new_verts, new_faces, max_vert_index = \
-                    bridge_calculate_geometry(mesh, lines, vertex_normals,
+                    bridge_calculate_geometry(bm, lines, vertex_normals,
                     segments, self.interpolation, self.cubic_strength,
                     self.min_width, max_vert_index)
                 if new_verts:
@@ -2762,24 +2751,26 @@ class Bridge(bpy.types.Operator):
                     faces += new_faces
             # make sure faces in loops that aren't used, aren't removed
             if self.remove_faces and old_selected_faces:
-                bridge_save_unused_faces(mesh, old_selected_faces, loops)
+                bridge_save_unused_faces(bm, old_selected_faces, loops)
             # create vertices
             if vertices:
-                bridge_create_vertices(mesh, vertices)
+                bridge_create_vertices(bm, vertices)
             # create faces
             if faces:
-                bridge_create_faces(mesh, faces, self.twist)
-                bridge_select_new_faces(mesh, len(faces), smooth)
+                bridge_create_faces(object, bm, faces, self.twist)
+                bridge_select_new_faces(bm, len(faces), smooth)
             # edge-data could have changed, can't use cache next run
             if faces and not vertices:
                 cache_delete("Bridge")
             # delete internal faces
             if self.remove_faces and old_selected_faces:
-                bridge_remove_internal_faces(mesh, old_selected_faces)
+                bridge_remove_internal_faces(bm, old_selected_faces)
             # make sure normals are facing outside
-            bridge_recalculate_normals()
+            bpy.ops.mesh.normals_make_consistent()
         
+        # cleaning up
         terminate(global_undo)
+        
         return{'FINISHED'}
 
 
@@ -2849,36 +2840,36 @@ class Circle(bpy.types.Operator):
     
     def execute(self, context):
         # initialise
-        global_undo, object, mesh = initialise()
+        global_undo, object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Circle",
-            object, mesh, False, False)
+            object, bm, False, False)
         if cached:
-            derived, mesh_mod = get_derived_mesh(object, mesh, context.scene)
+            derived, bm_mod = get_derived_bmesh(object, bm, context.scene)
         else:
             # find loops
-            derived, mesh_mod, single_vertices, single_loops, loops = \
-                circle_get_input(object, mesh, context.scene)
-            mapping = get_mapping(derived, mesh, mesh_mod, single_vertices,
+            derived, bm_mod, single_vertices, single_loops, loops = \
+                circle_get_input(object, bm, context.scene)
+            mapping = get_mapping(derived, bm, bm_mod, single_vertices,
                 False, loops)
             single_loops, loops = circle_check_loops(single_loops, loops,
-                mapping, mesh_mod)
+                mapping, bm_mod)
         
         # saving cache for faster execution next time
         if not cached:
-            cache_write("Circle", object, mesh, False, False, single_loops,
+            cache_write("Circle", object, bm, False, False, single_loops,
                 loops, derived, mapping)
         
         move = []
         for i, loop in enumerate(loops):
             # best fitting flat plane
-            com, normal = calculate_plane(mesh_mod, loop)
+            com, normal = calculate_plane(bm_mod, loop)
             # if circular, shift loop so we get a good starting vertex
             if loop[1]:
-                loop = circle_shift_loop(mesh_mod, loop, com)
+                loop = circle_shift_loop(bm_mod, loop, com)
             # flatten vertices on plane
-            locs_2d, p, q = circle_3d_to_2d(mesh_mod, loop, com, normal)
+            locs_2d, p, q = circle_3d_to_2d(bm_mod, loop, com, normal)
             # calculate circle
             if self.fit == 'best':
                 x0, y0, r = circle_calculate_best_fit(locs_2d)
@@ -2896,19 +2887,19 @@ class Circle(bpy.types.Operator):
             locs_2d = circle_influence_locs(locs_2d, new_locs_2d,
                 self.influence)
             # calculate 3d positions of the created 2d input
-            move.append(circle_calculate_verts(self.flatten, mesh_mod,
+            move.append(circle_calculate_verts(self.flatten, bm_mod,
                 locs_2d, com, p, q, normal))
             # flatten single input vertices on plane defined by loop
             if self.flatten and single_loops:
-                move.append(circle_flatten_singles(mesh_mod, com, p, q,
+                move.append(circle_flatten_singles(bm_mod, com, p, q,
                     normal, single_loops[i]))
         
         # move vertices to new locations
-        move_verts(mesh, mapping, move, -1)
+        move_verts(object, bm, mapping, move, -1)
         
-        # cleaning up 
+        # cleaning up
         if derived:
-            bpy.context.blend_data.meshes.remove(mesh_mod)
+            bm_mod.free()
         terminate(global_undo)
         
         return{'FINISHED'}
@@ -2974,48 +2965,48 @@ class Curve(bpy.types.Operator):
     
     def execute(self, context):
         # initialise
-        global_undo, object, mesh = initialise()
+        global_undo, object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Curve",
-            object, mesh, False, self.boundaries)
+            object, bm, False, self.boundaries)
         if cached:
-            derived, mesh_mod = get_derived_mesh(object, mesh, context.scene)
+            derived, bm_mod = get_derived_bmesh(object, bm, context.scene)
         else:
             # find loops
-            derived, mesh_mod, loops = curve_get_input(object, mesh,
+            derived, bm_mod, loops = curve_get_input(object, bm,
                 self.boundaries, context.scene)
-            mapping = get_mapping(derived, mesh, mesh_mod, False, True, loops)
-            loops = check_loops(loops, mapping, mesh_mod)
-        verts_selected = [v.index for v in mesh_mod.vertices if v.select \
+            mapping = get_mapping(derived, bm, bm_mod, False, True, loops)
+            loops = check_loops(loops, mapping, bm_mod)
+        verts_selected = [v.index for v in bm_mod.verts if v.select \
             and not v.hide]
         
         # saving cache for faster execution next time
         if not cached:
-            cache_write("Curve", object, mesh, False, self.boundaries, False,
+            cache_write("Curve", object, bm, False, self.boundaries, False,
                 loops, derived, mapping)
         
         move = []
         for loop in loops:
             knots, points = curve_calculate_knots(loop, verts_selected)
-            pknots = curve_project_knots(mesh_mod, verts_selected, knots,
+            pknots = curve_project_knots(bm_mod, verts_selected, knots,
                 points, loop[1])
-            tknots, tpoints = curve_calculate_t(mesh_mod, knots, points,
+            tknots, tpoints = curve_calculate_t(bm_mod, knots, points,
                 pknots, self.regular, loop[1])
-            splines = calculate_splines(self.interpolation, mesh_mod,
+            splines = calculate_splines(self.interpolation, bm_mod,
                 tknots, knots)
-            move.append(curve_calculate_vertices(mesh_mod, knots, tknots,
+            move.append(curve_calculate_vertices(bm_mod, knots, tknots,
                 points, tpoints, splines, self.interpolation,
                 self.restriction))
         
         # move vertices to new locations
-        move_verts(mesh, mapping, move, self.influence)
+        move_verts(object, bm, mapping, move, self.influence)
         
         # cleaning up 
         if derived:
-            bpy.context.blend_data.meshes.remove(mesh_mod)
-        
+            bm_mod.free()
         terminate(global_undo)
+
         return{'FINISHED'}
 
 
@@ -3070,34 +3061,36 @@ class Flatten(bpy.types.Operator):
     
     def execute(self, context):
         # initialise
-        global_undo, object, mesh = initialise()
+        global_undo, object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Flatten",
-            object, mesh, False, False)
+            object, bm, False, False)
         if not cached:
             # order input into virtual loops
-            loops = flatten_get_input(mesh)
-            loops = check_loops(loops, mapping, mesh)
+            loops = flatten_get_input(bm)
+            loops = check_loops(loops, mapping, bm)
         
         # saving cache for faster execution next time
         if not cached:
-            cache_write("Flatten", object, mesh, False, False, False, loops,
+            cache_write("Flatten", object, bm, False, False, False, loops,
                 False, False)
         
         move = []
         for loop in loops:
             # calculate plane and position of vertices on them
-            com, normal = calculate_plane(mesh, loop, method=self.plane,
+            com, normal = calculate_plane(bm, loop, method=self.plane,
                 object=object)
-            to_move = flatten_project(mesh, loop, com, normal)
+            to_move = flatten_project(bm, loop, com, normal)
             if self.restriction == 'none':
                 move.append(to_move)
             else:
                 move.append(to_move)
-        move_verts(mesh, False, move, self.influence)
+        move_verts(object, bm, False, move, self.influence)
         
+        # cleaning up
         terminate(global_undo)
+        
         return{'FINISHED'}
 
 
@@ -3153,41 +3146,41 @@ class Relax(bpy.types.Operator):
     
     def execute(self, context):
         # initialise
-        global_undo, object, mesh = initialise()
+        global_undo, object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Relax",
-            object, mesh, self.input, False)
+            object, bm, self.input, False)
         if cached:
-            derived, mesh_mod = get_derived_mesh(object, mesh, context.scene)
+            derived, bm_mod = get_derived_bmesh(object, bm, context.scene)
         else:
             # find loops
-            derived, mesh_mod, loops = get_connected_input(object, mesh,
+            derived, bm_mod, loops = get_connected_input(object, bm,
                 context.scene, self.input)
-            mapping = get_mapping(derived, mesh, mesh_mod, False, False, loops)
-            loops = check_loops(loops, mapping, mesh_mod)
+            mapping = get_mapping(derived, bm, bm_mod, False, False, loops)
+            loops = check_loops(loops, mapping, bm_mod)
         knots, points = relax_calculate_knots(loops)
         
         # saving cache for faster execution next time
         if not cached:
-            cache_write("Relax", object, mesh, self.input, False, False, loops,
+            cache_write("Relax", object, bm, self.input, False, False, loops,
                 derived, mapping)
         
         for iteration in range(int(self.iterations)):
             # calculate splines and new positions
-            tknots, tpoints = relax_calculate_t(mesh_mod, knots, points,
+            tknots, tpoints = relax_calculate_t(bm_mod, knots, points,
                 self.regular)
             splines = []
             for i in range(len(knots)):
-                splines.append(calculate_splines(self.interpolation, mesh_mod,
+                splines.append(calculate_splines(self.interpolation, bm_mod,
                     tknots[i], knots[i]))
-            move = [relax_calculate_verts(mesh_mod, self.interpolation,
+            move = [relax_calculate_verts(bm_mod, self.interpolation,
                 tknots, knots, tpoints, points, splines)]
-            move_verts(mesh, mapping, move, -1)
+            move_verts(object, bm, mapping, move, -1)
         
-        # cleaning up 
+        # cleaning up
         if derived:
-            bpy.context.blend_data.meshes.remove(mesh_mod)
+            bm_mod.free()
         terminate(global_undo)
         
         return{'FINISHED'}
@@ -3241,23 +3234,23 @@ class Space(bpy.types.Operator):
     
     def execute(self, context):
         # initialise
-        global_undo, object, mesh = initialise()
+        global_undo, object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Space",
-            object, mesh, self.input, False)
+            object, bm, self.input, False)
         if cached:
-            derived, mesh_mod = get_derived_mesh(object, mesh, context.scene)
+            derived, bm_mod = get_derived_bmesh(object, bm, context.scene)
         else:
             # find loops
-            derived, mesh_mod, loops = get_connected_input(object, mesh,
+            derived, bm_mod, loops = get_connected_input(object, bm,
                 context.scene, self.input)
-            mapping = get_mapping(derived, mesh, mesh_mod, False, False, loops)
-            loops = check_loops(loops, mapping, mesh_mod)
+            mapping = get_mapping(derived, bm, bm_mod, False, False, loops)
+            loops = check_loops(loops, mapping, bm_mod)
         
         # saving cache for faster execution next time
         if not cached:
-            cache_write("Space", object, mesh, self.input, False, False, loops,
+            cache_write("Space", object, bm, self.input, False, False, loops,
                 derived, mapping)
         
         move = []
@@ -3265,18 +3258,18 @@ class Space(bpy.types.Operator):
             # calculate splines and new positions
             if loop[1]: # circular
                 loop[0].append(loop[0][0])
-            tknots, tpoints = space_calculate_t(mesh_mod, loop[0][:])
-            splines = calculate_splines(self.interpolation, mesh_mod,
+            tknots, tpoints = space_calculate_t(bm_mod, loop[0][:])
+            splines = calculate_splines(self.interpolation, bm_mod,
                 tknots, loop[0][:])
-            move.append(space_calculate_verts(mesh_mod, self.interpolation,
+            move.append(space_calculate_verts(bm_mod, self.interpolation,
                 tknots, tpoints, loop[0][:-1], splines))
         
         # move vertices to new locations
-        move_verts(mesh, mapping, move, self.influence)
+        move_verts(object, bm, mapping, move, self.influence)
         
-        # cleaning up 
+        # cleaning up
         if derived:
-            bpy.context.blend_data.meshes.remove(mesh_mod)
+            bm_mod.free()
         terminate(global_undo)
         
         return{'FINISHED'}
@@ -3293,11 +3286,11 @@ class VIEW3D_MT_edit_mesh_looptools(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         
-#        layout.operator("mesh.looptools_bridge", text="Bridge").loft = False
+        layout.operator("mesh.looptools_bridge", text="Bridge").loft = False
         layout.operator("mesh.looptools_circle")
         layout.operator("mesh.looptools_curve")
         layout.operator("mesh.looptools_flatten")
-#        layout.operator("mesh.looptools_bridge", text="Loft").loft = True
+        layout.operator("mesh.looptools_bridge", text="Loft").loft = True
         layout.operator("mesh.looptools_relax")
         layout.operator("mesh.looptools_space")
 
@@ -3315,40 +3308,40 @@ class VIEW3D_PT_tools_looptools(bpy.types.Panel):
         lt = context.window_manager.looptools
         
         # bridge - first line
-#        split = col.split(percentage=0.15)
-#        if lt.display_bridge:
-#            split.prop(lt, "display_bridge", text="", icon='DOWNARROW_HLT')
-#        else:
-#            split.prop(lt, "display_bridge", text="", icon='RIGHTARROW')
-#        split.operator("mesh.looptools_bridge", text="Bridge").loft = False
+        split = col.split(percentage=0.15)
+        if lt.display_bridge:
+            split.prop(lt, "display_bridge", text="", icon='DOWNARROW_HLT')
+        else:
+            split.prop(lt, "display_bridge", text="", icon='RIGHTARROW')
+        split.operator("mesh.looptools_bridge", text="Bridge").loft = False
         # bridge - settings
-#        if lt.display_bridge:
-#            box = col.column(align=True).box().column()
+        if lt.display_bridge:
+            box = col.column(align=True).box().column()
             #box.prop(self, "mode")
             
             # top row
-#            col_top = box.column(align=True)
-#            row = col_top.row(align=True)
-#            col_left = row.column(align=True)
-#            col_right = row.column(align=True)
-#            col_right.active = lt.bridge_segments != 1
-#            col_left.prop(lt, "bridge_segments")
-#            col_right.prop(lt, "bridge_min_width", text="")
-#            # bottom row
-#            bottom_left = col_left.row()
-#            bottom_left.active = lt.bridge_segments != 1
-#            bottom_left.prop(lt, "bridge_interpolation", text="")
-#            bottom_right = col_right.row()
-#            bottom_right.active = lt.bridge_interpolation == 'cubic'
-#            bottom_right.prop(lt, "bridge_cubic_strength")
+            col_top = box.column(align=True)
+            row = col_top.row(align=True)
+            col_left = row.column(align=True)
+            col_right = row.column(align=True)
+            col_right.active = lt.bridge_segments != 1
+            col_left.prop(lt, "bridge_segments")
+            col_right.prop(lt, "bridge_min_width", text="")
+            # bottom row
+            bottom_left = col_left.row()
+            bottom_left.active = lt.bridge_segments != 1
+            bottom_left.prop(lt, "bridge_interpolation", text="")
+            bottom_right = col_right.row()
+            bottom_right.active = lt.bridge_interpolation == 'cubic'
+            bottom_right.prop(lt, "bridge_cubic_strength")
             # boolean properties
-#            col_top.prop(lt, "bridge_remove_faces")
+            col_top.prop(lt, "bridge_remove_faces")
             
             # override properties
-#            col_top.separator()
-#            row = box.row(align = True)
-#            row.prop(lt, "bridge_twist")
-#            row.prop(lt, "bridge_reverse")
+            col_top.separator()
+            row = box.row(align = True)
+            row.prop(lt, "bridge_twist")
+            row.prop(lt, "bridge_reverse")
         
         # circle - first line
         split = col.split(percentage=0.15)
@@ -3409,41 +3402,41 @@ class VIEW3D_PT_tools_looptools(bpy.types.Panel):
             box.prop(lt, "flatten_influence")
         
         # loft - first line
-#        split = col.split(percentage=0.15)
-#        if lt.display_loft:
-#            split.prop(lt, "display_loft", text="", icon='DOWNARROW_HLT')
-#        else:
-#            split.prop(lt, "display_loft", text="", icon='RIGHTARROW')
-#        split.operator("mesh.looptools_bridge", text="Loft").loft = True
-#        # loft - settings
-#        if lt.display_loft:
-#            box = col.column(align=True).box().column()
-#            #box.prop(self, "mode")
-#            
-#            # top row
-#            col_top = box.column(align=True)
-#            row = col_top.row(align=True)
-#            col_left = row.column(align=True)
-#            col_right = row.column(align=True)
-#            col_right.active = lt.bridge_segments != 1
-#            col_left.prop(lt, "bridge_segments")
-#            col_right.prop(lt, "bridge_min_width", text="")
-#            # bottom row
-#            bottom_left = col_left.row()
-#            bottom_left.active = lt.bridge_segments != 1
-#            bottom_left.prop(lt, "bridge_interpolation", text="")
-#            bottom_right = col_right.row()
-#            bottom_right.active = lt.bridge_interpolation == 'cubic'
-#            bottom_right.prop(lt, "bridge_cubic_strength")
-#            # boolean properties
-#            col_top.prop(lt, "bridge_remove_faces")
-#            col_top.prop(lt, "bridge_loft_loop")
-#            
-#            # override properties
-#            col_top.separator()
-#            row = box.row(align = True)
-#            row.prop(lt, "bridge_twist")
-#            row.prop(lt, "bridge_reverse")
+        split = col.split(percentage=0.15)
+        if lt.display_loft:
+            split.prop(lt, "display_loft", text="", icon='DOWNARROW_HLT')
+        else:
+            split.prop(lt, "display_loft", text="", icon='RIGHTARROW')
+        split.operator("mesh.looptools_bridge", text="Loft").loft = True
+        # loft - settings
+        if lt.display_loft:
+            box = col.column(align=True).box().column()
+            #box.prop(self, "mode")
+            
+            # top row
+            col_top = box.column(align=True)
+            row = col_top.row(align=True)
+            col_left = row.column(align=True)
+            col_right = row.column(align=True)
+            col_right.active = lt.bridge_segments != 1
+            col_left.prop(lt, "bridge_segments")
+            col_right.prop(lt, "bridge_min_width", text="")
+            # bottom row
+            bottom_left = col_left.row()
+            bottom_left.active = lt.bridge_segments != 1
+            bottom_left.prop(lt, "bridge_interpolation", text="")
+            bottom_right = col_right.row()
+            bottom_right.active = lt.bridge_interpolation == 'cubic'
+            bottom_right.prop(lt, "bridge_cubic_strength")
+            # boolean properties
+            col_top.prop(lt, "bridge_remove_faces")
+            col_top.prop(lt, "bridge_loft_loop")
+            
+            # override properties
+            col_top.separator()
+            row = box.row(align = True)
+            row.prop(lt, "bridge_twist")
+            row.prop(lt, "bridge_reverse")
         
         # relax - first line
         split = col.split(percentage=0.15)
@@ -3485,9 +3478,9 @@ class LoopToolsProps(bpy.types.PropertyGroup):
     """
     
     # general display properties
-#    display_bridge = bpy.props.BoolProperty(name = "Bridge settings",
-#        description = "Display settings of the Bridge tool",
-#        default = False)
+    display_bridge = bpy.props.BoolProperty(name = "Bridge settings",
+        description = "Display settings of the Bridge tool",
+        default = False)
     display_circle = bpy.props.BoolProperty(name = "Circle settings",
         description = "Display settings of the Circle tool",
         default = False)
@@ -3497,9 +3490,9 @@ class LoopToolsProps(bpy.types.PropertyGroup):
     display_flatten = bpy.props.BoolProperty(name = "Flatten settings",
         description = "Display settings of the Flatten tool",
         default = False)
-#    display_loft = bpy.props.BoolProperty(name = "Loft settings",
-#        description = "Display settings of the Loft tool",
-#        default = False)
+    display_loft = bpy.props.BoolProperty(name = "Loft settings",
+        description = "Display settings of the Loft tool",
+        default = False)
     display_relax = bpy.props.BoolProperty(name = "Relax settings",
         description = "Display settings of the Relax tool",
         default = False)
