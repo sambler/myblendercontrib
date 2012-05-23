@@ -267,7 +267,7 @@ class DXFExporter(bpy.types.Operator):
 
         from .export_dxf import exportDXF
         exportDXF(context, filePath, config)
-        return {"FINISHED"}
+        return {'FINISHED'}
 
     def _checkNO(self, val):
         if val == 'NO': return None
@@ -278,6 +278,6 @@ class DXFExporter(bpy.types.Operator):
             self.filepath = bpy.path.ensure_ext(bpy.data.filepath, ".dxf")
         WindowManager = context.window_manager
         WindowManager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
+        return {'RUNNING_MODAL'}
 
 
