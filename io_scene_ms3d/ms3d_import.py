@@ -183,7 +183,7 @@ class ImportMS3D(
 
     def invoke(self, blenderContext, event):
         blenderContext.window_manager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
+        return {'RUNNING_MODAL'}
 
     # create empty blender ms3dTemplate
     # read ms3d file
@@ -250,7 +250,7 @@ class ImportMS3D(
         print("elapsed time: {0:.4}s (disk io: ~{1:.4}s, converter:"
                 " ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
-        return {"FINISHED"}
+        return {'FINISHED'}
 
 
     ###########################################################################

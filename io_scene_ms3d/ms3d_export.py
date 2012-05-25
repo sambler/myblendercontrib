@@ -151,7 +151,7 @@ class ExportMS3D(
     #
     def invoke(self, blenderContext, event):
         blenderContext.window_manager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
+        return {'RUNNING_MODAL'}
 
     # create a empty ms3d ms3dTemplate
     # fill ms3dTemplate with blender content
@@ -202,7 +202,7 @@ class ExportMS3D(
         print("elapsed time: {0:.4}s (converter: ~{1:.4}s, disk io:"
                 " ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
-        return {"FINISHED"}
+        return {'FINISHED'}
 
 
     ###########################################################################
