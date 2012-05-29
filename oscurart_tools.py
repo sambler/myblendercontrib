@@ -262,7 +262,7 @@ class reloadImages (bpy.types.Operator):
     def execute(self,context):
         for imgs in bpy.data.images:
             imgs.reload()
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 ##-----------------------------RESYM---------------------------
 
@@ -341,7 +341,7 @@ class resym (bpy.types.Operator):
     SUBD=bpy.props.IntProperty(name="Subdivisions Levels", default=0, min=0, max=4) 
     def execute(self,context):
         defResym(self, self.OFFSET, self.SUBD)
-        return{"FINISHED"}     
+        return {"FINISHED"}     
         
 ## -----------------------------------SELECT LEFT---------------------
 def side (self, nombre, offset): 
@@ -391,7 +391,7 @@ class SelectMenor (bpy.types.Operator):
         
         side(self, self.side, self.offset)
                
-        return{"FINISHED"}        
+        return {"FINISHED"}        
            
     
     
@@ -424,7 +424,7 @@ class CreaShapes(bpy.types.Operator):
             bpy.ops.object.shape_key_clear() 
         
         print ("OPERACION TERMINADA")        
-        return{"FINISHED"}
+        return {"FINISHED"}
     
     
 ##----------------------------SHAPES LAYOUT-----------------------
@@ -670,7 +670,7 @@ class CreaShapesLayout(bpy.types.Operator):
   
   
               
-        return{"FINISHED"}    
+        return {"FINISHED"}    
         
 ##----------------------------CREATE LMR GROUPS-------------------
 def createLMRGroups(self, FACTORVG, ADDVG):
@@ -756,7 +756,7 @@ class normalsOutside(bpy.types.Operator):
             bpy.ops.mesh.normals_make_consistent(inside=False)
             ## EDICION
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 ##------------------------------DISTRIBUTE---------------------------
@@ -858,7 +858,7 @@ class DistributeMinMaxApply (bpy.types.Operator):
 
         distributeDef(self, context, self.X, self.Y, self.Z)
         
-        return{"FINISHED"}            
+        return {"FINISHED"}            
           
 
 
@@ -982,7 +982,7 @@ class renderAll (bpy.types.Operator):
     
     def execute(self,context):
         defRenderAll(self.FRAMETYPE)
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 class renderAllCF (bpy.types.Operator):
     bl_idname="render.render_layers_at_time_osc_cf"
@@ -993,7 +993,7 @@ class renderAllCF (bpy.types.Operator):
     
     def execute(self,context):
         defRenderAll(self.FRAMETYPE)
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 
@@ -1118,7 +1118,7 @@ class renderSelected (bpy.types.Operator):
  
     def execute(self,context):
         defRenderSelected(self.FRAMETYPE)
-        return{"FINISHED"}
+        return {"FINISHED"}
     
 class renderSelectedCF (bpy.types.Operator):
     bl_idname="render.render_selected_scenes_osc_cf"
@@ -1128,7 +1128,7 @@ class renderSelectedCF (bpy.types.Operator):
 
     def execute(self,context):
         defRenderSelected(self.FRAMETYPE)
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 
@@ -1242,7 +1242,7 @@ class renderCurrent (bpy.types.Operator):
         
         defRenderCurrent(self.FRAMETYPE)
         
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 class renderCurrentCF (bpy.types.Operator):
@@ -1255,7 +1255,7 @@ class renderCurrentCF (bpy.types.Operator):
                
         defRenderCurrent(self.FRAMETYPE)
         
-        return{"FINISHED"}
+        return {"FINISHED"}
 
    
 ##--------------------------RENDER CROP----------------------
@@ -1370,7 +1370,7 @@ class renderCrop (bpy.types.Operator):
         
         print ("RENDER TERMINADO")
                 
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
     
@@ -1390,7 +1390,7 @@ class SearchAndSelectOt(bpy.types.Operator):
             if objeto.name.startswith(variableNombre) == True :
                 objeto.select = 1
                 print("Selecciona:" + str(objeto.name))
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 ##-------------------------RENAME OBJECTS----------------------------------    
 
@@ -1411,7 +1411,7 @@ class renameObjectsOt (bpy.types.Operator):
         for objeto in listaObj:
             print (objeto.name)
             objeto.name = bpy.context.scene.RenameObjectOt
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 
@@ -1551,7 +1551,7 @@ class resymVertexGroups (bpy.types.Operator):
         
                           
         print("===============(TERMINADO)=============")       
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 
@@ -1745,7 +1745,7 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
                   
         
 
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 ##------------------------ SHAPES LAYOUT SYMMETRICA ------------------------
@@ -1794,7 +1794,7 @@ class saveIncremental(bpy.types.Operator):
                 print("El output es: "+ sfilepath+"_v0"+str(incrementalValue)+".blend")  
                 output=sfilepath+"_v0"+str(incrementalValue)+".blend"
                 bpy.ops.wm.save_as_mainfile(filepath=output)      
-        return{"FINISHED"}  
+        return {"FINISHED"}  
     
 ##------------------------ REPLACE FILE PATHS ------------------------ 
 
@@ -1826,7 +1826,7 @@ class replaceFilePath(bpy.types.Operator):
                     image.filepath= FOLDER
 
                      
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 
@@ -1965,7 +1965,7 @@ class oscDuplicateSymmetricalOp (bpy.types.Operator):
         
         duplicateSymmetrical(self, self.desconecta)  
                       
-        return{"FINISHED"}  
+        return {"FINISHED"}  
         
 
 ##---------------------------BATCH MAKER------------------
@@ -2028,7 +2028,7 @@ class oscBatchMaker (bpy.types.Operator):
     
     def execute(self,context):
         defoscBatchMaker(self.type)
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 ##---------------------------REMOVE MODIFIERS Y APPLY MODIFIERS------------------
@@ -2043,7 +2043,7 @@ class oscRemModifiers (bpy.types.Operator):
                 print(modificador.type)
                 bpy.context.scene.objects.active=objeto
                 bpy.ops.object.modifier_remove(modifier=modificador.name)
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 class oscApplyModifiers (bpy.types.Operator):
     bl_idname = "object.modifiers_apply_osc"
@@ -2091,7 +2091,7 @@ class oscApplyModifiers (bpy.types.Operator):
                     else:
                         bpy.ops.object.modifier_remove(modifier=modificador.name)                                       
 
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
         
@@ -2110,7 +2110,7 @@ class ShapeToObjects (bpy.types.Operator):
             mesh=OBJACT.to_mesh(bpy.context.scene, True, 'PREVIEW')
             object=bpy.data.objects.new(SHAPE.name, mesh)
             bpy.context.scene.objects.link(object)
-        return{"FINISHED"}
+        return {"FINISHED"}
     
     
 
@@ -2136,7 +2136,7 @@ class OverridesOp (bpy.types.Operator):
                 scene['OVERRIDE']
             except:
                 scene['OVERRIDE']="[]"
-        return{"FINISHED"}        
+        return {"FINISHED"}        
 
 
 ###------------------------IMPORT EXPORT GROUPS--------------------
@@ -2209,7 +2209,7 @@ class OscExportVG (bpy.types.Operator):
         FILE.writelines(str(DATAVER))
         FILE.close()        
         
-        return{"FINISHED"}
+        return {"FINISHED"}
         
 class OscImportVG (bpy.types.Operator):
     bl_idname = "file.import_groups_osc"
@@ -2289,7 +2289,7 @@ class OscImportVG (bpy.types.Operator):
    
         # PASO A MODO PINTURA DE PESO       
         bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
-        return{"FINISHED"}
+        return {"FINISHED"}
 
 
 ## ------------------------------------ RELINK OBJECTS--------------------------------------   
