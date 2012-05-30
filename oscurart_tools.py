@@ -702,8 +702,8 @@ def createLMRGroups(self, FACTORVG, ADDVG):
 
 class CreaGrupos(bpy.types.Operator):
     bl_idname = "mesh.create_lmr_groups_osc"
-    bl_label = "Create LM groups"
-    bl_description = "Create LM groups"
+    bl_label = "Create Mix groups"
+    bl_description = "Create Mix groups"
     bl_options = {'REGISTER', 'UNDO'}
 
     FACTORVG= bpy.props.FloatProperty(name="Factor", default=1, min=0, max=1000)
