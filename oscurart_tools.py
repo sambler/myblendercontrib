@@ -977,7 +977,7 @@ def defRenderSelected(FRAMETYPE):
     ACTSCENE = bpy.context.scene
     LISTMAT = []
     SCENES = bpy.data.scenes[:]
-    SCENELIST = bpy.context.scene.OscSelScenes
+    SCENELIST = eval(bpy.context.scene.OscSelScenes)
     FC = bpy.context.scene.frame_current
     FS = bpy.context.scene.frame_start
     FE = bpy.context.scene.frame_end
