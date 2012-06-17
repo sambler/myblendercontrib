@@ -18,12 +18,12 @@
 bl_info = {
     "name": "Export Autocad DXF Format (.dxf)",
     "author": "Remigiusz Fiedler (AKA migius), Vaclav Klecanda",
-    "version": (2, 1, 2),
-    "blender": (2, 6, 0),
+    "version": (2, 1, 3),
+    "blender": (2, 6, 3),
     "location": "File > Export > Autodesk (.dxf)",
     "description": "The script exports Blender geometry to DXF format r12 version.",
-    "warning": "Only subset of DXF specification is supported, work in progress.",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/Scripts/Import-Export/DXF_Exporter",
+    "warning": "Under construction! Visit Wiki for details.",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/DXF_Exporter",
     "tracker_url": "https://projects.blender.org/tracker/index.php?func=detail&aid=28469",
     "category": "Import-Export"
 }

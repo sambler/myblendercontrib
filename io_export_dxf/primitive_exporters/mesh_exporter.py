@@ -22,7 +22,7 @@ class MeshDXFExporter(BasePrimitiveDXFExporter):
                     entities = self._writeInsert(drawing, ob, mx, me.name)
                 else:
                     # generate geom_output in ObjectCS
-                    allpoints = [v.co for v in me.verts]
+                    allpoints = [v.co for v in me.vertices]
                     identity_matrix = mathutils.Matrix().identity()
                     allpoints = self.projected_co(allpoints, identity_matrix)
                     #allpoints = toGlobalOrigin(allpoints)
@@ -64,16 +64,20 @@ class MeshDXFExporter(BasePrimitiveDXFExporter):
         allpoints = self.toGlobalOrigin(allpoints)
         faces=[]
         edges=[]
-        if me.faces and self.PROJECTION and self.HIDDEN_LINES:
+        me.update(calc_tessface=True)
+        me_faces = me.tessfaces
+        #print('deb: allpoints=\n', allpoints) #---------
+        #print('deb: me_faces=\n', me_faces) #---------
+        if me_faces and self.PROJECTION and self.HIDDEN_LINES:
             #if DEBUG: print 'deb:exportMesh HIDDEN_LINES mode' #---------
-            faces, edges = self.hidden_status(me.faces, mx, mx_n)
-            faces = [[v.index for v in me.faces[f_nr].vertices] for f_nr in faces]
+            faces, edges = self.hidden_status(me_faces, mx, mx_n)
+            faces = [[v.index for v in me_faces[f_nr].vertices] for f_nr in faces]
         else:
             #if DEBUG: print 'deb:exportMesh STANDARD mode' #---------
             for e in me.edges: edges.append(e.key)
             #faces = [f.index for f in me.faces]
             ##faces = [[v.index for v in f.vertices] for f in me.faces]
-            faces = me.faces
+            faces = me_faces
             #faces = [[allpoints[v.index] for v in f.vertices] for f in me.faces]
         #print('deb: allpoints=\n', allpoints) #---------
         #print('deb: edges=\n', edges) #---------
@@ -108,7 +112,7 @@ class MeshDXFExporter(BasePrimitiveDXFExporter):
                     args = copy.copy(kwargs)
                     args['points'] = points
                     entities.append(('Line', args))
-        elif c in {'POLYFACE','POLYLINE'}:
+        elif c in ('POLYFACE','POLYLINE'):
             if faces and allpoints:
                 #TODO: purge allpoints: left only vertices used by faces
 #                    if exportsettings['verbose']: 
@@ -146,6 +150,5 @@ class MeshDXFExporter(BasePrimitiveDXFExporter):
                     args['points'] = points
 #                    print(args)
                     entities.append(('Face', args))
-    
 
         return entities
