@@ -2364,7 +2364,7 @@ class OscApplyOverrides(bpy.types.Operator):
                         for SLOT in OBJECT.material_slots[:]:
                             SLOT.material = bpy.data.materials[OVERRIDE[1]]                    
                     else:
-                        print ("* %s have not Material Slots" % (OBJECT))         
+                        print ("* %s have not Material Slots" % (OBJECT.name))         
 
 
         XML.writelines(str(LISTMAT))
