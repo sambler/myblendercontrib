@@ -19,12 +19,12 @@
 bl_info = {
     "name": "Oscurart Tools",
     "author": "Oscurart",
-    "version": (2,9),
+    "version": (3,0),
     "blender": (2, 6, 3),
     "location": "View3D > Tools > Oscurart Tools",
     "description": "Tools for objects, render, shapes, and files.",
     "warning": "",
-    "wiki_url": "oscurart.blogspot.com",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/Oscurart_Tools",
     "tracker_url": "",
     "category": "Object"}
 
@@ -2353,22 +2353,19 @@ class OscApplyOverrides(bpy.types.Operator):
         ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
         XML=open(ENTFILEPATH ,mode="w")
         ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
-        for OBJECT in bpy.data.objects[:]:
-            SLOTLIST = []
-            try:
-                if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE":
-                    SLOTLIST = [SLOT.material for SLOT in OBJECT.material_slots[:]]
-                    LISTMAT.append((OBJECT,SLOTLIST))
-            except:
-                pass
-        try:
-            for OVERRIDE in PROPTOLIST:
-                for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
-                    if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE":
+
+        LISTMAT = { OBJ : [SLOT.material for SLOT in OBJ.material_slots[:]] for OBJ in bpy.data.objects[:] if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE" }
+
+
+        for OVERRIDE in PROPTOLIST:
+            for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
+                if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE": 
+                    if len(OBJECT.material_slots) > 0:                   
                         for SLOT in OBJECT.material_slots[:]:
-                            SLOT.material = bpy.data.materials[OVERRIDE[1]]
-        except:
-            pass
+                            SLOT.material = bpy.data.materials[OVERRIDE[1]]                    
+                    else:
+                        print ("* %s have not Material Slots" % (OBJECT))         
+
 
         XML.writelines(str(LISTMAT))
         XML.close()
@@ -2395,17 +2392,17 @@ class OscRestoreOverrides(bpy.types.Operator):
         XML = open(ENTFILEPATH, mode="r")
         RXML = XML.readlines(0)
 
-        LISTMAT = list(eval(RXML[0]))
+        LISTMAT = dict(eval(RXML[0]))
 
         # RESTAURO MATERIALES  DE OVERRIDES
-        for OBJECT in LISTMAT:
-            SLOTIND = 0
-            try:
-                for SLOT in OBJECT[1]:
-                    OBJECT[0].material_slots[SLOTIND].material = SLOT
-                    SLOTIND += 1
-            except:
-                print("OUT OF RANGE")
+        
+        for OBJ in LISTMAT:            
+            if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE":
+                SLOTIND = 0
+                for SLOT in LISTMAT[OBJ]:
+                    OBJ.material_slots[SLOTIND].material = SLOT  
+                    SLOTIND += 1     
+       
         # CIERRO
         XML.close()
 
