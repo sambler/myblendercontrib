@@ -19,12 +19,12 @@
 bl_info = {
     "name": "Oscurart Tools",
     "author": "Oscurart",
-    "version": (2,9),
+    "version": (3,0),
     "blender": (2, 6, 3),
     "location": "View3D > Tools > Oscurart Tools",
     "description": "Tools for objects, render, shapes, and files.",
     "warning": "",
-    "wiki_url": "oscurart.blogspot.com",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/Oscurart_Tools",
     "tracker_url": "",
     "category": "Object"}
 
@@ -977,7 +977,7 @@ def defRenderSelected(FRAMETYPE):
     ACTSCENE = bpy.context.scene
     LISTMAT = []
     SCENES = bpy.data.scenes[:]
-    SCENELIST = bpy.context.scene.OscSelScenes
+    SCENELIST = eval(bpy.context.scene.OscSelScenes)
     FC = bpy.context.scene.frame_current
     FS = bpy.context.scene.frame_start
     FE = bpy.context.scene.frame_end
@@ -2353,22 +2353,19 @@ class OscApplyOverrides(bpy.types.Operator):
         ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
         XML=open(ENTFILEPATH ,mode="w")
         ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
-        for OBJECT in bpy.data.objects[:]:
-            SLOTLIST = []
-            try:
-                if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE":
-                    SLOTLIST = [SLOT.material for SLOT in OBJECT.material_slots[:]]
-                    LISTMAT.append((OBJECT,SLOTLIST))
-            except:
-                pass
-        try:
-            for OVERRIDE in PROPTOLIST:
-                for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
-                    if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE":
+
+        LISTMAT = { OBJ : [SLOT.material for SLOT in OBJ.material_slots[:]] for OBJ in bpy.data.objects[:] if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE" }
+
+
+        for OVERRIDE in PROPTOLIST:
+            for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
+                if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE": 
+                    if len(OBJECT.material_slots) > 0:                   
                         for SLOT in OBJECT.material_slots[:]:
-                            SLOT.material = bpy.data.materials[OVERRIDE[1]]
-        except:
-            pass
+                            SLOT.material = bpy.data.materials[OVERRIDE[1]]                    
+                    else:
+                        print ("* %s have not Material Slots" % (OBJECT))         
+
 
         XML.writelines(str(LISTMAT))
         XML.close()
@@ -2395,17 +2392,17 @@ class OscRestoreOverrides(bpy.types.Operator):
         XML = open(ENTFILEPATH, mode="r")
         RXML = XML.readlines(0)
 
-        LISTMAT = list(eval(RXML[0]))
+        LISTMAT = dict(eval(RXML[0]))
 
         # RESTAURO MATERIALES  DE OVERRIDES
-        for OBJECT in LISTMAT:
-            SLOTIND = 0
-            try:
-                for SLOT in OBJECT[1]:
-                    OBJECT[0].material_slots[SLOTIND].material = SLOT
-                    SLOTIND += 1
-            except:
-                print("OUT OF RANGE")
+        
+        for OBJ in LISTMAT:            
+            if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE":
+                SLOTIND = 0
+                for SLOT in LISTMAT[OBJ]:
+                    OBJ.material_slots[SLOTIND].material = SLOT  
+                    SLOTIND += 1     
+       
         # CIERRO
         XML.close()
 
@@ -2518,54 +2515,95 @@ class OscSelection(bpy.types.Header):
 
 
 def register():
-    pass
+    bpy.utils.register_class(OscPanelControl)
+    bpy.utils.register_class(OscPanelObject)
+    bpy.utils.register_class(OscPanelMesh)
+    bpy.utils.register_class(OscPanelShapes)
+    bpy.utils.register_class(OscPanelRender)
+    bpy.utils.register_class(OscPanelFiles)
+    bpy.utils.register_class(OscPanelOverrides)
+    bpy.utils.register_class(SelectMenor)
+    bpy.utils.register_class(CreaGrupos)
+    bpy.utils.register_class(CreaShapes)
+    bpy.utils.register_class(normalsOutside)
+    bpy.utils.register_class(resym)
+    bpy.utils.register_class(reloadImages)
+    bpy.utils.register_class(renderAll)
+    bpy.utils.register_class(renderAllCF)
+    bpy.utils.register_class(renderCrop)
+    bpy.utils.register_class(SearchAndSelectOt)
+    bpy.utils.register_class(CreaShapesLayout)
+    bpy.utils.register_class(renameObjectsOt)
+    bpy.utils.register_class(resymVertexGroups)
+    bpy.utils.register_class(CreateLayoutAsymmetrical)
+    bpy.utils.register_class(DistributeMinMaxApply)
+    bpy.utils.register_class(saveIncremental)
+    bpy.utils.register_class(replaceFilePath)
+    bpy.utils.register_class(oscDuplicateSymmetricalOp)
+    bpy.utils.register_class(oscBatchMaker)
+    bpy.utils.register_class(oscRemModifiers)
+    bpy.utils.register_class(oscApplyModifiers)
+    bpy.utils.register_class(ShapeToObjects)
+    bpy.utils.register_class(OverridesOp)
+    bpy.utils.register_class(OscExportVG )
+    bpy.utils.register_class(OscImportVG )
+    bpy.utils.register_class(renderCurrent)
+    bpy.utils.register_class(renderCurrentCF)
+    bpy.utils.register_class(renderSelected)
+    bpy.utils.register_class(renderSelectedCF)
+    bpy.utils.register_class(OscRelinkObjectsBetween)
+    bpy.utils.register_class(OscCopyObjectGAL)
+    bpy.utils.register_class(OscApplyOverrides)
+    bpy.utils.register_class(OscRestoreOverrides)
+    bpy.utils.register_class(OscCheckOverrides)
+    bpy.utils.register_class(OscSelection)
 
 def unregister():
-    pass
+    bpy.utils.unregister_class(OscPanelControl)
+    bpy.utils.unregister_class(OscPanelObject)
+    bpy.utils.unregister_class(OscPanelMesh)
+    bpy.utils.unregister_class(OscPanelShapes)
+    bpy.utils.unregister_class(OscPanelRender)
+    bpy.utils.unregister_class(OscPanelFiles)
+    bpy.utils.unregister_class(OscPanelOverrides)
+    bpy.utils.unregister_class(SelectMenor)
+    bpy.utils.unregister_class(CreaGrupos)
+    bpy.utils.unregister_class(CreaShapes)
+    bpy.utils.unregister_class(normalsOutside)
+    bpy.utils.unregister_class(resym)
+    bpy.utils.unregister_class(reloadImages)
+    bpy.utils.unregister_class(renderAll)
+    bpy.utils.unregister_class(renderAllCF)
+    bpy.utils.unregister_class(renderCrop)
+    bpy.utils.unregister_class(SearchAndSelectOt)
+    bpy.utils.unregister_class(CreaShapesLayout)
+    bpy.utils.unregister_class(renameObjectsOt)
+    bpy.utils.unregister_class(resymVertexGroups)
+    bpy.utils.unregister_class(CreateLayoutAsymmetrical)
+    bpy.utils.unregister_class(DistributeMinMaxApply)
+    bpy.utils.unregister_class(saveIncremental)
+    bpy.utils.unregister_class(replaceFilePath)
+    bpy.utils.unregister_class(oscDuplicateSymmetricalOp)
+    bpy.utils.unregister_class(oscBatchMaker)
+    bpy.utils.unregister_class(oscRemModifiers)
+    bpy.utils.unregister_class(oscApplyModifiers)
+    bpy.utils.unregister_class(ShapeToObjects)
+    bpy.utils.unregister_class(OverridesOp)
+    bpy.utils.unregister_class(OscExportVG )
+    bpy.utils.unregister_class(OscImportVG )
+    bpy.utils.unregister_class(renderCurrent)
+    bpy.utils.unregister_class(renderCurrentCF)
+    bpy.utils.unregister_class(renderSelected)
+    bpy.utils.unregister_class(renderSelectedCF)
+    bpy.utils.unregister_class(OscRelinkObjectsBetween)
+    bpy.utils.unregister_class(OscCopyObjectGAL)
+    bpy.utils.unregister_class(OscApplyOverrides)
+    bpy.utils.unregister_class(OscRestoreOverrides)
+    bpy.utils.unregister_class(OscCheckOverrides)
+    bpy.utils.unregister_class(OscSelection)
+
 
 if __name__ == "__main__":
     register()
 
-## REGISTRA CLASSES
-bpy.utils.register_class(OscPanelControl)
-bpy.utils.register_class(OscPanelObject)
-bpy.utils.register_class(OscPanelMesh)
-bpy.utils.register_class(OscPanelShapes)
-bpy.utils.register_class(OscPanelRender)
-bpy.utils.register_class(OscPanelFiles)
-bpy.utils.register_class(OscPanelOverrides)
-bpy.utils.register_class(SelectMenor)
-bpy.utils.register_class(CreaGrupos)
-bpy.utils.register_class(CreaShapes)
-bpy.utils.register_class(normalsOutside)
-bpy.utils.register_class(resym)
-bpy.utils.register_class(reloadImages)
-bpy.utils.register_class(renderAll)
-bpy.utils.register_class(renderAllCF)
-bpy.utils.register_class(renderCrop)
-bpy.utils.register_class(SearchAndSelectOt)
-bpy.utils.register_class(CreaShapesLayout)
-bpy.utils.register_class(renameObjectsOt)
-bpy.utils.register_class(resymVertexGroups)
-bpy.utils.register_class(CreateLayoutAsymmetrical)
-bpy.utils.register_class(DistributeMinMaxApply)
-bpy.utils.register_class(saveIncremental)
-bpy.utils.register_class(replaceFilePath)
-bpy.utils.register_class(oscDuplicateSymmetricalOp)
-bpy.utils.register_class(oscBatchMaker)
-bpy.utils.register_class(oscRemModifiers)
-bpy.utils.register_class(oscApplyModifiers)
-bpy.utils.register_class(ShapeToObjects)
-bpy.utils.register_class(OverridesOp)
-bpy.utils.register_class(OscExportVG )
-bpy.utils.register_class(OscImportVG )
-bpy.utils.register_class(renderCurrent)
-bpy.utils.register_class(renderCurrentCF)
-bpy.utils.register_class(renderSelected)
-bpy.utils.register_class(renderSelectedCF)
-bpy.utils.register_class(OscRelinkObjectsBetween)
-bpy.utils.register_class(OscCopyObjectGAL)
-bpy.utils.register_class(OscApplyOverrides)
-bpy.utils.register_class(OscRestoreOverrides)
-bpy.utils.register_class(OscCheckOverrides)
-bpy.utils.register_class(OscSelection)
+
