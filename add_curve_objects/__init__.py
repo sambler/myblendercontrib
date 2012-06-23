@@ -26,8 +26,10 @@ bl_info = {
     "location": "View3D > Add > Curve > Curve Objects",
     "description": "Add extra curve object types",
     "warning": "",
-    "wiki_url": "",
-    "tracker_url": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
+        "Scripts/Curve/Curve_Objects",
+    "tracker_url": "https://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=30824",
     "category": "Add Curve"}
 
 
