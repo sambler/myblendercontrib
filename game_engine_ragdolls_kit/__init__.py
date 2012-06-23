@@ -27,7 +27,7 @@ bl_info = {
     "location": "View 3D > Tool Shelf > BRIK Panel",
     "description": "Kit for creating ragdoll structures from armatures and implementing them in the game engine.",
     "warning": "Preliminary release for testing purposes. Use with caution on important files.",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
         "Scripts/Game_Engine/BRIK_ragdolls",
     "tracker_url": "https://projects.blender.org/tracker/index.php?"\
         "func=detail&aid=24946",
