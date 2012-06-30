@@ -310,7 +310,7 @@ def createcustomprops(context):
     
                                 
     Ob.custom_sub = IntProperty(name="Subdivide", description="Number of subdivision of the plan",
-                                     min=1, max=20, default=10)                                
+                                     min=0, max=20, default=0)                                
     
     # UV properties
     Ob.custom_scaleuv = FloatVectorProperty(name="ScaleUV", description="Scale the texture's UV",
@@ -347,7 +347,8 @@ def removecustomprops():
         try:
             del bpy.data.objects['Empty for BProjection'][prop]
         except:
-            do = 'nothing'
+            pass
+        
 def clear_props(context):
     em = bpy.data.objects['Empty for BProjection'] 
     em.custom_scale = [1,1]
@@ -401,7 +402,7 @@ class SaveView(Operator):
         try:
             prop.custom_image = bpy.data.textures['Texture for BProjection'].image.name
         except:
-            do = 'nothing'
+            pass
         
         return {'FINISHED'}
 
@@ -515,8 +516,8 @@ class BProjection(Panel):
     def draw(self, context):        
         layout = self.layout
                 
-        try: 
-            bpy.data.objects['Empty for BProjection']
+        if  'Empty for BProjection' in [ob.name for ob in bpy.data.objects]:
+            
             
             tex = bpy.data.textures['Texture for BProjection']
             ob = context.object
@@ -593,9 +594,12 @@ class BProjection(Panel):
                     col = box.column(align =True)
                     col.operator("object.change_object", text="Change Object")       
 
-        except:
+        else:
+            ob = context.object
             col = layout.column(align = True)
             col.operator("object.addbprojectionplane", text="Add BProjection plan")
+            col = layout.column(align = True)
+            col.prop(ob, "custom_sub",text="Subdivision level")
                    
 
 # Oprerator Class to apply the image to the plane             
@@ -658,9 +662,7 @@ class AddBProjectionPlane(Operator):
     bl_label = "Configure"
     
     def creatematerial(self, context):        
-        try:
-            matBProjection = bpy.data.materials['Material for BProjection']
-        except:            
+        if 'Material for BProjection' not in [mat.name for mat in bpy.data.materials]:            
             bpy.data.textures.new(name='Texture for BProjection',type='IMAGE')
     
             bpy.data.materials.new(name='Material for BProjection')
@@ -684,11 +686,8 @@ class AddBProjectionPlane(Operator):
         ob.data.update()
             
     def execute(self, context):    
-        try:
-            bpy.data.objects['Empty for BProjection']
-
-        except:                 
-            createcustomprops(context)
+        if  'Empty for BProjection' not in [ob.name for ob in bpy.data.objects]:                
+            
             cm = bpy.context.object.mode
             '''tmp = context.object
             for ob in (ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.hide == False and context.scene in ob.users_scene):
@@ -723,8 +722,10 @@ class AddBProjectionPlane(Operator):
             for i in range(4):
                 ob.data.edges[len(ob.data.edges)-1-i].crease = 1
             bpy.ops.object.editmode_toggle()
-
-            bpy.ops.mesh.subdivide(number_cuts = em.custom_sub)
+            
+            em.custom_sub = ob.custom_sub
+            if em.custom_sub > 0:
+                bpy.ops.mesh.subdivide(number_cuts = em.custom_sub)
     
             em.select = True
             bpy.ops.object.hook_add_selob()
@@ -773,6 +774,7 @@ class AddBProjectionPlane(Operator):
             context.space_data.cursor_location = em.location
             
             bpy.ops.object.mode_set(mode = cm, toggle=False)
+            bpy.data.objects['Empty for BProjection'].custom_active_object = context.object.name
             
         return {'FINISHED'}
 
@@ -1304,6 +1306,7 @@ class PresetView3D(Operator):
 
 def register():
     bpy.utils.register_module(__name__)
+    createcustomprops(bpy.context)
 
 def unregister():
     bpy.utils.unregister_module(__name__)

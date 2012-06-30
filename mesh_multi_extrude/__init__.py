@@ -19,76 +19,75 @@
 # meta-androcto #
 
 bl_info = {
-    "name": "Curve Objects",
-    "author": "Multiple Authors",
+    "name": "Multi Extrude Plus",
+    "author": "liero, macouno",
     "version": (0, 1),
     "blender": (2, 6, 3),
-    "location": "View3D > Add > Curve > Curve Objects",
+    "location": "View3D > Toolbar and View3D > Specials (W-key)",
     "description": "Add extra curve object types",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
-        "Scripts/Curve/Curve_Objects",
-    "tracker_url": "https://projects.blender.org/tracker/index.php?"\
-        "func=detail&aid=30824",
-    "category": "Add Curve"}
+        "Scripts/Modeling/Multi_Extrude",
+    "tracker_url": "http://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=28570",
+    "category": "Mesh"}
 
 
 if "bpy" in locals():
     import imp
-    imp.reload(add_curve_rectangle_259)
-    imp.reload(add_curve_spirals)
-    imp.reload(cotejrp1_particle_tracer)
-    imp.reload(cotejrp1_string_it)
-    imp.reload(curve_simplify)
-	
+
 else:
-    from . import add_curve_rectangle_259
-    from . import add_curve_spirals
-    from . import cotejrp1_particle_tracer
-    from . import cotejrp1_string_it
-    from . import curve_simplify
+    from . import mesh_bump
+    from . import mesh_mextrude_plus
 
 import bpy
 
 
-class INFO_MT_curve_extras_add(bpy.types.Menu):
+class VIEW3D_MT_edit_mesh_bump(bpy.types.Menu):
     # Define the "Extras" menu
-    bl_idname = "INFO_MT_curve_extra_objects_add"
-    bl_label = "Curve Objects"
+    bl_idname = "VIEW3D_MT_edit_mesh_bump"
+    bl_label = "Bump"
 
     def draw(self, context):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
-        layout.operator("curve.rectangle",
-            text="Rectangle")
-        layout.operator("curve.spirals",
-            text="Spirals")
-        layout.operator("curve.particle_tracer",
-            text="Particle Tracer")
-        layout.operator("curve.string_it_operator",
-            text="String It")
-        layout.operator("curve.simplify",
-            text="Curve Simplify")
+        layout.operator("mesh.bump",
+            text="Bump")
+
+class ExtrudePanel(bpy.types.Panel):
+    bl_label = 'Multi Extrude Plus'
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+
+    def draw(self, context):
+        layout = self.layout
+        prop = layout.operator("wm.context_set_value", text="Face Select",
+            icon='FACESEL')
+        prop.value = "(False, False, True)"
+        prop.data_path = "tool_settings.mesh_select_mode"
+        layout.operator('object.mextrude')
+        layout.operator('mesh.bump')
+        layout.operator('object.mesh2bones')
 
 # Register all operators and panels
 
 # Define "Extras" menu
 def menu_func(self, context):
-    self.layout.menu("INFO_MT_curve_extra_objects_add", icon="PLUGIN")
+    self.layout.menu("VIEW3D_MT_edit_mesh_bump", icon="PLUGIN")
 
 
 def register():
     bpy.utils.register_module(__name__)
 
     # Add "Extras" menu to the "Add Mesh" menu
-    bpy.types.INFO_MT_curve_add.append(menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh_specials.prepend(menu_func)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
     # Remove "Extras" menu from the "Add Mesh" menu.
-    bpy.types.INFO_MT_curve_add.remove(menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
 
 if __name__ == "__main__":
     register()

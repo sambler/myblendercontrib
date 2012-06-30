@@ -26,7 +26,7 @@ bl_info = {
     "location": "View3D > Mesh > Vertices (CTRL V-key)",
     "description": "Slide a vertex along an edge or a line",
     "warning": "Work only with Blender 2.62 or higher",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.5/Py/"\
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
         "Scripts/Modeling/Vertex_Slide2",
     "tracker_url": "http://projects.blender.org/tracker/index.php?"\
         "func=detail&aid=27561",

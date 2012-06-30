@@ -155,7 +155,10 @@ class OscPanelMesh(OscPollMesh, bpy.types.Panel):
         col.operator("mesh.select_side_osc", icon="VERTEXSEL")
         col.operator("mesh.normals_outside_osc", icon="SNAP_NORMAL")
         colrow=col.row(align=1)
-        colrow.operator("mesh.resym_osc", icon="UV_SYNC_SELECT")
+        colrow.operator("mesh.resym_save_map", icon="UV_SYNC_SELECT")
+        colrow.operator("mesh.resym_mesh", icon="UV_SYNC_SELECT", text="Resym")        
+        colrow=col.row(align=1)
+        colrow.operator("mesh.reconst_osc", icon="UV_SYNC_SELECT")
         colrow.operator("mesh.resym_vertex_weights_osc", icon="UV_SYNC_SELECT")
         colrow=col.row(align=1)
         colrow.operator("file.export_groups_osc", icon='GROUP_VCOL')
@@ -260,9 +263,9 @@ class reloadImages (bpy.types.Operator):
             imgs.reload()
         return {'FINISHED'}
 
-##-----------------------------RESYM---------------------------
+##-----------------------------RECONST---------------------------
 
-def defResym(self, OFFSET, SUBD):
+def defReconst(self, OFFSET, SUBD):
 
     ##EDIT
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
@@ -327,14 +330,14 @@ def defResym(self, OFFSET, SUBD):
     bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
 
 
-class resym (bpy.types.Operator):
-    bl_idname = "mesh.resym_osc"
-    bl_label = "ReSym Mesh"
+class reConst (bpy.types.Operator):
+    bl_idname = "mesh.reconst_osc"
+    bl_label = "ReConst Mesh"
     bl_options = {"REGISTER", "UNDO"}
     OFFSET=bpy.props.FloatProperty(name="Offset", default=0.001, min=-0, max=0.1)
     SUBD=bpy.props.IntProperty(name="Subdivisions Levels", default=0, min=0, max=4)
     def execute(self,context):
-        defResym(self, self.OFFSET, self.SUBD)
+        defReconst(self, self.OFFSET, self.SUBD)
         return {'FINISHED'}
 
 ## -----------------------------------SELECT LEFT---------------------
@@ -2364,7 +2367,7 @@ class OscApplyOverrides(bpy.types.Operator):
                         for SLOT in OBJECT.material_slots[:]:
                             SLOT.material = bpy.data.materials[OVERRIDE[1]]                    
                     else:
-                        print ("* %s have not Material Slots" % (OBJECT))         
+                        print ("* %s have not Material Slots" % (OBJECT.name))         
 
 
         XML.writelines(str(LISTMAT))
@@ -2511,6 +2514,81 @@ class OscSelection(bpy.types.Header):
         row.label("Sels: "+str(len(bpy.selection_osc)))
         """
 
+
+## ------------------------------------ RESYM MESH--------------------------------------
+
+
+def reSymSave (self):
+    
+    bpy.ops.object.mode_set(mode='EDIT')
+    
+    BM = bmesh.from_edit_mesh(bpy.context.object.data)   
+     
+    L = {VERT.index : [VERT.co[0],VERT.co[1],VERT.co[2]] for VERT in BM.verts[:] if VERT.co[0] < -0.001}
+    R = {VERT.index : [-VERT.co[0],VERT.co[1],VERT.co[2]]  for VERT in BM.verts[:] if VERT.co[0] > 0.001}
+    
+    SYMAP = {VERTL : VERTR for VERTR in R for VERTL in L if R[VERTR] == L[VERTL] }            
+    
+    SYSBAR = "/"
+    SYSBAR = "\\" if sys.platform.startswith("w") else print ("UNIX") # REVISO SISTEMA
+    
+    FILEPATH=bpy.data.filepath
+    ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
+    ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
+    XML=open(ENTFILEPATH ,mode="w")
+    
+    XML.writelines(str(SYMAP))
+    XML.close()
+    SYMAP.clear()
+
+def reSymMesh (self):
+    
+    bpy.ops.object.mode_set(mode='EDIT')
+    
+    BM = bmesh.from_edit_mesh(bpy.context.object.data)
+    
+    SYSBAR = "/"
+    SYSBAR = "\\" if sys.platform.startswith("w") else print ("UNIX") # REVISO SISTEMA
+    
+    FILEPATH=bpy.data.filepath
+    ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
+    ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
+    XML=open(ENTFILEPATH ,mode="r")
+    
+    SYMAP = eval(XML.readlines()[0])
+    
+    for VERT in SYMAP:
+        BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+        BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+        BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
+    
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.mode_set(mode='EDIT')
+    
+    XML.close()
+    SYMAP.clear()
+
+
+class OscResymSave (bpy.types.Operator):
+    bl_idname = "mesh.resym_save_map"
+    bl_label = "Resym save XML Map"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    def execute (self, context):
+        reSymSave(self)
+        return {'FINISHED'}
+
+class OscResymMesh (bpy.types.Operator):
+    bl_idname = "mesh.resym_mesh"
+    bl_label = "Resym save Apply XML"
+    bl_options = {"REGISTER", "UNDO"}
+
+
+    def execute (self, context):
+        reSymMesh(self)
+        return {'FINISHED'}
+
 ##======================================================================================FIN DE SCRIPTS
 
 
@@ -2526,7 +2604,7 @@ def register():
     bpy.utils.register_class(CreaGrupos)
     bpy.utils.register_class(CreaShapes)
     bpy.utils.register_class(normalsOutside)
-    bpy.utils.register_class(resym)
+    bpy.utils.register_class(reConst)
     bpy.utils.register_class(reloadImages)
     bpy.utils.register_class(renderAll)
     bpy.utils.register_class(renderAllCF)
@@ -2557,6 +2635,8 @@ def register():
     bpy.utils.register_class(OscRestoreOverrides)
     bpy.utils.register_class(OscCheckOverrides)
     bpy.utils.register_class(OscSelection)
+    bpy.utils.register_class(OscResymSave)
+    bpy.utils.register_class(OscResymMesh)
 
 def unregister():
     bpy.utils.unregister_class(OscPanelControl)
@@ -2570,7 +2650,7 @@ def unregister():
     bpy.utils.unregister_class(CreaGrupos)
     bpy.utils.unregister_class(CreaShapes)
     bpy.utils.unregister_class(normalsOutside)
-    bpy.utils.unregister_class(resym)
+    bpy.utils.unregister_class(reConst)
     bpy.utils.unregister_class(reloadImages)
     bpy.utils.unregister_class(renderAll)
     bpy.utils.unregister_class(renderAllCF)
@@ -2601,9 +2681,10 @@ def unregister():
     bpy.utils.unregister_class(OscRestoreOverrides)
     bpy.utils.unregister_class(OscCheckOverrides)
     bpy.utils.unregister_class(OscSelection)
+    bpy.utils.unregister_class(OscResymSave)
+    bpy.utils.unregister_class(OscResymMesh)
 
 
 if __name__ == "__main__":
     register()
-
 
