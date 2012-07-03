@@ -1,8 +1,8 @@
-'''
+"""
 Created on Sep 2, 2011
 
 @author: vencax
-'''
+"""
 
 from .model import DxfDrawing
 

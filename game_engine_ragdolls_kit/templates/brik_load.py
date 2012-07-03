@@ -25,7 +25,7 @@
 #
 # ***** END MIT LICENCE BLOCK *****
 # --------------------------------------------------------------------------
-'''
+"""
 This script loads the necessary data from a text file and stores it in the
 appropriate locations.
 
@@ -56,7 +56,7 @@ ragdoll.
         Load the data.
     
     This would allow for a single spawn point to load all structure data.
-'''
+"""
 print('###########################')
 print('RUNNING brik_load_0_1.py')
 

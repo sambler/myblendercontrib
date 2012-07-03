@@ -22,10 +22,10 @@
 # ***** END GPL LICENCE BLOCK *****
 # --------------------------------------------------------------------------
 
-'''
+"""
 This will be a collection of useful functions that can be reused across the different operators.
 
-'''
+"""
 
 import bpy
 

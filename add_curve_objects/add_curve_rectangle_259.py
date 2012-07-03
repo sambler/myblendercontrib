@@ -157,7 +157,7 @@ def main(context, props, align_matrix):
     return
 
 class rectangle(bpy.types.Operator):
-    ''''''
+    """"""
     bl_idname = "curve.rectangle"
     bl_label = "Rectangle"
     bl_options = {'REGISTER', 'UNDO'}

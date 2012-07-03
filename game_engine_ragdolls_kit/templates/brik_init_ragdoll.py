@@ -26,7 +26,7 @@
 # ***** END MIT LICENCE BLOCK *****
 # --------------------------------------------------------------------------
 
-'''
+"""
 This script spawns rigid body objects when ragdoll physics is activated.
 
 It spawns the rigid body objects, turns off the mob collision object's dynamics
@@ -45,7 +45,7 @@ the rigid body objects together with rigid body joints.
 Rest orientations can be taken from the rigid body objects that remain on the
 hidden layer. I thought this would be a problem to set. It's so nice when
 something turns out easier than expected for a change. :)
-'''
+"""
 debug = False
 
 import bge
@@ -55,7 +55,7 @@ scene = bge.logic.getCurrentScene()
 objects = scene.objects
 hidden_objects = scene.objectsInactive
 
-'''
+"""
 NOTE:
     If a collision box is used then this will be the main added object
     that is added and so will have the spawn_point and spawn_id
@@ -64,13 +64,13 @@ NOTE:
     In this case, the spawn_id and spawn_point would need to be copied
     to the armature in order to properly identify which object is to be
     ultimately removed from the scene.
-'''
+"""
 
 def main():
 
-    '''
+    """
     Sensor disabled. Using brik_use_ragdoll 'changed' sensor
-    '''
+    """
     #sens = spawn_boxes_cont.sensors['brik_spawn_boxes_sens']
     #if sens.getKeyStatus(sens.key) == 1:
     
