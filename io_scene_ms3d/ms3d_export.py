@@ -25,7 +25,7 @@
 
 # ##### BEGIN COPYRIGHT BLOCK #####
 #
-# initial script copyright (c)2011 Alexander Nussbaumer
+# initial script copyright (c)2011,2012 Alexander Nussbaumer
 #
 # ##### END COPYRIGHT BLOCK #####
 
@@ -41,17 +41,20 @@ import time
 
 # To support reload properly, try to access a package var,
 # if it's there, reload everything
-if ("bpy" in locals()):
+if ('bpy' in locals()):
     import imp
-    if "ms3d_spec" in locals():
-        imp.reload(ms3d_spec)
-    if "ms3d_utils" in locals():
-        imp.reload(ms3d_utils)
+    if 'io_scene_ms3d.ms3d_spec' in locals():
+        imp.reload(io_scene_ms3d.ms3d_spec)
+    if 'io_scene_ms3d.ms3d_utils' in locals():
+        imp.reload(io_scene_ms3d.ms3d_utils)
+    if 'io_scene_ms3d.ms3d_ui' in locals():
+        imp.reload(io_scene_ms3d.ms3d_ui)
     pass
 
 else:
-    from . import ms3d_spec
-    from . import ms3d_utils
+    from io_scene_ms3d.ms3d_spec import *
+    from io_scene_ms3d.ms3d_utils import *
+    from io_scene_ms3d.ms3d_ui import *
     pass
 
 
@@ -67,96 +70,18 @@ from bpy.props import (
         )
 
 
-# registered entry point export
-class ExportMS3D(
-        bpy.types.Operator,
-        bpy_extras.io_utils.ExportHelper
-        ):
-    """Save a MilkShape3D MS3D File"""
+###############################################################################
+class Ms3dExporter():
+    """ Load a MilkShape3D MS3D File """
 
-    bl_idname = "io_scene_ms3d.ms3d_export"
-    bl_label = "Export MS3D"
-    bl_description = "Export to a MS3D file format (.ms3d)"
-    bl_options = {'PRESET'}
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
+    def __init__(self, options):
+        self.options = options
+        pass
 
-    filename_ext = ms3d_utils.FILE_EXT
-    filter_glob = StringProperty(
-            default=ms3d_utils.FILE_FILTER,
-            options={'HIDDEN'}
-            )
-
-    filepath = StringProperty(subtype='FILE_PATH')
-
-    prop_verbose = BoolProperty(
-            name=ms3d_utils.PROP_NAME_VERBOSE,
-            description=ms3d_utils.PROP_DESC_VERBOSE,
-            default=ms3d_utils.PROP_DEFAULT_VERBOSE,
-            options=ms3d_utils.PROP_OPT_VERBOSE,
-            )
-
-    prop_coordinate_system = EnumProperty(
-            name=ms3d_utils.PROP_NAME_COORDINATESYSTEM,
-            description=ms3d_utils.PROP_DESC_COORDINATESYSTEM,
-            items=ms3d_utils.PROP_ITEMS_COORDINATESYSTEM,
-            default=ms3d_utils.PROP_DEFAULT_COORDINATESYSTEM_EXP,
-            options=ms3d_utils.PROP_OPT_COORDINATESYSTEM,
-            )
-
-    prop_scale = FloatProperty(
-            name=ms3d_utils.PROP_NAME_SCALE,
-            description=ms3d_utils.PROP_DESC_SCALE,
-            default=1.0 / ms3d_utils.PROP_DEFAULT_SCALE,
-            min=ms3d_utils.PROP_MIN_SCALE,
-            max=ms3d_utils.PROP_MAX_SCALE,
-            soft_min=ms3d_utils.PROP_SMIN_SCALE,
-            soft_max=ms3d_utils.PROP_SMAX_SCALE,
-            options=ms3d_utils.PROP_OPT_SCALE,
-            )
-
-    prop_objects = EnumProperty(
-            name=ms3d_utils.PROP_NAME_OBJECTS_EXP,
-            description=ms3d_utils.PROP_DESC_OBJECTS_EXP,
-            items=ms3d_utils.PROP_ITEMS_OBJECTS_EXP,
-            default=ms3d_utils.PROP_DEFAULT_OBJECTS_EXP,
-            options=ms3d_utils.PROP_OPT_OBJECTS_EXP,
-            )
-
-    prop_selected = BoolProperty(
-            name=ms3d_utils.PROP_NAME_SELECTED,
-            description=ms3d_utils.PROP_DESC_SELECTED,
-            default=ms3d_utils.PROP_DEFAULT_SELECTED,
-            options=ms3d_utils.PROP_OPT_SELECTED,
-            )
-
-    prop_animation = BoolProperty(
-            name=ms3d_utils.PROP_NAME_ANIMATION,
-            description=ms3d_utils.PROP_DESC_ANIMATION,
-            default=ms3d_utils.PROP_DEFAULT_ANIMATION,
-            options=ms3d_utils.PROP_OPT_ANIMATION,
-            )
-
-
-    # draw the option panel
-    def draw(self, context):
-        layout = self.layout
-        ms3d_utils.SetupMenuExport(self, layout)
-
-    # entrypoint for blender -> MS3D
-    def execute(self, blenderContext):
-        """start executing"""
-        return self.WriteMs3d(blenderContext)
-
-    #
-    def invoke(self, blenderContext, event):
-        blenderContext.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
-
-    # create a empty ms3d ms3dTemplate
-    # fill ms3dTemplate with blender content
+    # create a empty ms3d ms3d_template
+    # fill ms3d_template with blender content
     # writer ms3d file
-    def WriteMs3d(self, blenderContext):
+    def write(self, blender_context):
         """convert bender content to ms3d content and write it to file"""
 
         t1 = time.time()
@@ -164,30 +89,30 @@ class ExportMS3D(
 
         try:
             # setup environment
-            ms3d_utils.PreSetupEnvironment(self)
+            pre_setup_environment(self)
 
             # create an empty ms3d template
-            ms3dTemplate = ms3d_spec.ms3d_file_t()
+            ms3d_template = Ms3dModel()
 
             # inject blender data to ms3d file
-            self.Ms3dFromBlender(blenderContext, ms3dTemplate)
+            self.from_blender(blender_context, ms3d_template)
 
             t2 = time.time()
 
             # write ms3d file to disk
             self.file = io.FileIO(self.filepath, "w")
 
-            ms3dTemplate.write(self.file)
+            ms3d_template.write(self.file)
 
             self.file.flush()
             self.file.close()
 
             # finalize/restore environment
-            ms3d_utils.PostSetupEnvironment(self, False)
+            post_setup_environment(self, False)
 
         except Exception:
             type, value, traceback = sys.exc_info()
-            print("WriteMs3d - exception in try block\n  type: '{0}'\n"
+            print("write - exception in try block\n  type: '{0}'\n"
                     "  value: '{1}'".format(type, value, traceback))
 
             if t2 is None:
@@ -202,11 +127,11 @@ class ExportMS3D(
         print("elapsed time: {0:.4}s (converter: ~{1:.4}s, disk io:"
                 " ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
 
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
     ###########################################################################
-    def Ms3dFromBlender(self, blenderContext, ms3dTemplate):
+    def from_blender(self, blender_context, ms3d_template):
         """ known limitations:
             - bones unsupported yet
             - joints unsupported yet
@@ -217,159 +142,161 @@ class ExportMS3D(
             - only one material allowed per group in ms3d,
               maybe sub-split a mesh in to material groups???"""
 
-        blender = blenderContext.blend_data
+        blender = blender_context.blend_data
 
         # todo: use an optimized collection for quick search vertices;
         # with ~(o log n); currently its (o**n)
-        ms3dVertices = []
+        ms3d_vertices = []
 
         ms3dTriangles = []
         ms3dMaterials = []
         ms3dGroups = []
 
         flagHandleMaterials = \
-                (ms3d_utils.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects)
+                (self.options.handle_materials)
 
         # handle blender-materials (without mesh's uv texture image)
         if (flagHandleMaterials):
-            for blenderMaterial in blender.materials:
-                if (blenderMaterial.users <= 0):
+            for blender_material in blender.materials:
+                if (blender_material.users <= 0):
                     continue
 
-                ms3dMaterial = self.CreateMaterial(blenderMaterial, None)
-                if ms3dMaterial and (ms3dMaterial not in ms3dMaterials):
-                    ms3dMaterials.append(ms3dMaterial)
+                ms3d_material = self.create_material(blender_material, None)
+                if ms3d_material and (ms3d_material not in ms3dMaterials):
+                    ms3dMaterials.append(ms3d_material)
 
-        nLayers = len(blenderContext.scene.layers)
+        nLayers = len(blender_context.scene.layers)
         # handle blender-objects
-        for blenderObject in blender.objects:
+        for blender_object in blender.objects:
 
             # do not handle non-mesh objects or unused objects
-            if (blenderObject.type != 'MESH') or (blenderObject.users <= 0):
+            if (blender_object.type != 'MESH') or (blender_object.users <= 0):
                 continue
 
             # skip unselected objects in "only selected"-mode
-            if (self.prop_selected) and (not blenderObject.select):
+            if (self.options.prop_selected) and (not blender_object.select):
                 continue
 
             # skip meshes of invisible layers
             skip = True
             for iLayer in range(nLayers):
-                if ((blenderObject.layers[iLayer]
-                        and blenderContext.scene.layers[iLayer])):
+                if ((blender_object.layers[iLayer]
+                        and blender_context.scene.layers[iLayer])):
                     skip = False
                     break
             if (skip):
                 continue
 
             # make new object as active and only selected object
-            bpy.context.scene.objects.active = blenderObject
+            bpy.context.scene.objects.active = blender_object
 
-            matrixObject = blenderObject.matrix_basis
+            matrix_object = blender_object.matrix_basis
 
-            blenderMesh = blenderObject.data
+            blender_mesh = blender_object.data
 
-            ms3dGroup = ms3d_spec.ms3d_group_t()
-            ms3dGroup.name = blenderObject.name
+            ms3d_group = Ms3dGroup()
+            ms3d_group.name = blender_object.name
 
             # handle blender-vertices
-            for blenderVertex in blenderMesh.vertices:
-                ms3dVertex = self.CreateVertex(matrixObject, blenderVertex)
+            for blender_vertex in blender_mesh.vertices:
+                ms3dVertex = self.create_vertex(matrix_object, blender_vertex)
 
-                # handle referenceCount and/or
+                # handle reference_count and/or
                 # put vertex without duplicates
-                if (ms3dVertex in ms3dVertices):
-                    ms3dVertices[ms3dVertices.index(ms3dVertex)]\
-                            .referenceCount += 1
+                if (ms3dVertex in ms3d_vertices):
+                    ms3d_vertices[ms3d_vertices.index(ms3dVertex)]\
+                            .reference_count += 1
                 else:
-                    ms3dVertex.referenceCount = 1
-                    ms3dVertices.append(ms3dVertex)
+                    ms3dVertex.reference_count = 1
+                    ms3d_vertices.append(ms3dVertex)
 
+            """
             # handle smoothing groups
-            smoothGroupFaces = self.GenerateSmoothGroups(
-                    blenderContext, ms3dTemplate, blenderMesh.faces)
+            smoothGroupFaces = self.generate_smoothing_groups(
+                    blender_context, ms3d_template, blender_mesh.faces)
 
             # handle blender-faces
-            groupIndex = len(ms3dGroups)
-            for iFace, blenderFace in enumerate(blenderMesh.faces):
+            group_index = len(ms3dGroups)
+            for iFace, blender_face in enumerate(blender_mesh.faces):
                 if (smoothGroupFaces) and (iFace in smoothGroupFaces):
-                    smoothingGroup = smoothGroupFaces[iFace]
+                    smoothing_group = smoothGroupFaces[iFace]
                 else:
-                    smoothingGroup = 0
+                    smoothing_group = 0
 
-                if (len(blenderFace.vertices) == 4):
+                if (len(blender_face.vertices) == 4):
                     # 1'st tri of quad
-                    ms3dTriangle = self.CreateTriangle(matrixObject,
-                            ms3dVertices, blenderMesh, blenderFace,
-                            groupIndex, smoothingGroup, 0)
+                    ms3dTriangle = self.create_triangle(matrix_object,
+                            ms3d_vertices, blender_mesh, blender_face,
+                            group_index, smoothing_group, 0)
                     # put triangle
                     ms3dTriangles.append(ms3dTriangle)
                     # put triangle index
-                    ms3dGroup.triangleIndices.append(
+                    ms3d_group.triangle_indices.append(
                             ms3dTriangles.index(ms3dTriangle))
 
                     # 2'nd tri of quad
-                    ms3dTriangle = self.CreateTriangle(matrixObject,
-                            ms3dVertices, blenderMesh, blenderFace,
-                            groupIndex, smoothingGroup, 1)
+                    ms3dTriangle = self.create_triangle(matrix_object,
+                            ms3d_vertices, blender_mesh, blender_face,
+                            group_index, smoothing_group, 1)
 
                 else:
-                    ms3dTriangle = self.CreateTriangle(matrixObject,
-                            ms3dVertices, blenderMesh, blenderFace,
-                            groupIndex, smoothingGroup)
+                    ms3dTriangle = self.create_triangle(matrix_object,
+                            ms3d_vertices, blender_mesh, blender_face,
+                            group_index, smoothing_group)
 
                 # put triangle
                 ms3dTriangles.append(ms3dTriangle)
                 # put triangle index
-                ms3dGroup.triangleIndices.append(
+                ms3d_group.triangle_indices.append(
                         ms3dTriangles.index(ms3dTriangle))
+            """
 
             # handle material (take the first one)
-            if (flagHandleMaterials) and (blenderMesh.materials):
-                if (blenderMesh.uv_textures):
-                    tmpMaterial1 = self.CreateMaterial(
-                            blenderMesh.materials[0],
-                            blenderMesh.uv_textures[0])
+            if (flagHandleMaterials) and (blender_mesh.materials):
+                if (blender_mesh.uv_textures):
+                    tmpMaterial1 = self.create_material(
+                            blender_mesh.materials[0],
+                            blender_mesh.uv_textures[0])
                 else:
-                    tmpMaterial1 = self.CreateMaterial(
-                            blenderMesh.materials[0],
+                    tmpMaterial1 = self.create_material(
+                            blender_mesh.materials[0],
                             None)
 
                 if tmpMaterial1:
-                    ms3dGroup.materialIndex = ms3dMaterials.index(tmpMaterial1)
+                    ms3d_group.material_index = ms3dMaterials.index(tmpMaterial1)
 
                     # upgrade poor material.texture with rich material.texture
-                    tmpMaterial2 = ms3dMaterials[ms3dGroup.materialIndex]
+                    tmpMaterial2 = ms3dMaterials[ms3d_group.material_index]
                     if (tmpMaterial1.texture) and (not tmpMaterial2.texture):
                         tmpMaterial2.texture = tmpMaterial1.texture
 
             # put group
-            ms3dGroups.append(ms3dGroup)
+            ms3dGroups.append(ms3d_group)
 
         # injecting common data
-        ms3dTemplate._vertices = ms3dVertices
-        ms3dTemplate._triangles = ms3dTriangles
-        ms3dTemplate._groups = ms3dGroups
-        ms3dTemplate._materials = ms3dMaterials
+        ms3d_template._vertices = ms3d_vertices
+        ms3d_template._triangles = ms3dTriangles
+        ms3d_template._groups = ms3dGroups
+        ms3d_template._materials = ms3dMaterials
 
         # inject currently unsupported data
-        ms3dTemplate._vertex_ex = []
-        if (ms3dTemplate.subVersionVertexExtra == 1):
-            for i in range(ms3dTemplate.nNumVertices):
-                ms3dTemplate.vertex_ex.append(ms3d_spec.ms3d_vertex_ex1_t())
-        elif (ms3dTemplate.subVersionVertexExtra == 2):
-            for i in range(ms3dTemplate.nNumVertices):
-                ms3dTemplate.vertex_ex.append(ms3d_spec.ms3d_vertex_ex2_t())
-        elif (ms3dTemplate.subVersionVertexExtra == 3):
-            for i in range(ms3dTemplate.nNumVertices):
-                ms3dTemplate.vertex_ex.append(ms3d_spec.ms3d_vertex_ex3_t())
+        ms3d_template._vertex_ex = []
+        if (ms3d_template.sub_version_vertex_extra == 1):
+            for i in range(ms3d_template.number_vertices):
+                ms3d_template.vertex_ex.append(Ms3dVertexEx1())
+        elif (ms3d_template.sub_version_vertex_extra == 2):
+            for i in range(ms3d_template.number_vertices):
+                ms3d_template.vertex_ex.append(Ms3dVertexEx2())
+        elif (ms3d_template.sub_version_vertex_extra == 3):
+            for i in range(ms3d_template.number_vertices):
+                ms3d_template.vertex_ex.append(Ms3dVertexEx3())
         else:
             pass
 
-        if (self.prop_verbose):
-            ms3dTemplate.print_internal()
+        if (self.options.prop_verbose):
+            ms3d_template.print_internal()
 
-        isValid, statistics = ms3dTemplate.isValid()
+        is_valid, statistics = ms3d_template.is_valid()
         print()
         print("##############################################################")
         print("Blender -> MS3D : [{0}]".format(self.filepath_splitted[1]))
@@ -378,109 +305,109 @@ class ExportMS3D(
 
 
     ###########################################################################
-    def CreateMaterial(self, blenderMaterial, blenderUvLayer):
-        if (not blenderMaterial):
+    def create_material(self, blender_material, blender_uv_layer):
+        if (not blender_material):
             return None
 
-        ms3dMaterial = ms3d_spec.ms3d_material_t()
+        ms3d_material = Ms3dMaterial()
 
-        ms3dMaterial.name = blenderMaterial.name
+        ms3d_material.name = blender_material.name
 
-        ms3dMaterial._ambient = (
-                blenderMaterial.diffuse_color[0],
-                blenderMaterial.diffuse_color[1],
-                blenderMaterial.diffuse_color[2],
-                blenderMaterial.ambient
+        ms3d_material._ambient = (
+                blender_material.diffuse_color[0],
+                blender_material.diffuse_color[1],
+                blender_material.diffuse_color[2],
+                blender_material.ambient
                 )
 
-        ms3dMaterial._diffuse = (
-                blenderMaterial.diffuse_color[0],
-                blenderMaterial.diffuse_color[1],
-                blenderMaterial.diffuse_color[2],
-                blenderMaterial.diffuse_intensity
+        ms3d_material._diffuse = (
+                blender_material.diffuse_color[0],
+                blender_material.diffuse_color[1],
+                blender_material.diffuse_color[2],
+                blender_material.diffuse_intensity
                 )
 
-        ms3dMaterial._specular = (
-                blenderMaterial.specular_color[0],
-                blenderMaterial.specular_color[1],
-                blenderMaterial.specular_color[2],
-                blenderMaterial.specular_intensity
+        ms3d_material._specular = (
+                blender_material.specular_color[0],
+                blender_material.specular_color[1],
+                blender_material.specular_color[2],
+                blender_material.specular_intensity
                 )
 
-        ms3dMaterial._emissive = (
-                blenderMaterial.diffuse_color[0],
-                blenderMaterial.diffuse_color[1],
-                blenderMaterial.diffuse_color[2],
-                blenderMaterial.emit
+        ms3d_material._emissive = (
+                blender_material.diffuse_color[0],
+                blender_material.diffuse_color[1],
+                blender_material.diffuse_color[2],
+                blender_material.emit
                 )
 
-        ms3dMaterial.shininess = blenderMaterial.specular_hardness / 2.0
-        if ms3dMaterial.shininess > 128:
-            ms3dMaterial.shininess = 128
-        if ms3dMaterial.shininess < 1:
-            ms3dMaterial.shininess = 1
+        ms3d_material.shininess = blender_material.specular_hardness / 2.0
+        if ms3d_material.shininess > 128:
+            ms3d_material.shininess = 128
+        if ms3d_material.shininess < 1:
+            ms3d_material.shininess = 1
 
-        if (blenderMaterial.use_transparency):
-            ms3dMaterial.transparency = blenderMaterial.alpha
+        if (blender_material.use_transparency):
+            ms3d_material.transparency = blender_material.alpha
 
-        if (blenderMaterial.texture_slots):
+        if (blender_material.texture_slots):
             imageDiffuse = None
             imageAlpha = None
 
-            for blenderTextureSlot in blenderMaterial.texture_slots:
-                if ((not blenderTextureSlot)
-                        or (not blenderTextureSlot.texture)
-                        or (blenderTextureSlot.texture_coords != 'UV')
-                        or (blenderTextureSlot.texture.type != 'IMAGE')
+            for blender_texture_slot in blender_material.texture_slots:
+                if ((not blender_texture_slot)
+                        or (not blender_texture_slot.texture)
+                        or (blender_texture_slot.texture_coords != 'UV')
+                        or (blender_texture_slot.texture.type != 'IMAGE')
                         ):
                     continue
 
                 if ((not imageDiffuse)
-                        and (blenderTextureSlot.use_map_color_diffuse)):
-                    if ((blenderTextureSlot.texture.image)
-                            and (blenderTextureSlot.texture.image.filepath)):
+                        and (blender_texture_slot.use_map_color_diffuse)):
+                    if ((blender_texture_slot.texture.image)
+                            and (blender_texture_slot.texture.image.filepath)):
                         imageDiffuse = os.path.split(
-                                blenderTextureSlot.texture.image.filepath)[1]
-                    elif (not blenderTextureSlot.texture.image):
+                                blender_texture_slot.texture.image.filepath)[1]
+                    elif (not blender_texture_slot.texture.image):
                         # case it image was not loaded
                         imageDiffuse = os.path.split(
-                                blenderTextureSlot.texture.name)[1]
+                                blender_texture_slot.texture.name)[1]
 
                 elif ((not imageAlpha)
-                        and (blenderTextureSlot.use_map_color_alpha)):
-                    if ((blenderTextureSlot.texture.image)
-                            and (blenderTextureSlot.texture.image.filepath)):
+                        and (blender_texture_slot.use_map_color_alpha)):
+                    if ((blender_texture_slot.texture.image)
+                            and (blender_texture_slot.texture.image.filepath)):
                         imageAlpha = os.path.split(
-                                blenderTextureSlot.texture.image.filepath)[1]
-                    elif (not blenderTextureSlot.texture.image):
+                                blender_texture_slot.texture.image.filepath)[1]
+                    elif (not blender_texture_slot.texture.image):
                         # case it image was not loaded
                         imageAlpha = os.path.split(
-                                blenderTextureSlot.texture.name)[1]
+                                blender_texture_slot.texture.name)[1]
 
             # if no diffuse image was found, try to find a uv texture image
-            if (not imageDiffuse) and (blenderUvLayer):
-                for blenderTextureFace in blenderUvLayer.data:
-                    if ((blenderTextureFace) and (blenderTextureFace.image)
-                            and (blenderTextureFace.image.filepath)):
+            if (not imageDiffuse) and (blender_uv_layer):
+                for blender_texture_face in blender_uv_layer.data:
+                    if ((blender_texture_face) and (blender_texture_face.image)
+                            and (blender_texture_face.image.filepath)):
                         imageDiffuse = os.path.split(
-                                blenderTextureFace.image.filepath)[1]
+                                blender_texture_face.image.filepath)[1]
                         break
 
             if (imageDiffuse):
-                ms3dMaterial.texture = imageDiffuse
+                ms3d_material.texture = imageDiffuse
 
             if (imageAlpha):
-                ms3dMaterial.alphamap = imageDiffuse
+                ms3d_material.alphamap = imageDiffuse
 
-        return ms3dMaterial
+        return ms3d_material
 
 
     ###########################################################################
-    def CreateNormal(self,  matrixObject, blenderVertex):
-        mathVector = mathutils.Vector(blenderVertex.normal)
+    def create_normal(self,  matrix_object, blender_vertex):
+        mathVector = mathutils.Vector(blender_vertex.normal)
 
         # apply its object matrix (translation, rotation, scale)
-        mathVector = (matrixObject * mathVector)
+        mathVector = (matrix_object * mathVector)
 
         # apply export swap axis matrix
         mathVector = mathVector * self.matrixSwapAxis
@@ -491,30 +418,30 @@ class ExportMS3D(
 
 
     ###########################################################################
-    def CreateTriangle(self, matrixObject, ms3dVertices,
-            blenderMesh, blenderFace,
-            groupIndex=0, smoothingGroup=None, subIndex=0):
+    def create_triangle(self, matrix_object, ms3d_vertices,
+            blender_mesh, blender_face,
+            group_index=0, smoothing_group=None, subIndex=0):
         """
         known limitations:
             - it will take only the first uv_texture-data,
               if one or more are present
         """
-        ms3dTriangle = ms3d_spec.ms3d_triangle_t()
+        ms3dTriangle = Ms3dTriangle()
 
-        ms3dTriangle.groupIndex = groupIndex
+        ms3dTriangle.group_index = group_index
 
-        if (smoothingGroup) and (smoothingGroup > 0):
-            ms3dTriangle.smoothingGroup = \
-                    (smoothingGroup % ms3d_spec.MAX_GROUPS) + 1
+        if (smoothing_group) and (smoothing_group > 0):
+            ms3dTriangle.smoothing_group = \
+                    (smoothing_group % MAX_GROUPS) + 1
 
-        if (blenderFace.select):
-            ms3dTriangle.flags |= ms3d_spec.FLAG_SELECTED
+        if (blender_face.select):
+            ms3dTriangle.flags |= MS3D_FLAG_SELECTED
 
-        if (blenderFace.hide):
-            ms3dTriangle.flags |= ms3d_spec.FLAG_HIDDEN
+        if (blender_face.hide):
+            ms3dTriangle.flags |= MS3D_FLAG_HIDDEN
 
         tx = None
-        l = len(blenderFace.vertices)
+        l = len(blender_face.vertices)
 
         if (l == 3):
             # it is already a triangle geometry
@@ -542,37 +469,37 @@ class ExportMS3D(
 
         # take blender-vertex from blender-mesh
         # to get its vertex and normal coordinates
-        v = blenderMesh.vertices[blenderFace.vertices_raw[tx[0]]]
-        v0 = self.CreateVertex(matrixObject, v)
-        n0 = self.CreateNormal(matrixObject, v)
+        v = blender_mesh.vertices[blender_face.vertices_raw[tx[0]]]
+        v0 = self.create_vertex(matrix_object, v)
+        n0 = self.create_normal(matrix_object, v)
 
         # take blender-vertex from blender-mesh
         # to get its vertex and normal coordinates
-        v = blenderMesh.vertices[blenderFace.vertices_raw[tx[1]]]
-        v1 = self.CreateVertex(matrixObject, v)
-        n1 = self.CreateNormal(matrixObject, v)
+        v = blender_mesh.vertices[blender_face.vertices_raw[tx[1]]]
+        v1 = self.create_vertex(matrix_object, v)
+        n1 = self.create_normal(matrix_object, v)
 
         # take blender-vertex from blender-mesh
         # to get its vertex and normal coordinates
-        v = blenderMesh.vertices[blenderFace.vertices_raw[tx[2]]]
-        v2 = self.CreateVertex(matrixObject, v)
-        n2 = self.CreateNormal(matrixObject, v)
+        v = blender_mesh.vertices[blender_face.vertices_raw[tx[2]]]
+        v2 = self.create_vertex(matrix_object, v)
+        n2 = self.create_normal(matrix_object, v)
 
         # put the indices of ms3d-vertices!
-        ms3dTriangle._vertexIndices = (
-                ms3dVertices.index(v0),
-                ms3dVertices.index(v1),
-                ms3dVertices.index(v2)
+        ms3dTriangle._vertex_indices = (
+                ms3d_vertices.index(v0),
+                ms3d_vertices.index(v1),
+                ms3d_vertices.index(v2)
                 )
 
         # put the normales
-        ms3dTriangle._vertexNormals = (n0, n1, n2)
+        ms3dTriangle._vertex_normals = (n0, n1, n2)
 
         # if uv's present
-        if (blenderMesh.uv_textures):
+        if (blender_mesh.uv_textures):
             # take 1'st uv_texture-data
             blenderUv = \
-                    blenderMesh.uv_textures[0].data[blenderFace.index].uv_raw
+                    blender_mesh.uv_textures[0].data[blender_face.index].uv_raw
 
             # translate uv to st
             #
@@ -603,21 +530,21 @@ class ExportMS3D(
 
 
     ###########################################################################
-    def CreateVertex(self,  matrixObject, blenderVertex):
+    def create_vertex(self,  matrix_object, blender_vertex):
         """ known limitations:
-            - boneId not supported """
-        ms3dVertex = ms3d_spec.ms3d_vertex_t()
+            - bone_id not supported """
+        ms3dVertex = Ms3dVertex()
 
-        if (blenderVertex.select):
-            ms3dVertex.flags |= ms3d_spec.FLAG_SELECTED
+        if (blender_vertex.select):
+            ms3dVertex.flags |= MS3D_FLAG_SELECTED
 
-        if (blenderVertex.hide):
-            ms3dVertex.flags |= ms3d_spec.FLAG_HIDDEN
+        if (blender_vertex.hide):
+            ms3dVertex.flags |= MS3D_FLAG_HIDDEN
 
-        mathVector = mathutils.Vector(blenderVertex.co)
+        mathVector = mathutils.Vector(blender_vertex.co)
 
         # apply its object matrix (translation, rotation, scale)
-        mathVector = (matrixObject * mathVector)
+        mathVector = (matrix_object * mathVector)
 
         # apply export viewport matrix
         mathVector = mathVector * self.matrixViewport
@@ -628,73 +555,74 @@ class ExportMS3D(
 
 
     ###########################################################################
-    def GenerateSmoothGroups(self, blenderContext, ms3dTemplate, blenderFaces):
-        ms3d_utils.EnableEditMode(True)
+    def generate_smoothing_groups(self, blender_context, ms3d_template,
+            blender_faces):
+        enable_edit_mode(True)
 
         # enable face-selection-mode
         bpy.context.tool_settings.mesh_select_mode = [False, False, True]
 
         # deselect all "faces"
-        ms3d_utils.SelectAll(False) # mesh
+        select_all(False) # mesh
 
         # enable object-mode (important for face.select = value)
-        ms3d_utils.EnableEditMode(False)
+        enable_edit_mode(False)
 
         handledFacesSet = set()
         smoothGroupVertices = {}
 
-        blenderVertices = blenderContext.active_object.data.vertices
+        blenderVertices = blender_context.active_object.data.vertices
 
         # run throug the faces
         # mark linked faces and set its smoothGroup value
-        nFaces = len(blenderFaces)
+        nFaces = len(blender_faces)
 
         for iFace in range(nFaces):
-            if (blenderFaces[iFace].select) or (iFace in handledFacesSet):
+            if (blender_faces[iFace].select) or (iFace in handledFacesSet):
                 continue
 
             # a new unhandled face found
-            blenderFaces[iFace].select = True
+            blender_faces[iFace].select = True
 
-            ms3d_utils.EnableEditMode(True)
+            enable_edit_mode(True)
 
             if bpy.ops.mesh.select_linked.poll():
                 bpy.ops.mesh.select_linked()
 
-            ms3d_utils.EnableEditMode(False)
+            enable_edit_mode(False)
 
             # build a set of vertices hashes
             currentFaceSet = set()
             currentVertexSet = set()
             for iiFace in range(nFaces):
-                if ((blenderFaces[iiFace].select)
+                if ((blender_faces[iiFace].select)
                         and (iiFace not in handledFacesSet)):
                     handledFacesSet.add(iiFace)
                     currentFaceSet.add(iiFace)
 
-                    iVertex = blenderFaces[iiFace].vertices[0]
+                    iVertex = blender_faces[iiFace].vertices[0]
                     mathVector = blenderVertices[iVertex].co
                     currentVertexSet.add(
                             hash(mathVector[0])
                             ^ hash(mathVector[1])
                             ^ hash(mathVector[2]))
 
-                    iVertex = blenderFaces[iiFace].vertices[1]
+                    iVertex = blender_faces[iiFace].vertices[1]
                     mathVector = blenderVertices[iVertex].co
                     currentVertexSet.add(
                             hash(mathVector[0])
                             ^ hash(mathVector[1])
                             ^ hash(mathVector[2]))
 
-                    iVertex = blenderFaces[iiFace].vertices[2]
+                    iVertex = blender_faces[iiFace].vertices[2]
                     mathVector = blenderVertices[iVertex].co
                     currentVertexSet.add(
                             hash(mathVector[0])
                             ^ hash(mathVector[1])
                             ^ hash(mathVector[2]))
 
-                    if(len(blenderFaces[iiFace].vertices) == 4):
-                        iVertex = blenderFaces[iiFace].vertices[3]
+                    if(len(blender_faces[iiFace].vertices) == 4):
+                        iVertex = blender_faces[iiFace].vertices[3]
                         mathVector = blenderVertices[iVertex].co
                         currentVertexSet.add(
                                 hash(mathVector[0])
