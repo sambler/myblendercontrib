@@ -258,7 +258,7 @@ class VIEW3D_PT_tools_SolidifyWireframe(bpy.types.Panel):
 '''
 # a class for your operator
 class SolidifyWireframe(bpy.types.Operator):
-    '''Turns the selected edges of a mesh into solid objects'''
+    """Turns the selected edges of a mesh into solid objects"""
     bl_idname = "mesh.solidify_wireframe"
     bl_label = "Solidify Wireframe"
     bl_options = {'REGISTER', 'UNDO'}

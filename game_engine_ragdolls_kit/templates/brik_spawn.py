@@ -92,12 +92,12 @@ def main():
         #This is a unique Id used to identify the added object.
 #        last_spawned['spawn_id'] = spawn_empty['add_count']
         #This is the dictionary of drivers that are unique to the added object.
-        '''
+        """
         Originally this dictionary was defined in the brik_load.py script, but since
         dictionaries are stored as a reference, and the added objects are copies of the
         hidden object, the added objects had a copy of the reference to the dictionary
         and all used the same dictionary.
         Defining the dictionary after the objects are added to the scene ensures that
         they each have a unique dictionary.
-        '''
+        """
 #        last_spawned['driver_dict'] = {}

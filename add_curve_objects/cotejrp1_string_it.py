@@ -48,7 +48,7 @@ def makePoly( spline, vertList ):
     
 
 class StringItOperator(bpy.types.Operator):
-    '''Creates a curve that runs through the centers of each selected object.'''
+    """Creates a curve that runs through the centers of each selected object"""
     bl_idname = "curve.string_it_operator"
     bl_label = "String It Options"
     bl_options = { "REGISTER", "UNDO" }

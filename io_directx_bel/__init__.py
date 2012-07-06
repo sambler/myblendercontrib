@@ -49,7 +49,7 @@ def not_parented(self,context) :
     self.use_templates = False
 
 class ImportX(bpy.types.Operator, ImportHelper):
-    '''Load a Direct x File'''
+    """Load a Direct x File"""
     bl_idname = "import_scene.x"
     bl_label = "Import X"
     bl_options = {'PRESET', 'UNDO'}
@@ -127,7 +127,7 @@ class ImportX(bpy.types.Operator, ImportHelper):
             )
     use_ngons = BoolProperty(
             name="NGons",
-            description="Import faces with more then 4 verts as fgons",
+            description="Import faces with more then 4 verts as ngons",
             default=True,
             )
     use_edges = BoolProperty(
@@ -160,7 +160,7 @@ class ImportX(bpy.types.Operator, ImportHelper):
 
     use_image_search = BoolProperty(
             name="Image Search",
-            description="Search subdirs for any assosiated images " \
+            description="Search subdirs for any associated images " \
                         "(Warning, may be slow)",
             default=True,
             )

@@ -476,7 +476,7 @@ from bpy_extras.io_utils import ImportHelper
 
 
 class ImportFBX(bpy.types.Operator, ImportHelper):
-    ''''''
+    """"""
     bl_idname = "import_scene.fbx"
     bl_label = "Import FBX"
 

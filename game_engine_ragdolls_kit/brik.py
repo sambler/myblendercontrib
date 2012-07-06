@@ -310,12 +310,12 @@ class brik_create_structure(bpy.types.Operator):
                     constraint.influence = 0.0
     
     def reshape_boxes(self, armature):
-        '''
+        """
         Reshape an existing box based on parameter changes.
         I introduced this as an attempt to improve responsiveness. This should
         eliminate the overhead from creating completely new meshes or objects on
         each refresh.
-        '''
+        """
         objects = bpy.context.scene.objects
         
         for bone_name in armature['brik_bone_driver_dict']:
@@ -477,11 +477,11 @@ class brik_destroy_structure(bpy.types.Operator):
     bl_description = 'Destroy a rigid body structure created by this brik.'
     bl_options = {'REGISTER', 'UNDO'}
     
-    '''
+    """
     For some reason the remove operators give a "cyclic" warning in the console.
     
     I have no idea what this means and have not been able to find out what this means.
-    '''
+    """
     
     def execute(self, context):
         print("\n##########\n")
@@ -839,7 +839,7 @@ class brik_write_game_file(bpy.types.Operator):
             finalBoneOrder.append(chain[0])     
         return finalBoneOrder
     
-    '''
+    """
     I've found a method of reading from an internal text file in the game
     engine... Place the text file in a python script controller set to 'script'
     and it can be accessed as a string through cont.script. To avoid  throwing
@@ -847,7 +847,7 @@ class brik_write_game_file(bpy.types.Operator):
     triple quotation marks as a block comment.
     There is no need to mess with different file systems and platforms... It can
     all be done internally. =D
-    '''
+    """
     
 #    def save_structure_data(self, armature, optimalBoneOrder, boneChainsDict):
     def save_structure_data(self, armature, bones):
@@ -942,11 +942,11 @@ class brik_write_game_file(bpy.types.Operator):
     
     #Not used
     def store_joint_data(self, armature):
-        '''
+        """
         Joint data is stored on the rigid body objects themselves. This will not be
         necessary when the convertor is properly transferring these values from Blender
         to the game engine.
-        '''
+        """
         for bone_name in armature['brik_optimal_order']:
             box = bpy.data.objects[armature['brik_bone_driver_dict'][bone_name]]
             if not box['brik_joint_target'] == 'None':
@@ -960,7 +960,7 @@ class brik_write_game_file(bpy.types.Operator):
                 box['joint_position_z'] = RB_joint.pivot_z
             
             
-                '''
+                """
                 It would be nice to use IK limits to define rigid body joint limits,
                 but the limit arrays have not yet been wrapped in RNA apparently...
                 properties_object_constraint.py in ui directory, line 554 says:
@@ -968,7 +968,7 @@ class brik_write_game_file(bpy.types.Operator):
                 
                 It is necessary to create the joint when spawning ragdolls anyway.
                 Joints can still be created in the game.
-                '''
+                """
             
                 box['rot_max_x'] = bone.ik_max_x
                 box['rot_max_y'] = bone.ik_max_y
@@ -1174,14 +1174,14 @@ class brik_create_hit_boxes(bpy.types.Operator):
 class brik_remove_hit_boxes(bpy.types.Operator):
     bl_label = 'brik remove hit boxes operator'
     bl_idname = 'object.brik_remove_hit_boxes'
-    bl_description = 'Remove hit boxes crested by this addon.'
+    bl_description = 'Remove hit boxes crested by this addon'
     bl_options = {'REGISTER', 'UNDO'}
     
-    '''
+    """
     For some reason the remove operators give a "cyclic" warning in the console.
     
     I have no idea what this means and have not been able to find out what this means.
-    '''
+    """
     
     def remove_hit_box(self, scene, bone_name, armature):
         #Function crashes with linked objects

@@ -40,7 +40,7 @@ from bpy.props import StringProperty
 
 
 class ExportDirectX(bpy.types.Operator):
-    '''Export selection to DirectX'''
+    """Export selection to DirectX"""
 
     bl_idname = "export_scene.x"
     bl_label = "Export DirectX"

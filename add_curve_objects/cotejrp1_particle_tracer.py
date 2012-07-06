@@ -97,7 +97,7 @@ def buildLocationList( psys, includeAlive, includeDead, includeUnborn ):
     
     
 class PTracerOp(bpy.types.Operator):
-    '''Tooltip'''
+    """Tooltip"""
     bl_idname = "curve.particle_tracer"
     bl_label = "Particle Tracer Options"
     bl_region_type = "VIEW_3D"
