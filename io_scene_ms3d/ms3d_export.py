@@ -32,17 +32,32 @@
 
 #import python stuff
 import io
-import math
-import mathutils
-import os
-import sys
-import time
+from math import (
+        radians,
+        )
+from mathutils import (
+        Vector,
+        Euler,
+        Matrix,
+        )
+from os import (
+        path,
+        )
+from sys import (
+        exc_info,
+        float_info,
+        )
+from time import (
+        time,
+        )
 
 
 # To support reload properly, try to access a package var,
 # if it's there, reload everything
 if ('bpy' in locals()):
     import imp
+    if 'io_scene_ms3d.ms3d_strings' in locals():
+        imp.reload(io_scene_ms3d.ms3d_strings)
     if 'io_scene_ms3d.ms3d_spec' in locals():
         imp.reload(io_scene_ms3d.ms3d_spec)
     if 'io_scene_ms3d.ms3d_utils' in locals():
@@ -50,24 +65,29 @@ if ('bpy' in locals()):
     if 'io_scene_ms3d.ms3d_ui' in locals():
         imp.reload(io_scene_ms3d.ms3d_ui)
     pass
-
 else:
-    from io_scene_ms3d.ms3d_spec import *
-    from io_scene_ms3d.ms3d_utils import *
-    from io_scene_ms3d.ms3d_ui import *
+    from io_scene_ms3d.ms3d_strings import (
+            ms3d_str,
+            )
+    from io_scene_ms3d.ms3d_spec import (
+            Ms3dSpec,
+            Ms3dModel,
+            )
+    from io_scene_ms3d.ms3d_utils import (
+            select_all,
+            enable_pose_mode,
+            enable_edit_mode,
+            pre_setup_environment,
+            )
+    from io_scene_ms3d.ms3d_ui import (
+            Ms3dUi,
+            )
     pass
 
 
 #import blender stuff
 import bpy
-import bpy_extras.io_utils
-
-from bpy.props import (
-        BoolProperty,
-        EnumProperty,
-        FloatProperty,
-        StringProperty,
-        )
+import bmesh
 
 
 ###############################################################################
@@ -78,8 +98,8 @@ class Ms3dExporter():
         self.options = options
         pass
 
-    # create a empty ms3d ms3d_template
-    # fill ms3d_template with blender content
+    # create a empty ms3d ms3d_model
+    # fill ms3d_model with blender content
     # writer ms3d file
     def write(self, blender_context):
         """convert bender content to ms3d content and write it to file"""
@@ -92,20 +112,23 @@ class Ms3dExporter():
             pre_setup_environment(self)
 
             # create an empty ms3d template
-            ms3d_template = Ms3dModel()
+            ms3d_model = Ms3dModel()
 
             # inject blender data to ms3d file
-            self.from_blender(blender_context, ms3d_template)
+            self.from_blender(blender_context, ms3d_model)
 
             t2 = time.time()
 
-            # write ms3d file to disk
-            self.file = io.FileIO(self.filepath, "w")
+            self.file = None
+            try:
+                # write ms3d file to disk
+                self.file = io.FileIO(self.filepath, "wb")
 
-            ms3d_template.write(self.file)
-
-            self.file.flush()
-            self.file.close()
+                ms3d_model.write(self.file)
+                self.file.flush()
+            finally:
+                if self.file is not None:
+                    self.file.close()
 
             # finalize/restore environment
             post_setup_environment(self, False)
@@ -124,14 +147,14 @@ class Ms3dExporter():
             pass
 
         t3 = time.time()
-        print("elapsed time: {0:.4}s (converter: ~{1:.4}s, disk io:"
-                " ~{2:.4}s)".format((t3 - t1), (t2 - t1), (t3 - t2)))
+        print(ms3d_str['SUMMARY_IMPORT'].format(
+                (t3 - t1), (t2 - t1), (t3 - t2)))
 
         return {"FINISHED"}
 
 
     ###########################################################################
-    def from_blender(self, blender_context, ms3d_template):
+    def from_blender(self, blender_context, ms3d_model):
         """ known limitations:
             - bones unsupported yet
             - joints unsupported yet
@@ -213,7 +236,7 @@ class Ms3dExporter():
             """
             # handle smoothing groups
             smoothGroupFaces = self.generate_smoothing_groups(
-                    blender_context, ms3d_template, blender_mesh.faces)
+                    blender_context, ms3d_model, blender_mesh.faces)
 
             # handle blender-faces
             group_index = len(ms3dGroups)
@@ -274,29 +297,29 @@ class Ms3dExporter():
             ms3dGroups.append(ms3d_group)
 
         # injecting common data
-        ms3d_template._vertices = ms3d_vertices
-        ms3d_template._triangles = ms3dTriangles
-        ms3d_template._groups = ms3dGroups
-        ms3d_template._materials = ms3dMaterials
+        ms3d_model._vertices = ms3d_vertices
+        ms3d_model._triangles = ms3dTriangles
+        ms3d_model._groups = ms3dGroups
+        ms3d_model._materials = ms3dMaterials
 
         # inject currently unsupported data
-        ms3d_template._vertex_ex = []
-        if (ms3d_template.sub_version_vertex_extra == 1):
-            for i in range(ms3d_template.number_vertices):
-                ms3d_template.vertex_ex.append(Ms3dVertexEx1())
-        elif (ms3d_template.sub_version_vertex_extra == 2):
-            for i in range(ms3d_template.number_vertices):
-                ms3d_template.vertex_ex.append(Ms3dVertexEx2())
-        elif (ms3d_template.sub_version_vertex_extra == 3):
-            for i in range(ms3d_template.number_vertices):
-                ms3d_template.vertex_ex.append(Ms3dVertexEx3())
+        ms3d_model._vertex_ex = []
+        if (ms3d_model.sub_version_vertex_extra == 1):
+            for i in range(ms3d_model.number_vertices):
+                ms3d_model.vertex_ex.append(Ms3dVertexEx1())
+        elif (ms3d_model.sub_version_vertex_extra == 2):
+            for i in range(ms3d_model.number_vertices):
+                ms3d_model.vertex_ex.append(Ms3dVertexEx2())
+        elif (ms3d_model.sub_version_vertex_extra == 3):
+            for i in range(ms3d_model.number_vertices):
+                ms3d_model.vertex_ex.append(Ms3dVertexEx3())
         else:
             pass
 
         if (self.options.prop_verbose):
-            ms3d_template.print_internal()
+            ms3d_model.print_internal()
 
-        is_valid, statistics = ms3d_template.is_valid()
+        is_valid, statistics = ms3d_model.is_valid()
         print()
         print("##############################################################")
         print("Blender -> MS3D : [{0}]".format(self.filepath_splitted[1]))
@@ -432,13 +455,13 @@ class Ms3dExporter():
 
         if (smoothing_group) and (smoothing_group > 0):
             ms3dTriangle.smoothing_group = \
-                    (smoothing_group % MAX_GROUPS) + 1
+                    (smoothing_group % Ms3dSpec.MAX_GROUPS) + 1
 
         if (blender_face.select):
-            ms3dTriangle.flags |= MS3D_FLAG_SELECTED
+            ms3dTriangle.flags |= Ms3dSpec.FLAG_SELECTED
 
         if (blender_face.hide):
-            ms3dTriangle.flags |= MS3D_FLAG_HIDDEN
+            ms3dTriangle.flags |= Ms3dSpec.FLAG_HIDDEN
 
         tx = None
         l = len(blender_face.vertices)
@@ -536,10 +559,10 @@ class Ms3dExporter():
         ms3dVertex = Ms3dVertex()
 
         if (blender_vertex.select):
-            ms3dVertex.flags |= MS3D_FLAG_SELECTED
+            ms3dVertex.flags |= Ms3dSpec.FLAG_SELECTED
 
         if (blender_vertex.hide):
-            ms3dVertex.flags |= MS3D_FLAG_HIDDEN
+            ms3dVertex.flags |= Ms3dSpec.FLAG_HIDDEN
 
         mathVector = mathutils.Vector(blender_vertex.co)
 
@@ -555,7 +578,7 @@ class Ms3dExporter():
 
 
     ###########################################################################
-    def generate_smoothing_groups(self, blender_context, ms3d_template,
+    def generate_smoothing_groups(self, blender_context, ms3d_model,
             blender_faces):
         enable_edit_mode(True)
 

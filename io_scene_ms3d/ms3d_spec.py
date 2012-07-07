@@ -59,86 +59,74 @@ from os import (
 # sizes
 #
 
+class Ms3dSpec:
+    ###########################################################################
+    #
+    # max values
+    #
+    MAX_VERTICES = 65534 # 0..65533; note: (65534???, 65535???)
+    MAX_TRIANGLES = 65534 # 0..65533; note: (65534???, 65535???)
+    MAX_GROUPS = 255 # 1..255; note: (0 default group)
+    MAX_MATERIALS = 128 # 0..127; note: (-1 no material)
+    MAX_JOINTS = 128 # 0..127; note: (-1 no joint)
+    MAX_SMOOTH_GROUP = 32 # 0..32; note: (0 no smoothing group)
+    MAX_TEXTURE_FILENAME_SIZE = 128
 
-###############################################################################
-#
-# max values
-#
-MAX_VERTICES = 65534 # 0..65533; note: (65534???, 65535???)
-MAX_TRIANGLES = 65534 # 0..65533; note: (65534???, 65535???)
-MAX_GROUPS = 255 # 1..255; note: (0 default group)
-MAX_MATERIALS = 128 # 0..127; note: (-1 no material)
-MAX_JOINTS = 128 # 0..127; note: (-1 no joint)
-MAX_SMOOTH_GROUP = 32 # 0..32; note: (0 no smoothing group)
-MAX_TEXTURE_FILENAME_SIZE = 128
+    ###########################################################################
+    #
+    # flags
+    #
+    FLAG_NONE = 0
+    FLAG_SELECTED = 1
+    FLAG_HIDDEN = 2
+    FLAG_SELECTED2 = 4
+    FLAG_DIRTY = 8
+    FLAG_ISKEY = 16 # additional spec from [2]
+    FLAG_NEWLYCREATED = 32 # additional spec from [2]
+    FLAG_MARKED = 64 # additional spec from [2]
 
-###############################################################################
-#
-# flags
-#
-MS3D_FLAG_NONE = 0
-MS3D_FLAG_SELECTED = 1
-MS3D_FLAG_HIDDEN = 2
-MS3D_FLAG_SELECTED2 = 4
-MS3D_FLAG_DIRTY = 8
-MS3D_FLAG_ISKEY = 16 # additional spec from [2]
-MS3D_FLAG_NEWLYCREATED = 32 # additional spec from [2]
-MS3D_FLAG_MARKED = 64 # additional spec from [2]
+    FLAG_TEXTURE_NONE = 0x00
+    FLAG_TEXTURE_COMBINE_ALPHA = 0x20
+    FLAG_TEXTURE_HAS_ALPHA = 0x40
+    FLAG_TEXTURE_SPHERE_MAP = 0x80
 
-MS3D_FLAG_TEXTURE_NONE = 0x00
-MS3D_FLAG_TEXTURE_COMBINE_ALPHA = 0x20
-MS3D_FLAG_TEXTURE_HAS_ALPHA = 0x40
-MS3D_FLAG_TEXTURE_SPHERE_MAP = 0x80
-
-MS3D_MODE_TRANSPARENCY_SIMPLE = 0
-MS3D_MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF = 1 # original spec from SDK 1.8.5
-MS3D_MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES = 2 # original spec from SDK 1.8.5
-
-
-###############################################################################
-#
-# values
-#
-HEADER = "MS3D000000"
+    MODE_TRANSPARENCY_SIMPLE = 0
+    MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF = 1
+    MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES = 2
 
 
-###############################################################################
-#
-# min, max, default values
-#
-NONE_VERTEX_BONE_ID = -1
-NONE_GROUP_MATERIAL_INDEX = -1
-
-DEFAULT_HEADER = HEADER
-DEFAULT_HEADER_VERSION = 4
-DEFAULT_VERTEX_BONE_ID = NONE_VERTEX_BONE_ID
-DEFAULT_TRIANGLE_SMOOTHING_GROUP = 0
-DEFAULT_TRIANGLE_GROUP = 0
-DEFAULT_MATERIAL_MODE = MS3D_FLAG_TEXTURE_NONE
-DEFAULT_GROUP_MATERIAL_INDEX = NONE_GROUP_MATERIAL_INDEX
-DEFAULT_MODEL_JOINT_SIZE = 1.0
-DEFAULT_MODEL_TRANSPARENCY_MODE = MS3D_MODE_TRANSPARENCY_SIMPLE
-DEFAULT_MODEL_ANIMATION_FPS = 25.0
-DEFAULT_MODEL_SUB_VERSION_COMMENTS = 1
-DEFAULT_MODEL_SUB_VERSION_VERTEX_EXTRA = 2
-DEFAULT_MODEL_SUB_VERSION_JOINT_EXTRA = 1
-DEFAULT_MODEL_SUB_VERSION_MODEL_EXTRA = 1
-MAX_MATERIAL_SHININESS = 128
-DEFAULT_FLAGS = MS3D_FLAG_NONE
+    ###########################################################################
+    #
+    # values
+    #
+    HEADER = "MS3D000000"
 
 
-###############################################################################
-#
-# sizes for IO
-#
-SIZE_BYTE = 1
-SIZE_SBYTE = 1
-SIZE_WORD = 2
-SIZE_DWORD = 4
-SIZE_FLOAT = 4
-LENGTH_ID = 10
-LENGTH_NAME = 32
-LENGTH_FILENAME = 128
+    ###########################################################################
+    #
+    # min, max, default values
+    #
+    NONE_VERTEX_BONE_ID = -1
+    NONE_GROUP_MATERIAL_INDEX = -1
+
+    DEFAULT_HEADER = HEADER
+    DEFAULT_HEADER_VERSION = 4
+    DEFAULT_VERTEX_BONE_ID = NONE_VERTEX_BONE_ID
+    DEFAULT_TRIANGLE_SMOOTHING_GROUP = 0
+    DEFAULT_TRIANGLE_GROUP = 0
+    DEFAULT_MATERIAL_MODE = FLAG_TEXTURE_NONE
+    DEFAULT_GROUP_MATERIAL_INDEX = NONE_GROUP_MATERIAL_INDEX
+    DEFAULT_MODEL_JOINT_SIZE = 1.0
+    DEFAULT_MODEL_TRANSPARENCY_MODE = MODE_TRANSPARENCY_SIMPLE
+    DEFAULT_MODEL_ANIMATION_FPS = 25.0
+    DEFAULT_MODEL_SUB_VERSION_COMMENTS = 1
+    DEFAULT_MODEL_SUB_VERSION_VERTEX_EXTRA = 2
+    DEFAULT_MODEL_SUB_VERSION_JOINT_EXTRA = 1
+    DEFAULT_MODEL_SUB_VERSION_MODEL_EXTRA = 1
+    DEFAULT_FLAGS = FLAG_NONE
+    MAX_MATERIAL_SHININESS = 128
+
+
 ###############################################################################
 #
 # helper class for basic raw io
@@ -147,6 +135,16 @@ class EOF(BaseException):
     pass
 
 class Ms3dIo:
+    # sizes for IO
+    SIZE_BYTE = 1
+    SIZE_SBYTE = 1
+    SIZE_WORD = 2
+    SIZE_DWORD = 4
+    SIZE_FLOAT = 4
+    LENGTH_ID = 10
+    LENGTH_NAME = 32
+    LENGTH_FILENAME = 128
+
     @staticmethod
     def raise_on_eof(file):
         """ pseudo end of file detection """
@@ -158,7 +156,7 @@ class Ms3dIo:
     @staticmethod
     def read_byte(file):
         """ read a single byte from file """
-        value = unpack('<B', file.read(SIZE_BYTE))[0]
+        value = unpack('<B', file.read(Ms3dIo.SIZE_BYTE))[0]
         return value
 
     @staticmethod
@@ -169,7 +167,7 @@ class Ms3dIo:
     @staticmethod
     def read_sbyte(file):
         """ read a single signed byte from file """
-        value = unpack('<b', file.read(SIZE_SBYTE))[0]
+        value = unpack('<b', file.read(Ms3dIo.SIZE_SBYTE))[0]
         return value
 
     @staticmethod
@@ -180,7 +178,7 @@ class Ms3dIo:
     @staticmethod
     def read_word(file):
         """ read a word from file """
-        value = unpack('<H', file.read(SIZE_WORD))[0]
+        value = unpack('<H', file.read(Ms3dIo.SIZE_WORD))[0]
         return value
 
     @staticmethod
@@ -191,7 +189,7 @@ class Ms3dIo:
     @staticmethod
     def read_dword(file):
         """ read a double word from file """
-        value = unpack('<I', file.read(SIZE_DWORD))[0]
+        value = unpack('<I', file.read(Ms3dIo.SIZE_DWORD))[0]
         return value
 
     @staticmethod
@@ -202,7 +200,7 @@ class Ms3dIo:
     @staticmethod
     def read_float(file):
         """ read a float from file """
-        value = unpack('<f', file.read(SIZE_FLOAT))[0]
+        value = unpack('<f', file.read(Ms3dIo.SIZE_FLOAT))[0]
         return value
 
     @staticmethod
@@ -250,7 +248,7 @@ class Ms3dIo:
         value = []
         skip = False
         for i in range(length):
-            raw = unpack('<b', file.read(SIZE_SBYTE))[0]
+            raw = unpack('<b', file.read(Ms3dIo.SIZE_SBYTE))[0]
             if (raw >= 32) & (raw <= 255):
                 pass
             else:
@@ -304,8 +302,8 @@ class Ms3dHeader:
 
     def __init__(
             self,
-            default_id=DEFAULT_HEADER,
-            default_version=DEFAULT_HEADER_VERSION
+            default_id=Ms3dSpec.DEFAULT_HEADER,
+            default_version=Ms3dSpec.DEFAULT_HEADER_VERSION
             ):
         self.id = default_id
         self.version = default_version
@@ -325,12 +323,12 @@ class Ms3dHeader:
                 and (self.version == other.version))
 
     def read(self, file):
-        self.id = Ms3dIo.read_string(file, LENGTH_ID)
+        self.id = Ms3dIo.read_string(file, Ms3dIo.LENGTH_ID)
         self.version = Ms3dIo.read_dword(file)
         return self
 
     def write(self, file):
-        Ms3dIo.write_string(file, LENGTH_ID, self.id)
+        Ms3dIo.write_string(file, Ms3dIo.LENGTH_ID, self.id)
         Ms3dIo.write_dword(file, self.version)
 
 
@@ -347,9 +345,9 @@ class Ms3dVertex:
 
     def __init__(
             self,
-            default_flags=DEFAULT_FLAGS,
+            default_flags=Ms3dSpec.DEFAULT_FLAGS,
             default_vertex=(0.0, 0.0, 0.0),
-            default_bone_id=DEFAULT_VERTEX_BONE_ID,
+            default_bone_id=Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
             default_reference_count=0,
             default_vertex_ex_object=None, # Ms3dVertexEx
             ):
@@ -359,8 +357,10 @@ class Ms3dVertex:
         self.reference_count = default_reference_count
 
         if default_vertex_ex_object is None:
-            default_vertex_ex_object = Ms3dVertexEx2() # DEFAULT_MODEL_SUB_VERSION_VERTEX_EXTRA = 2
-        self._vertex_ex_object = default_vertex_ex_object # Ms3dVertexEx
+            default_vertex_ex_object = Ms3dVertexEx2()
+            # Ms3dSpec.DEFAULT_MODEL_SUB_VERSION_VERTEX_EXTRA = 2
+        self._vertex_ex_object = default_vertex_ex_object
+        # Ms3dVertexEx
 
     def __repr__(self):
         return "\n<flags={0}, vertex={1}, bone_id={2},"\
@@ -424,7 +424,7 @@ class Ms3dTriangle:
 
     def __init__(
             self,
-            default_flags=DEFAULT_FLAGS,
+            default_flags=Ms3dSpec.DEFAULT_FLAGS,
             default_vertex_indices=(0, 0, 0),
             default_vertex_normals=(
                     (0.0, 0.0, 0.0),
@@ -432,8 +432,8 @@ class Ms3dTriangle:
                     (0.0, 0.0, 0.0)),
             default_s=(0.0, 0.0, 0.0),
             default_t=(0.0, 0.0, 0.0),
-            default_smoothing_group=DEFAULT_TRIANGLE_SMOOTHING_GROUP, #1,
-            default_group_index=DEFAULT_TRIANGLE_GROUP
+            default_smoothing_group=Ms3dSpec.DEFAULT_TRIANGLE_SMOOTHING_GROUP,
+            default_group_index=Ms3dSpec.DEFAULT_TRIANGLE_GROUP
             ):
         self.flags = default_flags
         self._vertex_indices = default_vertex_indices
@@ -506,10 +506,10 @@ class Ms3dGroup:
 
     def __init__(
             self,
-            default_flags=DEFAULT_FLAGS,
+            default_flags=Ms3dSpec.DEFAULT_FLAGS,
             default_name="",
             default_triangle_indices=None,
-            default_material_index=DEFAULT_GROUP_MATERIAL_INDEX,
+            default_material_index=Ms3dSpec.DEFAULT_GROUP_MATERIAL_INDEX,
             default_comment_object=None, # Ms3dComment
             ):
         if (default_name is None):
@@ -555,17 +555,20 @@ class Ms3dGroup:
 
     def read(self, file):
         self.flags = Ms3dIo.read_byte(file)
-        self.name = Ms3dIo.read_string(file, LENGTH_NAME)
+        self.name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
         _number_triangles = Ms3dIo.read_word(file)
-        self._triangle_indices = Ms3dIo.read_array(file, Ms3dIo.read_word, _number_triangles)
+        self._triangle_indices = Ms3dIo.read_array(
+                file, Ms3dIo.read_word, _number_triangles)
         self.material_index = Ms3dIo.read_sbyte(file)
         return self
 
     def write(self, file):
         Ms3dIo.write_byte(file, self.flags)
-        Ms3dIo.write_string(file, LENGTH_NAME, self.name)
+        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.name)
         Ms3dIo.write_word(file, self.number_triangles)
-        Ms3dIo.write_array(file, Ms3dIo.write_word, self.number_triangles, self.triangle_indices)
+        Ms3dIo.write_array(
+                file, Ms3dIo.write_word, self.number_triangles,
+                self.triangle_indices)
         Ms3dIo.write_sbyte(file, self.material_index)
 
 
@@ -595,7 +598,7 @@ class Ms3dMaterial:
             default_emissive=(0.0, 0.0, 0.0, 0.0),
             default_shininess=0.0,
             default_transparency=0.0,
-            default_mode=DEFAULT_MATERIAL_MODE,
+            default_mode=Ms3dSpec.DEFAULT_MATERIAL_MODE,
             default_texture="",
             default_alphamap="",
             default_comment_object=None, # Ms3dComment
@@ -695,7 +698,7 @@ class Ms3dMaterial:
 
 
     def read(self, file):
-        self.name = Ms3dIo.read_string(file, LENGTH_NAME)
+        self.name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
         self._ambient = Ms3dIo.read_array(file, Ms3dIo.read_float, 4)
         self._diffuse = Ms3dIo.read_array(file, Ms3dIo.read_float, 4)
         self._specular = Ms3dIo.read_array(file, Ms3dIo.read_float, 4)
@@ -703,12 +706,12 @@ class Ms3dMaterial:
         self.shininess = Ms3dIo.read_float(file)
         self.transparency = Ms3dIo.read_float(file)
         self.mode = Ms3dIo.read_sbyte(file)
-        self.texture = Ms3dIo.read_string(file, LENGTH_FILENAME)
-        self.alphamap = Ms3dIo.read_string(file, LENGTH_FILENAME)
+        self.texture = Ms3dIo.read_string(file, Ms3dIo.LENGTH_FILENAME)
+        self.alphamap = Ms3dIo.read_string(file, Ms3dIo.LENGTH_FILENAME)
         return self
 
     def write(self, file):
-        Ms3dIo.write_string(file, LENGTH_NAME, self.name)
+        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.name)
         Ms3dIo.write_array(file, Ms3dIo.write_float, 4, self.ambient)
         Ms3dIo.write_array(file, Ms3dIo.write_float, 4, self.diffuse)
         Ms3dIo.write_array(file, Ms3dIo.write_float, 4, self.specular)
@@ -716,8 +719,8 @@ class Ms3dMaterial:
         Ms3dIo.write_float(file, self.shininess)
         Ms3dIo.write_float(file, self.transparency)
         Ms3dIo.write_sbyte(file, self.mode)
-        Ms3dIo.write_string(file, LENGTH_FILENAME, self.texture)
-        Ms3dIo.write_string(file, LENGTH_FILENAME, self.alphamap)
+        Ms3dIo.write_string(file, Ms3dIo.LENGTH_FILENAME, self.texture)
+        Ms3dIo.write_string(file, Ms3dIo.LENGTH_FILENAME, self.alphamap)
 
 
 ###############################################################################
@@ -800,7 +803,8 @@ class Ms3dTranslationKeyframe:
 class Ms3dJoint:
     """ Ms3dJoint """
     """
-    to by able to inject additional attributes during runtime __slots__ was taking out
+    to by able to inject additional attributes during runtime,
+    __slots__ was taking out
     __slots__ = (
             'flags',
             'name',
@@ -816,7 +820,7 @@ class Ms3dJoint:
 
     def __init__(
             self,
-            default_flags=DEFAULT_FLAGS,
+            default_flags=Ms3dSpec.DEFAULT_FLAGS,
             default_name="",
             default_parent_name="",
             default_rotation=(0.0, 0.0, 0.0),
@@ -856,7 +860,8 @@ class Ms3dJoint:
 
     def __repr__(self):
         return "\n<flags={0}, name='{1}', parent_name='{2}', rotation={3},"\
-                " position={4}, number_rotation_keyframes={5}, number_translation_keyframes={6},"\
+                " position={4}, number_rotation_keyframes={5},"\
+                " number_translation_keyframes={6},"\
                 " rotation_key_frames={7}, translation_key_frames={8}>".format(
                 self.flags,
                 self.name,
@@ -911,8 +916,8 @@ class Ms3dJoint:
 
     def read(self, file):
         self.flags = Ms3dIo.read_byte(file)
-        self.name = Ms3dIo.read_string(file, LENGTH_NAME)
-        self.parent_name = Ms3dIo.read_string(file, LENGTH_NAME)
+        self.name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
+        self.parent_name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
         self._rotation = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
         self._position = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
         _number_rotation_keyframes = Ms3dIo.read_word(file)
@@ -922,13 +927,14 @@ class Ms3dJoint:
             self.rotation_key_frames.append(Ms3dRotationKeyframe().read(file))
         self._translation_keyframes = []
         for i in range(_number_translation_keyframes):
-            self.translation_key_frames.append(Ms3dTranslationKeyframe().read(file))
+            self.translation_key_frames.append(
+                    Ms3dTranslationKeyframe().read(file))
         return self
 
     def write(self, file):
         Ms3dIo.write_byte(file, self.flags)
-        Ms3dIo.write_string(file, LENGTH_NAME, self.name)
-        Ms3dIo.write_string(file, LENGTH_NAME, self.parent_name)
+        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.name)
+        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.parent_name)
         Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.rotation)
         Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.position)
         Ms3dIo.write_word(file, self.number_rotation_keyframes)
@@ -1036,9 +1042,9 @@ class Ms3dVertexEx1:
     def __init__(
             self,
             default_bone_ids=(
-                    DEFAULT_VERTEX_BONE_ID,
-                    DEFAULT_VERTEX_BONE_ID,
-                    DEFAULT_VERTEX_BONE_ID),
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID),
             default_weights=(0, 0, 0)
             ):
         self._bone_ids = default_bone_ids
@@ -1081,7 +1087,8 @@ class Ms3dVertexEx1:
     @property
     def weight_bone_id2(self):
         if self._weights[0] or self._weights[1] or self._weights[2]:
-            return 100 - (self._weights[0] + self._weights[1] + self._weights[2])
+            return 100 - (self._weights[0] + self._weights[1] \
+                    + self._weights[2])
         return 0
 
 
@@ -1107,9 +1114,9 @@ class Ms3dVertexEx2:
     def __init__(
             self,
             default_bone_ids=(
-                    DEFAULT_VERTEX_BONE_ID,
-                    DEFAULT_VERTEX_BONE_ID,
-                    DEFAULT_VERTEX_BONE_ID),
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID),
             default_weights=(0, 0, 0),
             default_extra=0
             ):
@@ -1155,7 +1162,8 @@ class Ms3dVertexEx2:
     @property
     def weight_bone_id2(self):
         if self._weights[0] or self._weights[1] or self._weights[2]:
-            return 100 - (self._weights[0] + self._weights[1] + self._weights[2])
+            return 100 - (self._weights[0] + self._weights[1] \
+                    + self._weights[2])
         return 0
 
 
@@ -1193,9 +1201,9 @@ class Ms3dVertexEx3:
     def __init__(
             self,
             default_bone_ids=(
-                    DEFAULT_VERTEX_BONE_ID,
-                    DEFAULT_VERTEX_BONE_ID,
-                    DEFAULT_VERTEX_BONE_ID),
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
+                    Ms3dSpec.DEFAULT_VERTEX_BONE_ID),
             default_weights=(0, 0, 0),
             default_extra=0
             ):
@@ -1241,7 +1249,8 @@ class Ms3dVertexEx3:
     @property
     def weight_bone_id2(self):
         if self._weights[0] or self._weights[1] or self._weights[2]:
-            return 100 - (self._weights[0] + self._weights[1] + self._weights[2])
+            return 100 - (self._weights[0] + self._weights[1] \
+                    + self._weights[2])
         return 0
 
 
@@ -1298,8 +1307,9 @@ class Ms3dModelEx:
 
     def __init__(
             self,
-            default_joint_size=DEFAULT_MODEL_JOINT_SIZE,
-            default_transparency_mode=DEFAULT_MODEL_TRANSPARENCY_MODE,
+            default_joint_size=Ms3dSpec.DEFAULT_MODEL_JOINT_SIZE,
+            default_transparency_mode\
+                    =Ms3dSpec.DEFAULT_MODEL_TRANSPARENCY_MODE,
             default_alpha_ref=0.0
             ):
         self.joint_size = default_joint_size
@@ -1361,13 +1371,17 @@ class Ms3dModel:
 
         self.name = default_name
 
-        self.animation_fps = DEFAULT_MODEL_ANIMATION_FPS
+        self.animation_fps = Ms3dSpec.DEFAULT_MODEL_ANIMATION_FPS
         self.current_time = 0.0
         self.number_total_frames = 0
-        self.sub_version_comments = DEFAULT_MODEL_SUB_VERSION_COMMENTS
-        self.sub_version_vertex_extra = DEFAULT_MODEL_SUB_VERSION_VERTEX_EXTRA
-        self.sub_version_joint_extra = DEFAULT_MODEL_SUB_VERSION_JOINT_EXTRA
-        self.sub_version_model_extra = DEFAULT_MODEL_SUB_VERSION_MODEL_EXTRA
+        self.sub_version_comments \
+                = Ms3dSpec.DEFAULT_MODEL_SUB_VERSION_COMMENTS
+        self.sub_version_vertex_extra \
+                = Ms3dSpec.DEFAULT_MODEL_SUB_VERSION_VERTEX_EXTRA
+        self.sub_version_joint_extra \
+                = Ms3dSpec.DEFAULT_MODEL_SUB_VERSION_JOINT_EXTRA
+        self.sub_version_model_extra \
+                = Ms3dSpec.DEFAULT_MODEL_SUB_VERSION_MODEL_EXTRA
 
         self._vertices = [] #Ms3dVertex()
         self._triangles = [] #Ms3dTriangle()
@@ -1584,7 +1598,8 @@ class Ms3dModel:
                 print("{0}".format(obj), end="")
         print("]")
 
-        print("number_material_comments={0}".format(self.number_material_comments))
+        print("number_material_comments={0}".format(
+                self.number_material_comments))
         print("material_comments=[", end="")
         if self.material_comments:
             for obj in self.material_comments:
@@ -1601,13 +1616,16 @@ class Ms3dModel:
         print("has_model_comment={0}".format(self.has_model_comment))
         print("model_comment={0}".format(self.comment_object))
 
-        print("sub_version_vertex_extra={0}".format(self.sub_version_vertex_extra))
+        print("sub_version_vertex_extra={0}".format(
+                self.sub_version_vertex_extra))
         print("vertex_ex={0}".format(self.vertex_ex))
 
-        print("sub_version_joint_extra={0}".format(self.sub_version_joint_extra))
+        print("sub_version_joint_extra={0}".format(
+                self.sub_version_joint_extra))
         print("joint_ex={0}".format(self.joint_ex))
 
-        print("sub_version_model_extra={0}".format(self.sub_version_model_extra))
+        print("sub_version_model_extra={0}".format(
+                self.sub_version_model_extra))
         print("model_ex={0}".format(self.model_ex_object))
 
         print("##")
@@ -1627,29 +1645,33 @@ class Ms3dModel:
             print("\nwarning, invalid file header")
 
         _number_vertices = Ms3dIo.read_word(file)
-        if (_number_vertices > MAX_VERTICES):
-            print("\nwarning, invalid count: number_vertices: {}".format(_number_vertices))
+        if (_number_vertices > Ms3dSpec.MAX_VERTICES):
+            print("\nwarning, invalid count: number_vertices: {}".format(
+                    _number_vertices))
         self._vertices = []
         for i in range(_number_vertices):
             self.vertices.append(Ms3dVertex().read(file))
 
         _number_triangles = Ms3dIo.read_word(file)
-        if (_number_triangles > MAX_TRIANGLES):
-            print("\nwarning, invalid count: number_triangles: {}".format(_number_triangles))
+        if (_number_triangles > Ms3dSpec.MAX_TRIANGLES):
+            print("\nwarning, invalid count: number_triangles: {}".format(
+                    _number_triangles))
         self._triangles = []
         for i in range(_number_triangles):
             self.triangles.append(Ms3dTriangle().read(file))
 
         _number_groups = Ms3dIo.read_word(file)
-        if (_number_groups > MAX_GROUPS):
-            print("\nwarning, invalid count: number_groups: {}".format(_number_groups))
+        if (_number_groups > Ms3dSpec.MAX_GROUPS):
+            print("\nwarning, invalid count: number_groups: {}".format(
+                    _number_groups))
         self._groups = []
         for i in range(_number_groups):
             self.groups.append(Ms3dGroup().read(file))
 
         _number_materials = Ms3dIo.read_word(file)
-        if (_number_materials > MAX_MATERIALS):
-            print("\nwarning, invalid count: number_materials: {}".format(_number_materials))
+        if (_number_materials > Ms3dSpec.MAX_MATERIALS):
+            print("\nwarning, invalid count: number_materials: {}".format(
+                    _number_materials))
         self._materials = []
         for i in range(_number_materials):
             self.materials.append(Ms3dMaterial().read(file))
@@ -1667,8 +1689,9 @@ class Ms3dModel:
             Ms3dIo.raise_on_eof(file)
 
             _number_joints = Ms3dIo.read_word(file)
-            if (_number_joints > MAX_JOINTS):
-                print("\nwarning, invalid count: number_joints: {}".format(_number_joints))
+            if (_number_joints > Ms3dSpec.MAX_JOINTS):
+                print("\nwarning, invalid count: number_joints: {}".format(
+                        _number_joints))
             self._joints = []
             for i in range(_number_joints):
                 self.joints.append(Ms3dJoint().read(file))
@@ -1678,42 +1701,61 @@ class Ms3dModel:
 
             self.sub_version_comments = Ms3dIo.read_dword(file)
             _number_group_comments = Ms3dIo.read_dword(file)
-            if (_number_group_comments > MAX_GROUPS):
-                print("\nwarning, invalid count: number_group_comments: {}".format(_number_group_comments))
+            if (_number_group_comments > Ms3dSpec.MAX_GROUPS):
+                print("\nwarning, invalid count:"\
+                        " number_group_comments: {}".format(
+                        _number_group_comments))
             if _number_group_comments > _number_groups:
-                print("\nwarning, invalid count: number_group_comments: {}, number_groups: {}".format(_number_group_comments, _number_groups))
+                print("\nwarning, invalid count:"\
+                        " number_group_comments: {}, number_groups: {}".format(
+                        _number_group_comments, _number_groups))
             for i in range(_number_group_comments):
                 item = Ms3dCommentEx().read(file)
                 if item.index >= 0 and item.index < _number_groups:
                     self.groups[item.index]._comment_object = item
                 else:
-                    print("\nwarning, invalid index: group_index: {}, number_groups: {}".format(item.index, _number_groups))
+                    print("\nwarning, invalid index:"\
+                            " group_index: {}, number_groups: {}".format(
+                            item.index, _number_groups))
             _progress.add('GROUP_COMMENTS')
 
             _number_material_comments = Ms3dIo.read_dword(file)
-            if (_number_material_comments > MAX_MATERIALS):
-                print("\nwarning, invalid count: number_material_comments: {}".format(_number_material_comments))
+            if (_number_material_comments > Ms3dSpec.MAX_MATERIALS):
+                print("\nwarning, invalid count:"\
+                        " number_material_comments: {}".format(
+                        _number_material_comments))
             if _number_material_comments > _number_materials:
-                print("\nwarning, invalid count: number_material_comments: {}, number_materials: {}".format(_number_material_comments, _number_materials))
+                print("\nwarning, invalid count:"\
+                        " number_material_comments:"\
+                        " {}, number_materials: {}".format(
+                        _number_material_comments, _number_materials))
             for i in range(_number_material_comments):
                 item = Ms3dCommentEx().read(file)
                 if item.index >= 0 and item.index < _number_materials:
                     self.materials[item.index]._comment_object = item
                 else:
-                    print("\nwarning, invalid index: material_index: {}, number_materials: {}".format(item.index, _number_materials))
+                    print("\nwarning, invalid index:"\
+                            " material_index: {}, number_materials:"\
+                            " {}".format(item.index, _number_materials))
             _progress.add('MATERIAL_COMMENTS')
 
             _number_joint_comments = Ms3dIo.read_dword(file)
-            if (_number_joint_comments > MAX_JOINTS):
-                print("\nwarning, invalid count: number_joint_comments: {}".format(_number_joint_comments))
+            if (_number_joint_comments > Ms3dSpec.MAX_JOINTS):
+                print("\nwarning, invalid count:"\
+                        " number_joint_comments: {}".format(
+                        _number_joint_comments))
             if _number_joint_comments > _number_joints:
-                print("\nwarning, invalid count: number_joint_comments: {}, number_joints: {}".format(_number_joint_comments, _number_joints))
+                print("\nwarning, invalid count:"\
+                        " number_joint_comments: {}, number_joints: {}".format(
+                        _number_joint_comments, _number_joints))
             for i in range(_number_joint_comments):
                 item = Ms3dCommentEx().read(file)
                 if item.index >= 0 and item.index < _number_joints:
                     self.joints[item.index]._comment_object = item
                 else:
-                    print("\nwarning, invalid index: joint_index: {}, number_joints: {}".format(item.index, _number_joints))
+                    print("\nwarning, invalid index:"\
+                            " joint_index: {}, number_joints: {}".format(
+                            item.index, _number_joints))
             _progress.add('JOINT_COMMENTS')
 
             _has_model_comment = Ms3dIo.read_dword(file)
@@ -1736,7 +1778,9 @@ class Ms3dModel:
                     elif self.sub_version_vertex_extra == 3:
                         item = Ms3dVertexEx3()
                     else:
-                        print("\nwarning, invalid version: sub_version_vertex_extra: {}".format(sub_version_vertex_extra))
+                        print("\nwarning, invalid version:"\
+                                " sub_version_vertex_extra: {}".format(
+                                sub_version_vertex_extra))
                         continue
                     self.vertices[i]._vertex_ex_object = item.read(file)
             _progress.add('VERTEX_EXTRA')
@@ -1887,29 +1931,34 @@ class Ms3dModel:
         format2 = " limit exceeded! (limit is {0})"
 
         result.append("MS3D statistics:")
-        result.append(format1.format("vertices ........", self.number_vertices))
-        if (self.number_vertices > MAX_VERTICES):
-            result.append(format2.format(MAX_VERTICES))
+        result.append(format1.format("vertices ........",
+                self.number_vertices))
+        if (self.number_vertices > Ms3dSpec.MAX_VERTICES):
+            result.append(format2.format(Ms3dSpec.MAX_VERTICES))
             valid &= False
 
-        result.append(format1.format("triangles .......", self.number_triangles))
-        if (self.number_triangles > MAX_TRIANGLES):
-            result.append(format2.format(MAX_TRIANGLES))
+        result.append(format1.format("triangles .......",
+                self.number_triangles))
+        if (self.number_triangles > Ms3dSpec.MAX_TRIANGLES):
+            result.append(format2.format(Ms3dSpec.MAX_TRIANGLES))
             valid &= False
 
-        result.append(format1.format("groups ..........", self.number_groups))
-        if (self.number_groups > MAX_GROUPS):
-            result.append(format2.format(MAX_GROUPS))
+        result.append(format1.format("groups ..........",
+                self.number_groups))
+        if (self.number_groups > Ms3dSpec.MAX_GROUPS):
+            result.append(format2.format(Ms3dSpec.MAX_GROUPS))
             valid &= False
 
-        result.append(format1.format("materials .......", self.number_materials))
-        if (self.number_materials > MAX_MATERIALS):
-            result.append(format2.format(MAX_MATERIALS))
+        result.append(format1.format("materials .......",
+                self.number_materials))
+        if (self.number_materials > Ms3dSpec.MAX_MATERIALS):
+            result.append(format2.format(Ms3dSpec.MAX_MATERIALS))
             valid &= False
 
-        result.append(format1.format("joints ..........", self.number_joints))
-        if (self.number_joints > MAX_JOINTS):
-            result.append(format2.format(MAX_JOINTS))
+        result.append(format1.format("joints ..........",
+                self.number_joints))
+        if (self.number_joints > Ms3dSpec.MAX_JOINTS):
+            result.append(format2.format(Ms3dSpec.MAX_JOINTS))
             valid &= False
 
         result.append(format1.format("model comments ..",

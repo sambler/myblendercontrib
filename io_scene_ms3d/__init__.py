@@ -20,12 +20,13 @@
 
 bl_info = {
         'name': "MilkShape3D MS3D format (.ms3d)",
-        'description': "Import / Export MilkShape3D MS3D files (conform with v1.8.4)",
+        'description': "Import / Export MilkShape3D MS3D files"\
+                " (conform with v1.8.4)",
         'author': "Alexander Nussbaumer",
-        'version': (0, 4, 0, 0),
+        'version': (0, 4, 0, 1),
         'blender': (2, 6, 3, 0),
         'location': "File > Import & File > Export",
-        'warning': "[2012-07-04] currently only the importer is implemented",
+        'warning': "[2012-07-07] currently only the importer is implemented",
         'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
                 "Scripts/Import-Export/MilkShape3D_MS3D",
         'tracker_url': "http://projects.blender.org/tracker/index.php"\
