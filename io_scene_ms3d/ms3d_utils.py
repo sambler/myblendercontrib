@@ -106,13 +106,16 @@ def create_coordination_system_matrix(options):
     matrix_coordination_system = None
 
     if (options.is_coordinate_system_import):
-        matrix_coordination_system = Matrix.Rotation(radians(+90), 4, 'Z') * Matrix.Rotation(radians(+90), 4, 'X')
+        matrix_coordination_system = Matrix.Rotation(radians(+90), 4, 'Z') \
+                * Matrix.Rotation(radians(+90), 4, 'X')
     elif (options.is_coordinate_system_export):
-        matrix_coordination_system = Matrix.Rotation(radians(-90), 4, 'X') * Matrix.Rotation(radians(-90), 4, 'Z')
+        matrix_coordination_system = Matrix.Rotation(radians(-90), 4, 'X') \
+                * Matrix.Rotation(radians(-90), 4, 'Z')
     else:
         matrix_coordination_system = Matrix()
 
-    return matrix_coordination_system * options.prop_scale, matrix_coordination_system
+    return matrix_coordination_system * options.prop_scale, \
+            matrix_coordination_system
 
 
 ###############################################################################
@@ -137,8 +140,9 @@ def pre_setup_environment(porter):
     context.scene.update()
 
     # inject matrix_scaled_coordination_system to self
-    porter.matrix_scaled_coordination_system, porter.matrix_coordination_system =\
-            create_coordination_system_matrix(porter.options)
+    porter.matrix_scaled_coordination_system, \
+            porter.matrix_coordination_system \
+            = create_coordination_system_matrix(porter.options)
 
     # inject splitted filepath
     porter.filepath_splitted = path.split(porter.options.filepath)

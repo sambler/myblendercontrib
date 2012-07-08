@@ -44,10 +44,14 @@ ms3d_str = {
         ###############################
         # strings to be used with 'str().format()'
         'STRING_FORMAT_GROUP': "Group.{:03d}",
-        'WARNING_IMPORT_SKIP_FACE_DOUBLE': "skipped face #{}: contains double faces with same vertices!",
-        'WARNING_IMPORT_SKIP_LESS_VERTICES': "skipped face #{}: contains faces too less vertices!",
-        'WARNING_IMPORT_SKIP_VERTEX_DOUBLE': "skipped face #{}: contains faces with double vertices!",
-        'SUMMARY_IMPORT': "elapsed time: {0:.4}s (disk io: ~{1:.4}s, converter: ~{2:.4}s)",
+        'WARNING_IMPORT_SKIP_FACE_DOUBLE': "skipped face #{}:"\
+                " contains double faces with same vertices!",
+        'WARNING_IMPORT_SKIP_LESS_VERTICES': "skipped face #{}:"\
+                " contains faces too less vertices!",
+        'WARNING_IMPORT_SKIP_VERTEX_DOUBLE': "skipped face #{}:"\
+                " contains faces with double vertices!",
+        'SUMMARY_IMPORT': "elapsed time: {0:.4}s (disk io:"\
+                " ~{1:.4}s, converter: ~{2:.4}s)",
 
         ###############################
         'TEXT_OPERATOR': "MilkShape3D MS3D (.ms3d)",
@@ -58,15 +62,18 @@ ms3d_str = {
         'LABEL_NAME_PROCESSING': "Object Processing:",
         'LABEL_NAME_ANIMATION': "Animation Processing:",
         'PROP_NAME_VERBOSE': "Verbose",
-        'PROP_DESC_VERBOSE': "Run the converter in debug mode. Check the console for output (Warning, may be very slow)",
+        'PROP_DESC_VERBOSE': "Run the converter in debug mode."\
+                " Check the console for output (Warning, may be very slow)",
         'PROP_NAME_COORDINATESYSTEM': "Coordinate system",
         'PROP_DESC_COORDINATESYSTEM': "Select a coordinate system to export to",
         'PROP_ITEM_COORDINATESYSTEM_1_BY_1_1': "xyz -> xyz (1:1)",
         'PROP_ITEM_COORDINATESYSTEM_1_BY_1_2': "Take axis as is (1:1)",
         'PROP_ITEM_COORDINATESYSTEM_IMP_1': "yzx -> xyz (import)",
-        'PROP_ITEM_COORDINATESYSTEM_IMP_2': "swap axis to fit to viewport (import ms3d to blender)",
+        'PROP_ITEM_COORDINATESYSTEM_IMP_2': "swap axis to fit to viewport"\
+                " (import ms3d to blender)",
         'PROP_ITEM_COORDINATESYSTEM_EXP_1': "xyz -> yzx (export)",
-        'PROP_ITEM_COORDINATESYSTEM_EXP_2': "swap axis to fit to viewport (export blender to ms3d)",
+        'PROP_ITEM_COORDINATESYSTEM_EXP_2': "swap axis to fit to viewport"\
+                " (export blender to ms3d)",
         'PROP_NAME_SCALE': "Scale",
         'PROP_DESC_SCALE': "Scale all data",
         'PROP_NAME_UNIT_MM': "Metric [mm]",
@@ -78,15 +85,18 @@ ms3d_str = {
         'PROP_ITEM_OBJECT_MESH_1': "Meshes",
         'PROP_ITEM_OBJECT_MESH_2': "vertices, triangles, uv",
         'PROP_ITEM_OBJECT_MATERIAL_1': "Materials",
-        'PROP_ITEM_OBJECT_MATERIAL_2': "ambient, diffuse, specular, emissive, shininess, transparency, diffuse texture, alpha texture",
+        'PROP_ITEM_OBJECT_MATERIAL_2': "ambient, diffuse, specular, emissive,"\
+                " shininess, transparency, diffuse texture, alpha texture",
         'PROP_ITEM_OBJECT_JOINT_1': "Joints",
         'PROP_ITEM_OBJECT_JOINT_2': "joints, bones",
         'PROP_ITEM_OBJECT_ANIMATION_1': "Animation **)",
         'PROP_ITEM_OBJECT_ANIMATION_2': "keyframes",
         'PROP_ITEM_OBJECT_SMOOTHGROUPS_1': "Smoothing Groups",
-        'PROP_ITEM_OBJECT_SMOOTHGROUPS_2': "split mesh faces according its smoothing groups",
+        'PROP_ITEM_OBJECT_SMOOTHGROUPS_2': "split mesh faces according its"\
+                " smoothing groups",
         'PROP_ITEM_OBJECT_GROUP_1': "Group",
-        'PROP_ITEM_OBJECT_GROUP_2': "organize all file objects to a single group, named with the filename",
+        'PROP_ITEM_OBJECT_GROUP_2': "organize all file objects to a single"\
+                " group, named with the filename",
         'PROP_NAME_OBJECTS_EXP': "Export processing",
         'PROP_DESC_OBJECTS_EXP': "What to process during export",
         'PROP_NAME_ANIMATION': "Animation **)",
@@ -98,7 +108,8 @@ ms3d_str = {
         'BL_DESCRIPTION_IMPORTER': "Import from a MS3D file format (.ms3d)",
         'BL_LABEL_EXPORTER': "Export MS3D",
         'BL_DESCRIPTION_EXPORTER': "Export to a MS3D file format (.ms3d)",
-        'BL_LABEL_SMOOTHING_GROUP_OPERATOR': "MS3D Set Smoothing Group Operator",
+        'BL_LABEL_SMOOTHING_GROUP_OPERATOR': "MS3D Set Smoothing Group"\
+                " Operator",
         'PROP_SMOOTHING_GROUP_INDEX': "Smoothing group id",
         'BL_LABEL_GROUP_OPERATOR': "MS3D - Group Collection Operator",
         'ENUM_ADD_GROUP_1': "Add",
@@ -107,15 +118,18 @@ ms3d_str = {
         'ENUM_REMOVE_GROUP_2': "removes an item",
         'ENUM_ASSIGN_1': "Assign",
         'ENUM_ASSIGN_2_GROUP': "assign selected faces to selected group",
-        'ENUM_ASSIGN_2_SMOOTHING_GROUP': "assign all selected faces to selected smoothing group",
+        'ENUM_ASSIGN_2_SMOOTHING_GROUP': "assign all selected faces to"\
+                " selected smoothing group",
         'ENUM_REMOVE_1': "Remove",
         'ENUM_REMOVE_2_GROUP': "remove selected faces from selected group",
         'ENUM_SELECT_1': "Select",
         'ENUM_SELECT_2_GROUP': "selects faces of selected group",
-        'ENUM_SELECT_2_SMOOTHING_GROUP': "selects all faces of selected smoothing group",
+        'ENUM_SELECT_2_SMOOTHING_GROUP': "selects all faces of selected"\
+                " smoothing group",
         'ENUM_DESELECT_1': "Deselect",
         'ENUM_DESELECT_2_GROUP': "deselects faces of selected group",
-        'ENUM_DESELECT_2_SMOOTHING_GROUP': "deselects all faces of selected smoothing group",
+        'ENUM_DESELECT_2_SMOOTHING_GROUP': "deselects all faces of selected"\
+                " smoothing group",
         'PROP_NAME_NAME': "Name",
         'PROP_NAME_FLAGS': "Flags",
         'PROP_DESC_GROUP_NAME': "ms3d internal raw 'name' of Group",
@@ -150,9 +164,11 @@ ms3d_str = {
         'PROP_DESC_FLAGS_GROUP': "ms3d internal raw 'flags' of Group",
         'PROP_DESC_FLAGS_JOINT': "ms3d internal raw 'flags' of Joint",
         'PROP_NAME_ALPHAMAP': "Alphamap",
-        'PROP_DESC_ALPHAMAP': "ms3d internal raw 'alphamap' file name of Material",
+        'PROP_DESC_ALPHAMAP': "ms3d internal raw 'alphamap' file name of"\
+                " Material",
         'PROP_NAME_TEXTURE': "Texture",
-        'PROP_DESC_TEXTURE': "ms3d internal raw 'texture' file name of Material",
+        'PROP_DESC_TEXTURE': "ms3d internal raw 'texture' file name of"\
+                " Material",
         'PROP_NAME_MODE': "Mode",
         'PROP_DESC_MODE_TEXTURE': "ms3d internal raw 'mode' of Material",
         'PROP_FLAG_TEXTURE_COMBINE_ALPHA_1': "Combine Alpha",
@@ -162,7 +178,8 @@ ms3d_str = {
         'PROP_FLAG_TEXTURE_SPHERE_MAP_1': "Sphere Map",
         'PROP_FLAG_TEXTURE_SPHERE_MAP_2': "see MilkShape3D documents",
         'PROP_NAME_TRANSPARENCY': "Transparency",
-        'PROP_DESC_TRANSPARENCY': "ms3d internal raw 'transparency' of Material",
+        'PROP_DESC_TRANSPARENCY': "ms3d internal raw 'transparency' of"\
+                " Material",
         'PROP_NAME_SHININESS': "Shininess",
         'PROP_DESC_SHININESS': "ms3d internal raw 'shininess' of Material",
         'PROP_NAME_EMISSIVE': "Emissive",
@@ -181,12 +198,17 @@ ms3d_str = {
         'PROP_DESC_ALPHA_REF': "ms3d internal raw 'alpha_ref' of Model",
         'PROP_MODE_TRANSPARENCY_SIMPLE_1': "Simple",
         'PROP_MODE_TRANSPARENCY_SIMPLE_2': "see MilkShape3D document",
-        'PROP_MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES_1': "Depth Sorted Triangles",
-        'PROP_MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES_2': "see MilkShape3D document",
-        'PROP_MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF_1': "Depth Buffered with Alpha Ref",
-        'PROP_MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF_2': "see MilkShape3D document",
+        'PROP_MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES_1': "Depth Sorted"\
+                " Triangles",
+        'PROP_MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES_2': "see MilkShape3D"\
+                " document",
+        'PROP_MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF_1': "Depth"\
+                " Buffered with Alpha Ref",
+        'PROP_MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF_2': "see"\
+                " MilkShape3D document",
         'PROP_NAME_TRANSPARENCY_MODE': "Transp. Mode",
-        'PROP_DESC_TRANSPARENCY_MODE': "ms3d internal raw 'transparency_mode' of Model",
+        'PROP_DESC_TRANSPARENCY_MODE': "ms3d internal raw 'transparency_mode'"\
+                " of Model",
         'PROP_NAME_JOINT_SIZE': "Joint Size",
         'PROP_DESC_JOINT_SIZE': "ms3d internal raw 'joint_size' of Model",
         'PROP_DESC_COMMENT_GROUP': "ms3d internal raw 'comment' of Group",

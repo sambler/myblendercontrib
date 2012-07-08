@@ -50,11 +50,13 @@ __init__.py         : entry point for blender plugins
                     § Blender maintenance
 
 ms3d_export.py      : entry point for exporter
-                      functions to bring Blender content in a correct way to MilkShape
+                      functions to bring Blender content in a correct way to
+                      MilkShape
                     § Blender -> MilkShape3D maintenance
 
 ms3d_import.py      : entry point for importer
-                      functions to bring MilkShape content in a correct way to Blender
+                      functions to bring MilkShape content in a correct way to
+                      Blender
                     § MilkShape3D -> Blender maintenance
 
 ms3d_spec.py        : objects and structures that specified a MilkShape3D file
@@ -65,7 +67,8 @@ ms3d_ui.py          : additional custom properties for Blender objects
                       give user access to MilkShape specific properties
                     § Blender maintenance
 
-ms3d_strings.py     : most of the strings used in the addon to have a central point for optional internationalization
+ms3d_strings.py     : most of the strings used in the addon to have a
+                      central point for optional internationalization
 
 
 known issues:
@@ -73,16 +76,18 @@ known issues:
     - does not import keyframes
 
   exporter issues:
-    - does only export the first existing material, if more than one material is used per mesh
-    - does only export the first existing UV texture coordinates, if more than one UV texture is used per mesh
+    - does only export the first existing material, if more than one material
+            is used per mesh
+    - does only export the first existing UV texture coordinates,
+            if more than one UV texture is used per mesh
     - does not export bones
     - does not export joints
     - does not export keyframes
-    - does not export comments (will never be supported - blender doesn't have similar stuff)
+    - does not export comments (will never be supported - blender doesn't
+            have similar stuff)
 
 
 todo:
-- change internal data structure for more performance on searching vertex indices and double vertices
 - add support for bones and joints in exporter
 - add support for keyframes
 
@@ -93,7 +98,7 @@ changelog:
             .vertices
                 Ms3dVertex
                     .vertex: 100%
-                    .bone_id: 0%
+                    .bone_id: 100%
                     .reference_count: 0% (100% will be calculated on export)
                     .flags: 100% (value only)
                     .vertex_ex
@@ -107,7 +112,9 @@ changelog:
                     .s: 100%
                     .t: 100%
                     .group_index: 100%
-                    .smoothing_group: 100% (BUG: generation of sharp edges does not work well on isolated faces - faces, that does not share edges with neighbors)
+                    .smoothing_group: 100% (BUG: generation of sharp edges
+                            does not work well on isolated faces
+                            - faces, that does not share edges with neighbors)
                     .flags: 0%
                     .vertex_normals: 0% (not/never for import)
             .groups
