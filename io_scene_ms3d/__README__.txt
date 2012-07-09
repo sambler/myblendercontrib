@@ -91,8 +91,68 @@ todo:
 - add support for bones and joints in exporter
 - add support for keyframes
 
-changelog:
-
+###############################################################################
+    exporter:
+        Ms3dModel
+            .vertices
+                Ms3dVertex
+                    .vertex: 100%
+                    .bone_id: 0%
+                    .reference_count: 0%
+                    .flags: 0%
+                    .vertex_ex
+                        Ms3dVertexEx
+                            .bone_ids: 0%
+                            .weights: 0%
+                            .extra: 0%
+            .triangles
+                Ms3dTriangle
+                    .vertex_indices: 100%
+                    .s: 100%
+                    .t: 100%
+                    .group_index: 20% (not tested yet: TODO: auto generate groups from blender data, by materials)
+                    .smoothing_group: 100%
+                    .flags: 0%
+                    .vertex_normals: 80% (not tested yet)
+            .groups
+                Ms3dGroup
+                    .name: 100%
+                    .triangle_indices: 100%
+                    .material_index: 0% (TODO: auto generate groups from blender data, by materials)
+                    .comment: 100%
+                    .flags: 100%
+            .materials
+                Ms3dMaterial
+                    name: 0%
+                    ambient: 0%
+                    diffuse: 0%
+                    specular: 0%
+                    emissive: 0%
+                    shininess: 0%
+                    transparency: 0%
+                    mode: 0%
+                    texture: 0%
+                    alphamap: 0%
+                    comment: 0%
+            .comment: 0%
+            .model_ex
+                Ms3dModelEx
+                    .joint_size: 0%
+                    .transparency_mode: 0%
+                    .alpha_ref: 0%
+            .joints
+                Ms3dJoint
+                    .name: 0%
+                    .parent_name: 0%
+                    .rotation: 0%
+                    .position: 0%
+                    .rotation_keyframes: 0%
+                    .translation_keyframes: 0%
+                    .joint_ex
+                        Ms3DJointEx
+                            .color: 0%
+                    .comment: 0%
+###############################################################################
     importer:
         Ms3dModel
             .vertices
@@ -100,7 +160,7 @@ changelog:
                     .vertex: 100%
                     .bone_id: 100%
                     .reference_count: 0% (100% will be calculated on export)
-                    .flags: 100% (value only)
+                    .flags: 0% (value only)
                     .vertex_ex
                         Ms3dVertexEx
                             .bone_ids: 0%
@@ -155,3 +215,4 @@ changelog:
                         Ms3DJointEx
                             .color: 100% (value only)
                     .comment: 100%
+###############################################################################

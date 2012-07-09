@@ -205,18 +205,37 @@ class Ms3dExporter():
         blender_to_ms3d_groups = {}
         blender_to_ms3d_materials = {}
         for blender_mesh_object in blender_mesh_objects:
+            blender_mesh = blender_mesh_object.data
+
+            ##########################
+            # prepare ms3d groups if available
+            for ms3d_local_group_index, blender_ms3d_group in enumerate(blender_mesh.ms3d.groups):
+                ms3d_group = Ms3dGroup()
+                ms3d_group.__index = ms3d_local_group_index
+                ms3d_group.name = blender_ms3d_group.name
+                ms3d_group.flags = Ms3dUi.flags_to_ms3d(blender_ms3d_group.flags)
+                if blender_ms3d_group.comment:
+                    ms3d_group._comment_object = Ms3dCommentEx()
+                    ms3d_group._comment_object.comment = blender_ms3d_group.comment
+                    ms3d_group._comment_object.index = len(ms3d_model._groups)
+                ms3d_model._groups.append(ms3d_group)
+                blender_to_ms3d_groups[blender_ms3d_group.id] = ms3d_group
+
             ##########################
             # i have to use BMesh, because there are several custom data stored.
             # BMesh doesn't support quads_convert_to_tris()
             # so, i use that very ugly way:
             # create a complete copy of mesh and bend object data
             # to be able to apply operations to it.
-            blender_mesh_backup = blender_mesh_object.data
 
             # get a temporary mesh with applied modifiers
-            blender_mesh_temp = blender_mesh_object.to_mesh(blender_scene,
-                    self.options.prop_apply_modifier,
-                    self.options.prop_apply_modifier_mode)
+            if self.options.prop_apply_modifier:
+                blender_mesh_temp = blender_mesh_object.to_mesh(blender_scene,
+                        self.options.prop_apply_modifier,
+                        self.options.prop_apply_modifier_mode)
+            else:
+                blender_mesh_temp = blender_mesh_object.data.copy()
+
             # assign temporary mesh as new object data
             blender_mesh_object.data = blender_mesh_temp
 
@@ -250,19 +269,26 @@ class Ms3dExporter():
 
             layer_uv = bm.loops.layers.uv.get(ms3d_str['OBJECT_LAYER_UV'])
             if layer_uv is None:
-                layer_uv = bm.loops.layers.uv.new(ms3d_str['OBJECT_LAYER_UV'])
+                if bm.loops.layers.uv:
+                    layer_uv = bm.loops.layers.uv[0]
+                else:
+                    layer_uv = bm.loops.layers.uv.new(ms3d_str['OBJECT_LAYER_UV'])
 
+            ##########################
+            # handle vertices
             for bmv in bm.verts:
                 item = blender_to_ms3d_vertices.get(bmv)
                 if item is None:
                     index = len(ms3d_model._vertices)
                     ms3d_vertex = Ms3dVertex()
                     ms3d_vertex.__index = index
-                    ms3d_vertex._vertex = (self.matrix_coordination_system \
+                    ms3d_vertex._vertex = (self.matrix_scaled_coordination_system \
                             * (bmv.co + blender_mesh_object.location))[:]
                     ms3d_model._vertices.append(ms3d_vertex)
                     blender_to_ms3d_vertices[bmv] = ms3d_vertex
 
+            ##########################
+            # faces
             for bmf in bm.faces:
                 item = blender_to_ms3d_triangles.get(bmf)
                 if item is None:
@@ -284,16 +310,21 @@ class Ms3dExporter():
                             )
                     ms3d_triangle._s = (
                             bmf.loops[0][layer_uv].uv.x,
-                            bmf.loops[0][layer_uv].uv.x,
-                            bmf.loops[0][layer_uv].uv.x,
+                            bmf.loops[1][layer_uv].uv.x,
+                            bmf.loops[2][layer_uv].uv.x,
                             )
                     ms3d_triangle._t = (
                             1.0 - bmf.loops[0][layer_uv].uv.y,
-                            1.0 - bmf.loops[0][layer_uv].uv.y,
-                            1.0 - bmf.loops[0][layer_uv].uv.y,
+                            1.0 - bmf.loops[1][layer_uv].uv.y,
+                            1.0 - bmf.loops[2][layer_uv].uv.y,
                             )
                     ms3d_triangle.smoothing_group = bmf[layer_smoothing_group]
                     ms3d_model._triangles.append(ms3d_triangle)
+
+                    ms3d_group = blender_to_ms3d_groups.get(bmf[layer_group])
+                    if ms3d_group is not None:
+                        ms3d_triangle.group_index = ms3d_group.__index
+
                     blender_to_ms3d_triangles[bmf] = ms3d_triangle
 
             if bm is not None:
@@ -303,7 +334,7 @@ class Ms3dExporter():
 
             ##########################
             # restore original object data
-            blender_mesh_object.data = blender_mesh_backup
+            blender_mesh_object.data = blender_mesh
 
             ##########################
             # remove the temporary data

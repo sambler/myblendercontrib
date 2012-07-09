@@ -426,7 +426,7 @@ class Ms3dImporter():
                         = blender_material.texture_slots.add()
                 blender_texture_slot_diffuse.texture = blender_texture_diffuse
                 blender_texture_slot_diffuse.texture_coords = 'UV'
-                blender_texture_slot_diffuse.uv_layer = layer_texture.name
+                blender_texture_slot_diffuse.uv_layer = layer_uv.name
                 blender_texture_slot_diffuse.use_map_color_diffuse = True
                 blender_texture_slot_diffuse.use_map_alpha = False
             else:
@@ -445,7 +445,7 @@ class Ms3dImporter():
                         = blender_material.texture_slots.add()
                 blender_texture_slot_alpha.texture = blender_texture_alpha
                 blender_texture_slot_alpha.texture_coords = 'UV'
-                blender_texture_slot_alpha.uv_layer = layer_texture.name
+                blender_texture_slot_alpha.uv_layer = layer_uv.name
                 blender_texture_slot_alpha.use_map_color_diffuse = False
                 blender_texture_slot_alpha.use_map_alpha = True
                 blender_texture_slot_alpha.use_rgb_to_intensity = True
@@ -557,6 +557,7 @@ class Ms3dImporter():
         # finally tranfer BMesh to Mesh
         bm.to_mesh(blender_mesh)
         bm.free()
+
 
         #
         # end BMesh stuff

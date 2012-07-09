@@ -36,9 +36,13 @@ ms3d_str = {
         ###############################
         # blender key names
         'OBJECT_LAYER_GROUP': "ms3d_group_layer",
-        'OBJECT_LAYER_TEXTURE': "ms3d_texture_layer",
         'OBJECT_LAYER_SMOOTHING_GROUP': "ms3d_smoothing_group_layer",
         'OBJECT_MODIFIER_SMOOTHING_GROUP': "ms3d_smoothing_groups",
+        # for some reason after bm.to_mesh(..)
+        # the names of 'bm.loops.layers.uv' becomes to 'bm.faces.layers.tex'
+        # to bypass this issue, i give both the same name.
+        # 'OBJECT_LAYER_TEXTURE': "ms3d_texture_layer",
+        'OBJECT_LAYER_TEXTURE': "ms3d_uv_layer",
         'OBJECT_LAYER_UV': "ms3d_uv_layer",
 
         ###############################

@@ -502,6 +502,9 @@ class Ms3dTriangle:
 ###############################################################################
 class Ms3dGroup:
     """ Ms3dGroup """
+    """
+    __slots__ was taking out,
+    to be able to inject additional attributes during runtime
     __slots__ = (
             'flags',
             'name',
@@ -509,6 +512,7 @@ class Ms3dGroup:
             '_triangle_indices',
             '_comment_object', # Ms3dComment
             )
+    """
 
     def __init__(
             self,

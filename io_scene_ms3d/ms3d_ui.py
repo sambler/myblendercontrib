@@ -272,7 +272,7 @@ class Ms3dUi:
     PROP_DEFAULT_ANIMATION = False
 
     ###########################################################################
-    PROP_DEFAULT_APPLY_MODIFIER = True
+    PROP_DEFAULT_APPLY_MODIFIER = False
     PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW = 'PREVIEW'
     PROP_ITEM_APPLY_MODIFIER_MODE_RENDER = 'RENDER'
     PROP_DEFAULT_APPLY_MODIFIER_MODE = PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW
@@ -553,6 +553,9 @@ class Ms3dExportOperator(Operator, ExportHelper):
     def draw(self, context):
         layout = self.layout
 
+        # DEBUG:
+        layout.row().label(ms3d_str['REMARKS_2'], icon='ERROR')
+
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
         box.prop(self, 'prop_verbose', icon='SPEAKER')
@@ -566,6 +569,7 @@ class Ms3dExportOperator(Operator, ExportHelper):
         box.label(ms3d_str['LABEL_NAME_PROCESSING'],
                 icon=Ms3dUi.ICON_PROCESSING)
         box.prop(self, 'prop_selected', icon='ROTACTIVE')
+        """
         box.prop(self, 'prop_objects', icon='MESH_DATA', expand=True)
 
         if (Ms3dUi.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
@@ -575,6 +579,7 @@ class Ms3dExportOperator(Operator, ExportHelper):
             box.label(ms3d_str['LABEL_NAME_ANIMATION'],
                     icon=Ms3dUi.ICON_ANIMATION)
             box.prop(self, 'prop_animation')
+        """
 
     # entrypoint for blender -> MS3D
     def execute(self, blender_context):
