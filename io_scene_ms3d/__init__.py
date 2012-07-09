@@ -23,10 +23,10 @@ bl_info = {
         'description': "Import / Export MilkShape3D MS3D files"\
                 " (conform with v1.8.4)",
         'author': "Alexander Nussbaumer",
-        'version': (0, 4, 0, 1),
+        'version': (0, 4, 0, 2),
         'blender': (2, 6, 3, 0),
         'location': "File > Import & File > Export",
-        'warning': "[2012-07-07] currently only the importer is implemented",
+        'warning': "[2012-07-09] currently only the importer is implemented",
         'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
                 "Scripts/Import-Export/MilkShape3D_MS3D",
         'tracker_url': "http://projects.blender.org/tracker/index.php"\
@@ -64,7 +64,6 @@ from bpy.utils import (
         register_module,
         unregister_module,
         )
-
 from bpy.types import (
         INFO_MT_file_export,
         INFO_MT_file_import,
@@ -75,13 +74,13 @@ from bpy.types import (
 # registration
 def register():
     register_module(__name__)
-    #INFO_MT_file_export.append(Ms3dExportOperator.menu_func)
+    INFO_MT_file_export.append(Ms3dExportOperator.menu_func)
     INFO_MT_file_import.append(Ms3dImportOperator.menu_func)
 
 
 def unregister():
     unregister_module(__name__)
-    #INFO_MT_file_export.remove(Ms3dExportOperator.menu_func)
+    INFO_MT_file_export.remove(Ms3dExportOperator.menu_func)
     INFO_MT_file_import.remove(Ms3dImportOperator.menu_func)
 
 

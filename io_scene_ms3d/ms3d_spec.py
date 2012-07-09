@@ -34,11 +34,9 @@ from struct import (
         pack,
         unpack,
         )
-
 from sys import (
         exc_info,
         )
-
 from os import (
         fstat,
         )
@@ -335,6 +333,9 @@ class Ms3dHeader:
 ###############################################################################
 class Ms3dVertex:
     """ Ms3dVertex """
+    """
+    __slots__ was taking out,
+    to be able to inject additional attributes during runtime
     __slots__ = (
             'flags',
             'bone_id',
@@ -342,6 +343,7 @@ class Ms3dVertex:
             '_vertex',
             '_vertex_ex_object', # Ms3dVertexEx
             )
+    """
 
     def __init__(
             self,
@@ -412,6 +414,9 @@ class Ms3dVertex:
 ###############################################################################
 class Ms3dTriangle:
     """ Ms3dTriangle """
+    """
+    __slots__ was taking out,
+    to be able to inject additional attributes during runtime
     __slots__ = (
             'flags',
             'smoothing_group',
@@ -421,6 +426,7 @@ class Ms3dTriangle:
             '_s',
             '_t',
             )
+    """
 
     def __init__(
             self,
@@ -803,8 +809,8 @@ class Ms3dTranslationKeyframe:
 class Ms3dJoint:
     """ Ms3dJoint """
     """
-    to by able to inject additional attributes during runtime,
-    __slots__ was taking out
+    __slots__ was taking out,
+    to be able to inject additional attributes during runtime
     __slots__ = (
             'flags',
             'name',
@@ -1391,7 +1397,7 @@ class Ms3dModel:
 
         self.header = Ms3dHeader()
         self._model_ex_object = Ms3dModelEx()
-        self._comment_object = Ms3dComment() #Ms3dComment()
+        self._comment_object = None #Ms3dComment()
 
 
     @property
@@ -1455,7 +1461,7 @@ class Ms3dModel:
             return 0
         number = 0
         for item in self.groups:
-            if item.comment_object is not None:
+            if item.comment_object is not None and item.comment_object.comment:
                 number += 1
         return number
 
@@ -1465,7 +1471,7 @@ class Ms3dModel:
             return None
         items = []
         for item in self.groups:
-            if item.comment_object is not None:
+            if item.comment_object is not None and item.comment_object.comment:
                 items.append(item)
         return items
 
@@ -1476,7 +1482,7 @@ class Ms3dModel:
             return 0
         number = 0
         for item in self.materials:
-            if item.comment_object is not None:
+            if item.comment_object is not None and item.comment_object.comment:
                 number += 1
         return number
 
@@ -1486,7 +1492,7 @@ class Ms3dModel:
             return None
         items = []
         for item in self.materials:
-            if item.comment_object is not None:
+            if item.comment_object is not None and item.comment_object.comment:
                 items.append(item)
         return items
 
@@ -1497,7 +1503,7 @@ class Ms3dModel:
             return 0
         number = 0
         for item in self.joints:
-            if item.comment_object is not None:
+            if item.comment_object is not None and item.comment_object.comment:
                 number += 1
         return number
 
@@ -1507,16 +1513,16 @@ class Ms3dModel:
             return None
         items = []
         for item in self.joints:
-            if item.comment_object is not None:
+            if item.comment_object is not None and item.comment_object.comment:
                 items.append(item)
         return items
 
 
     @property
     def has_model_comment(self):
-        if self.comment_object is None:
-            return 0
-        return 1
+        if self.comment_object is not None and self.comment_object.comment:
+            return 1
+        return 0
 
     @property
     def comment_object(self):
@@ -1811,36 +1817,37 @@ class Ms3dModel:
                     " _progress={0}\n  type: '{1}'\n  value: '{2}'".format(
                     _progress, type, value, traceback))
 
-            # try best to continue far as possible
-            if not 'JOINTS' in _progress:
-                _number_joints = 0
-                self._joints = []
-
-            if not 'GROUP_COMMENTS' in _progress:
-                self.sub_version_comments = 0
-                _number_group_comments = 0
-
-            if not 'MATERIAL_COMMENTS' in _progress:
-                _number_material_comments = 0
-
-            if not 'JOINT_COMMENTS' in _progress:
-                _number_joint_comments = 0
-
-            if not 'MODEL_COMMENTS' in _progress:
-                _has_model_comment = 0
-                self._comment_object = Ms3dComment()
-
-            if not 'VERTEX_EXTRA' in _progress:
-                self.sub_version_vertex_extra = 0
-
-            if not 'JOINT_EXTRA' in _progress:
-                self.sub_version_joint_extra = 0
-
-            if not 'MODEL_EXTRA' in _progress:
-                self.sub_version_model_extra = 0
-                self._model_ex_object = Ms3dModelEx()
         else:
             pass
+
+        # try best to continue far as possible
+        if not 'JOINTS' in _progress:
+            _number_joints = 0
+            self._joints = []
+
+        if not 'GROUP_COMMENTS' in _progress:
+            self.sub_version_comments = 0
+            _number_group_comments = 0
+
+        if not 'MATERIAL_COMMENTS' in _progress:
+            _number_material_comments = 0
+
+        if not 'JOINT_COMMENTS' in _progress:
+            _number_joint_comments = 0
+
+        if not 'MODEL_COMMENTS' in _progress:
+            _has_model_comment = 0
+            self._comment_object = None # Ms3dComment()
+
+        if not 'VERTEX_EXTRA' in _progress:
+            self.sub_version_vertex_extra = 0
+
+        if not 'JOINT_EXTRA' in _progress:
+            self.sub_version_joint_extra = 0
+
+        if not 'MODEL_EXTRA' in _progress:
+            self.sub_version_model_extra = 0
+            self._model_ex_object = Ms3dModelEx()
 
         return
 

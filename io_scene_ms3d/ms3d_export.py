@@ -37,15 +37,12 @@ from math import (
         )
 from mathutils import (
         Vector,
-        Euler,
-        Matrix,
         )
 from os import (
         path,
         )
 from sys import (
         exc_info,
-        float_info,
         )
 from time import (
         time,
@@ -72,12 +69,25 @@ else:
     from io_scene_ms3d.ms3d_spec import (
             Ms3dSpec,
             Ms3dModel,
+            Ms3dModelEx,
+            Ms3dVertex,
+            Ms3dVertexEx2,
+            Ms3dTriangle,
+            Ms3dGroup,
+            Ms3dMaterial,
+            Ms3dJoint,
+            Ms3dJointEx,
+            Ms3dRotationKeyframe,
+            Ms3dTranslationKeyframe,
+            Ms3dComment,
+            Ms3dCommentEx,
             )
     from io_scene_ms3d.ms3d_utils import (
             select_all,
             enable_pose_mode,
             enable_edit_mode,
             pre_setup_environment,
+            post_setup_environment,
             )
     from io_scene_ms3d.ms3d_ui import (
             Ms3dUi,
@@ -86,7 +96,10 @@ else:
 
 
 #import blender stuff
-import bpy
+from bpy import (
+        context,
+        ops,
+        )
 import bmesh
 
 
@@ -104,12 +117,12 @@ class Ms3dExporter():
     def write(self, blender_context):
         """convert bender content to ms3d content and write it to file"""
 
-        t1 = time.time()
+        t1 = time()
         t2 = None
 
         try:
             # setup environment
-            pre_setup_environment(self)
+            pre_setup_environment(self, blender_context)
 
             # create an empty ms3d template
             ms3d_model = Ms3dModel()
@@ -117,12 +130,12 @@ class Ms3dExporter():
             # inject blender data to ms3d file
             self.from_blender(blender_context, ms3d_model)
 
-            t2 = time.time()
+            t2 = time()
 
             self.file = None
             try:
                 # write ms3d file to disk
-                self.file = io.FileIO(self.filepath, "wb")
+                self.file = io.FileIO(self.options.filepath, "wb")
 
                 ms3d_model.write(self.file)
                 self.file.flush()
@@ -130,24 +143,37 @@ class Ms3dExporter():
                 if self.file is not None:
                     self.file.close()
 
-            # finalize/restore environment
-            post_setup_environment(self, False)
+            # if option is set, this time will enlargs the io time
+            if (self.options.prop_verbose):
+                ms3d_model.print_internal()
+
+            post_setup_environment(self, blender_context)
+            # restore active object
+            context.scene.objects.active = self.active_object
+
+            if ((not context.scene.objects.active)
+                    and (context.selected_objects)):
+                context.scene.objects.active \
+                        = context.selected_objects[0]
+
+            # restore pre operator undo state
+            context.user_preferences.edit.use_global_undo = self.undo
 
         except Exception:
-            type, value, traceback = sys.exc_info()
+            type, value, traceback = exc_info()
             print("write - exception in try block\n  type: '{0}'\n"
                     "  value: '{1}'".format(type, value, traceback))
 
             if t2 is None:
-                t2 = time.time()
+                t2 = time()
 
             raise
 
         else:
             pass
 
-        t3 = time.time()
-        print(ms3d_str['SUMMARY_IMPORT'].format(
+        t3 = time()
+        print(ms3d_str['SUMMARY_EXPORT'].format(
                 (t3 - t1), (t2 - t1), (t3 - t2)))
 
         return {"FINISHED"}
@@ -155,25 +181,163 @@ class Ms3dExporter():
 
     ###########################################################################
     def from_blender(self, blender_context, ms3d_model):
-        """ known limitations:
-            - bones unsupported yet
-            - joints unsupported yet
-            - very bad performance
+        blender_mesh_objects = self.create_geometry(blender_context, ms3d_model)
+        self.create_animation(blender_context, ms3d_model, blender_mesh_objects)
 
-        notes:
-            - interpreating a blender-mesh-objects as ms3d-group
-            - only one material allowed per group in ms3d,
-              maybe sub-split a mesh in to material groups???"""
+    ###########################################################################
+    def create_geometry(self, blender_context, ms3d_model):
+        blender_mesh_objects = []
 
+        if self.options.prop_selected:
+            source = blender_context.selected_objects
+        else:
+            source = blender_context.blend_data.objects
+
+        for blender_object in source:
+            if blender_object and blender_object.type == 'MESH' \
+                    and blender_object.is_visible(blender_context.scene):
+                blender_mesh_objects.append(blender_object)
+
+        blender_scene = blender_context.scene
+
+        blender_to_ms3d_vertices = {}
+        blender_to_ms3d_triangles = {}
+        blender_to_ms3d_groups = {}
+        blender_to_ms3d_materials = {}
+        for blender_mesh_object in blender_mesh_objects:
+            ##########################
+            # i have to use BMesh, because there are several custom data stored.
+            # BMesh doesn't support quads_convert_to_tris()
+            # so, i use that very ugly way:
+            # create a complete copy of mesh and bend object data
+            # to be able to apply operations to it.
+            blender_mesh_backup = blender_mesh_object.data
+
+            # get a temporary mesh with applied modifiers
+            blender_mesh_temp = blender_mesh_object.to_mesh(blender_scene,
+                    self.options.prop_apply_modifier,
+                    self.options.prop_apply_modifier_mode)
+            # assign temporary mesh as new object data
+            blender_mesh_object.data = blender_mesh_temp
+
+            # convert to tris
+            enable_edit_mode(True)
+            select_all(True)
+            if ops.mesh.quads_convert_to_tris.poll():
+                ops.mesh.quads_convert_to_tris()
+            enable_edit_mode(False)
+
+            enable_edit_mode(True)
+            bm = bmesh.from_edit_mesh(blender_mesh_temp)
+
+            layer_texture = bm.faces.layers.tex.get(
+                    ms3d_str['OBJECT_LAYER_TEXTURE'])
+            if layer_texture is None:
+                layer_texture = bm.faces.layers.tex.new(
+                        ms3d_str['OBJECT_LAYER_TEXTURE'])
+
+            layer_smoothing_group = bm.faces.layers.int.get(
+                    ms3d_str['OBJECT_LAYER_SMOOTHING_GROUP'])
+            if layer_smoothing_group is None:
+                layer_smoothing_group = bm.faces.layers.int.new(
+                        ms3d_str['OBJECT_LAYER_SMOOTHING_GROUP'])
+
+            layer_group = bm.faces.layers.int.get(
+                    ms3d_str['OBJECT_LAYER_GROUP'])
+            if layer_group is None:
+                layer_group = bm.faces.layers.int.new(
+                        ms3d_str['OBJECT_LAYER_GROUP'])
+
+            layer_uv = bm.loops.layers.uv.get(ms3d_str['OBJECT_LAYER_UV'])
+            if layer_uv is None:
+                layer_uv = bm.loops.layers.uv.new(ms3d_str['OBJECT_LAYER_UV'])
+
+            for bmv in bm.verts:
+                item = blender_to_ms3d_vertices.get(bmv)
+                if item is None:
+                    index = len(ms3d_model._vertices)
+                    ms3d_vertex = Ms3dVertex()
+                    ms3d_vertex.__index = index
+                    ms3d_vertex._vertex = (self.matrix_coordination_system \
+                            * (bmv.co + blender_mesh_object.location))[:]
+                    ms3d_model._vertices.append(ms3d_vertex)
+                    blender_to_ms3d_vertices[bmv] = ms3d_vertex
+
+            for bmf in bm.faces:
+                item = blender_to_ms3d_triangles.get(bmf)
+                if item is None:
+                    index = len(ms3d_model._triangles)
+                    ms3d_triangle = Ms3dTriangle()
+                    ms3d_triangle.__index = index
+                    bmv0 = bmf.verts[0]
+                    bmv1 = bmf.verts[1]
+                    bmv2 = bmf.verts[2]
+                    ms3d_triangle._vertex_indices = (
+                            blender_to_ms3d_vertices[bmv0].__index,
+                            blender_to_ms3d_vertices[bmv1].__index,
+                            blender_to_ms3d_vertices[bmv2].__index,
+                            )
+                    ms3d_triangle._vertex_normals = (
+                            (self.matrix_coordination_system * bmv0.normal)[:],
+                            (self.matrix_coordination_system * bmv1.normal)[:],
+                            (self.matrix_coordination_system * bmv2.normal)[:],
+                            )
+                    ms3d_triangle._s = (
+                            bmf.loops[0][layer_uv].uv.x,
+                            bmf.loops[0][layer_uv].uv.x,
+                            bmf.loops[0][layer_uv].uv.x,
+                            )
+                    ms3d_triangle._t = (
+                            1.0 - bmf.loops[0][layer_uv].uv.y,
+                            1.0 - bmf.loops[0][layer_uv].uv.y,
+                            1.0 - bmf.loops[0][layer_uv].uv.y,
+                            )
+                    ms3d_triangle.smoothing_group = bmf[layer_smoothing_group]
+                    ms3d_model._triangles.append(ms3d_triangle)
+                    blender_to_ms3d_triangles[bmf] = ms3d_triangle
+
+            if bm is not None:
+                bm.free()
+
+            enable_edit_mode(False)
+
+            ##########################
+            # restore original object data
+            blender_mesh_object.data = blender_mesh_backup
+
+            ##########################
+            # remove the temporary data
+            if blender_mesh_temp is not None:
+                blender_mesh_temp.user_clear()
+                blender_context.blend_data.meshes.remove(blender_mesh_temp)
+
+            # DEBUG:
+            print("DEBUG: blender_mesh_object: {}".format(blender_mesh_object))
+
+        return blender_mesh_objects
+
+
+    ###########################################################################
+    def create_animation(self, blender_context, ms3d_model, blender_mesh_objects):
+        ##########################
+        # setup scene
+        blender_scene = blender_context.scene
+        ms3d_model.animation_fps = blender_scene.render.fps * blender_scene.render.fps_base
+        ms3d_model.number_total_frames = (blender_scene.frame_end - blender_scene.frame_start) + 1
+        ms3d_model.current_time = (blender_scene.frame_current - blender_scene.frame_start) / (blender_scene.render.fps * blender_scene.render.fps_base)
+
+        pass
+
+
+    ###########################################################################
+    def old_from_blender(self, blender_context, ms3d_model):
         blender = blender_context.blend_data
 
-        # todo: use an optimized collection for quick search vertices;
-        # with ~(o log n); currently its (o**n)
         ms3d_vertices = []
 
-        ms3dTriangles = []
-        ms3dMaterials = []
-        ms3dGroups = []
+        ms3d_triangles = []
+        ms3d_materials = []
+        ms3d_groups = []
 
         flagHandleMaterials = \
                 (self.options.handle_materials)
@@ -185,8 +349,8 @@ class Ms3dExporter():
                     continue
 
                 ms3d_material = self.create_material(blender_material, None)
-                if ms3d_material and (ms3d_material not in ms3dMaterials):
-                    ms3dMaterials.append(ms3d_material)
+                if ms3d_material and (ms3d_material not in ms3d_materials):
+                    ms3d_materials.append(ms3d_material)
 
         nLayers = len(blender_context.scene.layers)
         # handle blender-objects
@@ -211,7 +375,7 @@ class Ms3dExporter():
                 continue
 
             # make new object as active and only selected object
-            bpy.context.scene.objects.active = blender_object
+            context.scene.objects.active = blender_object
 
             matrix_object = blender_object.matrix_basis
 
@@ -239,7 +403,7 @@ class Ms3dExporter():
                     blender_context, ms3d_model, blender_mesh.faces)
 
             # handle blender-faces
-            group_index = len(ms3dGroups)
+            group_index = len(ms3d_groups)
             for iFace, blender_face in enumerate(blender_mesh.faces):
                 if (smoothGroupFaces) and (iFace in smoothGroupFaces):
                     smoothing_group = smoothGroupFaces[iFace]
@@ -252,10 +416,10 @@ class Ms3dExporter():
                             ms3d_vertices, blender_mesh, blender_face,
                             group_index, smoothing_group, 0)
                     # put triangle
-                    ms3dTriangles.append(ms3dTriangle)
+                    ms3d_triangles.append(ms3dTriangle)
                     # put triangle index
                     ms3d_group.triangle_indices.append(
-                            ms3dTriangles.index(ms3dTriangle))
+                            ms3d_triangles.index(ms3dTriangle))
 
                     # 2'nd tri of quad
                     ms3dTriangle = self.create_triangle(matrix_object,
@@ -268,10 +432,10 @@ class Ms3dExporter():
                             group_index, smoothing_group)
 
                 # put triangle
-                ms3dTriangles.append(ms3dTriangle)
+                ms3d_triangles.append(ms3dTriangle)
                 # put triangle index
                 ms3d_group.triangle_indices.append(
-                        ms3dTriangles.index(ms3dTriangle))
+                        ms3d_triangles.index(ms3dTriangle))
             """
 
             # handle material (take the first one)
@@ -286,21 +450,21 @@ class Ms3dExporter():
                             None)
 
                 if tmpMaterial1:
-                    ms3d_group.material_index = ms3dMaterials.index(tmpMaterial1)
+                    ms3d_group.material_index = ms3d_materials.index(tmpMaterial1)
 
                     # upgrade poor material.texture with rich material.texture
-                    tmpMaterial2 = ms3dMaterials[ms3d_group.material_index]
+                    tmpMaterial2 = ms3d_materials[ms3d_group.material_index]
                     if (tmpMaterial1.texture) and (not tmpMaterial2.texture):
                         tmpMaterial2.texture = tmpMaterial1.texture
 
             # put group
-            ms3dGroups.append(ms3d_group)
+            ms3d_groups.append(ms3d_group)
 
         # injecting common data
         ms3d_model._vertices = ms3d_vertices
-        ms3d_model._triangles = ms3dTriangles
-        ms3d_model._groups = ms3dGroups
-        ms3d_model._materials = ms3dMaterials
+        ms3d_model._triangles = ms3d_triangles
+        ms3d_model._groups = ms3d_groups
+        ms3d_model._materials = ms3d_materials
 
         # inject currently unsupported data
         ms3d_model._vertex_ex = []
@@ -389,22 +553,22 @@ class Ms3dExporter():
                         and (blender_texture_slot.use_map_color_diffuse)):
                     if ((blender_texture_slot.texture.image)
                             and (blender_texture_slot.texture.image.filepath)):
-                        imageDiffuse = os.path.split(
+                        imageDiffuse = path.split(
                                 blender_texture_slot.texture.image.filepath)[1]
                     elif (not blender_texture_slot.texture.image):
                         # case it image was not loaded
-                        imageDiffuse = os.path.split(
+                        imageDiffuse = path.split(
                                 blender_texture_slot.texture.name)[1]
 
                 elif ((not imageAlpha)
                         and (blender_texture_slot.use_map_color_alpha)):
                     if ((blender_texture_slot.texture.image)
                             and (blender_texture_slot.texture.image.filepath)):
-                        imageAlpha = os.path.split(
+                        imageAlpha = path.split(
                                 blender_texture_slot.texture.image.filepath)[1]
                     elif (not blender_texture_slot.texture.image):
                         # case it image was not loaded
-                        imageAlpha = os.path.split(
+                        imageAlpha = path.split(
                                 blender_texture_slot.texture.name)[1]
 
             # if no diffuse image was found, try to find a uv texture image
@@ -412,7 +576,7 @@ class Ms3dExporter():
                 for blender_texture_face in blender_uv_layer.data:
                     if ((blender_texture_face) and (blender_texture_face.image)
                             and (blender_texture_face.image.filepath)):
-                        imageDiffuse = os.path.split(
+                        imageDiffuse = path.split(
                                 blender_texture_face.image.filepath)[1]
                         break
 
@@ -427,7 +591,7 @@ class Ms3dExporter():
 
     ###########################################################################
     def create_normal(self,  matrix_object, blender_vertex):
-        mathVector = mathutils.Vector(blender_vertex.normal)
+        mathVector = Vector(blender_vertex.normal)
 
         # apply its object matrix (translation, rotation, scale)
         mathVector = (matrix_object * mathVector)
@@ -564,7 +728,7 @@ class Ms3dExporter():
         if (blender_vertex.hide):
             ms3dVertex.flags |= Ms3dSpec.FLAG_HIDDEN
 
-        mathVector = mathutils.Vector(blender_vertex.co)
+        mathVector = Vector(blender_vertex.co)
 
         # apply its object matrix (translation, rotation, scale)
         mathVector = (matrix_object * mathVector)
@@ -583,7 +747,7 @@ class Ms3dExporter():
         enable_edit_mode(True)
 
         # enable face-selection-mode
-        bpy.context.tool_settings.mesh_select_mode = [False, False, True]
+        context.tool_settings.mesh_select_mode = [False, False, True]
 
         # deselect all "faces"
         select_all(False) # mesh
@@ -609,8 +773,8 @@ class Ms3dExporter():
 
             enable_edit_mode(True)
 
-            if bpy.ops.mesh.select_linked.poll():
-                bpy.ops.mesh.select_linked()
+            if ops.mesh.select_linked.poll():
+                ops.mesh.select_linked()
 
             enable_edit_mode(False)
 
