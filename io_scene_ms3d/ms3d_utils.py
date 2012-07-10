@@ -47,7 +47,6 @@ from mathutils import (
 if ('bpy' in locals()):
     import imp
     pass
-
 else:
     pass
 
@@ -60,7 +59,11 @@ from bpy import (
 
 
 ###############################################################################
-def enable_edit_mode(enable):
+def enable_edit_mode(enable, blender_context=context):
+    if blender_context.active_object is None \
+            or not blender_context.active_object.type in {'MESH', 'ARMATURE', }:
+        return
+
     if enable:
         modeString = 'EDIT'
     else:
@@ -71,7 +74,11 @@ def enable_edit_mode(enable):
 
 
 ###############################################################################
-def enable_pose_mode(enable):
+def enable_pose_mode(enable, blender_context=context):
+    if blender_context.active_object is None \
+            or not blender_context.active_object.type in {'ARMATURE', }:
+        return
+
     if enable:
         modeString = 'POSE'
     else:
@@ -119,25 +126,25 @@ def create_coordination_system_matrix(options):
 
 
 ###############################################################################
-def pre_setup_environment(porter):
+def pre_setup_environment(porter, blender_context):
     # inject undo to porter
     # and turn off undo
-    porter.undo = context.user_preferences.edit.use_global_undo
-    context.user_preferences.edit.use_global_undo = False
+    porter.undo = blender_context.user_preferences.edit.use_global_undo
+    blender_context.user_preferences.edit.use_global_undo = False
 
-    # inject activeObject to self
-    porter.activeObject = context.scene.objects.active
+    # inject active_object to self
+    porter.active_object = blender_context.scene.objects.active
 
     # change to a well defined mode
     enable_edit_mode(True)
 
     # enable face-selection-mode
-    context.tool_settings.mesh_select_mode = (False, False, True)
+    blender_context.tool_settings.mesh_select_mode = (False, False, True)
 
     # change back to object mode
     enable_edit_mode(False)
 
-    context.scene.update()
+    blender_context.scene.update()
 
     # inject matrix_scaled_coordination_system to self
     porter.matrix_scaled_coordination_system, \
@@ -147,6 +154,19 @@ def pre_setup_environment(porter):
     # inject splitted filepath
     porter.filepath_splitted = path.split(porter.options.filepath)
 
+
+###############################################################################
+def post_setup_environment(porter, blender_context):
+    # restore active object
+    blender_context.scene.objects.active = porter.active_object
+
+    if not blender_context.scene.objects.active \
+            and blender_context.selected_objects:
+        blender_context.scene.objects.active \
+                = blender_context.selected_objects[0]
+
+    # restore pre operator undo state
+    blender_context.user_preferences.edit.use_global_undo = porter.undo
 
 ###############################################################################
 

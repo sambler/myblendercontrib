@@ -78,6 +78,7 @@ else:
             enable_pose_mode,
             enable_edit_mode,
             pre_setup_environment,
+            post_setup_environment,
             )
     from io_scene_ms3d.ms3d_ui import (
             Ms3dUi,
@@ -86,7 +87,10 @@ else:
 
 
 #import blender stuff
-import bpy
+from bpy import (
+        data,
+        ops,
+        )
 import bmesh
 from bpy_extras.image_utils import (
         load_image,
@@ -110,9 +114,10 @@ class Ms3dImporter():
         t1 = time()
         t2 = None
         self.has_textures = False
+
         try:
             # setup environment
-            pre_setup_environment(self)
+            pre_setup_environment(self, blender_context)
 
             # create an empty ms3d template
             ms3d_model = Ms3dModel(self.filepath_splitted[1])
@@ -130,25 +135,27 @@ class Ms3dImporter():
                     self.file.close()
 
             # if option is set, this time will enlargs the io time
-            if (self.options.prop_verbose):
+            if self.options.prop_verbose:
                 ms3d_model.print_internal()
 
             t2 = time()
 
             is_valid, statistics = ms3d_model.is_valid()
 
-            if (is_valid):
+            if is_valid:
                 # inject ms3d data to blender
                 self.to_blender(blender_context, ms3d_model)
 
+                blender_scene = blender_context.scene
+
                 # finalize/restore environment
-                if (self.options.prop_unit_mm):
+                if self.options.prop_unit_mm:
                     # set metrics
-                    bpy.context.scene.unit_settings.system = 'METRIC'
-                    bpy.context.scene.unit_settings.system_rotation = 'DEGREES'
-                    bpy.context.scene.unit_settings.scale_length = 0.001 #1.0mm
-                    bpy.context.scene.unit_settings.use_separate = False
-                    bpy.context.tool_settings.normal_size = 1.0 # 1.0mm
+                    blender_scene.unit_settings.system = 'METRIC'
+                    blender_scene.unit_settings.system_rotation = 'DEGREES'
+                    blender_scene.unit_settings.scale_length = 0.001 #1.0mm
+                    blender_scene.unit_settings.use_separate = False
+                    blender_context.tool_settings.normal_size = 1.0 # 1.0mm
 
 
                     # set all 3D views to texture shaded
@@ -158,7 +165,7 @@ class Ms3dImporter():
                     else:
                         viewport_shade = 'SOLID'
 
-                    for screen in bpy.context.blend_data.screens:
+                    for screen in blender_context.blend_data.screens:
                         for area in screen.areas:
                             if (area.type != 'VIEW_3D'):
                                 continue
@@ -174,18 +181,9 @@ class Ms3dImporter():
                                 space.clip_start = 0.1 # 0.1mm
                                 space.clip_end = 1000000.0 # 1km
 
-                bpy.context.scene.update()
+                blender_scene.update()
 
-                # restore active object
-                bpy.context.scene.objects.active = self.activeObject
-
-                if ((not bpy.context.scene.objects.active)
-                        and (bpy.context.selected_objects)):
-                    bpy.context.scene.objects.active \
-                            = bpy.context.selected_objects[0]
-
-                # restore pre operator undo state
-                bpy.context.user_preferences.edit.use_global_undo = self.undo
+                post_setup_environment(self, blender_context)
 
             print()
             print("##########################################################")
@@ -216,14 +214,40 @@ class Ms3dImporter():
     ###########################################################################
     def to_blender(self, blender_context, ms3d_model):
         blender_mesh_object = self.create_geometry(blender_context, ms3d_model)
-        self.create_animation(blender_context, ms3d_model, blender_mesh_object)
+        blender_armature_object = self.create_animation(blender_context, ms3d_model, blender_mesh_object)
+
+        self.organize_objects(blender_context, ms3d_model, [blender_mesh_object, blender_armature_object])
+
+
+    ###########################################################################
+    def organize_objects(self, blender_context, ms3d_model, blender_objects):
+        ##########################
+        # blender_armature_object to blender_mesh_object
+        # that has bad side effects to the armature
+        # and causes cyclic dependecies
+        ###blender_armature_object.parent = blender_mesh_object
+        ###blender_mesh_object.parent = blender_armature_object
+
+        blender_scene = blender_context.scene
+
+        blender_group = blender_context.blend_data.groups.new(ms3d_model.name + ".g")
+        blender_empty_object = blender_context.blend_data.objects.new(ms3d_model.name + ".e", None)
+        blender_empty_object.location = blender_scene.cursor_location
+        blender_scene.objects.link(blender_empty_object)
+        blender_group.objects.link(blender_empty_object)
+
+        for blender_object in blender_objects:
+            if blender_object is not None:
+                blender_group.objects.link(blender_object)
+                blender_object.parent = blender_empty_object
+
 
     ###########################################################################
     def create_geometry(self, blender_context, ms3d_model):
         ##########################
         # blender stuff:
         # create a blender Mesh
-        blender_mesh = bpy.data.meshes.new(ms3d_model.name + ".m")
+        blender_mesh = blender_context.blend_data.meshes.new(ms3d_model.name + ".m")
         blender_mesh.ms3d.name = ms3d_model.name
         ms3d_comment = ms3d_model.comment_object
         if ms3d_comment is not None:
@@ -239,7 +263,7 @@ class Ms3dImporter():
         ##########################
         # blender stuff:
         # link to blender object
-        blender_mesh_object = bpy.data.objects.new(
+        blender_mesh_object = blender_context.blend_data.objects.new(
                 ms3d_model.name + ".m", blender_mesh)
 
         ##########################
@@ -331,7 +355,7 @@ class Ms3dImporter():
         ms3d_to_blender_material = {}
         for ms3d_material_index, ms3d_material in enumerate(
                 ms3d_model.materials):
-            blender_material = bpy.data.materials.new(ms3d_material.name)
+            blender_material = blender_context.blend_data.materials.new(ms3d_material.name)
 
             # custom datas
             blender_material.ms3d.name = ms3d_material.name
@@ -395,14 +419,14 @@ class Ms3dImporter():
                 file_name_diffuse = path.split(ms3d_material.texture)[1]
                 blender_image_diffuse = load_image(
                         file_name_diffuse, dir_name_diffuse)
-                blender_texture_diffuse = bpy.data.textures.new(
+                blender_texture_diffuse = blender_context.blend_data.textures.new(
                         name=file_name_diffuse, type='IMAGE')
                 blender_texture_diffuse.image = blender_image_diffuse
                 blender_texture_slot_diffuse \
                         = blender_material.texture_slots.add()
                 blender_texture_slot_diffuse.texture = blender_texture_diffuse
                 blender_texture_slot_diffuse.texture_coords = 'UV'
-                blender_texture_slot_diffuse.uv_layer = layer_texture.name
+                blender_texture_slot_diffuse.uv_layer = layer_uv.name
                 blender_texture_slot_diffuse.use_map_color_diffuse = True
                 blender_texture_slot_diffuse.use_map_alpha = False
             else:
@@ -414,14 +438,14 @@ class Ms3dImporter():
                 file_name_alpha = path.split(ms3d_material.alphamap)[1]
                 blender_image_alpha = load_image(
                         file_name_alpha, dir_name_alpha)
-                blender_texture_alpha = bpy.data.textures.new(
+                blender_texture_alpha = blender_context.blend_data.textures.new(
                         name=file_name_alpha, type='IMAGE')
                 blender_texture_alpha.image = blender_image_alpha
                 blender_texture_slot_alpha \
                         = blender_material.texture_slots.add()
                 blender_texture_slot_alpha.texture = blender_texture_alpha
                 blender_texture_slot_alpha.texture_coords = 'UV'
-                blender_texture_slot_alpha.uv_layer = layer_texture.name
+                blender_texture_slot_alpha.uv_layer = layer_uv.name
                 blender_texture_slot_alpha.use_map_color_diffuse = False
                 blender_texture_slot_alpha.use_map_alpha = True
                 blender_texture_slot_alpha.use_rgb_to_intensity = True
@@ -484,27 +508,33 @@ class Ms3dImporter():
             if blender_group_id is not None:
                 bmf[layer_group] = blender_group_id
 
-            ms3d_material_index \
-                    = ms3d_model.groups[ms3d_triangle.group_index].material_index
-            if ms3d_material_index != Ms3dSpec.NONE_GROUP_MATERIAL_INDEX:
-                # BMFace.material_index expects...
-                # index of material in bpy.types.Mesh.materials,
-                # not index of material in bpy.data.materials!
-                bmf.material_index = ms3d_material_index
+            if ms3d_triangle.group_index >= 0 \
+                    and ms3d_triangle.group_index < len(ms3d_model.groups):
+                ms3d_material_index \
+                        = ms3d_model.groups[ms3d_triangle.group_index].material_index
+                if ms3d_material_index != Ms3dSpec.NONE_GROUP_MATERIAL_INDEX:
+                    # BMFace.material_index expects...
+                    # index of material in types.Mesh.materials,
+                    # not index of material in blender_context.blend_data.materials!
+                    bmf.material_index = ms3d_material_index
 
-                # apply diffuse texture image to face, to be visible in 3d view
-                bmf[layer_texture].image = ms3d_to_blender_material.get(
-                        ms3d_material_index)
-            else:
-                # set material index to highes possible index
-                # - in most cases there is no maretial assigned ;)
-                bmf.material_index = 32766
+                    # apply diffuse texture image to face, to be visible in 3d view
+                    bmf[layer_texture].image = ms3d_to_blender_material.get(
+                            ms3d_material_index)
+                else:
+                    # set material index to highes possible index
+                    # - in most cases there is no maretial assigned ;)
+                    bmf.material_index = 32766
+                    pass
 
             # helper dictionary for post-processing smoothing_groups
-            if smoothing_group_blender_faces.get(
-                    ms3d_triangle.smoothing_group) is None:
-                smoothing_group_blender_faces[ms3d_triangle.smoothing_group] = []
-            smoothing_group_blender_faces[ms3d_triangle.smoothing_group].append(bmf)
+            smoothing_group_blender_face = smoothing_group_blender_faces.get(
+                    ms3d_triangle.smoothing_group)
+            if smoothing_group_blender_face is None:
+                smoothing_group_blender_face = []
+                smoothing_group_blender_faces[ms3d_triangle.smoothing_group] \
+                        = smoothing_group_blender_face
+            smoothing_group_blender_face.append(bmf)
 
         ##########################
         # BMesh stuff:
@@ -527,6 +557,7 @@ class Ms3dImporter():
         # finally tranfer BMesh to Mesh
         bm.to_mesh(blender_mesh)
         bm.free()
+
 
         #
         # end BMesh stuff
@@ -561,12 +592,12 @@ class Ms3dImporter():
 
         ##########################
         # create new blender_armature_object
-        blender_armature = bpy.data.armatures.new(ms3d_armature_name)
+        blender_armature = blender_context.blend_data.armatures.new(ms3d_armature_name)
         blender_armature.ms3d.name = ms3d_model.name
         blender_armature.draw_type = 'STICK'
         blender_armature.show_axes = True
         blender_armature.use_auto_ik = True
-        blender_armature_object = bpy.data.objects.new(
+        blender_armature_object = blender_context.blend_data.objects.new(
                 ms3d_armature_name, blender_armature)
         blender_scene.objects.link(blender_armature_object)
         blender_armature_object.location = blender_scene.cursor_location
@@ -608,9 +639,9 @@ class Ms3dImporter():
         for ms3d_joint in ms3d_model.joints:
             item = ms3d_joint_by_name.get(ms3d_joint.name)
             if item is None:
-                ms3d_joint.children = []
-                ms3d_joint.matrix_local = Matrix()
-                ms3d_joint.matrix_global = Matrix()
+                ms3d_joint.__children = []
+                ms3d_joint.__matrix_local = Matrix()
+                ms3d_joint.__matrix_global = Matrix()
                 ms3d_joint_by_name[ms3d_joint.name] = ms3d_joint
 
             matrix_local = (Matrix.Rotation(ms3d_joint.rotation[2], 4, 'Z')
@@ -619,18 +650,18 @@ class Ms3dImporter():
             matrix_local = Matrix.Translation(Vector(ms3d_joint.position)
                     ) * matrix_local
 
-            ms3d_joint.matrix_local = matrix_local
-            ms3d_joint.matrix_global = matrix_global = matrix_local
+            ms3d_joint.__matrix_local = matrix_local
+            ms3d_joint.__matrix_global = matrix_local
 
             if ms3d_joint.parent_name:
                 ms3d_joint_parent = ms3d_joint_by_name.get(
                         ms3d_joint.parent_name)
                 if ms3d_joint_parent is not None:
-                    ms3d_joint_parent.children.append(ms3d_joint)
+                    ms3d_joint_parent.__children.append(ms3d_joint)
 
-                    matrix_global = ms3d_joint_parent.matrix_global \
-                            * matrix_global
-                    ms3d_joint.matrix_global = matrix_global
+                    matrix_global = ms3d_joint_parent.__matrix_global \
+                            * matrix_local
+                    ms3d_joint.__matrix_global = matrix_global
 
         ##########################
         # ms3d_joint to blender_edit_bone
@@ -645,18 +676,18 @@ class Ms3dImporter():
             blender_armature.edit_bones.active = blender_edit_bone
 
             ms3d_joint = ms3d_joint_by_name[ms3d_joint.name]
-            ms3d_joint_vector = ms3d_joint.matrix_global * Vector()
+            ms3d_joint_vector = ms3d_joint.__matrix_global * Vector()
 
             blender_edit_bone.head \
                     = self.matrix_scaled_coordination_system \
                     * ms3d_joint_vector
 
-            number_children = len(ms3d_joint.children)
+            number_children = len(ms3d_joint.__children)
             if number_children > 0:
                 vector_midpoint = Vector()
-                for item_child in ms3d_joint.children:
+                for item_child in ms3d_joint.__children:
                     ms3d_joint_child_vector \
-                            = ms3d_joint_by_name[item_child.name].matrix_global \
+                            = ms3d_joint_by_name[item_child.name].__matrix_global \
                             * Vector()
                     vector_midpoint += ms3d_joint_child_vector \
                             - ms3d_joint_vector
@@ -669,13 +700,13 @@ class Ms3dImporter():
                 vector_tail_end = Vector()
                 if ms3d_joint.parent_name:
                     ms3d_joint_parent_vector \
-                            = ms3d_joint_by_name[ms3d_joint.parent_name].matrix_global \
+                            = ms3d_joint_by_name[ms3d_joint.parent_name].__matrix_global \
                             * Vector()
                     vector_tail_end = ms3d_joint_vector \
                             - ms3d_joint_parent_vector
                 else:
                     #dummy tail
-                    vector_tail_end = ms3d_joint.matrix_global * Vector()
+                    vector_tail_end = ms3d_joint.__matrix_global * Vector()
                 vector_tail_end.normalize()
                 blender_edit_bone.tail = blender_edit_bone.head \
                         + self.matrix_scaled_coordination_system * vector_tail_end
@@ -694,8 +725,8 @@ class Ms3dImporter():
         # post process bones
         enable_edit_mode(True)
         select_all(True)
-        if bpy.ops.armature.calculate_roll.poll():
-            bpy.ops.armature.calculate_roll(type='Y')
+        if ops.armature.calculate_roll.poll():
+            ops.armature.calculate_roll(type='Y')
         select_all(False)
         enable_edit_mode(False)
 
@@ -719,22 +750,17 @@ class Ms3dImporter():
             if ms3d_comment is not None:
                 blender_bone.ms3d.comment = ms3d_comment.comment
 
-        ##########################
-        # blender_armature_object to blender_mesh_object
-        # that has bad side effects to the armature
-        # and causes cyclic dependecies
-        ###blender_armature_object.parent = blender_mesh_object
-        ###blender_mesh_object.parent = blender_armature_object
 
         ##########################
         if not self.options.prop_animation:
-            return
+            return blender_armature_object
+
 
         ##########################
         # process pose bones
         enable_pose_mode(True)
 
-        blender_action = bpy.data.actions.new(ms3d_action_name)
+        blender_action = blender_context.blend_data.actions.new(ms3d_action_name)
         if blender_armature_object.animation_data is None:
             blender_armature_object.animation_data_create()
         blender_armature_object.animation_data.action = blender_action
@@ -748,8 +774,8 @@ class Ms3dImporter():
                     ms3d_joint.blender_bone_name)
             if blender_pose_bone is None:
                 continue
-            ms3d_joint_local_matrix = ms3d_joint.matrix_local
-            ms3d_joint_global_matrix = ms3d_joint.matrix_global
+            ms3d_joint_local_matrix = ms3d_joint.__matrix_local
+            ms3d_joint_global_matrix = ms3d_joint.__matrix_global
 
             data_path = blender_pose_bone.path_from_id('location')
             fcurve_location_x = blender_action.fcurves.new(data_path, index=0)
@@ -789,6 +815,8 @@ class Ms3dImporter():
                 fcurve_rotation_z.keyframe_points.insert(frame, q.z)
 
         enable_pose_mode(False)
+
+        return blender_armature_object
 
 
 ###############################################################################
