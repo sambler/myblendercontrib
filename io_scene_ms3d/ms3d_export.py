@@ -159,6 +159,13 @@ class Ms3dExporter():
             # restore pre operator undo state
             context.user_preferences.edit.use_global_undo = self.undo
 
+            is_valid, statistics = ms3d_model.is_valid()
+            print()
+            print("##########################################################")
+            print("Blender -> MS3D : [{0}]".format(self.filepath_splitted[1]))
+            print(statistics)
+            print("##########################################################")
+
         except Exception:
             type, value, traceback = exc_info()
             print("write - exception in try block\n  type: '{0}'\n"
@@ -184,6 +191,7 @@ class Ms3dExporter():
         blender_mesh_objects = self.create_geometry(blender_context, ms3d_model)
         self.create_animation(blender_context, ms3d_model, blender_mesh_objects)
 
+        
     ###########################################################################
     def create_geometry(self, blender_context, ms3d_model):
         blender_mesh_objects = []
@@ -211,13 +219,14 @@ class Ms3dExporter():
             # prepare ms3d groups if available
             for ms3d_local_group_index, blender_ms3d_group in enumerate(blender_mesh.ms3d.groups):
                 ms3d_group = Ms3dGroup()
-                ms3d_group.__index = ms3d_local_group_index
                 ms3d_group.name = blender_ms3d_group.name
                 ms3d_group.flags = Ms3dUi.flags_to_ms3d(blender_ms3d_group.flags)
                 if blender_ms3d_group.comment:
                     ms3d_group._comment_object = Ms3dCommentEx()
                     ms3d_group._comment_object.comment = blender_ms3d_group.comment
                     ms3d_group._comment_object.index = len(ms3d_model._groups)
+                ms3d_group.material_index = None # to mark as not setted
+                ms3d_group.__index = len(ms3d_model._groups)
                 ms3d_model._groups.append(ms3d_group)
                 blender_to_ms3d_groups[blender_ms3d_group.id] = ms3d_group
 
@@ -288,7 +297,7 @@ class Ms3dExporter():
                     blender_to_ms3d_vertices[bmv] = ms3d_vertex
 
             ##########################
-            # faces
+            # handle faces / tris
             for bmf in bm.faces:
                 item = blender_to_ms3d_triangles.get(bmf)
                 if item is None:
@@ -298,10 +307,16 @@ class Ms3dExporter():
                     bmv0 = bmf.verts[0]
                     bmv1 = bmf.verts[1]
                     bmv2 = bmf.verts[2]
+                    ms3d_vertex0 = blender_to_ms3d_vertices[bmv0]
+                    ms3d_vertex1 = blender_to_ms3d_vertices[bmv1]
+                    ms3d_vertex2 = blender_to_ms3d_vertices[bmv2]
+                    ms3d_vertex0.reference_count += 1
+                    ms3d_vertex1.reference_count += 1
+                    ms3d_vertex2.reference_count += 1
                     ms3d_triangle._vertex_indices = (
-                            blender_to_ms3d_vertices[bmv0].__index,
-                            blender_to_ms3d_vertices[bmv1].__index,
-                            blender_to_ms3d_vertices[bmv2].__index,
+                            ms3d_vertex0.__index,
+                            ms3d_vertex1.__index,
+                            ms3d_vertex2.__index,
                             )
                     ms3d_triangle._vertex_normals = (
                             (self.matrix_coordination_system * bmv0.normal)[:],
@@ -318,13 +333,21 @@ class Ms3dExporter():
                             1.0 - bmf.loops[1][layer_uv].uv.y,
                             1.0 - bmf.loops[2][layer_uv].uv.y,
                             )
+                    
                     ms3d_triangle.smoothing_group = bmf[layer_smoothing_group]
                     ms3d_model._triangles.append(ms3d_triangle)
 
                     ms3d_group = blender_to_ms3d_groups.get(bmf[layer_group])
                     if ms3d_group is not None:
                         ms3d_triangle.group_index = ms3d_group.__index
+                        if ms3d_group.material_index is None:
+                            ms3d_material = self.get_ms3d_material_add_if(blender_mesh, ms3d_model, blender_to_ms3d_materials, bmf.material_index)
+                            if ms3d_material is None:
+                                ms3d_group.material_index = Ms3dSpec.DEFAULT_GROUP_MATERIAL_INDEX
+                            else:
+                                ms3d_group.material_index = ms3d_material.__index
 
+                        #if ms3d_group.material_index != 
                     blender_to_ms3d_triangles[bmf] = ms3d_triangle
 
             if bm is not None:
@@ -360,6 +383,61 @@ class Ms3dExporter():
         pass
 
 
+    ###########################################################################
+    def get_ms3d_group_add_if(self, blender_ms3d_group, ms3d_model, blender_to_ms3d_groups):
+        ms3d_group = Ms3dGroup()
+        ms3d_group.__index = len(ms3d_model._groups)
+        
+        ms3d_group.name = blender_ms3d_group.name
+        ms3d_group.flags = Ms3dUi.flags_to_ms3d(blender_ms3d_group.flags)
+        ms3d_group.material_index = None # to mark as not setted
+        if blender_ms3d_group.comment:
+            ms3d_group._comment_object = Ms3dCommentEx()
+            ms3d_group._comment_object.comment = blender_ms3d_group.comment
+            ms3d_group._comment_object.index = ms3d_group.__index
+        
+        ms3d_model._groups.append(ms3d_group)
+        
+        blender_to_ms3d_groups[blender_ms3d_group.id] = ms3d_group
+        
+        return ms3d_group
+    
+    
+    ###########################################################################
+    def get_ms3d_material_add_if(self, blender_mesh, ms3d_model, blender_to_ms3d_materials, blender_index):
+        if blender_index < 0 or blender_index >= len(blender_mesh.materials):
+            return None
+            
+        blender_material = blender_mesh.materials[blender_index]
+        ms3d_material = blender_to_ms3d_materials.get(blender_material)
+        if ms3d_material is None:
+            ms3d_material = Ms3dMaterial()
+            ms3d_material.__index = len(ms3d_model.materials)
+            
+            blender_ms3d_material = blender_material.ms3d
+            
+            ms3d_material.name = blender_ms3d_material.name
+            ms3d_material._ambient = blender_ms3d_material.ambient
+            ms3d_material._diffuse = blender_ms3d_material.diffuse
+            ms3d_material._specular = blender_ms3d_material.specular
+            ms3d_material._emissive = blender_ms3d_material.emissive
+            ms3d_material.shininess = blender_ms3d_material.shininess
+            ms3d_material.transparency = blender_ms3d_material.transparency
+            ms3d_material.mode = Ms3dUi.texture_mode_to_ms3d(blender_ms3d_material.mode)
+            ms3d_material.texture = blender_ms3d_material.texture
+            ms3d_material.alphamap = blender_ms3d_material.alphamap
+            if blender_ms3d_material.comment:
+                ms3d_material._comment_object = Ms3dCommentEx()
+                ms3d_material._comment_object.comment = blender_ms3d_material.comment
+                ms3d_material._comment_object.index = ms3d_material.__index
+                
+            ms3d_model.materials.append(ms3d_material)
+        
+            blender_to_ms3d_materials[blender_material] = ms3d_material
+            
+        return ms3d_material
+
+        
     ###########################################################################
     def old_from_blender(self, blender_context, ms3d_model):
         blender = blender_context.blend_data

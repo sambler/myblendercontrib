@@ -26,7 +26,7 @@ bl_info = {
         'version': (0, 4, 0, 3),
         'blender': (2, 6, 3, 0),
         'location': "File > Import & File > Export",
-        'warning': "[2012-07-09] currently only the importer is implemented",
+        'warning': "[2012-07-10] currently only the importer is implemented",
         'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
                 "Scripts/Import-Export/MilkShape3D_MS3D",
         'tracker_url': "http://projects.blender.org/tracker/index.php"\
