@@ -585,6 +585,9 @@ class Ms3dGroup:
 ###############################################################################
 class Ms3dMaterial:
     """ Ms3dMaterial """
+    """
+    __slots__ was taking out,
+    to be able to inject additional attributes during runtime
     __slots__ = (
             'name',
             'shininess',
@@ -598,7 +601,8 @@ class Ms3dMaterial:
             '_emissive',
             '_comment_object', # Ms3dComment
             )
-
+    """
+    
     def __init__(
             self,
             default_name="",
