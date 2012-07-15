@@ -2529,8 +2529,10 @@ def reSymSave (self):
     
     SYMAP = {VERTL : VERTR for VERTR in R for VERTL in L if R[VERTR] == L[VERTL] }            
     
-    SYSBAR = "/"
-    SYSBAR = "\\" if sys.platform.startswith("w") else print ("UNIX") # REVISO SISTEMA
+    if sys.platform.startswith("w"):
+        SYSBAR = "\\"
+    else:
+         SYSBAR = "/"   
     
     FILEPATH=bpy.data.filepath
     ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
@@ -2547,8 +2549,10 @@ def reSymMesh (self):
     
     BM = bmesh.from_edit_mesh(bpy.context.object.data)
     
-    SYSBAR = "/"
-    SYSBAR = "\\" if sys.platform.startswith("w") else print ("UNIX") # REVISO SISTEMA
+    if sys.platform.startswith("w"):
+        SYSBAR = "\\"
+    else:
+         SYSBAR = "/" 
     
     FILEPATH=bpy.data.filepath
     ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
@@ -2687,4 +2691,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-
