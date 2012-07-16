@@ -2524,13 +2524,15 @@ def reSymSave (self):
     
     BM = bmesh.from_edit_mesh(bpy.context.object.data)   
      
-    L = {VERT.index : [VERT.co[0],VERT.co[1],VERT.co[2]] for VERT in BM.verts[:] if VERT.co[0] < -0.001}
-    R = {VERT.index : [-VERT.co[0],VERT.co[1],VERT.co[2]]  for VERT in BM.verts[:] if VERT.co[0] > 0.001}
+    L = {VERT.index : [VERT.co[0],VERT.co[1],VERT.co[2]] for VERT in BM.verts[:] if VERT.co[0] < 0.0001}
+    R = {VERT.index : [-VERT.co[0],VERT.co[1],VERT.co[2]]  for VERT in BM.verts[:] if VERT.co[0] > -0.0001}
     
     SYMAP = {VERTL : VERTR for VERTR in R for VERTL in L if R[VERTR] == L[VERTL] }            
     
-    SYSBAR = "/"
-    SYSBAR = "\\" if sys.platform.startswith("w") else print ("UNIX") # REVISO SISTEMA
+    if sys.platform.startswith("w"):
+        SYSBAR = "\\"
+    else:
+         SYSBAR = "/"   
     
     FILEPATH=bpy.data.filepath
     ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
@@ -2547,8 +2549,10 @@ def reSymMesh (self):
     
     BM = bmesh.from_edit_mesh(bpy.context.object.data)
     
-    SYSBAR = "/"
-    SYSBAR = "\\" if sys.platform.startswith("w") else print ("UNIX") # REVISO SISTEMA
+    if sys.platform.startswith("w"):
+        SYSBAR = "\\"
+    else:
+         SYSBAR = "/" 
     
     FILEPATH=bpy.data.filepath
     ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
@@ -2558,9 +2562,14 @@ def reSymMesh (self):
     SYMAP = eval(XML.readlines()[0])
     
     for VERT in SYMAP:
-        BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
-        BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-        BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
+        if VERT == SYMAP[VERT]:
+            BM.verts[VERT].co[0] = 0
+            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
+        else:    
+            BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
     
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.mode_set(mode='EDIT')
@@ -2687,4 +2696,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-
