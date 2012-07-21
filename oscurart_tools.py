@@ -2004,40 +2004,11 @@ class oscApplyModifiers (bpy.types.Operator):
             objeto.select = True
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True, obdata=True, material=False, texture=False, animation=False)
             for modificador in objeto.modifiers:
-                print(modificador.type)
-                # GRUPETE
-                MODLIST= ['ARRAY', 'BEVEL', 'BUILD', 'DECIMATE', 'EDGE_SPLIT', 'MASK', 'MIRROR', 'MULTIRES', 'REMESH', 'SCREW', 'SKIN', 'SOLIDIFY', 'UV_PROJECT', 'CAST', 'SIMPLE_DEFORM', 'SMOOTH', 'WARP', 'WAVE']
-                if modificador.type in MODLIST:
-                    bpy.ops.object.modifier_apply(apply_as="DATA",modifier=modificador.name)
-
-                MODLISTIF = ['MESH_DEFORM', 'BOOLEAN', 'ARMATURE', 'CURVE', 'DISPLACE', 'HOOK', 'LATTICE', 'SHRINKWRAP']
-                # GRUPO SIN OBJETOS
-                if modificador.type in MODLISTIF :
-                    if modificador.object != None:
-                        bpy.ops.object.modifier_apply(apply_as="DATA",modifier=modificador.name)
-                    else:
-                        bpy.ops.object.modifier_remove(modifier=modificador.name)
-
-                # SUBSURF
-                if modificador.type == 'SUBSURF':
-                    if modificador.levels > 0:
-                        bpy.ops.object.modifier_apply(apply_as="DATA",modifier=modificador.name)
-                    else:
-                        bpy.ops.object.modifier_remove(modifier=modificador.name)
-
-                # WARP
-                if modificador.type == 'WARP':
-                    if modificador.object_from != None:
-                        if modificador.object_to != None:
-                            bpy.ops.object.modifier_apply(apply_as="DATA",modifier=modificador.name)
-                    else:
-                        bpy.ops.object.modifier_remove(modifier=modificador.name)
-                # WEIGHT
-                if modificador.type in ['VERTEX_WEIGHT_EDIT']:
-                    if modificador.vertex_group != "":
-                            bpy.ops.object.modifier_apply(apply_as="DATA",modifier=modificador.name)
-                    else:
-                        bpy.ops.object.modifier_remove(modifier=modificador.name)
+                try:
+                    bpy.ops.object.modifier_apply(apply_as="DATA", modifier=modificador.name)
+                except:
+                    bpy.ops.object.modifier_remove(modifier=modificador.name) 
+                    print("* Modifier %s skipping apply" % (modificador.name))   
 
         return {'FINISHED'}
 
