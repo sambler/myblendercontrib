@@ -606,6 +606,7 @@ class CreaShapesLayout(bpy.types.Operator):
                     bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_y = 1
 
                     bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].owner_space  = "LOCAL"
+                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_transform_limit = True
 
         ## PARA QUE EL TEXTO FUNCIONE PASAMOS A OBJECT MODE
         eval(OBJECTMODE)
@@ -1594,6 +1595,7 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
             bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_y = 1
 
             bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].owner_space  = "LOCAL"
+            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_transform_limit = True
 
         ## PARA QUE EL TEXTO FUNCIONE PASAMOS A OBJECT MODE
         eval(OBJECTMODE)
