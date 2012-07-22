@@ -132,8 +132,7 @@ from mathutils.geometry import (intersect_line_sphere,
                                 intersect_line_plane,
                                 )
 
-from bpy_extras.view3d_utils import (region_2d_to_vector_3d,
-                                     region_2d_to_location_3d,
+from bpy_extras.view3d_utils import (region_2d_to_location_3d,
                                      location_3d_to_region_2d,
                                      )
 
@@ -3980,6 +3979,11 @@ class Cursor3DToolsSettings(bpy.types.PropertyGroup):
         type=TransformExtraOptionsProp,
         options={'HIDDEN'})
     
+    cursor_visible = bpy.props.BoolProperty(
+        name="Cursor visibility",
+        description="Cursor visibility",
+        default=True)
+    
     draw_guides = bpy.props.BoolProperty(
         name="Guides",
         description="Display guides",
@@ -4140,7 +4144,12 @@ class Cursor3DTools(bpy.types.Panel):
             text="", icon='SNAP_ON', toggle=True)
         
         row = layout.row()
-        row.label(text="Draw")
+        #row.label(text="Draw")
+        #row.prop(settings, "cursor_visible", text="", toggle=True,
+        #         icon=('RESTRICT_VIEW_OFF' if settings.cursor_visible
+        #               else 'RESTRICT_VIEW_ON'))
+        row.prop(settings, "cursor_visible", text="", toggle=True,
+                 icon='RESTRICT_VIEW_OFF')
         row = row.split(1 / 3, align=True)
         row.prop(settings, "draw_N",
             text="N", toggle=True, index=0)
@@ -5073,7 +5082,11 @@ def gl_matrix_to_buffer(m):
 
 
 # ===== DRAWING CALLBACKS ===== #
+cursor_save_location = Vector()
+
 def draw_callback_view(self, context):
+    global cursor_save_location
+    
     settings = find_settings()
     if settings is None:
         return
@@ -5134,6 +5147,10 @@ def draw_callback_view(self, context):
             color_prev[1],
             color_prev[2],
             color_prev[3])
+    
+    cursor_save_location = Vector(bpy.context.space_data.cursor_location)
+    if not settings.cursor_visible:
+        bpy.context.space_data.cursor_location = Vector([float('nan')] * 3)
 
 def draw_callback_header_px(self, context):
     r = context.region
@@ -5152,10 +5169,14 @@ def draw_callback_header_px(self, context):
     bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
 
 def draw_callback_px(self, context):
+    global cursor_save_location
     settings = find_settings()
     if settings is None:
         return
     library = settings.libraries.get_item()
+    
+    if not settings.cursor_visible:
+        bpy.context.space_data.cursor_location = cursor_save_location
     
     tfm_operator = CursorDynamicSettings.active_transform_operator
     
