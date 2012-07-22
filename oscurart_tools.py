@@ -156,10 +156,11 @@ class OscPanelMesh(OscPollMesh, bpy.types.Panel):
         col.operator("mesh.normals_outside_osc", icon="SNAP_NORMAL")
         colrow=col.row(align=1)
         colrow.operator("mesh.resym_save_map", icon="UV_SYNC_SELECT")
-        colrow.operator("mesh.resym_mesh", icon="UV_SYNC_SELECT", text="Resym")        
         colrow=col.row(align=1)
-        colrow.operator("mesh.reconst_osc", icon="UV_SYNC_SELECT")
-        colrow.operator("mesh.resym_vertex_weights_osc", icon="UV_SYNC_SELECT")
+        colrow.operator("mesh.resym_mesh", icon="UV_SYNC_SELECT", text="Resym Mesh") 
+        colrow.operator("mesh.resym_vertex_weights_osc", icon="UV_SYNC_SELECT")     
+        colrow=col.row(align=1)
+        colrow.operator("mesh.reconst_osc", icon="UV_SYNC_SELECT")        
         colrow=col.row(align=1)
         colrow.operator("file.export_groups_osc", icon='GROUP_VCOL')
         colrow.operator("file.import_groups_osc", icon='GROUP_VCOL')
@@ -1393,125 +1394,60 @@ class resymVertexGroups (bpy.types.Operator):
 
         OBACTIVO = bpy.context.active_object
         VGACTIVO = OBACTIVO.vertex_groups.active.index
-        MENORESACERO = []
-        MAYORESACERO = []
-        MENORESACEROYSG = []
+        
+        bpy.ops.object.mode_set(mode='EDIT')
+        BM = bmesh.from_edit_mesh(bpy.context.object.data)  
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.vertex_group_select()
+        SELVER=[VERT.index for VERT in BM.verts[:] if VERT.select]
+        
+        if sys.platform.startswith("w"):
+            SYSBAR = "\\"
+        else:
+             SYSBAR = "/" 
+         
+        FILEPATH=bpy.data.filepath
+        ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
+        ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
+        XML=open(ENTFILEPATH ,mode="r")
+        
+        SYMAP = eval(XML.readlines()[0])
+        
 
+        # SUMO LOS VERTICES QUE NO EXISTEN EN EL VG        
+        INL = [VERT for VERT in SYMAP if SYMAP[VERT] in SELVER if VERT!= SYMAP[VERT]] 
+        bpy.ops.mesh.select_all(action='DESELECT')
 
-        ## LISTA DE LOS VERTICES QUE ESTAN EN GRUPOS
-        VERTICESENGRUPOS = [0]
-        for vertice in OBACTIVO.data.vertices:
-            if len(vertice.groups.items()) > 0:
-                VERTICESENGRUPOS.append(vertice.index)
+        for VERT in INL:
+            BM.verts[VERT].select = True
+        bpy.ops.object.vertex_group_assign(new=False)    
+     
 
+        # PASO A WEIGHT Y SETEO LOS VALORES
+        bpy.ops.object.mode_set(mode='WEIGHT_PAINT')        
+        for VERT in INL:
+            print(VERT)
+            i = 0
+            for GRA in OBACTIVO.data.vertices[SYMAP[VERT]].groups[:]:
+                if GRA.group == VGACTIVO:
+                    print (i)
+                    EM = i                    
+                i+=1  
+            a = 0
+            for GRA in OBACTIVO.data.vertices[VERT].groups[:]:     
+                if GRA.group == VGACTIVO:
+                    print (a)
+                    REC = a
+                a+=1
+                    
+            OBACTIVO.data.vertices[VERT].groups[REC].weight = OBACTIVO.data.vertices[SYMAP[VERT]].groups[EM].weight  
+                
 
-        ## VERTICES MENORES A CERO
-        for verticeindex in VERTICESENGRUPOS:
-            for indices in OBACTIVO.data.vertices[verticeindex].groups:
-                if indices.group == VGACTIVO:
-                    if bpy.context.active_object.data.vertices[verticeindex].co[0] < 0:
-                        MENORESACERO.append(bpy.context.active_object.data.vertices[verticeindex].index)
+        XML.close()
+        SYMAP.clear()  
+      
 
-        ## VERTICES MENORES A CERO Y SIN GRUPO
-        for vertice in OBACTIVO.data.vertices:
-            if vertice.co[0] < 0:
-                MENORESACEROYSG.append(vertice.index)
-
-
-        ## VERTICES MAYORES A CERO
-        for verticeindex in VERTICESENGRUPOS:
-            for indices in OBACTIVO.data.vertices[verticeindex].groups:
-                if indices.group == VGACTIVO:
-                    if bpy.context.active_object.data.vertices[verticeindex].co[0] > 0:
-                        MAYORESACERO.append(bpy.context.active_object.data.vertices[verticeindex].index)
-
-        ## TE MUESTRA LAS LISTAS
-        print("-------------VERTICES EN GRUPOS-----------")
-        print(VERTICESENGRUPOS)
-        print("-------------MENORES A CERO-----------")
-        print(MENORESACERO)
-        print("-------------MENORES A CERO SIN GRUPO-----------")
-        print(MENORESACEROYSG)
-        print("-------------MAYORES A CERO-----------")
-        print(MAYORESACERO)
-
-
-        ## SETEA WORK INDEX
-        for vertices in MAYORESACERO:
-            for indices in OBACTIVO.data.vertices[vertices].groups:
-                if indices.group == VGACTIVO:
-                    WORKINDEX = indices.group
-
-        ## DESELECCIONO COMPONENTES
-        bpy.ops.object.mode_set(mode="EDIT",toggle=0)
-        bpy.ops.mesh.select_all(action="DESELECT")
-        bpy.ops.object.mode_set(mode="OBJECT",toggle=0)
-
-
-        ## SETEO GRUPO
-        for verticemenor in MENORESACEROYSG:
-            for verticemayor in MAYORESACERO:
-                if OBACTIVO.data.vertices[verticemenor].co[0] == -OBACTIVO.data.vertices[verticemayor].co[0]:
-                    if OBACTIVO.data.vertices[verticemenor].co[1] == OBACTIVO.data.vertices[verticemayor].co[1]:
-                        if OBACTIVO.data.vertices[verticemenor].co[2] == OBACTIVO.data.vertices[verticemayor].co[2]:
-                            OBACTIVO.data.vertices[verticemenor].select = 1
-
-        ## ASSIGNO AL GRUPO
-        bpy.ops.object.mode_set(mode="EDIT",toggle=0)
-        bpy.ops.object.vertex_group_assign(new=False)
-        bpy.ops.mesh.select_all(action="DESELECT")
-        bpy.ops.object.mode_set(mode="OBJECT",toggle=0)
-
-        ## MODO PINTURA
-        bpy.ops.object.mode_set(mode="WEIGHT_PAINT", toggle=0)
-
-
-        ##--------->> VUELVO A CREAR GRUPOS YA QUE LOS INDICES CAMBIARON
-        MENORESACERO = []
-        MAYORESACERO = []
-
-
-        ## LISTA DE LOS VERTICES QUE ESTAN EN GRUPOS
-        VERTICESENGRUPOS=[0]
-        for vertice in OBACTIVO.data.vertices:
-            if len(vertice.groups.items()) > 0:
-                VERTICESENGRUPOS.append(vertice.index)
-
-
-        ## VERTICES MENORES A CERO
-        for verticeindex in VERTICESENGRUPOS:
-            for indices in OBACTIVO.data.vertices[verticeindex].groups:
-                if indices.group == VGACTIVO:
-                    if bpy.context.active_object.data.vertices[verticeindex].co[0] < 0:
-                        MENORESACERO.append(bpy.context.active_object.data.vertices[verticeindex].index)
-
-
-
-        ## VERTICES MAYORES A CERO
-        for verticeindex in VERTICESENGRUPOS:
-            for indices in OBACTIVO.data.vertices[verticeindex].groups:
-                if indices.group == VGACTIVO:
-                    if bpy.context.active_object.data.vertices[verticeindex].co[0] > 0:
-                        MAYORESACERO.append(bpy.context.active_object.data.vertices[verticeindex].index)
-
-
-        ## SETEO WEIGHT
-        for verticemenor in MENORESACERO:
-            for verticemayor in MAYORESACERO:
-                if OBACTIVO.data.vertices[verticemenor].co[0] == -OBACTIVO.data.vertices[verticemayor].co[0]:
-                    if OBACTIVO.data.vertices[verticemenor].co[1] == OBACTIVO.data.vertices[verticemayor].co[1]:
-                        if OBACTIVO.data.vertices[verticemenor].co[2] == OBACTIVO.data.vertices[verticemayor].co[2]:
-                            VARINMAY = 0
-                            VARINMEN = 0
-                            while  OBACTIVO.data.vertices[verticemayor].groups[VARINMAY].group != VGACTIVO:
-                                VARINMAY = VARINMAY+1
-                            while  OBACTIVO.data.vertices[verticemenor].groups[VARINMEN].group != VGACTIVO:
-                                VARINMEN = VARINMEN+1
-                            ##print("Varinmay: "+str(VARINMAY)+" .Varinmen "+str(VARINMEN))
-                            OBACTIVO.data.vertices[verticemenor].groups[VARINMEN].weight = OBACTIVO.data.vertices[verticemayor].groups[VARINMAY].weight
-
-
-        print("===============(TERMINADO)=============")
+        print("===============(JOB DONE)=============")
         return {'FINISHED'}
 
 
