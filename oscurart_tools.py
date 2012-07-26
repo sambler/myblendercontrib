@@ -129,14 +129,13 @@ class OscPanelObject(OscPollObject, bpy.types.Panel):
         colrow = col.row(align=1)
         colrow.operator("objects.relink_objects_between_scenes", icon="LINKED")
         colrow.operator("objects.copy_objects_groups_layers", icon="LINKED")
-        col.operator("object.distribute_apply_osc", icon="OBJECT_DATAMODE")
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "SearchAndSelectOt", text="")
         colrow.operator("object.search_and_select_osc", icon="ZOOM_SELECTED")
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "RenameObjectOt", text="")
         colrow.operator("object.rename_objects_osc", icon="SHORTDISPLAY")
-        col.operator("object.duplicate_object_symmetry_osc", icon="OBJECT_DATAMODE", text="Duplicate Object Symmetry")
+        col.operator("object.duplicate_object_symmetry_osc", icon="OBJECT_DATAMODE", text="Duplicate Symmetry")
         colrow = col.row(align=1)
         colrow.operator("object.modifiers_remove_osc", icon="MODIFIER", text="Remove Modifiers")
         colrow.operator("object.modifiers_apply_osc", icon="MODIFIER", text="Apply Modifiers")
@@ -634,103 +633,6 @@ class normalsOutside(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
         return {'FINISHED'}
 
-
-##------------------------------DISTRIBUTE---------------------------
-
-
-def distributeDef(self, context, X, Y, Z):
-
-    ## LISTA DE OBJETOS
-    OBJETOS = list(bpy.context.selected_objects)
-
-    if X == True:
-        ## LISTA VACIA
-        LISTOBJ=[]
-
-        ## LISTA DE OBJETOS Y NOMBRES
-        for OBJETO in OBJETOS:
-            LISTOBJ.append((OBJETO.location[0],OBJETO.name))
-
-        ## REORDENO
-        LISTOBJ.sort()
-
-        ## AVERIGUO MINIMO Y MAXIMO
-        MIN = min(LISTOBJ)[0]
-        MAX = max(LISTOBJ)[0]
-        DIF = (MAX - MIN) / (len(OBJETOS)-1)
-        TEMPDIF = 0
-
-        print(MIN,MAX,DIF,TEMPDIF)
-
-        ## ORDENO
-        for OBJETO in LISTOBJ:
-            bpy.data.objects[OBJETO[1]].location[0]= MIN+TEMPDIF
-            TEMPDIF+=DIF
-
-
-    if Y == True:
-        ## LISTA VACIA
-        LISTOBJ=[]
-
-        ## LISTA DE OBJETOS Y NOMBRES
-        for OBJETO in OBJETOS:
-            LISTOBJ.append((OBJETO.location[1],OBJETO.name))
-
-        ## REORDENO
-        LISTOBJ.sort()
-
-        ## AVERIGUO MINIMO Y MAXIMO
-        MIN = min(LISTOBJ)[0]
-        MAX = max(LISTOBJ)[0]
-        DIF = (MAX - MIN) / (len(OBJETOS)-1)
-        TEMPDIF = 0
-
-        print(MIN,MAX,DIF,TEMPDIF)
-
-        ## ORDENO
-        for OBJETO in LISTOBJ:
-            bpy.data.objects[OBJETO[1]].location[1]= MIN+TEMPDIF
-            TEMPDIF+=DIF
-
-    if Z == True:
-        ## LISTA VACIA
-        LISTOBJ=[]
-
-        ## LISTA DE OBJETOS Y NOMBRES
-        for OBJETO in OBJETOS:
-            LISTOBJ.append((OBJETO.location[2],OBJETO.name))
-
-        ## REORDENO
-        LISTOBJ.sort()
-
-        ## AVERIGUO MINIMO Y MAXIMO
-        MIN = min(LISTOBJ)[0]
-        MAX = max(LISTOBJ)[0]
-        DIF = (MAX - MIN) / (len(OBJETOS)-1)
-        TEMPDIF = 0
-
-        print(MIN,MAX,DIF,TEMPDIF)
-
-        ## ORDENO
-        for OBJETO in LISTOBJ:
-            bpy.data.objects[OBJETO[1]].location[2]= MIN+TEMPDIF
-            TEMPDIF+=DIF
-
-
-class DistributeMinMaxApply (bpy.types.Operator):
-    bl_idname = "object.distribute_apply_osc"
-    bl_label = "Distribute Objects"
-    bl_options = {"REGISTER", "UNDO"}
-
-    X=bpy.props.BoolProperty(default=False, name="X")
-    Y=bpy.props.BoolProperty(default=False, name="Y")
-    Z=bpy.props.BoolProperty(default=False, name="Z")
-
-    def execute(self, context):
-
-        distributeDef(self, context, self.X, self.Y, self.Z)
-
-        return {'FINISHED'}
 
 
 ##--------------------------------RENDER LAYER AT TIME----------------------------
@@ -2373,7 +2275,6 @@ def register():
     bpy.utils.register_class(renameObjectsOt)
     bpy.utils.register_class(resymVertexGroups)
     bpy.utils.register_class(CreateLayoutAsymmetrical)
-    bpy.utils.register_class(DistributeMinMaxApply)
     bpy.utils.register_class(saveIncremental)
     bpy.utils.register_class(replaceFilePath)
     bpy.utils.register_class(oscDuplicateSymmetricalOp)
@@ -2419,7 +2320,6 @@ def unregister():
     bpy.utils.unregister_class(renameObjectsOt)
     bpy.utils.unregister_class(resymVertexGroups)
     bpy.utils.unregister_class(CreateLayoutAsymmetrical)
-    bpy.utils.unregister_class(DistributeMinMaxApply)
     bpy.utils.unregister_class(saveIncremental)
     bpy.utils.unregister_class(replaceFilePath)
     bpy.utils.unregister_class(oscDuplicateSymmetricalOp)
