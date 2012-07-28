@@ -129,14 +129,13 @@ class OscPanelObject(OscPollObject, bpy.types.Panel):
         colrow = col.row(align=1)
         colrow.operator("objects.relink_objects_between_scenes", icon="LINKED")
         colrow.operator("objects.copy_objects_groups_layers", icon="LINKED")
-        col.operator("object.distribute_apply_osc", icon="OBJECT_DATAMODE")
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "SearchAndSelectOt", text="")
         colrow.operator("object.search_and_select_osc", icon="ZOOM_SELECTED")
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "RenameObjectOt", text="")
         colrow.operator("object.rename_objects_osc", icon="SHORTDISPLAY")
-        col.operator("object.duplicate_object_symmetry_osc", icon="OBJECT_DATAMODE", text="Duplicate Object Symmetry")
+        col.operator("object.duplicate_object_symmetry_osc", icon="OBJECT_DATAMODE", text="Duplicate Symmetry")
         colrow = col.row(align=1)
         colrow.operator("object.modifiers_remove_osc", icon="MODIFIER", text="Remove Modifiers")
         colrow.operator("object.modifiers_apply_osc", icon="MODIFIER", text="Apply Modifiers")
@@ -427,229 +426,125 @@ class CreaShapesLayout(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     def execute(self, context):
 
-
         SEL_OBJ= bpy.context.active_object
-        LISTA_KEYS = bpy.context.active_object.data.shape_keys.key_blocks[:]
-
+        LISTA_KEYS = bpy.context.active_object.data.shape_keys.key_blocks[1:]
+        
+        
         ##MODOS
         EDITMODE = "bpy.ops.object.mode_set(mode='EDIT')"
         OBJECTMODE = "bpy.ops.object.mode_set(mode='OBJECT')"
         POSEMODE = "bpy.ops.object.mode_set(mode='POSE')"
-
+        
         ##INDICE DE DRIVERS
         varindex = 0
-
+        
         ##CREA NOMBRES A LA ARMATURE
         amt = bpy.data.armatures.new("ArmatureData")
         ob = bpy.data.objects.new("RIG_LAYOUT_"+SEL_OBJ.name, amt)
-
+        
         ##LINK A LA ESCENA
         scn = bpy.context.scene
         scn.objects.link(ob)
         scn.objects.active = ob
         ob.select = True
-
-
-        eval(EDITMODE)
+        
+        ## CREO DATA PARA SLIDERS        
+        ## creo data para los contenedores
+        verticess = [(-1,1,0),(1,1,0),(1,-1,0),(-1,-1,0)]
+        edgess = [(0,1),(1,2),(2,3),(3,0)]        
+        mesh = bpy.data.meshes.new("%s_data_container" % (SEL_OBJ))
+        object = bpy.data.objects.new("GRAPHIC_CONTAINER", mesh)
+        bpy.context.scene.objects.link(object)
+        mesh.from_pydata(verticess,edgess,[])          
+        
         gx = 0
         gy = 0
-
-
-        for keyblock in LISTA_KEYS:
-            print("KEYBLOCK EN CREACION DE HUESOS "+keyblock.name)
-
-
+        
+        
+        for keyblock in LISTA_KEYS:    
             if keyblock.name[-2:] != "_L":
-                if keyblock.name[-2:] != "_R":
-
+                if keyblock.name[-2:] != "_R":                     
+                    
+                    ## OBJETO ACTIVO
+                    scn.objects.active = ob
+                    eval(EDITMODE)
+                      
                     ##CREA HUESOS
-
                     bone = amt.edit_bones.new(keyblock.name)
                     bone.head = (gx,0,0)
                     bone.tail = (gx,0,1)
-                    gx = gx+2.2
-                    bone = amt.edit_bones.new(keyblock.name+"_CTRL")
-                    bone.head = (gy,0,0)
-                    bone.tail = (gy,0,0.2)
-                    gy = gy+2.2
-
-                    ##SETEA ARMATURE ACTIVA
-                    bpy.context.scene.objects.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].select = 1
-                    ##DESELECCIONA (modo edit)
-                    eval(EDITMODE)
-                    bpy.ops.armature.select_all(action="DESELECT")
-
-                    ##EMPARENTA HUESOS
-
-                    ##HUESO ACTIVO
-                    eval(OBJECTMODE)
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name]
-                    ##MODO EDIT
-                    eval(EDITMODE)
-                    ##DESELECCIONA (modo edit)
-                    bpy.ops.armature.select_all(action="DESELECT")
-                    ##MODO OBJECT
-                    eval(OBJECTMODE)
-                    ##SELECCIONA UN HUESO
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name+"_CTRL"].select = 1
-                    eval(EDITMODE)
-                    ##EMPARENTA
-                    bpy.ops.armature.parent_set(type="OFFSET")
-                    ##DESELECCIONA (modo edit)
-                    bpy.ops.armature.select_all(action="DESELECT")
-
-                    ##LE HAGO UNA VARIABLE DE PLACEBO
-                    keyblock.driver_add("value")
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.expression = "var+var_001"
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-
-
-                    varindex = varindex + 1
-
-
-        for keyblock in LISTA_KEYS:
-            print("KEYBLOCK SEGUNDA VUELTA :"+keyblock.name)
-
-            if keyblock.name[-2:] == "_L":
-                print("igual a L")
-
-                ##CREA DRIVERS Y LOS CONECTA
-                keyblock.driver_add("value")
-                keyblock.driver_add("value")
-
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.expression = "var+var_001"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].id = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].bone_target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[(keyblock.name[:-2])+"_CTRL"].name
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].type = 'TRANSFORMS'
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].transform_space = "LOCAL_SPACE"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].transform_type = "LOC_X"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].id = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].bone_target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[(keyblock.name[:-2])+"_CTRL"].name
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].type = 'TRANSFORMS'
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].transform_space = "LOCAL_SPACE"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].transform_type = "LOC_Y"
-
-
-                varindex = varindex + 1
-
-
-
-            if keyblock.name[-2:] == "_R":
-                print("igual a R")
-
-                ##CREA DRIVERS Y LOS CONECTA
-                keyblock.driver_add("value")
-                keyblock.driver_add("value")
-
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.expression = "-var+var_001"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].id = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].bone_target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[(keyblock.name[:-2])+"_CTRL"].name
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].type = 'TRANSFORMS'
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].transform_space = "LOCAL_SPACE"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].transform_type = "LOC_X"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].id = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].bone_target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[(keyblock.name[:-2])+"_CTRL"].name
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].type = 'TRANSFORMS'
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].transform_space = "LOCAL_SPACE"
-                SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].transform_type = "LOC_Y"
-
-                varindex = varindex + 1
-
-
-
-        ## CREO DATA PARA SLIDERS
-
-        ## creo data para los contenedores
-        verticess = [(-1,1,0),(1,1,0),(1,-1,0),(-1,-1,0)]
-        edgess = [(0,1),(1,2),(2,3),(3,0)]
-
-        mesh = bpy.data.meshes.new(keyblock.name+"_data_container")
-        object = bpy.data.objects.new("GRAPHIC_CONTAINER", mesh)
-        bpy.context.scene.objects.link(object)
-        mesh.from_pydata(verticess,edgess,[])
-
-        ## PONGO LOS LIMITES Y SETEO ICONOS
-        for keyblock in LISTA_KEYS:
-            print("KEYBLOCK EN CREACION DE HUESOS "+keyblock.name)
-
-
-            if keyblock.name[-2:] != "_L":
-                if keyblock.name[-2:] != "_R":
-                    ## SETEO ICONOS
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name].custom_shape = bpy.data.objects['GRAPHIC_CONTAINER']
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].custom_shape = bpy.data.objects['GRAPHIC_CONTAINER']
-                    ## SETEO CONSTRAINTS
-                    eval(OBJECTMODE)
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name+"_CTRL"]
-                    ## SUMO CONSTRAINT
+                    
+                    bonectrl = amt.edit_bones.new(keyblock.name+"_CTRL")
+                    bonectrl.head = (gy,0,0)
+                    bonectrl.tail = (gy,0,0.2)        
+            
+                    ##EMPARENTA HUESOS             
+                    ## EMPARENTO
+                    ob.data.edit_bones[bonectrl.name].parent = ob.data.edit_bones[bone.name]                         
+                    bpy.context.scene.objects.active = ob
+                    
+                    for SIDE in ["L","R"]:
+                        ##LE HAGO UNA VARIABLE
+                        DR = SEL_OBJ.data.shape_keys.key_blocks[keyblock.name+"_"+SIDE].driver_add("value")
+                        if SIDE == "L":
+                            DR.driver.expression = "var+var_001"
+                        else:
+                            DR.driver.expression = "-var+var_001"    
+                        VAR1 = DR.driver.variables.new()
+                        VAR2 = DR.driver.variables.new()
+            
+                        VAR1.targets[0].id = ob
+                        VAR1.type = 'TRANSFORMS'
+                        VAR1.targets[0].bone_target = bonectrl.name      
+                        VAR1.targets[0].transform_space = "LOCAL_SPACE"
+                        VAR1.targets[0].transform_type = "LOC_X"
+                        VAR2.targets[0].id = ob
+                        VAR2.type = 'TRANSFORMS'                    
+                        VAR2.targets[0].bone_target = bonectrl.name
+                        VAR2.targets[0].transform_space = "LOCAL_SPACE"
+                        VAR2.targets[0].transform_type = "LOC_Y"         
+                    
                     eval(POSEMODE)
-                    bpy.ops.pose.constraint_add(type="LIMIT_LOCATION")
-
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].min_x = -1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_min_x = 1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].min_z = 0
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_min_z = 1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].min_y = -1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_min_y = 1
-
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].max_x =  1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_x = 1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].max_z =  0
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_z = 1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].max_y =  1
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_y = 1
-
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].owner_space  = "LOCAL"
-
-        ## PARA QUE EL TEXTO FUNCIONE PASAMOS A OBJECT MODE
-        eval(OBJECTMODE)
-
-        ## TEXTOS
-        for keyblock in LISTA_KEYS:
-            print("KEYBLOCK EN TEXTOS "+keyblock.name)
-
-
-            if keyblock.name[-2:] != "_L":
-                if keyblock.name[-2:] != "_R":
+                    
+                    ## SETEO ICONOS
+                    ob.pose.bones[keyblock.name].custom_shape = object            
+                    ob.pose.bones[keyblock.name+"_CTRL"].custom_shape = object
+                    CNS = ob.pose.bones[keyblock.name+"_CTRL"].constraints.new(type='LIMIT_LOCATION')               
+                    CNS.min_x = -1
+                    CNS.use_min_x = 1
+                    CNS.min_z = 0
+                    CNS.use_min_z = 1
+                    CNS.min_y = -1
+                    CNS.use_min_y = 1    
+                    CNS.max_x =  1
+                    CNS.use_max_x = 1
+                    CNS.max_z =  0
+                    CNS.use_max_z = 1
+                    CNS.max_y =  1
+                    CNS.use_max_y = 1    
+                    CNS.owner_space  = "LOCAL"
+                    CNS.use_transform_limit = True
+                    
+                    eval(OBJECTMODE)
                     ## creo tipografias
-                    bpy.ops.object.text_add(location=(0,0,0))
-                    bpy.data.objects['Text'].data.body = keyblock.name
-                    bpy.data.objects['Text'].name = "TEXTO_"+keyblock.name
-                    bpy.data.objects["TEXTO_"+keyblock.name].rotation_euler[0] = math.pi/2
-                    bpy.data.objects["TEXTO_"+keyblock.name].location.x = -1
-                    bpy.data.objects["TEXTO_"+keyblock.name].location.z = -1
-                    bpy.data.objects["TEXTO_"+keyblock.name].data.size = .2
-                    ## SETEO OBJETO ACTIVO
-                    bpy.context.scene.objects.active = bpy.data.objects["TEXTO_"+keyblock.name]
-                    bpy.ops.object.constraint_add(type="COPY_LOCATION")
-                    bpy.data.objects["TEXTO_"+keyblock.name].constraints['Copy Location'].target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                    bpy.data.objects["TEXTO_"+keyblock.name].constraints['Copy Location'].subtarget = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name].name
-
-                    bpy.ops.object.select_all(action="DESELECT")
-                    bpy.data.objects["TEXTO_"+keyblock.name].select = 1
-                    bpy.context.scene.objects.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                    bpy.ops.object.parent_set(type="OBJECT")
-
-
-        ## EMPARENTA ICONO
-
-        bpy.ops.object.select_all(action="DESELECT")
-        bpy.data.objects["GRAPHIC_CONTAINER"].select = 1
-        bpy.context.scene.objects.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-        bpy.ops.object.parent_set(type="OBJECT")
-
-        eval(POSEMODE)
-
-        ## BORRA DRIVERS DE QUE NO SEAN LEFT O RIGHT
-        for driver in SEL_OBJ.data.shape_keys.animation_data.drivers:
-            if driver.data_path.count("_L") == False and driver.data_path.count("_R") == False :
-                SEL_OBJ.data.shape_keys.driver_remove(driver.data_path)
+                    bpy.ops.object.text_add(location=(gx,0,0))
+                    gx = gx+2.2
+                    gy = gy+2.2            
+                    texto = bpy.context.object
+        
+                    texto.data.body = keyblock.name
+                    texto.name = "TEXTO_"+keyblock.name
+        
+                    texto.rotation_euler[0] = math.pi/2
+                    texto.location.x = -1
+                    texto.location.z = -1
+                    texto.data.size = .2
+        
+                    CNS = texto.constraints.new(type="COPY_LOCATION")
+                    CNS.target = ob
+                    CNS.subtarget = ob.pose.bones[keyblock.name].name
+                    CNS.use_offset = True
+    
 
 
         return {'FINISHED'}
@@ -738,103 +633,6 @@ class normalsOutside(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
         return {'FINISHED'}
 
-
-##------------------------------DISTRIBUTE---------------------------
-
-
-def distributeDef(self, context, X, Y, Z):
-
-    ## LISTA DE OBJETOS
-    OBJETOS = list(bpy.context.selected_objects)
-
-    if X == True:
-        ## LISTA VACIA
-        LISTOBJ=[]
-
-        ## LISTA DE OBJETOS Y NOMBRES
-        for OBJETO in OBJETOS:
-            LISTOBJ.append((OBJETO.location[0],OBJETO.name))
-
-        ## REORDENO
-        LISTOBJ.sort()
-
-        ## AVERIGUO MINIMO Y MAXIMO
-        MIN = min(LISTOBJ)[0]
-        MAX = max(LISTOBJ)[0]
-        DIF = (MAX - MIN) / (len(OBJETOS)-1)
-        TEMPDIF = 0
-
-        print(MIN,MAX,DIF,TEMPDIF)
-
-        ## ORDENO
-        for OBJETO in LISTOBJ:
-            bpy.data.objects[OBJETO[1]].location[0]= MIN+TEMPDIF
-            TEMPDIF+=DIF
-
-
-    if Y == True:
-        ## LISTA VACIA
-        LISTOBJ=[]
-
-        ## LISTA DE OBJETOS Y NOMBRES
-        for OBJETO in OBJETOS:
-            LISTOBJ.append((OBJETO.location[1],OBJETO.name))
-
-        ## REORDENO
-        LISTOBJ.sort()
-
-        ## AVERIGUO MINIMO Y MAXIMO
-        MIN = min(LISTOBJ)[0]
-        MAX = max(LISTOBJ)[0]
-        DIF = (MAX - MIN) / (len(OBJETOS)-1)
-        TEMPDIF = 0
-
-        print(MIN,MAX,DIF,TEMPDIF)
-
-        ## ORDENO
-        for OBJETO in LISTOBJ:
-            bpy.data.objects[OBJETO[1]].location[1]= MIN+TEMPDIF
-            TEMPDIF+=DIF
-
-    if Z == True:
-        ## LISTA VACIA
-        LISTOBJ=[]
-
-        ## LISTA DE OBJETOS Y NOMBRES
-        for OBJETO in OBJETOS:
-            LISTOBJ.append((OBJETO.location[2],OBJETO.name))
-
-        ## REORDENO
-        LISTOBJ.sort()
-
-        ## AVERIGUO MINIMO Y MAXIMO
-        MIN = min(LISTOBJ)[0]
-        MAX = max(LISTOBJ)[0]
-        DIF = (MAX - MIN) / (len(OBJETOS)-1)
-        TEMPDIF = 0
-
-        print(MIN,MAX,DIF,TEMPDIF)
-
-        ## ORDENO
-        for OBJETO in LISTOBJ:
-            bpy.data.objects[OBJETO[1]].location[2]= MIN+TEMPDIF
-            TEMPDIF+=DIF
-
-
-class DistributeMinMaxApply (bpy.types.Operator):
-    bl_idname = "object.distribute_apply_osc"
-    bl_label = "Distribute Objects"
-    bl_options = {"REGISTER", "UNDO"}
-
-    X=bpy.props.BoolProperty(default=False, name="X")
-    Y=bpy.props.BoolProperty(default=False, name="Y")
-    Z=bpy.props.BoolProperty(default=False, name="Z")
-
-    def execute(self, context):
-
-        distributeDef(self, context, self.X, self.Y, self.Z)
-
-        return {'FINISHED'}
 
 
 ##--------------------------------RENDER LAYER AT TIME----------------------------
@@ -1461,175 +1259,122 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
     def execute(self, context):
 
         SEL_OBJ= bpy.context.active_object
-        LISTA_KEYS = bpy.context.active_object.data.shape_keys.key_blocks
-
+        LISTA_KEYS = bpy.context.active_object.data.shape_keys.key_blocks[1:]
+        
         ##MODOS
         EDITMODE = "bpy.ops.object.mode_set(mode='EDIT')"
         OBJECTMODE = "bpy.ops.object.mode_set(mode='OBJECT')"
         POSEMODE = "bpy.ops.object.mode_set(mode='POSE')"
-
-        ##INDICE DE DRIVERS
-        varindex = 0
-
+        
         ##CREA NOMBRES A LA ARMATURE
         amtas = bpy.data.armatures.new("ArmatureData")
         obas = bpy.data.objects.new("RIG_LAYOUT_"+SEL_OBJ.name, amtas)
-
+        
         ##LINK A LA ESCENA
         scn = bpy.context.scene
         scn.objects.link(obas)
         scn.objects.active = obas
         obas.select = True
-
-
-        eval(EDITMODE)
-        gx = 0
-        gy = 0
-
-
-        for keyblock in LISTA_KEYS:
-            print("KEYBLOCK EN CREACION DE HUESOS "+keyblock.name)
-
-
-            if keyblock.name[-2:] != "_L":
-                if keyblock.name[-2:] != "_R":
-
-                    ##CREA HUESOS
-
-                    bone = amtas.edit_bones.new(keyblock.name)
-                    bone.head = (gx,0,0)
-                    bone.tail = (gx,0,1)
-                    gx = gx+2.2
-                    bone = amtas.edit_bones.new(keyblock.name+"_CTRL")
-                    bone.head = (gy,0,0)
-                    bone.tail = (gy,0,0.2)
-                    gy = gy+2.2
-
-                    ##SETEA ARMATURE ACTIVA
-                    bpy.context.scene.objects.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].select = 1
-                    ##DESELECCIONA (modo edit)
-                    eval(EDITMODE)
-                    bpy.ops.armature.select_all(action="DESELECT")
-
-                    ##EMPARENTA HUESOS
-
-                    ##HUESO ACTIVO
-                    eval(OBJECTMODE)
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name]
-                    ##MODO EDIT
-                    eval(EDITMODE)
-                    ##DESELECCIONA (modo edit)
-                    bpy.ops.armature.select_all(action="DESELECT")
-                    ##MODO OBJECT
-                    eval(OBJECTMODE)
-                    ##SELECCIONA UN HUESO
-                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name+"_CTRL"].select = 1
-                    eval(EDITMODE)
-                    ##EMPARENTA
-                    bpy.ops.armature.parent_set(type="OFFSET")
-                    ##DESELECCIONA (modo edit)
-                    bpy.ops.armature.select_all(action="DESELECT")
-
-                    ##CREA DRIVERS Y LOS CONECTA
-                    keyblock.driver_add("value")
-                    keyblock.driver_add("value")
-
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.expression = "-var+var_001"
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables.new()
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].id = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].bone_target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[(keyblock.name)+"_CTRL"].name
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].type = 'TRANSFORMS'
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].transform_space = "LOCAL_SPACE"
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var'].targets[0].transform_type = "LOC_X"
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].id = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].bone_target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[(keyblock.name)+"_CTRL"].name
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].type = 'TRANSFORMS'
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].transform_space = "LOCAL_SPACE"
-                    SEL_OBJ.data.shape_keys.animation_data.drivers[varindex].driver.variables['var_001'].targets[0].transform_type = "LOC_Y"
-
-
-                    varindex = varindex + 1
-
-
-
-
-        ## CREO DATA PARA SLIDERS
-
+        
+        ## CREO DATA PARA SLIDERS            
         ## creo data para los contenedores
         verticess = [(-.1,1,0),(.1,1,0),(.1,0,0),(-.1,0,0)]
-        edgess = [(0,1),(1,2),(2,3),(3,0)]
-
-        mesh = bpy.data.meshes.new(keyblock.name+"_data_container")
+        edgess = [(0,1),(1,2),(2,3),(3,0)]            
+        mesh = bpy.data.meshes.new("%s_data_container" % (SEL_OBJ))
         object = bpy.data.objects.new("GRAPHIC_CONTAINER_AS", mesh)
         bpy.context.scene.objects.link(object)
         mesh.from_pydata(verticess,edgess,[])
-
-        ## PONGO LOS LIMITES Y SETEO ICONOS
-        for keyblock in LISTA_KEYS:
-            print("KEYBLOCK EN CREACION DE HUESOS "+keyblock.name)
-            ## SETEO ICONOS
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name].custom_shape = bpy.data.objects['GRAPHIC_CONTAINER_AS']
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].custom_shape = bpy.data.objects['GRAPHIC_CONTAINER_AS']
-            ## SETEO CONSTRAINTS
-            eval(OBJECTMODE)
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name+"_CTRL"]
-            ## SUMO CONSTRAINT
-            eval(POSEMODE)
-            bpy.ops.pose.constraint_add(type="LIMIT_LOCATION")
-
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].min_x = 0
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_min_x = 1
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].min_z = 0
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_min_z = 1
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].min_y = 0
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_min_y = 1
-
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].max_x =  0
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_x = 1
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].max_z =  0
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_z = 1
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].max_y =  1
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].use_max_y = 1
-
-            bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].pose.bones[keyblock.name+"_CTRL"].constraints['Limit Location'].owner_space  = "LOCAL"
-
-        ## PARA QUE EL TEXTO FUNCIONE PASAMOS A OBJECT MODE
-        eval(OBJECTMODE)
-
-        ## TEXTOS
-        for keyblock in LISTA_KEYS:
-            print("KEYBLOCK EN TEXTOS "+keyblock.name)
-            ## creo tipografias
-            bpy.ops.object.text_add(location=(0,0,0))
-            bpy.data.objects['Text'].data.body = keyblock.name
-            bpy.data.objects['Text'].name = "TEXTO_"+keyblock.name
-            bpy.data.objects["TEXTO_"+keyblock.name].rotation_euler[0] = math.pi/2
-            bpy.data.objects["TEXTO_"+keyblock.name].location.x = -1
-            bpy.data.objects["TEXTO_"+keyblock.name].location.z = -1
-            bpy.data.objects["TEXTO_"+keyblock.name].data.size = .2
-            ## SETEO OBJETO ACTIVO
-            bpy.context.scene.objects.active = bpy.data.objects["TEXTO_"+keyblock.name]
-            bpy.ops.object.constraint_add(type="COPY_LOCATION")
-            bpy.data.objects["TEXTO_"+keyblock.name].constraints['Copy Location'].target = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-            bpy.data.objects["TEXTO_"+keyblock.name].constraints['Copy Location'].subtarget = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name].name
-
-            bpy.ops.object.select_all(action="DESELECT")
-            bpy.data.objects["TEXTO_"+keyblock.name].select = 1
-            bpy.context.scene.objects.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-            bpy.ops.object.parent_set(type="OBJECT")
-
-
-        ## EMPARENTA ICONO
-
-        bpy.ops.object.select_all(action="DESELECT")
-        bpy.data.objects["GRAPHIC_CONTAINER_AS"].select = 1
-        bpy.context.scene.objects.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name]
-        bpy.ops.object.parent_set(type="OBJECT")
-
-        eval(POSEMODE)
-
+        
+        eval(EDITMODE)
+        gx = 0
+        gy = 0        
+        
+        for keyblock in LISTA_KEYS:        
+            if keyblock.name[-2:] != "_L":
+                if keyblock.name[-2:] != "_R":
+                    ## OBJETO ACTIVO
+                    scn.objects.active = obas
+                    eval(EDITMODE)
+        
+                    ##CREA HUESOS        
+                    bone = amtas.edit_bones.new(keyblock.name)
+                    bone.head = (gx,0,0)
+                    bone.tail = (gx,0,1)
+                    
+                    bonectrl = amtas.edit_bones.new(keyblock.name+"_CTRL")
+                    bonectrl.head = (gy,0,0)
+                    bonectrl.tail = (gy,0,0.2)
+        
+                    ##EMPARENTA HUESOS
+                    ## EMPARENTO
+                    obas.data.edit_bones[bonectrl.name].parent = obas.data.edit_bones[bone.name]                         
+                    bpy.context.scene.objects.active = obas
+                    
+                    ##DESELECCIONA (modo edit)
+                    bpy.ops.armature.select_all(action="DESELECT")
+        
+                    ##CREA DRIVERS Y LOS CONECTA
+                    DR1 = keyblock.driver_add("value")
+                    DR1.driver.expression = "var"
+                    VAR2 = DR1.driver.variables.new()     
+                    VAR2.targets[0].id = obas
+                    VAR2.targets[0].bone_target = bonectrl.name
+                    VAR2.type = 'TRANSFORMS'
+                    VAR2.targets[0].transform_space = "LOCAL_SPACE"
+                    VAR2.targets[0].transform_type = "LOC_Y"       
+                    
+                    eval(POSEMODE)
+                    
+                    ## SETEO ICONOS
+                    obas.pose.bones[keyblock.name].custom_shape = object
+                    obas.pose.bones[keyblock.name+"_CTRL"].custom_shape = object
+                    
+                    ## SETEO CONSTRAINTS
+        
+                    bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name+"_CTRL"]
+                    ## SUMO CONSTRAINT
+                    eval(POSEMODE)
+                    CNS = obas.pose.bones[keyblock.name+"_CTRL"].constraints.new(type='LIMIT_LOCATION')                        
+                    CNS.min_x = 0
+                    CNS.use_min_x = 1
+                    CNS.min_z = 0
+                    CNS.use_min_z = 1
+                    CNS.min_y = 0
+                    CNS.use_min_y = 1
+                    
+                    CNS.max_x =  0
+                    CNS.use_max_x = 1
+                    CNS.max_z =  0
+                    CNS.use_max_z = 1
+                    CNS.max_y =  1
+                    CNS.use_max_y = 1
+                    
+                    CNS.owner_space  = "LOCAL"
+                    CNS.use_transform_limit = True        
+        
+                    ## PARA QUE EL TEXTO FUNCIONE PASAMOS A OBJECT MODE
+                    eval(OBJECTMODE)
+        
+                    ## TEXTOS
+                    ## creo tipografias
+                    bpy.ops.object.text_add(location=(0,0,0))
+                    gx = gx+2.2
+                    gy = gy+2.2
+                    texto = bpy.context.object
+                    texto.data.body = keyblock.name
+                    texto.name = "TEXTO_"+keyblock.name
+        
+                    texto.rotation_euler[0] = math.pi/2
+                    texto.location.x = -.15
+                    texto.location.z = -.15
+                    texto.data.size = .2
+                    
+                    CNS = texto.constraints.new(type="COPY_LOCATION")
+                    CNS.target = obas
+                    CNS.subtarget = obas.pose.bones[keyblock.name].name
+                    CNS.use_offset = True  
+                              
+        
 
         return {'FINISHED'}
 
@@ -2530,7 +2275,6 @@ def register():
     bpy.utils.register_class(renameObjectsOt)
     bpy.utils.register_class(resymVertexGroups)
     bpy.utils.register_class(CreateLayoutAsymmetrical)
-    bpy.utils.register_class(DistributeMinMaxApply)
     bpy.utils.register_class(saveIncremental)
     bpy.utils.register_class(replaceFilePath)
     bpy.utils.register_class(oscDuplicateSymmetricalOp)
@@ -2576,7 +2320,6 @@ def unregister():
     bpy.utils.unregister_class(renameObjectsOt)
     bpy.utils.unregister_class(resymVertexGroups)
     bpy.utils.unregister_class(CreateLayoutAsymmetrical)
-    bpy.utils.unregister_class(DistributeMinMaxApply)
     bpy.utils.unregister_class(saveIncremental)
     bpy.utils.unregister_class(replaceFilePath)
     bpy.utils.unregister_class(oscDuplicateSymmetricalOp)
