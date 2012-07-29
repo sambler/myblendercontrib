@@ -565,7 +565,6 @@ class Ms3dImporter():
 
         return blender_mesh_object
 
-
     ###########################################################################
     def create_animation(self, blender_context, ms3d_model, blender_mesh_object):
         ##########################
@@ -716,7 +715,6 @@ class Ms3dImporter():
                 blender_edit_bone_parent = ms3d_joint_parent.blender_edit_bone
                 blender_edit_bone.parent = blender_edit_bone_parent
 
-
             ms3d_joint.blender_bone_name = blender_edit_bone.name
             ms3d_joint.blender_edit_bone = blender_edit_bone
         enable_edit_mode(False)
@@ -749,7 +747,6 @@ class Ms3dImporter():
             ms3d_comment = ms3d_joint.comment_object
             if ms3d_comment is not None:
                 blender_bone.ms3d.comment = ms3d_comment.comment
-
 
         ##########################
         if not self.options.prop_animation:
