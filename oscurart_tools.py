@@ -1441,21 +1441,7 @@ class replaceFilePath(bpy.types.Operator):
         TEXTREPLACE = bpy.context.scene.oscReplaceText
 
         for image in bpy.data.images:
-            if image.filepath != '':
-                if image.filepath.count(TEXTSEARCH) == 2:
-                    FILEPATH = image.filepath
-                    FOLDER = FILEPATH.partition(TEXTSEARCH)[0] + TEXTREPLACE
-                    PREFIX = FILEPATH.partition(TEXTSEARCH)[-1].partition(TEXTSEARCH)[0] + TEXTREPLACE + FILEPATH.partition(TEXTSEARCH)[-1].partition(TEXTSEARCH)[2]
-                    print("Reemplazo el path de: " + image.name)
-                    image.filepath=FOLDER+PREFIX
-
-                if image.filepath.count(TEXTSEARCH) == 1:
-                    FILEPATH = image.filepath
-                    FOLDER = FILEPATH.partition(TEXTSEARCH)[0] + TEXTREPLACE + FILEPATH.partition(TEXTSEARCH)[-1]
-
-                    print("Reemplazo el path de: " + image.name)
-                    image.filepath = FOLDER
-
+            image.filepath = image.filepath.replace(TEXTSEARCH,TEXTREPLACE)
 
         return {'FINISHED'}
 
