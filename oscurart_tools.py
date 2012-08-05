@@ -136,6 +136,7 @@ class OscPanelObject(OscPollObject, bpy.types.Panel):
         colrow.prop(bpy.context.scene, "RenameObjectOt", text="")
         colrow.operator("object.rename_objects_osc", icon="SHORTDISPLAY")
         col.operator("object.duplicate_object_symmetry_osc", icon="OBJECT_DATAMODE", text="Duplicate Symmetry")
+        col.operator("object.distribute_osc", icon="OBJECT_DATAMODE", text="Distribute")
         colrow = col.row(align=1)
         colrow.operator("object.modifiers_remove_osc", icon="MODIFIER", text="Remove Modifiers")
         colrow.operator("object.modifiers_apply_osc", icon="MODIFIER", text="Apply Modifiers")
@@ -2235,6 +2236,47 @@ class OscResymMesh (bpy.types.Operator):
     def execute (self, context):
         reSymMesh(self)
         return {'FINISHED'}
+    
+##=============== DISTRIBUTE ======================    
+
+
+def ObjectDistributeOscurart (self, X, Y, Z):
+    if len(bpy.selection_osc[:]) > 1:
+        # VARIABLES
+        dif = bpy.selection_osc[-1].location-bpy.selection_osc[0].location
+        chunkglobal = dif/(len(bpy.selection_osc[:])-1)
+        chunkx = 0
+        chunky = 0
+        chunkz = 0
+        deltafst = bpy.selection_osc[0].location
+        
+        #ORDENA
+        for OBJECT in bpy.selection_osc[:]:          
+            if X:  OBJECT.location.x=deltafst[0]+chunkx
+            if Y:  OBJECT.location[1]=deltafst[1]+chunky
+            if Z:  OBJECT.location.z=deltafst[2]+chunkz
+            chunkx+=chunkglobal[0]
+            chunky+=chunkglobal[1]
+            chunkz+=chunkglobal[2]
+    else:  
+        self.report({'ERROR'}, "Selection is only 1!")      
+    
+class DialogDistributeOsc(bpy.types.Operator):
+    bl_idname = "object.distribute_osc"
+    bl_label = "Distribute Objects"       
+    Boolx = bpy.props.BoolProperty(name="X")
+    Booly = bpy.props.BoolProperty(name="Y")
+    Boolz = bpy.props.BoolProperty(name="Z")
+    
+    def execute(self, context):
+        ObjectDistributeOscurart(self, self.Boolx,self.Booly,self.Boolz)
+        return {'FINISHED'}
+    def invoke(self, context, event):
+        self.Boolx = True
+        self.Booly = True
+        self.Boolz = True        
+        return context.window_manager.invoke_props_dialog(self)
+
 
 ##======================================================================================FIN DE SCRIPTS
 
@@ -2283,6 +2325,7 @@ def register():
     bpy.utils.register_class(OscSelection)
     bpy.utils.register_class(OscResymSave)
     bpy.utils.register_class(OscResymMesh)
+    bpy.utils.register_class(DialogDistributeOsc)
 
 def unregister():
     bpy.utils.unregister_class(OscPanelControl)
@@ -2328,7 +2371,9 @@ def unregister():
     bpy.utils.unregister_class(OscSelection)
     bpy.utils.unregister_class(OscResymSave)
     bpy.utils.unregister_class(OscResymMesh)
-
+    bpy.utils.unregister_class(DialogDistributeOsc)
 
 if __name__ == "__main__":
     register()
+else:
+    unregister()
