@@ -34,8 +34,8 @@ import sys
 import os
 import stat
 import bmesh
-from time import sleep
-from random import randrange
+import time
+import random
 
 ## CREA PANELES EN TOOLS
 
@@ -645,7 +645,9 @@ def defRenderAll (FRAMETYPE):
     
     ## DUERME
     DUERME=random.randrange(0,15)
+    print(DUERME)    
     time.sleep(DUERME)
+
 
     LISTMAT=[]
     SCENES=bpy.data.scenes[:]
@@ -785,7 +787,9 @@ def defRenderSelected(FRAMETYPE):
 
     ## DUERME
     DUERME=random.randrange(0,15)
+    print(DUERME)    
     time.sleep(DUERME)
+
 
     ACTSCENE = bpy.context.scene
     LISTMAT = []
@@ -925,7 +929,9 @@ def defRenderCurrent (FRAMETYPE):
 
     ## DUERME
     DUERME=random.randrange(0,15)
+    print(DUERME)    
     time.sleep(DUERME)
+   
 
     print("---------------------")
 
@@ -1058,10 +1064,12 @@ class renderCrop (bpy.types.Operator):
 
         ## DUERME
         DUERME=random.randrange(0,15)
+        print(DUERME)        
         time.sleep(DUERME)
 
+
         ##AVERIGUO EL SISTEMA
-        if sys.platform.startswith("w"):
+        if sys.platform.startswith("w"):    
             print("PLATFORM: WINDOWS")
             VARSYSTEM= "\\"
         else:
@@ -2393,4 +2401,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-
