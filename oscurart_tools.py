@@ -34,6 +34,8 @@ import sys
 import os
 import stat
 import bmesh
+import time
+import random
 
 ## CREA PANELES EN TOOLS
 
@@ -640,6 +642,12 @@ class normalsOutside(bpy.types.Operator):
 
 
 def defRenderAll (FRAMETYPE):
+    
+    ## DUERME
+    DUERME=random.randrange(0,15)
+    print(DUERME)    
+    time.sleep(DUERME)
+
 
     LISTMAT=[]
     SCENES=bpy.data.scenes[:]
@@ -777,6 +785,12 @@ bpy.types.Scene.OscSelScenes = bpy.props.StringProperty(default="[]")
 
 def defRenderSelected(FRAMETYPE):
 
+    ## DUERME
+    DUERME=random.randrange(0,15)
+    print(DUERME)    
+    time.sleep(DUERME)
+
+
     ACTSCENE = bpy.context.scene
     LISTMAT = []
     SCENES = bpy.data.scenes[:]
@@ -913,6 +927,12 @@ def defRenderCurrent (FRAMETYPE):
     FS = bpy.context.scene.frame_start
     FE = bpy.context.scene.frame_end
 
+    ## DUERME
+    DUERME=random.randrange(0,15)
+    print(DUERME)    
+    time.sleep(DUERME)
+   
+
     print("---------------------")
 
     ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
@@ -1042,8 +1062,14 @@ class renderCrop (bpy.types.Operator):
     bl_label="Render Crop: Render!"
     def execute(self,context):
 
+        ## DUERME
+        DUERME=random.randrange(0,15)
+        print(DUERME)        
+        time.sleep(DUERME)
+
+
         ##AVERIGUO EL SISTEMA
-        if sys.platform.startswith("w"):
+        if sys.platform.startswith("w"):    
             print("PLATFORM: WINDOWS")
             VARSYSTEM= "\\"
         else:
@@ -2375,4 +2401,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-
