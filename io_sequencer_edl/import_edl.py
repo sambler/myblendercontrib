@@ -600,7 +600,7 @@ def apply_dissolve_ipo(mov, blendin):
     icu.append((0, 0))
     icu.append(((int(blendin) / len_disp) * 100, 1))
 
-    if mov.type not in (SEQ_HD_SOUND, SEQ_RAM_SOUND):
+    if mov.type not in {SEQ_HD_SOUND, SEQ_RAM_SOUND}:
         mov.blendMode = Blender.Scene.Sequence.BlendModes.ALPHAOVER
 
 
