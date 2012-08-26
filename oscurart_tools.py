@@ -643,11 +643,6 @@ class normalsOutside(bpy.types.Operator):
 
 def defRenderAll (FRAMETYPE):
     
-    ## DUERME
-    DUERME=random.randrange(0,15)
-    print(DUERME)    
-    time.sleep(DUERME)
-
 
     LISTMAT=[]
     SCENES=bpy.data.scenes[:]
@@ -785,10 +780,6 @@ bpy.types.Scene.OscSelScenes = bpy.props.StringProperty(default="[]")
 
 def defRenderSelected(FRAMETYPE):
 
-    ## DUERME
-    DUERME=random.randrange(0,15)
-    print(DUERME)    
-    time.sleep(DUERME)
 
 
     ACTSCENE = bpy.context.scene
@@ -927,11 +918,6 @@ def defRenderCurrent (FRAMETYPE):
     FS = bpy.context.scene.frame_start
     FE = bpy.context.scene.frame_end
 
-    ## DUERME
-    DUERME=random.randrange(0,15)
-    print(DUERME)    
-    time.sleep(DUERME)
-   
 
     print("---------------------")
 
@@ -1062,10 +1048,6 @@ class renderCrop (bpy.types.Operator):
     bl_label="Render Crop: Render!"
     def execute(self,context):
 
-        ## DUERME
-        DUERME=random.randrange(0,15)
-        print(DUERME)        
-        time.sleep(DUERME)
 
 
         ##AVERIGUO EL SISTEMA
