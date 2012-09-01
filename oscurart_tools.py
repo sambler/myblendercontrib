@@ -1388,52 +1388,28 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
         return {'FINISHED'}
 
 
-##------------------------ SHAPES LAYOUT SYMMETRICA ------------------------
+##------------------------ SAVE INCREMENTAL ------------------------
 
 class saveIncremental(bpy.types.Operator):
     bl_idname = "file.save_incremental_osc"
     bl_label = "Save Incremental File"
     bl_options = {"REGISTER", "UNDO"}
     def execute(self, context):
-        ##SETEO VARIABLES
-        filepath=bpy.data.filepath
 
-        ##SI LA RUTA CONTIENE _V
-        if filepath.count("_v") == 0:
-            print("La escena no tiene numero")
-            stpath=filepath.rsplit(".blend")
-            incrementalValue=1
-            print("El output es: "+ stpath[0]+"_v0"+str(incrementalValue)+".blend")
-            output=stpath[0]+"_v0"+str(incrementalValue)+".blend"
-            bpy.ops.wm.save_as_mainfile(filepath=output)
-
-
+        # SI POSEE _V        
+        filepath = bpy.data.filepath
+        
+        if filepath.count("_v"):
+            strnum = filepath.rpartition("_v")[-1].rpartition(".blend")[0]
+            intnum = int(strnum)
+            modnum = strnum.replace(str(intnum),str(intnum+1))    
+            output = filepath.replace(strnum,modnum)
+            bpy.ops.wm.save_as_mainfile(filepath=output)   
+             
         else:
-            sfilepath=filepath.split("_v")[0]
-            idfilepath=(filepath.split("_v")[1])[:-6]
-            stpath=sfilepath+"_v"
-            incrementalValue=int(idfilepath)
-
-            if len(idfilepath) > 1 :
-                if idfilepath[0] == "0":
-                    print("El primer valor es cero")
-                    incrementalValue+=1
-                    print("El output es: "+ sfilepath+"_v0"+str(incrementalValue)+".blend")
-                    output=sfilepath+"_v0"+str(incrementalValue)+".blend"
-                    bpy.ops.wm.save_as_mainfile(filepath=output)
-                else:
-                    print("El primer valor no es cero")
-                    incrementalValue+=1
-                    print("El output es: "+ sfilepath+"_v"+str(incrementalValue)+".blend")
-                    output=sfilepath+"_v0"+str(incrementalValue)+".blend"
-                    bpy.ops.wm.save_as_mainfile(filepath=output)
-
-            if len(idfilepath) <= 1 :
-                print("No tiene primer valor")
-                incrementalValue+=1
-                print("El output es: "+ sfilepath+"_v0"+str(incrementalValue)+".blend")
-                output=sfilepath+"_v0"+str(incrementalValue)+".blend"
-                bpy.ops.wm.save_as_mainfile(filepath=output)
+            output = filepath.rpartition(".blend")[0]+"_v01"
+            bpy.ops.wm.save_as_mainfile(filepath=output)         
+        
         return {'FINISHED'}
 
 ##------------------------ REPLACE FILE PATHS ------------------------
