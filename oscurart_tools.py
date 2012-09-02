@@ -253,6 +253,10 @@ class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
         boxcolrow=boxcol.row()
         boxcolrow.operator("render.apply_overrides", text="Apply Overrides", icon="ERROR")
         boxcolrow.operator("render.restore_overrides", text="Restore Overrides", icon="ERROR")
+        boxcol.label(text="Automatic Overrides")
+        boxcolrow=boxcol.row()
+        boxcolrow.operator("render.overrides_on", text="On", icon="ERROR")
+        boxcolrow.operator("render.overrides_off", text="Off", icon="ERROR")        
 
 
 ##---------------------------RELOAD IMAGES------------------
@@ -1957,7 +1961,70 @@ class OscCopyObjectGAL (bpy.types.Operator):
 
 ## ------------------------------------ APPLY AND RESTORE OVERRIDES --------------------------------------
 
+def DefOscApplyOverrides(self):
+    LISTMAT = []
+    PROPTOLIST = list(eval(bpy.context.scene['OVERRIDE']))
+    # REVISO SISTEMA
+    if sys.platform.startswith("w"):
+        print("PLATFORM: WINDOWS")
+        SYSBAR = "\\"
+    else:
+        print("PLATFORM:LINUX")
+        SYSBAR = "/"
+    FILEPATH=bpy.data.filepath
+    ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
+    ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
+    XML=open(ENTFILEPATH ,mode="w")
+    ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
+    
+    LISTMAT = { OBJ : [SLOT.material for SLOT in OBJ.material_slots[:]] for OBJ in bpy.data.objects[:] if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE" }
+    
+    
+    for OVERRIDE in PROPTOLIST:
+        for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
+            if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE": 
+                if len(OBJECT.material_slots) > 0:                   
+                    for SLOT in OBJECT.material_slots[:]:
+                        SLOT.material = bpy.data.materials[OVERRIDE[1]]                    
+                else:
+                    print ("* %s have not Material Slots" % (OBJECT.name))         
+    
+    
+    XML.writelines(str(LISTMAT))
+    XML.close()    
+    
+    
+def DefOscRestoreOverrides(self):    
+    # REVISO SISTEMA
+    if sys.platform.startswith("w"):
+        print("PLATFORM: WINDOWS")
+        SYSBAR="\\"
+    else:
+        print("PLATFORM:LINUX")
+        SYSBAR="/"
 
+    FILEPATH = bpy.data.filepath
+    ACTIVEFOLDER = FILEPATH.rpartition(SYSBAR)[0]
+    ENTFILEPATH = "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
+    XML = open(ENTFILEPATH, mode="r")
+    RXML = XML.readlines(0)
+
+    LISTMAT = dict(eval(RXML[0]))
+
+    # RESTAURO MATERIALES  DE OVERRIDES
+    
+    for OBJ in LISTMAT:            
+        if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE":
+            SLOTIND = 0
+            for SLOT in LISTMAT[OBJ]:
+                OBJ.material_slots[SLOTIND].material = SLOT  
+                SLOTIND += 1     
+   
+    # CIERRO
+    XML.close()
+
+    
+## HAND OPERATOR    
 class OscApplyOverrides(bpy.types.Operator):
     bl_idname = "render.apply_overrides"
     bl_label = "Apply Overrides in this Scene"
@@ -1965,36 +2032,7 @@ class OscApplyOverrides(bpy.types.Operator):
 
 
     def execute (self, context):
-        LISTMAT = []
-        PROPTOLIST = list(eval(bpy.context.scene['OVERRIDE']))
-        # REVISO SISTEMA
-        if sys.platform.startswith("w"):
-            print("PLATFORM: WINDOWS")
-            SYSBAR = "\\"
-        else:
-            print("PLATFORM:LINUX")
-            SYSBAR = "/"
-        FILEPATH=bpy.data.filepath
-        ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
-        ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
-        XML=open(ENTFILEPATH ,mode="w")
-        ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
-
-        LISTMAT = { OBJ : [SLOT.material for SLOT in OBJ.material_slots[:]] for OBJ in bpy.data.objects[:] if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE" }
-
-
-        for OVERRIDE in PROPTOLIST:
-            for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
-                if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE": 
-                    if len(OBJECT.material_slots) > 0:                   
-                        for SLOT in OBJECT.material_slots[:]:
-                            SLOT.material = bpy.data.materials[OVERRIDE[1]]                    
-                    else:
-                        print ("* %s have not Material Slots" % (OBJECT.name))         
-
-
-        XML.writelines(str(LISTMAT))
-        XML.close()
+        DefOscApplyOverrides(self)
         return {'FINISHED'}
 
 class OscRestoreOverrides(bpy.types.Operator):
@@ -2004,35 +2042,29 @@ class OscRestoreOverrides(bpy.types.Operator):
 
 
     def execute (self, context):
-        # REVISO SISTEMA
-        if sys.platform.startswith("w"):
-            print("PLATFORM: WINDOWS")
-            SYSBAR="\\"
-        else:
-            print("PLATFORM:LINUX")
-            SYSBAR="/"
-
-        FILEPATH = bpy.data.filepath
-        ACTIVEFOLDER = FILEPATH.rpartition(SYSBAR)[0]
-        ENTFILEPATH = "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
-        XML = open(ENTFILEPATH, mode="r")
-        RXML = XML.readlines(0)
-
-        LISTMAT = dict(eval(RXML[0]))
-
-        # RESTAURO MATERIALES  DE OVERRIDES
-        
-        for OBJ in LISTMAT:            
-            if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE":
-                SLOTIND = 0
-                for SLOT in LISTMAT[OBJ]:
-                    OBJ.material_slots[SLOTIND].material = SLOT  
-                    SLOTIND += 1     
-       
-        # CIERRO
-        XML.close()
-
+        DefOscRestoreOverrides(self)        
         return {'FINISHED'}
+    
+class OscOverridesOn(bpy.types.Operator):
+    bl_idname = "render.overrides_on"
+    bl_label = "Turn On Overrides"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute (self, context):
+        bpy.app.handlers.render_pre.append(DefOscApplyOverrides)
+        bpy.app.handlers.render_post.append(DefOscRestoreOverrides)      
+        return {'FINISHED'}    
+
+class OscOverridesOff(bpy.types.Operator):
+    bl_idname = "render.overrides_off"
+    bl_label = "Turn Off Overrides"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute (self, context):
+        bpy.app.handlers.render_pre.remove(DefOscApplyOverrides)
+        bpy.app.handlers.render_post.remove(DefOscRestoreOverrides)      
+        return {'FINISHED'}    
+
 
 
 ## ------------------------------------ CHECK OVERRIDES --------------------------------------
@@ -2310,6 +2342,8 @@ def register():
     bpy.utils.register_class(OscResymSave)
     bpy.utils.register_class(OscResymMesh)
     bpy.utils.register_class(DialogDistributeOsc)
+    bpy.utils.register_class(OscOverridesOn)
+    bpy.utils.register_class(OscOverridesOff)
 
 def unregister():
     bpy.utils.unregister_class(OscPanelControl)
@@ -2356,6 +2390,8 @@ def unregister():
     bpy.utils.unregister_class(OscResymSave)
     bpy.utils.unregister_class(OscResymMesh)
     bpy.utils.unregister_class(DialogDistributeOsc)
+    bpy.utils.unregister_class(OscOverridesOn)
+    bpy.utils.unregister_class(OscOverridesOff)
 
 if __name__ == "__main__":
     register()
