@@ -1989,7 +1989,7 @@ def DefOscApplyOverrides(self):
                 else:
                     print ("* %s have not Material Slots" % (OBJECT.name))         
     
-    
+    print("Starting")
     XML.writelines(str(LISTMAT))
     XML.close()    
     
@@ -1997,10 +1997,10 @@ def DefOscApplyOverrides(self):
 def DefOscRestoreOverrides(self):    
     # REVISO SISTEMA
     if sys.platform.startswith("w"):
-        print("PLATFORM: WINDOWS")
+        #print("PLATFORM: WINDOWS")
         SYSBAR="\\"
     else:
-        print("PLATFORM:LINUX")
+        #print("PLATFORM:LINUX")
         SYSBAR="/"
 
     FILEPATH = bpy.data.filepath
@@ -2019,7 +2019,7 @@ def DefOscRestoreOverrides(self):
             for SLOT in LISTMAT[OBJ]:
                 OBJ.material_slots[SLOTIND].material = SLOT  
                 SLOTIND += 1     
-   
+    print("Finish")     
     # CIERRO
     XML.close()
 
@@ -2045,12 +2045,9 @@ class OscRestoreOverrides(bpy.types.Operator):
         DefOscRestoreOverrides(self)        
         return {'FINISHED'}
 
-def OscCancelRender():
-    if OVERRIDESTATUS == True:
-        DefOscRestoreOverrides
 
 OVERRIDESSTATUS = False
-bpy.app.handlers.render_cancel.append(OscCancelRender)
+
     
 class OscOverridesOn(bpy.types.Operator):
     bl_idname = "render.overrides_on"
