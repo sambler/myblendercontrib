@@ -2045,7 +2045,12 @@ class OscRestoreOverrides(bpy.types.Operator):
         DefOscRestoreOverrides(self)        
         return {'FINISHED'}
 
+def OscCancelRender():
+    if OVERRIDESTATUS == True:
+        bpy.app.handlers.render_post.append(DefOscRestoreOverrides) 
+
 OVERRIDESSTATUS = False
+bpy.app.handlers.render_cancel.append(OscCancelRender)
     
 class OscOverridesOn(bpy.types.Operator):
     bl_idname = "render.overrides_on"
