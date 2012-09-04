@@ -1989,7 +1989,7 @@ def DefOscApplyOverrides(self):
                 else:
                     print ("* %s have not Material Slots" % (OBJECT.name))         
     
-    print("Starting")
+
     XML.writelines(str(LISTMAT))
     XML.close()    
     
@@ -2019,7 +2019,7 @@ def DefOscRestoreOverrides(self):
             for SLOT in LISTMAT[OBJ]:
                 OBJ.material_slots[SLOTIND].material = SLOT  
                 SLOTIND += 1     
-    print("Finish")     
+        
     # CIERRO
     XML.close()
 
