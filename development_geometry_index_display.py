@@ -167,14 +167,13 @@ class Mesh_Index_Display(Operator):
                 return {'CANCELLED'}
         except: pass
         if context.area.type == 'VIEW_3D':
-            context.window_manager.modal_handler_add(self)
+            self.mouse_path = []
 
             # Add the region OpenGL drawing callback
             # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
             self._handle = context.region.callback_add(draw_callback_indicies, (self, context), 'POST_PIXEL')
 
-            self.mouse_path = []
-
+            context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "View3D not found, cannot run operator")
