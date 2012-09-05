@@ -247,7 +247,7 @@ class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
         col.label(text="Example: [[Group,Material]]")
         col.prop(bpy.context.scene, '["OVERRIDE"]', text="")
         col.operator("render.check_overrides", text="Check List", icon="ZOOM_ALL")
-        col.operator("render.overrides_on", text="On / Off", icon="QUIT")        
+        col.operator("render.overrides_on", text="Image Preview", icon="QUIT")        
 
         boxcol=layout.box().column(align=1)
         boxcol.label(text="Danger Zone")
@@ -2023,6 +2023,12 @@ def DefOscRestoreOverrides(self):
     # CIERRO
     XML.close()
 
+
+def OscRenderPreview(self):
+    DefOscApplyOverrides(self)
+    bpy.ops.render.render('INVOKE_DEFAULT') 
+    DefOscRestoreOverrides(self)
+
     
 ## HAND OPERATOR    
 class OscApplyOverrides(bpy.types.Operator):
@@ -2046,7 +2052,7 @@ class OscRestoreOverrides(bpy.types.Operator):
         return {'FINISHED'}
 
 
-OVERRIDESSTATUS = False
+
 
     
 class OscOverridesOn(bpy.types.Operator):
@@ -2056,18 +2062,8 @@ class OscOverridesOn(bpy.types.Operator):
 
     def execute (self, context):
         
-        global OVERRIDESSTATUS
-        
-        if OVERRIDESSTATUS == False:
-            bpy.app.handlers.render_pre.append(DefOscApplyOverrides)
-            bpy.app.handlers.render_post.append(DefOscRestoreOverrides)  
-            OVERRIDESSTATUS = True
-            print("Overrides on!")
-        else:    
-            bpy.app.handlers.render_pre.remove(DefOscApplyOverrides)
-            bpy.app.handlers.render_post.remove(DefOscRestoreOverrides)    
-            OVERRIDESSTATUS = False
-            print("Overrides off!")           
+        OscRenderPreview(self) 
+                 
         return {'FINISHED'}    
 
 
