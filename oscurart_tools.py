@@ -246,8 +246,7 @@ class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
         col.label(text="Active Scene: " + bpy.context.scene.name)
         col.label(text="Example: [[Group,Material]]")
         col.prop(bpy.context.scene, '["OVERRIDE"]', text="")
-        col.operator("render.check_overrides", text="Check List", icon="ZOOM_ALL")
-        col.operator("render.overrides_on", text="Image Preview", icon="QUIT")        
+        col.operator("render.check_overrides", text="Check List", icon="ZOOM_ALL")       
 
         boxcol=layout.box().column(align=1)
         boxcol.label(text="Danger Zone")
@@ -2023,12 +2022,6 @@ def DefOscRestoreOverrides(self):
     # CIERRO
     XML.close()
 
-
-def OscRenderPreview(self):
-    DefOscApplyOverrides(self)
-    bpy.ops.render.render('INVOKE_DEFAULT') 
-    DefOscRestoreOverrides(self)
-
     
 ## HAND OPERATOR    
 class OscApplyOverrides(bpy.types.Operator):
@@ -2051,20 +2044,6 @@ class OscRestoreOverrides(bpy.types.Operator):
         DefOscRestoreOverrides(self)        
         return {'FINISHED'}
 
-
-
-
-    
-class OscOverridesOn(bpy.types.Operator):
-    bl_idname = "render.overrides_on"
-    bl_label = "Turn On Overrides"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute (self, context):
-        
-        OscRenderPreview(self) 
-                 
-        return {'FINISHED'}    
 
 
 
@@ -2345,7 +2324,6 @@ def register():
     bpy.utils.register_class(OscResymSave)
     bpy.utils.register_class(OscResymMesh)
     bpy.utils.register_class(DialogDistributeOsc)
-    bpy.utils.register_class(OscOverridesOn)
 
 
 def unregister():
@@ -2393,7 +2371,7 @@ def unregister():
     bpy.utils.unregister_class(OscResymSave)
     bpy.utils.unregister_class(OscResymMesh)
     bpy.utils.unregister_class(DialogDistributeOsc)
-    bpy.utils.unregister_class(OscOverridesOn)
+
 
 
 if __name__ == "__main__":
