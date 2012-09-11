@@ -452,7 +452,7 @@ class EditList(object):
         for line in file:
             line = " ".join(line.split())
 
-            if not line or line.startswith("*") or line.startswith("#"):
+            if not line or line.startswith(("*", "#")):
                 continue
             elif line.startswith("TITLE:"):
                 self.title = " ".join(line.split()[1:])

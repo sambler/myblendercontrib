@@ -246,8 +246,7 @@ class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
         col.label(text="Active Scene: " + bpy.context.scene.name)
         col.label(text="Example: [[Group,Material]]")
         col.prop(bpy.context.scene, '["OVERRIDE"]', text="")
-        col.operator("render.check_overrides", text="Check List", icon="ZOOM_ALL")
-        col.operator("render.overrides_on", text="On / Off", icon="QUIT")        
+        col.operator("render.check_overrides", text="Check List", icon="ZOOM_ALL")       
 
         boxcol=layout.box().column(align=1)
         boxcol.label(text="Danger Zone")
@@ -2046,30 +2045,6 @@ class OscRestoreOverrides(bpy.types.Operator):
         return {'FINISHED'}
 
 
-OVERRIDESSTATUS = False
-
-    
-class OscOverridesOn(bpy.types.Operator):
-    bl_idname = "render.overrides_on"
-    bl_label = "Turn On Overrides"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute (self, context):
-        
-        global OVERRIDESSTATUS
-        
-        if OVERRIDESSTATUS == False:
-            bpy.app.handlers.render_pre.append(DefOscApplyOverrides)
-            bpy.app.handlers.render_post.append(DefOscRestoreOverrides)  
-            OVERRIDESSTATUS = True
-            print("Overrides on!")
-        else:    
-            bpy.app.handlers.render_pre.remove(DefOscApplyOverrides)
-            bpy.app.handlers.render_post.remove(DefOscRestoreOverrides)    
-            OVERRIDESSTATUS = False
-            print("Overrides off!")           
-        return {'FINISHED'}    
-
 
 
 
@@ -2349,7 +2324,6 @@ def register():
     bpy.utils.register_class(OscResymSave)
     bpy.utils.register_class(OscResymMesh)
     bpy.utils.register_class(DialogDistributeOsc)
-    bpy.utils.register_class(OscOverridesOn)
 
 
 def unregister():
@@ -2397,7 +2371,7 @@ def unregister():
     bpy.utils.unregister_class(OscResymSave)
     bpy.utils.unregister_class(OscResymMesh)
     bpy.utils.unregister_class(DialogDistributeOsc)
-    bpy.utils.unregister_class(OscOverridesOn)
+
 
 
 if __name__ == "__main__":

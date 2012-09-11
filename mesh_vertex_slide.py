@@ -446,11 +446,12 @@ class BVertexSlideOperator(bpy.types.Operator):
         if tmpX2 - tmpX1 < 0:
             self.Direction = -self.Direction
 
+        context.area.tag_redraw()  # Force the redraw of the 3D View
+
         # Add the region OpenGL drawing callback
         # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
-        context.window_manager.modal_handler_add(self)
         self._handle = context.region.callback_add(self.__class__.draw_callback_px, (self, context), 'POST_PIXEL')
-        context.area.tag_redraw()  # Force the redraw of the 3D View
+        context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
 def menu_func(self, context):

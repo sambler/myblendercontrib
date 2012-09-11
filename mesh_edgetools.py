@@ -33,7 +33,7 @@
 #
 # Paul "BrikBot" Marshall
 # Created: January 28, 2012
-# Last Modified: June 10, 2012
+# Last Modified: August 25, 2012
 # Homepage (blog): http://post.darkarsenic.com/
 #                       //blog.darkarsenic.com/
 #
@@ -141,9 +141,11 @@ def is_same_co(v1, v2):
 # is_face_planar
 #
 # Tests a face to see if it is planar.
-def is_face_planar(face, error = 0.000002):
+def is_face_planar(face, error = 0.0005):
     for v in face.verts:
         d = distance_point_to_plane(v.co, face.verts[0].co, face.normal)
+        if bpy.app.debug:
+            print("Distance: " + str(d))
         if d < -error or d > error:
             return False
     return True
@@ -521,7 +523,8 @@ def intersect_line_face(edge, face, is_infinite = False, error = 0.000002):
         p1, p2, p3 = face.verts[0].co, face.verts[1].co, face.verts[2].co
         int_co = intersect_line_plane(edge.verts[0].co, edge.verts[1].co, p1, face.normal)
 
-        if int_co != None:
+        # Only check if the triangle is not being treated as an infinite plane:
+        if int_co != None and not is_infinite:
             pA = p1 - int_co
             pB = p2 - int_co
             pC = p3 - int_co
@@ -531,7 +534,7 @@ def intersect_line_face(edge, face, is_infinite = False, error = 0.000002):
             sumA = aAB + aBC + aCA
 
             # If the point is outside the triangle:
-            if (sumA > (pi + error) and sumA < (pi - error)) and not is_infinite:
+            if (sumA > (pi + error) and sumA < (pi - error)):
                 int_co = None
 
     # This is the default case where we either have a planar quad or an n-gon.
@@ -1451,9 +1454,15 @@ class Slice(bpy.types.Operator):
                             newV1.co = intersection
                             newV2 = bVerts.new()
                             newV2.co = intersection
+                            if bpy.app.debug:
+                                print("New vertices were successfully created")
                             newE1 = bEdges.new((v1, newV1))
                             newE2 = bEdges.new((v2, newV2))
+                            if bpy.app.debug:
+                                print("New edges were successfully created")
                             bEdges.remove(e)
+                            if bpy.app.debug:
+                                print("Old edge successfully removed")
                         else:
                             new = list(bmesh.utils.edge_split(e, v1, 0.5))
                             new[1].co = intersection
