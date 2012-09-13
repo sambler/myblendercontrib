@@ -1657,7 +1657,8 @@ class oscApplyModifiers (bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             bpy.context.scene.objects.active=objeto
             objeto.select = True
-            bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True, obdata=True, material=False, texture=False, animation=False)
+            if objeto.data.users >= 2:
+                bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True, obdata=True, material=False, texture=False, animation=False)
             for modificador in objeto.modifiers:
                 try:
                     bpy.ops.object.modifier_apply(apply_as="DATA", modifier=modificador.name)
