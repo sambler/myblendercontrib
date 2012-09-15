@@ -1,48 +1,55 @@
- #  ***** BEGIN GPL LICENSE BLOCK *****
- #
- #  This program is free software: you can redistribute it and/or modify
- #  it under the terms of the GNU General Public License as published by
- #  the Free Software Foundation, either version 3 of the License, or
- #  (at your option) any later version.
- #
- #  This program is distributed in the hope that it will be useful,
- #  but WITHOUT ANY WARRANTY; without even the implied warranty of
- #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- #  GNU General Public License for more details.
- #
- #  You should have received a copy of the GNU General Public License
- #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- #
- #  The Original Code is Copyright (C) <date>-<date> by <name of copyright holder>    ###
- #  All rights reserved.
- #
- #  Contact:      p_boelens@msn.com
- #  Information:  http://projects.blender.org/tracker/index.php?func=detail&aid=28211
- #
- #  Contributor(s): CoDEmanX.
- #
- #  ***** END GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ##### END GPL LICENSE BLOCK #####
+
+"""
+Bake UV-Texture to Vertex Colors Addon
+
+Contact:        p_boelens@msn.com
+Information:    http://projects.blender.org/tracker/index.php?func=detail&aid=28211
+
+Contributor(s): CoDEmanX.
+    
+All rights reserved.
+"""
 
 bl_info = {
     "name": "Bake UV-Texture to Vertex Colors",
-    "description": "Bakes the colors of the active UV Texture to Vertex Colors on a new layer.",
+    "description": "Bakes the colors of the active UV Texture to Vertex Colors. "
+                   "Uses the active object and creates new VCol layer.",
     "author": "Patrick Boelens, CoDEmanX",
     "version": (0, 4),
     "blender": (2, 6, 3),
     "location": "3D View > Vertex Paint > Toolshelf > Bake",
-    "warning": "Sometimes fires errors when it shouldn't. A retry usually works for now.",
-    "wiki_url": "http://wiki.blender.org/index.php?title=User_talk:Senshi&oldid=143669",
+    "warning": "Requires image texture, generated textures aren't supported.",
+    "wiki_url": "http://wiki.blender.org/index.php?title=Extensions:2.6/"
+                "Py/Scripts/UV/Bake_Texture_to_Vertex_Colors",
     "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=28211",
-    "category": "Baking"}
+    "category": "UV"}
 
 import bpy
+from bpy.props import BoolProperty, EnumProperty
 from math import fabs
 from colorsys import rgb_to_hsv, hsv_to_rgb
 
-class UVtoVC(bpy.types.Operator):
-    bl_idname = "object.uv_to_vcol" # uv/texture op?
-    bl_label = "Bake UV Texture to Vertex Colors"
-    bl_description = "Bake UV Texture to Vertex Colors (requires image texture)"
+class UV_OT_bake_texture_to_vcols(bpy.types.Operator):
+    bl_idname = "uv.bake_texture_to_vcols"
+    bl_label = "Bake UV-Texture to Vertex Colors"
+    bl_description = "Bake active UV-Texture to new Vertex Color layer (requires image texture)"
     bl_options = {'REGISTER', 'UNDO'}
        
     mappingModes = [("CLIP", "Clip", "Don't affect vertices who's UV-coordinates are out of bounds."),
@@ -50,7 +57,10 @@ class UVtoVC(bpy.types.Operator):
                  ("EXTEND", "Extend", "Extends the edges of the image to the UV-coordinates.")
                  ]
     
-    mappingMode = bpy.props.EnumProperty(items=mappingModes, default="CLIP", name="Mapping", description="The mode to use for baking vertices who's UV-coordinates are out of bounds.")
+    mappingMode = EnumProperty(items=mappingModes,
+                               default="CLIP",
+                               name="Mapping",
+                               description="The mode to use for baking vertices who's UV-coordinates are out of bounds.")
     
     blendingModes = [("MIX", "Mix", ""),
                      ("ADD", "Add", ""),
@@ -70,11 +80,14 @@ class UVtoVC(bpy.types.Operator):
                      ("LINEAR_LIGHT", "Linear Light", "")
                     ]
       
-    blendingMode = bpy.props.EnumProperty(items=blendingModes, default="MULTIPLY", name="Blend Type", description="The blending mode to use when baking")
+    blendingMode = EnumProperty(items=blendingModes,
+                                default="MULTIPLY",
+                                name="Blend Type",
+                                description="The blending mode to use when baking")
     
     
-    mirror_x = bpy.props.BoolProperty(name="Mirror X", description="Mirror the image on the X-axis.")
-    mirror_y = bpy.props.BoolProperty(name="Mirror Y", description="Mirror the image on the Y-axis.")
+    mirror_x = BoolProperty(name="Mirror X", description="Mirror the image on the X-axis.")
+    mirror_y = BoolProperty(name="Mirror Y", description="Mirror the image on the Y-axis.")
     
     @classmethod
     def poll(self, context):
@@ -275,7 +288,7 @@ class UVtoVC(bpy.types.Operator):
     
         return {'FINISHED'}
 
-class OBJECT_BK_UVtoVC(bpy.types.Panel):
+class VIEW3D_PT_tools_uv_bake_texture_to_vcols(bpy.types.Panel):
     bl_label = "Bake"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
@@ -286,7 +299,7 @@ class OBJECT_BK_UVtoVC(bpy.types.Panel):
     
     def draw(self, context):
         layout = self.layout
-        layout.operator("object.uv_to_vcol")
+        layout.operator("uv.bake_texture_to_vcols", text="UV Texture to VCols")
 
 
 def register():
