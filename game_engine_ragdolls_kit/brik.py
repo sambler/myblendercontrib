@@ -76,7 +76,7 @@ class VIEW3D_PT_brik_panel(bpy.types.Panel):
     bl_region_type = 'TOOLS'
     bl_context = 'objectmode'
     bl_label = 'brik'
-    
+    bl_options = {'DEFAULT_CLOSED'}  
     
     #Draws the panel header in the tools pane
     def draw_header(self, context):
