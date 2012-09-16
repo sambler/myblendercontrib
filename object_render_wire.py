@@ -364,6 +364,7 @@ class PanelWMat(bpy.types.Panel):
     bl_label = 'Setup Wire Render'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         wm = bpy.context.window_manager

@@ -52,6 +52,8 @@ class OscPanelControl(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     bl_label = "Oscurart Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+
     def draw(self,context):
         active_obj = context.active_object
         layout = self.layout
