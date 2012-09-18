@@ -2277,8 +2277,80 @@ class DialogDistributeOsc(bpy.types.Operator):
         self.Booly = True
         self.Boolz = True        
         return context.window_manager.invoke_props_dialog(self)
+    
+##--------------------------------- OVERRIDES PANEL ---------------------------------- 
+   
+class OscOverridesGUI(bpy.types.Panel):
+    bl_label = "Oscurart Material Overrides"
+    bl_idname = "Oscurart Overrides List"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "render"
+    def draw(self,context):
+        
+        layout = self.layout
+        col = layout.column(align=1)
+        colrow = col.row(align=1)
+        colrow.operator("render.overrides_add_slot", icon = "ZOOMIN") 
+        colrow.operator("render.overrides_remove_slot", icon = "ZOOMOUT")         
+        col.operator("render.overrides_transfer", icon = "SHORTDISPLAY") 
+        split = self.layout.split(percentage=0.5)
+        col1,col2= split.column(align=True),split.column(align=True)        
+
+        for m in bpy.context.scene.ovlist:
+            col1.prop_search(m, "grooverride", bpy.data, "groups", text= "")  
+        for m in bpy.context.scene.ovlist:
+            col2.prop_search(m, "matoverride", bpy.data, "materials", text= "")
+ 
+        
 
 
+class OscOverridesProp(bpy.types.PropertyGroup):
+    matoverride = bpy.props.StringProperty() 
+    grooverride = bpy.props.StringProperty()        
+        
+bpy.utils.register_class(OscOverridesGUI)
+bpy.utils.register_class(OscOverridesProp)
+#bpy.types.Material.oscurart_override = bpy.props.StringProperty()
+bpy.types.Scene.ovlist = bpy.props.CollectionProperty(type=OscOverridesProp)        
+
+
+class OscTransferOverrides (bpy.types.Operator):    
+    """Tooltip"""
+    bl_idname = "render.overrides_transfer"
+    bl_label = "Transfer Overrides"
+
+    def execute(self, context):
+        # CREO LISTA
+        OSCOV = [[OVERRIDE.grooverride,OVERRIDE.matoverride]for OVERRIDE in bpy.context.scene.ovlist[:] if OVERRIDE.matoverride != "" or OVERRIDE.grooverride != ""]
+
+        bpy.context.scene["OVERRIDE"] = str(OSCOV)
+        return {'FINISHED'}   
+    
+class OscAddOverridesSlot (bpy.types.Operator):    
+    """Tooltip"""
+    bl_idname = "render.overrides_add_slot"
+    bl_label = "Add Override Slot"
+
+    def execute(self, context):
+        prop = bpy.context.scene.ovlist.add()
+        prop.matoverride = ""
+        prop.grooverride = ""
+        return {'FINISHED'}      
+
+class OscRemoveOverridesSlot (bpy.types.Operator):    
+    """Tooltip"""
+    bl_idname = "render.overrides_remove_slot"
+    bl_label = "Remove Override Slot"
+
+    def execute(self, context):
+        bpy.context.scene.ovlist.remove(len(bpy.context.scene.ovlist)-1)
+        return {'FINISHED'} 
+    
+bpy.utils.register_class(OscTransferOverrides)
+bpy.utils.register_class(OscAddOverridesSlot)
+bpy.utils.register_class(OscRemoveOverridesSlot)
+ 
 ##======================================================================================FIN DE SCRIPTS
 
 
@@ -2327,6 +2399,8 @@ def register():
     bpy.utils.register_class(OscResymSave)
     bpy.utils.register_class(OscResymMesh)
     bpy.utils.register_class(DialogDistributeOsc)
+
+
 
 
 def unregister():
