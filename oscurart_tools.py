@@ -2322,7 +2322,7 @@ class OscTransferOverrides (bpy.types.Operator):
 
     def execute(self, context):
         # CREO LISTA
-        OSCOV = [[OVERRIDE.grooverride,OVERRIDE.matoverride]for OVERRIDE in bpy.context.scene.ovlist[:] if OVERRIDE.matoverride != "" or OVERRIDE.grooverride != ""]
+        OSCOV = [[OVERRIDE.grooverride,OVERRIDE.matoverride]for OVERRIDE in bpy.context.scene.ovlist[:] if OVERRIDE.matoverride != "" if OVERRIDE.grooverride != ""]
 
         bpy.context.scene["OVERRIDE"] = str(OSCOV)
         return {'FINISHED'}   
