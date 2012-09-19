@@ -2294,13 +2294,10 @@ class OscOverridesGUI(bpy.types.Panel):
         colrow.operator("render.overrides_add_slot", icon = "ZOOMIN") 
         colrow.operator("render.overrides_remove_slot", icon = "ZOOMOUT")         
         col.operator("render.overrides_transfer", icon = "SHORTDISPLAY") 
-        split = self.layout.split(percentage=0.5)
-        col1,col2= split.column(align=True),split.column(align=True)        
-
         for m in bpy.context.scene.ovlist:
-            col1.prop_search(m, "grooverride", bpy.data, "groups", text= "")  
-        for m in bpy.context.scene.ovlist:
-            col2.prop_search(m, "matoverride", bpy.data, "materials", text= "")
+            colrow = col.row(align=1)
+            colrow.prop_search(m, "grooverride", bpy.data, "groups", text= "")  
+            colrow.prop_search(m, "matoverride", bpy.data, "materials", text= "")
  
         
 
