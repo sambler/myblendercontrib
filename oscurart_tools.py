@@ -18,15 +18,14 @@
 
 bl_info = {
     "name": "Oscurart Tools",
-    "author": "Oscurart",
+    "author": "Oscurart, CodemanX",
     "version": (3,0),
     "blender": (2, 6, 3),
     "location": "View3D > Tools > Oscurart Tools",
     "description": "Tools for objects, render, shapes, and files.",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/Oscurart_Tools",
-    "tracker_url": "https://projects.blender.org/tracker/index.php?"\
-        "func=detail&aid=27284",
+    "tracker_url": "",
     "category": "Object"}
 
 import bpy
@@ -1598,24 +1597,40 @@ def defoscBatchMaker(TYPE):
     BINDIR = bpy.app[4]
     SHFILE = bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + FILENAME + EXTSYS
     FILEBATCH = open(SHFILE,"w")
-    FILESC = open(bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + "osRlat.py","w")
-    FILESSC = open(bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + "osRSlat.py","w")
+
 
 
     # DEFINO ARCHIVO DE BATCH
     FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
     FILEBATCH.close()
-
+    
+    
+    """
     # SI ES LINUX LE DOY PERMISOS CHMOD
     if EXTSYS == ".sh":
         os.chmod(SHFILE, stat.S_IRWXU)
+        os.chmod(RLATFILE, stat.S_IRWXU)
+        os.chmod(RSLATFILE, stat.S_IRWXU)
+    """    
 
 
     # DEFINO LOS ARCHIVOS DE SCRIPT
-    FILESC.writelines("import bpy \nbpy.ops.render.render_layers_at_time_osc()\nbpy.ops.wm.quit_blender()")
-    FILESC.close()
-    FILESSC.writelines("import bpy \nbpy.ops.render.render_selected_scenes_osc()\nbpy.ops.wm.quit_blender()")
-    FILESSC.close()
+    
+    RLATFILE =  "%s%sosRlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR )
+    if not os.path.isfile(RLATFILE):
+        FILESC = open(RLATFILE,"w")
+        FILESC.writelines("import bpy \nbpy.ops.render.render_layers_at_time_osc()\nbpy.ops.wm.quit_blender()")
+        FILESC.close()
+    else:
+        print("The All Python files Skips: Already exist!")   
+         
+    RSLATFILE = "%s%sosRSlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR)    
+    if not os.path.isfile(RSLATFILE):          
+        FILESSC = open(RSLATFILE,"w")    
+        FILESSC.writelines("import bpy \nbpy.ops.render.render_selected_scenes_osc()\nbpy.ops.wm.quit_blender()")
+        FILESSC.close()
+    else:
+        print("The Selected Python files Skips: Already exist!")          
 
 class oscBatchMaker (bpy.types.Operator):
     bl_idname = "file.create_batch_maker_osc"
