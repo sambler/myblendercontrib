@@ -25,7 +25,8 @@ bl_info = {
     "description": "Tools for objects, render, shapes, and files.",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/Oscurart_Tools",
-    "tracker_url": "",
+    "tracker_url": "https://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=27284",
     "category": "Object"}
 
 import bpy
