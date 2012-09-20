@@ -17,17 +17,18 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_info = {
-    "name": "QuickPrefs",
-    "author": "Sean Olson",
-    "version": (2,1),
-    "blender": (2, 6, 4),
-    "api": 50515,
-    "location": "3DView->Properties Panel (N-Key)",
-    "description": "Add often changed User Preference options to Properties panel.",
-    "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/QuickPrefs",
-    "tracker_url": "http://projects.blender.org/tracker/index.php?func=detail&aid=27822&group_id=153&atid=467",
-    "category": "3D View"}
+    'name': "QuickPrefs",
+    'author': "Sean Olson",
+    'version': (2,1),
+    'blender': (2, 6, 4),
+    'location': "3DView->Properties Panel (N-Key)",
+    'description': "Add often changed User Preference options to Properties panel.",
+    'warning': "",
+    'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
+                "Scripts/3D_interaction/QuickPrefs",
+    'tracker_url': "http://projects.blender.org/tracker/index.php?"\
+                   "func=detail&aid=27822",
+    'category': "3D View"}
 
 import os
     
@@ -715,7 +716,7 @@ class PANEL(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_context = "render"
     bl_region_type = 'UI'
-    
+    bl_options = {'DEFAULT_CLOSED'}
     def draw(self, context):
         global lastname
     

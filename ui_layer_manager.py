@@ -26,8 +26,10 @@ bl_info = {
     'location': 'View3D > Properties panel > Layer Management',
     'warning': '',
     'description': 'Display and Edit Layer Name',
-    'wiki_url': '',
-    'tracker_url': '',
+    'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
+                "Scripts",
+    'tracker_url': "http://projects.blender.org/tracker/index.php?"\
+                   "func=detail&aid=32472",
     'category': '3D View'}
     
 import bpy
@@ -235,31 +237,42 @@ class MergeSelected(bpy.types.Operator):
     def execute(self, context):
         
         layerN = self.layerN
-
+        
+        scene= context.scene
            
         #cyecle all object in the layer 
-        for obj in context.scene.objects:
+        
+        for obj in scene.objects:
+            
             if obj.select:
-                if self.shift:
+                visible=False
+                
+                for i in range(0,20):
+                    if obj.layers[i] and scene.layers[i]:
+                        visible=True
+                        break
+               
+                if visible:
+                    if self.shift:
+                        
+                        if obj.layers[layerN]:
+                            toggle = False
+                        else:
                     
-                    if obj.layers[layerN]:
-                        toggle = False
+                    
+                            toggle= True                            
+                        obj.layers[layerN]=toggle
+                    
                     else:
-                
-                
-                        toggle= True                            
-                    obj.layers[layerN]=toggle
-                
-                else:
-                    
-                  
-                    layer = [False]*20
-                    layer[layerN]=True
-                    obj.layers=layer
-#                   
-                    
-                    if obj.layers[layerN]:
-                        toggle = False   
+                        
+                      
+                        layer = [False]*20
+                        layer[layerN]=True
+                        obj.layers=layer
+    #                   
+                        
+                        if obj.layers[layerN]:
+                            toggle = False   
                     
                 
             

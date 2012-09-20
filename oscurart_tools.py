@@ -18,7 +18,7 @@
 
 bl_info = {
     "name": "Oscurart Tools",
-    "author": "Oscurart",
+    "author": "Oscurart, CodemanX",
     "version": (3,0),
     "blender": (2, 6, 3),
     "location": "View3D > Tools > Oscurart Tools",
@@ -52,6 +52,8 @@ class OscPanelControl(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     bl_label = "Oscurart Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+
     def draw(self,context):
         active_obj = context.active_object
         layout = self.layout
@@ -1588,31 +1590,51 @@ def defoscBatchMaker(TYPE):
         EXTSYS = ".sh"
         QUOTES = ''
 
-    print(TYPE)
-
     # CREO VARIABLES
     FILENAME = bpy.data.filepath.rpartition(SYSBAR)[-1].rpartition(".")[0]
     BINDIR = bpy.app[4]
     SHFILE = bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + FILENAME + EXTSYS
     FILEBATCH = open(SHFILE,"w")
-    FILESC = open(bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + "osRlat.py","w")
-    FILESSC = open(bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + "osRSlat.py","w")
-
-
-    # DEFINO ARCHIVO DE BATCH
-    FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
-    FILEBATCH.close()
 
     # SI ES LINUX LE DOY PERMISOS CHMOD
     if EXTSYS == ".sh":
-        os.chmod(SHFILE, stat.S_IRWXU)
+        try:
+            os.chmod(SHFILE, stat.S_IRWXU)
+        except:
+            print("** Oscurart Batch maker can not modify the permissions.")    
+
+    # DEFINO ARCHIVO DE BATCH
+    FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
+    FILEBATCH.close()  
 
 
     # DEFINO LOS ARCHIVOS DE SCRIPT
-    FILESC.writelines("import bpy \nbpy.ops.render.render_layers_at_time_osc()\nbpy.ops.wm.quit_blender()")
-    FILESC.close()
-    FILESSC.writelines("import bpy \nbpy.ops.render.render_selected_scenes_osc()\nbpy.ops.wm.quit_blender()")
-    FILESSC.close()
+    
+    RLATFILE =  "%s%sosRlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR )
+    if not os.path.isfile(RLATFILE):
+        FILESC = open(RLATFILE,"w")        
+        if EXTSYS == ".sh":
+            try:
+                os.chmod(RLATFILE, stat.S_IRWXU)  
+            except:
+                print("** Oscurart Batch maker can not modify the permissions.")                             
+        FILESC.writelines("import bpy \nbpy.ops.render.render_layers_at_time_osc()\nbpy.ops.wm.quit_blender()")
+        FILESC.close()
+    else:
+        print("The All Python files Skips: Already exist!")   
+         
+    RSLATFILE = "%s%sosRSlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR)    
+    if not os.path.isfile(RSLATFILE):          
+        FILESSC = open(RSLATFILE,"w")          
+        if EXTSYS == ".sh":
+            try:
+                os.chmod(RSLATFILE, stat.S_IRWXU)   
+            except:
+                print("** Oscurart Batch maker can not modify the permissions.")                            
+        FILESSC.writelines("import bpy \nbpy.ops.render.render_selected_scenes_osc()\nbpy.ops.wm.quit_blender()")
+        FILESSC.close()
+    else:
+        print("The Selected Python files Skips: Already exist!")          
 
 class oscBatchMaker (bpy.types.Operator):
     bl_idname = "file.create_batch_maker_osc"
@@ -2275,104 +2297,85 @@ class DialogDistributeOsc(bpy.types.Operator):
         self.Booly = True
         self.Boolz = True        
         return context.window_manager.invoke_props_dialog(self)
+    
+##--------------------------------- OVERRIDES PANEL ---------------------------------- 
+   
+class OscOverridesGUI(bpy.types.Panel):
+    bl_label = "Oscurart Material Overrides"
+    bl_idname = "Oscurart Overrides List"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "render"
+    def draw(self,context):
+        
+        layout = self.layout
+        col = layout.column(align=1)
+        colrow = col.row(align=1)
+        colrow.operator("render.overrides_add_slot", icon = "ZOOMIN") 
+        colrow.operator("render.overrides_remove_slot", icon = "ZOOMOUT")         
+        col.operator("render.overrides_transfer", icon = "SHORTDISPLAY") 
+        for m in bpy.context.scene.ovlist:
+            colrow = col.row(align=1)
+            colrow.prop_search(m, "grooverride", bpy.data, "groups", text= "")  
+            colrow.prop_search(m, "matoverride", bpy.data, "materials", text= "")
+ 
+        
 
 
+class OscOverridesProp(bpy.types.PropertyGroup):
+    matoverride = bpy.props.StringProperty() 
+    grooverride = bpy.props.StringProperty()        
+        
+bpy.utils.register_class(OscOverridesGUI)
+bpy.utils.register_class(OscOverridesProp)
+#bpy.types.Material.oscurart_override = bpy.props.StringProperty()
+bpy.types.Scene.ovlist = bpy.props.CollectionProperty(type=OscOverridesProp)        
+
+
+class OscTransferOverrides (bpy.types.Operator):    
+    """Tooltip"""
+    bl_idname = "render.overrides_transfer"
+    bl_label = "Transfer Overrides"
+
+    def execute(self, context):
+        # CREO LISTA
+        OSCOV = [[OVERRIDE.grooverride,OVERRIDE.matoverride]for OVERRIDE in bpy.context.scene.ovlist[:] if OVERRIDE.matoverride != "" if OVERRIDE.grooverride != ""]
+
+        bpy.context.scene["OVERRIDE"] = str(OSCOV)
+        return {'FINISHED'}   
+    
+class OscAddOverridesSlot (bpy.types.Operator):    
+    """Tooltip"""
+    bl_idname = "render.overrides_add_slot"
+    bl_label = "Add Override Slot"
+
+    def execute(self, context):
+        prop = bpy.context.scene.ovlist.add()
+        prop.matoverride = ""
+        prop.grooverride = ""
+        return {'FINISHED'}      
+
+class OscRemoveOverridesSlot (bpy.types.Operator):    
+    """Tooltip"""
+    bl_idname = "render.overrides_remove_slot"
+    bl_label = "Remove Override Slot"
+
+    def execute(self, context):
+        bpy.context.scene.ovlist.remove(len(bpy.context.scene.ovlist)-1)
+        return {'FINISHED'} 
+    
+bpy.utils.register_class(OscTransferOverrides)
+bpy.utils.register_class(OscAddOverridesSlot)
+bpy.utils.register_class(OscRemoveOverridesSlot)
+ 
 ##======================================================================================FIN DE SCRIPTS
 
 
 def register():
-    bpy.utils.register_class(OscPanelControl)
-    bpy.utils.register_class(OscPanelObject)
-    bpy.utils.register_class(OscPanelMesh)
-    bpy.utils.register_class(OscPanelShapes)
-    bpy.utils.register_class(OscPanelRender)
-    bpy.utils.register_class(OscPanelFiles)
-    bpy.utils.register_class(OscPanelOverrides)
-    bpy.utils.register_class(SelectMenor)
-    bpy.utils.register_class(CreaGrupos)
-    bpy.utils.register_class(CreaShapes)
-    bpy.utils.register_class(normalsOutside)
-    bpy.utils.register_class(reConst)
-    bpy.utils.register_class(reloadImages)
-    bpy.utils.register_class(renderAll)
-    bpy.utils.register_class(renderAllCF)
-    bpy.utils.register_class(renderCrop)
-    bpy.utils.register_class(SearchAndSelectOt)
-    bpy.utils.register_class(CreaShapesLayout)
-    bpy.utils.register_class(renameObjectsOt)
-    bpy.utils.register_class(resymVertexGroups)
-    bpy.utils.register_class(CreateLayoutAsymmetrical)
-    bpy.utils.register_class(saveIncremental)
-    bpy.utils.register_class(replaceFilePath)
-    bpy.utils.register_class(oscDuplicateSymmetricalOp)
-    bpy.utils.register_class(oscBatchMaker)
-    bpy.utils.register_class(oscRemModifiers)
-    bpy.utils.register_class(oscApplyModifiers)
-    bpy.utils.register_class(ShapeToObjects)
-    bpy.utils.register_class(OverridesOp)
-    bpy.utils.register_class(OscExportVG )
-    bpy.utils.register_class(OscImportVG )
-    bpy.utils.register_class(renderCurrent)
-    bpy.utils.register_class(renderCurrentCF)
-    bpy.utils.register_class(renderSelected)
-    bpy.utils.register_class(renderSelectedCF)
-    bpy.utils.register_class(OscRelinkObjectsBetween)
-    bpy.utils.register_class(OscCopyObjectGAL)
-    bpy.utils.register_class(OscApplyOverrides)
-    bpy.utils.register_class(OscRestoreOverrides)
-    bpy.utils.register_class(OscCheckOverrides)
-    bpy.utils.register_class(OscSelection)
-    bpy.utils.register_class(OscResymSave)
-    bpy.utils.register_class(OscResymMesh)
-    bpy.utils.register_class(DialogDistributeOsc)
-
+    bpy.utils.register_module(__name__)
 
 def unregister():
-    bpy.utils.unregister_class(OscPanelControl)
-    bpy.utils.unregister_class(OscPanelObject)
-    bpy.utils.unregister_class(OscPanelMesh)
-    bpy.utils.unregister_class(OscPanelShapes)
-    bpy.utils.unregister_class(OscPanelRender)
-    bpy.utils.unregister_class(OscPanelFiles)
-    bpy.utils.unregister_class(OscPanelOverrides)
-    bpy.utils.unregister_class(SelectMenor)
-    bpy.utils.unregister_class(CreaGrupos)
-    bpy.utils.unregister_class(CreaShapes)
-    bpy.utils.unregister_class(normalsOutside)
-    bpy.utils.unregister_class(reConst)
-    bpy.utils.unregister_class(reloadImages)
-    bpy.utils.unregister_class(renderAll)
-    bpy.utils.unregister_class(renderAllCF)
-    bpy.utils.unregister_class(renderCrop)
-    bpy.utils.unregister_class(SearchAndSelectOt)
-    bpy.utils.unregister_class(CreaShapesLayout)
-    bpy.utils.unregister_class(renameObjectsOt)
-    bpy.utils.unregister_class(resymVertexGroups)
-    bpy.utils.unregister_class(CreateLayoutAsymmetrical)
-    bpy.utils.unregister_class(saveIncremental)
-    bpy.utils.unregister_class(replaceFilePath)
-    bpy.utils.unregister_class(oscDuplicateSymmetricalOp)
-    bpy.utils.unregister_class(oscBatchMaker)
-    bpy.utils.unregister_class(oscRemModifiers)
-    bpy.utils.unregister_class(oscApplyModifiers)
-    bpy.utils.unregister_class(ShapeToObjects)
-    bpy.utils.unregister_class(OverridesOp)
-    bpy.utils.unregister_class(OscExportVG )
-    bpy.utils.unregister_class(OscImportVG )
-    bpy.utils.unregister_class(renderCurrent)
-    bpy.utils.unregister_class(renderCurrentCF)
-    bpy.utils.unregister_class(renderSelected)
-    bpy.utils.unregister_class(renderSelectedCF)
-    bpy.utils.unregister_class(OscRelinkObjectsBetween)
-    bpy.utils.unregister_class(OscCopyObjectGAL)
-    bpy.utils.unregister_class(OscApplyOverrides)
-    bpy.utils.unregister_class(OscRestoreOverrides)
-    bpy.utils.unregister_class(OscCheckOverrides)
-    bpy.utils.unregister_class(OscSelection)
-    bpy.utils.unregister_class(OscResymSave)
-    bpy.utils.unregister_class(OscResymMesh)
-    bpy.utils.unregister_class(DialogDistributeOsc)
-
+    bpy.utils.unregister_module(__name__)
 
 
 if __name__ == "__main__":

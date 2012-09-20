@@ -33,7 +33,7 @@ bl_info = {
     'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
                 "Scripts/3D_interaction/CMU_Mocap_Library_Browser",
     'tracker_url': "http://projects.blender.org/tracker/index.php?"\
-                   "func=detail&aid=29086&group_id=153&atid=467",
+                   "func=detail&aid=29086",
     'category': '3D View'}
 
 
@@ -264,6 +264,7 @@ class CMUMocapConfig(bpy.types.Panel):
     bl_label = "CMU Mocap Browser Configuration"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         if not bpy:
@@ -283,6 +284,7 @@ class CMUMocapSubjectBrowser(bpy.types.Panel):
     bl_label = "CMU Mocap Subject Browser"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         if not bpy:
@@ -321,6 +323,7 @@ class CMUMocapMotionBrowser(bpy.types.Panel):
     bl_label = "CMU Mocap Motion Browser"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         if not bpy:
