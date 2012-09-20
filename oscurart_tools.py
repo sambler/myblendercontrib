@@ -1590,35 +1590,34 @@ def defoscBatchMaker(TYPE):
         EXTSYS = ".sh"
         QUOTES = ''
 
-    print(TYPE)
-
     # CREO VARIABLES
     FILENAME = bpy.data.filepath.rpartition(SYSBAR)[-1].rpartition(".")[0]
     BINDIR = bpy.app[4]
     SHFILE = bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + FILENAME + EXTSYS
     FILEBATCH = open(SHFILE,"w")
 
-
+    # SI ES LINUX LE DOY PERMISOS CHMOD
+    if EXTSYS == ".sh":
+        try:
+            os.chmod(SHFILE, stat.S_IRWXU)
+        except:
+            print("** Oscurart Batch maker can not modify the permissions.")    
 
     # DEFINO ARCHIVO DE BATCH
     FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
-    FILEBATCH.close()
-    
-    
-    """
-    # SI ES LINUX LE DOY PERMISOS CHMOD
-    if EXTSYS == ".sh":
-        os.chmod(SHFILE, stat.S_IRWXU)
-        os.chmod(RLATFILE, stat.S_IRWXU)
-        os.chmod(RSLATFILE, stat.S_IRWXU)
-    """    
+    FILEBATCH.close()  
 
 
     # DEFINO LOS ARCHIVOS DE SCRIPT
     
     RLATFILE =  "%s%sosRlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR )
     if not os.path.isfile(RLATFILE):
-        FILESC = open(RLATFILE,"w")
+        FILESC = open(RLATFILE,"w")        
+        if EXTSYS == ".sh":
+            try:
+                os.chmod(RLATFILE, stat.S_IRWXU)  
+            except:
+                print("** Oscurart Batch maker can not modify the permissions.")                             
         FILESC.writelines("import bpy \nbpy.ops.render.render_layers_at_time_osc()\nbpy.ops.wm.quit_blender()")
         FILESC.close()
     else:
@@ -1626,7 +1625,12 @@ def defoscBatchMaker(TYPE):
          
     RSLATFILE = "%s%sosRSlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR)    
     if not os.path.isfile(RSLATFILE):          
-        FILESSC = open(RSLATFILE,"w")    
+        FILESSC = open(RSLATFILE,"w")          
+        if EXTSYS == ".sh":
+            try:
+                os.chmod(RSLATFILE, stat.S_IRWXU)   
+            except:
+                print("** Oscurart Batch maker can not modify the permissions.")                            
         FILESSC.writelines("import bpy \nbpy.ops.render.render_selected_scenes_osc()\nbpy.ops.wm.quit_blender()")
         FILESSC.close()
     else:
