@@ -2314,12 +2314,66 @@ class OscOverridesGUI(bpy.types.Panel):
         colrow.operator("render.overrides_add_slot", icon = "ZOOMIN") 
         colrow.operator("render.overrides_remove_slot", icon = "ZOOMOUT")         
         col.operator("render.overrides_transfer", icon = "SHORTDISPLAY") 
+        i = 0
         for m in bpy.context.scene.ovlist:
             colrow = col.row(align=1)
             colrow.prop_search(m, "grooverride", bpy.data, "groups", text= "")  
             colrow.prop_search(m, "matoverride", bpy.data, "materials", text= "")
+            if i != len(bpy.context.scene.ovlist)-1:
+                pa = colrow.operator("ovlist.move_down", text="", icon="TRIA_DOWN")
+                pa.index = i                
+            if i > 0:
+                p = colrow.operator("ovlist.move_up", text="", icon="TRIA_UP")
+                p.index = i
+            pb = colrow.operator("ovlist.kill", text="", icon="X")            
+            pb.index = i
+            i+=1
  
-        
+class OscOverridesUp (bpy.types.Operator): 
+    bl_idname = 'ovlist.move_up'
+    bl_label = 'Move Override up'
+    bl_options = {'INTERNAL'}
+   
+    index = bpy.props.IntProperty(min=0)
+   
+    @classmethod
+    def poll(self,context):
+        return len(context.scene.ovlist) 
+    def execute(self,context):
+        ovlist = context.scene.ovlist
+        ovlist.move(self.index,self.index-1) 
+
+        return {'FINISHED'}   
+
+class OscOverridesDown (bpy.types.Operator): 
+    bl_idname = 'ovlist.move_down'
+    bl_label = 'Move Override down'
+    bl_options = {'INTERNAL'}
+   
+    index = bpy.props.IntProperty(min=0)
+   
+    @classmethod
+    def poll(self,context):
+        return len(context.scene.ovlist) 
+    def execute(self,context):
+        ovlist = context.scene.ovlist
+        ovlist.move(self.index,self.index+1) 
+        return {'FINISHED'}              
+
+class OscOverridesKill (bpy.types.Operator): 
+    bl_idname = 'ovlist.kill'
+    bl_label = 'Kill Override'
+    bl_options = {'INTERNAL'}
+   
+    index = bpy.props.IntProperty(min=0)
+   
+    @classmethod
+    def poll(self,context):
+        return len(context.scene.ovlist) 
+    def execute(self,context):
+        ovlist = context.scene.ovlist  
+        ovlist.remove(self.index)  
+        return {'FINISHED'}              
 
 
 class OscOverridesProp(bpy.types.PropertyGroup):
@@ -2328,7 +2382,6 @@ class OscOverridesProp(bpy.types.PropertyGroup):
         
 bpy.utils.register_class(OscOverridesGUI)
 bpy.utils.register_class(OscOverridesProp)
-#bpy.types.Material.oscurart_override = bpy.props.StringProperty()
 bpy.types.Scene.ovlist = bpy.props.CollectionProperty(type=OscOverridesProp)        
 
 
