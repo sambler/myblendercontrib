@@ -1950,10 +1950,9 @@ def CopyObjectGroupsAndLayers (self):
                     ISINLAYER=True
 
 
-                scene.objects.active=OBJECT
 
                 for GROUP in GROUPS:
-                    bpy.ops.object.group_link(group=GROUP.name)
+                    GROUP.objects.link(OBJECT)
 
                 if ISINLAYER == False:
                     print("-- %s was successfully copied in %s" % (OBJECT.name, scene.name))
