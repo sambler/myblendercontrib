@@ -1931,44 +1931,34 @@ class OscRelinkObjectsBetween (bpy.types.Operator):
 
 def CopyObjectGroupsAndLayers (self):
 
-    OBSEL = bpy.selection_osc[:]
-    GLOBALLAYERS = str(OBSEL[-1].layers[:])
-    ACTSCENE = bpy.context.scene
-    GROUPS = OBSEL[-1].users_group
-    ERROR = False
-
+    OBSEL=bpy.selection_osc[:]
+    GLOBALLAYERS=list(OBSEL[-1].layers[:])
+    ACTSCENE=bpy.context.scene
+    GROUPS=OBSEL[-1].users_group
+    ACTOBJ=OBSEL[-1]
+    
     for OBJECT in OBSEL[:-1]:
         for scene in bpy.data.scenes[:]:
-            try:
-                ISINLAYER=False
-                bpy.context.window.screen.scene=scene
+            
+            # CAMBIO ESCENA EN EL UI
+            bpy.context.window.screen.scene=scene
 
-                if OBSEL[-1] in bpy.context.scene.objects[:]:
-                    scene.objects[OBJECT.name].layers = OBSEL[-1].layers
-                else:
-                    scene.objects[OBJECT.name].layers = list(eval(GLOBALLAYERS))
-                    ISINLAYER=True
-
-
-                scene.objects.active=OBJECT
-
-                for GROUP in GROUPS:
-                    bpy.ops.object.group_link(group=GROUP.name)
-
-                if ISINLAYER == False:
-                    print("-- %s was successfully copied in %s" % (OBJECT.name, scene.name))
-                else:
-                    print("++ %s copy data from %s in %s" % (OBJECT.name, ACTSCENE.name, scene.name))
-            except:
-                print("** %s was not copied in %s" % (OBJECT.name, scene.name))
-                ERROR = True
+            # SI EL OBJETO ACTIVO ESTA EN LA ESCENA
+            if ACTOBJ in bpy.context.scene.objects[:] and OBJECT in bpy.context.scene.objects[:]:
+                scene.objects[OBJECT.name].layers = ACTOBJ.layers
+            elif ACTOBJ not in bpy.context.scene.objects[:] and OBJECT in bpy.context.scene.objects[:]: 
+                scene.objects[OBJECT.name].layers = list(GLOBALLAYERS)                  
+                
+        # REMUEVO DE TODO GRUPO
+        for GROUP in bpy.data.groups[:]:
+            if GROUP in OBJECT.users_group[:]:
+                GROUP.objects.unlink(OBJECT)
+                
+        # INCLUYO OBJETO EN GRUPOS    
+        for GROUP in GROUPS:
+            GROUP.objects.link(OBJECT)            
+ 
     bpy.context.window.screen.scene = ACTSCENE
-
-    if ERROR == False:
-        self.report({'INFO'}, "All Objects were Successfully Copied")
-    else:
-        self.report({'WARNING'}, "Some Objects Could not be Copied")
-
 
 class OscCopyObjectGAL (bpy.types.Operator):
     bl_idname = "objects.copy_objects_groups_layers"

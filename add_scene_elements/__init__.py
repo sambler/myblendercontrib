@@ -15,80 +15,73 @@
 #  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
-# Contributed to by
-# meta-androcto #
+# by meta-androcto, parts based on work by Erich Toven #
 
 bl_info = {
-    "name": "Multi Extrude Plus",
-    "author": "liero, macouno",
+    "name": "Scene Elements",
+    "author": "Meta Androcto, ",
     "version": (0, 1),
     "blender": (2, 6, 3),
-    "location": "View3D > Toolbar and View3D > Specials (W-key)",
-    "description": "Add extra curve object types",
+    "location": "View3D > Add > Scene Elements",
+    "description": "Add Scenes & Lights, Objects.",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
-        "Scripts/Modeling/Multi_Extrude",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6"\
+        "/Py/Scripts",
     "tracker_url": "http://projects.blender.org/tracker/index.php?"\
-        "func=detail&aid=28570",
-    "category": "Mesh"}
+        "func=detail&aid=32682",
+    "category": "Object"}
 
 
 if "bpy" in locals():
     import imp
+    imp.reload(scene_camera)
+    imp.reload(scene_lighting)
+    imp.reload(scene_materials)
+    imp.reload(scene_objects)
+    imp.reload(scene_objects_cycles)
 
 else:
-    from . import mesh_bump
-    from . import mesh_mextrude_plus
-
+    from . import scene_camera
+    from . import scene_lighting
+    from . import scene_materials
+    from . import scene_objects
+    from . import scene_objects_cycles
+	
 import bpy
 
-
-class VIEW3D_MT_edit_mesh_bump(bpy.types.Menu):
-    # Define the "Extras" menu
-    bl_idname = "VIEW3D_MT_edit_mesh_bump"
-    bl_label = "Bump"
+class INFO_MT_mesh_objects_add(bpy.types.Menu):
+    # Define the "mesh objects" menu
+    bl_idname = "INFO_MT_scene_elements"
+    bl_label = "Scene Elements"
 
     def draw(self, context):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
-        layout.operator("mesh.bump",
-            text="Bump")
-
-class ExtrudePanel(bpy.types.Panel):
-    bl_label = 'Multi Extrude Plus'
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    def draw(self, context):
-        layout = self.layout
-        prop = layout.operator("wm.context_set_value", text="Face Select",
-            icon='FACESEL')
-        prop.value = "(False, False, True)"
-        prop.data_path = "tool_settings.mesh_select_mode"
-        layout.operator('object.mextrude')
-        layout.operator('mesh.bump')
-        layout.operator('object.mesh2bones')
+        layout.menu("INFO_MT_lighting.add",
+            text="Scene_Lighting")
+        layout.operator("camera.add_scene",
+            text="Scene_Camera")
+        layout.operator("materials.add_scene",
+            text="Scene_Objects_BI")
+        layout.operator("plane.add_scene",
+            text="Scene_Plane")
+        layout.operator("objects_cycles.add_scene",
+            text="Scene_Objects_Cycles")
 
 # Register all operators and panels
-
 # Define "Extras" menu
 def menu_func(self, context):
-    self.layout.menu("VIEW3D_MT_edit_mesh_bump", icon="PLUGIN")
-
+    self.layout.menu("INFO_MT_scene_elements", icon="PLUGIN")
 
 def register():
     bpy.utils.register_module(__name__)
-
     # Add "Extras" menu to the "Add Mesh" menu
-    bpy.types.VIEW3D_MT_edit_mesh_specials.prepend(menu_func)
-
+    bpy.types.INFO_MT_add.append(menu_func)
 
 def unregister():
     bpy.utils.unregister_module(__name__)
-
     # Remove "Extras" menu from the "Add Mesh" menu.
-    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
+    bpy.types.INFO_MT_add.remove(menu_func)
 
 if __name__ == "__main__":
     register()
