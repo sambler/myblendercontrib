@@ -23,20 +23,18 @@
 #to run on.
 
 bl_info = {
-	"name": "Fiber",
-	"author": "Alan Dennis - Gert De Roost",
-	"version": (3, 1, 0),
-	"blender": (2, 6, 3),
-	"location": "View3D > Mesh Tools",
-	"description": "Generates grass",
-	"warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/"\
-        "Extensions:2.6/Py/Scripts",
-    "tracker_url": "http://projects.blender.org/tracker/"\
-        "?func=detail&aid=32802"
-	"category": "Mesh"}
-
-
+    "name": "Fiber",
+    "author": "Alan Dennis - Gert De Roost",
+    "version": (3, 1, 0),
+    "blender": (2, 6, 4),
+    "location": "View3D > Mesh Tools",
+    "description": "Generates mesh grass or hair",
+    "warning": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
+        "Scripts",
+    "tracker_url": "https://projects.blender.org/tracker/index.php?"\
+        "func=detail&aid=32802",
+    "category": "Mesh"}
 
 if "bpy" in locals():
 	import imp
