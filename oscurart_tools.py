@@ -2193,7 +2193,7 @@ def reSymSave (self):
     XML.close()
     SYMAP.clear()
 
-def reSymMesh (self):
+def reSymMesh (self, SELECTED):
     
     bpy.ops.object.mode_set(mode='EDIT')
     
@@ -2209,17 +2209,29 @@ def reSymMesh (self):
     ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
     XML=open(ENTFILEPATH ,mode="r")
     
-    SYMAP = eval(XML.readlines()[0])
+    SYMAP = eval(XML.readlines()[0])    
     
-    for VERT in SYMAP:
-        if VERT == SYMAP[VERT]:
-            BM.verts[VERT].co[0] = 0
-            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
-        else:    
-            BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
-            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
+    if SELECTED:
+        for VERT in SYMAP:
+            if BM.verts[SYMAP[VERT]].select:
+                if VERT == SYMAP[VERT]:
+                    BM.verts[VERT].co[0] = 0
+                    BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
+                else:    
+                    BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+                    BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]        
+    else:    
+        for VERT in SYMAP:
+            if VERT == SYMAP[VERT]:
+                BM.verts[VERT].co[0] = 0
+                BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
+            else:    
+                BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+                BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
     
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.mode_set(mode='EDIT')
@@ -2243,9 +2255,10 @@ class OscResymMesh (bpy.types.Operator):
     bl_label = "Resym save Apply XML"
     bl_options = {"REGISTER", "UNDO"}
 
-
+    selected=bpy.props.BoolProperty(default=False, name="Only Selected")
+    
     def execute (self, context):
-        reSymMesh(self)
+        reSymMesh(self, self.selected)
         return {'FINISHED'}
     
 ##=============== DISTRIBUTE ======================    
