@@ -204,14 +204,18 @@ class OscPanelRender(OscPollRender, bpy.types.Panel):
         colrow = col.row()
         colrow.operator("render.render_current_scene_osc", icon="RENDER_STILL", text="Active Scene")
         colrow.operator("render.render_current_scene_osc_cf", icon="RENDER_STILL", text="> Frame")
-        colrow = col.row(align=1)
-        colrow.prop(bpy.context.scene, "OscSelScenes", text="")
-        colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="Selected Scenes")
-        colrow.operator("render.render_selected_scenes_osc_cf", icon="RENDER_STILL", text="> Fame")
+
 
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "rcPARTS", text="Render Crop Parts")
         colrow.operator("render.render_crop_osc", icon="RENDER_REGION")
+        
+        col = layout.column(align=1)
+        colrow = col.row(align=1)
+        colrow.prop(bpy.context.scene, "use_render_scene", text="")  
+        colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="Selected Scenes")
+        colrow.operator("render.render_selected_scenes_osc_cf", icon="RENDER_STILL", text="> Fame")   
+   
 
 
 class OscPanelFiles(OscPollFiles, bpy.types.Panel):
@@ -780,7 +784,7 @@ class renderAllCF (bpy.types.Operator):
 ##--------------------------------RENDER SELECTED SCENES----------------------------
 
 
-bpy.types.Scene.OscSelScenes = bpy.props.StringProperty(default="[]")
+bpy.types.Scene.use_render_scene = bpy.props.BoolProperty()
 
 
 def defRenderSelected(FRAMETYPE):
@@ -808,7 +812,7 @@ def defRenderSelected(FRAMETYPE):
 
 
     for SCENE in SCENES:
-        if SCENE.name in SCENELIST:
+        if SCENE.use_render_scene:
             PROPTOLIST = list(eval(SCENE['OVERRIDE']))
             CURSC = SCENE.name
             PATH = SCENE.render.filepath
