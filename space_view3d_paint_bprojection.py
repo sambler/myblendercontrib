@@ -253,17 +253,33 @@ def update_activeviewname(self, context):
         em.custom_active_view = self.custom_active_view
 
 class custom_props(bpy.types.PropertyGroup):
-    custom_location = FloatVectorProperty(name="Location", description="Location of the plan",
-                                           default=(0,0,-1.0),
-                                           subtype = 'XYZ', size=3)
+    custom_location = FloatVectorProperty(name="Location", description="Location of the plane",
+                                          default=(0,0,-1.0),
+                                          subtype = 'XYZ', 
+                                          soft_min = -10,
+                                          soft_max = 10,
+                                          step=0.1,
+                                          size=3)
                                            
     custom_rotation = FloatProperty(name="Rotation", description="Rotate the plane",
-                                     min=-180, max=180, default=0)
+                                    min=-180, max=180, default=0)
                                          
     custom_scale = FloatVectorProperty(name="Scales", description="Scale the planes",
-                                       subtype = 'XYZ', default=(1.0, 1.0),min = 0.1, size=2)
-    custom_propscale = FloatProperty(name="PropScale", description="Scale the Plan",
-                                           default=1.0,min = 0.1)
+                                       default=(1.0, 1.0),
+                                       subtype = 'XYZ',
+                                       min = 0.1,
+                                       max = 10,
+                                       soft_min=0.1,
+                                       soft_max=10,
+                                       step=0.1,
+                                       size=2)
+    custom_propscale = FloatProperty(name="PropScale", description="Scale the Plane",
+                                     default=1.0,
+                                     min = 0.1,
+                                     max = 10,
+                                     soft_min=0.1,
+                                     soft_max=10,
+                                     step=0.1)
                                                                                     
     custom_linkscale = BoolProperty(name="linkscale", default=True)
    
@@ -290,37 +306,69 @@ class custom_props(bpy.types.PropertyGroup):
 
 # Function to create custom properties
 def createcustomprops(context):
-    Ob = bpy.types.Object    
+    Ob = bpy.types.Object
     
     # plane properties 
-    Ob.custom_location = FloatVectorProperty(name="Location", description="Location of the plan",
-                                           default=(5.0,0.0,-1.0),
-                                           subtype = 'XYZ', size=3, update = update_Location)
+    Ob.custom_location = FloatVectorProperty(name="Location", description="Location of the plane",
+                                           default  = (0, 0, -1.0),
+                                           subtype  = 'XYZ', 
+                                           size     = 3,
+                                           step     = 0.5,
+                                           soft_min = -10,
+                                           soft_max = 10,
+                                           update   = update_Location)
                                            
     Ob.custom_rotation = FloatProperty(name="Rotation", description="Rotate the plane",
-                                     min=-180, max=180, default=0,update = update_Rotation)
+                                       min=-180, max=180, default=0,update = update_Rotation)
                                      
     Ob.custom_old_rotation = FloatProperty(name="old_Rotation", description="Old Rotate the plane",
-                                         min=-180, max=180, default=0)
+                                           min=-180, max=180, default=0)
                                          
     Ob.custom_scale = FloatVectorProperty(name="Scales", description="Scale the planes",
-                                          subtype = 'XYZ', default=(1.0, 1.0),min = 0.1, size=2,update = update_Scale)
-    Ob.custom_propscale = FloatProperty(name="PropScale", description="Scale the Plan",
-                                           default=1.0,min = 0.1,update = update_PropScale)
+                                          subtype = 'XYZ',
+                                          default=(1.0, 1.0),
+                                          min = 0.1,
+                                          max = 10,
+                                          soft_min = 0.1,
+                                          soft_max = 10,
+                                          size=2,
+                                          step=0.5,
+                                          update = update_Scale)
+                                          
+    Ob.custom_propscale = FloatProperty(name="PropScale", description="Scale the Plane",
+                                        default  = 1.0,
+                                        min      = 0.1,
+                                        soft_min = 0.1,
+                                        soft_max = 10,
+                                        step     = 0.5,
+                                        update   = update_PropScale)
+                                           
     Ob.custom_old_scale = FloatVectorProperty(name="old_Scales", description="Old Scale the planes",
                                           subtype = 'XYZ', default=(1.0, 1.0),min = 0.1, size=2)
                                           
     Ob.custom_linkscale = BoolProperty(name="linkscale", default=True, update = update_LinkScale)
     
                                 
-    Ob.custom_sub = IntProperty(name="Subdivide", description="Number of subdivision of the plan",
+    Ob.custom_sub = IntProperty(name="Subdivide", description="Number of subdivision of the plane",
                                      min=0, max=20, default=0)                                
     
     # UV properties
     Ob.custom_scaleuv = FloatVectorProperty(name="ScaleUV", description="Scale the texture's UV",
-                                            default=(1.0,1.0),min = 0.01, subtype = 'XYZ', size=2,update = update_UVScale)
+                                            default  = (1.0,1.0),
+                                            soft_min = 0.01,
+                                            soft_max = 100,
+                                            min      = 0.01, 
+                                            subtype  = 'XYZ',
+                                            size     = 2,
+                                            update   = update_UVScale)
+                                            
     Ob.custom_propscaleuv = FloatProperty(name="PropScaleUV", description="Scale the texture's UV",
-                                           default=1.0,min = 0.01,update = update_PropUVScale)    
+                                          default    = 1.0,
+                                          soft_min   = 0.01,
+                                          soft_max   = 100,
+                                          min        = 0.01,
+                                          update     = update_PropUVScale)    
+
     Ob.custom_old_scaleuv = FloatVectorProperty(name="old_ScaleUV", description="Scale the texture's UV",
                                                 default=(1.0,1.0),min = 0.01, subtype = 'XYZ', size=2)
     Ob.custom_offsetuv = FloatVectorProperty(name="OffsetUV", description="Decal the texture's UV",

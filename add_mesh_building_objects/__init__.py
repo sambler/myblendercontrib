@@ -16,15 +16,15 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 # Contributed to by
-# SAYproductions, meta-androcto #
+# SAYproductions, meta-androcto, jambay, brikbot#
 
 bl_info = {
-    "name": "Cad Objects",
-    "author": "SAYproductions, meta-androcto",
+    "name": "Building Objects",
+    "author": "Multiple Authors",
     "version": (0, 2),
     "blender": (2, 6, 4),
     "location": "View3D > Add > Mesh > Cad Objects",
-    "description": "Add cad object types",
+    "description": "Add building object types",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
         "Scripts",
@@ -39,12 +39,16 @@ if "bpy" in locals():
     imp.reload(add_mesh_sove)
     imp.reload(add_mesh_window)
     imp.reload(add_mesh_beam_builder)
+    imp.reload(Wallfactory)
+    imp.reload(stairbuilder)
 
 else:
     from . import add_mesh_balcony
     from . import add_mesh_sove
     from . import add_mesh_window
     from . import add_mesh_beam_builder
+    from . import Wallfactory
+    from . import stairbuilder
 
 import bpy
 
@@ -52,7 +56,7 @@ import bpy
 class INFO_MT_mesh_objects_add(bpy.types.Menu):
     # Define the "mesh objects" menu
     bl_idname = "INFO_MT_cad_objects_add"
-    bl_label = "Cad Objects"
+    bl_label = "Building Objects"
 
     def draw(self, context):
         layout = self.layout
@@ -65,6 +69,10 @@ class INFO_MT_mesh_objects_add(bpy.types.Menu):
             text="Sove")
         layout.operator("mesh.add_say3d_pencere",
             text="Window")
+        layout.operator("mesh.wall_add",
+            text="Wall Factory")
+        layout.operator("mesh.stairs",
+            text="Stair Builder")
 
 
 # Register all operators and panels

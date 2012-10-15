@@ -204,14 +204,18 @@ class OscPanelRender(OscPollRender, bpy.types.Panel):
         colrow = col.row()
         colrow.operator("render.render_current_scene_osc", icon="RENDER_STILL", text="Active Scene")
         colrow.operator("render.render_current_scene_osc_cf", icon="RENDER_STILL", text="> Frame")
-        colrow = col.row(align=1)
-        colrow.prop(bpy.context.scene, "OscSelScenes", text="")
-        colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="Selected Scenes")
-        colrow.operator("render.render_selected_scenes_osc_cf", icon="RENDER_STILL", text="> Fame")
+
 
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "rcPARTS", text="Render Crop Parts")
         colrow.operator("render.render_crop_osc", icon="RENDER_REGION")
+        
+        col = layout.column(align=1)
+        colrow = col.row(align=1)
+        colrow.prop(bpy.context.scene, "use_render_scene", text="")  
+        colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="Selected Scenes")
+        colrow.operator("render.render_selected_scenes_osc_cf", icon="RENDER_STILL", text="> Fame")   
+   
 
 
 class OscPanelFiles(OscPollFiles, bpy.types.Panel):
@@ -780,7 +784,7 @@ class renderAllCF (bpy.types.Operator):
 ##--------------------------------RENDER SELECTED SCENES----------------------------
 
 
-bpy.types.Scene.OscSelScenes = bpy.props.StringProperty(default="[]")
+bpy.types.Scene.use_render_scene = bpy.props.BoolProperty()
 
 
 def defRenderSelected(FRAMETYPE):
@@ -790,7 +794,6 @@ def defRenderSelected(FRAMETYPE):
     ACTSCENE = bpy.context.scene
     LISTMAT = []
     SCENES = bpy.data.scenes[:]
-    SCENELIST = eval(bpy.context.scene.OscSelScenes)
     FC = bpy.context.scene.frame_current
     FS = bpy.context.scene.frame_start
     FE = bpy.context.scene.frame_end
@@ -808,7 +811,7 @@ def defRenderSelected(FRAMETYPE):
 
 
     for SCENE in SCENES:
-        if SCENE.name in SCENELIST:
+        if SCENE.use_render_scene:
             PROPTOLIST = list(eval(SCENE['OVERRIDE']))
             CURSC = SCENE.name
             PATH = SCENE.render.filepath
@@ -2193,7 +2196,7 @@ def reSymSave (self):
     XML.close()
     SYMAP.clear()
 
-def reSymMesh (self):
+def reSymMesh (self, SELECTED):
     
     bpy.ops.object.mode_set(mode='EDIT')
     
@@ -2209,17 +2212,29 @@ def reSymMesh (self):
     ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
     XML=open(ENTFILEPATH ,mode="r")
     
-    SYMAP = eval(XML.readlines()[0])
+    SYMAP = eval(XML.readlines()[0])    
     
-    for VERT in SYMAP:
-        if VERT == SYMAP[VERT]:
-            BM.verts[VERT].co[0] = 0
-            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
-        else:    
-            BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
-            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
+    if SELECTED:
+        for VERT in SYMAP:
+            if BM.verts[SYMAP[VERT]].select:
+                if VERT == SYMAP[VERT]:
+                    BM.verts[VERT].co[0] = 0
+                    BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
+                else:    
+                    BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+                    BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]        
+    else:    
+        for VERT in SYMAP:
+            if VERT == SYMAP[VERT]:
+                BM.verts[VERT].co[0] = 0
+                BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
+            else:    
+                BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+                BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
     
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.mode_set(mode='EDIT')
@@ -2243,9 +2258,10 @@ class OscResymMesh (bpy.types.Operator):
     bl_label = "Resym save Apply XML"
     bl_options = {"REGISTER", "UNDO"}
 
-
+    selected=bpy.props.BoolProperty(default=False, name="Only Selected")
+    
     def execute (self, context):
-        reSymMesh(self)
+        reSymMesh(self, self.selected)
         return {'FINISHED'}
     
 ##=============== DISTRIBUTE ======================    

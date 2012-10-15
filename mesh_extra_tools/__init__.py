@@ -72,7 +72,7 @@ class VIEW3D_MT_edit_mesh_extras(bpy.types.Menu):
         layout.operator("fif.op0_id",
             text="Face Inset Fillet")
         layout.operator("mesh.mbevel",
-            text="Edge Bevel")
+            text="Bevel Selected")
         layout.operator("f.op0_id",
             text="Edge Fillet Plus")
         layout.operator("normal.smooth",
@@ -91,6 +91,7 @@ class ExtrasPanel(bpy.types.Panel):
     bl_label = 'Mesh Extra Tools'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
+    bl_context = 'mesh_edit'
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -105,7 +106,7 @@ class ExtrasPanel(bpy.types.Panel):
         row.operator('mesh.bevel_round', text = 'Bevel Round')
         row.operator('help.bevelround', text = '?')
         row = layout.split(0.80)
-        row.operator('mesh.mbevel', text = 'Edge Bevel')
+        row.operator('mesh.mbevel', text = 'Bevel Selected')
         row.operator('help.edge_bevel', text = '?')
         row = layout.split(0.80)
         row.operator('f.op0_id', text = 'Edge Fillet plus')
@@ -122,6 +123,9 @@ class ExtrasPanel(bpy.types.Panel):
         row = layout.split(0.80)
         row.operator('object.mextrude', text = 'Multi Face Extrude')
         row.operator('help.mextrude', text = '?')
+        row = layout.split(0.50)
+        row.operator('mesh.normals_make_consistent', text = 'Normals Recalc')
+        row.operator('mesh.remove_doubles', text = 'Remove Doubles')
 
 
 # Multi Extrude Panel
@@ -134,16 +138,16 @@ class ExtrudePanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        prop = layout.operator("wm.context_set_value", text="Face Select",
-            icon='FACESEL')
-        prop.value = "(False, False, True)"
-        prop.data_path = "tool_settings.mesh_select_mode"
-        layout.operator('object.mextrude')
-        layout.operator('mesh.bump')
+        row = layout.split(0.80)
+        row.operator('object.mextrude', text = 'Multi Face Extrude')
+        row.operator('help.mextrude', text = '?')
+        row = layout.split(0.80)
+        row.operator('mesh.bump', text = 'Inset Bump')
+        row.operator('help.bump', text = '?')
         layout.operator('object.mesh2bones')
 # Define "Extras" menu
 def menu_func(self, context):
-    self.layout.menu("VIEW3D_MT_edit_mesh_extras", icon="PLUGIN")
+    self.layout.menu('VIEW3D_MT_edit_mesh_extras', icon='PLUGIN')
 
 
 def register():

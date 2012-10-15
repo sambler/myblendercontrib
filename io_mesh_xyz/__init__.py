@@ -21,11 +21,11 @@
 #  Authors           : Clemens Barth (Blendphys@root-1.de), ...
 #
 #  Homepage(Wiki)    : http://development.root-1.de/Atomic_Blender.php
-#  Tracker           : ... soon
+#  Tracker           : http://projects.blender.org/tracker/index.php?func=detail&aid=29646&group_id=153&atid=468
 #
 #  Start of project              : 2011-12-01 by Clemens Barth
 #  First publication in Blender  : 2011-12-18
-#  Last modified                 : 2012-06-07
+#  Last modified                 : 2012-10-14
 #
 #  Acknowledgements: Thanks to ideasman, meta_androcto, truman, kilon,
 #  dairin0d, PKHG, Valter, etc
@@ -49,8 +49,9 @@ bl_info = {
 import os
 import io
 import bpy
+import bmesh
 from bpy.types import Operator, Panel
-from bpy_extras.io_utils import ImportHelper
+from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.props import (StringProperty,
                        BoolProperty,
                        EnumProperty,
@@ -58,6 +59,8 @@ from bpy.props import (StringProperty,
                        FloatProperty)
 
 from . import import_xyz
+from . import export_xyz
+
 ATOM_XYZ_ERROR = ""
 ATOM_XYZ_NOTE  = ""
 ATOM_XYZ_PANEL = ""
@@ -504,71 +507,76 @@ class CLASS_atom_xyz_datafile_apply(Operator):
 # Button for separating a single atom from a structure
 class CLASS_atom_xyz_separate_atom(Operator):
     bl_idname = "atom_xyz.separate_atom"
-    bl_label = "Separate atom"
+    bl_label = "Separate atoms"
     bl_description = "Separate the atom you have chosen"
 
     def execute(self, context):
         scn = bpy.context.scene.atom_xyz[0]
 
-        # Get first all important properties from the atom which the user
+        # Get first all important properties from the atoms, which the user
         # has chosen: location, color, scale
         obj = bpy.context.edit_object
-        name = obj.name
-        loc_obj_vec = obj.location
+        bm = bmesh.from_edit_mesh(obj.data)
+
+        locations = []
+
+        for v in bm.verts:
+            if v.select:
+                locations.append(obj.matrix_world * v.co)
+
+        bm.free()
+        del(bm)
+
+        name  = obj.name
         scale = obj.children[0].scale
         material = obj.children[0].active_material
 
         # Separate the vertex from the main mesh and create a new mesh.
         bpy.ops.mesh.separate()
         new_object = bpy.context.scene.objects[0]
-        # Keep in mind the coordinates <= We only need this
-        loc_vec = new_object.data.vertices[0].co
-
         # And now, switch to the OBJECT mode such that we can ...
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
         # ... delete the new mesh including the separated vertex
         bpy.ops.object.select_all(action='DESELECT')
         new_object.select = True
-        bpy.ops.object.delete()
+        bpy.ops.object.delete()  
 
-        # Create a new atom/vacancy at the position of the old atom
+        # Create new atoms/vacancies at the position of the old atoms
         current_layers=bpy.context.scene.layers
 
-        if "Vacancy" not in name:
-            if scn.use_mesh == False:
-                bpy.ops.surface.primitive_nurbs_surface_sphere_add(
+        # For all selected positions do:
+        for location in locations:
+            if "Vacancy" not in name:
+                if scn.use_mesh == False:
+                    bpy.ops.surface.primitive_nurbs_surface_sphere_add(
                                     view_align=False, enter_editmode=False,
-                                    location=loc_vec+loc_obj_vec,
+                                    location=location,
                                     rotation=(0.0, 0.0, 0.0),
                                     layers=current_layers)
-            else:
-                bpy.ops.mesh.primitive_uv_sphere_add(
+                else:
+                    bpy.ops.mesh.primitive_uv_sphere_add(
                                 segments=scn.mesh_azimuth,
                                 ring_count=scn.mesh_zenith,
                                 size=1, view_align=False, enter_editmode=False,
-                                location=loc_vec+loc_obj_vec,
+                                location=location,
                                 rotation=(0, 0, 0),
                                 layers=current_layers)
-        else:
-            bpy.ops.mesh.primitive_cube_add(
+            else:
+                bpy.ops.mesh.primitive_cube_add(
                                view_align=False, enter_editmode=False,
-                               location=loc_vec+loc_obj_vec,
+                               location=location,
                                rotation=(0.0, 0.0, 0.0),
                                layers=current_layers)
 
-        new_atom = bpy.context.scene.objects.active
-        # Scale, material and name it.
-        new_atom.scale = scale
-        new_atom.active_material = material
-        new_atom.name = name + "_sep"
+            new_atom = bpy.context.scene.objects.active
+            # Scale, material and name it.
+            new_atom.scale = scale
+            new_atom.active_material = material
+            new_atom.name = name + "_sep"
+            new_atom.select = False
 
-        # Switch back into the 'Edit mode' because we would like to seprate
-        # other atoms may be (more convinient)
-        new_atom.select = False
-        obj.select = True
         bpy.context.scene.objects.active = obj
         bpy.ops.object.select_all(action='DESELECT')
-        bpy.ops.object.mode_set(mode='EDIT', toggle=False)
 
         return {'FINISHED'}
 
@@ -823,21 +831,56 @@ class CLASS_ImportXYZ(Operator, ImportHelper):
         return {'FINISHED'}
         
 
+# This is the class for the file dialog of the exporter.
+class CLASS_ExportXYZ(Operator, ExportHelper):
+    bl_idname = "export_mesh.xyz"
+    bl_label  = "Export XYZ (*.xyz)"
+    filename_ext = ".xyz"
+
+    filter_glob  = StringProperty(
+        default="*.xyz", options={'HIDDEN'},)
+
+    atom_xyz_export_type = EnumProperty(
+        name="Type of Objects",
+        description="Choose type of objects",
+        items=(('0', "All", "Export all active objects"),
+               ('1', "Elements", "Export only those active objects which have"
+                                 " a proper element name")),
+               default='1',) 
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.prop(self, "atom_xyz_export_type")
+
+    def execute(self, context):
+        # This is in order to solve this strange 'relative path' thing.
+        export_xyz.ATOM_XYZ_FILEPATH = bpy.path.abspath(self.filepath)
+        export_xyz.DEF_atom_xyz_export(self.atom_xyz_export_type)
+
+        return {'FINISHED'}
+
+
 # The entry into the menu 'file -> import'
-def menu_func(self, context):
+def DEF_menu_func(self, context):
     self.layout.operator(CLASS_ImportXYZ.bl_idname, text="XYZ (.xyz)")
 
+# The entry into the menu 'file -> export'
+def DEF_menu_func_export(self, context):
+    self.layout.operator(CLASS_ExportXYZ.bl_idname, text="XYZ (.xyz)")
 
 def register():
     DEF_panel_yes_no()
     bpy.utils.register_module(__name__)
-    bpy.types.INFO_MT_file_import.append(menu_func)
+    bpy.types.INFO_MT_file_import.append(DEF_menu_func)
+    bpy.types.INFO_MT_file_export.append(DEF_menu_func_export)
     bpy.types.Scene.atom_xyz = bpy.props.CollectionProperty(type=CLASS_atom_xyz_Properties)    
     bpy.context.scene.atom_xyz.add()
     
 def unregister():
     bpy.utils.unregister_module(__name__)
-    bpy.types.INFO_MT_file_import.remove(menu_func)
+    bpy.types.INFO_MT_file_import.remove(DEF_menu_func)
+    bpy.types.INFO_MT_file_export.remove(DEF_menu_func_export)
 
 if __name__ == "__main__":
 
