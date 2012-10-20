@@ -27,6 +27,23 @@ from bpy.props import BoolProperty
 from bpy.props import StringProperty
 
 
+imb_ext_image = [
+    # IMG
+    ".png", ".tga", ".bmp", ".jpg", ".jpeg", ".sgi", ".rgb",
+    ".rgba", ".tif", ".tiff", ".tx", ".jp2", ".hdr", ".dds",
+    ".dpx", ".cin", ".exr", ".rw2",
+    # IMG QT
+    ".gif", ".psd", ".pct", ".pict", ".pntg", ".qtif"]  
+
+
+imb_ext_movie = [
+    ".avi", ".flc", ".mov", ".movie", ".mp4", ".m4v", ".m2v",
+    ".m2t", ".m2ts", ".mts", ".mv", ".avs", ".wmv", ".ogv",
+    ".dv", ".mpeg", ".mpg", ".mpg2", ".vob", ".mkv", ".flv",
+    ".divx", ".xvid", ".mxf",
+    ]    
+  
+
 # Functions
 
 def add_marker(text):
@@ -89,8 +106,8 @@ def getpathfrombrowser():
     try:
         params
     except UnboundLocalError:
-        print("no browser")
-        #self.report({'ERROR_INVALID_INPUT'}, 'No visible File Browser')
+        #print("no browser")
+        self.report({'ERROR_INVALID_INPUT'}, 'No visible File Browser')
         return {'CANCELLED'}
     path = params.directory
     return path
@@ -108,13 +125,13 @@ def getfilepathfrombrowser():
     try:
         params
     except UnboundLocalError:
-        print("no browser")
-        #self.report({'ERROR_INVALID_INPUT'}, 'No visible File Browser')
+        #print("no browser")
+        self.report({'ERROR_INVALID_INPUT'}, 'No visible File Browser')
         return {'CANCELLED'}
 
     if params.filename == '':
-        print("no file selected")
-        #self.report({'ERROR_INVALID_INPUT'}, 'No file selected')
+        #print("no file selected")
+        self.report({'ERROR_INVALID_INPUT'}, 'No file selected')
         return {'CANCELLED'}
     path = params.directory
     filename = params.filename
@@ -133,8 +150,8 @@ def setpathinbrowser(path, file):
     try:
         params
     except UnboundLocalError:
-        print("no browser")
-        #self.report({'ERROR_INVALID_INPUT'}, 'No visible File Browser')
+        #print("no browser")
+        self.report({'ERROR_INVALID_INPUT'}, 'No visible File Browser')
         return {'CANCELLED'}
 
     params.directory = path

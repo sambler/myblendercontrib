@@ -34,6 +34,8 @@ from bpy.props import BoolProperty
 from bpy.props import StringProperty
 
 from . import functions
+from . import functions
+from . import exiftool
 
 
 # Initialization
@@ -872,7 +874,6 @@ class Sequencer_Extra_CopyProperties(bpy.types.Operator):
     ('crop', 'Input - Image Crop', ''),
     ('proxy', 'Proxy / Timecode', ''),
     ('strobe', 'Filter - Strobe', ''),
-    ('color_balance', 'Filter - Color Balance', ''),
     ('color_multiply', 'Filter - Multiply', ''),
     ('color_saturation', 'Filter - Saturation', ''),
     ('deinterlace', 'Filter - De-Interlace', ''),
@@ -959,18 +960,6 @@ class Sequencer_Extra_CopyProperties(bpy.types.Operator):
                         i.proxy.timecode = strip.proxy.timecode
                     elif self.prop == 'strobe':
                         i.strobe = strip.strobe
-                    elif self.prop == 'color_balance':
-                        i.use_color_balance = strip.use_color_balance
-                        i.use_color_balance = strip.use_color_balance
-                        i.color_balance.lift = strip.color_balance.lift
-                        i.color_balance.gamma = strip.color_balance.gamma
-                        i.color_balance.gain = strip.color_balance.gain
-                        p = strip.color_balance.invert_lift  # pep80
-                        i.color_balance.invert_lift = p
-                        p = strip.color_balance.invert_gamma  # pep80
-                        i.color_balance.invert_gamma = p
-                        p = strip.color_balance.invert_gain  # pep80
-                        i.color_balance.invert_gain = p
                     elif self.prop == 'color_multiply':
                         i.color_multiply = strip.color_multiply
                     elif self.prop == 'color_saturation':
@@ -1432,7 +1421,7 @@ class Sequencer_Extra_PlaceFromFileBrowserProxy(bpy.types.Operator):
                 strip.proxy.build_50 = self.build_50
                 strip.proxy.build_75 = self.build_75
                 strip.proxy.build_100 = self.build_100
-                print("----------------", proxypath)
+                #print("----------------", proxypath)
                 if os.path.isfile(proxypath):
                     strip.use_proxy_custom_file = True
                     strip.proxy.filepath = proxypath
@@ -1500,7 +1489,7 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
         
 
         if strip.type == 'MOVIE':
-            print("movie", strip.frame_start)
+            #print("movie", strip.frame_start)
             path = strip.filepath
             #print(path)
             data_exists = False
@@ -1519,7 +1508,7 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
                         - strip.animation_offset_start
                     tin = strip.frame_offset_start + strip.frame_start
                     tout = tin + strip.frame_final_duration
-                    print(newstrip.frame_start, strip.frame_start, tin, tout)
+                    #print(newstrip.frame_start, strip.frame_start, tin, tout)
                     functions.triminout(newstrip, tin, tout)
                 except:
                     self.report({'ERROR_INVALID_INPUT'}, 'Error loading file')
@@ -1541,14 +1530,14 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
                     #clip.frame_final_duration = strip.frame_final_duration 
                     tin = strip.frame_offset_start + strip.frame_start
                     tout = tin + strip.frame_final_duration
-                    print(newstrip.frame_start, strip.frame_start, tin, tout)
+                    #print(newstrip.frame_start, strip.frame_start, tin, tout)
                     functions.triminout(clip, tin, tout)
                 except:
                     self.report({'ERROR_INVALID_INPUT'}, 'Error loading file')
                     return {'CANCELLED'}
                  
         elif strip.type == 'IMAGE':
-            print("image")
+            #print("image")
             base_dir = bpy.path.abspath(strip.directory)
             scn.frame_current = strip.frame_start - strip.animation_offset_start
             # searching for the first frame of the sequencer. This is mandatory 
@@ -1556,14 +1545,14 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
             # avoiding to create a new movie clip if not needed
             filename = sorted(os.listdir(base_dir))[0]
             path = os.path.join(base_dir,filename)
-            print(path)
+            #print(path)
             data_exists = False
             for i in bpy.data.movieclips:
-                print(i.filepath, path)
+                #print(i.filepath, path)
                 if i.filepath == path:
                     data_exists = True
                     data = i
-            print(data_exists)
+            #print(data_exists)
             if data_exists == False:
                 try:
                     data = bpy.data.movieclips.load(filepath=path)
@@ -1576,7 +1565,7 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
                     clip = bpy.context.scene.sequence_editor.sequences[newstrip.name]
                     tin = strip.frame_offset_start + strip.frame_start
                     tout = tin + strip.frame_final_duration
-                    print(newstrip.frame_start, strip.frame_start, tin, tout)
+                    #print(newstrip.frame_start, strip.frame_start, tin, tout)
                     functions.triminout(clip, tin, tout)
                 except:
                     self.report({'ERROR_INVALID_INPUT'}, 'Error loading filetin')
@@ -1598,7 +1587,7 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
                     #clip.frame_final_duration = strip.frame_final_duration 
                     tin = strip.frame_offset_start + strip.frame_start
                     tout = tin + strip.frame_final_duration
-                    print(newstrip.frame_start, strip.frame_start, tin, tout)
+                    #print(newstrip.frame_start, strip.frame_start, tin, tout)
                     functions.triminout(clip, tin, tout)
                 except:
                     self.report({'ERROR_INVALID_INPUT'}, 'Error loading filete')
@@ -1612,4 +1601,62 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
         
 
         return {'FINISHED'}
+    
+    
+# READ EXIF DATA
+class Sequencer_Extra_ReadExifData(bpy.types.Operator):
+    # load exifdata from strip to scene['metadata'] property
+    bl_label = 'Read EXIF Data'
+    bl_idname = 'sequencerextra.read_exif'
+    bl_description = 'load exifdata from strip to metadata property in scene'
+    bl_options = {'REGISTER', 'UNDO'}
+    
 
+    
+    def execute(self, context):
+        
+        def getexifdata(strip):
+            
+            def getlist(lista):
+                for root, dirs, files in os.walk(path):
+                    for f in files:
+                        if "."+f.rpartition(".")[2].lower() in functions.imb_ext_image:
+                            lista.append(f)
+                        #if "."+f.rpartition(".")[2] in imb_ext_movie:
+                        #    lista.append(f)
+                strip.elements
+                
+                lista.sort()
+                return lista
+            
+            def getexifvalues(lista):
+                metadata=[]
+                with exiftool.ExifTool() as et:
+                    try:
+                        metadata = et.get_metadata_batch(lista)
+                    except UnicodeDecodeError as Err:
+                        print(Err)
+                return metadata
+            
+            #print("----------------------------")
+            
+            if strip.type == "IMAGE":
+                path = bpy.path.abspath(strip.directory)
+            if strip.type == "MOVIE":
+                path = bpy.path.abspath(strip.filepath.rpartition("/")[0])
+            os.chdir(path)
+            #get a list of files
+            lista = []
+            
+            for i in strip.elements:
+                lista.append(i.filename)
+            
+            return getexifvalues(lista)
+        
+        
+        sce = bpy.context.scene
+        frame=sce.frame_current
+        text= bpy.context.active_object
+        strip = context.scene.sequence_editor.active_strip
+        sce['metadata'] = getexifdata(strip)
+        return {'FINISHED'}
