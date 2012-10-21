@@ -725,7 +725,7 @@ def defRenderAll (FRAMETYPE):
             print("LAYER: "+layers.name)
             print("OVERRIDE: "+str(PROPTOLIST))
 
-            SCENE.render.filepath = PATH + "/" + SCENENAME + "/" + CURSC + "/" + layers.name + "/" + SCENENAME + "_" + SCENE.name + "_" + layers.name + "_"
+            SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
             SCENE.render.layers[layers.name].use = 1
             bpy.ops.render.render(animation=True, write_still=True, layer=layers.name, scene= SCENE.name)
 
@@ -859,7 +859,7 @@ def defRenderSelected(FRAMETYPE):
                 print("LAYER: "+layers.name)
                 print("OVERRIDE: "+str(PROPTOLIST))
 
-                SCENE.render.filepath = PATH + "/" + SCENENAME + "/" + CURSC + "/" + layers.name + "/" + SCENENAME + "_" + SCENE.name + "_" + layers.name + "_"
+                SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
                 SCENE.render.layers[layers.name].use = 1
                 bpy.ops.render.render(animation=True, layer=layers.name, write_still=True, scene= SCENE.name)
 
@@ -985,7 +985,7 @@ def defRenderCurrent (FRAMETYPE):
         print("OVERRIDE: "+str(PROPTOLIST))
 
 
-        SCENE.render.filepath = PATH + "/" + SCENENAME + "/" + CURSC + "/" + layers.name + "/" + SCENENAME + "_" + SCENE.name + "_" + layers.name + "_"
+        SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
         SCENE.render.layers[layers.name].use = 1
         bpy.ops.render.render(animation=True, layer=layers.name, write_still=1, scene= SCENE.name)
 
