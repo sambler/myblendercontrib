@@ -340,6 +340,7 @@ class Ms3dExporter():
                     ms3d_group = blender_to_ms3d_groups.get(bmf[layer_group])
                     if ms3d_group is not None:
                         ms3d_triangle.group_index = ms3d_group.__index
+                        ms3d_group._triangle_indices.append(ms3d_triangle.__index)
                         if ms3d_group.material_index is None:
                             ms3d_material = self.get_ms3d_material_add_if(blender_mesh, ms3d_model, blender_to_ms3d_materials, bmf.material_index)
                             if ms3d_material is None:
