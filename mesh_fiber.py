@@ -205,7 +205,7 @@ class FiberPanel(bpy.types.Panel):
 		scn = bpy.context.scene
 		layout = self.layout
 		
-		layout.label("Fiber Generator-	Version " + str(CurVersion))
+		layout.label("Fiber Generator-	Version " + str(CurVersion), icon = 'PLUGIN')
 	
 		row = layout.row()
 		row.operator("fiber.savepreset", text="Save Preset")
