@@ -280,7 +280,7 @@ class Ms3dImporter():
         # link to blender scene
         blender_scene = blender_context.scene
         blender_scene.objects.link(blender_mesh_object)
-        blender_mesh_object.location = blender_scene.cursor_location
+        #blender_mesh_object.location = blender_scene.cursor_location
         enable_edit_mode(False)
         select_all(False)
         blender_mesh_object.select = True
@@ -599,7 +599,7 @@ class Ms3dImporter():
         blender_armature_object = blender_context.blend_data.objects.new(
                 ms3d_armature_name, blender_armature)
         blender_scene.objects.link(blender_armature_object)
-        blender_armature_object.location = blender_scene.cursor_location
+        #blender_armature_object.location = blender_scene.cursor_location
         blender_armature_object.show_x_ray = True
 
         ##########################

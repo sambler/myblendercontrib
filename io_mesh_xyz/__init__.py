@@ -25,7 +25,7 @@
 #
 #  Start of project              : 2011-12-01 by Clemens Barth
 #  First publication in Blender  : 2011-12-18
-#  Last modified                 : 2012-10-14
+#  Last modified                 : 2012-10-27
 #
 #  Acknowledgements: Thanks to ideasman, meta_androcto, truman, kilon,
 #  dairin0d, PKHG, Valter, etc
@@ -35,7 +35,7 @@ bl_info = {
     "name": "XYZ Atomic Blender",
     "description": "Loading and manipulating atoms from XYZ files",
     "author": "Clemens Barth",
-    "version": (0,6),
+    "version": (0,7),
     "blender": (2,6),
     "location": "File -> Import -> XYZ (.xyz), Panel: View 3D - Tools",
     "warning": "",
@@ -280,6 +280,27 @@ class CLASS_atom_xyz_create_command(Operator):
     bl_label = "Create command"
     bl_description = "Create a shell command for rendering the scene"
 
+    # If no object is in the scene, do nothing (return False).
+    @classmethod
+    def poll(self, context):
+
+        if bpy.context.object == None:
+            return False
+        if len(import_xyz.STRUCTURE) == 0:
+            return False
+        if len(import_xyz.ALL_FRAMES) < 2:
+            return False
+
+        EMPTY = True
+        for element in import_xyz.STRUCTURE:
+            if element.name != '':
+                EMPTY = False
+
+        if EMPTY == True:
+            return False
+
+        return True
+
     def execute(self, context):
         global ATOM_XYZ_ERROR
         global ATOM_XYZ_NOTE
@@ -357,6 +378,27 @@ class CLASS_atom_xyz_render(Operator):
     bl_label = "Render"
     bl_description = "Render the scene"
 
+    # If no object is in the scene, do nothing (return False).
+    @classmethod
+    def poll(self, context):
+
+        if bpy.context.object == None:
+            return False
+        if len(import_xyz.STRUCTURE) == 0:
+            return False
+        if len(import_xyz.ALL_FRAMES) < 2:
+            return False
+
+        EMPTY = True
+        for element in import_xyz.STRUCTURE:
+            if element.name != '':
+                EMPTY = False
+
+        if EMPTY == True:
+            return False
+
+        return True
+
     def execute(self, context):
         global ATOM_XYZ_ERROR
         scn = bpy.context.scene
@@ -424,8 +466,36 @@ class CLASS_atom_xyz_delete_keys(Operator):
     bl_label = "Delete keys"
     bl_description = "Delete the shape keys"
 
-    def execute(self, context):
+    # If no object is in the scene, do nothing (return False).
+    @classmethod
+    def poll(self, context):
+
+        if bpy.context.object == None:
+            return False
+        if len(import_xyz.STRUCTURE) == 0:
+            return False
+        if len(import_xyz.ALL_FRAMES) < 2:
+            return False
+
+        EMPTY = True
         for element in import_xyz.STRUCTURE:
+            if element.name != '':
+                EMPTY = False
+
+        if EMPTY == True:
+            return False
+
+        return True
+
+    def execute(self, context):
+
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+
+        for element in import_xyz.STRUCTURE:
+
+            if element.name == '':
+                continue
+
             if element.data.shape_keys == None:
                 break
         
@@ -445,12 +515,39 @@ class CLASS_atom_xyz_load_frames(Operator):
     bl_label = "Load frames"
     bl_description = "Load the frames"
 
+    # If no object is in the scene, do nothing (return False).
+    @classmethod
+    def poll(self, context):
+
+        if bpy.context.object == None:
+            return False
+        if len(import_xyz.STRUCTURE) == 0:
+            return False
+        if len(import_xyz.ALL_FRAMES) < 2:
+            return False
+
+        EMPTY = True
+        for element in import_xyz.STRUCTURE:
+            if element.name != '':
+                EMPTY = False
+
+        if EMPTY == True:
+            return False
+
+        return True
+
     def execute(self, context):
         global ATOM_XYZ_ERROR
         scn = bpy.context.scene.atom_xyz[0]
-        
+
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+
         KEYS_PRESENT = False
         for element in import_xyz.STRUCTURE:
+
+            if element.name == '':
+                continue
+
             bpy.ops.object.select_all(action='DESELECT')
             bpy.context.scene.objects.active = element
             element.select = True
@@ -485,7 +582,6 @@ class CLASS_atom_xyz_datafile_apply(Operator):
 
         import_xyz.DEF_atom_xyz_custom_datafile(scn.datafile)
 
-        # TODO, move this into 'import_xyz' and call the function
         for obj in bpy.context.selected_objects:
             if len(obj.children) != 0:
                 child = obj.children[0]

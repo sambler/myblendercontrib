@@ -69,7 +69,7 @@ class VIEW3D_MT_edit_mesh_extras(bpy.types.Menu):
         layout.operator_context = 'INVOKE_REGION_WIN'
         layout.operator("mesh.bump",
             text="Inset Extrude Bump")
-        layout.operator("fif.op0_id",
+        layout.operator("faceinfillet.op0_id",
             text="Face Inset Fillet")
         layout.operator("mesh.mbevel",
             text="Bevel Selected")
@@ -97,32 +97,32 @@ class ExtrasPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.split(0.80)
-        row.operator('mesh.bump', text = 'Inset Bump')
-        row.operator('help.bump', text = '?')
+        row.operator('mesh.bump', text = 'Inset Bump', icon = 'PLUGIN')
+        row.operator('help.bump', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('fif.op0_id', text = 'Face Inset Fillet')
-        row.operator('help.face_inset', text = '?')
+        row.operator('faceinfillet.op0_id', text = 'Face Inset Fillet', icon = 'PLUGIN')
+        row.operator('help.face_inset', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('mesh.bevel_round', text = 'Bevel Round')
-        row.operator('help.bevelround', text = '?')
+        row.operator('mesh.bevel_round', text = 'Bevel Round', icon = 'PLUGIN')
+        row.operator('help.bevelround', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('mesh.mbevel', text = 'Bevel Selected')
-        row.operator('help.edge_bevel', text = '?')
+        row.operator('mesh.mbevel', text = 'Bevel Selected', icon = 'PLUGIN')
+        row.operator('help.edge_bevel', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('fillet.op0_id', text = 'Edge Fillet plus')
-        row.operator('help.edge_fillet', text = '?')
+        row.operator('fillet.op0_id', text = 'Edge Fillet plus', icon = 'PLUGIN')
+        row.operator('help.edge_fillet', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('normal.smooth', text = 'Normal Smooth')
-        row.operator('help.normal_smooth', text = '?')
+        row.operator('normal.smooth', text = 'Normal Smooth', icon = 'PLUGIN')
+        row.operator('help.normal_smooth', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('mesh.polyredux', text = 'Poly Redux')
-        row.operator('help.polyredux', text = '?')
+        row.operator('mesh.polyredux', text = 'Poly Redux', icon = 'PLUGIN')
+        row.operator('help.polyredux', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('mesh.vertex_chamfer', text = 'Vertex Chamfer')
-        row.operator('help.vertexchamfer', text = '?')
+        row.operator('mesh.vertex_chamfer', text = 'Vertex Chamfer' , icon = 'PLUGIN')
+        row.operator('help.vertexchamfer', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('object.mextrude', text = 'Multi Face Extrude')
-        row.operator('help.mextrude', text = '?')
+        row.operator('object.mextrude', text = 'Multi Face Extrude', icon = 'PLUGIN')
+        row.operator('help.mextrude', text = '', icon = 'INFO')
         row = layout.split(0.50)
         row.operator('mesh.flip_normals', text = 'Normals Flip')
         row.operator('mesh.remove_doubles', text = 'Remove Doubles')
@@ -139,12 +139,12 @@ class ExtrudePanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.split(0.80)
-        row.operator('object.mextrude', text = 'Multi Face Extrude')
-        row.operator('help.mextrude', text = '?')
+        row.operator('object.mextrude', text = 'Multi Face Extrude', icon = 'PLUGIN')
+        row.operator('help.mextrude', text = '', icon = 'INFO')
         row = layout.split(0.80)
-        row.operator('mesh.bump', text = 'Inset Bump')
-        row.operator('help.bump', text = '?')
-        layout.operator('object.mesh2bones')
+        row.operator('object.mesh2bones', text = 'Add Armature', icon = 'PLUGIN')
+        row.operator('help.addarm', text = '', icon = 'INFO')
+
 # Define "Extras" menu
 def menu_func(self, context):
     self.layout.menu('VIEW3D_MT_edit_mesh_extras', icon='PLUGIN')
