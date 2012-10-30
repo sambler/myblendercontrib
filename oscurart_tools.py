@@ -37,6 +37,8 @@ import bmesh
 import time
 import random
 
+#r03
+
 ## CREA PANELES EN TOOLS
 
 # VARIABLES DE ENTORNO
@@ -199,11 +201,13 @@ class OscPanelRender(OscPollRender, bpy.types.Panel):
 
         col.operator("file.create_batch_maker_osc", icon="LINENUMBERS_ON", text="Make Render Batch")
         colrow = col.row()
-        colrow.operator("render.render_layers_at_time_osc", icon="RENDER_STILL", text="All Scenes")
-        colrow.operator("render.render_layers_at_time_osc_cf", icon="RENDER_STILL", text="> Frame")
+        col.operator("file.create_batch_python", icon="LINENUMBERS_ON", text="Make Python Batch")
         colrow = col.row()
-        colrow.operator("render.render_current_scene_osc", icon="RENDER_STILL", text="Active Scene")
-        colrow.operator("render.render_current_scene_osc_cf", icon="RENDER_STILL", text="> Frame")
+        colrow.operator("render.render_all_scenes_osc", icon="RENDER_STILL", text="All Scenes").frametype=False
+        colrow.operator("render.render_all_scenes_osc", icon="RENDER_STILL", text="> Frame").frametype=True
+        colrow = col.row()
+        colrow.operator("render.render_current_scene_osc", icon="RENDER_STILL", text="Active Scene").frametype=False
+        colrow.operator("render.render_current_scene_osc", icon="RENDER_STILL", text="> Frame").frametype=True
 
 
         colrow = col.row(align=1)
@@ -213,8 +217,8 @@ class OscPanelRender(OscPollRender, bpy.types.Panel):
         col = layout.column(align=1)
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "use_render_scene", text="")  
-        colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="Selected Scenes")
-        colrow.operator("render.render_selected_scenes_osc_cf", icon="RENDER_STILL", text="> Fame")   
+        colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="Selected Scenes").frametype=False
+        colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="> Fame").frametype=True   
    
 
 
@@ -647,10 +651,10 @@ class normalsOutside(bpy.types.Operator):
 
 
 
-##--------------------------------RENDER LAYER AT TIME----------------------------
+##-------------------------------- RENDER ALL SCENES ----------------------------
 
 
-def defRenderAll (FRAMETYPE):
+def defRenderAll (frametype):
     
 
     LISTMAT=[]
@@ -688,7 +692,7 @@ def defRenderAll (FRAMETYPE):
         # CAMBIO SCENE
         bpy.context.window.screen.scene=SCENE
 
-        if FRAMETYPE == True:
+        if frametype == True:
             bpy.context.scene.frame_start=FC
             bpy.context.scene.frame_end=FC
             bpy.context.scene.frame_end=FC
@@ -749,7 +753,7 @@ def defRenderAll (FRAMETYPE):
             except:
                 print("OUT OF RANGE")
         # RESTAURO FRAMES
-        if FRAMETYPE == True:
+        if frametype == True:
             SCENE.frame_start=FS
             SCENE.frame_end=FE
             SCENE.frame_end=FE
@@ -759,26 +763,16 @@ def defRenderAll (FRAMETYPE):
 
 
 class renderAll (bpy.types.Operator):
-    bl_idname="render.render_layers_at_time_osc"
-    bl_label="Render layers at time"
+    bl_idname="render.render_all_scenes_osc"
+    bl_label="Render All Scenes"
 
-    FRAMETYPE=bpy.props.BoolProperty(default=False)
-
-
-    def execute(self,context):
-        defRenderAll(self.FRAMETYPE)
-        return {'FINISHED'}
-
-class renderAllCF (bpy.types.Operator):
-    bl_idname="render.render_layers_at_time_osc_cf"
-    bl_label="Render layers at time Current Frame"
-
-    FRAMETYPE=bpy.props.BoolProperty(default=True)
+    frametype=bpy.props.BoolProperty(default=False)
 
 
     def execute(self,context):
-        defRenderAll(self.FRAMETYPE)
+        defRenderAll(self.frametype)
         return {'FINISHED'}
+
 
 
 ##--------------------------------RENDER SELECTED SCENES----------------------------
@@ -787,7 +781,7 @@ class renderAllCF (bpy.types.Operator):
 bpy.types.Scene.use_render_scene = bpy.props.BoolProperty()
 
 
-def defRenderSelected(FRAMETYPE):
+def defRenderSelected(frametype):
 
 
 
@@ -823,7 +817,7 @@ def defRenderSelected(FRAMETYPE):
             # CAMBIO SCENE
             bpy.context.window.screen.scene = SCENE
 
-            if FRAMETYPE  ==  True:
+            if frametype  ==  True:
                 bpy.context.scene.frame_start = FC
                 bpy.context.scene.frame_end = FC
                 bpy.context.scene.frame_end = FC
@@ -884,7 +878,7 @@ def defRenderSelected(FRAMETYPE):
                     print("OUT OF RANGE")
 
             # RESTAURO FRAMES
-            if FRAMETYPE == True:
+            if frametype == True:
                 SCENE.frame_start = FS
                 SCENE.frame_end = FE
                 SCENE.frame_end = FE
@@ -899,27 +893,19 @@ class renderSelected (bpy.types.Operator):
     bl_idname="render.render_selected_scenes_osc"
     bl_label="Render Selected Scenes"
 
-    FRAMETYPE=bpy.props.BoolProperty(default=False)
+    frametype=bpy.props.BoolProperty(default=False)
 
     def execute(self,context):
-        defRenderSelected(self.FRAMETYPE)
+        defRenderSelected(self.frametype)
         return {'FINISHED'}
 
-class renderSelectedCF (bpy.types.Operator):
-    bl_idname="render.render_selected_scenes_osc_cf"
-    bl_label="Render Selected Scenes Curent Frame"
 
-    FRAMETYPE=bpy.props.BoolProperty(default=True)
-
-    def execute(self,context):
-        defRenderSelected(self.FRAMETYPE)
-        return {'FINISHED'}
 
 
 ##--------------------------------RENDER CURRENT SCENE----------------------------
 
 
-def defRenderCurrent (FRAMETYPE):
+def defRenderCurrent (frametype):
     LISTMAT = []
     SCENE = bpy.context.scene
     FC = bpy.context.scene.frame_current
@@ -948,7 +934,7 @@ def defRenderCurrent (FRAMETYPE):
     FILEPATH = bpy.data.filepath
 
 
-    if FRAMETYPE == True:
+    if frametype == True:
         bpy.context.scene.frame_start = FC
         bpy.context.scene.frame_end = FC
         bpy.context.scene.frame_end = FC
@@ -1010,7 +996,7 @@ def defRenderCurrent (FRAMETYPE):
             print("FUERA DE RANGO")
 
     # RESTAURO FRAMES
-    if FRAMETYPE == True:
+    if frametype == True:
         SCENE.frame_start = FS
         SCENE.frame_end = FE
         SCENE.frame_end = FE
@@ -1021,26 +1007,16 @@ class renderCurrent (bpy.types.Operator):
     bl_idname="render.render_current_scene_osc"
     bl_label="Render Current Scene"
 
-    FRAMETYPE=bpy.props.BoolProperty(default=False)
+    frametype=bpy.props.BoolProperty(default=False)
 
     def execute(self,context):
 
-        defRenderCurrent(self.FRAMETYPE)
+        defRenderCurrent(self.frametype)
 
         return {'FINISHED'}
 
 
-class renderCurrentCF (bpy.types.Operator):
-    bl_idname="render.render_current_scene_osc_cf"
-    bl_label="Render Current Scene Current Frame"
 
-    FRAMETYPE=bpy.props.BoolProperty(default=True)
-
-    def execute(self,context):
-
-        defRenderCurrent(self.FRAMETYPE)
-
-        return {'FINISHED'}
 
 
 ##--------------------------RENDER CROP----------------------
@@ -1621,7 +1597,7 @@ def defoscBatchMaker(TYPE):
                 os.chmod(RLATFILE, stat.S_IRWXU)  
             except:
                 print("** Oscurart Batch maker can not modify the permissions.")                             
-        FILESC.writelines("import bpy \nbpy.ops.render.render_layers_at_time_osc()\nbpy.ops.wm.quit_blender()")
+        FILESC.writelines("import bpy \nbpy.ops.render.render_all_scenes_osc()\nbpy.ops.wm.quit_blender()")
         FILESC.close()
     else:
         print("The All Python files Skips: Already exist!")   
@@ -1643,7 +1619,6 @@ class oscBatchMaker (bpy.types.Operator):
     bl_idname = "file.create_batch_maker_osc"
     bl_label = "Make render batch"
     bl_options = {'REGISTER', 'UNDO'}
-
 
     type = bpy.props.EnumProperty(
             name="Render Mode",
@@ -2426,6 +2401,80 @@ class OscRemoveOverridesSlot (bpy.types.Operator):
 bpy.utils.register_class(OscTransferOverrides)
 bpy.utils.register_class(OscAddOverridesSlot)
 bpy.utils.register_class(OscRemoveOverridesSlot)
+
+## --------------------------------------PYTHON BATCH--------------------------------------------------------
+def defoscPythonBatchMaker(BATCHTYPE,SIZE):
+    # REVISO SISTEMA
+    if sys.platform.startswith("w"):
+        print("PLATFORM: WINDOWS")
+        SYSBAR = "\\"
+        EXTSYS = ".bat"
+        QUOTES = '"'
+    else:
+        print("PLATFORM:LINUX")
+        SYSBAR = "/"
+        EXTSYS = ".sh"    
+        QUOTES = ''
+    
+    # CREO VARIABLES
+    FILENAME = bpy.data.filepath.rpartition(SYSBAR)[-1].rpartition(".")[0]
+    SHFILE = "%s%s%s_PythonSecureBatch.py"   % (bpy.data.filepath.rpartition(SYSBAR)[0],SYSBAR,FILENAME)
+    BATCHLOCATION = "%s%s%s%s"   % (bpy.data.filepath.rpartition(SYSBAR)[0],SYSBAR,FILENAME,EXTSYS)
+    FILEBATCH = open(SHFILE,"w")
+    
+    # SI EL OUTPUT TIENE DOBLE BARRA LA REEMPLAZO
+    FRO=bpy.context.scene.render.filepath
+    if bpy.context.scene.render.filepath.count(SYSBAR+SYSBAR):
+        FRO=bpy.context.scene.render.filepath.replace(SYSBAR+SYSBAR, bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR)   
+        
+                 
+    #CREO BATCH
+    bpy.ops.file.create_batch_maker_osc(type=BATCHTYPE)
+    
+    SCRIPT = "import os \nREPITE= True \nBAT= '%s'\nSCENENAME ='%s' \nDIR='%s%s' \ndef RENDER():\n    os.system(BAT) \ndef CLEAN():\n    global REPITE\n    FILES  = [root+'%s'+FILE for root, dirs, files in os.walk(os.getcwd()) if len(files) > 0 for FILE in files if FILE.count('~') == False]\n    RESPUESTA=False\n    for FILE in FILES:\n        if os.path.getsize(FILE) < %s:\n            os.remove(FILE)\n            RESPUESTA= True\n    if RESPUESTA:\n        REPITE=True\n    else:\n        REPITE=False\nREPITE=True\nwhile REPITE:\n    global REPITE\n    REPITE=False\n    RENDER()\n    os.chdir(DIR)\n    CLEAN()" % (BATCHLOCATION,FILENAME,FRO,FILENAME,SYSBAR,SIZE)
+    
+    
+    # DEFINO ARCHIVO DE BATCH
+    FILEBATCH.writelines(SCRIPT)
+    FILEBATCH.close()  
+    
+    
+    # ARCHIVO CALL
+    CALLFILENAME = bpy.data.filepath.rpartition(SYSBAR)[-1].rpartition(".")[0]
+    CALLFILE = "%s%s%s_CallPythonSecureBatch%s"   % (bpy.data.filepath.rpartition(SYSBAR)[0],SYSBAR,CALLFILENAME,EXTSYS)  
+    CALLFILEBATCH = open(CALLFILE,"w")  
+    
+    SCRIPT = "python %s" % (SHFILE)
+    CALLFILEBATCH.writelines(SCRIPT)
+    CALLFILEBATCH.close()
+    
+    if EXTSYS == ".sh":
+        try:
+            os.chmod(CALLFILE, stat.S_IRWXU)  
+            os.chmod(SHFILE, stat.S_IRWXU) 
+        except:
+            print("** Oscurart Batch maker can not modify the permissions.")      
+    
+    
+    
+class oscPythonBatchMaker (bpy.types.Operator):
+    bl_idname = "file.create_batch_python"
+    bl_label = "Make Batch Python"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    size = bpy.props.IntProperty(name="Size in Bytes", default=10, min=0)
+    
+    type = bpy.props.EnumProperty(
+            name="Render Mode",
+            description="Select Render Mode.",
+            items=(('osRlat', "All Scenes", "Render All Layers At Time"),
+                   ('osRSlat', "Selected Scenes", "Render Only The Selected Scenes")),
+            default='osRlat',
+            )
+
+    def execute(self,context):
+        defoscPythonBatchMaker(self.type, self.size)
+        return {'FINISHED'}
  
 ##======================================================================================FIN DE SCRIPTS
 
