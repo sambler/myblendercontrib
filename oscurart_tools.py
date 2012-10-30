@@ -2420,12 +2420,18 @@ def defoscPythonBatchMaker(BATCHTYPE,SIZE):
     FILENAME = bpy.data.filepath.rpartition(SYSBAR)[-1].rpartition(".")[0]
     SHFILE = "%s%s%s_PythonSecureBatch.py"   % (bpy.data.filepath.rpartition(SYSBAR)[0],SYSBAR,FILENAME)
     BATCHLOCATION = "%s%s%s%s"   % (bpy.data.filepath.rpartition(SYSBAR)[0],SYSBAR,FILENAME,EXTSYS)
+
     FILEBATCH = open(SHFILE,"w")
     
+    if EXTSYS == ".bat":
+        BATCHLOCATION=BATCHLOCATION.replace("\\","/")    
+    
     # SI EL OUTPUT TIENE DOBLE BARRA LA REEMPLAZO
-    FRO=bpy.context.scene.render.filepath
+    FRO=bpy.context.scene.render.filepath        
     if bpy.context.scene.render.filepath.count("//"):
-        FRO=bpy.context.scene.render.filepath.replace("//", bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR) 
+        FRO=bpy.context.scene.render.filepath.replace("//", bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR)         
+    if EXTSYS == ".bat":
+        FRO=FRO.replace("\\","/")        
           
         
                  
