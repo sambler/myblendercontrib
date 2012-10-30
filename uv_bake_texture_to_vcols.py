@@ -99,7 +99,7 @@ class UV_OT_bake_texture_to_vcols(bpy.types.Operator):
     def execute(self, context):
         obdata = context.object.data
         loop_count = len(obdata.loops)
-        uv_tex = obdata.uv_textures.active.data[0]
+        uv_tex = obdata.uv_textures.active.data[0] # TODO: Add support for multiple images
         image_size_x = uv_tex.image.size[0]
         image_size_y = uv_tex.image.size[1]
         
@@ -122,15 +122,9 @@ class UV_OT_bake_texture_to_vcols(bpy.types.Operator):
                     continue
 
                 elif self.mappingMode == 'REPEAT':
-                    while x_co > image_size_x - 1:
-                        x_co -= image_size_x
-                    while x_co < 0:
-                        x_co += image_size_x
-                    while y_co > image_size_y - 1:
-                        y_co -= image_size_y
-                    while y_co < 0:
-                        y_co += image_size_y
-                
+                    x_co %= image_size_x
+                    y_co %= image_size_y
+
                 elif self.mappingMode == 'EXTEND':
                     if x_co > image_size_x - 1:
                         x_co = image_size_x - 1
@@ -151,8 +145,8 @@ class UV_OT_bake_texture_to_vcols(bpy.types.Operator):
                 
             pixelNumber = (image_size_x * y_co) + x_co
             r = uv_pixels[pixelNumber*4]
-            g = uv_pixels[(pixelNumber*4) + 1]
-            b = uv_pixels[(pixelNumber*4) + 2]
+            g = uv_pixels[pixelNumber*4 + 1]
+            b = uv_pixels[pixelNumber*4 + 2]
             col_in = r, g, b
             col_result = [r,g,b] #col_in = texture-color, col_out = existing/ 'base' color
             
@@ -200,11 +194,11 @@ class UV_OT_bake_texture_to_vcols(bpy.types.Operator):
                 
             elif self.blendingMode == 'DIVIDE':
                 if(col_in[0] != 0.0):
-                    col_result[0] = col_out[0]/ col_in[0]
+                    col_result[0] = col_out[0] / col_in[0]
                 if(col_in[1] != 0.0):
-                    col_result[0] = col_out[1]/ col_in[1]
+                    col_result[0] = col_out[1] / col_in[1]
                 if(col_in[2] != 0.0):
-                    col_result[2] = col_out[2]/ col_in[2]
+                    col_result[2] = col_out[2] / col_in[2]
                 
             elif self.blendingMode == 'DARKEN':
                 if col_in[0] < col_out[0]:
