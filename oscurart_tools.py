@@ -413,20 +413,21 @@ class CreaShapes(bpy.types.Operator):
         ## VARIABLES
         ACTOBJ=bpy.context.active_object
         LENKB=len(ACTOBJ.data.shape_keys.key_blocks)
-
+        """
         ## RECORTO NOMBRES
         for SHAPE in ACTOBJ.data.shape_keys.key_blocks:
             if len(SHAPE.name) > 7:
                 SHAPE.name=SHAPE.name[:8]
+        """        
 
         ## DUPLICO SHAPES Y CONECTO GRUPO
         for SHAPE in ACTOBJ.data.shape_keys.key_blocks[1:]:
             SHAPE.value=1
             bpy.ops.object.shape_key_add(from_mix=True)
-            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name[:8]+"_L"
+            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name+"_L"
             ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_L"
             bpy.ops.object.shape_key_add(from_mix=True)
-            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name[:8]+"_R"
+            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name+"_R"
             ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_R"
             bpy.ops.object.shape_key_clear()
 
