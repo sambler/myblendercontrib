@@ -193,7 +193,7 @@ ms3d_str = {
         'PROP_NAME_ALPHA_REF': "Alpha Ref.",
         'PROP_NAME_ALPHAMAP': "Alphamap",
         'PROP_NAME_AMBIENT': "Ambient",
-        'PROP_NAME_ANIMATION': "Animation **)",
+        'PROP_NAME_ANIMATION': "Animation",
         'PROP_NAME_COLOR': "Color",
         'PROP_NAME_COMMENT': "Comment",
         'PROP_NAME_COORDINATESYSTEM': "Coordinate system",

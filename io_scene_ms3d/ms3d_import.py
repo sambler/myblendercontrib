@@ -214,9 +214,12 @@ class Ms3dImporter():
     ###########################################################################
     def to_blender(self, blender_context, ms3d_model):
         blender_mesh_object = self.create_geometry(blender_context, ms3d_model)
-        blender_armature_object = self.create_animation(blender_context, ms3d_model, blender_mesh_object)
+        blender_armature_object = self.create_animation(
+                blender_context, ms3d_model, blender_mesh_object)
 
-        self.organize_objects(blender_context, ms3d_model, [blender_mesh_object, blender_armature_object])
+        self.organize_objects(
+                blender_context, ms3d_model,
+                [blender_mesh_object, blender_armature_object])
 
 
     ###########################################################################
@@ -230,8 +233,10 @@ class Ms3dImporter():
 
         blender_scene = blender_context.scene
 
-        blender_group = blender_context.blend_data.groups.new(ms3d_model.name + ".g")
-        blender_empty_object = blender_context.blend_data.objects.new(ms3d_model.name + ".e", None)
+        blender_group = blender_context.blend_data.groups.new(
+                ms3d_model.name + ".g")
+        blender_empty_object = blender_context.blend_data.objects.new(
+                ms3d_model.name + ".e", None)
         blender_empty_object.location = blender_scene.cursor_location
         blender_scene.objects.link(blender_empty_object)
         blender_group.objects.link(blender_empty_object)
@@ -247,7 +252,8 @@ class Ms3dImporter():
         ##########################
         # blender stuff:
         # create a blender Mesh
-        blender_mesh = blender_context.blend_data.meshes.new(ms3d_model.name + ".m")
+        blender_mesh = blender_context.blend_data.meshes.new(
+                ms3d_model.name + ".m")
         blender_mesh.ms3d.name = ms3d_model.name
         ms3d_comment = ms3d_model.comment_object
         if ms3d_comment is not None:
@@ -355,7 +361,8 @@ class Ms3dImporter():
         ms3d_to_blender_material = {}
         for ms3d_material_index, ms3d_material in enumerate(
                 ms3d_model.materials):
-            blender_material = blender_context.blend_data.materials.new(ms3d_material.name)
+            blender_material = blender_context.blend_data.materials.new(
+                    ms3d_material.name)
 
             # custom datas
             blender_material.ms3d.name = ms3d_material.name
@@ -591,7 +598,8 @@ class Ms3dImporter():
 
         ##########################
         # create new blender_armature_object
-        blender_armature = blender_context.blend_data.armatures.new(ms3d_armature_name)
+        blender_armature = blender_context.blend_data.armatures.new(
+                ms3d_armature_name)
         blender_armature.ms3d.name = ms3d_model.name
         blender_armature.draw_type = 'STICK'
         blender_armature.show_axes = True
@@ -639,16 +647,16 @@ class Ms3dImporter():
             item = ms3d_joint_by_name.get(ms3d_joint.name)
             if item is None:
                 ms3d_joint.__children = []
-                ms3d_joint.__matrix_local = Matrix()
-                ms3d_joint.__matrix_global = Matrix()
                 ms3d_joint_by_name[ms3d_joint.name] = ms3d_joint
 
-            matrix_local = (Matrix.Rotation(ms3d_joint.rotation[2], 4, 'Z')
+            matrix_local_rot = (Matrix.Rotation(ms3d_joint.rotation[2], 4, 'Z')
                     * Matrix.Rotation(ms3d_joint.rotation[1], 4, 'Y')
                     ) * Matrix.Rotation(ms3d_joint.rotation[0], 4, 'X')
             matrix_local = Matrix.Translation(Vector(ms3d_joint.position)
-                    ) * matrix_local
+                    ) * matrix_local_rot
 
+            ms3d_joint.__matrix_local_rot = matrix_local_rot
+            ms3d_joint.__matrix_global_rot = matrix_local_rot
             ms3d_joint.__matrix_local = matrix_local
             ms3d_joint.__matrix_global = matrix_local
 
@@ -661,6 +669,10 @@ class Ms3dImporter():
                     matrix_global = ms3d_joint_parent.__matrix_global \
                             * matrix_local
                     ms3d_joint.__matrix_global = matrix_global
+                    
+                    matrix_global_rot = ms3d_joint_parent.__matrix_global_rot \
+                            * matrix_local_rot
+                    ms3d_joint.__matrix_global_rot = matrix_global_rot
 
         ##########################
         # ms3d_joint to blender_edit_bone
@@ -681,34 +693,19 @@ class Ms3dImporter():
                     = self.matrix_scaled_coordination_system \
                     * ms3d_joint_vector
 
-            number_children = len(ms3d_joint.__children)
-            if number_children > 0:
-                vector_midpoint = Vector()
-                for item_child in ms3d_joint.__children:
-                    ms3d_joint_child_vector \
-                            = ms3d_joint_by_name[item_child.name].__matrix_global \
-                            * Vector()
-                    vector_midpoint += ms3d_joint_child_vector \
-                            - ms3d_joint_vector
-                vector_midpoint /= number_children
-                vector_midpoint.normalize()
-                blender_edit_bone.tail = blender_edit_bone.head \
-                        + self.matrix_scaled_coordination_system \
-                        * vector_midpoint
-            else:
-                vector_tail_end = Vector()
-                if ms3d_joint.parent_name:
-                    ms3d_joint_parent_vector \
-                            = ms3d_joint_by_name[ms3d_joint.parent_name].__matrix_global \
-                            * Vector()
-                    vector_tail_end = ms3d_joint_vector \
-                            - ms3d_joint_parent_vector
-                else:
-                    #dummy tail
-                    vector_tail_end = ms3d_joint.__matrix_global * Vector()
-                vector_tail_end.normalize()
-                blender_edit_bone.tail = blender_edit_bone.head \
-                        + self.matrix_scaled_coordination_system * vector_tail_end
+            if ms3d_joint.parent_name:
+                ms3d_joint_parent_vector \
+                        = ms3d_joint_by_name[ms3d_joint.parent_name].__matrix_global \
+                        * Vector()
+                        
+            vector_tail_end_up = ms3d_joint.__matrix_global_rot * Vector((0,1,0))
+            vector_tail_end_dir = ms3d_joint.__matrix_global_rot * Vector((0,0,1))
+            vector_tail_end_up.normalize()
+            vector_tail_end_dir.normalize()
+            blender_edit_bone.tail = blender_edit_bone.head \
+                    + self.matrix_scaled_coordination_system * vector_tail_end_dir
+            blender_edit_bone.align_roll(
+                    self.matrix_scaled_coordination_system * vector_tail_end_up)
 
             if ms3d_joint.parent_name:
                 ms3d_joint_parent = ms3d_joint_by_name[ms3d_joint.parent_name]
@@ -717,15 +714,6 @@ class Ms3dImporter():
 
             ms3d_joint.blender_bone_name = blender_edit_bone.name
             ms3d_joint.blender_edit_bone = blender_edit_bone
-        enable_edit_mode(False)
-
-        ##########################
-        # post process bones
-        enable_edit_mode(True)
-        select_all(True)
-        if ops.armature.calculate_roll.poll():
-            ops.armature.calculate_roll(type='Y')
-        select_all(False)
         enable_edit_mode(False)
 
         ##########################
@@ -763,9 +751,7 @@ class Ms3dImporter():
         blender_armature_object.animation_data.action = blender_action
 
         ##########################
-        # this part is not correct implemented !
-        # currently i have absolute no idea how to fix.
-        # maybe somebody else can fix it.
+        # this part is incomplete ! (some animations are not correct)
         for ms3d_joint_name, ms3d_joint  in ms3d_joint_by_name.items():
             blender_pose_bone = blender_armature_object.pose.bones.get(
                     ms3d_joint.blender_bone_name)
@@ -784,8 +770,8 @@ class Ms3dImporter():
                         Vector(translation_key_frames.position))
                 v = (matrix_local) * Vector()
                 fcurve_location_x.keyframe_points.insert(frame, v[0])
-                fcurve_location_y.keyframe_points.insert(frame, v[1])
-                fcurve_location_z.keyframe_points.insert(frame, v[2])
+                fcurve_location_y.keyframe_points.insert(frame, v[2])
+                fcurve_location_z.keyframe_points.insert(frame, v[1])
 
             blender_pose_bone.rotation_mode = 'QUATERNION'
             data_path = blender_pose_bone.path_from_id("rotation_quaternion")
@@ -795,17 +781,12 @@ class Ms3dImporter():
             fcurve_rotation_z = blender_action.fcurves.new(data_path, index=3)
             for rotation_key_frames in ms3d_joint.rotation_key_frames:
                 frame = (rotation_key_frames.time * ms3d_model.animation_fps)
-                matrix_local = (Matrix.Rotation(
-                        rotation_key_frames.rotation[2], 4, 'Z')
-                        * Matrix.Rotation(
-                                rotation_key_frames.rotation[1],
-                                4,
-                                'Y')) \
-                                * Matrix.Rotation(
-                                        rotation_key_frames.rotation[0],
-                                        4,
-                                        'X')
-                q = (matrix_local).to_quaternion()
+                matrix_local_rot = (
+                        Matrix.Rotation(rotation_key_frames.rotation[2], 4, 'Y')
+                        * Matrix.Rotation(rotation_key_frames.rotation[1], 4, 'Z')
+                        ) * Matrix.Rotation(-rotation_key_frames.rotation[0], 4, 'X')
+                         
+                q = (matrix_local_rot).to_quaternion()
                 fcurve_rotation_w.keyframe_points.insert(frame, q.w)
                 fcurve_rotation_x.keyframe_points.insert(frame, q.x)
                 fcurve_rotation_y.keyframe_points.insert(frame, q.y)

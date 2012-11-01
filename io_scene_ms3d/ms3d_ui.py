@@ -269,7 +269,7 @@ class Ms3dUi:
 
 
     ###########################################################################
-    PROP_DEFAULT_ANIMATION = False
+    PROP_DEFAULT_ANIMATION = True
 
     ###########################################################################
     PROP_DEFAULT_APPLY_MODIFIER = False
@@ -383,14 +383,14 @@ class Ms3dImportOperator(Operator, ImportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
         box.prop(self, 'prop_unit_mm', icon='SCENE_DATA', expand=True)
-        box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
-        box.prop(self, 'prop_scale', icon='MESH_DATA')
+        #box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
+        #box.prop(self, 'prop_scale', icon='MESH_DATA')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)
         box.prop(self, 'prop_animation')
-        if (self.prop_animation):
-            box.label(ms3d_str['REMARKS_2'], icon='ERROR')
+        #if (self.prop_animation):
+        #    box.label(ms3d_str['REMARKS_1'], icon='ERROR')
 
     # entrypoint for MS3D -> blender
     def execute(self, blender_context):
@@ -560,10 +560,10 @@ class Ms3dExportOperator(Operator, ExportHelper):
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
         box.prop(self, 'prop_verbose', icon='SPEAKER')
 
-        box = layout.box()
-        box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
-        box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
-        box.prop(self, 'prop_scale', icon='MESH_DATA')
+        #box = layout.box()
+        #box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
+        #box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
+        #box.prop(self, 'prop_scale', icon='MESH_DATA')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_PROCESSING'],

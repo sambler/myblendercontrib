@@ -209,8 +209,8 @@ todo:
                     .parent_name: 100%
                     .rotation: 100%
                     .position: 100%
-                    .rotation_keyframes: 0%
-                    .translation_keyframes: 0%
+                    .rotation_keyframes: 100%
+                    .translation_keyframes: 100%
                     .joint_ex
                         Ms3DJointEx
                             .color: 100% (value only)
