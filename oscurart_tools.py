@@ -406,10 +406,11 @@ class SelectMenor (bpy.types.Operator):
 
 ##-----------------------------------CREATE SHAPES----------------
 
-def DefSplitShapes(self,ACTIVESHAPE,INDEX):
+def DefSplitShapes(self,ACTIVESHAPE):
     ## VARIABLES
     ACTOBJ=bpy.context.active_object
     LENKB=len(ACTOBJ.data.shape_keys.key_blocks)
+    INDEX=ACTOBJ.active_shape_key_index
     
     ## RECORTO NOMBRES
     for SHAPE in ACTOBJ.data.shape_keys.key_blocks:
@@ -429,7 +430,7 @@ def DefSplitShapes(self,ACTIVESHAPE,INDEX):
         ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_R"
         bpy.ops.object.shape_key_clear()
            
-    else:       
+    else:     
         ## DUPLICO SHAPES Y CONECTO GRUPO
         for SHAPE in ACTOBJ.data.shape_keys.key_blocks[1:]:
             SHAPE.value=1
@@ -440,8 +441,8 @@ def DefSplitShapes(self,ACTIVESHAPE,INDEX):
             ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name[:8]+"_R"
             ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_R"
             bpy.ops.object.shape_key_clear()
-    
-    print("OPERACION TERMINADA")    
+        ACTOBJ.active_shape_key_index=INDEX 
+
 
 class CreaShapes(bpy.types.Operator):
     bl_idname = "mesh.split_lr_shapes_osc"
@@ -456,8 +457,8 @@ class CreaShapes(bpy.types.Operator):
     
 
     def execute(self, context):
-        self.index=bpy.context.object.active_shape_key_index
-        DefSplitShapes(self,self.activeshape,self.index)
+
+        DefSplitShapes(self,self.activeshape)
 
         return {'FINISHED'}
 
