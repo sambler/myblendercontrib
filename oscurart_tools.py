@@ -405,35 +405,61 @@ class SelectMenor (bpy.types.Operator):
 
 
 ##-----------------------------------CREATE SHAPES----------------
-class CreaShapes(bpy.types.Operator):
-    bl_idname = "mesh.split_lr_shapes_osc"
-    bl_label = "Split LR Shapes"
-    bl_options = {"REGISTER", "UNDO"}
-    def execute(self, context):
-        ## VARIABLES
-        ACTOBJ=bpy.context.active_object
-        LENKB=len(ACTOBJ.data.shape_keys.key_blocks)
-        """
-        ## RECORTO NOMBRES
-        for SHAPE in ACTOBJ.data.shape_keys.key_blocks:
-            if len(SHAPE.name) > 7:
-                SHAPE.name=SHAPE.name[:8]
-        """        
 
+def DefSplitShapes(self,ACTIVESHAPE,INDEX):
+    ## VARIABLES
+    ACTOBJ=bpy.context.active_object
+    LENKB=len(ACTOBJ.data.shape_keys.key_blocks)
+    
+    ## RECORTO NOMBRES
+    for SHAPE in ACTOBJ.data.shape_keys.key_blocks:
+        if len(SHAPE.name) > 7:
+            SHAPE.name=SHAPE.name[:8]
+ 
+    if ACTIVESHAPE:  
+        print(INDEX)
+        ACTOBJ.active_shape_key_index=INDEX          
+        AS=ACTOBJ.active_shape_key
+        AS.value=1
+        bpy.ops.object.shape_key_add(from_mix=True)
+        ACTOBJ.data.shape_keys.key_blocks[-1].name=AS.name[:8]+"_L"
+        ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_L"
+        bpy.ops.object.shape_key_add(from_mix=True)
+        ACTOBJ.data.shape_keys.key_blocks[-1].name=AS.name[:8]+"_R"
+        ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_R"
+        bpy.ops.object.shape_key_clear()
+           
+    else:       
         ## DUPLICO SHAPES Y CONECTO GRUPO
         for SHAPE in ACTOBJ.data.shape_keys.key_blocks[1:]:
             SHAPE.value=1
             bpy.ops.object.shape_key_add(from_mix=True)
-            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name+"_L"
+            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name[:8]+"_L"
             ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_L"
             bpy.ops.object.shape_key_add(from_mix=True)
-            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name+"_R"
+            ACTOBJ.data.shape_keys.key_blocks[-1].name=SHAPE.name[:8]+"_R"
             ACTOBJ.data.shape_keys.key_blocks[-1].vertex_group="_R"
             bpy.ops.object.shape_key_clear()
+    
+    print("OPERACION TERMINADA")    
 
-        print("OPERACION TERMINADA")
+class CreaShapes(bpy.types.Operator):
+    bl_idname = "mesh.split_lr_shapes_osc"
+    bl_label = "Split LR Shapes"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object is not None
+
+    activeshape=bpy.props.BoolProperty(name="Only Active Shape", default=False)  
+    
+
+    def execute(self, context):
+        self.index=bpy.context.object.active_shape_key_index
+        DefSplitShapes(self,self.activeshape,self.index)
+
         return {'FINISHED'}
-
 
 ##----------------------------SHAPES LAYOUT-----------------------
 
