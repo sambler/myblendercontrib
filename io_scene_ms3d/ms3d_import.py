@@ -755,14 +755,13 @@ class Ms3dImporter():
         blender_armature_object.animation_data.action = blender_action
 
         ##########################
-        # this part is incomplete ! (some animations are not correct)
+        # transition between keys may be incorrect
         for ms3d_joint_name, ms3d_joint  in ms3d_joint_by_name.items():
             blender_pose_bone = blender_armature_object.pose.bones.get(
                     ms3d_joint.blender_bone_name)
             if blender_pose_bone is None:
+                print("#DEBUG: missing bone: {}".format(ms3d_joint.blender_bone_name))
                 continue
-            ms3d_joint_local_matrix = ms3d_joint.__matrix_local
-            ms3d_joint_global_matrix = ms3d_joint.__matrix_global
 
             data_path = blender_pose_bone.path_from_id('location')
             fcurve_location_x = blender_action.fcurves.new(data_path, index=0)
@@ -773,28 +772,39 @@ class Ms3dImporter():
                 matrix_local = Matrix.Translation(
                         Vector(translation_key_frames.position))
                 v = (matrix_local) * Vector()
-                fcurve_location_x.keyframe_points.insert(frame, v[0])
+                fcurve_location_x.keyframe_points.insert(frame, -v[0])
                 fcurve_location_y.keyframe_points.insert(frame, v[2])
                 fcurve_location_z.keyframe_points.insert(frame, v[1])
 
-            blender_pose_bone.rotation_mode = 'QUATERNION'
-            data_path = blender_pose_bone.path_from_id("rotation_quaternion")
-            fcurve_rotation_w = blender_action.fcurves.new(data_path, index=0)
-            fcurve_rotation_x = blender_action.fcurves.new(data_path, index=1)
-            fcurve_rotation_y = blender_action.fcurves.new(data_path, index=2)
-            fcurve_rotation_z = blender_action.fcurves.new(data_path, index=3)
-            for rotation_key_frames in ms3d_joint.rotation_key_frames:
-                frame = (rotation_key_frames.time * ms3d_model.animation_fps)
-                matrix_local_rot = (
-                        Matrix.Rotation(rotation_key_frames.rotation[2], 4, 'Y')
-                        * Matrix.Rotation(rotation_key_frames.rotation[1], 4, 'Z')
-                        ) * Matrix.Rotation(-rotation_key_frames.rotation[0], 4, 'X')
-
-                q = (matrix_local_rot).to_quaternion()
-                fcurve_rotation_w.keyframe_points.insert(frame, q.w)
-                fcurve_rotation_x.keyframe_points.insert(frame, q.x)
-                fcurve_rotation_y.keyframe_points.insert(frame, q.y)
-                fcurve_rotation_z.keyframe_points.insert(frame, q.z)
+            if True:
+                blender_pose_bone.rotation_mode = 'QUATERNION'
+                data_path = blender_pose_bone.path_from_id("rotation_quaternion")
+                fcurve_rotation_w = blender_action.fcurves.new(data_path, index=0)
+                fcurve_rotation_x = blender_action.fcurves.new(data_path, index=1)
+                fcurve_rotation_y = blender_action.fcurves.new(data_path, index=2)
+                fcurve_rotation_z = blender_action.fcurves.new(data_path, index=3)
+                for rotation_key_frames in ms3d_joint.rotation_key_frames:
+                    frame = (rotation_key_frames.time * ms3d_model.animation_fps)
+                    matrix_local_rot = (
+                            Matrix.Rotation(rotation_key_frames.rotation[2], 4, 'Y')
+                            * Matrix.Rotation(rotation_key_frames.rotation[1], 4, 'Z')
+                            ) * Matrix.Rotation(-rotation_key_frames.rotation[0], 4, 'X')
+                    q = (matrix_local_rot).to_quaternion()
+                    fcurve_rotation_w.keyframe_points.insert(frame, q.w)
+                    fcurve_rotation_x.keyframe_points.insert(frame, q.x)
+                    fcurve_rotation_y.keyframe_points.insert(frame, q.y)
+                    fcurve_rotation_z.keyframe_points.insert(frame, q.z)
+            else:
+                blender_pose_bone.rotation_mode = 'XZY'
+                data_path = blender_pose_bone.path_from_id("rotation_euler")
+                fcurve_rotation_x = blender_action.fcurves.new(data_path, index=0)
+                fcurve_rotation_y = blender_action.fcurves.new(data_path, index=1)
+                fcurve_rotation_z = blender_action.fcurves.new(data_path, index=2)
+                for rotation_key_frames in ms3d_joint.rotation_key_frames:
+                    frame = (rotation_key_frames.time * ms3d_model.animation_fps)
+                    fcurve_rotation_x.keyframe_points.insert(frame, -rotation_key_frames.rotation[0])
+                    fcurve_rotation_y.keyframe_points.insert(frame, rotation_key_frames.rotation[2])
+                    fcurve_rotation_z.keyframe_points.insert(frame, rotation_key_frames.rotation[1])
 
         enable_pose_mode(False)
 
