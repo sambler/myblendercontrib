@@ -73,9 +73,10 @@ ms3d_strings.py     : most of the strings used in the addon to have a
 
 known issues:
   importer issues:
-    - does not import keyframes
+    -/-
 
   exporter issues:
+    - does only export active mesh object
     - does only export the first existing material, if more than one material
             is used per mesh
     - does only export the first existing UV texture coordinates,
@@ -83,13 +84,10 @@ known issues:
     - does not export bones
     - does not export joints
     - does not export keyframes
-    - does not export comments (will never be supported - blender doesn't
-            have similar stuff)
 
 
 todo:
-- add support for bones and joints in exporter
-- add support for keyframes
+- add support for bones and joints and keyframes in exporter
 
 ###############################################################################
     exporter:
@@ -110,7 +108,7 @@ todo:
                     .vertex_indices: 100%
                     .s: 100%
                     .t: 100%
-                    .group_index: 20% (not tested yet: TODO: auto generate groups from blender data, by materials)
+                    .group_index: 100%
                     .smoothing_group: 100%
                     .flags: 0%
                     .vertex_normals: 80% (not tested yet)
@@ -118,28 +116,28 @@ todo:
                 Ms3dGroup
                     .name: 100%
                     .triangle_indices: 100%
-                    .material_index: 0% (TODO: auto generate groups from blender data, by materials)
+                    .material_index: 100%
                     .comment: 100%
                     .flags: 100%
             .materials
                 Ms3dMaterial
-                    name: 0%
-                    ambient: 0%
-                    diffuse: 0%
-                    specular: 0%
-                    emissive: 0%
-                    shininess: 0%
-                    transparency: 0%
-                    mode: 0%
-                    texture: 0%
-                    alphamap: 0%
-                    comment: 0%
-            .comment: 0%
+                    name: 100% (only ms3d-properties)
+                    ambient: 100% (only ms3d-properties)
+                    diffuse: 100% (only ms3d-properties)
+                    specular: 100% (only ms3d-properties)
+                    emissive: 100% (only ms3d-properties)
+                    shininess: 100% (only ms3d-properties)
+                    transparency: 100% (only ms3d-properties)
+                    mode: 100% (only ms3d-properties)
+                    texture: 100% (only ms3d-properties)
+                    alphamap: 100% (only ms3d-properties)
+                    comment: 100% (only ms3d-properties)
+            .comment: 100% (only ms3d-properties)
             .model_ex
                 Ms3dModelEx
-                    .joint_size: 0%
-                    .transparency_mode: 0%
-                    .alpha_ref: 0%
+                    .joint_size: 100% (only ms3d-properties)
+                    .transparency_mode: 100% (only ms3d-properties)
+                    .alpha_ref: 100% (only ms3d-properties)
             .joints
                 Ms3dJoint
                     .name: 0%

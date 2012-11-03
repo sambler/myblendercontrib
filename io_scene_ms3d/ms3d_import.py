@@ -157,13 +157,12 @@ class Ms3dImporter():
                     blender_scene.unit_settings.use_separate = False
                     blender_context.tool_settings.normal_size = 1.0 # 1.0mm
 
-
-                    # set all 3D views to texture shaded
-                    # and set up the clipping
-                    if self.has_textures:
-                        viewport_shade = 'TEXTURED'
-                    else:
-                        viewport_shade = 'SOLID'
+                    ## set all 3D views to texture shaded
+                    ## and set up the clipping
+                    #if self.has_textures:
+                    #    viewport_shade = 'TEXTURED'
+                    #else:
+                    #    viewport_shade = 'SOLID'
 
                     for screen in blender_context.blend_data.screens:
                         for area in screen.areas:
@@ -174,10 +173,10 @@ class Ms3dImporter():
                                 if (space.type != 'VIEW_3D'):
                                     continue
 
-                                space.viewport_shade = viewport_shade
-                                #screen.scene.game_settings.material_mode \
-                                #        = 'MULTITEXTURE'
-                                #space.show_textured_solid = True
+                                #space.viewport_shade = viewport_shade
+                                ##screen.scene.game_settings.material_mode \
+                                ##        = 'MULTITEXTURE'
+                                space.show_textured_solid = True
                                 space.clip_start = 0.1 # 0.1mm
                                 space.clip_end = 1000000.0 # 1km
 
@@ -255,6 +254,10 @@ class Ms3dImporter():
         blender_mesh = blender_context.blend_data.meshes.new(
                 ms3d_model.name + ".m")
         blender_mesh.ms3d.name = ms3d_model.name
+
+        blender_mesh.show_edge_seams = True
+        blender_mesh.show_edge_sharp = True
+
         ms3d_comment = ms3d_model.comment_object
         if ms3d_comment is not None:
             blender_mesh.ms3d.comment = ms3d_comment.comment
@@ -377,7 +380,6 @@ class Ms3dImporter():
 
             if ms3d_material.texture:
                 blender_material.ms3d.texture = ms3d_material.texture
-                self.has_textures = True
 
             if ms3d_material.alphamap:
                 blender_material.ms3d.alphamap = ms3d_material.alphamap
@@ -436,6 +438,8 @@ class Ms3dImporter():
                 blender_texture_slot_diffuse.uv_layer = layer_uv.name
                 blender_texture_slot_diffuse.use_map_color_diffuse = True
                 blender_texture_slot_diffuse.use_map_alpha = False
+                if blender_image_diffuse is not None:
+                    self.has_textures = True
             else:
                 blender_image_diffuse = None
 
@@ -669,7 +673,7 @@ class Ms3dImporter():
                     matrix_global = ms3d_joint_parent.__matrix_global \
                             * matrix_local
                     ms3d_joint.__matrix_global = matrix_global
-                    
+
                     matrix_global_rot = ms3d_joint_parent.__matrix_global_rot \
                             * matrix_local_rot
                     ms3d_joint.__matrix_global_rot = matrix_global_rot
@@ -697,7 +701,7 @@ class Ms3dImporter():
                 ms3d_joint_parent_vector \
                         = ms3d_joint_by_name[ms3d_joint.parent_name].__matrix_global \
                         * Vector()
-                        
+
             vector_tail_end_up = ms3d_joint.__matrix_global_rot * Vector((0,1,0))
             vector_tail_end_dir = ms3d_joint.__matrix_global_rot * Vector((0,0,1))
             vector_tail_end_up.normalize()
@@ -785,7 +789,7 @@ class Ms3dImporter():
                         Matrix.Rotation(rotation_key_frames.rotation[2], 4, 'Y')
                         * Matrix.Rotation(rotation_key_frames.rotation[1], 4, 'Z')
                         ) * Matrix.Rotation(-rotation_key_frames.rotation[0], 4, 'X')
-                         
+
                 q = (matrix_local_rot).to_quaternion()
                 fcurve_rotation_w.keyframe_points.insert(frame, q.w)
                 fcurve_rotation_x.keyframe_points.insert(frame, q.x)
