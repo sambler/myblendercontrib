@@ -269,7 +269,7 @@ class Ms3dUi:
 
 
     ###########################################################################
-    PROP_DEFAULT_ANIMATION = False
+    PROP_DEFAULT_ANIMATION = True
 
     ###########################################################################
     PROP_DEFAULT_APPLY_MODIFIER = False
@@ -383,14 +383,14 @@ class Ms3dImportOperator(Operator, ImportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
         box.prop(self, 'prop_unit_mm', icon='SCENE_DATA', expand=True)
-        box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
-        box.prop(self, 'prop_scale', icon='MESH_DATA')
+        #box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
+        #box.prop(self, 'prop_scale', icon='MESH_DATA')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)
         box.prop(self, 'prop_animation')
-        if (self.prop_animation):
-            box.label(ms3d_str['REMARKS_2'], icon='ERROR')
+        #if (self.prop_animation):
+        #    box.label(ms3d_str['REMARKS_1'], icon='ERROR')
 
     # entrypoint for MS3D -> blender
     def execute(self, blender_context):
@@ -549,6 +549,17 @@ class Ms3dExportOperator(Operator, ExportHelper):
                 in self.prop_coordinate_system)
 
 
+    ##EXPORT_ACTIVE_ONLY:
+    ##limit availability to only active mesh object
+    @classmethod
+    def poll(cls, context):
+        return (context
+                and context.active_object
+                and context.active_object.type in {'MESH', }
+                and context.active_object.data
+                and context.active_object.data.ms3d is not None
+                )
+
     # draw the option panel
     def draw(self, context):
         layout = self.layout
@@ -560,15 +571,19 @@ class Ms3dExportOperator(Operator, ExportHelper):
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
         box.prop(self, 'prop_verbose', icon='SPEAKER')
 
-        box = layout.box()
-        box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
-        box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
-        box.prop(self, 'prop_scale', icon='MESH_DATA')
+        #box = layout.box()
+        #box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
+        #box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
+        #box.prop(self, 'prop_scale', icon='MESH_DATA')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_PROCESSING'],
                 icon=Ms3dUi.ICON_PROCESSING)
-        box.prop(self, 'prop_selected', icon='ROTACTIVE')
+        ##EXPORT_ACTIVE_ONLY:
+        ##box.prop(self, 'prop_selected', icon='ROTACTIVE')
+        box.label(ms3d_str['PROP_NAME_ACTIVE'], icon='ROTACTIVE')
+        ##
+
         """
         box.prop(self, 'prop_objects', icon='MESH_DATA', expand=True)
 
@@ -1307,6 +1322,8 @@ class Ms3dGroupPanel(Panel):
     def draw(self, context):
         layout = self.layout
         custom_data = context.object.data.ms3d
+        layout.enabled = (context.mode == 'EDIT_MESH') and (
+                context.tool_settings.mesh_select_mode[2])
 
         row = layout.row()
         row.template_list(
@@ -1331,23 +1348,21 @@ class Ms3dGroupPanel(Panel):
             row = layout.row()
             row.prop(collection[index], 'name')
 
-            if (context.mode == 'EDIT_MESH') and (
-                    context.tool_settings.mesh_select_mode[2]):
-                row = layout.row()
-                subrow = row.row(align=True)
-                subrow.operator(
-                        Ms3dUi.OPT_GROUP_APPLY,
-                        text=ms3d_str['ENUM_ASSIGN_1']).mode = 'ASSIGN'
-                subrow.operator(
-                        Ms3dUi.OPT_GROUP_APPLY,
-                        text=ms3d_str['ENUM_REMOVE_1']).mode = 'REMOVE'
-                subrow = row.row(align=True)
-                subrow.operator(
-                        Ms3dUi.OPT_GROUP_APPLY,
-                        text=ms3d_str['ENUM_SELECT_1']).mode = 'SELECT'
-                subrow.operator(
-                        Ms3dUi.OPT_GROUP_APPLY,
-                        text=ms3d_str['ENUM_DESELECT_1']).mode = 'DESELECT'
+            row = layout.row()
+            subrow = row.row(align=True)
+            subrow.operator(
+                    Ms3dUi.OPT_GROUP_APPLY,
+                    text=ms3d_str['ENUM_ASSIGN_1']).mode = 'ASSIGN'
+            subrow.operator(
+                    Ms3dUi.OPT_GROUP_APPLY,
+                    text=ms3d_str['ENUM_REMOVE_1']).mode = 'REMOVE'
+            subrow = row.row(align=True)
+            subrow.operator(
+                    Ms3dUi.OPT_GROUP_APPLY,
+                    text=ms3d_str['ENUM_SELECT_1']).mode = 'SELECT'
+            subrow.operator(
+                    Ms3dUi.OPT_GROUP_APPLY,
+                    text=ms3d_str['ENUM_DESELECT_1']).mode = 'DESELECT'
 
             row = layout.row()
             row.prop(collection[index], 'flags', expand=True)
@@ -1410,298 +1425,151 @@ class Ms3dSmoothingGroupPanel(Panel):
 
         custom_data = context.object.data.ms3d
         layout = self.layout
+        layout.enabled = (context.mode == 'EDIT_MESH') and (
+                context.tool_settings.mesh_select_mode[2])
 
-        if True:
-            row = layout.row()
-            row.enabled = (context.mode == 'EDIT_MESH') and (
-                    context.tool_settings.mesh_select_mode[2])
-            subrow = row.row()
-            subrow.prop(custom_data, 'apply_mode', expand=True)
+        row = layout.row()
+        subrow = row.row()
+        subrow.prop(custom_data, 'apply_mode', expand=True)
 
-            col = layout.column(align=True)
-            subrow = col.row(align=True)
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 1, "1")
-                    ).smoothing_group_index = 1
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 2, "2")
-                    ).smoothing_group_index = 2
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 3, "3")
-                    ).smoothing_group_index = 3
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 4, "4")
-                    ).smoothing_group_index = 4
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 5, "5")
-                    ).smoothing_group_index = 5
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 6, "6")
-                    ).smoothing_group_index = 6
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 7, "7")
-                    ).smoothing_group_index = 7
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 8, "8")
-                    ).smoothing_group_index = 8
-            subrow = col.row(align=True)
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 9, "9")
-                    ).smoothing_group_index = 9
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 10, "10")
-                    ).smoothing_group_index = 10
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 11, "11")
-                    ).smoothing_group_index = 11
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 12, "12")
-                    ).smoothing_group_index = 12
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 13, "13")
-                    ).smoothing_group_index = 13
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 14, "14")
-                    ).smoothing_group_index = 14
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 15, "15")
-                    ).smoothing_group_index = 15
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 16, "16")
-                    ).smoothing_group_index = 16
-            subrow = col.row(align=True)
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 17, "17")
-                    ).smoothing_group_index = 17
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 18, "18")
-                    ).smoothing_group_index = 18
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 19, "19")
-                    ).smoothing_group_index = 19
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 20, "20")
-                    ).smoothing_group_index = 20
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 21, "21")
-                    ).smoothing_group_index = 21
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 22, "22")
-                    ).smoothing_group_index = 22
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 23, "23")
-                    ).smoothing_group_index = 23
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 24, "24")
-                    ).smoothing_group_index = 24
-            subrow = col.row(align=True)
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 25, "25")
-                    ).smoothing_group_index = 25
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 26, "26")
-                    ).smoothing_group_index = 26
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 27, "27")
-                    ).smoothing_group_index = 27
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 28, "28")
-                    ).smoothing_group_index = 28
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 29, "29")
-                    ).smoothing_group_index = 29
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 30, "30")
-                    ).smoothing_group_index = 30
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 31, "31")
-                    ).smoothing_group_index = 31
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 32, "32")
-                    ).smoothing_group_index = 32
-            subrow = col.row()
-            subrow.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 0, ms3d_str['LABEL_PANEL_BUTTON_NONE'])
-                    ).smoothing_group_index = 0
-        else:
-            col = layout.column()
-            #box = col.box()
-            col.enabled = (context.mode == 'EDIT_MESH') and (
-                    context.tool_settings.mesh_select_mode[2])
-            row = col.row()
-            row.prop(custom_data, 'apply_mode', expand=True)
-
-            col = col.column(align=True)
-            row = col.row(align=True)
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 1, "1")
-                    ).smoothing_group_index = 1
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 2, "2")
-                    ).smoothing_group_index = 2
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 3, "3")
-                    ).smoothing_group_index = 3
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 4, "4")
-                    ).smoothing_group_index = 4
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 5, "5")
-                    ).smoothing_group_index = 5
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 6, "6")
-                    ).smoothing_group_index = 6
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 7, "7")
-                    ).smoothing_group_index = 7
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 8, "8")
-                    ).smoothing_group_index = 8
-            row = col.row(align=True)
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 9, "9")
-                    ).smoothing_group_index = 9
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 10, "10")
-                    ).smoothing_group_index = 10
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 11, "11")
-                    ).smoothing_group_index = 11
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 12, "12")
-                    ).smoothing_group_index = 12
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 13, "13")
-                    ).smoothing_group_index = 13
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 14, "14")
-                    ).smoothing_group_index = 14
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 15, "15")
-                    ).smoothing_group_index = 15
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 16, "16")
-                    ).smoothing_group_index = 16
-            row = col.row(align=True)
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 17, "17")
-                    ).smoothing_group_index = 17
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 18, "18")
-                    ).smoothing_group_index = 18
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 19, "19")
-                    ).smoothing_group_index = 19
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 20, "20")
-                    ).smoothing_group_index = 20
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 21, "21")
-                    ).smoothing_group_index = 21
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 22, "22")
-                    ).smoothing_group_index = 22
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 23, "23")
-                    ).smoothing_group_index = 23
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 24, "24")
-                    ).smoothing_group_index = 24
-            row = col.row(align=True)
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 25, "25")
-                    ).smoothing_group_index = 25
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 26, "26")
-                    ).smoothing_group_index = 26
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 27, "27")
-                    ).smoothing_group_index = 27
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 28, "28")
-                    ).smoothing_group_index = 28
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 29, "29")
-                    ).smoothing_group_index = 29
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 30, "30")
-                    ).smoothing_group_index = 30
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 31, "31")
-                    ).smoothing_group_index = 31
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 32, "32")
-                    ).smoothing_group_index = 32
-            row = col.row()
-            row.operator(
-                    Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
-                    text=self.preview(dict, 0, ms3d_str['LABEL_PANEL_BUTTON_NONE'])
-                    ).smoothing_group_index = 0
+        col = layout.column(align=True)
+        subrow = col.row(align=True)
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 1, "1")
+                ).smoothing_group_index = 1
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 2, "2")
+                ).smoothing_group_index = 2
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 3, "3")
+                ).smoothing_group_index = 3
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 4, "4")
+                ).smoothing_group_index = 4
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 5, "5")
+                ).smoothing_group_index = 5
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 6, "6")
+                ).smoothing_group_index = 6
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 7, "7")
+                ).smoothing_group_index = 7
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 8, "8")
+                ).smoothing_group_index = 8
+        subrow = col.row(align=True)
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 9, "9")
+                ).smoothing_group_index = 9
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 10, "10")
+                ).smoothing_group_index = 10
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 11, "11")
+                ).smoothing_group_index = 11
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 12, "12")
+                ).smoothing_group_index = 12
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 13, "13")
+                ).smoothing_group_index = 13
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 14, "14")
+                ).smoothing_group_index = 14
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 15, "15")
+                ).smoothing_group_index = 15
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 16, "16")
+                ).smoothing_group_index = 16
+        subrow = col.row(align=True)
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 17, "17")
+                ).smoothing_group_index = 17
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 18, "18")
+                ).smoothing_group_index = 18
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 19, "19")
+                ).smoothing_group_index = 19
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 20, "20")
+                ).smoothing_group_index = 20
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 21, "21")
+                ).smoothing_group_index = 21
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 22, "22")
+                ).smoothing_group_index = 22
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 23, "23")
+                ).smoothing_group_index = 23
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 24, "24")
+                ).smoothing_group_index = 24
+        subrow = col.row(align=True)
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 25, "25")
+                ).smoothing_group_index = 25
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 26, "26")
+                ).smoothing_group_index = 26
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 27, "27")
+                ).smoothing_group_index = 27
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 28, "28")
+                ).smoothing_group_index = 28
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 29, "29")
+                ).smoothing_group_index = 29
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 30, "30")
+                ).smoothing_group_index = 30
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 31, "31")
+                ).smoothing_group_index = 31
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 32, "32")
+                ).smoothing_group_index = 32
+        subrow = col.row()
+        subrow.operator(
+                Ms3dUi.OPT_SMOOTHING_GROUP_APPLY,
+                text=self.preview(dict, 0, ms3d_str['LABEL_PANEL_BUTTON_NONE'])
+                ).smoothing_group_index = 0
 
 
 

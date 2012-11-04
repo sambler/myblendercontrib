@@ -602,7 +602,7 @@ class Ms3dMaterial:
             '_comment_object', # Ms3dComment
             )
     """
-    
+
     def __init__(
             self,
             default_name="",
@@ -1609,7 +1609,7 @@ class Ms3dModel:
         print("group_comments=[", end="")
         if self.group_comments:
             for obj in self.group_comments:
-                print("{0}".format(obj), end="")
+                print("{0}".format(obj.comment_object), end="")
         print("]")
 
         print("number_material_comments={0}".format(
@@ -1617,14 +1617,14 @@ class Ms3dModel:
         print("material_comments=[", end="")
         if self.material_comments:
             for obj in self.material_comments:
-                print("{0}".format(obj), end="")
+                print("{0}".format(obj.comment_object), end="")
         print("]")
 
         print("number_joint_comments={0}".format(self.number_joint_comments))
         print("joint_comments=[", end="")
         if self.joint_comments:
             for obj in self.joint_comments:
-                print("{0}".format(obj), end="")
+                print("{0}".format(obj.comment_object), end="")
         print("]")
 
         print("has_model_comment={0}".format(self.has_model_comment))
@@ -1703,6 +1703,7 @@ class Ms3dModel:
             Ms3dIo.raise_on_eof(file)
 
             _number_joints = Ms3dIo.read_word(file)
+            _progress.add('NUMBER_JOINTS')
             if (_number_joints > Ms3dSpec.MAX_JOINTS):
                 print("\nwarning, invalid count: number_joints: {}".format(
                         _number_joints))
@@ -1714,7 +1715,9 @@ class Ms3dModel:
             Ms3dIo.raise_on_eof(file)
 
             self.sub_version_comments = Ms3dIo.read_dword(file)
+            _progress.add('SUB_VERSION_COMMENTS')
             _number_group_comments = Ms3dIo.read_dword(file)
+            _progress.add('NUMBER_GROUP_COMMENTS')
             if (_number_group_comments > Ms3dSpec.MAX_GROUPS):
                 print("\nwarning, invalid count:"\
                         " number_group_comments: {}".format(
@@ -1734,6 +1737,7 @@ class Ms3dModel:
             _progress.add('GROUP_COMMENTS')
 
             _number_material_comments = Ms3dIo.read_dword(file)
+            _progress.add('NUMBER_MATERIAL_COMMENTS')
             if (_number_material_comments > Ms3dSpec.MAX_MATERIALS):
                 print("\nwarning, invalid count:"\
                         " number_material_comments: {}".format(
@@ -1754,6 +1758,7 @@ class Ms3dModel:
             _progress.add('MATERIAL_COMMENTS')
 
             _number_joint_comments = Ms3dIo.read_dword(file)
+            _progress.add('NUMBER_JOINT_COMMENTS')
             if (_number_joint_comments > Ms3dSpec.MAX_JOINTS):
                 print("\nwarning, invalid count:"\
                         " number_joint_comments: {}".format(
@@ -1773,6 +1778,7 @@ class Ms3dModel:
             _progress.add('JOINT_COMMENTS')
 
             _has_model_comment = Ms3dIo.read_dword(file)
+            _progress.add('HAS_MODEL_COMMENTS')
             if (_has_model_comment != 0):
                 self._comment_object = Ms3dComment().read(file)
             else:
@@ -1899,15 +1905,15 @@ class Ms3dModel:
 
             Ms3dIo.write_dword(file, self.number_group_comments)
             for i in range(self.number_group_comments):
-                self.group_comments[i].write(file)
+                self.group_comments[i].comment_object.write(file)
 
             Ms3dIo.write_dword(file, self.number_material_comments)
             for i in range(self.number_material_comments):
-                self.material_comments[i].write(file)
+                self.material_comments[i].comment_object.write(file)
 
             Ms3dIo.write_dword(file, self.number_joint_comments)
             for i in range(self.number_joint_comments):
-                self.joint_comments[i].write(file)
+                self.joint_comments[i].comment_object.write(file)
 
             Ms3dIo.write_dword(file, self.has_model_comment)
             if (self.has_model_comment != 0):

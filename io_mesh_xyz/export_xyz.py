@@ -29,8 +29,8 @@ from . import import_xyz
 
 ATOM_XYZ_FILEPATH = ""
 ATOM_XYZ_XYZTEXT  = (  "This XYZ file has been created with Blender "
-                     + "and the addon Atomic Blender - XYZ. "
-                     + "For more details see: wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/XYZ\n")
+                       "and the addon Atomic Blender - XYZ. "
+                       "For more details see: wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/XYZ\n")
 
 
 class CLASS_atom_xyz_atoms_export(object):  
@@ -49,17 +49,12 @@ def DEF_atom_xyz_export(obj_type):
         if "Stick" in obj.name:
             continue
             
-        if obj.type != "SURFACE" and obj.type != "MESH":
+        if obj.type not in {'MESH', 'SURFACE'}:
             continue 
        
         name = ""
         for element in import_xyz.ATOM_XYZ_ELEMENTS_DEFAULT:
             if element[1] in obj.name:
-                if element[2] == "Vac":
-                    name = "X"
-                else:
-                    name = element[2]
-            elif element[1][:3] in obj.name:
                 if element[2] == "Vac":
                     name = "X"
                 else:
@@ -87,7 +82,7 @@ def DEF_atom_xyz_export(obj_type):
                 counter += 1                                               
 
     xyz_file_p = open(ATOM_XYZ_FILEPATH, "w")
-    xyz_file_p.write(str(counter)+"\n")
+    xyz_file_p.write("%d\n" % counter)
     xyz_file_p.write(ATOM_XYZ_XYZTEXT)
 
     for i, atom in enumerate(list_atoms):
