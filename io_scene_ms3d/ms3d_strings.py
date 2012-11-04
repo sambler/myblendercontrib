@@ -224,9 +224,20 @@ ms3d_str = {
         'PROP_NAME_APPLY_MODIFIER_MODE': "Mode",
         'PROP_DESC_APPLY_MODIFIER_MODE': "apply mode, if applicable",
         'PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW_1': "Preview",
-        'PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW_2': "takes the 'preview' settings of modifier, if applicable",
+        'PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW_2': "takes the 'preview' settings"\
+                " of modifier, if applicable",
         'PROP_ITEM_APPLY_MODIFIER_MODE_RENDER_1': "Render",
-        'PROP_ITEM_APPLY_MODIFIER_MODE_RENDER_2': "takes the 'render' settings of modifier, if applicable",
+        'PROP_ITEM_APPLY_MODIFIER_MODE_RENDER_2': "takes the 'render' settings"\
+                " of modifier, if applicable",
+        'PROP_NAME_ROTATION_MODE' : "Bone rotation mode",
+        'PROP_DESC_ROTATION_MODE' : "set the preferred rotation mode of bones",
+        'PROP_ITEM_ROTATION_MODE_EULER_1' : "Euler",
+        'PROP_ITEM_ROTATION_MODE_EULER_2' : "use euler bone rotation"\
+                " (gimbal-lock can be fixed by using "\
+                "'Graph Editor -> Key -> Discontinuity (Euler) Filter')",
+        'PROP_ITEM_ROTATION_MODE_QUATERNION_1' : "Quaternion",
+        'PROP_ITEM_ROTATION_MODE_QUATERNION_2' : "use quaternion bone rotation"\
+                " (no gimbal-lock filter available!)",
 
         'PROP_NAME_': "Name",
         'PROP_DESC_': "Description",

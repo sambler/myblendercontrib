@@ -756,11 +756,19 @@ class Ms3dImporter():
 
         ##########################
         # transition between keys may be incorrect
+        # because of the gimbal-lock problem!
+        # http://www.youtube.com/watch?v=zc8b2Jo7mno
+        # http://www.youtube.com/watch?v=rrUCBOlJdt4
+        # you can fix it manually by selecting the affected keyframes
+        # and allpy the following option to it:
+        # "Graph Editor -> Key -> Discontinuity (Euler) Filter"
+        # ==> "bpy.ops.graph.euler_filter()"
+        # but this option is only available for Euler rotation f-curves!
+        #
         for ms3d_joint_name, ms3d_joint  in ms3d_joint_by_name.items():
             blender_pose_bone = blender_armature_object.pose.bones.get(
                     ms3d_joint.blender_bone_name)
             if blender_pose_bone is None:
-                print("#DEBUG: missing bone: {}".format(ms3d_joint.blender_bone_name))
                 continue
 
             data_path = blender_pose_bone.path_from_id('location')
@@ -776,7 +784,7 @@ class Ms3dImporter():
                 fcurve_location_y.keyframe_points.insert(frame, v[2])
                 fcurve_location_z.keyframe_points.insert(frame, v[1])
 
-            if True:
+            if self.options.is_rotation_mode_quaternion:
                 blender_pose_bone.rotation_mode = 'QUATERNION'
                 data_path = blender_pose_bone.path_from_id("rotation_quaternion")
                 fcurve_rotation_w = blender_action.fcurves.new(data_path, index=0)
