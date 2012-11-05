@@ -188,12 +188,6 @@ class Ms3dExporter():
 
     ###########################################################################
     def from_blender(self, blender_context, ms3d_model):
-        blender_mesh_objects = self.create_geometry(blender_context, ms3d_model)
-        self.create_animation(blender_context, ms3d_model, blender_mesh_objects)
-
-
-    ###########################################################################
-    def create_geometry(self, blender_context, ms3d_model):
         blender_mesh_objects = []
 
         ##EXPORT_ACTIVE_ONLY:
@@ -211,6 +205,14 @@ class Ms3dExporter():
                     and blender_object.is_visible(blender_context.scene):
                 blender_mesh_objects.append(blender_object)
 
+        blender_to_ms3d_bones = {}
+
+        self.create_animation(blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones)
+        self.create_geometry(blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones)
+
+
+    ###########################################################################
+    def create_geometry(self, blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones):
         blender_scene = blender_context.scene
 
         blender_to_ms3d_vertices = {}
@@ -291,6 +293,8 @@ class Ms3dExporter():
                 else:
                     layer_uv = bm.loops.layers.uv.new(ms3d_str['OBJECT_LAYER_UV'])
 
+            layer_deform = bm.verts.layers.deform.active
+
             ##########################
             # handle vertices
             for bmv in bm.verts:
@@ -301,6 +305,34 @@ class Ms3dExporter():
                     ms3d_vertex.__index = index
                     ms3d_vertex._vertex = (self.matrix_scaled_coordination_system \
                             * (bmv.co + blender_mesh_object.location))[:]
+
+                    if layer_deform:
+                        blender_vertex_group_ids = bmv[layer_deform]
+                        if blender_vertex_group_ids:
+                            temp_weight = 0
+                            count = 0
+                            for blender_index, blender_weight in blender_vertex_group_ids.items():
+                                ms3d_joint = blender_to_ms3d_bones.get(
+                                        blender_mesh_object.vertex_groups[blender_index].name)
+                                if ms3d_joint:
+                                    if count == 0:
+                                        ms3d_vertex.bone_id = ms3d_joint.__index
+                                        temp_weight = blender_weight
+                                    elif count == 1:
+                                        ms3d_vertex._vertex_ex_object.bone_ids[0] = ms3d_joint.__index
+                                        ms3d_vertex._vertex_ex_object.weights[0] = temp_weight * 100
+                                        ms3d_vertex._vertex_ex_object.weights[1] = blender_weight * 100
+                                    elif count == 2:
+                                        ms3d_vertex._vertex_ex_object.bone_ids[1] = ms3d_joint.__index
+                                        ms3d_vertex._vertex_ex_object.weights[2] = blender_weight * 100
+                                    #elif count == 3:
+                                    #    ms3d_vertex._vertex_ex_object.bone_ids[2] = ms3d_joint.__index
+
+                                # only first three weights will be supported
+                                count+= 1
+                                if count > 3:
+                                    break
+
                     ms3d_model._vertices.append(ms3d_vertex)
                     blender_to_ms3d_vertices[bmv] = ms3d_vertex
 
@@ -345,24 +377,25 @@ class Ms3dExporter():
                     ms3d_triangle.smoothing_group = bmf[layer_smoothing_group]
                     ms3d_model._triangles.append(ms3d_triangle)
 
-                    ms3d_material = self.get_ms3d_material_add_if(blender_mesh, ms3d_model, blender_to_ms3d_materials, bmf.material_index)
+                    ms3d_material = self.get_ms3d_material_add_if(blender_mesh, ms3d_model,
+                            blender_to_ms3d_materials, bmf.material_index)
                     ms3d_group = blender_to_ms3d_groups.get(bmf[layer_group])
 
                     ##EXPORT_ACTIVE_ONLY:
                     if ms3d_group is not None:
-                        if ms3d_group.material_index is None:
-                            if ms3d_material is None:
-                                ms3d_group.material_index = Ms3dSpec.DEFAULT_GROUP_MATERIAL_INDEX
-                            else:
-                                ms3d_group.material_index = ms3d_material.__index
+                        if ms3d_material is None:
+                            ms3d_group.material_index = Ms3dSpec.DEFAULT_GROUP_MATERIAL_INDEX
                         else:
-                            if ms3d_material.__index != ms3d_group.material_index:
-                                ms3d_group = self.get_ms3d_group_by_material_add_if(ms3d_model, ms3d_material)
+                            if ms3d_group.material_index is None:
+                                ms3d_group.material_index = ms3d_material.__index
+                            else:
+                                if ms3d_group.material_index != ms3d_material.__index:
+                                    ms3d_group = self.get_ms3d_group_by_material_add_if(ms3d_model, ms3d_material)
                     else:
                         if ms3d_material is not None:
                             ms3d_group = self.get_ms3d_group_by_material_add_if(ms3d_model, ms3d_material)
                         else:
-                            ms3d_group = self.get_ms3d_group_no_material_add_if(ms3d_model)
+                            ms3d_group = self.get_ms3d_group_default_material_add_if(ms3d_model)
 
                     if ms3d_group is not None:
                         ms3d_group._triangle_indices.append(ms3d_triangle.__index)
@@ -388,25 +421,67 @@ class Ms3dExporter():
             # DEBUG:
             #print("DEBUG: blender_mesh_object: {}".format(blender_mesh_object))
 
-        return blender_mesh_objects
-
 
     ###########################################################################
-    def create_animation(self, blender_context, ms3d_model, blender_mesh_objects):
+    def create_animation(self, blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones):
         ##########################
         # setup scene
         blender_scene = blender_context.scene
         ms3d_model.animation_fps = blender_scene.render.fps * blender_scene.render.fps_base
         ms3d_model.number_total_frames = (blender_scene.frame_end - blender_scene.frame_start) + 1
-        ms3d_model.current_time = (blender_scene.frame_current - blender_scene.frame_start) / (blender_scene.render.fps * blender_scene.render.fps_base)
+        ms3d_model.current_time = (blender_scene.frame_current - blender_scene.frame_start)\
+                / (blender_scene.render.fps * blender_scene.render.fps_base)
 
-        pass
+        #return
+        ### not ready yet
+        for blender_mesh_object in blender_mesh_objects:
+            blender_bones = None
+            for blender_modifier in blender_mesh_object.modifiers:
+                if blender_modifier.type == 'ARMATURE' and blender_modifier.object.pose:
+                    blender_bones = blender_modifier.object.pose.bones
+                    break
+
+            for blender_bone_oject in blender_bones:
+                ms3d_joint = Ms3dJoint()
+                ms3d_joint.__index = len(ms3d_model._joints)
+
+                blender_ms3d_joint = blender_bone_oject.bone.ms3d
+                blender_bone = blender_bone_oject
+
+                if blender_ms3d_joint.name:
+                    ms3d_joint.name = blender_ms3d_joint.name
+                else:
+                    ms3d_joint.name = blender_bone.name
+
+                if blender_bone.parent:
+                    if blender_ms3d_joint.name:
+                        ms3d_joint.parent_name = blender_bone.parent.bone.ms3d.name
+                    else:
+                        ms3d_joint.parent_name = blender_bone.parent.name
+
+                    ms3d_joint_vector = (blender_bone.head - blender_bone.parent.head) * self.matrix_scaled_coordination_system
+                    ms3d_joint_euler = blender_bone.matrix.to_euler('XZY')
+                else:
+                    ms3d_joint_vector = blender_bone.head * self.matrix_scaled_coordination_system
+                    ms3d_joint_euler = blender_bone.matrix.to_euler('XZY')
+                ms3d_joint._position = ms3d_joint_vector
+                #ms3d_joint._rotation = ms3d_joint_euler
+
+                ms3d_joint.flags = Ms3dUi.flags_to_ms3d(blender_ms3d_joint.flags)
+                if blender_ms3d_joint.comment:
+                    ms3d_joint._comment_object = Ms3dCommentEx()
+                    ms3d_joint._comment_object.comment = blender_ms3d_joint.comment
+                    ms3d_joint._comment_object.index = ms3d_joint.__index
+
+
+                ms3d_model._joints.append(ms3d_joint)
+                blender_to_ms3d_bones[blender_bone.name] = ms3d_joint
 
 
     ###########################################################################
-    def get_ms3d_group_no_material_add_if(self, ms3d_model):
-        markerName = "No.Mat.Group."
-        markerComment = "no material group"
+    def get_ms3d_group_default_material_add_if(self, ms3d_model):
+        markerName = "MaterialGroupDefault"
+        markerComment = "group without material"
 
         for ms3d_group in ms3d_model._groups:
             if ms3d_group.material_index == Ms3dSpec.DEFAULT_GROUP_MATERIAL_INDEX \
@@ -433,7 +508,7 @@ class Ms3dExporter():
         if ms3d_material.__index < 0 or ms3d_material.__index >= len(ms3d_model.materials):
             return None
 
-        markerName = "Mat.Group." + ms3d_material.__index
+        markerName = "MaterialGroup." + ms3d_material.__index
         markerComment = "material group conflict dissolver (" + ms3d_material.name + ")"
 
         for ms3d_group in ms3d_model._groups:
@@ -466,7 +541,11 @@ class Ms3dExporter():
 
             blender_ms3d_material = blender_material.ms3d
 
-            ms3d_material.name = blender_ms3d_material.name
+            if blender_ms3d_material.name:
+                ms3d_material.name = blender_ms3d_material.name
+            else:
+                ms3d_material.name = blender_material.name
+
             ms3d_material._ambient = blender_ms3d_material.ambient
             ms3d_material._diffuse = blender_ms3d_material.diffuse
             ms3d_material._specular = blender_ms3d_material.specular
