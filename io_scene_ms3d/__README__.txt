@@ -161,8 +161,8 @@ todo:
                     .flags: 0% (value only)
                     .vertex_ex
                         Ms3dVertexEx
-                            .bone_ids: 0%
-                            .weights: 0%
+                            .bone_ids: 100%
+                            .weights: 100%
                             .extra: 0%
             .triangles
                 Ms3dTriangle

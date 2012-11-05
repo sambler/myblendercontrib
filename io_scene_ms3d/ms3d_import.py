@@ -79,6 +79,7 @@ else:
             enable_edit_mode,
             pre_setup_environment,
             post_setup_environment,
+            get_edge_split_modifier_add_if,
             )
     from io_scene_ms3d.ms3d_ui import (
             Ms3dUi,
@@ -255,9 +256,6 @@ class Ms3dImporter():
                 ms3d_model.name + ".m")
         blender_mesh.ms3d.name = ms3d_model.name
 
-        blender_mesh.show_edge_seams = True
-        blender_mesh.show_edge_sharp = True
-
         ms3d_comment = ms3d_model.comment_object
         if ms3d_comment is not None:
             blender_mesh.ms3d.comment = ms3d_comment.comment
@@ -278,11 +276,7 @@ class Ms3dImporter():
         ##########################
         # blender stuff:
         # create edge split modifire, to make sharp edges visible
-        blender_modifier = blender_mesh_object.modifiers.new(
-                "ms3d_smoothing_groups", type='EDGE_SPLIT')
-        blender_modifier.show_expanded = False
-        blender_modifier.use_edge_angle = False
-        blender_modifier.use_edge_sharp = True
+        blender_modifier = get_edge_split_modifier_add_if(blender_mesh_object)
 
         ##########################
         # blender stuff:
@@ -620,22 +614,57 @@ class Ms3dImporter():
         for ms3d_vertex_index, ms3d_vertex in enumerate(ms3d_model.vertices):
             # prepare for later use for blender vertex group
             if ms3d_vertex.bone_id != Ms3dSpec.NONE_VERTEX_BONE_ID:
-                blender_vertex_group = ms3d_to_blender_vertex_groups.get(
-                        ms3d_vertex.bone_id)
-                if blender_vertex_group is None:
-                    ms3d_to_blender_vertex_groups[ms3d_vertex.bone_id] \
-                            = blender_vertex_group = []
-                blender_vertex_group.append(ms3d_vertex_index)
+                if ms3d_vertex.vertex_ex_object \
+                        and ( \
+                        ms3d_vertex.vertex_ex_object.bone_ids[0] != Ms3dSpec.NONE_VERTEX_BONE_ID \
+                        or ms3d_vertex.vertex_ex_object.bone_ids[1] != Ms3dSpec.NONE_VERTEX_BONE_ID \
+                        or ms3d_vertex.vertex_ex_object.bone_ids[2] != Ms3dSpec.NONE_VERTEX_BONE_ID \
+                        ):
+                    ms3d_vertex_group_ids_weights = []
+                    ms3d_vertex_group_ids_weights.appent(
+                            (ms3d_vertex.bone_id,
+                            (ms3d_vertex.vertex_ex_object.weight[0] % 100) / 100.0))
+                    if ms3d_vertex.vertex_ex_object.bone_ids[0] != Ms3dSpec.NONE_VERTEX_BONE_ID:
+                        ms3d_vertex_group_ids_weights.appent(
+                                (ms3d_vertex.vertex_ex_object.bone_ids[0],
+                                (ms3d_vertex.vertex_ex_object.weight[1] % 100) / 100.0))
+                    if ms3d_vertex.vertex_ex_object.bone_ids[1] != Ms3dSpec.NONE_VERTEX_BONE_ID:
+                        ms3d_vertex_group_ids_weights.appent(
+                                (ms3d_vertex.vertex_ex_object.bone_ids[1],
+                                (ms3d_vertex.vertex_ex_object.weight[2] % 100) / 100.0))
+                    if ms3d_vertex.vertex_ex_object.bone_ids[2] != Ms3dSpec.NONE_VERTEX_BONE_ID:
+                        ms3d_vertex_group_ids_weights.appent(
+                                (ms3d_vertex.vertex_ex_object.bone_ids[2],
+                                1.0 -
+                                ((ms3d_vertex.vertex_ex_object.weight[0] % 100)
+                                + (ms3d_vertex.vertex_ex_object.weight[1] % 100)
+                                + (ms3d_vertex.vertex_ex_object.weight[2] % 100)) / 100.0
+                                ))
+                else:
+                    ms3d_vertex_group_ids_weights = [(ms3d_vertex.bone_id, 1.0), ]
+
+                for ms3d_vertex_group_id_weight in ms3d_vertex_group_ids_weights:
+                    ms3d_vertex_group_id = ms3d_vertex_group_id_weight[0]
+                    blender_vertex_weight = ms3d_vertex_group_id_weight[1]
+                    blender_vertex_group = ms3d_to_blender_vertex_groups.get(
+                            ms3d_vertex_group_id)
+                    if blender_vertex_group is None:
+                        ms3d_to_blender_vertex_groups[ms3d_vertex_group_id] \
+                                = blender_vertex_group = []
+                    blender_vertex_group.append((ms3d_vertex_index, blender_vertex_weight))
 
         ##########################
         # blender stuff:
         # create all vertex groups to be used for bones
-        for ms3d_bone_id, blender_vertex_index_list \
+        for ms3d_bone_id, blender_vertex_index_weight_list \
                 in ms3d_to_blender_vertex_groups.items():
             ms3d_name = ms3d_model.joints[ms3d_bone_id].name
             blender_vertex_group = blender_mesh_object.vertex_groups.new(
                     ms3d_name)
-            blender_vertex_group.add(blender_vertex_index_list, 1.0, 'REPLACE')
+            for blender_vertex_id_weight in blender_vertex_index_weight_list:
+                blender_vertex_index = blender_vertex_id_weight[0]
+                blender_vertex_weight = blender_vertex_id_weight[1]
+                blender_vertex_group.add((blender_vertex_index, ), blender_vertex_weight, 'ADD')
 
         blender_modifier = blender_mesh_object.modifiers.new(
                 ms3d_armature_name, type='ARMATURE')

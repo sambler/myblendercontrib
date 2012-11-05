@@ -58,6 +58,7 @@ else:
             )
     from io_scene_ms3d.ms3d_utils import (
             enable_edit_mode,
+            get_edge_split_modifier_add_if,
             )
     #from io_scene_ms3d.ms3d_import import ( Ms3dImporter, )
     #from io_scene_ms3d.ms3d_export import ( Ms3dExporter, )
@@ -683,15 +684,7 @@ class Ms3dSetSmoothingGroupOperator(Operator):
                 layer_smoothing_group = bm.faces.layers.int.new(
                         ms3d_str['OBJECT_LAYER_SMOOTHING_GROUP'])
                 blender_mesh_object = context.object
-                blender_modifier = blender_mesh_object.modifiers.get(
-                        ms3d_str['OBJECT_MODIFIER_SMOOTHING_GROUP'])
-                if blender_modifier is None:
-                    blender_modifier = blender_mesh_object.modifiers.new(
-                            ms3d_str['OBJECT_MODIFIER_SMOOTHING_GROUP'],
-                            type='EDGE_SPLIT')
-                    blender_modifier.show_expanded = False
-                    blender_modifier.use_edge_angle = False
-                    blender_modifier.use_edge_sharp = True
+                get_edge_split_modifier_add_if(blender_mesh_object)
             blender_face_list = []
             for bmf in bm.faces:
                 if not bmf.smooth:
