@@ -58,6 +58,7 @@ else:
             )
     from io_scene_ms3d.ms3d_utils import (
             enable_edit_mode,
+            get_edge_split_modifier_add_if,
             )
     #from io_scene_ms3d.ms3d_import import ( Ms3dImporter, )
     #from io_scene_ms3d.ms3d_export import ( Ms3dExporter, )
@@ -214,7 +215,7 @@ class Ms3dUi:
     ICON_OBJECT = 'WORLD'
     ICON_PROCESSING = 'OBJECT_DATAMODE'
     ICON_ANIMATION = 'RENDER_ANIMATION'
-
+    ICON_ROTATION_MODE = 'BONE_DATA'
 
     ###########################################################################
     PROP_DEFAULT_VERBOSE = DEFAULT_VERBOSE
@@ -251,6 +252,8 @@ class Ms3dUi:
     PROP_ITEM_OBJECT_MATERIAL = 'MATERIAL'
     PROP_ITEM_OBJECT_MESH = 'MESH'
     PROP_ITEM_OBJECT_SMOOTHGROUPS = 'SMOOTHGROUPS'
+
+
     ###########################################################################
     PROP_DEFAULT_OBJECTS_IMP = {
             #PROP_ITEM_OBJECT_MESH,
@@ -270,6 +273,13 @@ class Ms3dUi:
 
     ###########################################################################
     PROP_DEFAULT_ANIMATION = True
+
+
+    ###########################################################################
+    PROP_ITEM_ROTATION_MODE_EULER = '0'
+    PROP_ITEM_ROTATION_MODE_QUATERNION = '1'
+    PROP_DEFAULT_ANIMATION_ROTATION = PROP_ITEM_ROTATION_MODE_EULER
+
 
     ###########################################################################
     PROP_DEFAULT_APPLY_MODIFIER = False
@@ -355,6 +365,19 @@ class Ms3dImportOperator(Operator, ImportHelper):
             default=Ms3dUi.PROP_DEFAULT_ANIMATION,
             )
 
+    prop_rotation_mode = EnumProperty(
+            name=ms3d_str['PROP_NAME_ROTATION_MODE'],
+            description=ms3d_str['PROP_DESC_ROTATION_MODE'],
+            items=( (Ms3dUi.PROP_ITEM_ROTATION_MODE_EULER,
+                            ms3d_str['PROP_ITEM_ROTATION_MODE_EULER_1'],
+                            ms3d_str['PROP_ITEM_ROTATION_MODE_EULER_2']),
+                    (Ms3dUi.PROP_ITEM_ROTATION_MODE_QUATERNION,
+                            ms3d_str['PROP_ITEM_ROTATION_MODE_QUATERNION_1'],
+                            ms3d_str['PROP_ITEM_ROTATION_MODE_QUATERNION_2']),
+                    ),
+            default=Ms3dUi.PROP_DEFAULT_ANIMATION_ROTATION,
+            )
+
 
     @property
     def is_coordinate_system_1by1(self):
@@ -370,6 +393,17 @@ class Ms3dImportOperator(Operator, ImportHelper):
     def is_coordinate_system_export(self):
         return (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_EXP \
                 in self.prop_coordinate_system)
+
+
+    @property
+    def is_rotation_mode_euler(self):
+        return (Ms3dUi.PROP_ITEM_ROTATION_MODE_EULER \
+                in self.prop_rotation_mode)
+
+    @property
+    def is_rotation_mode_quaternion(self):
+        return (Ms3dUi.PROP_ITEM_ROTATION_MODE_QUATERNION \
+                in self.prop_rotation_mode)
 
 
     # draw the option panel
@@ -389,8 +423,8 @@ class Ms3dImportOperator(Operator, ImportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)
         box.prop(self, 'prop_animation')
-        #if (self.prop_animation):
-        #    box.label(ms3d_str['REMARKS_1'], icon='ERROR')
+        if (self.prop_animation):
+            box.prop(self, 'prop_rotation_mode', icon=Ms3dUi.ICON_ROTATION_MODE, expand=False)
 
     # entrypoint for MS3D -> blender
     def execute(self, blender_context):
@@ -564,9 +598,6 @@ class Ms3dExportOperator(Operator, ExportHelper):
     def draw(self, context):
         layout = self.layout
 
-        # DEBUG:
-        layout.row().label(ms3d_str['REMARKS_2'], icon='ERROR')
-
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
         box.prop(self, 'prop_verbose', icon='SPEAKER')
@@ -653,15 +684,7 @@ class Ms3dSetSmoothingGroupOperator(Operator):
                 layer_smoothing_group = bm.faces.layers.int.new(
                         ms3d_str['OBJECT_LAYER_SMOOTHING_GROUP'])
                 blender_mesh_object = context.object
-                blender_modifier = blender_mesh_object.modifiers.get(
-                        ms3d_str['OBJECT_MODIFIER_SMOOTHING_GROUP'])
-                if blender_modifier is None:
-                    blender_modifier = blender_mesh_object.modifiers.new(
-                            ms3d_str['OBJECT_MODIFIER_SMOOTHING_GROUP'],
-                            type='EDGE_SPLIT')
-                    blender_modifier.show_expanded = False
-                    blender_modifier.use_edge_angle = False
-                    blender_modifier.use_edge_sharp = True
+                get_edge_split_modifier_add_if(blender_mesh_object)
             blender_face_list = []
             for bmf in bm.faces:
                 if not bmf.smooth:

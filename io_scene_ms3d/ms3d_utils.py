@@ -46,8 +46,13 @@ from mathutils import (
 # if it's there, reload everything
 if ('bpy' in locals()):
     import imp
+    if 'io_scene_ms3d.ms3d_strings' in locals():
+        imp.reload(io_scene_ms3d.ms3d_strings)
     pass
 else:
+    from io_scene_ms3d.ms3d_strings import (
+            ms3d_str,
+            )
     pass
 
 
@@ -168,9 +173,27 @@ def post_setup_environment(porter, blender_context):
     # restore pre operator undo state
     blender_context.user_preferences.edit.use_global_undo = porter.undo
 
+
 ###############################################################################
+def get_edge_split_modifier_add_if(blender_mesh_object):
+    blender_modifier = blender_mesh_object.modifiers.get(
+            ms3d_str['OBJECT_MODIFIER_SMOOTHING_GROUP'])
+
+    if blender_modifier is None:
+        blender_modifier = blender_mesh_object.modifiers.new(
+                ms3d_str['OBJECT_MODIFIER_SMOOTHING_GROUP'],
+                type='EDGE_SPLIT')
+        blender_modifier.show_expanded = False
+        blender_modifier.use_edge_angle = False
+        blender_modifier.use_edge_sharp = True
+
+        blender_mesh_object.data.show_edge_seams = True
+        blender_mesh_object.data.show_edge_sharp = True
+
+    return blender_modifier
 
 
+###############################################################################
 
 ###############################################################################
 #234567890123456789012345678901234567890123456789012345678901234567890123456789

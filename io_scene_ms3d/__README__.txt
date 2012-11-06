@@ -95,13 +95,13 @@ todo:
             .vertices
                 Ms3dVertex
                     .vertex: 100%
-                    .bone_id: 0%
-                    .reference_count: 0%
+                    .bone_id: 100%
+                    .reference_count: 100%
                     .flags: 0%
                     .vertex_ex
                         Ms3dVertexEx
-                            .bone_ids: 0%
-                            .weights: 0%
+                            .bone_ids: 100%
+                            .weights: 100%
                             .extra: 0%
             .triangles
                 Ms3dTriangle
@@ -111,7 +111,7 @@ todo:
                     .group_index: 100%
                     .smoothing_group: 100%
                     .flags: 0%
-                    .vertex_normals: 80% (not tested yet)
+                    .vertex_normals: 100%
             .groups
                 Ms3dGroup
                     .name: 100%
@@ -161,8 +161,8 @@ todo:
                     .flags: 0% (value only)
                     .vertex_ex
                         Ms3dVertexEx
-                            .bone_ids: 0%
-                            .weights: 0%
+                            .bone_ids: 100%
+                            .weights: 100%
                             .extra: 0%
             .triangles
                 Ms3dTriangle
