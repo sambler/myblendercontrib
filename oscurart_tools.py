@@ -2242,7 +2242,7 @@ def reSymMesh (self, SELECTED, SIDE):
     else:
         if SELECTED:
             for VERT in SYMAP:
-                if BM.verts[SYMAP[VERT]].select:
+                if BM.verts[VERT].select:
                     if VERT == SYMAP[VERT]:
                         BM.verts[SYMAP[VERT]].co[0] = 0
                         BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
