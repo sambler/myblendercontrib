@@ -140,16 +140,16 @@ todo:
                     .alpha_ref: 100% (only ms3d-properties)
             .joints
                 Ms3dJoint
-                    .name: 0%
-                    .parent_name: 0%
+                    .name: 100%
+                    .parent_name: 100%
                     .rotation: 0%
-                    .position: 0%
+                    .position: 100%
                     .rotation_keyframes: 0%
                     .translation_keyframes: 0%
                     .joint_ex
                         Ms3DJointEx
-                            .color: 0%
-                    .comment: 0%
+                            .color: 100%
+                    .comment: 100%
 ###############################################################################
     importer:
         Ms3dModel

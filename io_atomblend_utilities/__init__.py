@@ -24,7 +24,7 @@
 #
 #  Start of project              : 2011-12-01 by Clemens Barth
 #  First publication in Blender  : 2012-11-03
-#  Last modified                 : 2012-11-03
+#  Last modified                 : 2012-11-09
 #
 #  Acknowledgements 
 #  ================
@@ -38,7 +38,7 @@ bl_info = {
     "name": "Atomic Blender - Utilities",
     "description": "Utilities for manipulating atom structures",
     "author": "Clemens Barth",
-    "version": (0,5),
+    "version": (0,6),
     "blender": (2,6),
     "location": "Panel: View 3D - Tools",
     "warning": "",
@@ -49,10 +49,7 @@ bl_info = {
     "category": "Import-Export"
 }
 
-import os
-import io
 import bpy
-import bmesh
 from bpy.types import Operator, Panel
 from bpy.props import (StringProperty,
                        BoolProperty,
@@ -62,23 +59,18 @@ from bpy.props import (StringProperty,
 
 from . import io_atomblend_utilities
 
-
 # -----------------------------------------------------------------------------
 #                                                                           GUI
 
 # This is the panel, which can be used to prepare the scene.
 # It is loaded after the file has been chosen via the menu 'File -> Import'
-class CLASS_atom_blend_prepare_panel(Panel):
+class PreparePanel(Panel):
     bl_label       = "Atomic Blender Utilities"
     bl_space_type  = "VIEW_3D"
     bl_region_type = "TOOL_PROPS"
 
     def draw(self, context):
         layout = self.layout
-
-        if len(context.scene.atom_blend) == 0:
-            bpy.context.scene.atom_blend.add()
-
         scn    = context.scene.atom_blend[0]
 
         row = layout.row()
@@ -125,22 +117,24 @@ class CLASS_atom_blend_prepare_panel(Panel):
         row.operator( "atom_blend.separate_atom" )
 
 
-
-class CLASS_atom_blend_Properties(bpy.types.PropertyGroup):
+class PanelProperties(bpy.types.PropertyGroup):
 
     def Callback_radius_type(self, context):
         scn = bpy.context.scene.atom_blend[0]
-        io_atomblend_utilities.DEF_atom_blend_radius_type(
-                scn.radius_type,
-                scn.radius_how,)
-
+        io_atomblend_utilities.choose_objects("radius_type", 
+                                              scn.radius_how, 
+                                              None,
+                                              None,
+                                              scn.radius_type) 
     def Callback_radius_pm(self, context):
         scn = bpy.context.scene.atom_blend[0]
-        io_atomblend_utilities.DEF_atom_blend_radius_pm(
-                scn.radius_pm_name,
-                scn.radius_pm,
-                scn.radius_how,)
-
+        io_atomblend_utilities.choose_objects("radius_pm", 
+                                              scn.radius_how, 
+                                              None,
+                                              [scn.radius_pm_name,
+                                              scn.radius_pm],
+                                              None) 
+        
     datafile = StringProperty(
         name = "", description="Path to your custom data file",
         maxlen = 256, default = "", subtype='FILE_PATH')
@@ -180,7 +174,7 @@ class CLASS_atom_blend_Properties(bpy.types.PropertyGroup):
 
 
 # Button loading a custom data file
-class CLASS_atom_blend_datafile_apply(Operator):
+class DatafileApply(Operator):
     bl_idname = "atom_blend.datafile_apply"
     bl_label = "Apply"
     bl_description = "Use color and radii values stored in the custom file"
@@ -191,126 +185,36 @@ class CLASS_atom_blend_datafile_apply(Operator):
         if scn.datafile == "":
             return {'FINISHED'}
 
-        io_atomblend_utilities.DEF_atom_blend_custom_datafile(scn.datafile)
-
-        for obj in bpy.context.selected_objects:
-            if len(obj.children) != 0:
-                child = obj.children[0]
-                if child.type in {'SURFACE', 'MESH'}:
-                    for element in io_atomblend_utilities.ATOM_BLEND_ELEMENTS:
-                        if element.name in obj.name:
-                            child.scale = (element.radii[0],) * 3
-                            child.active_material.diffuse_color = element.color
-            else:
-                if obj.type in {'SURFACE', 'MESH'}:
-                    for element in io_atomblend_utilities.ATOM_BLEND_ELEMENTS:
-                        if element.name in obj.name:
-                            obj.scale = (element.radii[0],) * 3
-                            obj.active_material.diffuse_color = element.color
+        io_atomblend_utilities.custom_datafile(scn.datafile)
+        io_atomblend_utilities.custom_datafile_change_atom_props()
 
         return {'FINISHED'}
 
 
 # Button for separating a single atom from a structure
-class CLASS_atom_blend_separate_atom(Operator):
+class SeparateAtom(Operator):
     bl_idname = "atom_blend.separate_atom"
     bl_label = "Separate atoms"
-    bl_description = "Separate the atom you have chosen. You have to be in the 'Edit Mode'"
+    bl_description = ("Separate atoms you have selected. "
+                      "You have to be in the 'Edit Mode'")
 
     def execute(self, context):
         scn = bpy.context.scene.atom_blend[0]
 
-        # Get first all important properties from the atoms, which the user
-        # has chosen: location, color, scale
-        obj = bpy.context.edit_object
-        bm = bmesh.from_edit_mesh(obj.data)
-
-        locations = []
-
-        for v in bm.verts:
-            if v.select:
-                locations.append(obj.matrix_world * v.co)
-
-        bm.free()
-        del(bm)
-
-        name  = obj.name
-        scale = obj.children[0].scale
-        material = obj.children[0].active_material
-
-        # Separate the vertex from the main mesh and create a new mesh.
-        bpy.ops.mesh.separate()
-        new_object = bpy.context.scene.objects[0]
-        # And now, switch to the OBJECT mode such that we can ...
-        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-        # ... delete the new mesh including the separated vertex
-        bpy.ops.object.select_all(action='DESELECT')
-        new_object.select = True
-        bpy.ops.object.delete()  
-
-        # Create new atoms/vacancies at the position of the old atoms
-        current_layers=bpy.context.scene.layers
-
-        # For all selected positions do:
-        for location in locations:
-            # For any ball do ...
-            if "Vacancy" not in name:
-                # NURBS ball
-                if obj.children[0].type == "SURFACE":
-                    bpy.ops.surface.primitive_nurbs_surface_sphere_add(
-                                    view_align=False, enter_editmode=False,
-                                    location=location,
-                                    rotation=(0.0, 0.0, 0.0),
-                                    layers=current_layers)
-                # Mesh ball                    
-                elif obj.children[0].type == "MESH":
-                    bpy.ops.mesh.primitive_uv_sphere_add(
-                                segments=32,
-                                ring_count=32,                    
-                                #segments=scn.mesh_azimuth,
-                                #ring_count=scn.mesh_zenith,
-                                size=1, view_align=False, enter_editmode=False,
-                                location=location,
-                                rotation=(0, 0, 0),
-                                layers=current_layers)
-            # If it is a vacancy create a cube ...                    
-            else:
-                bpy.ops.mesh.primitive_cube_add(
-                               view_align=False, enter_editmode=False,
-                               location=location,
-                               rotation=(0.0, 0.0, 0.0),
-                               layers=current_layers)
-
-            new_atom = bpy.context.scene.objects.active
-            # Scale, material and name it.
-            new_atom.scale = scale
-            new_atom.active_material = material
-            new_atom.name = name + "_sep"
-            new_atom.select = True
-
-        bpy.context.scene.objects.active = obj
-        #bpy.ops.object.select_all(action='DESELECT')
+        io_atomblend_utilities.separate_atoms(scn)
 
         return {'FINISHED'}
 
 
 # Button for measuring the distance of the active objects
-class CLASS_atom_blend_distance_button(Operator):
+class DistanceButton(Operator):
     bl_idname = "atom_blend.button_distance"
     bl_label = "Measure ..."
     bl_description = "Measure the distance between two objects"
 
     def execute(self, context):
         scn  = bpy.context.scene.atom_blend[0]
-        dist = io_atomblend_utilities.DEF_atom_blend_distance()
-
-        if dist != "N.A.":
-           # The string length is cut, 3 digits after the first 3 digits
-           # after the '.'. Append also "Angstrom".
-           # Remember: 1 Angstrom = 10^(-10) m
-           pos    = str.find(dist, ".")
-           dist   = dist[:pos+4]
-           dist   = dist + " A"
+        dist = io_atomblend_utilities.distance()
 
         # Put the distance into the string of the output field.
         scn.distance = dist
@@ -318,44 +222,44 @@ class CLASS_atom_blend_distance_button(Operator):
 
 
 # Button for increasing the radii of all atoms
-class CLASS_atom_blend_radius_all_bigger_button(Operator):
+class RadiusAllBiggerButton(Operator):
     bl_idname = "atom_blend.radius_all_bigger"
     bl_label = "Bigger ..."
     bl_description = "Increase the radii of the atoms"
 
     def execute(self, context):
-        scn = bpy.context.scene.atom_blend[0]
-        io_atomblend_utilities.DEF_atom_blend_radius_all(
-                scn.radius_all,
-                scn.radius_how,
-                )
+        scn = bpy.context.scene.atom_blend[0]     
+        io_atomblend_utilities.choose_objects("radius_all", 
+                                              scn.radius_how, 
+                                              scn.radius_all, 
+                                              None,
+                                              None)        
         return {'FINISHED'}
 
 
 # Button for decreasing the radii of all atoms
-class CLASS_atom_blend_radius_all_smaller_button(Operator):
+class RadiusAllSmallerButton(Operator):
     bl_idname = "atom_blend.radius_all_smaller"
     bl_label = "Smaller ..."
     bl_description = "Decrease the radii of the atoms"
 
     def execute(self, context):
         scn = bpy.context.scene.atom_blend[0]
-        io_atomblend_utilities.DEF_atom_blend_radius_all(
-                1.0/scn.radius_all,
-                scn.radius_how,
-                )
+        io_atomblend_utilities.choose_objects("radius_all", 
+                                              scn.radius_how, 
+                                              1.0/scn.radius_all, 
+                                              None,
+                                              None)                                     
         return {'FINISHED'}
 
 
-
-
 def register():
-    io_atomblend_utilities.DEF_atom_blend_read_elements()  
+    io_atomblend_utilities.read_elements()  
     bpy.utils.register_module(__name__)
-    bpy.types.Scene.atom_blend = bpy.props.CollectionProperty(type=CLASS_atom_blend_Properties)
+    bpy.types.Scene.atom_blend = bpy.props.CollectionProperty(type=
+                                                   PanelProperties)
+    bpy.context.scene.atom_blend.add()
 
-
-    
 def unregister():
     bpy.utils.unregister_module(__name__)
 

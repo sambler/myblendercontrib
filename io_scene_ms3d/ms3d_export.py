@@ -37,6 +37,7 @@ from math import (
         )
 from mathutils import (
         Vector,
+        Euler,
         )
 from os import (
         path,
@@ -438,15 +439,23 @@ class Ms3dExporter():
             blender_bones = None
             for blender_modifier in blender_mesh_object.modifiers:
                 if blender_modifier.type == 'ARMATURE' and blender_modifier.object.pose:
-                    blender_bones = blender_modifier.object.pose.bones
+                    blender_bones = blender_modifier.object.data.bones
                     break
 
             for blender_bone_oject in blender_bones:
                 ms3d_joint = Ms3dJoint()
                 ms3d_joint.__index = len(ms3d_model._joints)
 
-                blender_ms3d_joint = blender_bone_oject.bone.ms3d
+                blender_ms3d_joint = blender_bone_oject.ms3d
                 blender_bone = blender_bone_oject
+
+                ms3d_joint.flags = Ms3dUi.flags_to_ms3d(blender_ms3d_joint.flags)
+                if blender_ms3d_joint.comment:
+                    ms3d_joint._comment_object = Ms3dCommentEx()
+                    ms3d_joint._comment_object.comment = blender_ms3d_joint.comment
+                    ms3d_joint._comment_object.index = ms3d_joint.__index
+
+                ms3d_joint.joint_ex_object._color = blender_ms3d_joint.color[:]
 
                 if blender_ms3d_joint.name:
                     ms3d_joint.name = blender_ms3d_joint.name
@@ -455,24 +464,17 @@ class Ms3dExporter():
 
                 if blender_bone.parent:
                     if blender_ms3d_joint.name:
-                        ms3d_joint.parent_name = blender_bone.parent.bone.ms3d.name
+                        ms3d_joint.parent_name = blender_bone.parent.ms3d.name
                     else:
                         ms3d_joint.parent_name = blender_bone.parent.name
 
-                    ms3d_joint_vector = (blender_bone.head - blender_bone.parent.head) * self.matrix_scaled_coordination_system
-                    ms3d_joint_euler = blender_bone.matrix.to_euler('XZY')
+                    ms3d_joint_vector = blender_bone.head * self.matrix_scaled_coordination_system
+                    blender_bone_euler = blender_bone.matrix.to_euler('XZY')
                 else:
                     ms3d_joint_vector = blender_bone.head * self.matrix_scaled_coordination_system
-                    ms3d_joint_euler = blender_bone.matrix.to_euler('XZY')
-                ms3d_joint._position = ms3d_joint_vector
-                #ms3d_joint._rotation = ms3d_joint_euler
-
-                ms3d_joint.flags = Ms3dUi.flags_to_ms3d(blender_ms3d_joint.flags)
-                if blender_ms3d_joint.comment:
-                    ms3d_joint._comment_object = Ms3dCommentEx()
-                    ms3d_joint._comment_object.comment = blender_ms3d_joint.comment
-                    ms3d_joint._comment_object.index = ms3d_joint.__index
-
+                    blender_bone_euler = blender_bone.matrix.to_euler('XZY')
+                ms3d_joint._position = ms3d_joint_vector[:]
+                ms3d_joint._rotation = (Vector(blender_bone_euler[:]) * self.matrix_scaled_coordination_system)[:]
 
                 ms3d_model._joints.append(ms3d_joint)
                 blender_to_ms3d_bones[blender_bone.name] = ms3d_joint
@@ -546,10 +548,10 @@ class Ms3dExporter():
             else:
                 ms3d_material.name = blender_material.name
 
-            ms3d_material._ambient = blender_ms3d_material.ambient
-            ms3d_material._diffuse = blender_ms3d_material.diffuse
-            ms3d_material._specular = blender_ms3d_material.specular
-            ms3d_material._emissive = blender_ms3d_material.emissive
+            ms3d_material._ambient = blender_ms3d_material.ambient[:]
+            ms3d_material._diffuse = blender_ms3d_material.diffuse[:]
+            ms3d_material._specular = blender_ms3d_material.specular[:]
+            ms3d_material._emissive = blender_ms3d_material.emissive[:]
             ms3d_material.shininess = blender_ms3d_material.shininess
             ms3d_material.transparency = blender_ms3d_material.transparency
             ms3d_material.mode = Ms3dUi.texture_mode_to_ms3d(blender_ms3d_material.mode)

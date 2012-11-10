@@ -2199,7 +2199,7 @@ def reSymSave (self):
     XML.close()
     SYMAP.clear()
 
-def reSymMesh (self, SELECTED):
+def reSymMesh (self, SELECTED, SIDE):
     
     bpy.ops.object.mode_set(mode='EDIT')
     
@@ -2217,9 +2217,20 @@ def reSymMesh (self, SELECTED):
     
     SYMAP = eval(XML.readlines()[0])    
     
-    if SELECTED:
-        for VERT in SYMAP:
-            if BM.verts[SYMAP[VERT]].select:
+    if SIDE == "+-":
+        if SELECTED:
+            for VERT in SYMAP:
+                if BM.verts[SYMAP[VERT]].select:
+                    if VERT == SYMAP[VERT]:
+                        BM.verts[VERT].co[0] = 0
+                        BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                        BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
+                    else:    
+                        BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+                        BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                        BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]        
+        else:    
+            for VERT in SYMAP:
                 if VERT == SYMAP[VERT]:
                     BM.verts[VERT].co[0] = 0
                     BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
@@ -2227,17 +2238,29 @@ def reSymMesh (self, SELECTED):
                 else:    
                     BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
                     BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]        
-    else:    
-        for VERT in SYMAP:
-            if VERT == SYMAP[VERT]:
-                BM.verts[VERT].co[0] = 0
-                BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-                BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
-            else:    
-                BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
-                BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-                BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
+                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
+    else:
+        if SELECTED:
+            for VERT in SYMAP:
+                if BM.verts[VERT].select:
+                    if VERT == SYMAP[VERT]:
+                        BM.verts[SYMAP[VERT]].co[0] = 0
+                        BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
+                        BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]            
+                    else:    
+                        BM.verts[SYMAP[VERT]].co[0] = -BM.verts[VERT].co[0]
+                        BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
+                        BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]        
+        else:    
+            for VERT in SYMAP:
+                if VERT == SYMAP[VERT]:
+                    BM.verts[SYMAP[VERT]].co[0] = 0
+                    BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
+                    BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]            
+                else:    
+                    BM.verts[SYMAP[VERT]].co[0] = -BM.verts[VERT].co[0]
+                    BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
+                    BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]                        
     
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.mode_set(mode='EDIT')
@@ -2263,8 +2286,16 @@ class OscResymMesh (bpy.types.Operator):
 
     selected=bpy.props.BoolProperty(default=False, name="Only Selected")
     
+    side = bpy.props.EnumProperty(
+            name="Side_",
+            description="Select Side.",
+            items=(('+-', "+X to -X", "+X to -X"),
+                   ('-+', "-X to +X", "-X to +X")),
+            default='+-',
+            )    
+    
     def execute (self, context):
-        reSymMesh(self, self.selected)
+        reSymMesh(self, self.selected,self.side)
         return {'FINISHED'}
     
 ##=============== DISTRIBUTE ======================    
