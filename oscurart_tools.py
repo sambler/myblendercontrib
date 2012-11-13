@@ -37,7 +37,7 @@ import bmesh
 import time
 import random
 
-#r03
+#r05
 
 ## CREA PANELES EN TOOLS
 
@@ -683,17 +683,13 @@ class normalsOutside(bpy.types.Operator):
 
 
 def defRenderAll (frametype):
-    
-
     LISTMAT=[]
     SCENES=bpy.data.scenes[:]
     ACTSCENE=bpy.context.scene
     FC=bpy.context.scene.frame_current
     FS=bpy.context.scene.frame_start
     FE=bpy.context.scene.frame_end
-
     print("---------------------")
-
     ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST=[]
@@ -706,27 +702,19 @@ def defRenderAll (frametype):
 
         except:
             pass
-
-
     for SCENE in SCENES:
         PROPTOLIST=list(eval(SCENE['OVERRIDE']))
         CURSC= SCENE.name
         PATH = SCENE.render.filepath
         ENDPATH = PATH
         FILEPATH=bpy.data.filepath
-
-
-
         # CAMBIO SCENE
         bpy.context.window.screen.scene=SCENE
-
         if frametype == True:
             bpy.context.scene.frame_start=FC
             bpy.context.scene.frame_end=FC
             bpy.context.scene.frame_end=FC
             bpy.context.scene.frame_start=FC
-
-
         ## SETEO MATERIALES  DE OVERRIDES
         try:
             for OVERRIDE in PROPTOLIST:
@@ -736,41 +724,28 @@ def defRenderAll (frametype):
                             SLOT.material=bpy.data.materials[OVERRIDE[1]]
         except:
             pass
-
-        if sys.platform.startswith("w"):
-            print("PLATFORM: WINDOWS")
-            SCENENAME=(FILEPATH.rsplit("\\")[-1])[:-6]
-        else:
-            print("PLATFORM:LINUX")
-            SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-
+        SCENENAME=os.path.basename(FILEPATH.rpartition(".")[0])
         LAYERLIST=[]
         for layer in SCENE.render.layers:
             if layer.use == 1:
                 LAYERLIST.append(layer)
-
         for layers in LAYERLIST:
             for rl in LAYERLIST:
                 rl.use= 0
-
             print("SCENE: "+CURSC)
             print("LAYER: "+layers.name)
             print("OVERRIDE: "+str(PROPTOLIST))
-
             SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
             SCENE.render.layers[layers.name].use = 1
             bpy.ops.render.render(animation=True, write_still=True, layer=layers.name, scene= SCENE.name)
-
             print("DONE")
             print("---------------------")
 
         ## REESTABLECE LOS LAYERS
         for layer in LAYERLIST:
             layer.use = 1
-
         ## RESTAURA EL PATH FINAL
         SCENE.render.filepath = ENDPATH
-
         #RESTAURO MATERIALES  DE OVERRIDES
         for OBJECT in LISTMAT:
             SLOTIND=0
@@ -810,9 +785,6 @@ bpy.types.Scene.use_render_scene = bpy.props.BoolProperty()
 
 
 def defRenderSelected(frametype):
-
-
-
     ACTSCENE = bpy.context.scene
     LISTMAT = []
     SCENES = bpy.data.scenes[:]
@@ -830,8 +802,6 @@ def defRenderSelected(frametype):
                 LISTMAT.append((OBJECT,SLOTLIST))
         except:
             pass
-
-
     for SCENE in SCENES:
         if SCENE.use_render_scene:
             PROPTOLIST = list(eval(SCENE['OVERRIDE']))
@@ -839,18 +809,14 @@ def defRenderSelected(frametype):
             PATH = SCENE.render.filepath
             ENDPATH = PATH
             FILEPATH = bpy.data.filepath
-
             print("---------------------")
-
             # CAMBIO SCENE
             bpy.context.window.screen.scene = SCENE
-
             if frametype  ==  True:
                 bpy.context.scene.frame_start = FC
                 bpy.context.scene.frame_end = FC
                 bpy.context.scene.frame_end = FC
                 bpy.context.scene.frame_start = FC
-
             ## SETEO MATERIALES  DE OVERRIDES
             try:
                 for OVERRIDE in PROPTOLIST:
@@ -860,41 +826,27 @@ def defRenderSelected(frametype):
                                 SLOT.material=bpy.data.materials[OVERRIDE[1]]
             except:
                 pass
-
-            if sys.platform.startswith("w"):
-                print("PLATFORM: WINDOWS")
-                SCENENAME=(FILEPATH.rsplit("\\")[-1])[:-6]
-            else:
-                print("PLATFORM:LINUX")
-                SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-
+            SCENENAME=os.path.basename(FILEPATH.rpartition(".")[0])
             LAYERLIST=[]
             for layer in SCENE.render.layers:
                 if layer.use == 1:
                     LAYERLIST.append(layer)
-
             for layers in LAYERLIST:
                 for rl in LAYERLIST:
                     rl.use= 0
-
                 print("SCENE: "+CURSC)
                 print("LAYER: "+layers.name)
                 print("OVERRIDE: "+str(PROPTOLIST))
-
                 SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
                 SCENE.render.layers[layers.name].use = 1
                 bpy.ops.render.render(animation=True, layer=layers.name, write_still=True, scene= SCENE.name)
-
                 print("DONE")
                 print("---------------------")
-
             ## REESTABLECE LOS LAYERS
             for layer in LAYERLIST:
                 layer.use = 1
-
             ## RESTAURA EL PATH FINAL
             SCENE.render.filepath = ENDPATH
-
             #RESTAURO MATERIALES  DE OVERRIDES
             for OBJECT in LISTMAT:
                 SLOTIND = 0
@@ -904,15 +856,12 @@ def defRenderSelected(frametype):
                         SLOTIND += 1
                 except:
                     print("OUT OF RANGE")
-
             # RESTAURO FRAMES
             if frametype == True:
                 SCENE.frame_start = FS
                 SCENE.frame_end = FE
                 SCENE.frame_end = FE
                 SCENE.frame_start = FS
-
-
     # RESTAURO SCENE
     bpy.context.window.screen.scene = ACTSCENE
 
@@ -940,9 +889,7 @@ def defRenderCurrent (frametype):
     FS = bpy.context.scene.frame_start
     FE = bpy.context.scene.frame_end
 
-
     print("---------------------")
-
     ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST = []
@@ -953,21 +900,16 @@ def defRenderCurrent (frametype):
                 LISTMAT.append((OBJECT,SLOTLIST))
         except:
             pass
-
-
     PROPTOLIST = list(eval(SCENE['OVERRIDE']))
     CURSC = SCENE.name
     PATH = SCENE.render.filepath
     ENDPATH = PATH
     FILEPATH = bpy.data.filepath
-
-
     if frametype == True:
         bpy.context.scene.frame_start = FC
         bpy.context.scene.frame_end = FC
         bpy.context.scene.frame_end = FC
         bpy.context.scene.frame_start = FC
-
     ## SETEO MATERIALES  DE OVERRIDES
     try:
         for OVERRIDE in PROPTOLIST:
@@ -977,42 +919,27 @@ def defRenderCurrent (frametype):
                         SLOT.material = bpy.data.materials[OVERRIDE[1]]
     except:
         pass
-
-    if sys.platform.startswith("w"):
-        print("PLATFORM: WINDOWS")
-        SCENENAME=(FILEPATH.rsplit("\\")[-1])[:-6]
-    else:
-        print("PLATFORM:LINUX")
-        SCENENAME=(FILEPATH.rsplit("/")[-1])[:-6]
-
+    SCENENAME=os.path.basename(FILEPATH.rpartition(".")[0])
     LAYERLIST=[]
     for layer in SCENE.render.layers:
         if layer.use == 1:
             LAYERLIST.append(layer)
-
     for layers in LAYERLIST:
         for rl in LAYERLIST:
             rl.use= 0
-
         print("SCENE: "+CURSC)
         print("LAYER: "+layers.name)
         print("OVERRIDE: "+str(PROPTOLIST))
-
-
         SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
         SCENE.render.layers[layers.name].use = 1
         bpy.ops.render.render(animation=True, layer=layers.name, write_still=1, scene= SCENE.name)
-
         print("DONE")
         print("---------------------")
-
     ## REESTABLECE LOS LAYERS
     for layer in LAYERLIST:
         layer.use = 1
-
     ## RESTAURA EL PATH FINAL
     SCENE.render.filepath = ENDPATH
-
     #RESTAURO MATERIALES  DE OVERRIDES
     for OBJECT in LISTMAT:
         SLOTIND = 0
@@ -1022,7 +949,6 @@ def defRenderCurrent (frametype):
                 SLOTIND += 1
         except:
             print("FUERA DE RANGO")
-
     # RESTAURO FRAMES
     if frametype == True:
         SCENE.frame_start = FS
@@ -1048,9 +974,6 @@ class renderCurrent (bpy.types.Operator):
 
 
 ##--------------------------RENDER CROP----------------------
-## SETEO EL STATUS DEL PANEL PARA EL IF
-bpy.types.Scene.RcropStatus = bpy.props.BoolProperty(default=0)
-
 ## CREO DATA PARA EL SLIDER
 bpy.types.Scene.rcPARTS = bpy.props.IntProperty(default=0, min=2, max=50, step=1)
 
@@ -1060,105 +983,41 @@ class renderCrop (bpy.types.Operator):
     bl_label="Render Crop: Render!"
     def execute(self,context):
 
-
-
-        ##AVERIGUO EL SISTEMA
-        if sys.platform.startswith("w"):    
-            print("PLATFORM: WINDOWS")
-            VARSYSTEM= "\\"
-        else:
-            print("PLATFORM:LINUX")
-            VARSYSTEM= "/"
-
-
-        ## NOMBRE DE LA ESCENA
-        SCENENAME=(bpy.data.filepath.rsplit(VARSYSTEM)[-1]).rsplit(".")[0]
-
-        ## CREA ARRAY
-        PARTES = []
-        START = 1
+        FILEPATH = bpy.data.filepath
+        SCENENAME=os.path.basename(FILEPATH.rpartition(".")[0])
         PARTS = bpy.context.scene.rcPARTS
         PARTS = PARTS+1
-        while START < PARTS:
-            PARTES.append(START)
-            START = START+1
-        print(PARTES)
+        PARTES=[i for i in range(1,PARTS)]            
 
-
-        ##SETEO VARIABLE PARA LA FUNCION DE RENDER
         NUMERODECORTE=1
-
-        ##ESCENA ACTIVA
         SCACT = bpy.context.scene
-
-        ## SETEO CROP
-        bpy.data.scenes[SCACT.name].render.use_crop_to_border = 1
-        bpy.data.scenes[SCACT.name].render.use_border = 1
-
-        ##A VERIGUO RES EN Y
-        RESY = bpy.data.scenes[SCACT.name].render.resolution_y
-
-        ## AVERIGUO EL PATH DE LA ESCENA
-        OUTPUTFILEPATH = bpy.data.scenes[SCACT.name].render.filepath
-        bpy.context.scene.render.filepath = OUTPUTFILEPATH+bpy.context.scene.name
-
-
-        ## CUANTAS PARTES HARA
+        SCACT.render.use_crop_to_border = 1
+        SCACT.render.use_border = 1
+        RESY = SCACT.render.resolution_y
+        OUTPUTFILEPATH = SCACT.render.filepath
         LENPARTES = len(PARTES)
-
-        ## DIVIDE 1 SOBRE LA CANTIDAD DE PARTES
         DIVISOR = 1/PARTES[LENPARTES-1]
-
-        ## SETEA VARIABLE DEL MARCO MINIMO Y MAXIMO
         CMIN = 0
         CMAX = DIVISOR
-
-        ## REMUEVE EL ULTIMO OBJETO DEL ARRAY PARTES
         PARTESRESTADA = PARTES.pop(LENPARTES-1)
-
-        ## SETEA EL MINIMO Y EL MAXIMO CON LOS VALORES DE ARRIBA
-        bpy.data.scenes[SCACT.name].render.border_min_y = CMIN
-        bpy.data.scenes[SCACT.name].render.border_max_y = CMAX
-
-
-        ##SETEA EL OUTPUT PARA LA PRIMERA PARTE
-        OUTPUTFILEPATH+bpy.context.scene.name
-        bpy.context.scene.render.filepath = OUTPUTFILEPATH + SCENENAME + VARSYSTEM + SCENENAME + "_PART" + str(PARTES[0]) + "_"
-
-        ##RENDER PRIMERA PARTE
+        SCACT.render.border_min_y = CMIN
+        SCACT.render.border_max_y = CMAX
+        SCACT.render.filepath =  "%s/%s/%s_PART%s_" % (OUTPUTFILEPATH,SCENENAME,SCENENAME,str(PARTES[0]))
         bpy.ops.render.render(animation=True)
         bpy.context.scene.render.filepath
-
-        ##SUMO UN NUMERO AL CORTE
         NUMERODECORTE = NUMERODECORTE + 1
-
-
         ## RENDER!
         for PARTE in PARTES:
-            ## SUMA A LOS VALORES DEL CROP
             CMIN = CMIN + DIVISOR
             CMAX = CMAX + DIVISOR
-            print("EL CROP ES DE " + str(CMIN) + " A " + str(CMAX))
-            ## SETEA BORDE
-            bpy.data.scenes[SCACT.name].render.border_min_y = CMIN
-            bpy.data.scenes[SCACT.name].render.border_max_y = CMAX
-            ## SETEA EL OUTPUT
-            bpy.context.scene.render.filepath = OUTPUTFILEPATH + SCENENAME + VARSYSTEM + SCENENAME + "_PART" + str(NUMERODECORTE) + "_"
-            print("EL OUTPUT DE LA FUNCION ES " + bpy.context.scene.render.filepath)
-            ## PRINTEA EL NUMERO DE CORTE
-            print(PARTE)
-            ## RENDER
+            SCACT.render.border_min_y = CMIN
+            SCACT.render.border_max_y = CMAX
+            bpy.context.scene.render.filepath =  "%s%s/%s_PART%s_" % (OUTPUTFILEPATH,SCENENAME,SCENENAME,str(NUMERODECORTE))
             bpy.ops.render.render(animation=True)
-            ## SUMO NUMERO DE CORTE
             NUMERODECORTE = NUMERODECORTE + 1
 
-
-        ## REESTABLEZCO EL FILEPATH
-        bpy.context.scene.render.filepath = OUTPUTFILEPATH
-
-
-        print("RENDER TERMINADO")
-
+        SCACT.render.filepath = OUTPUTFILEPATH
+        SCACT.render.use_border = False
         return {'FINISHED'}
 
 
