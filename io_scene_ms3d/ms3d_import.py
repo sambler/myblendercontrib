@@ -571,6 +571,41 @@ class Ms3dImporter():
         return blender_mesh_object
 
     ###########################################################################
+    def build_ms3d_joint_dependency_order(self, ms3d_joints):
+        ms3d_joints_children = {"": {}}
+        for ms3d_joint in ms3d_joints:
+            if ms3d_joint.parent_name:
+                ms3d_joint_children = ms3d_joints_children.get(ms3d_joint.parent_name)
+                if ms3d_joint_children is None:
+                    ms3d_joint_children = ms3d_joints_children[ms3d_joint.parent_name] = {}
+            else:
+                ms3d_joint_children = ms3d_joints_children[""]
+
+            ms3d_joint_children[ms3d_joint.name] = ms3d_joint
+
+        ms3d_joints_ordered = []
+        self.traverse_dependencies(
+                ms3d_joints_ordered,
+                ms3d_joints_children,
+                "")
+        return ms3d_joints_ordered
+
+
+    ###########################################################################
+    def traverse_dependencies(self, ms3d_joints_ordered, ms3d_joints_children, key):
+        ms3d_joint_children = ms3d_joints_children.get(key)
+        if ms3d_joint_children:
+            for item in ms3d_joint_children.items():
+                ms3d_joint_name = item[0]
+                ms3d_joint = item[1]
+                ms3d_joints_ordered.append(ms3d_joint)
+                self.traverse_dependencies(
+                        ms3d_joints_ordered,
+                        ms3d_joints_children,
+                        ms3d_joint_name)
+
+
+    ###########################################################################
     def create_animation(self, blender_context, ms3d_model, blender_mesh_object):
         ##########################
         # setup scene
@@ -607,6 +642,15 @@ class Ms3dImporter():
         blender_scene.objects.link(blender_armature_object)
         #blender_armature_object.location = blender_scene.cursor_location
         blender_armature_object.show_x_ray = True
+
+        ##########################
+        # create new modifier
+        blender_modifier = blender_mesh_object.modifiers.new(
+                ms3d_armature_name, type='ARMATURE')
+        blender_modifier.show_expanded = False
+        blender_modifier.use_vertex_groups = True
+        blender_modifier.use_bone_envelopes = False
+        blender_modifier.object = blender_armature_object
 
         ##########################
         # prepare for vertex groups
@@ -666,17 +710,14 @@ class Ms3dImporter():
                 blender_vertex_weight = blender_vertex_id_weight[1]
                 blender_vertex_group.add((blender_vertex_index, ), blender_vertex_weight, 'ADD')
 
-        blender_modifier = blender_mesh_object.modifiers.new(
-                ms3d_armature_name, type='ARMATURE')
-        blender_modifier.show_expanded = False
-        blender_modifier.use_vertex_groups = True
-        blender_modifier.use_bone_envelopes = False
-        blender_modifier.object = blender_armature_object
+        ##########################
+        # bring joints in the correct order
+        ms3d_joints_ordered = self.build_ms3d_joint_dependency_order(ms3d_model.joints)
 
         ##########################
         # prepare joint data for later use
         ms3d_joint_by_name = {}
-        for ms3d_joint in ms3d_model.joints:
+        for ms3d_joint in ms3d_joints_ordered:
             item = ms3d_joint_by_name.get(ms3d_joint.name)
             if item is None:
                 ms3d_joint.__children = []
@@ -711,7 +752,7 @@ class Ms3dImporter():
         # ms3d_joint to blender_edit_bone
         blender_scene.objects.active = blender_armature_object
         enable_edit_mode(True)
-        for ms3d_joint in ms3d_model.joints:
+        for ms3d_joint in ms3d_joints_ordered:
             blender_edit_bone = blender_armature.edit_bones.new(ms3d_joint.name)
             blender_edit_bone.use_connect = False
             blender_edit_bone.use_inherit_rotation = True
@@ -725,11 +766,6 @@ class Ms3dImporter():
             blender_edit_bone.head \
                     = self.matrix_scaled_coordination_system \
                     * ms3d_joint_vector
-
-            if ms3d_joint.parent_name:
-                ms3d_joint_parent_vector \
-                        = ms3d_joint_by_name[ms3d_joint.parent_name].__matrix_global \
-                        * Vector()
 
             vector_tail_end_up = ms3d_joint.__matrix_global_rot * Vector((0,1,0))
             vector_tail_end_dir = ms3d_joint.__matrix_global_rot * Vector((0,0,1))
