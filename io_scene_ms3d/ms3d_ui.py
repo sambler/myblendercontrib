@@ -222,14 +222,6 @@ class Ms3dUi:
 
 
     ###########################################################################
-    PROP_ITEM_COORDINATESYSTEM_1BY1 = '0'
-    PROP_ITEM_COORDINATESYSTEM_IMP = '1'
-    PROP_ITEM_COORDINATESYSTEM_EXP = '2'
-    PROP_DEFAULT_COORDINATESYSTEM_IMP = PROP_ITEM_COORDINATESYSTEM_IMP
-    PROP_DEFAULT_COORDINATESYSTEM_EXP = PROP_ITEM_COORDINATESYSTEM_EXP
-
-
-    ###########################################################################
     PROP_DEFAULT_SCALE = 1.0
     PROP_MIN_SCALE = 0.001
     PROP_MAX_SCALE = 1000.0
@@ -327,32 +319,6 @@ class Ms3dImportOperator(Operator, ImportHelper):
             default=Ms3dUi.PROP_DEFAULT_VERBOSE,
             )
 
-    prop_coordinate_system = EnumProperty(
-            name=ms3d_str['PROP_NAME_COORDINATESYSTEM'],
-            description=ms3d_str['PROP_DESC_COORDINATESYSTEM'],
-            items=( (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_1BY1,
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_1_BY_1_1'],
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_1_BY_1_2']),
-                    (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_IMP,
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_IMP_1'],
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_IMP_2']),
-                    (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_EXP,
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_EXP_1'],
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_EXP_2']),
-                    ),
-            default=Ms3dUi.PROP_DEFAULT_COORDINATESYSTEM_IMP,
-            )
-
-    prop_scale = FloatProperty(
-            name=ms3d_str['PROP_NAME_SCALE'],
-            description=ms3d_str['PROP_DESC_SCALE'],
-            default=Ms3dUi.PROP_DEFAULT_SCALE,
-            min=Ms3dUi.PROP_MIN_SCALE,
-            max=Ms3dUi.PROP_MAX_SCALE,
-            soft_min=Ms3dUi.PROP_SMIN_SCALE,
-            soft_max=Ms3dUi.PROP_SMAX_SCALE,
-            )
-
     prop_unit_mm = BoolProperty(
             name=ms3d_str['PROP_NAME_UNIT_MM'],
             description=ms3d_str['PROP_DESC_UNIT_MM'],
@@ -380,22 +346,6 @@ class Ms3dImportOperator(Operator, ImportHelper):
 
 
     @property
-    def is_coordinate_system_1by1(self):
-        return (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_1BY1 \
-                in self.prop_coordinate_system)
-
-    @property
-    def is_coordinate_system_import(self):
-        return (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_IMP \
-                in self.prop_coordinate_system)
-
-    @property
-    def is_coordinate_system_export(self):
-        return (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_EXP \
-                in self.prop_coordinate_system)
-
-
-    @property
     def is_rotation_mode_euler(self):
         return (Ms3dUi.PROP_ITEM_ROTATION_MODE_EULER \
                 in self.prop_rotation_mode)
@@ -417,8 +367,6 @@ class Ms3dImportOperator(Operator, ImportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
         box.prop(self, 'prop_unit_mm', icon='SCENE_DATA', expand=True)
-        #box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
-        #box.prop(self, 'prop_scale', icon='MESH_DATA')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)
@@ -468,32 +416,6 @@ class Ms3dExportOperator(Operator, ExportHelper):
             name=ms3d_str['PROP_NAME_VERBOSE'],
             description=ms3d_str['PROP_DESC_VERBOSE'],
             default=Ms3dUi.PROP_DEFAULT_VERBOSE,
-            )
-
-    prop_coordinate_system = EnumProperty(
-            name=ms3d_str['PROP_NAME_COORDINATESYSTEM'],
-            description=ms3d_str['PROP_DESC_COORDINATESYSTEM'],
-            items=( (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_1BY1,
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_1_BY_1_1'],
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_1_BY_1_2']),
-                    (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_IMP,
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_IMP_1'],
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_IMP_2']),
-                    (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_EXP,
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_EXP_1'],
-                            ms3d_str['PROP_ITEM_COORDINATESYSTEM_EXP_2']),
-                    ),
-            default=Ms3dUi.PROP_DEFAULT_COORDINATESYSTEM_EXP,
-            )
-
-    prop_scale = FloatProperty(
-            name=ms3d_str['PROP_NAME_SCALE'],
-            description=ms3d_str['PROP_DESC_SCALE'],
-            default=1.0 / Ms3dUi.PROP_DEFAULT_SCALE,
-            min=Ms3dUi.PROP_MIN_SCALE,
-            max=Ms3dUi.PROP_MAX_SCALE,
-            soft_min=Ms3dUi.PROP_SMIN_SCALE,
-            soft_max=Ms3dUi.PROP_SMAX_SCALE,
             )
 
     prop_objects = EnumProperty(
@@ -567,22 +489,6 @@ class Ms3dExportOperator(Operator, ExportHelper):
         return (Ms3dUi.PROP_ITEM_OBJECT_GROUP in self.prop_objects)
 
 
-    @property
-    def is_coordinate_system_1by1(self):
-        return (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_1BY1 \
-                in self.prop_coordinate_system)
-
-    @property
-    def is_coordinate_system_import(self):
-        return (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_IMP \
-                in self.prop_coordinate_system)
-
-    @property
-    def is_coordinate_system_export(self):
-        return (Ms3dUi.PROP_ITEM_COORDINATESYSTEM_EXP \
-                in self.prop_coordinate_system)
-
-
     ##EXPORT_ACTIVE_ONLY:
     ##limit availability to only active mesh object
     @classmethod
@@ -601,11 +507,6 @@ class Ms3dExportOperator(Operator, ExportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
         box.prop(self, 'prop_verbose', icon='SPEAKER')
-
-        #box = layout.box()
-        #box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
-        #box.prop(self, 'prop_coordinate_system', icon='WORLD_DATA', expand=True)
-        #box.prop(self, 'prop_scale', icon='MESH_DATA')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_PROCESSING'],

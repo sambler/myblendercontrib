@@ -348,9 +348,7 @@ class Ms3dImporter():
         # BMesh stuff:
         # create all vertices
         for ms3d_vertex_index, ms3d_vertex in enumerate(ms3d_model.vertices):
-            bmv = bm.verts.new(
-                    self.matrix_scaled_coordination_system
-                    * Vector(ms3d_vertex.vertex))
+            bmv = bm.verts.new(self.geometry_correction(ms3d_vertex.vertex))
 
         ##########################
         # blender stuff (uses BMesh stuff):
@@ -570,40 +568,6 @@ class Ms3dImporter():
 
         return blender_mesh_object
 
-    ###########################################################################
-    def build_ms3d_joint_dependency_order(self, ms3d_joints):
-        ms3d_joints_children = {"": {}}
-        for ms3d_joint in ms3d_joints:
-            if ms3d_joint.parent_name:
-                ms3d_joint_children = ms3d_joints_children.get(ms3d_joint.parent_name)
-                if ms3d_joint_children is None:
-                    ms3d_joint_children = ms3d_joints_children[ms3d_joint.parent_name] = {}
-            else:
-                ms3d_joint_children = ms3d_joints_children[""]
-
-            ms3d_joint_children[ms3d_joint.name] = ms3d_joint
-
-        ms3d_joints_ordered = []
-        self.traverse_dependencies(
-                ms3d_joints_ordered,
-                ms3d_joints_children,
-                "")
-        return ms3d_joints_ordered
-
-
-    ###########################################################################
-    def traverse_dependencies(self, ms3d_joints_ordered, ms3d_joints_children, key):
-        ms3d_joint_children = ms3d_joints_children.get(key)
-        if ms3d_joint_children:
-            for item in ms3d_joint_children.items():
-                ms3d_joint_name = item[0]
-                ms3d_joint = item[1]
-                ms3d_joints_ordered.append(ms3d_joint)
-                self.traverse_dependencies(
-                        ms3d_joints_ordered,
-                        ms3d_joints_children,
-                        ms3d_joint_name)
-
 
     ###########################################################################
     def create_animation(self, blender_context, ms3d_model, blender_mesh_object):
@@ -764,17 +728,15 @@ class Ms3dImporter():
             ms3d_joint_vector = ms3d_joint.__matrix_global * Vector()
 
             blender_edit_bone.head \
-                    = self.matrix_scaled_coordination_system \
-                    * ms3d_joint_vector
+                    = self.geometry_correction(ms3d_joint_vector)
 
             vector_tail_end_up = ms3d_joint.__matrix_global_rot * Vector((0,1,0))
             vector_tail_end_dir = ms3d_joint.__matrix_global_rot * Vector((0,0,1))
             vector_tail_end_up.normalize()
             vector_tail_end_dir.normalize()
             blender_edit_bone.tail = blender_edit_bone.head \
-                    + self.matrix_scaled_coordination_system * vector_tail_end_dir
-            blender_edit_bone.align_roll(
-                    self.matrix_scaled_coordination_system * vector_tail_end_up)
+                    + self.geometry_correction(vector_tail_end_dir)
+            blender_edit_bone.align_roll(self.geometry_correction(vector_tail_end_up))
 
             if ms3d_joint.parent_name:
                 ms3d_joint_parent = ms3d_joint_by_name[ms3d_joint.parent_name]
@@ -882,6 +844,46 @@ class Ms3dImporter():
         enable_pose_mode(False)
 
         return blender_armature_object
+
+
+    ###########################################################################
+    def geometry_correction(self, value):
+        return Vector((value[2], value[0], value[1]))
+
+
+    ###########################################################################
+    def build_ms3d_joint_dependency_order(self, ms3d_joints):
+        ms3d_joints_children = {"": {}}
+        for ms3d_joint in ms3d_joints:
+            if ms3d_joint.parent_name:
+                ms3d_joint_children = ms3d_joints_children.get(ms3d_joint.parent_name)
+                if ms3d_joint_children is None:
+                    ms3d_joint_children = ms3d_joints_children[ms3d_joint.parent_name] = {}
+            else:
+                ms3d_joint_children = ms3d_joints_children[""]
+
+            ms3d_joint_children[ms3d_joint.name] = ms3d_joint
+
+        ms3d_joints_ordered = []
+        self.traverse_dependencies(
+                ms3d_joints_ordered,
+                ms3d_joints_children,
+                "")
+        return ms3d_joints_ordered
+
+
+    ###########################################################################
+    def traverse_dependencies(self, ms3d_joints_ordered, ms3d_joints_children, key):
+        ms3d_joint_children = ms3d_joints_children.get(key)
+        if ms3d_joint_children:
+            for item in ms3d_joint_children.items():
+                ms3d_joint_name = item[0]
+                ms3d_joint = item[1]
+                ms3d_joints_ordered.append(ms3d_joint)
+                self.traverse_dependencies(
+                        ms3d_joints_ordered,
+                        ms3d_joints_children,
+                        ms3d_joint_name)
 
 
 ###############################################################################

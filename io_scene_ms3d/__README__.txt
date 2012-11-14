@@ -81,8 +81,6 @@ known issues:
             is used per mesh
     - does only export the first existing UV texture coordinates,
             if more than one UV texture is used per mesh
-    - does not export bones
-    - does not export joints
     - does not export keyframes
 
 
@@ -121,31 +119,31 @@ todo:
                     .flags: 100%
             .materials
                 Ms3dMaterial
-                    name: 100% (only ms3d-properties)
-                    ambient: 100% (only ms3d-properties)
-                    diffuse: 100% (only ms3d-properties)
-                    specular: 100% (only ms3d-properties)
-                    emissive: 100% (only ms3d-properties)
-                    shininess: 100% (only ms3d-properties)
-                    transparency: 100% (only ms3d-properties)
-                    mode: 100% (only ms3d-properties)
-                    texture: 100% (only ms3d-properties)
-                    alphamap: 100% (only ms3d-properties)
-                    comment: 100% (only ms3d-properties)
-            .comment: 100% (only ms3d-properties)
+                    name: 100%
+                    ambient: 100%
+                    diffuse: 100%
+                    specular: 100%
+                    emissive: 100%
+                    shininess: 100%
+                    transparency: 100%
+                    mode: 100%
+                    texture: 100%
+                    alphamap: 100%
+                    comment: 100%
+            .comment: 100%
             .model_ex
                 Ms3dModelEx
-                    .joint_size: 100% (only ms3d-properties)
-                    .transparency_mode: 100% (only ms3d-properties)
-                    .alpha_ref: 100% (only ms3d-properties)
+                    .joint_size: 100%
+                    .transparency_mode: 100%
+                    .alpha_ref: 100%
             .joints
                 Ms3dJoint
                     .name: 100%
                     .parent_name: 100%
-                    .rotation: 0%
+                    .rotation: 100%
                     .position: 100%
-                    .rotation_keyframes: 0%
-                    .translation_keyframes: 0%
+                    .rotation_keyframes: 0% (TODO)
+                    .translation_keyframes: 0% (TODO)
                     .joint_ex
                         Ms3DJointEx
                             .color: 100%
@@ -157,8 +155,8 @@ todo:
                 Ms3dVertex
                     .vertex: 100%
                     .bone_id: 100%
-                    .reference_count: 0% (100% will be calculated on export)
-                    .flags: 0% (value only)
+                    .reference_count: 0%
+                    .flags: 0%
                     .vertex_ex
                         Ms3dVertexEx
                             .bone_ids: 100%
@@ -170,37 +168,35 @@ todo:
                     .s: 100%
                     .t: 100%
                     .group_index: 100%
-                    .smoothing_group: 100% (BUG: generation of sharp edges
-                            does not work well on isolated faces
-                            - faces, that does not share edges with neighbors)
+                    .smoothing_group: 100%
                     .flags: 0%
-                    .vertex_normals: 0% (not/never for import)
+                    .vertex_normals: 0%
             .groups
                 Ms3dGroup
-                    .name: 100% (value only)
+                    .name: 100%
                     .triangle_indices: 100%
                     .material_index: 100%
-                    .comment: 100% (value only)
-                    .flags: 100% (value only)
+                    .comment: 100%
+                    .flags: 100%
             .materials
                 Ms3dMaterial
-                    name: 100% (value only)
+                    name: 100%
                     ambient: 100%
                     diffuse: 100%
                     specular: 100%
                     emissive: 100%
                     shininess: 100%
                     transparency: 100%
-                    mode: 100% (value only)
-                    texture: 100% (value only)
-                    alphamap: 100% (value only)
-                    comment: 100% (value only)
-            .comment: 100% (value only)
+                    mode: 100%
+                    texture: 100%
+                    alphamap: 100%
+                    comment: 100%
+            .comment: 100%
             .model_ex
                 Ms3dModelEx
-                    .joint_size: 100% (value only)
-                    .transparency_mode: 100% (value only)
-                    .alpha_ref: 100% (value only)
+                    .joint_size: 100%
+                    .transparency_mode: 100%
+                    .alpha_ref: 100%
             .joints
                 Ms3dJoint
                     .name: 100%
@@ -211,6 +207,6 @@ todo:
                     .translation_keyframes: 100%
                     .joint_ex
                         Ms3DJointEx
-                            .color: 100% (value only)
+                            .color: 100%
                     .comment: 100%
 ###############################################################################
