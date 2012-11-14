@@ -514,6 +514,7 @@ class Ms3dExportOperator(Operator, ExportHelper):
         ##EXPORT_ACTIVE_ONLY:
         ##box.prop(self, 'prop_selected', icon='ROTACTIVE')
         box.label(ms3d_str['PROP_NAME_ACTIVE'], icon='ROTACTIVE')
+        box.box().label(context.active_object.name)
         ##
 
         """

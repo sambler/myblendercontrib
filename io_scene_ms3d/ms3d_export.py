@@ -516,8 +516,8 @@ class Ms3dExporter():
         if ms3d_material.__index < 0 or ms3d_material.__index >= len(ms3d_model.materials):
             return None
 
-        markerName = "MaterialGroup." + ms3d_material.__index
-        markerComment = "material group conflict dissolver (" + ms3d_material.name + ")"
+        markerName = "MaterialGroup.{}".format(ms3d_material.__index)
+        markerComment = "material group conflict dissolver ({})".format(ms3d_material.name)
 
         for ms3d_group in ms3d_model._groups:
             if ms3d_group.name == markerName and ms3d_group._comment_object and ms3d_group._comment_object.comment == markerComment:
@@ -529,7 +529,7 @@ class Ms3dExporter():
         ms3d_group._comment_object = Ms3dCommentEx()
         ms3d_group._comment_object.comment = markerComment
         ms3d_group._comment_object.index = len(ms3d_model._groups)
-        ms3d_group.material_index = ms3d_material_index
+        ms3d_group.material_index = ms3d_material.__index
 
         ms3d_model._groups.append(ms3d_group)
 

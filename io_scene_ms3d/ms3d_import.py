@@ -234,9 +234,9 @@ class Ms3dImporter():
         blender_scene = blender_context.scene
 
         blender_group = blender_context.blend_data.groups.new(
-                ms3d_model.name + ".g")
+                "{}.g".format(ms3d_model.name))
         blender_empty_object = blender_context.blend_data.objects.new(
-                ms3d_model.name + ".e", None)
+                "{}.e".format(ms3d_model.name), None)
         blender_empty_object.location = blender_scene.cursor_location
         blender_scene.objects.link(blender_empty_object)
         blender_group.objects.link(blender_empty_object)
@@ -253,7 +253,7 @@ class Ms3dImporter():
         # blender stuff:
         # create a blender Mesh
         blender_mesh = blender_context.blend_data.meshes.new(
-                ms3d_model.name + ".m")
+                "{}.m".format(ms3d_model.name))
         blender_mesh.ms3d.name = ms3d_model.name
 
         ms3d_comment = ms3d_model.comment_object
@@ -271,7 +271,7 @@ class Ms3dImporter():
         # blender stuff:
         # link to blender object
         blender_mesh_object = blender_context.blend_data.objects.new(
-                ms3d_model.name + ".m", blender_mesh)
+                "{}.m".format(ms3d_model.name), blender_mesh)
 
         ##########################
         # blender stuff:
@@ -590,8 +590,8 @@ class Ms3dImporter():
             return
 
         ##########################
-        ms3d_armature_name = ms3d_model.name + ".a"
-        ms3d_action_name = ms3d_model.name + ".act"
+        ms3d_armature_name = "{}.a".format(ms3d_model.name)
+        ms3d_action_name = "{}.act".format(ms3d_model.name)
 
         ##########################
         # create new blender_armature_object
