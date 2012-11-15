@@ -34,12 +34,6 @@
 from os import (
         path
         )
-from math import (
-        radians,
-        )
-from mathutils import (
-        Matrix,
-        )
 
 
 # To support reload properly, try to access a package var,
@@ -111,26 +105,6 @@ def select_all(select):
 
 
 ###############################################################################
-def create_coordination_system_matrix(options):
-    # DEBUG
-    #return Matrix(), Matrix()
-
-    matrix_coordination_system = None
-
-    if (options.is_coordinate_system_import):
-        matrix_coordination_system = Matrix.Rotation(radians(+90), 4, 'Z') \
-                * Matrix.Rotation(radians(+90), 4, 'X')
-    elif (options.is_coordinate_system_export):
-        matrix_coordination_system = Matrix.Rotation(radians(-90), 4, 'X') \
-                * Matrix.Rotation(radians(-90), 4, 'Z')
-    else:
-        matrix_coordination_system = Matrix()
-
-    return matrix_coordination_system * options.prop_scale, \
-            matrix_coordination_system
-
-
-###############################################################################
 def pre_setup_environment(porter, blender_context):
     # inject undo to porter
     # and turn off undo
@@ -150,11 +124,6 @@ def pre_setup_environment(porter, blender_context):
     enable_edit_mode(False)
 
     blender_context.scene.update()
-
-    # inject matrix_scaled_coordination_system to self
-    porter.matrix_scaled_coordination_system, \
-            porter.matrix_coordination_system \
-            = create_coordination_system_matrix(porter.options)
 
     # inject splitted filepath
     porter.filepath_splitted = path.split(porter.options.filepath)
@@ -191,6 +160,36 @@ def get_edge_split_modifier_add_if(blender_mesh_object):
         blender_mesh_object.data.show_edge_sharp = True
 
     return blender_modifier
+
+
+###########################################################################
+def rotation_matrix(v_track, v_up):
+    ## rotation matrix from two vectors
+    ## http://gamedev.stackexchange.com/questions/20097/how-to-calculate-a-3x3-rotation-matrix-from-2-direction-vectors
+    ## http://www.fastgraph.com/makegames/3drotation/
+    matrix = Matrix().to_3x3()
+
+    c1 = v_track
+    c1.normalize()
+
+    c0 = c1.cross(v_up)
+    c0.normalize()
+
+    c2 = c0.cross(c1)
+    c2.normalize()
+
+    matrix.col[0] = c0
+    matrix.col[1] = c1
+    matrix.col[2] = c2
+
+    return matrix
+
+
+###########################################################################
+def matrix_difference(mat_src, mat_dst):
+    mat_dst_inv = mat_dst.copy()
+    mat_dst_inv.invert()
+    return mat_dst_inv * mat_src
 
 
 ###############################################################################

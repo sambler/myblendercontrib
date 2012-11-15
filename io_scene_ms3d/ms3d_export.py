@@ -34,10 +34,12 @@
 import io
 from math import (
         radians,
+        pi,
         )
 from mathutils import (
         Vector,
         Euler,
+        Matrix,
         )
 from os import (
         path,
@@ -89,6 +91,8 @@ else:
             enable_edit_mode,
             pre_setup_environment,
             post_setup_environment,
+            rotation_matrix,
+            matrix_difference,
             )
     from io_scene_ms3d.ms3d_ui import (
             Ms3dUi,
@@ -304,8 +308,9 @@ class Ms3dExporter():
                     index = len(ms3d_model._vertices)
                     ms3d_vertex = Ms3dVertex()
                     ms3d_vertex.__index = index
-                    ms3d_vertex._vertex = (self.matrix_scaled_coordination_system \
-                            * (bmv.co + blender_mesh_object.location))[:]
+
+                    loc = (bmv.co + blender_mesh_object.location)
+                    ms3d_vertex._vertex = self.geometry_correction(loc)
 
                     if layer_deform:
                         blender_vertex_group_ids = bmv[layer_deform]
@@ -360,9 +365,9 @@ class Ms3dExporter():
                             ms3d_vertex2.__index,
                             )
                     ms3d_triangle._vertex_normals = (
-                            (self.matrix_coordination_system * bmv0.normal)[:],
-                            (self.matrix_coordination_system * bmv1.normal)[:],
-                            (self.matrix_coordination_system * bmv2.normal)[:],
+                            self.geometry_correction(bmv0.normal),
+                            self.geometry_correction(bmv1.normal),
+                            self.geometry_correction(bmv2.normal),
                             )
                     ms3d_triangle._s = (
                             bmf.loops[0][layer_uv].uv.x,
@@ -419,9 +424,6 @@ class Ms3dExporter():
                 blender_mesh_temp.user_clear()
                 blender_context.blend_data.meshes.remove(blender_mesh_temp)
 
-            # DEBUG:
-            #print("DEBUG: blender_mesh_object: {}".format(blender_mesh_object))
-
 
     ###########################################################################
     def create_animation(self, blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones):
@@ -433,8 +435,8 @@ class Ms3dExporter():
         ms3d_model.current_time = (blender_scene.frame_current - blender_scene.frame_start)\
                 / (blender_scene.render.fps * blender_scene.render.fps_base)
 
-        #return
-        ### not ready yet
+        base_bone_correction = Matrix.Rotation(pi / 2, 4, 'Z')
+
         for blender_mesh_object in blender_mesh_objects:
             blender_bones = None
             for blender_modifier in blender_mesh_object.modifiers:
@@ -442,7 +444,9 @@ class Ms3dExporter():
                     blender_bones = blender_modifier.object.data.bones
                     break
 
-            for blender_bone_oject in blender_bones:
+            blender_bones_ordered = self.build_blender_bone_dependency_order(blender_bones)
+            for blender_bone_name in blender_bones_ordered:
+                blender_bone_oject = blender_bones[blender_bone_name]
                 ms3d_joint = Ms3dJoint()
                 ms3d_joint.__index = len(ms3d_model._joints)
 
@@ -463,18 +467,20 @@ class Ms3dExporter():
                     ms3d_joint.name = blender_bone.name
 
                 if blender_bone.parent:
-                    if blender_ms3d_joint.name:
+                    ms3d_joint.__matrix = matrix_difference(blender_bone.matrix_local, blender_bone.parent.matrix_local)
+
+                    if blender_bone.parent.ms3d.name:
                         ms3d_joint.parent_name = blender_bone.parent.ms3d.name
                     else:
                         ms3d_joint.parent_name = blender_bone.parent.name
-
-                    ms3d_joint_vector = blender_bone.head * self.matrix_scaled_coordination_system
-                    blender_bone_euler = blender_bone.matrix.to_euler('XZY')
                 else:
-                    ms3d_joint_vector = blender_bone.head * self.matrix_scaled_coordination_system
-                    blender_bone_euler = blender_bone.matrix.to_euler('XZY')
-                ms3d_joint._position = ms3d_joint_vector[:]
-                ms3d_joint._rotation = (Vector(blender_bone_euler[:]) * self.matrix_scaled_coordination_system)[:]
+                    ms3d_joint.__matrix = base_bone_correction * blender_bone.matrix_local
+
+                mat = ms3d_joint.__matrix
+                loc = mat.to_translation()
+                rot = mat.to_euler('XZY')
+                ms3d_joint._position = self.joint_correction(loc)
+                ms3d_joint._rotation = self.joint_correction(rot)
 
                 ms3d_model._joints.append(ms3d_joint)
                 blender_to_ms3d_bones[blender_bone.name] = ms3d_joint
@@ -510,8 +516,8 @@ class Ms3dExporter():
         if ms3d_material.__index < 0 or ms3d_material.__index >= len(ms3d_model.materials):
             return None
 
-        markerName = "MaterialGroup." + ms3d_material.__index
-        markerComment = "material group conflict dissolver (" + ms3d_material.name + ")"
+        markerName = "MaterialGroup.{}".format(ms3d_material.__index)
+        markerComment = "material group conflict dissolver ({})".format(ms3d_material.name)
 
         for ms3d_group in ms3d_model._groups:
             if ms3d_group.name == markerName and ms3d_group._comment_object and ms3d_group._comment_object.comment == markerComment:
@@ -523,7 +529,7 @@ class Ms3dExporter():
         ms3d_group._comment_object = Ms3dCommentEx()
         ms3d_group._comment_object.comment = markerComment
         ms3d_group._comment_object.index = len(ms3d_model._groups)
-        ms3d_group.material_index = ms3d_material_index
+        ms3d_group.material_index = ms3d_material.__index
 
         ms3d_model._groups.append(ms3d_group)
 
@@ -567,6 +573,52 @@ class Ms3dExporter():
             blender_to_ms3d_materials[blender_material] = ms3d_material
 
         return ms3d_material
+
+
+    ###########################################################################
+    def geometry_correction(self, value):
+        return (value[1], value[2], value[0])
+
+
+    ###########################################################################
+    def joint_correction(self, value):
+        return (-value[0], value[2], value[1])
+
+
+    ###########################################################################
+    def build_blender_bone_dependency_order(self, blender_bones):
+        blender_bones_ordered = []
+        if not blender_bones:
+            return blender_bones_ordered
+
+        blender_bones_children = {None: []}
+        for blender_bone in blender_bones:
+            if blender_bone.parent:
+                blender_bone_children = blender_bones_children.get(blender_bone.parent.name)
+                if blender_bone_children is None:
+                    blender_bone_children = blender_bones_children[blender_bone.parent.name] = []
+            else:
+                blender_bone_children = blender_bones_children[None]
+
+            blender_bone_children.append(blender_bone.name)
+
+        self.traverse_dependencies(
+                blender_bones_ordered,
+                blender_bones_children,
+                None)
+        return blender_bones_ordered
+
+
+    ###########################################################################
+    def traverse_dependencies(self, blender_bones_ordered, blender_bones_children, key):
+        blender_bone_children = blender_bones_children.get(key)
+        if blender_bone_children:
+            for blender_bone_name in blender_bone_children:
+                blender_bones_ordered.append(blender_bone_name)
+                self.traverse_dependencies(
+                        blender_bones_ordered,
+                        blender_bones_children,
+                        blender_bone_name)
 
 
 ###############################################################################
