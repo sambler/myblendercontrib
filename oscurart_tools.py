@@ -37,7 +37,7 @@ import bmesh
 import time
 import random
 
-#r05
+#r06
 
 ## CREA PANELES EN TOOLS
 
@@ -406,16 +406,20 @@ class SelectMenor (bpy.types.Operator):
 
 ##-----------------------------------CREATE SHAPES----------------
 
-def DefSplitShapes(self,ACTIVESHAPE):
+def DefSplitShapes(self,ACTIVESHAPE,LAYOUTCOMPAT):
+    #PASO A OBJECT MODE
+    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+    
     ## VARIABLES
     ACTOBJ=bpy.context.active_object
     LENKB=len(ACTOBJ.data.shape_keys.key_blocks)
-    INDEX=ACTOBJ.active_shape_key_index
+    INDEX=ACTOBJ.active_shape_key_index    
     
     ## RECORTO NOMBRES
-    for SHAPE in ACTOBJ.data.shape_keys.key_blocks:
-        if len(SHAPE.name) > 7:
-            SHAPE.name=SHAPE.name[:8]
+    if not LAYOUTCOMPAT:
+        for SHAPE in ACTOBJ.data.shape_keys.key_blocks:
+            if len(SHAPE.name) > 7:
+                SHAPE.name=SHAPE.name[:8]
  
     if ACTIVESHAPE:  
         print(INDEX)
@@ -454,11 +458,11 @@ class CreaShapes(bpy.types.Operator):
         return context.object is not None
 
     activeshape=bpy.props.BoolProperty(name="Only Active Shape", default=False)  
-    
+    layoutcompat=bpy.props.BoolProperty(name="Layout Compatible", default=False)
 
     def execute(self, context):
 
-        DefSplitShapes(self,self.activeshape)
+        DefSplitShapes(self,self.activeshape,self.layoutcompat)
 
         return {'FINISHED'}
 
