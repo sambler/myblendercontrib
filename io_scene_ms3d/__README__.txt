@@ -77,15 +77,15 @@ known issues:
 
   exporter issues:
     - does only export active mesh object
-    - does only export the first existing material, if more than one material
-            is used per mesh
+    - does only export ms3d material
     - does only export the first existing UV texture coordinates,
             if more than one UV texture is used per mesh
-    - does not export keyframes
 
 
 todo:
-- add support for bones and joints and keyframes in exporter
+    - automatic material convertion at export
+    - export options to ms3d joints/animation/extra parts optional
+
 
 ###############################################################################
     exporter:
@@ -142,8 +142,8 @@ todo:
                     .parent_name: 100%
                     .rotation: 100%
                     .position: 100%
-                    .rotation_keyframes: 0% (TODO)
-                    .translation_keyframes: 0% (TODO)
+                    .rotation_keyframes: 100%
+                    .translation_keyframes: 100%
                     .joint_ex
                         Ms3DJointEx
                             .color: 100%

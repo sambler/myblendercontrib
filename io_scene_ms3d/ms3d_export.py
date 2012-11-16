@@ -439,30 +439,35 @@ class Ms3dExporter():
 
         for blender_mesh_object in blender_mesh_objects:
             blender_bones = None
+            blender_action = None
             for blender_modifier in blender_mesh_object.modifiers:
                 if blender_modifier.type == 'ARMATURE' and blender_modifier.object.pose:
                     blender_bones = blender_modifier.object.data.bones
+                    blender_action = blender_modifier.object.animation_data.action
+                    blender_pose_bones = blender_modifier.object.pose.bones
                     break
 
+            ##########################
+            # bones
             blender_bones_ordered = self.build_blender_bone_dependency_order(blender_bones)
             for blender_bone_name in blender_bones_ordered:
                 blender_bone_oject = blender_bones[blender_bone_name]
                 ms3d_joint = Ms3dJoint()
                 ms3d_joint.__index = len(ms3d_model._joints)
 
-                blender_ms3d_joint = blender_bone_oject.ms3d
+                blender_bone_ms3d = blender_bone_oject.ms3d
                 blender_bone = blender_bone_oject
 
-                ms3d_joint.flags = Ms3dUi.flags_to_ms3d(blender_ms3d_joint.flags)
-                if blender_ms3d_joint.comment:
+                ms3d_joint.flags = Ms3dUi.flags_to_ms3d(blender_bone_ms3d.flags)
+                if blender_bone_ms3d.comment:
                     ms3d_joint._comment_object = Ms3dCommentEx()
-                    ms3d_joint._comment_object.comment = blender_ms3d_joint.comment
+                    ms3d_joint._comment_object.comment = blender_bone_ms3d.comment
                     ms3d_joint._comment_object.index = ms3d_joint.__index
 
-                ms3d_joint.joint_ex_object._color = blender_ms3d_joint.color[:]
+                ms3d_joint.joint_ex_object._color = blender_bone_ms3d.color[:]
 
-                if blender_ms3d_joint.name:
-                    ms3d_joint.name = blender_ms3d_joint.name
+                if blender_bone_ms3d.name:
+                    ms3d_joint.name = blender_bone_ms3d.name
                 else:
                     ms3d_joint.name = blender_bone.name
 
@@ -484,6 +489,46 @@ class Ms3dExporter():
 
                 ms3d_model._joints.append(ms3d_joint)
                 blender_to_ms3d_bones[blender_bone.name] = ms3d_joint
+
+            ##########################
+            # animation
+            frames = None
+            frames_loc = set()
+            frames_rot = set()
+
+            for fcurve in blender_action.fcurves:
+                if fcurve.data_path.endswith(".location"):
+                    frames = frames_loc
+                elif fcurve.data_path.endswith(".rotation_euler") or fcurve.data_path.endswith(".rotation_quaternion"):
+                    frames = frames_rot
+
+                for keyframe_point in fcurve.keyframe_points:
+                    frames.add(keyframe_point.co.to_tuple(0)[0])
+
+            frames = set(frames_loc)
+            frames = frames.union(frames_rot)
+
+            frames_sorted = list(frames.intersection(range(blender_scene.frame_start, blender_scene.frame_end + 1)))
+            frames_sorted.sort()
+
+            time_base = 1.0 / (blender_scene.render.fps / blender_scene.render.fps_base)
+
+            frame_temp = blender_scene.frame_current
+            for current_frame in frames_sorted:
+                blender_scene.frame_set(current_frame)
+
+                current_time = current_frame * time_base
+                for blender_bone_name in blender_bones_ordered:
+                    blender_pose_bone = blender_pose_bones[blender_bone_name]
+                    ms3d_joint = blender_to_ms3d_bones[blender_bone_name]
+
+                    loc = blender_pose_bone.location
+                    rot = blender_pose_bone.matrix_basis.to_euler('XZY')
+
+                    ms3d_joint.translation_key_frames.append(Ms3dTranslationKeyframe(current_time, self.joint_correction(loc)))
+                    ms3d_joint.rotation_key_frames.append(Ms3dRotationKeyframe(current_time, self.joint_correction(rot)))
+
+            blender_scene.frame_set(frame_temp)
 
 
     ###########################################################################
