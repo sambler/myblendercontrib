@@ -1788,6 +1788,7 @@ class Ms3dModel:
             Ms3dIo.raise_on_eof(file)
 
             self.sub_version_vertex_extra = Ms3dIo.read_dword(file)
+            _progress.add('SUB_VERSION_VERTEX_EXTRA')
             if self.sub_version_vertex_extra > 0:
                 length = len(self.joints)
                 for i in range(_number_vertices):
@@ -1808,6 +1809,7 @@ class Ms3dModel:
             Ms3dIo.raise_on_eof(file)
 
             self.sub_version_joint_extra = Ms3dIo.read_dword(file)
+            _progress.add('SUB_VERSION_JOINT_EXTRA')
             if self.sub_version_joint_extra > 0:
                 for i in range(_number_joints):
                     self.joints[i]._joint_ex_object = Ms3dJointEx().read(file)
@@ -1816,6 +1818,7 @@ class Ms3dModel:
             Ms3dIo.raise_on_eof(file)
 
             self.sub_version_model_extra = Ms3dIo.read_dword(file)
+            _progress.add('SUB_VERSION_MODEL_EXTRA')
             if self.sub_version_model_extra > 0:
                 self._model_ex_object.read(file)
             _progress.add('MODEL_EXTRA')

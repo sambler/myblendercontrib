@@ -629,24 +629,24 @@ class Ms3dImporter():
                         or ms3d_vertex.vertex_ex_object.bone_ids[2] != Ms3dSpec.NONE_VERTEX_BONE_ID \
                         ):
                     ms3d_vertex_group_ids_weights = []
-                    ms3d_vertex_group_ids_weights.appent(
+                    ms3d_vertex_group_ids_weights.append(
                             (ms3d_vertex.bone_id,
-                            (ms3d_vertex.vertex_ex_object.weight[0] % 100) / 100.0))
+                            float(ms3d_vertex.vertex_ex_object.weights[0] % 100) / 100.0))
                     if ms3d_vertex.vertex_ex_object.bone_ids[0] != Ms3dSpec.NONE_VERTEX_BONE_ID:
-                        ms3d_vertex_group_ids_weights.appent(
+                        ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[0],
-                                (ms3d_vertex.vertex_ex_object.weight[1] % 100) / 100.0))
+                                float(ms3d_vertex.vertex_ex_object.weights[1] % 100) / 100.0))
                     if ms3d_vertex.vertex_ex_object.bone_ids[1] != Ms3dSpec.NONE_VERTEX_BONE_ID:
-                        ms3d_vertex_group_ids_weights.appent(
+                        ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[1],
-                                (ms3d_vertex.vertex_ex_object.weight[2] % 100) / 100.0))
+                                float(ms3d_vertex.vertex_ex_object.weights[2] % 100) / 100.0))
                     if ms3d_vertex.vertex_ex_object.bone_ids[2] != Ms3dSpec.NONE_VERTEX_BONE_ID:
-                        ms3d_vertex_group_ids_weights.appent(
+                        ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[2],
                                 1.0 -
-                                ((ms3d_vertex.vertex_ex_object.weight[0] % 100)
-                                + (ms3d_vertex.vertex_ex_object.weight[1] % 100)
-                                + (ms3d_vertex.vertex_ex_object.weight[2] % 100)) / 100.0
+                                float((ms3d_vertex.vertex_ex_object.weights[0] % 100)
+                                + (ms3d_vertex.vertex_ex_object.weights[1] % 100)
+                                + (ms3d_vertex.vertex_ex_object.weights[2] % 100)) / 100.0
                                 ))
                 else:
                     ms3d_vertex_group_ids_weights = [(ms3d_vertex.bone_id, 1.0), ]
