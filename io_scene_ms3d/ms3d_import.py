@@ -187,7 +187,21 @@ class Ms3dImporter():
 
             print()
             print("##########################################################")
-            print("MS3D -> Blender : [{0}]".format(self.filepath_splitted[1]))
+            #print("MS3D -> Blender : [{0}]".format(self.filepath_splitted[1]))
+            #
+            #read - exception in try block
+            #  type: '<class 'UnicodeEncodeError'>'
+            #  value: ''charmap' codec can't encode characters in position 19-24: character maps to <undefined>'
+            #Traceback (most recent call last):
+            #  File "..\io_scene_ms3d\ms3d_ui.py", line 404, in execute
+            #    return Ms3dImporter(self).read(blender_context)
+            #  File "..\io_scene_ms3d\ms3d_import.py", line 190, in read
+            #    print("MS3D -> Blender : [{0}]".format(self.filepath_splitted[1]))
+            #  File "..\python\lib\encodings\cp437.py", line 19, in encode
+            #    return codecs.charmap_encode(input,self.errors,encoding_map)[0]
+            #UnicodeEncodeError: 'charmap' codec can't encode characters in position 19-24: character maps to <undefined>
+            print("MS3D -> Blender")
+
             print(statistics)
             print("##########################################################")
 
@@ -288,6 +302,10 @@ class Ms3dImporter():
         select_all(False)
         blender_mesh_object.select = True
         blender_scene.objects.active = blender_mesh_object
+
+        ##########################
+        # take this as active object after import
+        self.active_object = blender_mesh_object
 
         ##########################
         # blender stuff:
@@ -631,23 +649,27 @@ class Ms3dImporter():
                     ms3d_vertex_group_ids_weights = []
                     ms3d_vertex_group_ids_weights.append(
                             (ms3d_vertex.bone_id,
-                            float(ms3d_vertex.vertex_ex_object.weights[0] % 100) / 100.0))
+                            float(ms3d_vertex.vertex_ex_object.weights[0] % 101) / 100.0,
+                            ))
                     if ms3d_vertex.vertex_ex_object.bone_ids[0] != Ms3dSpec.NONE_VERTEX_BONE_ID:
                         ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[0],
-                                float(ms3d_vertex.vertex_ex_object.weights[1] % 100) / 100.0))
+                                float(ms3d_vertex.vertex_ex_object.weights[1] % 101) / 100.0
+                                ))
                     if ms3d_vertex.vertex_ex_object.bone_ids[1] != Ms3dSpec.NONE_VERTEX_BONE_ID:
                         ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[1],
-                                float(ms3d_vertex.vertex_ex_object.weights[2] % 100) / 100.0))
+                                float(ms3d_vertex.vertex_ex_object.weights[2] % 101) / 100.0
+                                ))
                     if ms3d_vertex.vertex_ex_object.bone_ids[2] != Ms3dSpec.NONE_VERTEX_BONE_ID:
                         ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[2],
                                 1.0 -
-                                float((ms3d_vertex.vertex_ex_object.weights[0] % 100)
-                                + (ms3d_vertex.vertex_ex_object.weights[1] % 100)
-                                + (ms3d_vertex.vertex_ex_object.weights[2] % 100)) / 100.0
+                                float((ms3d_vertex.vertex_ex_object.weights[0] % 101)
+                                + (ms3d_vertex.vertex_ex_object.weights[1] % 101)
+                                + (ms3d_vertex.vertex_ex_object.weights[2] % 101)) / 100.0
                                 ))
+
                 else:
                     ms3d_vertex_group_ids_weights = [(ms3d_vertex.bone_id, 1.0), ]
 
@@ -714,6 +736,13 @@ class Ms3dImporter():
 
         ##########################
         # ms3d_joint to blender_edit_bone
+        if self.options.override_joint_size:
+            joint_length = self.options.joint_length
+        else:
+            joint_length = ms3d_model.model_ex_object.joint_size
+        if joint_length < 0.01:
+            joint_length = 0.01
+
         blender_scene.objects.active = blender_armature_object
         enable_edit_mode(True)
         for ms3d_joint in ms3d_joints_ordered:
@@ -735,7 +764,7 @@ class Ms3dImporter():
             vector_tail_end_up.normalize()
             vector_tail_end_dir.normalize()
             blender_edit_bone.tail = blender_edit_bone.head \
-                    + self.geometry_correction(vector_tail_end_dir)
+                    + self.geometry_correction(vector_tail_end_dir * joint_length)
             blender_edit_bone.align_roll(self.geometry_correction(vector_tail_end_up))
 
             if ms3d_joint.parent_name:

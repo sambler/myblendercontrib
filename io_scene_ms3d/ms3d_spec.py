@@ -282,7 +282,7 @@ class Ms3dIo:
             else:
                 raw = 0
 
-            file.write(pack('<b', raw % 255))
+            file.write(pack('<b', raw % 256))
 
 
 ###############################################################################
@@ -1632,11 +1632,19 @@ class Ms3dModel:
 
         print("sub_version_vertex_extra={0}".format(
                 self.sub_version_vertex_extra))
-        print("vertex_ex={0}".format(self.vertex_ex))
+        print("vertex_ex=[", end="")
+        if self.vertex_ex:
+            for obj in self.vertex_ex:
+                print("{0}".format(obj), end="")
+        print("]")
 
         print("sub_version_joint_extra={0}".format(
                 self.sub_version_joint_extra))
-        print("joint_ex={0}".format(self.joint_ex))
+        print("joint_ex=[", end="")
+        if self.joint_ex:
+            for obj in self.joint_ex:
+                print("{0}".format(obj), end="")
+        print("]")
 
         print("sub_version_model_extra={0}".format(
                 self.sub_version_model_extra))

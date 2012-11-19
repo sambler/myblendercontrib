@@ -216,6 +216,8 @@ class Ms3dExporter():
         self.create_geometry(blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones)
 
 
+
+
     ###########################################################################
     def create_geometry(self, blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones):
         blender_scene = blender_context.scene
@@ -227,6 +229,11 @@ class Ms3dExporter():
 
         for blender_mesh_object in blender_mesh_objects:
             blender_mesh = blender_mesh_object.data
+
+            ms3d_model._model_ex_object.joint_size = blender_mesh.ms3d.joint_size
+            ms3d_model._model_ex_object.alpha_ref = blender_mesh.ms3d.alpha_ref
+            ms3d_model._model_ex_object.transparency_mode = Ms3dUi.transparency_mode_to_ms3d(
+                                blender_mesh.ms3d.transparency_mode)
 
             ##########################
             # prepare ms3d groups if available

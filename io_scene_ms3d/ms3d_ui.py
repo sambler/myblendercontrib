@@ -222,11 +222,7 @@ class Ms3dUi:
 
 
     ###########################################################################
-    PROP_DEFAULT_SCALE = 1.0
-    PROP_MIN_SCALE = 0.001
-    PROP_MAX_SCALE = 1000.0
-    PROP_SMIN_SCALE = 0.01
-    PROP_SMAX_SCALE = 100.0
+    PROP_DEFAULT_OVERRIDE_JOINT_SIZE = False
 
 
     ###########################################################################
@@ -344,6 +340,20 @@ class Ms3dImportOperator(Operator, ImportHelper):
             default=Ms3dUi.PROP_DEFAULT_ANIMATION_ROTATION,
             )
 
+    prop_override_joint_size = BoolProperty(
+            name=ms3d_str['PROP_NAME_OVERRIDE_JOINT_SIZE'],
+            description=ms3d_str['PROP_DESC_OVERRIDE_JOINT_SIZE'],
+            default=Ms3dUi.PROP_DEFAULT_OVERRIDE_JOINT_SIZE,
+            )
+
+    prop_joint_size = FloatProperty(
+            name=ms3d_str['PROP_NAME_IMPORT_JOINT_SIZE'],
+            description=ms3d_str['PROP_DESC_IMPORT_JOINT_SIZE'],
+            min=0.01, max=10.0, precision=2, step=0.1,
+            default=1.0,
+            subtype='FACTOR',
+            #options={'HIDDEN', },
+            )
 
     @property
     def is_rotation_mode_euler(self):
@@ -354,6 +364,14 @@ class Ms3dImportOperator(Operator, ImportHelper):
     def is_rotation_mode_quaternion(self):
         return (Ms3dUi.PROP_ITEM_ROTATION_MODE_QUATERNION \
                 in self.prop_rotation_mode)
+
+    @property
+    def override_joint_size(self):
+        return self.prop_override_joint_size
+
+    @property
+    def joint_length(self):
+        return self.prop_joint_size
 
 
     # draw the option panel
@@ -373,6 +391,11 @@ class Ms3dImportOperator(Operator, ImportHelper):
         box.prop(self, 'prop_animation')
         if (self.prop_animation):
             box.prop(self, 'prop_rotation_mode', icon=Ms3dUi.ICON_ROTATION_MODE, expand=False)
+            box.prop(self, 'prop_override_joint_size')
+            if (self.prop_override_joint_size):
+                col = box.column()
+                row = col.row()
+                row.prop(self, 'prop_joint_size')
 
     # entrypoint for MS3D -> blender
     def execute(self, blender_context):
