@@ -736,10 +736,10 @@ class Ms3dImporter():
 
         ##########################
         # ms3d_joint to blender_edit_bone
-        if self.options.override_joint_size:
-            joint_length = self.options.joint_length
-        else:
+        if ms3d_model.model_ex_object and not self.options.override_joint_size:
             joint_length = ms3d_model.model_ex_object.joint_size
+        else:
+            joint_length = self.options.joint_length
         if joint_length < 0.01:
             joint_length = 0.01
 
