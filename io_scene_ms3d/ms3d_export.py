@@ -35,6 +35,7 @@ import io
 from math import (
         radians,
         pi,
+        trunc,
         )
 from mathutils import (
         Vector,
@@ -137,16 +138,19 @@ class Ms3dExporter():
 
             t2 = time()
 
-            self.file = None
+            #self.file = None
             try:
                 # write ms3d file to disk
-                self.file = io.FileIO(self.options.filepath, "wb")
-
-                ms3d_model.write(self.file)
-                self.file.flush()
-            finally:
-                if self.file is not None:
+                #self.file = io.FileIO(self.options.filepath, "wb")
+                with io.FileIO(self.options.filepath, "wb") as self.file:
+                    ms3d_model.write(self.file)
+                    self.file.flush()
                     self.file.close()
+            finally:
+                # close ms3d file
+                #if self.file is not None:
+                #    self.file.close()
+                pass
 
             # if option is set, this time will enlargs the io time
             if (self.options.prop_verbose):
@@ -214,8 +218,6 @@ class Ms3dExporter():
 
         self.create_animation(blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones)
         self.create_geometry(blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones)
-
-
 
 
     ###########################################################################
@@ -322,7 +324,6 @@ class Ms3dExporter():
                     if layer_deform:
                         blender_vertex_group_ids = bmv[layer_deform]
                         if blender_vertex_group_ids:
-                            temp_weight = 0
                             count = 0
                             bone_ids = []
                             weights = []
@@ -332,26 +333,51 @@ class Ms3dExporter():
                                 if ms3d_joint:
                                     if count == 0:
                                         ms3d_vertex.bone_id = ms3d_joint.__index
-                                        temp_weight = blender_weight
+                                        weights.append(int(blender_weight * 100.0))
                                     elif count == 1:
                                         bone_ids.append(ms3d_joint.__index)
-                                        weights.append(int(temp_weight * 100.0))
                                         weights.append(int(blender_weight * 100.0))
                                     elif count == 2:
                                         bone_ids.append(ms3d_joint.__index)
                                         weights.append(int(blender_weight * 100.0))
-                                    #elif count == 3:
-                                    #    bone_ids.append(ms3d_joint.__index)
-
-                                # only first three weights will be supported
+                                    elif count == 3:
+                                        bone_ids.append(ms3d_joint.__index)
+                                        self.options.report(
+                                                {'WARNING', 'INFO'},
+                                                ms3d_str['WARNING_EXPORT_SKIP_WEIGHT'])
+                                    else:
+                                        # only first three weights will be supported / four bones
+                                        self.options.report(
+                                                {'WARNING', 'INFO'},
+                                                ms3d_str['WARNING_EXPORT_SKIP_WEIGHT_EX'])
+                                        break
                                 count+= 1
-                                if count > 3:
-                                    break
 
                             while len(bone_ids) < 3:
                                 bone_ids.append(Ms3dSpec.DEFAULT_VERTEX_BONE_ID)
                             while len(weights) < 3:
                                 weights.append(0)
+
+                            # normalize weights to 100
+                            if self.options.normalize_weights:
+                                weight_sum = 0
+                                for weight in weights:
+                                    weight_sum += weight
+
+                                if weight_sum > 100:
+                                    weight_normalize = 100 / weight_sum
+                                else:
+                                    weight_normalize = 1
+
+                                weight_sum = 100
+                                for index, weight in enumerate(weights):
+                                    if index >= count-1:
+                                        weights[index] = weight_sum
+                                        break
+                                    normalized_weight = int(weight * weight_normalize)
+                                    weight_sum -= normalized_weight
+                                    weights[index] = normalized_weight
+
                             ms3d_vertex._vertex_ex_object._bone_ids = tuple(bone_ids)
                             ms3d_vertex._vertex_ex_object._weights = tuple(weights)
 
@@ -448,7 +474,7 @@ class Ms3dExporter():
         blender_scene = blender_context.scene
         ms3d_model.animation_fps = blender_scene.render.fps * blender_scene.render.fps_base
         ms3d_model.number_total_frames = (blender_scene.frame_end - blender_scene.frame_start) + 1
-        ms3d_model.current_time = (blender_scene.frame_current - blender_scene.frame_start)\
+        ms3d_model.current_time = ((blender_scene.frame_current - blender_scene.frame_start) + 1)\
                 / (blender_scene.render.fps * blender_scene.render.fps_base)
 
         base_bone_correction = Matrix.Rotation(pi / 2, 4, 'Z')
@@ -456,12 +482,14 @@ class Ms3dExporter():
         for blender_mesh_object in blender_mesh_objects:
             blender_bones = None
             blender_action = None
+            blender_nla_tracks = None
             for blender_modifier in blender_mesh_object.modifiers:
                 if blender_modifier.type == 'ARMATURE' and blender_modifier.object.pose:
                     blender_bones = blender_modifier.object.data.bones
+                    blender_pose_bones = blender_modifier.object.pose.bones
                     if blender_modifier.object.animation_data:
                         blender_action = blender_modifier.object.animation_data.action
-                    blender_pose_bones = blender_modifier.object.pose.bones
+                        blender_nla_tracks =  blender_modifier.object.animation_data.nla_tracks
                     break
 
             ##########################
@@ -510,23 +538,38 @@ class Ms3dExporter():
             ##########################
             # animation
             frames = None
-            frames_loc = set()
-            frames_rot = set()
+            frames_location = set()
+            frames_rotation = set()
+            frames_scale = set()
 
             if blender_action:
-                for fcurve in blender_action.fcurves:
-                    if fcurve.data_path.endswith(".location"):
-                        frames = frames_loc
-                    elif fcurve.data_path.endswith(".rotation_euler") or fcurve.data_path.endswith(".rotation_quaternion"):
-                        frames = frames_rot
+                self.fill_keyframe_sets(
+                        blender_action.fcurves,
+                        frames_location, frames_rotation, frames_scale,
+                        0)
 
-                    for keyframe_point in fcurve.keyframe_points:
-                        frames.add(keyframe_point.co.to_tuple(0)[0])
+            if blender_nla_tracks:
+                for nla_track in blender_nla_tracks:
+                    if nla_track.mute:
+                        continue
+                    for strip in nla_track.strips:
+                        if strip.mute:
+                            continue
+                        frame_correction = strip.frame_start - strip.action_frame_start
+                        self.fill_keyframe_sets(
+                                strip.action.fcurves,
+                                frames_location, frames_rotation, frames_scale,
+                                frame_correction)
 
-            frames = set(frames_loc)
-            frames = frames.union(frames_rot)
+            frames = set(frames_location)
+            frames = frames.union(frames_rotation)
+            frames = frames.union(frames_scale)
 
-            frames_sorted = list(frames.intersection(range(blender_scene.frame_start, blender_scene.frame_end + 1)))
+            frames_sorted = list(
+                    frames.intersection(
+                            range(blender_scene.frame_start, blender_scene.frame_end + 1)
+                            )
+                    )
             frames_sorted.sort()
 
             time_base = 1.0 / (blender_scene.render.fps / blender_scene.render.fps_base)
@@ -537,14 +580,23 @@ class Ms3dExporter():
 
                 current_time = current_frame * time_base
                 for blender_bone_name in blender_bones_ordered:
+                    blender_bone = blender_bones[blender_bone_name]
                     blender_pose_bone = blender_pose_bones[blender_bone_name]
                     ms3d_joint = blender_to_ms3d_bones[blender_bone_name]
 
                     loc = blender_pose_bone.location
                     rot = blender_pose_bone.matrix_basis.to_euler('XZY')
 
-                    ms3d_joint.translation_key_frames.append(Ms3dTranslationKeyframe(current_time, self.joint_correction(loc)))
-                    ms3d_joint.rotation_key_frames.append(Ms3dRotationKeyframe(current_time, self.joint_correction(rot)))
+                    ms3d_joint.translation_key_frames.append(
+                            Ms3dTranslationKeyframe(
+                                    current_time, self.joint_correction(loc)
+                                    )
+                            )
+                    ms3d_joint.rotation_key_frames.append(
+                            Ms3dRotationKeyframe(
+                                    current_time, self.joint_correction(rot)
+                                    )
+                            )
 
             blender_scene.frame_set(frame_temp)
 
@@ -583,7 +635,9 @@ class Ms3dExporter():
         markerComment = "material group conflict dissolver ({})".format(ms3d_material.name)
 
         for ms3d_group in ms3d_model._groups:
-            if ms3d_group.name == markerName and ms3d_group._comment_object and ms3d_group._comment_object.comment == markerComment:
+            if ms3d_group.name == markerName \
+                    and ms3d_group._comment_object \
+                    and ms3d_group._comment_object.comment == markerComment:
                 return ms3d_group
 
         ms3d_group = Ms3dGroup()
@@ -682,6 +736,26 @@ class Ms3dExporter():
                         blender_bones_ordered,
                         blender_bones_children,
                         blender_bone_name)
+
+    ###########################################################################
+    def fill_keyframe_sets(self,
+            fcurves,
+            frames_location, frames_rotation, frames_scale,
+            frame_correction):
+        for fcurve in fcurves:
+            if fcurve.data_path.endswith(".location"):
+                frames = frames_location
+            elif fcurve.data_path.endswith(".rotation_euler"):
+                frames = frames_rotation
+            elif fcurve.data_path.endswith(".rotation_quaternion"):
+                frames = frames_rotation
+            elif fcurve.data_path.endswith(".scale"):
+                frames = frames_scale
+            else:
+                pass
+
+            for keyframe_point in fcurve.keyframe_points:
+                frames.add(keyframe_point.co.to_tuple(0)[0] + frame_correction)
 
 
 ###############################################################################

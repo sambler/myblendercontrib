@@ -59,6 +59,7 @@ else:
     from io_scene_ms3d.ms3d_utils import (
             enable_edit_mode,
             get_edge_split_modifier_add_if,
+            set_sence_to_metric,
             )
     #from io_scene_ms3d.ms3d_import import ( Ms3dImporter, )
     #from io_scene_ms3d.ms3d_export import ( Ms3dExporter, )
@@ -223,6 +224,7 @@ class Ms3dUi:
 
     ###########################################################################
     PROP_DEFAULT_OVERRIDE_JOINT_SIZE = False
+    PROP_DEFAULT_JOINT_SIZE = 0.01
 
 
     ###########################################################################
@@ -261,7 +263,7 @@ class Ms3dUi:
 
     ###########################################################################
     PROP_DEFAULT_ANIMATION = True
-
+    PROP_DEFAULT_NORMALIZE_WEIGHTS = True
 
     ###########################################################################
     PROP_ITEM_ROTATION_MODE_EULER = '0'
@@ -350,7 +352,7 @@ class Ms3dImportOperator(Operator, ImportHelper):
             name=ms3d_str['PROP_NAME_IMPORT_JOINT_SIZE'],
             description=ms3d_str['PROP_DESC_IMPORT_JOINT_SIZE'],
             min=0.01, max=10.0, precision=2, step=0.1,
-            default=1.0,
+            default=Ms3dUi.PROP_DEFAULT_JOINT_SIZE,
             subtype='FACTOR',
             #options={'HIDDEN', },
             )
@@ -491,6 +493,13 @@ class Ms3dExportOperator(Operator, ExportHelper):
             default=Ms3dUi.PROP_DEFAULT_APPLY_MODIFIER_MODE,
             )
 
+    prop_normalize_weights = BoolProperty(
+            name=ms3d_str['PROP_NAME_NORMALIZE_WEIGHTS'],
+            description=ms3d_str['PROP_DESC_NORMALIZE_WEIGHTS'],
+            default=Ms3dUi.PROP_DEFAULT_NORMALIZE_WEIGHTS,
+            )
+
+
     @property
     def handle_animation(self):
         return (Ms3dUi.PROP_ITEM_OBJECT_ANIMATION in self.prop_objects)
@@ -511,6 +520,9 @@ class Ms3dExportOperator(Operator, ExportHelper):
     def handle_groups(self):
         return (Ms3dUi.PROP_ITEM_OBJECT_GROUP in self.prop_objects)
 
+    @property
+    def normalize_weights(self):
+        return self.prop_normalize_weights
 
     ##EXPORT_ACTIVE_ONLY:
     ##limit availability to only active mesh object
@@ -540,6 +552,10 @@ class Ms3dExportOperator(Operator, ExportHelper):
         box.box().label(context.active_object.name)
         ##
 
+        box = layout.box()
+        box.label(ms3d_str['LABEL_NAME_ANIMATION'],
+                icon=Ms3dUi.ICON_ANIMATION)
+        box.prop(self, 'prop_normalize_weights')
         """
         box.prop(self, 'prop_objects', icon='MESH_DATA', expand=True)
 
@@ -1520,9 +1536,38 @@ class Ms3dSmoothingGroupPanel(Panel):
                 ).smoothing_group_index = 0
 
 
+###############################################################################
+class Ms3dSetSceneToMetricOperator(Operator):
+    """ . """
+    bl_idname = 'io_scene_ms3d.set_sence_to_metric'
+    bl_label = ms3d_str['BL_LABEL_SET_SCENE_TO_METRIC']
+    bl_description = ms3d_str['BL_DESC_SET_SCENE_TO_METRIC']
+
+
+    #
+    @classmethod
+    def poll(cls, context):
+        return True
+
+
+    # entrypoint for option
+    def execute(self, context):
+        return self.set_sence_to_metric(context)
+
+    # entrypoint for option via UI
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+
+    ###########################################################################
+    def set_sence_to_metric(self, context):
+        set_sence_to_metric(context)
+        return {"FINISHED"}
+
 
 ###############################################################################
 def register():
+    register_class(Ms3dSetSceneToMetricOperator)
     register_class(Ms3dGroupProperties)
     register_class(Ms3dModelProperties)
     register_class(Ms3dArmatureProperties)
@@ -1541,6 +1586,7 @@ def unregister():
     unregister_class(Ms3dArmatureProperties)
     unregister_class(Ms3dModelProperties)
     unregister_class(Ms3dGroupProperties)
+    unregister_class(Ms3dSetSceneToMetricOperator)
 
 def inject_properties():
     Mesh.ms3d = PointerProperty(type=Ms3dModelProperties)

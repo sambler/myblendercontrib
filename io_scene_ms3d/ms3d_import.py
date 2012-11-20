@@ -80,6 +80,7 @@ else:
             pre_setup_environment,
             post_setup_environment,
             get_edge_split_modifier_add_if,
+            set_sence_to_metric,
             )
     from io_scene_ms3d.ms3d_ui import (
             Ms3dUi,
@@ -123,17 +124,19 @@ class Ms3dImporter():
             # create an empty ms3d template
             ms3d_model = Ms3dModel(self.filepath_splitted[1])
 
-            self.file = None
+            #self.file = None
             try:
                 # open ms3d file
-                self.file = io.FileIO(self.options.filepath, 'rb')
-
-                # read and inject ms3d data from disk to internal structure
-                ms3d_model.read(self.file)
+                #self.file = io.FileIO(self.options.filepath, 'rb')
+                with io.FileIO(self.options.filepath, 'rb') as self.file:
+                    # read and inject ms3d data from disk to internal structure
+                    ms3d_model.read(self.file)
+                    self.file.close()
             finally:
                 # close ms3d file
-                if self.file is not None:
-                    self.file.close()
+                #if self.file is not None:
+                #    self.file.close()
+                pass
 
             # if option is set, this time will enlargs the io time
             if self.options.prop_verbose:
@@ -152,34 +155,7 @@ class Ms3dImporter():
                 # finalize/restore environment
                 if self.options.prop_unit_mm:
                     # set metrics
-                    blender_scene.unit_settings.system = 'METRIC'
-                    blender_scene.unit_settings.system_rotation = 'DEGREES'
-                    blender_scene.unit_settings.scale_length = 0.001 #1.0mm
-                    blender_scene.unit_settings.use_separate = False
-                    blender_context.tool_settings.normal_size = 1.0 # 1.0mm
-
-                    ## set all 3D views to texture shaded
-                    ## and set up the clipping
-                    #if self.has_textures:
-                    #    viewport_shade = 'TEXTURED'
-                    #else:
-                    #    viewport_shade = 'SOLID'
-
-                    for screen in blender_context.blend_data.screens:
-                        for area in screen.areas:
-                            if (area.type != 'VIEW_3D'):
-                                continue
-
-                            for space in area.spaces:
-                                if (space.type != 'VIEW_3D'):
-                                    continue
-
-                                #space.viewport_shade = viewport_shade
-                                ##screen.scene.game_settings.material_mode \
-                                ##        = 'MULTITEXTURE'
-                                space.show_textured_solid = True
-                                space.clip_start = 0.1 # 0.1mm
-                                space.clip_end = 1000000.0 # 1km
+                    set_sence_to_metric(blender_context)
 
                 blender_scene.update()
 

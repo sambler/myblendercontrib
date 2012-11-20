@@ -58,6 +58,9 @@ ms3d_str = {
                 " ~{1:.4}s, converter: ~{2:.4}s)",
         'SUMMARY_EXPORT': "elapsed time: {0:.4}s (converter:"\
                 " ~{1:.4}s, media io: ~{2:.4}s)",
+        'WARNING_EXPORT_SKIP_WEIGHT' : "skipped weight",
+        'WARNING_EXPORT_SKIP_WEIGHT_EX' : "skipped weight:"\
+                " limit exceeded",
 
         ###############################
         'TEXT_OPERATOR': "MilkShape3D MS3D (.ms3d)",
@@ -230,6 +233,12 @@ ms3d_str = {
         'PROP_DESC_OVERRIDE_JOINT_SIZE': "use value of 'Joint Size', the value of the ms3d file is ignored for representation.",
         'PROP_NAME_IMPORT_JOINT_SIZE': "Joint Size",
         'PROP_DESC_IMPORT_JOINT_SIZE': "size of the joint representation in blender",
+        'BL_LABEL_SET_SCENE_TO_METRIC' : "ms3d: Set Scene to 'Metric' [1 mm]",
+        'BL_DESC_SET_SCENE_TO_METRIC' : "set Scene | Units to Metric (1 Unit = 1 mm),"\
+                " Display | Textured Solid,"\
+                " View | Clip (0.001 mm ... 1 km)",
+        'PROP_NAME_NORMALIZE_WEIGHTS' : "Normalize Weights",
+        'PROP_DESC_NORMALIZE_WEIGHTS' : "normalize weights to 100%, weight' = weight(i) * (weight1 + weight2 + weight3) / 100.0",
 
         'PROP_NAME_': "Name",
         'PROP_DESC_': "Description",
