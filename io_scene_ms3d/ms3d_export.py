@@ -216,6 +216,8 @@ class Ms3dExporter():
         self.create_geometry(blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones)
 
 
+
+
     ###########################################################################
     def create_geometry(self, blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones):
         blender_scene = blender_context.scene
@@ -227,6 +229,11 @@ class Ms3dExporter():
 
         for blender_mesh_object in blender_mesh_objects:
             blender_mesh = blender_mesh_object.data
+
+            ms3d_model._model_ex_object.joint_size = blender_mesh.ms3d.joint_size
+            ms3d_model._model_ex_object.alpha_ref = blender_mesh.ms3d.alpha_ref
+            ms3d_model._model_ex_object.transparency_mode = Ms3dUi.transparency_mode_to_ms3d(
+                                blender_mesh.ms3d.transparency_mode)
 
             ##########################
             # prepare ms3d groups if available
@@ -317,6 +324,8 @@ class Ms3dExporter():
                         if blender_vertex_group_ids:
                             temp_weight = 0
                             count = 0
+                            bone_ids = []
+                            weights = []
                             for blender_index, blender_weight in blender_vertex_group_ids.items():
                                 ms3d_joint = blender_to_ms3d_bones.get(
                                         blender_mesh_object.vertex_groups[blender_index].name)
@@ -325,19 +334,26 @@ class Ms3dExporter():
                                         ms3d_vertex.bone_id = ms3d_joint.__index
                                         temp_weight = blender_weight
                                     elif count == 1:
-                                        ms3d_vertex._vertex_ex_object.bone_ids[0] = ms3d_joint.__index
-                                        ms3d_vertex._vertex_ex_object.weights[0] = temp_weight * 100
-                                        ms3d_vertex._vertex_ex_object.weights[1] = blender_weight * 100
+                                        bone_ids.append(ms3d_joint.__index)
+                                        weights.append(int(temp_weight * 100.0))
+                                        weights.append(int(blender_weight * 100.0))
                                     elif count == 2:
-                                        ms3d_vertex._vertex_ex_object.bone_ids[1] = ms3d_joint.__index
-                                        ms3d_vertex._vertex_ex_object.weights[2] = blender_weight * 100
+                                        bone_ids.append(ms3d_joint.__index)
+                                        weights.append(int(blender_weight * 100.0))
                                     #elif count == 3:
-                                    #    ms3d_vertex._vertex_ex_object.bone_ids[2] = ms3d_joint.__index
+                                    #    bone_ids.append(ms3d_joint.__index)
 
                                 # only first three weights will be supported
                                 count+= 1
                                 if count > 3:
                                     break
+
+                            while len(bone_ids) < 3:
+                                bone_ids.append(Ms3dSpec.DEFAULT_VERTEX_BONE_ID)
+                            while len(weights) < 3:
+                                weights.append(0)
+                            ms3d_vertex._vertex_ex_object._bone_ids = tuple(bone_ids)
+                            ms3d_vertex._vertex_ex_object._weights = tuple(weights)
 
                     ms3d_model._vertices.append(ms3d_vertex)
                     blender_to_ms3d_vertices[bmv] = ms3d_vertex
@@ -443,7 +459,8 @@ class Ms3dExporter():
             for blender_modifier in blender_mesh_object.modifiers:
                 if blender_modifier.type == 'ARMATURE' and blender_modifier.object.pose:
                     blender_bones = blender_modifier.object.data.bones
-                    blender_action = blender_modifier.object.animation_data.action
+                    if blender_modifier.object.animation_data:
+                        blender_action = blender_modifier.object.animation_data.action
                     blender_pose_bones = blender_modifier.object.pose.bones
                     break
 
@@ -496,14 +513,15 @@ class Ms3dExporter():
             frames_loc = set()
             frames_rot = set()
 
-            for fcurve in blender_action.fcurves:
-                if fcurve.data_path.endswith(".location"):
-                    frames = frames_loc
-                elif fcurve.data_path.endswith(".rotation_euler") or fcurve.data_path.endswith(".rotation_quaternion"):
-                    frames = frames_rot
+            if blender_action:
+                for fcurve in blender_action.fcurves:
+                    if fcurve.data_path.endswith(".location"):
+                        frames = frames_loc
+                    elif fcurve.data_path.endswith(".rotation_euler") or fcurve.data_path.endswith(".rotation_quaternion"):
+                        frames = frames_rot
 
-                for keyframe_point in fcurve.keyframe_points:
-                    frames.add(keyframe_point.co.to_tuple(0)[0])
+                    for keyframe_point in fcurve.keyframe_points:
+                        frames.add(keyframe_point.co.to_tuple(0)[0])
 
             frames = set(frames_loc)
             frames = frames.union(frames_rot)
