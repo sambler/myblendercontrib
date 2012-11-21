@@ -54,38 +54,38 @@ from time import (
 
 # To support reload properly, try to access a package var,
 # if it's there, reload everything
-if ('bpy' in locals()):
-    import imp
-    if 'io_scene_ms3d.ms3d_strings' in locals():
-        imp.reload(io_scene_ms3d.ms3d_strings)
-    if 'io_scene_ms3d.ms3d_spec' in locals():
-        imp.reload(io_scene_ms3d.ms3d_spec)
-    if 'io_scene_ms3d.ms3d_utils' in locals():
-        imp.reload(io_scene_ms3d.ms3d_utils)
-    if 'io_scene_ms3d.ms3d_ui' in locals():
-        imp.reload(io_scene_ms3d.ms3d_ui)
-    pass
-else:
-    from io_scene_ms3d.ms3d_strings import (
-            ms3d_str,
-            )
-    from io_scene_ms3d.ms3d_spec import (
-            Ms3dSpec,
-            Ms3dModel,
-            )
-    from io_scene_ms3d.ms3d_utils import (
-            select_all,
-            enable_pose_mode,
-            enable_edit_mode,
-            pre_setup_environment,
-            post_setup_environment,
-            get_edge_split_modifier_add_if,
-            set_sence_to_metric,
-            )
-    from io_scene_ms3d.ms3d_ui import (
-            Ms3dUi,
-            )
-    pass
+#if ('bpy' in locals()):
+#    import imp
+#    if 'io_scene_ms3d.ms3d_strings' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_strings)
+#    if 'io_scene_ms3d.ms3d_spec' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_spec)
+#    if 'io_scene_ms3d.ms3d_utils' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_utils)
+#    if 'io_scene_ms3d.ms3d_ui' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_ui)
+#    pass
+#else:
+from io_scene_ms3d.ms3d_strings import (
+        ms3d_str,
+        )
+from io_scene_ms3d.ms3d_spec import (
+        Ms3dSpec,
+        Ms3dModel,
+        )
+from io_scene_ms3d.ms3d_utils import (
+        select_all,
+        enable_pose_mode,
+        enable_edit_mode,
+        pre_setup_environment,
+        post_setup_environment,
+        get_edge_split_modifier_add_if,
+        set_sence_to_metric,
+        )
+from io_scene_ms3d.ms3d_ui import (
+        Ms3dUi,
+        )
+#    pass
 
 
 #import blender stuff
@@ -674,7 +674,8 @@ class Ms3dImporter():
 
         ##########################
         # bring joints in the correct order
-        ms3d_joints_ordered = self.build_ms3d_joint_dependency_order(ms3d_model.joints)
+        ms3d_joints_ordered = []
+        self.build_ms3d_joint_dependency_order(ms3d_model.joints, ms3d_joints_ordered)
 
         ##########################
         # prepare joint data for later use
@@ -797,7 +798,7 @@ class Ms3dImporter():
         # ==> "bpy.ops.graph.euler_filter()"
         # but this option is only available for Euler rotation f-curves!
         #
-        for ms3d_joint_name, ms3d_joint  in ms3d_joint_by_name.items():
+        for ms3d_joint_name, ms3d_joint in ms3d_joint_by_name.items():
             blender_pose_bone = blender_armature_object.pose.bones.get(
                     ms3d_joint.blender_bone_name)
             if blender_pose_bone is None:
@@ -857,7 +858,7 @@ class Ms3dImporter():
 
 
     ###########################################################################
-    def build_ms3d_joint_dependency_order(self, ms3d_joints):
+    def build_ms3d_joint_dependency_order(self, ms3d_joints, ms3d_joints_ordered):
         ms3d_joints_children = {"": {}}
         for ms3d_joint in ms3d_joints:
             if ms3d_joint.parent_name:
@@ -869,11 +870,12 @@ class Ms3dImporter():
 
             ms3d_joint_children[ms3d_joint.name] = ms3d_joint
 
-        ms3d_joints_ordered = []
         self.traverse_dependencies(
                 ms3d_joints_ordered,
                 ms3d_joints_children,
                 "")
+
+
         return ms3d_joints_ordered
 
 

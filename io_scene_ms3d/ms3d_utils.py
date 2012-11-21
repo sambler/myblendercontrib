@@ -38,16 +38,16 @@ from os import (
 
 # To support reload properly, try to access a package var,
 # if it's there, reload everything
-if ('bpy' in locals()):
-    import imp
-    if 'io_scene_ms3d.ms3d_strings' in locals():
-        imp.reload(io_scene_ms3d.ms3d_strings)
-    pass
-else:
-    from io_scene_ms3d.ms3d_strings import (
-            ms3d_str,
-            )
-    pass
+#if ('bpy' in locals()):
+#    import imp
+#    if 'io_scene_ms3d.ms3d_strings' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_strings)
+#    pass
+#else:
+from io_scene_ms3d.ms3d_strings import (
+        ms3d_str,
+        )
+#    pass
 
 
 #import blender stuff

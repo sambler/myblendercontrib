@@ -55,50 +55,50 @@ from time import (
 
 # To support reload properly, try to access a package var,
 # if it's there, reload everything
-if ('bpy' in locals()):
-    import imp
-    if 'io_scene_ms3d.ms3d_strings' in locals():
-        imp.reload(io_scene_ms3d.ms3d_strings)
-    if 'io_scene_ms3d.ms3d_spec' in locals():
-        imp.reload(io_scene_ms3d.ms3d_spec)
-    if 'io_scene_ms3d.ms3d_utils' in locals():
-        imp.reload(io_scene_ms3d.ms3d_utils)
-    if 'io_scene_ms3d.ms3d_ui' in locals():
-        imp.reload(io_scene_ms3d.ms3d_ui)
-    pass
-else:
-    from io_scene_ms3d.ms3d_strings import (
-            ms3d_str,
-            )
-    from io_scene_ms3d.ms3d_spec import (
-            Ms3dSpec,
-            Ms3dModel,
-            Ms3dModelEx,
-            Ms3dVertex,
-            Ms3dVertexEx2,
-            Ms3dTriangle,
-            Ms3dGroup,
-            Ms3dMaterial,
-            Ms3dJoint,
-            Ms3dJointEx,
-            Ms3dRotationKeyframe,
-            Ms3dTranslationKeyframe,
-            Ms3dComment,
-            Ms3dCommentEx,
-            )
-    from io_scene_ms3d.ms3d_utils import (
-            select_all,
-            enable_pose_mode,
-            enable_edit_mode,
-            pre_setup_environment,
-            post_setup_environment,
-            rotation_matrix,
-            matrix_difference,
-            )
-    from io_scene_ms3d.ms3d_ui import (
-            Ms3dUi,
-            )
-    pass
+#if ('bpy' in locals()):
+#    import imp
+#    if 'io_scene_ms3d.ms3d_strings' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_strings)
+#    if 'io_scene_ms3d.ms3d_spec' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_spec)
+#    if 'io_scene_ms3d.ms3d_utils' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_utils)
+#    if 'io_scene_ms3d.ms3d_ui' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_ui)
+#    pass
+#else:
+from io_scene_ms3d.ms3d_strings import (
+        ms3d_str,
+        )
+from io_scene_ms3d.ms3d_spec import (
+        Ms3dSpec,
+        Ms3dModel,
+        Ms3dModelEx,
+        Ms3dVertex,
+        Ms3dVertexEx2,
+        Ms3dTriangle,
+        Ms3dGroup,
+        Ms3dMaterial,
+        Ms3dJoint,
+        Ms3dJointEx,
+        Ms3dRotationKeyframe,
+        Ms3dTranslationKeyframe,
+        Ms3dComment,
+        Ms3dCommentEx,
+        )
+from io_scene_ms3d.ms3d_utils import (
+        select_all,
+        enable_pose_mode,
+        enable_edit_mode,
+        pre_setup_environment,
+        post_setup_environment,
+        rotation_matrix,
+        matrix_difference,
+        )
+from io_scene_ms3d.ms3d_ui import (
+        Ms3dUi,
+        )
+#    pass
 
 
 #import blender stuff
@@ -261,16 +261,12 @@ class Ms3dExporter():
             # create a complete copy of mesh and bend object data
             # to be able to apply operations to it.
 
-            # get a temporary mesh with applied modifiers
-            if self.options.prop_apply_modifier:
-                blender_mesh_temp = blender_mesh_object.to_mesh(blender_scene,
-                        self.options.prop_apply_modifier,
-                        self.options.prop_apply_modifier_mode)
-            else:
-                blender_mesh_temp = blender_mesh_object.data.copy()
-
-            # assign temporary mesh as new object data
-            blender_mesh_object.data = blender_mesh_temp
+            # temporary, create a full copy of the model
+            blender_mesh_temp = blender_mesh_object.data.copy()
+            blender_mesh_object_temp = blender_mesh_object.copy()
+            blender_mesh_object_temp.data = blender_mesh_temp
+            blender_scene.objects.link(blender_mesh_object_temp)
+            blender_scene.objects.active = blender_mesh_object_temp
 
             # convert to tris
             enable_edit_mode(True)
@@ -280,7 +276,8 @@ class Ms3dExporter():
             enable_edit_mode(False)
 
             enable_edit_mode(True)
-            bm = bmesh.from_edit_mesh(blender_mesh_temp)
+            bm = bmesh.new()
+            bm.from_mesh(blender_mesh_temp)
 
             layer_texture = bm.faces.layers.tex.get(
                     ms3d_str['OBJECT_LAYER_TEXTURE'])
@@ -318,7 +315,7 @@ class Ms3dExporter():
                     ms3d_vertex = Ms3dVertex()
                     ms3d_vertex.__index = index
 
-                    loc = (bmv.co + blender_mesh_object.location)
+                    loc = (bmv.co + blender_mesh_object_temp.location)
                     ms3d_vertex._vertex = self.geometry_correction(loc)
 
                     if layer_deform:
@@ -329,7 +326,7 @@ class Ms3dExporter():
                             weights = []
                             for blender_index, blender_weight in blender_vertex_group_ids.items():
                                 ms3d_joint = blender_to_ms3d_bones.get(
-                                        blender_mesh_object.vertex_groups[blender_index].name)
+                                        blender_mesh_object_temp.vertex_groups[blender_index].name)
                                 if ms3d_joint:
                                     if count == 0:
                                         ms3d_vertex.bone_id = ms3d_joint.__index
@@ -457,14 +454,15 @@ class Ms3dExporter():
             enable_edit_mode(False)
 
             ##########################
-            # restore original object data
-            blender_mesh_object.data = blender_mesh
-
-            ##########################
             # remove the temporary data
+            blender_scene.objects.unlink(blender_mesh_object_temp)
+            if blender_mesh_object_temp is not None:
+                blender_mesh_object_temp.user_clear()
+                blender_context.blend_data.objects.remove(blender_mesh_object_temp)
             if blender_mesh_temp is not None:
                 blender_mesh_temp.user_clear()
                 blender_context.blend_data.meshes.remove(blender_mesh_temp)
+
 
 
     ###########################################################################
@@ -472,10 +470,14 @@ class Ms3dExporter():
         ##########################
         # setup scene
         blender_scene = blender_context.scene
-        ms3d_model.animation_fps = blender_scene.render.fps * blender_scene.render.fps_base
-        ms3d_model.number_total_frames = (blender_scene.frame_end - blender_scene.frame_start) + 1
-        ms3d_model.current_time = ((blender_scene.frame_current - blender_scene.frame_start) + 1)\
-                / (blender_scene.render.fps * blender_scene.render.fps_base)
+
+        frame_start = blender_scene.frame_start
+        frame_end = blender_scene.frame_end
+        frame_total = (frame_end - frame_start) + 1
+        frame_offset = 0
+
+        fps = blender_scene.render.fps * blender_scene.render.fps_base
+        time_base = 1.0 / fps
 
         base_bone_correction = Matrix.Rotation(pi / 2, 4, 'Z')
 
@@ -494,11 +496,15 @@ class Ms3dExporter():
 
             ##########################
             # bones
-            blender_bones_ordered = self.build_blender_bone_dependency_order(blender_bones)
+            blender_bones_ordered = []
+            self.build_blender_bone_dependency_order(blender_bones, blender_bones_ordered)
             for blender_bone_name in blender_bones_ordered:
                 blender_bone_oject = blender_bones[blender_bone_name]
                 ms3d_joint = Ms3dJoint()
                 ms3d_joint.__index = len(ms3d_model._joints)
+
+                ms3d_joint.__bone_mat = blender_bones[blender_bone_name].matrix
+                ms3d_joint.__bone_mati = blender_bones[blender_bone_name].matrix.inverted()
 
                 blender_bone_ms3d = blender_bone_oject.ms3d
                 blender_bone = blender_bone_oject
@@ -570,15 +576,21 @@ class Ms3dExporter():
                             range(blender_scene.frame_start, blender_scene.frame_end + 1)
                             )
                     )
+
             frames_sorted.sort()
 
-            time_base = 1.0 / (blender_scene.render.fps / blender_scene.render.fps_base)
-
             frame_temp = blender_scene.frame_current
+
+            if self.options.shrink_to_keys and len(frames_sorted) >= 2:
+                frame_start = frames_sorted[0]
+                frame_end = frames_sorted[len(frames_sorted)-1]
+                frame_total = (frame_end - frame_start) + 1
+                frame_offset = frame_start - 1
+
             for current_frame in frames_sorted:
                 blender_scene.frame_set(current_frame)
 
-                current_time = current_frame * time_base
+                current_time = (current_frame - frame_offset) * time_base
                 for blender_bone_name in blender_bones_ordered:
                     blender_bone = blender_bones[blender_bone_name]
                     blender_pose_bone = blender_pose_bones[blender_bone_name]
@@ -599,6 +611,10 @@ class Ms3dExporter():
                             )
 
             blender_scene.frame_set(frame_temp)
+
+        ms3d_model.animation_fps = fps
+        ms3d_model.number_total_frames = frame_total
+        ms3d_model.current_time = ((blender_scene.frame_current - blender_scene.frame_start) + 1) * time_base
 
 
     ###########################################################################
@@ -703,8 +719,7 @@ class Ms3dExporter():
 
 
     ###########################################################################
-    def build_blender_bone_dependency_order(self, blender_bones):
-        blender_bones_ordered = []
+    def build_blender_bone_dependency_order(self, blender_bones, blender_bones_ordered):
         if not blender_bones:
             return blender_bones_ordered
 
@@ -723,6 +738,7 @@ class Ms3dExporter():
                 blender_bones_ordered,
                 blender_bones_children,
                 None)
+
         return blender_bones_ordered
 
 
