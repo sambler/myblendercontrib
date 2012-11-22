@@ -46,6 +46,7 @@ class AnimPanel(bpy.types.Panel):
         layout = self.layout
         obj = context.object
         scene = context.scene
+        screen = context.screen
 
         row = layout.row()
         row.prop(scene.render, "use_simplify", text="Simplify")
@@ -74,6 +75,27 @@ class AnimPanel(bpy.types.Panel):
         else:
             row.prop(scene, "frame_preview_start", text="In")
             row.prop(scene, "frame_preview_end", text="Out")
+        
+        row = layout.row(align=True)
+        row.operator("screen.frame_jump", text="", icon='REW').end = False
+        row.operator("screen.keyframe_jump", text="", icon='PREV_KEYFRAME').next = False
+        if not screen.is_animation_playing:
+            # if using JACK and A/V sync:
+            #   hide the play-reversed button
+            #   since JACK transport doesn't support reversed playback
+            if scene.sync_mode == 'AUDIO_SYNC' and context.user_preferences.system.audio_device == 'JACK':
+                sub = row.row()
+                sub.scale_x = 2.0
+                sub.operator("screen.animation_play", text="", icon='PLAY')
+            else:
+                row.operator("screen.animation_play", text="", icon='PLAY_REVERSE').reverse = True
+                row.operator("screen.animation_play", text="", icon='PLAY')
+        else:
+            sub = row.row()
+            sub.scale_x = 2.0
+            sub.operator("screen.animation_play", text="", icon='PAUSE')
+        row.operator("screen.keyframe_jump", text="", icon='NEXT_KEYFRAME').next = True
+        row.operator("screen.frame_jump", text="", icon='FF').end = True
 
 def register():
     bpy.utils.register_class(AnimPanel)
