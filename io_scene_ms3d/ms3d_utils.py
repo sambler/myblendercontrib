@@ -38,16 +38,16 @@ from os import (
 
 # To support reload properly, try to access a package var,
 # if it's there, reload everything
-if ('bpy' in locals()):
-    import imp
-    if 'io_scene_ms3d.ms3d_strings' in locals():
-        imp.reload(io_scene_ms3d.ms3d_strings)
-    pass
-else:
-    from io_scene_ms3d.ms3d_strings import (
-            ms3d_str,
-            )
-    pass
+#if ('bpy' in locals()):
+#    import imp
+#    if 'io_scene_ms3d.ms3d_strings' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_strings)
+#    pass
+#else:
+from io_scene_ms3d.ms3d_strings import (
+        ms3d_str,
+        )
+#    pass
 
 
 #import blender stuff
@@ -190,6 +190,40 @@ def matrix_difference(mat_src, mat_dst):
     mat_dst_inv = mat_dst.copy()
     mat_dst_inv.invert()
     return mat_dst_inv * mat_src
+
+
+###############################################################################
+def set_sence_to_metric(context):
+    try:
+        # set metrics
+        context.scene.unit_settings.system = 'METRIC'
+        context.scene.unit_settings.system_rotation = 'DEGREES'
+        context.scene.unit_settings.scale_length = 0.001 # 1.0mm
+        context.scene.unit_settings.use_separate = False
+        context.tool_settings.normal_size = 1.0 # 1.0mm
+
+        # set all 3D views to texture shaded
+        # and set up the clipping
+        for screen in context.blend_data.screens:
+            for area in screen.areas:
+                if (area.type != 'VIEW_3D'):
+                    continue
+
+                for space in area.spaces:
+                    if (space.type != 'VIEW_3D'):
+                        continue
+
+                    #space.viewport_shade = 'SOLID'
+                    space.show_textured_solid = True
+                    space.clip_start = 0.1 # 0.1mm
+                    space.clip_end = 1000000.0 # 1km
+            #screen.scene.game_settings.material_mode = 'MULTITEXTURE'
+
+    except Exception:
+        raise
+
+    else:
+        pass
 
 
 ###############################################################################

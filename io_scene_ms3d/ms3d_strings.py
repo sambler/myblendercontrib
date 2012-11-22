@@ -35,6 +35,7 @@ ms3d_str = {
 
         ###############################
         # blender key names
+        'OBJECT_LAYER_EXTRA': "ms3d_extra_layer",
         'OBJECT_LAYER_GROUP': "ms3d_group_layer",
         'OBJECT_LAYER_SMOOTHING_GROUP': "ms3d_smoothing_group_layer",
         'OBJECT_MODIFIER_SMOOTHING_GROUP': "ms3d_smoothing_groups",
@@ -58,9 +59,12 @@ ms3d_str = {
                 " ~{1:.4}s, converter: ~{2:.4}s)",
         'SUMMARY_EXPORT': "elapsed time: {0:.4}s (converter:"\
                 " ~{1:.4}s, media io: ~{2:.4}s)",
+        'WARNING_EXPORT_SKIP_WEIGHT' : "skipped weight",
+        'WARNING_EXPORT_SKIP_WEIGHT_EX' : "skipped weight:"\
+                " limit exceeded",
 
         ###############################
-        'TEXT_OPERATOR': "MilkShape3D MS3D (.ms3d)",
+        'TEXT_OPERATOR': "MilkShape 3D (.ms3d)",
         'FILE_EXT': ".ms3d",
         'FILE_FILTER': "*.ms3d",
         'BL_DESCRIPTION_EXPORTER': "Export to a MS3D file format (.ms3d)",
@@ -207,16 +211,6 @@ ms3d_str = {
         'REMARKS_1': "*)   partial implemented yet",
         'REMARKS_2': "**) not implemented yet",
         'REMARKS_3': "***) risk of unwanted results",
-        'PROP_NAME_APPLY_MODIFIER': "Apply Modifier",
-        'PROP_DESC_APPLY_MODIFIER': "applies modifier before process",
-        'PROP_NAME_APPLY_MODIFIER_MODE': "Mode",
-        'PROP_DESC_APPLY_MODIFIER_MODE': "apply mode, if applicable",
-        'PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW_1': "Preview",
-        'PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW_2': "takes the 'preview' settings"\
-                " of modifier, if applicable",
-        'PROP_ITEM_APPLY_MODIFIER_MODE_RENDER_1': "Render",
-        'PROP_ITEM_APPLY_MODIFIER_MODE_RENDER_2': "takes the 'render' settings"\
-                " of modifier, if applicable",
         'PROP_NAME_ROTATION_MODE' : "Bone Rotation Mode",
         'PROP_DESC_ROTATION_MODE' : "set the preferred rotation mode of bones",
         'PROP_ITEM_ROTATION_MODE_EULER_1' : "Euler",
@@ -230,6 +224,14 @@ ms3d_str = {
         'PROP_DESC_OVERRIDE_JOINT_SIZE': "use value of 'Joint Size', the value of the ms3d file is ignored for representation.",
         'PROP_NAME_IMPORT_JOINT_SIZE': "Joint Size",
         'PROP_DESC_IMPORT_JOINT_SIZE': "size of the joint representation in blender",
+        'BL_LABEL_SET_SCENE_TO_METRIC' : "ms3d: Set Scene to 'Metric' [1 mm]",
+        'BL_DESC_SET_SCENE_TO_METRIC' : "set Scene | Units to Metric (1 Unit = 1 mm),"\
+                " Display | Textured Solid,"\
+                " View | Clip (0.001 mm ... 1 km)",
+        'PROP_NAME_NORMALIZE_WEIGHTS' : "Normalize Weights",
+        'PROP_DESC_NORMALIZE_WEIGHTS' : "normalize weights to 100%, weight' = weight(i) * (weight1 + weight2 + weight3) / 100.0",
+        'PROP_NAME_SHRINK_TO_KEYS' : "Shrink To Keys",
+        'PROP_DESC_SHRINK_TO_KEYS' : "shrinks the animation to region from first keyframe to last keyframe",
 
         'PROP_NAME_': "Name",
         'PROP_DESC_': "Description",

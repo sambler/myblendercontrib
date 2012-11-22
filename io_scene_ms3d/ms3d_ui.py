@@ -37,31 +37,33 @@ from random import (
 
 # To support reload properly, try to access a package var,
 # if it's there, reload everything
-if ('bpy' in locals()):
-    import imp
-    if 'io_scene_ms3d.ms3d_strings' in locals():
-        imp.reload(io_scene_ms3d.ms3d_strings)
-    if 'io_scene_ms3d.ms3d_spec' in locals():
-        imp.reload(io_scene_ms3d.ms3d_spec)
-    if 'io_scene_ms3d.ms3d_utils' in locals():
-        imp.reload(io_scene_ms3d.ms3d_utils)
-    #if 'io_scene_ms3d.ms3d_import' in locals():
-    #    imp.reload(io_scene_ms3d.ms3d_import)
-    #if 'io_scene_ms3d.ms3d_export' in locals():
-    #    imp.reload(io_scene_ms3d.ms3d_export)
-else:
-    from io_scene_ms3d.ms3d_strings import (
-            ms3d_str,
-            )
-    from io_scene_ms3d.ms3d_spec import (
-            Ms3dSpec,
-            )
-    from io_scene_ms3d.ms3d_utils import (
-            enable_edit_mode,
-            get_edge_split_modifier_add_if,
-            )
+#if ('bpy' in locals()):
+#    import imp
+#    if 'io_scene_ms3d.ms3d_strings' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_strings)
+#    if 'io_scene_ms3d.ms3d_spec' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_spec)
+#    if 'io_scene_ms3d.ms3d_utils' in locals():
+#        imp.reload(io_scene_ms3d.ms3d_utils)
+#    #if 'io_scene_ms3d.ms3d_import' in locals():
+#    #    imp.reload(io_scene_ms3d.ms3d_import)
+#    #if 'io_scene_ms3d.ms3d_export' in locals():
+#    #    imp.reload(io_scene_ms3d.ms3d_export)
+#else:
+from io_scene_ms3d.ms3d_strings import (
+        ms3d_str,
+        )
+from io_scene_ms3d.ms3d_spec import (
+        Ms3dSpec,
+        )
+from io_scene_ms3d.ms3d_utils import (
+        enable_edit_mode,
+        get_edge_split_modifier_add_if,
+        set_sence_to_metric,
+        )
     #from io_scene_ms3d.ms3d_import import ( Ms3dImporter, )
     #from io_scene_ms3d.ms3d_export import ( Ms3dExporter, )
+#    pass
 
 
 #import blender stuff
@@ -223,6 +225,11 @@ class Ms3dUi:
 
     ###########################################################################
     PROP_DEFAULT_OVERRIDE_JOINT_SIZE = False
+    PROP_DEFAULT_JOINT_SIZE = 0.01
+    PROP_JOINT_SIZE_MIN = 0.01
+    PROP_JOINT_SIZE_MAX = 10.0
+    PROP_JOINT_SIZE_STEP = 0.1
+    PROP_JOINT_SIZE_PRECISION = 2
 
 
     ###########################################################################
@@ -261,19 +268,13 @@ class Ms3dUi:
 
     ###########################################################################
     PROP_DEFAULT_ANIMATION = True
-
+    PROP_DEFAULT_NORMALIZE_WEIGHTS = True
+    PROP_DEFAULT_SHRINK_TO_KEYS = False
 
     ###########################################################################
     PROP_ITEM_ROTATION_MODE_EULER = '0'
     PROP_ITEM_ROTATION_MODE_QUATERNION = '1'
     PROP_DEFAULT_ANIMATION_ROTATION = PROP_ITEM_ROTATION_MODE_EULER
-
-
-    ###########################################################################
-    PROP_DEFAULT_APPLY_MODIFIER = False
-    PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW = 'PREVIEW'
-    PROP_ITEM_APPLY_MODIFIER_MODE_RENDER = 'RENDER'
-    PROP_DEFAULT_APPLY_MODIFIER_MODE = PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW
 
     ###########################################################################
     OPT_SMOOTHING_GROUP_APPLY = 'io_scene_ms3d.apply_smoothing_group'
@@ -301,12 +302,12 @@ class Ms3dImportOperator(Operator, ImportHelper):
 
     filter_glob = StringProperty(
             default=ms3d_str['FILE_FILTER'],
-            options={'HIDDEN', 'SKIP_SAVE', }
+            options={'HIDDEN', }
             )
 
     filepath = StringProperty(
             subtype='FILE_PATH',
-            options={'HIDDEN', 'SKIP_SAVE', }
+            options={'HIDDEN', }
             )
 
     prop_verbose = BoolProperty(
@@ -349,8 +350,9 @@ class Ms3dImportOperator(Operator, ImportHelper):
     prop_joint_size = FloatProperty(
             name=ms3d_str['PROP_NAME_IMPORT_JOINT_SIZE'],
             description=ms3d_str['PROP_DESC_IMPORT_JOINT_SIZE'],
-            min=0.01, max=10.0, precision=2, step=0.1,
-            default=1.0,
+            min=Ms3dUi.PROP_JOINT_SIZE_MIN, max=Ms3dUi.PROP_JOINT_SIZE_MAX,
+            precision=Ms3dUi.PROP_JOINT_SIZE_PRECISION, step=Ms3dUi.PROP_JOINT_SIZE_STEP,
+            default=Ms3dUi.PROP_DEFAULT_JOINT_SIZE,
             subtype='FACTOR',
             #options={'HIDDEN', },
             )
@@ -427,12 +429,12 @@ class Ms3dExportOperator(Operator, ExportHelper):
 
     filter_glob = StringProperty(
             default=ms3d_str['FILE_FILTER'],
-            options={'HIDDEN', 'SKIP_SAVE', }
+            options={'HIDDEN', }
             )
 
     filepath = StringProperty(
             subtype='FILE_PATH',
-            options={'HIDDEN', 'SKIP_SAVE', }
+            options={'HIDDEN', }
             )
 
     prop_verbose = BoolProperty(
@@ -473,23 +475,18 @@ class Ms3dExportOperator(Operator, ExportHelper):
             default=Ms3dUi.PROP_DEFAULT_ANIMATION,
             )
 
-    prop_apply_modifier = BoolProperty(
-            name=ms3d_str['PROP_NAME_APPLY_MODIFIER'],
-            description=ms3d_str['PROP_DESC_APPLY_MODIFIER'],
-            default=Ms3dUi.PROP_DEFAULT_APPLY_MODIFIER,
+    prop_normalize_weights = BoolProperty(
+            name=ms3d_str['PROP_NAME_NORMALIZE_WEIGHTS'],
+            description=ms3d_str['PROP_DESC_NORMALIZE_WEIGHTS'],
+            default=Ms3dUi.PROP_DEFAULT_NORMALIZE_WEIGHTS,
             )
-    prop_apply_modifier_mode = EnumProperty(
-            name=ms3d_str['PROP_NAME_APPLY_MODIFIER_MODE'],
-            description=ms3d_str['PROP_DESC_APPLY_MODIFIER_MODE'],
-            items=( (Ms3dUi.PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW,
-                            ms3d_str['PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW_1'],
-                            ms3d_str['PROP_ITEM_APPLY_MODIFIER_MODE_PREVIEW_2']),
-                    (Ms3dUi.PROP_ITEM_APPLY_MODIFIER_MODE_RENDER,
-                            ms3d_str['PROP_ITEM_APPLY_MODIFIER_MODE_RENDER_1'],
-                            ms3d_str['PROP_ITEM_APPLY_MODIFIER_MODE_RENDER_2']),
-                    ),
-            default=Ms3dUi.PROP_DEFAULT_APPLY_MODIFIER_MODE,
+
+    prop_shrink_to_keys = BoolProperty(
+            name=ms3d_str['PROP_NAME_SHRINK_TO_KEYS'],
+            description=ms3d_str['PROP_DESC_SHRINK_TO_KEYS'],
+            default=Ms3dUi.PROP_DEFAULT_SHRINK_TO_KEYS,
             )
+
 
     @property
     def handle_animation(self):
@@ -511,6 +508,13 @@ class Ms3dExportOperator(Operator, ExportHelper):
     def handle_groups(self):
         return (Ms3dUi.PROP_ITEM_OBJECT_GROUP in self.prop_objects)
 
+    @property
+    def normalize_weights(self):
+        return self.prop_normalize_weights
+
+    @property
+    def shrink_to_keys(self):
+        return self.prop_shrink_to_keys
 
     ##EXPORT_ACTIVE_ONLY:
     ##limit availability to only active mesh object
@@ -540,6 +544,11 @@ class Ms3dExportOperator(Operator, ExportHelper):
         box.box().label(context.active_object.name)
         ##
 
+        box = layout.box()
+        box.label(ms3d_str['LABEL_NAME_ANIMATION'],
+                icon=Ms3dUi.ICON_ANIMATION)
+        box.prop(self, 'prop_normalize_weights')
+        box.prop(self, 'prop_shrink_to_keys')
         """
         box.prop(self, 'prop_objects', icon='MESH_DATA', expand=True)
 
@@ -811,8 +820,9 @@ class Ms3dModelProperties(PropertyGroup):
     joint_size = FloatProperty(
             name=ms3d_str['PROP_NAME_JOINT_SIZE'],
             description=ms3d_str['PROP_DESC_JOINT_SIZE'],
-            min=0, max=1, precision=3, step=0.1,
-            default=Ms3dSpec.DEFAULT_MODEL_JOINT_SIZE,
+            min=Ms3dUi.PROP_JOINT_SIZE_MIN, max=Ms3dUi.PROP_JOINT_SIZE_MAX,
+            precision=Ms3dUi.PROP_JOINT_SIZE_PRECISION, step=Ms3dUi.PROP_JOINT_SIZE_STEP,
+            default=Ms3dUi.PROP_DEFAULT_JOINT_SIZE,
             subtype='FACTOR',
             #options={'HIDDEN', },
             )
@@ -1193,8 +1203,8 @@ class Ms3dMaterialPanel(Panel):
 
         col = layout.column()
         row = col.row()
-        row.prop(custom_data, 'ambient')
         row.prop(custom_data, 'diffuse')
+        row.prop(custom_data, 'ambient')
         row = col.row()
         row.prop(custom_data, 'specular')
         row.prop(custom_data, 'emissive')
@@ -1520,9 +1530,38 @@ class Ms3dSmoothingGroupPanel(Panel):
                 ).smoothing_group_index = 0
 
 
+###############################################################################
+class Ms3dSetSceneToMetricOperator(Operator):
+    """ . """
+    bl_idname = 'io_scene_ms3d.set_sence_to_metric'
+    bl_label = ms3d_str['BL_LABEL_SET_SCENE_TO_METRIC']
+    bl_description = ms3d_str['BL_DESC_SET_SCENE_TO_METRIC']
+
+
+    #
+    @classmethod
+    def poll(cls, context):
+        return True
+
+
+    # entrypoint for option
+    def execute(self, context):
+        return self.set_sence_to_metric(context)
+
+    # entrypoint for option via UI
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+
+    ###########################################################################
+    def set_sence_to_metric(self, context):
+        set_sence_to_metric(context)
+        return {"FINISHED"}
+
 
 ###############################################################################
 def register():
+    register_class(Ms3dSetSceneToMetricOperator)
     register_class(Ms3dGroupProperties)
     register_class(Ms3dModelProperties)
     register_class(Ms3dArmatureProperties)
@@ -1541,6 +1580,7 @@ def unregister():
     unregister_class(Ms3dArmatureProperties)
     unregister_class(Ms3dModelProperties)
     unregister_class(Ms3dGroupProperties)
+    unregister_class(Ms3dSetSceneToMetricOperator)
 
 def inject_properties():
     Mesh.ms3d = PointerProperty(type=Ms3dModelProperties)
@@ -1559,7 +1599,6 @@ def delete_properties():
     del Group.ms3d
 
 ###############################################################################
-register()
 
 
 ###############################################################################

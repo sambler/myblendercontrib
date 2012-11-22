@@ -143,6 +143,8 @@ class Ms3dIo:
     LENGTH_NAME = 32
     LENGTH_FILENAME = 128
 
+    PRECISION = 4
+
     @staticmethod
     def raise_on_eof(file):
         """ pseudo end of file detection """
@@ -307,7 +309,7 @@ class Ms3dHeader:
         self.version = default_version
 
     def __repr__(self):
-        return "\n<id='{0}', version={1}>".format(
+        return "\n<id='{}', version={}>".format(
             self.id,
             self.version
             )
@@ -365,12 +367,15 @@ class Ms3dVertex:
         # Ms3dVertexEx
 
     def __repr__(self):
-        return "\n<flags={0}, vertex={1}, bone_id={2},"\
-                " reference_count={3}>".format(
+        return "\n<flags={}, vertex=({:.{p}f}, {:.{p}f}, {:.{p}f}), bone_id={},"\
+                " reference_count={}>".format(
                 self.flags,
-                self._vertex,
+                self._vertex[0],
+                self._vertex[1],
+                self._vertex[2],
                 self.bone_id,
-                self.reference_count
+                self.reference_count,
+                p=Ms3dIo.PRECISION
                 )
 
     def __hash__(self):
@@ -450,15 +455,31 @@ class Ms3dTriangle:
         self.group_index = default_group_index
 
     def __repr__(self):
-        return "\n<flags={0}, vertex_indices={1}, vertex_normals={2}, s={3},"\
-                " t={4}, smoothing_group={5}, group_index={6}>".format(
+        return "\n<flags={}, vertex_indices={}, vertex_normals=(({:.{p}f}, "\
+                "{:.{p}f}, {:.{p}f}), ({:.{p}f}, {:.{p}f}, {:.{p}f}), ({:.{p}f}, "\
+                "{:.{p}f}, {:.{p}f})), s=({:.{p}f}, {:.{p}f}, {:.{p}f}), "\
+                "t=({:.{p}f}, {:.{p}f}, {:.{p}f}), smoothing_group={}, "\
+                "group_index={}>".format(
                 self.flags,
                 self.vertex_indices,
-                self.vertex_normals,
-                self.s,
-                self.t,
+                self.vertex_normals[0][0],
+                self.vertex_normals[0][1],
+                self.vertex_normals[0][2],
+                self.vertex_normals[1][0],
+                self.vertex_normals[1][1],
+                self.vertex_normals[1][2],
+                self.vertex_normals[2][0],
+                self.vertex_normals[2][1],
+                self.vertex_normals[2][2],
+                self.s[0],
+                self.s[1],
+                self.s[2],
+                self.t[0],
+                self.t[1],
+                self.t[2],
                 self.smoothing_group,
-                self.group_index
+                self.group_index,
+                p=Ms3dIo.PRECISION
                 )
 
 
@@ -538,8 +559,8 @@ class Ms3dGroup:
         self._comment_object = default_comment_object # Ms3dComment
 
     def __repr__(self):
-        return "\n<flags={0}, name='{1}', number_triangles={2},"\
-                " triangle_indices={3}, material_index={4}>".format(
+        return "\n<flags={}, name='{}', number_triangles={},"\
+                " triangle_indices={}, material_index={}>".format(
                 self.flags,
                 self.name,
                 self.number_triangles,
@@ -642,19 +663,34 @@ class Ms3dMaterial:
         self._comment_object = default_comment_object # Ms3dComment
 
     def __repr__(self):
-        return "\n<name='{0}', ambient={1}, diffuse={2}, specular={3},"\
-                " emissive={4}, shininess={5}, transparency={6}, mode={7},"\
-                " texture='{8}', alphamap='{9}'>".format(
+        return "\n<name='{}', ambient=({:.{p}f}, {:.{p}f}, {:.{p}f}, {:.{p}f}), "\
+                "diffuse=({:.{p}f}, {:.{p}f}, {:.{p}f}, {:.{p}f}), specular=("\
+                "{:.{p}f}, {:.{p}f}, {:.{p}f}, {:.{p}f}), emissive=({:.{p}f}, "\
+                "{:.{p}f}, {:.{p}f}, {:.{p}f}), shininess={:.{p}f}, transparency="\
+                "{:.{p}f}, mode={}, texture='{}', alphamap='{}'>".format(
                 self.name,
-                self.ambient,
-                self.diffuse,
-                self.specular,
-                self.emissive,
+                self.ambient[0],
+                self.ambient[1],
+                self.ambient[2],
+                self.ambient[3],
+                self.diffuse[0],
+                self.diffuse[1],
+                self.diffuse[2],
+                self.diffuse[3],
+                self.specular[0],
+                self.specular[1],
+                self.specular[2],
+                self.specular[3],
+                self.emissive[0],
+                self.emissive[1],
+                self.emissive[2],
+                self.emissive[3],
                 self.shininess,
                 self.transparency,
                 self.mode,
                 self.texture,
-                self.alphamap
+                self.alphamap,
+                p=Ms3dIo.PRECISION
                 )
 
     def __hash__(self):
@@ -754,9 +790,12 @@ class Ms3dRotationKeyframe:
         self._rotation = default_rotation
 
     def __repr__(self):
-        return "\n<time={0}, rotation={1}>".format(
+        return "\n<time={:.{p}f}, rotation=({:.{p}f}, {:.{p}f}, {:.{p}f})>".format(
                 self.time,
-                self.rotation,
+                self.rotation[0],
+                self.rotation[1],
+                self.rotation[2],
+                p=Ms3dIo.PRECISION
                 )
 
 
@@ -792,9 +831,12 @@ class Ms3dTranslationKeyframe:
         self._position = default_position
 
     def __repr__(self):
-        return "\n<time={0}, position={1}>".format(
+        return "\n<time={:.{p}f}, position=({:.{p}f}, {:.{p}f}, {:.{p}f})>".format(
                 self.time,
-                self.position,
+                self.position[0],
+                self.position[1],
+                self.position[2],
+                p=Ms3dIo.PRECISION
                 )
 
 
@@ -873,19 +915,24 @@ class Ms3dJoint:
         self._joint_ex_object = default_joint_ex_object # Ms3dJointEx
 
     def __repr__(self):
-        return "\n<flags={0}, name='{1}', parent_name='{2}', rotation={3},"\
-                " position={4}, number_rotation_keyframes={5},"\
-                " number_translation_keyframes={6},"\
-                " rotation_key_frames={7}, translation_key_frames={8}>".format(
+        return "\n<flags={}, name='{}', parent_name='{}', rotation=({:.{p}f}, "\
+                "{:.{p}f}, {:.{p}f}), position=({:.{p}f}, {:.{p}f}, {:.{p}f}), "\
+                "number_rotation_keyframes={}, number_translation_keyframes={},"\
+                " rotation_key_frames={}, translation_key_frames={}>".format(
                 self.flags,
                 self.name,
                 self.parent_name,
-                self.rotation,
-                self.position,
+                self.rotation[0],
+                self.rotation[1],
+                self.rotation[2],
+                self.position[0],
+                self.position[1],
+                self.position[2],
                 self.number_rotation_keyframes,
                 self.number_translation_keyframes,
                 self.rotation_key_frames,
-                self.translation_key_frames
+                self.translation_key_frames,
+                p=Ms3dIo.PRECISION
                 )
 
 
@@ -979,7 +1026,7 @@ class Ms3dCommentEx:
         self.comment = default_comment
 
     def __repr__(self):
-        return "\n<index={0}, comment_length={1}, comment={2}>".format(
+        return "\n<index={}, comment_length={}, comment='{}'>".format(
                 self.index,
                 self.comment_length,
                 self.comment
@@ -1022,7 +1069,7 @@ class Ms3dComment:
         self.comment = default_comment
 
     def __repr__(self):
-        return "\n<comment_length={0}, comment={1}>".format(
+        return "\n<comment_length={}, comment='{}'>".format(
                 self.comment_length,
                 self.comment
                 )
@@ -1059,13 +1106,13 @@ class Ms3dVertexEx1:
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID),
-            default_weights=(0, 0, 0)
+            default_weights=(100, 0, 0)
             ):
         self._bone_ids = default_bone_ids
         self._weights = default_weights
 
     def __repr__(self):
-        return "\n<bone_ids={0}, weights={1}>".format(
+        return "\n<bone_ids={}, weights={}>".format(
                 self.bone_ids,
                 self.weights
                 )
@@ -1131,7 +1178,7 @@ class Ms3dVertexEx2:
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID),
-            default_weights=(0, 0, 0),
+            default_weights=(100, 0, 0),
             default_extra=0
             ):
         self._bone_ids = default_bone_ids
@@ -1139,7 +1186,7 @@ class Ms3dVertexEx2:
         self.extra = default_extra
 
     def __repr__(self):
-        return "\n<bone_ids={0}, weights={1}, extra={2}>".format(
+        return "\n<bone_ids={}, weights={}, extra={}>".format(
                 self.bone_ids,
                 self.weights,
                 self.extra
@@ -1218,7 +1265,7 @@ class Ms3dVertexEx3:
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID,
                     Ms3dSpec.DEFAULT_VERTEX_BONE_ID),
-            default_weights=(0, 0, 0),
+            default_weights=(100, 0, 0),
             default_extra=0
             ):
         self._bone_ids = default_bone_ids
@@ -1226,7 +1273,7 @@ class Ms3dVertexEx3:
         self.extra = default_extra
 
     def __repr__(self):
-        return "\n<bone_ids={0}, weights={1}, extra={2}>".format(
+        return "\n<bone_ids={}, weights={}, extra={}>".format(
                 self.bone_ids,
                 self.weights,
                 self.extra
@@ -1294,7 +1341,12 @@ class Ms3dJointEx:
         self._color = default_color
 
     def __repr__(self):
-        return "\n<color={0}>".format(self.color)
+        return "\n<color=({:.{p}f}, {:.{p}f}, {:.{p}f})>".format(
+                self.color[0],
+                self.color[1],
+                self.color[2],
+                p=Ms3dIo.PRECISION
+                )
 
 
     @property
@@ -1331,10 +1383,11 @@ class Ms3dModelEx:
         self.alpha_ref = default_alpha_ref
 
     def __repr__(self):
-        return "\n<joint_size={0}, transparency_mode={1}, alpha_ref={2}>".format(
+        return "\n<joint_size={:.{p}f}, transparency_mode={}, alpha_ref={:.{p}f}>".format(
                 self.joint_size,
                 self.transparency_mode,
-                self.alpha_ref
+                self.alpha_ref,
+                p=Ms3dIo.PRECISION
                 )
 
     def read(self, file):
@@ -1562,93 +1615,93 @@ class Ms3dModel:
         print("## the internal data of Ms3dModel object...")
         print("##")
 
-        print("header={0}".format(self.header))
+        print("header={}".format(self.header))
 
-        print("number_vertices={0}".format(self.number_vertices))
+        print("number_vertices={}".format(self.number_vertices))
         print("vertices=[", end="")
         if self.vertices:
             for obj in self.vertices:
-                print("{0}".format(obj), end="")
+                print("{}".format(obj), end="")
         print("]")
 
-        print("number_triangles={0}".format(self.number_triangles))
+        print("number_triangles={}".format(self.number_triangles))
         print("triangles=[", end="")
         if self.triangles:
             for obj in self.triangles:
-                print("{0}".format(obj), end="")
+                print("{}".format(obj), end="")
         print("]")
 
-        print("number_groups={0}".format(self.number_groups))
+        print("number_groups={}".format(self.number_groups))
         print("groups=[", end="")
         if self.groups:
             for obj in self.groups:
-                print("{0}".format(obj), end="")
+                print("{}".format(obj), end="")
         print("]")
 
-        print("number_materials={0}".format(self.number_materials))
+        print("number_materials={}".format(self.number_materials))
         print("materials=[", end="")
         if self.materials:
             for obj in self.materials:
-                print("{0}".format(obj), end="")
+                print("{}".format(obj), end="")
         print("]")
 
-        print("animation_fps={0}".format(self.animation_fps))
-        print("current_time={0}".format(self.current_time))
-        print("number_total_frames={0}".format(self.number_total_frames))
+        print("animation_fps={}".format(self.animation_fps))
+        print("current_time={}".format(self.current_time))
+        print("number_total_frames={}".format(self.number_total_frames))
 
-        print("number_joints={0}".format(self.number_joints))
+        print("number_joints={}".format(self.number_joints))
         print("joints=[", end="")
         if self.joints:
             for obj in self.joints:
-                print("{0}".format(obj), end="")
+                print("{}".format(obj), end="")
         print("]")
 
-        print("sub_version_comments={0}".format(self.sub_version_comments))
+        print("sub_version_comments={}".format(self.sub_version_comments))
 
-        print("number_group_comments={0}".format(self.number_group_comments))
+        print("number_group_comments={}".format(self.number_group_comments))
         print("group_comments=[", end="")
         if self.group_comments:
             for obj in self.group_comments:
-                print("{0}".format(obj.comment_object), end="")
+                print("{}".format(obj.comment_object), end="")
         print("]")
 
-        print("number_material_comments={0}".format(
+        print("number_material_comments={}".format(
                 self.number_material_comments))
         print("material_comments=[", end="")
         if self.material_comments:
             for obj in self.material_comments:
-                print("{0}".format(obj.comment_object), end="")
+                print("{}".format(obj.comment_object), end="")
         print("]")
 
-        print("number_joint_comments={0}".format(self.number_joint_comments))
+        print("number_joint_comments={}".format(self.number_joint_comments))
         print("joint_comments=[", end="")
         if self.joint_comments:
             for obj in self.joint_comments:
-                print("{0}".format(obj.comment_object), end="")
+                print("{}".format(obj.comment_object), end="")
         print("]")
 
-        print("has_model_comment={0}".format(self.has_model_comment))
-        print("model_comment={0}".format(self.comment_object))
+        print("has_model_comment={}".format(self.has_model_comment))
+        print("model_comment={}".format(self.comment_object))
 
-        print("sub_version_vertex_extra={0}".format(
+        print("sub_version_vertex_extra={}".format(
                 self.sub_version_vertex_extra))
         print("vertex_ex=[", end="")
         if self.vertex_ex:
             for obj in self.vertex_ex:
-                print("{0}".format(obj), end="")
+                print("{}".format(obj), end="")
         print("]")
 
-        print("sub_version_joint_extra={0}".format(
+        print("sub_version_joint_extra={}".format(
                 self.sub_version_joint_extra))
         print("joint_ex=[", end="")
         if self.joint_ex:
             for obj in self.joint_ex:
-                print("{0}".format(obj), end="")
+                print("{}".format(obj), end="")
         print("]")
 
-        print("sub_version_model_extra={0}".format(
+        print("sub_version_model_extra={}".format(
                 self.sub_version_model_extra))
-        print("model_ex={0}".format(self.model_ex_object))
+        print("model_ex={}".format(self.model_ex_object))
 
         print("##")
         print("## ...end")
