@@ -232,7 +232,11 @@ ms3d_str = {
         'PROP_DESC_NORMALIZE_WEIGHTS' : "normalize weights to 100%, weight' = weight(i) * (weight1 + weight2 + weight3) / 100.0",
         'PROP_NAME_SHRINK_TO_KEYS' : "Shrink To Keys",
         'PROP_DESC_SHRINK_TO_KEYS' : "shrinks the animation to region from first keyframe to last keyframe",
-
+        'PROP_NAME_RECORD_EACH_FRAME' : "Bake Each Frame As Key",
+        'PROP_DESC_RECORD_EACH_FRAME' : "if enabled, to each frame there will be baked a key",
+        'LABEL_NAME_JOINT_TO_BONES' : "works only with some models!",
+        'PROP_NAME_JOINT_TO_BONES' : "Joints To Bones",
+        'PROP_DESC_JOINT_TO_BONES' : "changes the length of the bones",
         'PROP_NAME_': "Name",
         'PROP_DESC_': "Description",
         # ms3d_str['']

@@ -753,6 +753,22 @@ class Ms3dImporter():
             ms3d_joint.blender_edit_bone = blender_edit_bone
         enable_edit_mode(False)
 
+        if self.options.joint_to_bones:
+            enable_edit_mode(True)
+            for ms3d_joint in ms3d_joints_ordered:
+                blender_edit_bone = blender_armature.edit_bones[ms3d_joint.name]
+                if blender_edit_bone.children:
+                    new_length = 0.0
+                    for child_bone in blender_edit_bone.children:
+                        length = (child_bone.head - blender_edit_bone.head).length
+                        if new_length <= 0 or length < new_length:
+                            new_length = length
+                    if new_length >= 0.01:
+                        direction = blender_edit_bone.tail - blender_edit_bone.head
+                        direction.normalize()
+                        blender_edit_bone.tail = blender_edit_bone.head + (direction * new_length)
+            enable_edit_mode(False)
+
         ##########################
         # post process bones
         enable_edit_mode(False)

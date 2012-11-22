@@ -474,6 +474,7 @@ class Ms3dExporter():
         frame_start = blender_scene.frame_start
         frame_end = blender_scene.frame_end
         frame_total = (frame_end - frame_start) + 1
+        frame_step = blender_scene.frame_step
         frame_offset = 0
 
         fps = blender_scene.render.fps * blender_scene.render.fps_base
@@ -502,9 +503,6 @@ class Ms3dExporter():
                 blender_bone_oject = blender_bones[blender_bone_name]
                 ms3d_joint = Ms3dJoint()
                 ms3d_joint.__index = len(ms3d_model._joints)
-
-                ms3d_joint.__bone_mat = blender_bones[blender_bone_name].matrix
-                ms3d_joint.__bone_mati = blender_bones[blender_bone_name].matrix.inverted()
 
                 blender_bone_ms3d = blender_bone_oject.ms3d
                 blender_bone = blender_bone_oject
@@ -571,21 +569,22 @@ class Ms3dExporter():
             frames = frames.union(frames_rotation)
             frames = frames.union(frames_scale)
 
-            frames_sorted = list(
-                    frames.intersection(
-                            range(blender_scene.frame_start, blender_scene.frame_end + 1)
-                            )
-                    )
+            if not self.options.shrink_to_keys:
+                frames = frames.intersection(range(blender_scene.frame_start, blender_scene.frame_end + 1))
 
+            frames_sorted = list(frames)
             frames_sorted.sort()
-
-            frame_temp = blender_scene.frame_current
 
             if self.options.shrink_to_keys and len(frames_sorted) >= 2:
                 frame_start = frames_sorted[0]
                 frame_end = frames_sorted[len(frames_sorted)-1]
                 frame_total = (frame_end - frame_start) + 1
                 frame_offset = frame_start - 1
+
+            if self.options.record_each_frame:
+                frames_sorted = range(int(frame_start), int(frame_end + 1), int(frame_step))
+
+            frame_temp = blender_scene.frame_current
 
             for current_frame in frames_sorted:
                 blender_scene.frame_set(current_frame)
@@ -596,8 +595,15 @@ class Ms3dExporter():
                     blender_pose_bone = blender_pose_bones[blender_bone_name]
                     ms3d_joint = blender_to_ms3d_bones[blender_bone_name]
 
-                    loc = blender_pose_bone.location
-                    rot = blender_pose_bone.matrix_basis.to_euler('XZY')
+                    m1 = blender_bone.matrix_local.inverted()
+                    if blender_pose_bone.parent:
+                        m2 = blender_pose_bone.parent.matrix_channel.inverted()
+                    else:
+                        m2 = Matrix()
+                    m3 = blender_pose_bone.matrix.copy()
+                    m = ((m1 * m2) * m3)
+                    loc = m.to_translation()
+                    rot = m.to_euler('XZY')
 
                     ms3d_joint.translation_key_frames.append(
                             Ms3dTranslationKeyframe(
@@ -613,7 +619,7 @@ class Ms3dExporter():
             blender_scene.frame_set(frame_temp)
 
         ms3d_model.animation_fps = fps
-        ms3d_model.number_total_frames = frame_total
+        ms3d_model.number_total_frames = int(frame_total)
         ms3d_model.current_time = ((blender_scene.frame_current - blender_scene.frame_start) + 1) * time_base
 
 
@@ -771,7 +777,7 @@ class Ms3dExporter():
                 pass
 
             for keyframe_point in fcurve.keyframe_points:
-                frames.add(keyframe_point.co.to_tuple(0)[0] + frame_correction)
+                frames.add(int(keyframe_point.co[0] + frame_correction))
 
 
 ###############################################################################

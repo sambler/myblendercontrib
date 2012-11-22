@@ -218,6 +218,7 @@ class Ms3dUi:
     ICON_PROCESSING = 'OBJECT_DATAMODE'
     ICON_ANIMATION = 'RENDER_ANIMATION'
     ICON_ROTATION_MODE = 'BONE_DATA'
+    ICON_ERROR = 'ERROR'
 
     ###########################################################################
     PROP_DEFAULT_VERBOSE = DEFAULT_VERBOSE
@@ -270,6 +271,8 @@ class Ms3dUi:
     PROP_DEFAULT_ANIMATION = True
     PROP_DEFAULT_NORMALIZE_WEIGHTS = True
     PROP_DEFAULT_SHRINK_TO_KEYS = False
+    PROP_DEFAULT_RECORD_EACH_FRAME = False
+    PROP_DEFAULT_JOINT_TO_BONES = False
 
     ###########################################################################
     PROP_ITEM_ROTATION_MODE_EULER = '0'
@@ -357,6 +360,12 @@ class Ms3dImportOperator(Operator, ImportHelper):
             #options={'HIDDEN', },
             )
 
+    prop_joint_to_bones = BoolProperty(
+            name=ms3d_str['PROP_NAME_JOINT_TO_BONES'],
+            description=ms3d_str['PROP_DESC_JOINT_TO_BONES'],
+            default=Ms3dUi.PROP_DEFAULT_JOINT_TO_BONES,
+            )
+
     @property
     def is_rotation_mode_euler(self):
         return (Ms3dUi.PROP_ITEM_ROTATION_MODE_EULER \
@@ -375,6 +384,9 @@ class Ms3dImportOperator(Operator, ImportHelper):
     def joint_length(self):
         return self.prop_joint_size
 
+    @property
+    def joint_to_bones(self):
+        return self.prop_joint_to_bones
 
     # draw the option panel
     def draw(self, context):
@@ -398,6 +410,9 @@ class Ms3dImportOperator(Operator, ImportHelper):
                 col = box.column()
                 row = col.row()
                 row.prop(self, 'prop_joint_size')
+            box.prop(self, 'prop_joint_to_bones')
+            if (self.prop_joint_to_bones):
+                box.box().label(ms3d_str['LABEL_NAME_JOINT_TO_BONES'], icon=Ms3dUi.ICON_ERROR)
 
     # entrypoint for MS3D -> blender
     def execute(self, blender_context):
@@ -487,6 +502,12 @@ class Ms3dExportOperator(Operator, ExportHelper):
             default=Ms3dUi.PROP_DEFAULT_SHRINK_TO_KEYS,
             )
 
+    prop_record_each_frame = BoolProperty(
+            name=ms3d_str['PROP_NAME_RECORD_EACH_FRAME'],
+            description=ms3d_str['PROP_DESC_RECORD_EACH_FRAME'],
+            default=Ms3dUi.PROP_DEFAULT_RECORD_EACH_FRAME,
+            )
+
 
     @property
     def handle_animation(self):
@@ -515,6 +536,10 @@ class Ms3dExportOperator(Operator, ExportHelper):
     @property
     def shrink_to_keys(self):
         return self.prop_shrink_to_keys
+
+    @property
+    def record_each_frame(self):
+        return self.prop_record_each_frame
 
     ##EXPORT_ACTIVE_ONLY:
     ##limit availability to only active mesh object
@@ -549,6 +574,7 @@ class Ms3dExportOperator(Operator, ExportHelper):
                 icon=Ms3dUi.ICON_ANIMATION)
         box.prop(self, 'prop_normalize_weights')
         box.prop(self, 'prop_shrink_to_keys')
+        box.prop(self, 'prop_record_each_frame')
         """
         box.prop(self, 'prop_objects', icon='MESH_DATA', expand=True)
 
@@ -1542,7 +1568,6 @@ class Ms3dSetSceneToMetricOperator(Operator):
     @classmethod
     def poll(cls, context):
         return True
-
 
     # entrypoint for option
     def execute(self, context):
