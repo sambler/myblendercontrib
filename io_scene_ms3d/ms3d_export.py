@@ -33,13 +33,9 @@
 #import python stuff
 import io
 from math import (
-        radians,
         pi,
-        trunc,
         )
 from mathutils import (
-        Vector,
-        Euler,
         Matrix,
         )
 from os import (
@@ -53,52 +49,34 @@ from time import (
         )
 
 
-# To support reload properly, try to access a package var,
-# if it's there, reload everything
-#if ('bpy' in locals()):
-#    import imp
-#    if 'io_scene_ms3d.ms3d_strings' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_strings)
-#    if 'io_scene_ms3d.ms3d_spec' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_spec)
-#    if 'io_scene_ms3d.ms3d_utils' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_utils)
-#    if 'io_scene_ms3d.ms3d_ui' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_ui)
-#    pass
-#else:
+# import io_scene_ms3d stuff
 from io_scene_ms3d.ms3d_strings import (
         ms3d_str,
         )
 from io_scene_ms3d.ms3d_spec import (
         Ms3dSpec,
         Ms3dModel,
-        Ms3dModelEx,
         Ms3dVertex,
-        Ms3dVertexEx2,
         Ms3dTriangle,
         Ms3dGroup,
         Ms3dMaterial,
         Ms3dJoint,
-        Ms3dJointEx,
         Ms3dRotationKeyframe,
         Ms3dTranslationKeyframe,
-        Ms3dComment,
         Ms3dCommentEx,
         )
 from io_scene_ms3d.ms3d_utils import (
         select_all,
-        enable_pose_mode,
         enable_edit_mode,
         pre_setup_environment,
         post_setup_environment,
-        rotation_matrix,
         matrix_difference,
         )
 from io_scene_ms3d.ms3d_ui import (
         Ms3dUi,
+        Ms3dMaterialProperties,
+        Ms3dMaterialHelper,
         )
-#    pass
 
 
 #import blender stuff
@@ -153,7 +131,7 @@ class Ms3dExporter():
                 pass
 
             # if option is set, this time will enlargs the io time
-            if (self.options.prop_verbose):
+            if (self.options.verbose):
                 ms3d_model.print_internal()
 
             post_setup_environment(self, blender_context)
@@ -171,7 +149,7 @@ class Ms3dExporter():
             is_valid, statistics = ms3d_model.is_valid()
             print()
             print("##########################################################")
-            print("Blender -> MS3D : [{0}]".format(self.filepath_splitted[1]))
+            print("Export from Blender to MS3D")
             print(statistics)
             print("##########################################################")
 
@@ -199,15 +177,7 @@ class Ms3dExporter():
     def from_blender(self, blender_context, ms3d_model):
         blender_mesh_objects = []
 
-        ##EXPORT_ACTIVE_ONLY:
-        ##if self.options.prop_selected:
-        ##    source = blender_context.selected_objects
-        ##else:
-        ##    source = blender_context.blend_data.objects
-        ##
-        ## temporary, handle only the active object, for easy handling
         source = (blender_context.active_object, )
-        ##
 
         for blender_object in source:
             if blender_object and blender_object.type == 'MESH' \
@@ -306,6 +276,11 @@ class Ms3dExporter():
 
             layer_deform = bm.verts.layers.deform.active
 
+            layer_extra = bm.verts.layers.int.get(ms3d_str['OBJECT_LAYER_EXTRA'])
+            if layer_extra is None:
+                layer_extra = bm.verts.layers.int.new(ms3d_str['OBJECT_LAYER_EXTRA'])
+
+
             ##########################
             # handle vertices
             for bmv in bm.verts:
@@ -377,6 +352,15 @@ class Ms3dExporter():
 
                             ms3d_vertex._vertex_ex_object._bone_ids = tuple(bone_ids)
                             ms3d_vertex._vertex_ex_object._weights = tuple(weights)
+
+                    if layer_extra:
+                        #ms3d_vertex._vertex_ex_object.extra = bmv[layer_extra]
+                        # bm.verts.layers.int does only support signed int32
+                        # convert signed int32 to unsigned int32 (little-endian)
+                        signed_int32 = bmv[layer_extra]
+                        bytes_int32 = signed_int32.to_bytes(4, byteorder='little', signed=True)
+                        unsigned_int32 = int.from_bytes(bytes_int32, byteorder='little', signed=False)
+                        ms3d_vertex._vertex_ex_object.extra = unsigned_int32
 
                     ms3d_model._vertices.append(ms3d_vertex)
                     blender_to_ms3d_vertices[bmv] = ms3d_vertex
@@ -515,18 +499,11 @@ class Ms3dExporter():
 
                 ms3d_joint.joint_ex_object._color = blender_bone_ms3d.color[:]
 
-                if blender_bone_ms3d.name:
-                    ms3d_joint.name = blender_bone_ms3d.name
-                else:
-                    ms3d_joint.name = blender_bone.name
+                ms3d_joint.name = blender_bone.name
 
                 if blender_bone.parent:
+                    ms3d_joint.parent_name = blender_bone.parent.name
                     ms3d_joint.__matrix = matrix_difference(blender_bone.matrix_local, blender_bone.parent.matrix_local)
-
-                    if blender_bone.parent.ms3d.name:
-                        ms3d_joint.parent_name = blender_bone.parent.ms3d.name
-                    else:
-                        ms3d_joint.parent_name = blender_bone.parent.name
                 else:
                     ms3d_joint.__matrix = base_bone_correction * blender_bone.matrix_local
 
@@ -581,7 +558,7 @@ class Ms3dExporter():
                 frame_total = (frame_end - frame_start) + 1
                 frame_offset = frame_start - 1
 
-            if self.options.record_each_frame:
+            if self.options.bake_each_frame:
                 frames_sorted = range(int(frame_start), int(frame_end + 1), int(frame_step))
 
             frame_temp = blender_scene.frame_current
@@ -654,7 +631,7 @@ class Ms3dExporter():
             return None
 
         markerName = "MaterialGroup.{}".format(ms3d_material.__index)
-        markerComment = "material group conflict dissolver ({})".format(ms3d_material.name)
+        markerComment = "MaterialGroup({})".format(ms3d_material.name)
 
         for ms3d_group in ms3d_model._groups:
             if ms3d_group.name == markerName \
@@ -688,20 +665,28 @@ class Ms3dExporter():
 
             blender_ms3d_material = blender_material.ms3d
 
-            if blender_ms3d_material.name:
+            if not self.options.use_blender_names and not self.options.use_blender_materials and blender_ms3d_material.name:
                 ms3d_material.name = blender_ms3d_material.name
             else:
                 ms3d_material.name = blender_material.name
 
-            ms3d_material._ambient = blender_ms3d_material.ambient[:]
-            ms3d_material._diffuse = blender_ms3d_material.diffuse[:]
-            ms3d_material._specular = blender_ms3d_material.specular[:]
-            ms3d_material._emissive = blender_ms3d_material.emissive[:]
-            ms3d_material.shininess = blender_ms3d_material.shininess
-            ms3d_material.transparency = blender_ms3d_material.transparency
+            temp_material = None
+            if self.options.use_blender_materials:
+                temp_material = Ms3dMaterial()
+                Ms3dMaterialHelper.copy_from_blender(None, None, temp_material, blender_material)
+            else:
+                temp_material = blender_ms3d_material
+
+            ms3d_material._ambient = temp_material.ambient[:]
+            ms3d_material._diffuse = temp_material.diffuse[:]
+            ms3d_material._specular = temp_material.specular[:]
+            ms3d_material._emissive = temp_material.emissive[:]
+            ms3d_material.shininess = temp_material.shininess
+            ms3d_material.transparency = temp_material.transparency
+            ms3d_material.texture = temp_material.texture
+            ms3d_material.alphamap = temp_material.alphamap
+
             ms3d_material.mode = Ms3dUi.texture_mode_to_ms3d(blender_ms3d_material.mode)
-            ms3d_material.texture = blender_ms3d_material.texture
-            ms3d_material.alphamap = blender_ms3d_material.alphamap
             if blender_ms3d_material.comment:
                 ms3d_material._comment_object = Ms3dCommentEx()
                 ms3d_material._comment_object.comment = blender_ms3d_material.comment

@@ -82,8 +82,7 @@ known issues:
             if more than one UV texture is used per mesh
 
 
-todo:
-    - automatic material convertion at export
+todo / nice to have:
     - export options to ms3d joints/animation/extra parts optional
 
 
@@ -100,7 +99,7 @@ todo:
                         Ms3dVertexEx
                             .bone_ids: 100%
                             .weights: 100%
-                            .extra: 0%
+                            .extra: 100% (not exposed to UI)
             .triangles
                 Ms3dTriangle
                     .vertex_indices: 100%
@@ -161,7 +160,7 @@ todo:
                         Ms3dVertexEx
                             .bone_ids: 100%
                             .weights: 100%
-                            .extra: 0%
+                            .extra: 100% (not exposed to UI)
             .triangles
                 Ms3dTriangle
                     .vertex_indices: 100%

@@ -124,6 +124,12 @@ class Ms3dSpec:
     DEFAULT_FLAGS = FLAG_NONE
     MAX_MATERIAL_SHININESS = 128
 
+    # blender default / OpenGL default
+    DEFAULT_MATERIAL_AMBIENT = (0.2, 0.2, 0.2, 1.0)
+    DEFAULT_MATERIAL_DIFFUSE = (0.8, 0.8, 0.8, 1.0)
+    DEFAULT_MATERIAL_SPECULAR = (1.0, 1.0, 1.0, 1.0)
+    DEFAULT_MATERIAL_EMISSIVE = (0.0, 0.0, 0.0, 1.0)
+    DEFAULT_MATERIAL_SHININESS = 12.5
 
 ###############################################################################
 #
@@ -627,11 +633,11 @@ class Ms3dMaterial:
     def __init__(
             self,
             default_name="",
-            default_ambient=(0.0, 0.0, 0.0, 0.0),
-            default_diffuse=(0.0, 0.0, 0.0, 0.0),
-            default_specular=(0.0, 0.0, 0.0, 0.0),
-            default_emissive=(0.0, 0.0, 0.0, 0.0),
-            default_shininess=0.0,
+            default_ambient=list(Ms3dSpec.DEFAULT_MATERIAL_AMBIENT),
+            default_diffuse=list(Ms3dSpec.DEFAULT_MATERIAL_DIFFUSE),
+            default_specular=list(Ms3dSpec.DEFAULT_MATERIAL_SPECULAR),
+            default_emissive=list(Ms3dSpec.DEFAULT_MATERIAL_EMISSIVE),
+            default_shininess=Ms3dSpec.DEFAULT_MATERIAL_SHININESS,
             default_transparency=0.0,
             default_mode=Ms3dSpec.DEFAULT_MATERIAL_MODE,
             default_texture="",
