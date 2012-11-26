@@ -35,21 +35,8 @@ from random import (
         randrange,
         )
 
-# To support reload properly, try to access a package var,
-# if it's there, reload everything
-#if ('bpy' in locals()):
-#    import imp
-#    if 'io_scene_ms3d.ms3d_strings' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_strings)
-#    if 'io_scene_ms3d.ms3d_spec' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_spec)
-#    if 'io_scene_ms3d.ms3d_utils' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_utils)
-#    #if 'io_scene_ms3d.ms3d_import' in locals():
-#    #    imp.reload(io_scene_ms3d.ms3d_import)
-#    #if 'io_scene_ms3d.ms3d_export' in locals():
-#    #    imp.reload(io_scene_ms3d.ms3d_export)
-#else:
+
+# import io_scene_ms3d stuff
 from io_scene_ms3d.ms3d_strings import (
         ms3d_str,
         )
@@ -61,9 +48,6 @@ from io_scene_ms3d.ms3d_utils import (
         get_edge_split_modifier_add_if,
         set_sence_to_metric,
         )
-    #from io_scene_ms3d.ms3d_import import ( Ms3dImporter, )
-    #from io_scene_ms3d.ms3d_export import ( Ms3dExporter, )
-#    pass
 
 
 #import blender stuff
@@ -218,85 +202,48 @@ class Ms3dUi:
     ICON_PROCESSING = 'OBJECT_DATAMODE'
     ICON_ANIMATION = 'RENDER_ANIMATION'
     ICON_ROTATION_MODE = 'BONE_DATA'
+    ICON_ERROR = 'ERROR'
 
     ###########################################################################
     PROP_DEFAULT_VERBOSE = DEFAULT_VERBOSE
 
-
     ###########################################################################
-    PROP_DEFAULT_OVERRIDE_JOINT_SIZE = False
+    PROP_DEFAULT_USE_JOINT_SIZE = False
     PROP_DEFAULT_JOINT_SIZE = 0.01
     PROP_JOINT_SIZE_MIN = 0.01
     PROP_JOINT_SIZE_MAX = 10.0
     PROP_JOINT_SIZE_STEP = 0.1
     PROP_JOINT_SIZE_PRECISION = 2
 
-
-    ###########################################################################
-    PROP_DEFAULT_UNIT_MM = False
-
-
-    ###########################################################################
-    PROP_DEFAULT_SELECTED = False
-
-
-    ###########################################################################
-    PROP_ITEM_OBJECT_ANIMATION = 'ANIMATION'
-    PROP_ITEM_OBJECT_GROUP = 'GROUP'
-    PROP_ITEM_OBJECT_JOINT = 'JOINT'
-    PROP_ITEM_OBJECT_MATERIAL = 'MATERIAL'
-    PROP_ITEM_OBJECT_MESH = 'MESH'
-    PROP_ITEM_OBJECT_SMOOTHGROUPS = 'SMOOTHGROUPS'
-
-
-    ###########################################################################
-    PROP_DEFAULT_OBJECTS_IMP = {
-            #PROP_ITEM_OBJECT_MESH,
-            PROP_ITEM_OBJECT_MATERIAL,
-            PROP_ITEM_OBJECT_JOINT,
-            PROP_ITEM_OBJECT_SMOOTHGROUPS,
-            PROP_ITEM_OBJECT_GROUP,
-            }
-
-
-    ###########################################################################
-    PROP_DEFAULT_OBJECTS_EXP = {
-            #PROP_ITEM_OBJECT_MESH,
-            PROP_ITEM_OBJECT_MATERIAL,
-            }
-
-
     ###########################################################################
     PROP_DEFAULT_ANIMATION = True
     PROP_DEFAULT_NORMALIZE_WEIGHTS = True
     PROP_DEFAULT_SHRINK_TO_KEYS = False
+    PROP_DEFAULT_BAKE_EACH_FRAME = True
+    PROP_DEFAULT_JOINT_TO_BONES = False
+    PROP_DEFAULT_USE_BLENDER_NAMES = True
+    PROP_DEFAULT_USE_BLENDER_MATERIALS = False
 
     ###########################################################################
-    PROP_ITEM_ROTATION_MODE_EULER = '0'
-    PROP_ITEM_ROTATION_MODE_QUATERNION = '1'
+    PROP_ITEM_ROTATION_MODE_EULER = 'EULER'
+    PROP_ITEM_ROTATION_MODE_QUATERNION = 'QUATERNION'
     PROP_DEFAULT_ANIMATION_ROTATION = PROP_ITEM_ROTATION_MODE_EULER
 
     ###########################################################################
     OPT_SMOOTHING_GROUP_APPLY = 'io_scene_ms3d.apply_smoothing_group'
     OPT_GROUP_APPLY = 'io_scene_ms3d.apply_group'
+    OPT_MATERIAL_APPLY = 'io_scene_ms3d.apply_material'
 
 
 ###############################################################################
 class Ms3dImportOperator(Operator, ImportHelper):
     """ Load a MilkShape3D MS3D File """
-    bl_idname = 'io_scene_ms3d.import'
+    bl_idname = 'import_scene.ms3d'
     bl_label = ms3d_str['BL_LABEL_IMPORTER']
     bl_description = ms3d_str['BL_DESCRIPTION_IMPORTER']
     bl_options = {'PRESET', }
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-
-    @staticmethod
-    def menu_func(cls, context):
-        cls.layout.operator(
-                Ms3dImportOperator.bl_idname,
-                text=ms3d_str['TEXT_OPERATOR'],
-                )
 
     filename_ext = ms3d_str['FILE_EXT']
 
@@ -310,25 +257,19 @@ class Ms3dImportOperator(Operator, ImportHelper):
             options={'HIDDEN', }
             )
 
-    prop_verbose = BoolProperty(
+    verbose = BoolProperty(
             name=ms3d_str['PROP_NAME_VERBOSE'],
             description=ms3d_str['PROP_DESC_VERBOSE'],
             default=Ms3dUi.PROP_DEFAULT_VERBOSE,
             )
 
-    prop_unit_mm = BoolProperty(
-            name=ms3d_str['PROP_NAME_UNIT_MM'],
-            description=ms3d_str['PROP_DESC_UNIT_MM'],
-            default=Ms3dUi.PROP_DEFAULT_UNIT_MM,
-            )
-
-    prop_animation = BoolProperty(
+    animation = BoolProperty(
             name=ms3d_str['PROP_NAME_ANIMATION'],
             description=ms3d_str['PROP_DESC_ANIMATION'],
             default=Ms3dUi.PROP_DEFAULT_ANIMATION,
             )
 
-    prop_rotation_mode = EnumProperty(
+    rotation_mode = EnumProperty(
             name=ms3d_str['PROP_NAME_ROTATION_MODE'],
             description=ms3d_str['PROP_DESC_ROTATION_MODE'],
             items=( (Ms3dUi.PROP_ITEM_ROTATION_MODE_EULER,
@@ -341,13 +282,13 @@ class Ms3dImportOperator(Operator, ImportHelper):
             default=Ms3dUi.PROP_DEFAULT_ANIMATION_ROTATION,
             )
 
-    prop_override_joint_size = BoolProperty(
-            name=ms3d_str['PROP_NAME_OVERRIDE_JOINT_SIZE'],
-            description=ms3d_str['PROP_DESC_OVERRIDE_JOINT_SIZE'],
-            default=Ms3dUi.PROP_DEFAULT_OVERRIDE_JOINT_SIZE,
+    use_joint_size = BoolProperty(
+            name=ms3d_str['PROP_NAME_USE_JOINT_SIZE'],
+            description=ms3d_str['PROP_DESC_USE_JOINT_SIZE'],
+            default=Ms3dUi.PROP_DEFAULT_USE_JOINT_SIZE,
             )
 
-    prop_joint_size = FloatProperty(
+    joint_size = FloatProperty(
             name=ms3d_str['PROP_NAME_IMPORT_JOINT_SIZE'],
             description=ms3d_str['PROP_DESC_IMPORT_JOINT_SIZE'],
             min=Ms3dUi.PROP_JOINT_SIZE_MIN, max=Ms3dUi.PROP_JOINT_SIZE_MAX,
@@ -357,23 +298,22 @@ class Ms3dImportOperator(Operator, ImportHelper):
             #options={'HIDDEN', },
             )
 
+    joint_to_bones = BoolProperty(
+            name=ms3d_str['PROP_NAME_JOINT_TO_BONES'],
+            description=ms3d_str['PROP_DESC_JOINT_TO_BONES'],
+            default=Ms3dUi.PROP_DEFAULT_JOINT_TO_BONES,
+            )
+
+
     @property
     def is_rotation_mode_euler(self):
         return (Ms3dUi.PROP_ITEM_ROTATION_MODE_EULER \
-                in self.prop_rotation_mode)
+                in self.rotation_mode)
 
     @property
     def is_rotation_mode_quaternion(self):
         return (Ms3dUi.PROP_ITEM_ROTATION_MODE_QUATERNION \
-                in self.prop_rotation_mode)
-
-    @property
-    def override_joint_size(self):
-        return self.prop_override_joint_size
-
-    @property
-    def joint_length(self):
-        return self.prop_joint_size
+                in self.rotation_mode)
 
 
     # draw the option panel
@@ -382,22 +322,21 @@ class Ms3dImportOperator(Operator, ImportHelper):
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
-        box.prop(self, 'prop_verbose', icon='SPEAKER')
-
-        box = layout.box()
-        box.label(ms3d_str['LABEL_NAME_OBJECT'], icon=Ms3dUi.ICON_OBJECT)
-        box.prop(self, 'prop_unit_mm', icon='SCENE_DATA', expand=True)
+        box.prop(self, 'verbose', icon='SPEAKER')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)
-        box.prop(self, 'prop_animation')
-        if (self.prop_animation):
-            box.prop(self, 'prop_rotation_mode', icon=Ms3dUi.ICON_ROTATION_MODE, expand=False)
-            box.prop(self, 'prop_override_joint_size')
-            if (self.prop_override_joint_size):
+        box.prop(self, 'animation')
+        if (self.animation):
+            box.prop(self, 'rotation_mode', icon=Ms3dUi.ICON_ROTATION_MODE, expand=False)
+            box.prop(self, 'use_joint_size')
+            if (self.use_joint_size):
                 col = box.column()
                 row = col.row()
-                row.prop(self, 'prop_joint_size')
+                row.prop(self, 'joint_size')
+            box.prop(self, 'joint_to_bones')
+            if (self.joint_to_bones):
+                box.box().label(ms3d_str['LABEL_NAME_JOINT_TO_BONES'], icon=Ms3dUi.ICON_ERROR)
 
     # entrypoint for MS3D -> blender
     def execute(self, blender_context):
@@ -409,21 +348,22 @@ class Ms3dImportOperator(Operator, ImportHelper):
         blender_context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL', }
 
+    @staticmethod
+    def menu_func(cls, context):
+        cls.layout.operator(
+                Ms3dImportOperator.bl_idname,
+                text=ms3d_str['TEXT_OPERATOR'],
+                )
+
 
 class Ms3dExportOperator(Operator, ExportHelper):
     """Save a MilkShape3D MS3D File"""
-    bl_idname = 'io_scene_ms3d.export'
+    bl_idname = 'export_scene.ms3d'
     bl_label = ms3d_str['BL_LABEL_EXPORTER']
     bl_description = ms3d_str['BL_DESCRIPTION_EXPORTER']
     bl_options = {'PRESET', }
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-
-    def menu_func(cls, context):
-        cls.layout.operator(
-                Ms3dExportOperator.bl_idname,
-                text=ms3d_str['TEXT_OPERATOR']
-                )
 
     filename_ext = ms3d_str['FILE_EXT']
 
@@ -437,84 +377,42 @@ class Ms3dExportOperator(Operator, ExportHelper):
             options={'HIDDEN', }
             )
 
-    prop_verbose = BoolProperty(
+    verbose = BoolProperty(
             name=ms3d_str['PROP_NAME_VERBOSE'],
             description=ms3d_str['PROP_DESC_VERBOSE'],
             default=Ms3dUi.PROP_DEFAULT_VERBOSE,
             )
 
-    prop_objects = EnumProperty(
-            name=ms3d_str['PROP_NAME_OBJECTS_EXP'],
-            description=ms3d_str['PROP_DESC_OBJECTS_EXP'],
-            items=( #(Ms3dUi.PROP_ITEM_OBJECT_MESH,
-                    #        ms3d_str['PROP_ITEM_OBJECT_MESH_1'],
-                    #        ms3d_str['PROP_ITEM_OBJECT_MESH_2']),
-                    (Ms3dUi.PROP_ITEM_OBJECT_MATERIAL,
-                            ms3d_str['PROP_ITEM_OBJECT_MATERIAL_1'],
-                            ms3d_str['PROP_ITEM_OBJECT_MATERIAL_2']),
-                    (Ms3dUi.PROP_ITEM_OBJECT_JOINT,
-                            ms3d_str['PROP_ITEM_OBJECT_JOINT_1'],
-                            ms3d_str['PROP_ITEM_OBJECT_JOINT_2']),
-                    #(Ms3dUi.PROP_ITEM_OBJECT_ANIMATION,
-                    #        ms3d_str['PROP_ITEM_OBJECT_ANIMATION_1'],
-                    #        ms3d_str['PROP_ITEM_OBJECT_ANIMATION_2']),
-                    ),
-            default=Ms3dUi.PROP_DEFAULT_OBJECTS_EXP,
-            options={'ENUM_FLAG', 'ANIMATABLE', },
+    use_blender_names = BoolProperty(
+            name=ms3d_str['PROP_NAME_USE_BLENDER_NAMES'],
+            description=ms3d_str['PROP_DESC_USE_BLENDER_NAMES'],
+            default=Ms3dUi.PROP_DEFAULT_USE_BLENDER_NAMES,
             )
 
-    prop_selected = BoolProperty(
-            name=ms3d_str['PROP_NAME_SELECTED'],
-            description=ms3d_str['PROP_DESC_SELECTED'],
-            default=Ms3dUi.PROP_DEFAULT_SELECTED,
+    use_blender_materials = BoolProperty(
+            name=ms3d_str['PROP_NAME_USE_BLENDER_MATERIALS'],
+            description=ms3d_str['PROP_DESC_USE_BLENDER_MATERIALS'],
+            default=Ms3dUi.PROP_DEFAULT_USE_BLENDER_MATERIALS,
             )
 
-    prop_animation = BoolProperty(
-            name=ms3d_str['PROP_NAME_ANIMATION'],
-            description=ms3d_str['PROP_DESC_ANIMATION'],
-            default=Ms3dUi.PROP_DEFAULT_ANIMATION,
-            )
-
-    prop_normalize_weights = BoolProperty(
+    normalize_weights = BoolProperty(
             name=ms3d_str['PROP_NAME_NORMALIZE_WEIGHTS'],
             description=ms3d_str['PROP_DESC_NORMALIZE_WEIGHTS'],
             default=Ms3dUi.PROP_DEFAULT_NORMALIZE_WEIGHTS,
             )
 
-    prop_shrink_to_keys = BoolProperty(
+    shrink_to_keys = BoolProperty(
             name=ms3d_str['PROP_NAME_SHRINK_TO_KEYS'],
             description=ms3d_str['PROP_DESC_SHRINK_TO_KEYS'],
             default=Ms3dUi.PROP_DEFAULT_SHRINK_TO_KEYS,
             )
 
+    bake_each_frame = BoolProperty(
+            name=ms3d_str['PROP_NAME_BAKE_EACH_FRAME'],
+            description=ms3d_str['PROP_DESC_BAKE_EACH_FRAME'],
+            default=Ms3dUi.PROP_DEFAULT_BAKE_EACH_FRAME,
+            )
 
-    @property
-    def handle_animation(self):
-        return (Ms3dUi.PROP_ITEM_OBJECT_ANIMATION in self.prop_objects)
-
-    @property
-    def handle_materials(self):
-        return (Ms3dUi.PROP_ITEM_OBJECT_MATERIAL in self.prop_objects)
-
-    @property
-    def handle_joints(self):
-        return (Ms3dUi.PROP_ITEM_OBJECT_JOINT in self.prop_objects)
-
-    @property
-    def handle_smoothing_groups(self):
-        return (Ms3dUi.PROP_ITEM_OBJECT_SMOOTHGROUPS in self.prop_objects)
-
-    @property
-    def handle_groups(self):
-        return (Ms3dUi.PROP_ITEM_OBJECT_GROUP in self.prop_objects)
-
-    @property
-    def normalize_weights(self):
-        return self.prop_normalize_weights
-
-    @property
-    def shrink_to_keys(self):
-        return self.prop_shrink_to_keys
 
     ##EXPORT_ACTIVE_ONLY:
     ##limit availability to only active mesh object
@@ -533,33 +431,24 @@ class Ms3dExportOperator(Operator, ExportHelper):
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
-        box.prop(self, 'prop_verbose', icon='SPEAKER')
+        box.prop(self, 'verbose', icon='SPEAKER')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_PROCESSING'],
                 icon=Ms3dUi.ICON_PROCESSING)
-        ##EXPORT_ACTIVE_ONLY:
-        ##box.prop(self, 'prop_selected', icon='ROTACTIVE')
-        box.label(ms3d_str['PROP_NAME_ACTIVE'], icon='ROTACTIVE')
-        box.box().label(context.active_object.name)
-        ##
+        row = box.row()
+        row.label(ms3d_str['PROP_NAME_ACTIVE'], icon='ROTACTIVE')
+        row.label(context.active_object.name)
+        #box.prop(self, 'use_blender_names', icon='LINK_BLEND')
+        box.prop(self, 'use_blender_names')
+        box.prop(self, 'use_blender_materials')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'],
                 icon=Ms3dUi.ICON_ANIMATION)
-        box.prop(self, 'prop_normalize_weights')
-        box.prop(self, 'prop_shrink_to_keys')
-        """
-        box.prop(self, 'prop_objects', icon='MESH_DATA', expand=True)
-
-        if (Ms3dUi.PROP_ITEM_OBJECT_JOINT in self.prop_objects):
-            box.label(ms3d_str['REMARKS_2'], icon='ERROR')
-
-            box = layout.box()
-            box.label(ms3d_str['LABEL_NAME_ANIMATION'],
-                    icon=Ms3dUi.ICON_ANIMATION)
-            box.prop(self, 'prop_animation')
-        """
+        box.prop(self, 'normalize_weights')
+        box.prop(self, 'shrink_to_keys')
+        box.prop(self, 'bake_each_frame')
 
     # entrypoint for blender -> MS3D
     def execute(self, blender_context):
@@ -571,6 +460,13 @@ class Ms3dExportOperator(Operator, ExportHelper):
     def invoke(self, blender_context, event):
         blender_context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL", }
+
+    @staticmethod
+    def menu_func(cls, context):
+        cls.layout.operator(
+                Ms3dExportOperator.bl_idname,
+                text=ms3d_str['TEXT_OPERATOR']
+                )
 
 
 ###############################################################################
@@ -744,6 +640,53 @@ class Ms3dGroupOperator(Operator):
         enable_edit_mode(False)
         enable_edit_mode(True)
         return {'FINISHED', }
+
+
+class Ms3dMaterialOperator(Operator):
+    bl_idname = Ms3dUi.OPT_MATERIAL_APPLY
+    bl_label = ms3d_str['BL_LABEL_MATERIAL_OPERATOR']
+    bl_options = {'INTERNAL', }
+
+    mode = EnumProperty(
+            items=( ('', "", ""),
+                    ('FROM_BLENDER',
+                            ms3d_str['ENUM_FROM_BLENDER_1'],
+                            ms3d_str['ENUM_FROM_BLENDER_2']),
+                    ('TO_BLENDER',
+                            ms3d_str['ENUM_TO_BLENDER_1'],
+                            ms3d_str['ENUM_TO_BLENDER_2']),
+                    ),
+            options={'HIDDEN', 'SKIP_SAVE', },
+            )
+
+    @classmethod
+    def poll(cls, context):
+        return (context
+                and context.object
+                and context.object.type in {'MESH', }
+                and context.object.data
+                and context.object.data.ms3d is not None
+                and context.material
+                and context.material.ms3d is not None
+                )
+
+    def execute(self, context):
+        blender_material = context.active_object.active_material
+        ms3d_material = blender_material.ms3d
+
+        if self.mode == 'FROM_BLENDER':
+            Ms3dMaterialHelper.copy_from_blender(self, context, ms3d_material, blender_material)
+            pass
+
+        elif self.mode == 'TO_BLENDER':
+            # not implemented
+            pass
+
+        return {'FINISHED', }
+
+    # entrypoint for option via UI
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
 
 
 ###############################################################################
@@ -993,36 +936,85 @@ class Ms3dJointProperties(PropertyGroup):
 
 class Ms3dMaterialHelper:
     @staticmethod
-    def on_update_ambient(cls, context):
+    def copy_to_blender_ambient(cls, context):
         pass
 
     @staticmethod
-    def on_update_diffuse(cls, context):
+    def copy_to_blender_diffuse(cls, context):
         cls.id_data.diffuse_color = cls.diffuse[0:3]
-        cls.id_data.diffuse_intensity = cls.diffuse[3]
+        #cls.id_data.diffuse_intensity = cls.diffuse[3]
         pass
 
     @staticmethod
-    def on_update_specular(cls, context):
+    def copy_to_blender_specular(cls, context):
         cls.id_data.specular_color = cls.specular[0:3]
-        cls.id_data.specular_intensity = cls.specular[3]
+        #cls.id_data.specular_intensity = cls.specular[3]
         pass
 
     @staticmethod
-    def on_update_emissive(cls, context):
+    def copy_to_blender_emissive(cls, context):
         cls.id_data.emit = (cls.emissive[0] + cls.emissive[1] \
                 + cls.emissive[2]) / 3.0
         pass
 
     @staticmethod
-    def on_update_shininess(cls, context):
+    def copy_to_blender_shininess(cls, context):
         cls.id_data.specular_hardness = cls.shininess * 4.0
         pass
 
     @staticmethod
-    def on_update_transparency(cls, context):
-        cls.id_data.alpha = cls.transparency
+    def copy_to_blender_transparency(cls, context):
+        cls.id_data.alpha = 1.0 - cls.transparency
         pass
+
+
+    @staticmethod
+    def copy_from_blender(cls, context, ms3d_material, blender_material):
+        # copy, bacause of auto update, it would distord original values
+        blender_material_diffuse_color = blender_material.diffuse_color.copy()
+        blender_material_diffuse_intensity = blender_material.diffuse_intensity
+        blender_material_specular_color = blender_material.specular_color.copy()
+        blender_material_specular_intensity = blender_material.specular_intensity
+        blender_material_emit = blender_material.emit
+        blender_material_specular_hardness = blender_material.specular_hardness
+        blender_material_alpha = blender_material.alpha
+
+        blender_material_texture = None
+        for slot in blender_material.texture_slots:
+            if slot and slot.use_map_color_diffuse and slot.texture.type == 'IMAGE':
+                blender_material_texture = slot.texture.image.filepath
+                break
+
+        blender_material_alphamap = None
+        for slot in blender_material.texture_slots:
+            if slot and not slot.use_map_color_diffuse and slot.use_map_alpha and slot.texture.type == 'IMAGE':
+                blender_material_alphamap = slot.texture.image.filepath
+                break
+
+        ms3d_material.diffuse[0] = blender_material_diffuse_color[0]
+        ms3d_material.diffuse[1] = blender_material_diffuse_color[1]
+        ms3d_material.diffuse[2] = blender_material_diffuse_color[2]
+        ms3d_material.diffuse[3] = 1.0
+        ms3d_material.specular[0] = blender_material_specular_color[0]
+        ms3d_material.specular[1] = blender_material_specular_color[1]
+        ms3d_material.specular[2] = blender_material_specular_color[2]
+        ms3d_material.specular[3] = 1.0
+        ms3d_material.emissive[0] = blender_material_emit
+        ms3d_material.emissive[1] = blender_material_emit
+        ms3d_material.emissive[2] = blender_material_emit
+        ms3d_material.emissive[3] = 1.0
+        ms3d_material.shininess = blender_material_specular_hardness / 4.0
+        ms3d_material.transparency = 1.0 - blender_material_alpha
+
+        if blender_material_texture:
+            ms3d_material.texture = blender_material_texture
+        else:
+            ms3d_material.texture = ""
+
+        if blender_material_alphamap:
+            ms3d_material.alphamap = blender_material_alphamap
+        else:
+            ms3d_material.alphamap = ""
 
 
 class Ms3dMaterialProperties(PropertyGroup):
@@ -1037,8 +1029,8 @@ class Ms3dMaterialProperties(PropertyGroup):
             name=ms3d_str['PROP_NAME_AMBIENT'],
             description=ms3d_str['PROP_DESC_AMBIENT'],
             subtype='COLOR', size=4, min=0, max=1, precision=3, step=0.1,
-            default=(0.2, 0.2, 0.2, 1.0), # OpenGL default for ambient
-            update=Ms3dMaterialHelper.on_update_ambient,
+            default=Ms3dSpec.DEFAULT_MATERIAL_AMBIENT,
+            update=Ms3dMaterialHelper.copy_to_blender_ambient,
             #options={'HIDDEN', },
             )
 
@@ -1046,8 +1038,8 @@ class Ms3dMaterialProperties(PropertyGroup):
             name=ms3d_str['PROP_NAME_DIFFUSE'],
             description=ms3d_str['PROP_DESC_DIFFUSE'],
             subtype='COLOR', size=4, min=0, max=1, precision=3, step=0.1,
-            default=(0.8, 0.8, 0.8, 1.0), # OpenGL default for diffuse
-            update=Ms3dMaterialHelper.on_update_diffuse,
+            default=Ms3dSpec.DEFAULT_MATERIAL_DIFFUSE,
+            update=Ms3dMaterialHelper.copy_to_blender_diffuse,
             #options={'HIDDEN', },
             )
 
@@ -1055,8 +1047,8 @@ class Ms3dMaterialProperties(PropertyGroup):
             name=ms3d_str['PROP_NAME_SPECULAR'],
             description=ms3d_str['PROP_DESC_SPECULAR'],
             subtype='COLOR', size=4, min=0, max=1, precision=3, step=0.1,
-            default=(0.0, 0.0, 0.0, 1.0), # OpenGL default for specular
-            update=Ms3dMaterialHelper.on_update_specular,
+            default=Ms3dSpec.DEFAULT_MATERIAL_SPECULAR,
+            update=Ms3dMaterialHelper.copy_to_blender_specular,
             #options={'HIDDEN', },
             )
 
@@ -1064,8 +1056,8 @@ class Ms3dMaterialProperties(PropertyGroup):
             name=ms3d_str['PROP_NAME_EMISSIVE'],
             description=ms3d_str['PROP_DESC_EMISSIVE'],
             subtype='COLOR', size=4, min=0, max=1, precision=3, step=0.1,
-            default=(0.0, 0.0, 0.0, 1.0), # OpenGL default for emissive
-            update=Ms3dMaterialHelper.on_update_emissive,
+            default=Ms3dSpec.DEFAULT_MATERIAL_EMISSIVE,
+            update=Ms3dMaterialHelper.copy_to_blender_emissive,
             #options={'HIDDEN', },
             )
 
@@ -1073,9 +1065,9 @@ class Ms3dMaterialProperties(PropertyGroup):
             name=ms3d_str['PROP_NAME_SHININESS'],
             description=ms3d_str['PROP_DESC_SHININESS'],
             min=0, max=Ms3dSpec.MAX_MATERIAL_SHININESS, precision=3, step=0.1,
-            default=0,
+            default=Ms3dSpec.DEFAULT_MATERIAL_SHININESS,
             subtype='FACTOR',
-            update=Ms3dMaterialHelper.on_update_shininess,
+            update=Ms3dMaterialHelper.copy_to_blender_shininess,
             #options={'HIDDEN', },
             )
 
@@ -1085,7 +1077,7 @@ class Ms3dMaterialProperties(PropertyGroup):
             min=0, max=1, precision=3, step=0.1,
             default=0,
             subtype='FACTOR',
-            update=Ms3dMaterialHelper.on_update_transparency,
+            update=Ms3dMaterialHelper.copy_to_blender_transparency,
             #options={'HIDDEN', },
             )
 
@@ -1222,6 +1214,16 @@ class Ms3dMaterialPanel(Panel):
 
         row = layout.row()
         row.prop(custom_data, 'comment')
+
+        layout.row().operator(
+                Ms3dUi.OPT_MATERIAL_APPLY,
+                text=ms3d_str['ENUM_FROM_BLENDER_1'], icon='APPEND_BLEND').mode = 'FROM_BLENDER'
+
+        # not implemented
+        #layout.row().operator(
+        #        Ms3dUi.OPT_MATERIAL_APPLY,
+        #        text=ms3d_str['ENUM_TO_BLENDER_1'], icon='IMPORT').mode = 'TO_BLENDER'
+        pass
 
 
 class Ms3dBonePanel(Panel):
@@ -1542,7 +1544,6 @@ class Ms3dSetSceneToMetricOperator(Operator):
     @classmethod
     def poll(cls, context):
         return True
-
 
     # entrypoint for option
     def execute(self, context):

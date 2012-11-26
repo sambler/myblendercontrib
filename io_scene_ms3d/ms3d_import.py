@@ -32,12 +32,8 @@
 
 #import python stuff
 import io
-from math import (
-        radians,
-        )
 from mathutils import (
         Vector,
-        Euler,
         Matrix,
         )
 from os import (
@@ -45,33 +41,21 @@ from os import (
         )
 from sys import (
         exc_info,
-        float_info,
         )
 from time import (
         time,
         )
 
 
-# To support reload properly, try to access a package var,
-# if it's there, reload everything
-#if ('bpy' in locals()):
-#    import imp
-#    if 'io_scene_ms3d.ms3d_strings' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_strings)
-#    if 'io_scene_ms3d.ms3d_spec' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_spec)
-#    if 'io_scene_ms3d.ms3d_utils' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_utils)
-#    if 'io_scene_ms3d.ms3d_ui' in locals():
-#        imp.reload(io_scene_ms3d.ms3d_ui)
-#    pass
-#else:
+# import io_scene_ms3d stuff
 from io_scene_ms3d.ms3d_strings import (
         ms3d_str,
         )
 from io_scene_ms3d.ms3d_spec import (
         Ms3dSpec,
         Ms3dModel,
+        Ms3dVertexEx2,
+        Ms3dVertexEx3,
         )
 from io_scene_ms3d.ms3d_utils import (
         select_all,
@@ -80,12 +64,10 @@ from io_scene_ms3d.ms3d_utils import (
         pre_setup_environment,
         post_setup_environment,
         get_edge_split_modifier_add_if,
-        set_sence_to_metric,
         )
 from io_scene_ms3d.ms3d_ui import (
         Ms3dUi,
         )
-#    pass
 
 
 #import blender stuff
@@ -139,7 +121,7 @@ class Ms3dImporter():
                 pass
 
             # if option is set, this time will enlargs the io time
-            if self.options.prop_verbose:
+            if self.options.verbose:
                 ms3d_model.print_internal()
 
             t2 = time()
@@ -153,31 +135,13 @@ class Ms3dImporter():
                 blender_scene = blender_context.scene
 
                 # finalize/restore environment
-                if self.options.prop_unit_mm:
-                    # set metrics
-                    set_sence_to_metric(blender_context)
-
                 blender_scene.update()
 
                 post_setup_environment(self, blender_context)
 
             print()
             print("##########################################################")
-            #print("MS3D -> Blender : [{0}]".format(self.filepath_splitted[1]))
-            #
-            #read - exception in try block
-            #  type: '<class 'UnicodeEncodeError'>'
-            #  value: ''charmap' codec can't encode characters in position 19-24: character maps to <undefined>'
-            #Traceback (most recent call last):
-            #  File "..\io_scene_ms3d\ms3d_ui.py", line 404, in execute
-            #    return Ms3dImporter(self).read(blender_context)
-            #  File "..\io_scene_ms3d\ms3d_import.py", line 190, in read
-            #    print("MS3D -> Blender : [{0}]".format(self.filepath_splitted[1]))
-            #  File "..\python\lib\encodings\cp437.py", line 19, in encode
-            #    return codecs.charmap_encode(input,self.errors,encoding_map)[0]
-            #UnicodeEncodeError: 'charmap' codec can't encode characters in position 19-24: character maps to <undefined>
-            print("MS3D -> Blender")
-
+            print("Import from MS3D to Blender")
             print(statistics)
             print("##########################################################")
 
@@ -340,9 +304,28 @@ class Ms3dImporter():
 
         ##########################
         # BMesh stuff:
+        # create new Layers for custom data per "vertex"
+        layer_extra = bm.verts.layers.int.get(ms3d_str['OBJECT_LAYER_EXTRA'])
+        if layer_extra is None:
+            layer_extra = bm.verts.layers.int.new(ms3d_str['OBJECT_LAYER_EXTRA'])
+
+        ##########################
+        # BMesh stuff:
         # create all vertices
         for ms3d_vertex_index, ms3d_vertex in enumerate(ms3d_model.vertices):
             bmv = bm.verts.new(self.geometry_correction(ms3d_vertex.vertex))
+
+            if layer_extra and ms3d_vertex.vertex_ex_object and \
+                    (isinstance(ms3d_vertex.vertex_ex_object, Ms3dVertexEx2) \
+                    or isinstance(ms3d_vertex.vertex_ex_object, Ms3dVertexEx3)):
+
+                #bmv[layer_extra] = ms3d_vertex.vertex_ex_object.extra
+                # bm.verts.layers.int does only support signed int32
+                # convert unsigned int32 to signed int32 (little-endian)
+                unsigned_int32 = ms3d_vertex.vertex_ex_object.extra
+                bytes_int32 = unsigned_int32.to_bytes(4, byteorder='little', signed=False)
+                signed_int32 = int.from_bytes(bytes_int32, byteorder='little', signed=True)
+                bmv[layer_extra] = signed_int32
 
         ##########################
         # blender stuff (uses BMesh stuff):
@@ -375,33 +358,29 @@ class Ms3dImporter():
                 blender_material.ms3d.comment = ms3d_comment.comment
 
             # blender datas
-            blender_material.ambient = ((
+            blender_material.ambient = (
                     (ms3d_material.ambient[0]
                     + ms3d_material.ambient[1]
                     + ms3d_material.ambient[2]) / 3.0)
-                    * ms3d_material.ambient[3])
 
             blender_material.diffuse_color[0] = ms3d_material.diffuse[0]
             blender_material.diffuse_color[1] = ms3d_material.diffuse[1]
             blender_material.diffuse_color[2] = ms3d_material.diffuse[2]
-            blender_material.diffuse_intensity = ms3d_material.diffuse[3]
 
             blender_material.specular_color[0] = ms3d_material.specular[0]
             blender_material.specular_color[1] = ms3d_material.specular[1]
             blender_material.specular_color[2] = ms3d_material.specular[2]
-            blender_material.specular_intensity = ms3d_material.specular[3]
 
-            blender_material.emit = ((
+            blender_material.emit = (
                     (ms3d_material.emissive[0]
                     + ms3d_material.emissive[1]
                     + ms3d_material.emissive[2]) / 3.0)
-                    * ms3d_material.emissive[3])
 
-            blender_material.specular_hardness = ms3d_material.shininess * 2.0
+            blender_material.specular_hardness = ms3d_material.shininess * 4.0
 
             if (ms3d_material.transparency):
                 blender_material.use_transparency = True
-                blender_material.alpha = ms3d_material.transparency
+                blender_material.alpha = 1.0 - ms3d_material.transparency
                 blender_material.specular_alpha = blender_material.alpha
 
             if (blender_material.game_settings):
@@ -713,10 +692,10 @@ class Ms3dImporter():
 
         ##########################
         # ms3d_joint to blender_edit_bone
-        if ms3d_model.model_ex_object and not self.options.override_joint_size:
+        if ms3d_model.model_ex_object and not self.options.use_joint_size:
             joint_length = ms3d_model.model_ex_object.joint_size
         else:
-            joint_length = self.options.joint_length
+            joint_length = self.options.joint_size
         if joint_length < 0.01:
             joint_length = 0.01
 
@@ -753,6 +732,22 @@ class Ms3dImporter():
             ms3d_joint.blender_edit_bone = blender_edit_bone
         enable_edit_mode(False)
 
+        if self.options.joint_to_bones:
+            enable_edit_mode(True)
+            for ms3d_joint in ms3d_joints_ordered:
+                blender_edit_bone = blender_armature.edit_bones[ms3d_joint.name]
+                if blender_edit_bone.children:
+                    new_length = 0.0
+                    for child_bone in blender_edit_bone.children:
+                        length = (child_bone.head - blender_edit_bone.head).length
+                        if new_length <= 0 or length < new_length:
+                            new_length = length
+                    if new_length >= 0.01:
+                        direction = blender_edit_bone.tail - blender_edit_bone.head
+                        direction.normalize()
+                        blender_edit_bone.tail = blender_edit_bone.head + (direction * new_length)
+            enable_edit_mode(False)
+
         ##########################
         # post process bones
         enable_edit_mode(False)
@@ -774,7 +769,7 @@ class Ms3dImporter():
                 blender_bone.ms3d.comment = ms3d_comment.comment
 
         ##########################
-        if not self.options.prop_animation:
+        if not self.options.animation:
             return blender_armature_object
 
 

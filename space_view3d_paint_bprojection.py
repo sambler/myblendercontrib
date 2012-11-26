@@ -9,6 +9,7 @@ bl_info = {
     "category": "Paint"}
 
 import bpy
+from bpy.app.handlers import persistent
 from bpy.types import Panel, Operator
 from bpy.props import IntProperty, FloatProperty, BoolProperty, IntVectorProperty, StringProperty, FloatVectorProperty, CollectionProperty
 from bpy_extras import view3d_utils
@@ -897,33 +898,8 @@ class RemoveBProjectionPlane(Operator):
             context.scene.objects.active = ob
             ob.select = True
             
-            km = bpy.data.window_managers['WinMan'].keyconfigs['Blender'].keymaps['3D View']
-            # ----------------------------------------------
-            # XXX, this isnt future proof, DON'T USE INDEX's - campbell
-            km.keymap_items[3-1].idname = 'view3d.rotate'
-            km.keymap_items[21-1].idname = 'view3d.zoom'
-            km.keymap_items[21-1].properties.delta = 1.0
-            km.keymap_items[22-1].idname = 'view3d.zoom'
-            km.keymap_items[22-1].properties.delta = -1.0
-            km.keymap_items[4-1].idname = 'view3d.move'
-            km.keymap_items[29-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[29-1].properties.type = 'FRONT'
-            km.keymap_items[31-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[31-1].properties.type = 'RIGHT'            
-            km.keymap_items[35-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[35-1].properties.type = 'TOP'
-            km.keymap_items[37-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[37-1].properties.type = 'BACK'
-            km.keymap_items[38-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[38-1].properties.type = 'LEFT'            
-            km.keymap_items[39-1].idname = 'view3d.viewnumpad'
-            km.keymap_items[39-1].properties.type = 'BOTTOM'            
-            
-            km = context.window_manager.keyconfigs.default.keymaps['Image Paint']
-            #to do
-            for kmi in (kmi for kmi in km.keymap_items if kmi.idname in {"object.intuitivescale", }):
-                    km.keymap_items.remove(kmi)
-            
+            reinitkey()
+                        
             '''tmp = context.object
             for ob in (ob for ob in bpy.data.objects if ob.type == 'MESH' and ob.hide == False and context.scene in ob.users_scene):
                 context.scene.objects.active = ob
@@ -944,6 +920,34 @@ class RemoveBProjectionPlane(Operator):
             nothing = 0
         
         return {'FINISHED'}
+
+def reinitkey():
+    km = bpy.data.window_managers['WinMan'].keyconfigs['Blender'].keymaps['3D View']
+    # ----------------------------------------------
+    # XXX, this isnt future proof, DON'T USE INDEX's - campbell
+    km.keymap_items[3-1].idname = 'view3d.rotate'
+    km.keymap_items[21-1].idname = 'view3d.zoom'
+    km.keymap_items[21-1].properties.delta = 1.0
+    km.keymap_items[22-1].idname = 'view3d.zoom'
+    km.keymap_items[22-1].properties.delta = -1.0
+    km.keymap_items[4-1].idname = 'view3d.move'
+    km.keymap_items[29-1].idname = 'view3d.viewnumpad'
+    km.keymap_items[29-1].properties.type = 'FRONT'
+    km.keymap_items[31-1].idname = 'view3d.viewnumpad'
+    km.keymap_items[31-1].properties.type = 'RIGHT'            
+    km.keymap_items[35-1].idname = 'view3d.viewnumpad'
+    km.keymap_items[35-1].properties.type = 'TOP'
+    km.keymap_items[37-1].idname = 'view3d.viewnumpad'
+    km.keymap_items[37-1].properties.type = 'BACK'
+    km.keymap_items[38-1].idname = 'view3d.viewnumpad'
+    km.keymap_items[38-1].properties.type = 'LEFT'            
+    km.keymap_items[39-1].idname = 'view3d.viewnumpad'
+    km.keymap_items[39-1].properties.type = 'BOTTOM'            
+            
+    km = bpy.context.window_manager.keyconfigs.default.keymaps['Image Paint']
+    #to do
+    for kmi in (kmi for kmi in km.keymap_items if kmi.idname in {"object.intuitivescale", }):
+            km.keymap_items.remove(kmi)
 
 # Oprerator Class to remove what is no more needed    
 class ChangeObject(Operator):
@@ -1062,6 +1066,7 @@ class RotateView3D(Operator):
     pan = Vector((0,0))
 
     key = ['']
+    block = 0
  
     first_time = True
     tmp_level = -1
@@ -1127,20 +1132,22 @@ class RotateView3D(Operator):
         ob = context.object
         em = bpy.data.objects['Empty for BProjection'] 
         reg = context.area.regions[4]        
-        if event.value == 'PRESS':
-            self.pan = Vector((event.mouse_region_x, event.mouse_region_y))
+            
                     
+        if event.type not in {'MOUSEMOVE','INBETWEEN_MOUSEMOVE'}:
+            self.pan = Vector((event.mouse_region_x, event.mouse_region_y))
             self.key = [event.type]
-
+            self.block = 1
+            
         if event.value == 'RELEASE':
-            self.key = [''] 
+            return {'FINISHED'}
 
         if event.type == 'MOUSEMOVE':                        
-            
-            if '' in self.key:
+            if self.block == 0:
                 self.tracball(context, event.mouse_region_x, event.mouse_region_y,ob.location)
                 align_to_view(context)
-                if self.first_time:
+                #to unlock the camera
+                if self.first_time:                    
                     rot_ang = context.user_preferences.view.rotation_angle            
                     context.user_preferences.view.rotation_angle = 0
                     bpy.ops.view3d.view_orbit(type='ORBITLEFT')
@@ -1148,52 +1155,53 @@ class RotateView3D(Operator):
                     bpy.ops.view3d.view_persportho()         
                     bpy.ops.view3d.view_persportho()
                     self.first_time = False
-          
-            deltax = event.mouse_region_x - round(self.pan.x)
-            deltay = event.mouse_region_y - round(self.pan.y)          
-
-            if 'G' in self.key:       
-                sd = context.space_data              
-                l =  sd.region_3d
-                vr = l.view_rotation.copy()
-                vr.invert()
-                
-                v_init = Vector((0.0,0.0,1.0))
-                
-                pos = [-deltax,-deltay]
-                v = view3d_utils.region_2d_to_location_3d(context.region, l, pos, v_init)
-                pos = [0,0]
-                vbl = view3d_utils.region_2d_to_location_3d(context.region, l, pos, v_init)        
-                loc = vbl - v            
-                loc.rotate(vr)
-                em.custom_location += loc              
-                                   
-            if 'S' in self.key:                
-                s = em.custom_scale
-                if em.custom_linkscale:
-                    em.custom_propscale += deltax/20
-                else:
-                    em.custom_scale = [s[0] + deltax/20, s[1] + deltay/20]
-                                          
-            if 'Z' in self.key:                
-                em.custom_location.z+=deltax/10
-                      
-            if 'R' in self.key:
-                em.custom_rotation+=deltax
+            else:          
+                deltax = event.mouse_region_x - round(self.pan.x)
+                deltay = event.mouse_region_y - round(self.pan.y)          
+     
+                if 'G' in self.key:     
+                    sd = context.space_data              
+                    l =  sd.region_3d
+                    vr = l.view_rotation.copy()
+                    vr.invert()
                     
-            if 'U' in self.key:
-                suv = em.custom_scaleuv
-                if em.custom_linkscaleuv:    
-                    em.custom_propscaleuv += deltax/50
-                else:
-                    em.custom_scaleuv= [suv[0] + deltax/50 , suv[1] + deltay/50]               
-
-            if 'Y' in self.key:       
-                ouv = em.custom_offsetuv
-                em.custom_offsetuv = [ouv[0] - deltax/50,ouv[1] - deltay/50] 
-
-            self.pan = Vector((event.mouse_region_x, event.mouse_region_y))
-            self.first_mouse = Vector((event.mouse_region_x, self.first_mouse.y))
+                    v_init = Vector((0.0,0.0,1.0))
+                    
+                    pos = [-deltax,-deltay]
+                    v = view3d_utils.region_2d_to_location_3d(context.region, l, pos, v_init)
+                    pos = [0,0]
+                    vbl = view3d_utils.region_2d_to_location_3d(context.region, l, pos, v_init)        
+                    loc = vbl - v 
+              
+                    loc.rotate(vr)
+                    em.custom_location += loc              
+                                       
+                if 'S' in self.key:                
+                    s = em.custom_scale
+                    if em.custom_linkscale:
+                        em.custom_propscale += deltax/20
+                    else:
+                        em.custom_scale = [s[0] + deltax/20, s[1] + deltay/20]
+                                              
+                if 'Z' in self.key:                
+                    em.custom_location.z+=deltax/10
+                          
+                if 'R' in self.key:
+                    em.custom_rotation+=deltax
+                        
+                if 'U' in self.key:
+                    suv = em.custom_scaleuv
+                    if em.custom_linkscaleuv:    
+                        em.custom_propscaleuv += deltax/50
+                    else:
+                        em.custom_scaleuv= [suv[0] + deltax/50 , suv[1] + deltay/50]               
+    
+                if 'Y' in self.key:       
+                    ouv = em.custom_offsetuv
+                    em.custom_offsetuv = [ouv[0] - deltax/50,ouv[1] - deltay/50] 
+    
+                self.pan = Vector((event.mouse_region_x, event.mouse_region_y))
+                
                         
         elif event.type == 'MIDDLEMOUSE'and event.value == 'RELEASE':
             if self.tmp_level > -1:
@@ -1207,7 +1215,7 @@ class RotateView3D(Operator):
             clear_props(context)
         
         if 'O' in self.key:
-            bpy.ops.object.change_object()            
+            bpy.ops.object.change_object()           
         return {'RUNNING_MODAL'}
     
     def execute(self, context):        
@@ -1216,6 +1224,7 @@ class RotateView3D(Operator):
         return{'FINISHED'}
 
     def invoke(self, context, event):
+        bpy.data.objects['Empty for BProjection']
         context.window_manager.modal_handler_add(self)
         self.first_mouse = Vector((event.mouse_region_x,event.mouse_region_y))
         self.first_time = True
@@ -1224,6 +1233,7 @@ class RotateView3D(Operator):
                 self.tmp_level = sub.levels
                 sub.levels = 0
         return {'RUNNING_MODAL'}
+            
 
 # Oprerator Class to pan the view3D
 class PanView3D(bpy.types.Operator):
@@ -1271,6 +1281,7 @@ class PanView3D(bpy.types.Operator):
         return {'RUNNING_MODAL'}
                 
     def invoke(self, context, event):
+        bpy.data.objects['Empty for BProjection']    
         context.window_manager.modal_handler_add(self)
         self.first_mouse.x = event.mouse_region_x
         self.first_mouse.y = event.mouse_region_y   
@@ -1280,7 +1291,7 @@ class PanView3D(bpy.types.Operator):
                 sub.levels = 0  
                       
         return {'RUNNING_MODAL'}
-
+        
     def execute(self, context):        
         align_to_view(context)  
         
@@ -1369,9 +1380,14 @@ class PresetView3D(Operator):
                     
         return {'FINISHED'}
 
+@persistent
+def load_handler(dummy):
+    reinitkey()
+
 def register():
     bpy.utils.register_module(__name__)
     createcustomprops(bpy.context)
+    bpy.app.handlers.load_post.append(load_handler)
 
 def unregister():
     bpy.utils.unregister_module(__name__)
