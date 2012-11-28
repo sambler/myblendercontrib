@@ -377,15 +377,7 @@ class Ms3dImporter():
                     + ms3d_material.emissive[2]) / 3.0)
 
             blender_material.specular_hardness = ms3d_material.shininess * 4.0
-
-            if (ms3d_material.transparency):
-                blender_material.use_transparency = True
-                blender_material.alpha = 1.0 - ms3d_material.transparency
-                blender_material.specular_alpha = blender_material.alpha
-
-            if (blender_material.game_settings):
-                blender_material.game_settings.use_backface_culling = False
-                blender_material.game_settings.alpha_blend = 'ALPHA'
+            blender_material.alpha = 1.0 - ms3d_material.transparency
 
             # diffuse texture
             if ms3d_material.texture:
