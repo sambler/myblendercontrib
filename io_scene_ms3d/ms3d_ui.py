@@ -922,7 +922,7 @@ class Ms3dJointProperties(PropertyGroup):
             name=ms3d_str['PROP_NAME_COLOR'],
             description=ms3d_str['PROP_DESC_COLOR_JOINT'],
             subtype='COLOR', size=3, min=0, max=1, precision=3, step=0.1,
-            default=(0.8, 0.8, 0.8),
+            default=Ms3dSpec.DEFAULT_JOINT_COLOR,
             #options={'HIDDEN', },
             )
 
