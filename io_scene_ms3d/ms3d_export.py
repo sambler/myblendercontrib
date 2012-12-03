@@ -237,6 +237,7 @@ class Ms3dExporter():
             blender_mesh_object_temp.data = blender_mesh_temp
             blender_scene.objects.link(blender_mesh_object_temp)
             blender_scene.objects.active = blender_mesh_object_temp
+            blender_mesh_temp.validate(self.options.verbose)
 
             # convert to tris
             enable_edit_mode(True)

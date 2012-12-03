@@ -434,8 +434,12 @@ class Ms3dImporter():
         for ms3d_triangle_index, ms3d_triangle in enumerate(
                 ms3d_model.triangles):
             bmv_list = []
-            for vert_index in ms3d_triangle.vertex_indices:
+            length_verts = len(bm.verts)
+            for index, vert_index in enumerate(ms3d_triangle.vertex_indices):
+                if vert_index < 0 or vert_index >= length_verts:
+                    continue
                 bmv = bm.verts[vert_index]
+                bmv.normal = self.geometry_correction(ms3d_triangle.vertex_normals[index])
                 if [[x] for x in bmv_list if x == bmv]:
                     self.options.report(
                             {'WARNING', 'INFO'},
@@ -530,6 +534,8 @@ class Ms3dImporter():
         #
         # end BMesh stuff
         ####################################################
+
+        blender_mesh.validate(self.options.verbose)
 
         return blender_mesh_object
 
