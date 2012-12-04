@@ -19,7 +19,7 @@
 bl_info = {
     'name': 'Freen\'s Animation Tools',
     'author': 'Beorn Leonard',
-    'version': (2, 1),
+    'version': (2, 2),
     "blender": (2, 6, 4),
     "api": 36157,
     'location': 'View3D > Properties panel > Animation Tools',
@@ -77,7 +77,8 @@ class AnimPanel(bpy.types.Panel):
             row.prop(scene, "frame_preview_end", text="Out")
         
         row = layout.row(align=True)
-        row.label(" ") # this label with the trailing partner causes the buttons to be centred.
+        row.prop(scene, "frame_current", text="")
+        row.separator()
         row.operator("screen.frame_jump", text="", icon='REW').end = False
         row.operator("screen.keyframe_jump", text="", icon='PREV_KEYFRAME').next = False
         if not screen.is_animation_playing:
@@ -97,7 +98,6 @@ class AnimPanel(bpy.types.Panel):
             sub.operator("screen.animation_play", text="", icon='PAUSE')
         row.operator("screen.keyframe_jump", text="", icon='NEXT_KEYFRAME').next = True
         row.operator("screen.frame_jump", text="", icon='FF').end = True
-        row.label(" ") # closing centre tag
 
 def register():
     bpy.utils.register_class(AnimPanel)
