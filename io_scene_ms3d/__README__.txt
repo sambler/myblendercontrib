@@ -77,7 +77,6 @@ known issues:
 
   exporter issues:
     - does only export active mesh object
-    - does only export ms3d material
     - does only export the first existing UV texture coordinates,
             if more than one UV texture is used per mesh
 

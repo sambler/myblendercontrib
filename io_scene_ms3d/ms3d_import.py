@@ -430,11 +430,11 @@ class Ms3dImporter():
         ##########################
         # BMesh stuff:
         # create all triangles
+        length_verts = len(bm.verts)
         smoothing_group_blender_faces = {}
         for ms3d_triangle_index, ms3d_triangle in enumerate(
                 ms3d_model.triangles):
             bmv_list = []
-            length_verts = len(bm.verts)
             for index, vert_index in enumerate(ms3d_triangle.vertex_indices):
                 if vert_index < 0 or vert_index >= length_verts:
                     continue
