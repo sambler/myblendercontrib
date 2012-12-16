@@ -223,6 +223,7 @@ class Ms3dUi:
     PROP_DEFAULT_JOINT_TO_BONES = False
     PROP_DEFAULT_USE_BLENDER_NAMES = True
     PROP_DEFAULT_USE_BLENDER_MATERIALS = False
+    PROP_DEFAULT_EXTENDED_NORMAL_HANDLING = False
 
     ###########################################################################
     PROP_ITEM_ROTATION_MODE_EULER = 'EULER'
@@ -304,6 +305,12 @@ class Ms3dImportOperator(Operator, ImportHelper):
             default=Ms3dUi.PROP_DEFAULT_JOINT_TO_BONES,
             )
 
+    extended_normal_handling = BoolProperty(
+            name=ms3d_str['PROP_NAME_EXTENDED_NORMAL_HANDLING'],
+            description=ms3d_str['PROP_DESC_EXTENDED_NORMAL_HANDLING'],
+            default=Ms3dUi.PROP_DEFAULT_EXTENDED_NORMAL_HANDLING,
+            )
+
 
     @property
     def is_rotation_mode_euler(self):
@@ -323,6 +330,11 @@ class Ms3dImportOperator(Operator, ImportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_OPTIONS'], icon=Ms3dUi.ICON_OPTIONS)
         box.prop(self, 'verbose', icon='SPEAKER')
+
+        box = layout.box()
+        box.label(ms3d_str['LABEL_NAME_PROCESSING'],
+                icon=Ms3dUi.ICON_PROCESSING)
+        box.prop(self, 'extended_normal_handling')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)

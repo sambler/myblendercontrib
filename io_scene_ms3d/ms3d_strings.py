@@ -56,6 +56,8 @@ ms3d_str = {
                 " contains faces too less vertices!",
         'WARNING_IMPORT_SKIP_VERTEX_DOUBLE': "skipped face #{}:"\
                 " contains faces with double vertices!",
+        'WARNING_IMPORT_EXTRA_VERTEX_NORMAL': "created extra vertex"\
+                " because of different normals #{} -> {}.",
         'SUMMARY_IMPORT': "elapsed time: {0:.4}s (media io:"\
                 " ~{1:.4}s, converter: ~{2:.4}s)",
         'SUMMARY_EXPORT': "elapsed time: {0:.4}s (converter:"\
@@ -219,7 +221,8 @@ ms3d_str = {
         'ENUM_FROM_BLENDER_2' : "takes and copies all available values from blender",
         'ENUM_TO_BLENDER_1' : "Copy To Blender",
         'ENUM_TO_BLENDER_2' : "copies and puts all available values to blender",
-
+        'PROP_NAME_EXTENDED_NORMAL_HANDLING': "Extended Normal Handling",
+        'PROP_DESC_EXTENDED_NORMAL_HANDLING': "adds extra vertices if normals are different",
         'PROP_NAME_': "Name",
         'PROP_DESC_': "Description",
         # ms3d_str['']

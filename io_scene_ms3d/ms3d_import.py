@@ -431,15 +431,46 @@ class Ms3dImporter():
         # BMesh stuff:
         # create all triangles
         length_verts = len(bm.verts)
+        vertex_extra_index = length_verts
+        blender_invalide_normal = Vector()
         smoothing_group_blender_faces = {}
         for ms3d_triangle_index, ms3d_triangle in enumerate(
                 ms3d_model.triangles):
             bmv_list = []
+            bmf_normal = Vector()
+
             for index, vert_index in enumerate(ms3d_triangle.vertex_indices):
                 if vert_index < 0 or vert_index >= length_verts:
                     continue
                 bmv = bm.verts[vert_index]
-                bmv.normal = self.geometry_correction(ms3d_triangle.vertex_normals[index])
+
+                blender_normal = self.geometry_correction(ms3d_triangle.vertex_normals[index])
+                if bmv.normal == blender_invalide_normal:
+                    bmv.normal = blender_normal
+                elif bmv.normal != blender_normal and self.options.extended_normal_handling:
+                    ## search for an already created extra vertex
+                    bmv_new = None
+                    for vert_index_candidat in range(vertex_extra_index, length_verts):
+                        bmv_candidat = bm.verts[vert_index_candidat]
+                        if bmv_candidat.co == bmv.co \
+                                and bmv_candidat.normal == blender_normal:
+                            bmv_new = bmv_candidat
+                            vert_index = vert_index_candidat
+                            break
+
+                    ## if not exists, create one in blender and ms3d as well
+                    if bmv_new is None:
+                        ms3d_model.vertices.append(ms3d_model.vertices[vert_index])
+                        bmv_new = bm.verts.new(bmv.co)
+                        bmv_new.normal = blender_normal
+                        bmv_new[layer_extra] = bmv[layer_extra]
+                        vert_index = length_verts
+                        length_verts += 1
+                        self.options.report({'WARNING', 'INFO'},
+                                ms3d_str['WARNING_IMPORT_EXTRA_VERTEX_NORMAL'].format(
+                                bmv.normal, blender_normal))
+                    bmv = bmv_new
+
                 if [[x] for x in bmv_list if x == bmv]:
                     self.options.report(
                             {'WARNING', 'INFO'},
@@ -447,6 +478,7 @@ class Ms3dImporter():
                                     ms3d_triangle_index))
                     continue
                 bmv_list.append(bmv)
+                bmf_normal += bmv.normal
 
             if len(bmv_list) < 3:
                 self.options.report(
@@ -454,6 +486,9 @@ class Ms3dImporter():
                         ms3d_str['WARNING_IMPORT_SKIP_LESS_VERTICES'].format(
                                 ms3d_triangle_index))
                 continue
+
+            bmf_normal.normalize()
+
             bmf = bm.faces.get(bmv_list)
             if bmf is not None:
                 self.options.report(
@@ -463,6 +498,7 @@ class Ms3dImporter():
                 continue
 
             bmf = bm.faces.new(bmv_list)
+            bmf.normal = bmf_normal
 
             # blender uv custom data per "face vertex"
             bmf.loops[0][layer_uv].uv = Vector(
