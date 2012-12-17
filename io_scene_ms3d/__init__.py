@@ -23,8 +23,8 @@ bl_info = {
         'description': "Import / Export MilkShape3D MS3D files"\
                 " (conform with v1.8.4)",
         'author': "Alexander Nussbaumer",
-        'version': (0, 7, 0, 0),
-        'blender': (2, 6, 3, 0),
+        'version': (0, 7, 0, 1),
+        'blender': (2, 6, 5, 0),
         'location': "File > Import & File > Export",
         #'warning': "",
         'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\

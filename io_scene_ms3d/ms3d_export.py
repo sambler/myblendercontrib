@@ -231,40 +231,38 @@ class Ms3dExporter():
             # create a complete copy of mesh and bend object data
             # to be able to apply operations to it.
 
-            # temporary, create a full copy of the model
+            # temporary, create a full heavy copy of the model (object, mesh, modifiers)
             blender_mesh_temp = blender_mesh_object.data.copy()
             blender_mesh_object_temp = blender_mesh_object.copy()
             blender_mesh_object_temp.data = blender_mesh_temp
             blender_scene.objects.link(blender_mesh_object_temp)
             blender_scene.objects.active = blender_mesh_object_temp
-            blender_mesh_temp.validate(self.options.verbose)
 
+            # apply transform
             if self.options.apply_transform:
                 matrix_transform = blender_mesh_object_temp.matrix_local
             else:
                 matrix_transform = Matrix()
 
             # apply modifiers
-            enable_edit_mode(False)
-            if self.options.apply_modifiers:
-                for modifier in blender_mesh_object_temp.modifiers:
-                    if (self.options.apply_modifiers_mode == Ms3dUi.PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW \
-                            and modifier.show_viewport) \
-                            or (self.options.apply_modifiers_mode == Ms3dUi.PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER \
-                            and modifier.show_render):
-                        if not modifier.type in {'ARMATURE',
-                                'CLOTH', 'COLLISION', 'DYNAMIC_PAINT', 'EXPLODE', 'FLUID_SIMULATION', 'OCEAN',
-                                'PARTICLE_INSTANCE', 'PARTICLE_SYSTEM', 'SMOKE', 'SOFT_BODY', 'SURFACE', }:
-                            if ops.object.modifier_apply.poll():
-                                ops.object.modifier_apply(apply_as='DATA', modifier=modifier.name)
+            for modifier in blender_mesh_object_temp.modifiers:
+                if self.options.apply_modifiers:
+                    # disable only armature modifiers
+                    if  modifier.type in {'ARMATURE', }:
+                        modifier.show_viewport = False
+                        modifier.show_render = False
+                else:
+                    # disable all modifiers,
+                    # to be able to add and apply triangulate modifier later
+                    modifier.show_viewport = False
+                    modifier.show_render = False
 
-            # convert to tris
-            enable_edit_mode(True)
-            select_all(True)
-            if ops.mesh.quads_convert_to_tris.poll():
-                ops.mesh.quads_convert_to_tris()
-
-            enable_edit_mode(False)
+            # convert to tris by using the triangulate modifier
+            blender_mesh_object_temp.modifiers.new("temp", 'TRIANGULATE')
+            blender_mesh_temp = blender_mesh_object_temp.to_mesh(
+                    blender_scene,
+                    True,
+                    self.options.apply_modifiers_mode)
 
             enable_edit_mode(True)
             bm = bmesh.new()
@@ -460,7 +458,12 @@ class Ms3dExporter():
             ##########################
             # remove the temporary data
             blender_scene.objects.unlink(blender_mesh_object_temp)
+            if blender_mesh_temp is not None:
+                blender_mesh_temp.user_clear()
+                blender_context.blend_data.meshes.remove(blender_mesh_temp)
+            blender_mesh_temp = None
             if blender_mesh_object_temp is not None:
+                blender_mesh_temp = blender_mesh_object_temp.data.user_clear()
                 blender_mesh_object_temp.user_clear()
                 blender_context.blend_data.objects.remove(blender_mesh_object_temp)
             if blender_mesh_temp is not None:
