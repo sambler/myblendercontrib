@@ -200,6 +200,7 @@ class Ms3dUi:
     ICON_OPTIONS = 'LAMP'
     ICON_OBJECT = 'WORLD'
     ICON_PROCESSING = 'OBJECT_DATAMODE'
+    ICON_MODIFIER = 'MODIFIER'
     ICON_ANIMATION = 'RENDER_ANIMATION'
     ICON_ROTATION_MODE = 'BONE_DATA'
     ICON_ERROR = 'ERROR'
@@ -224,6 +225,13 @@ class Ms3dUi:
     PROP_DEFAULT_USE_BLENDER_NAMES = True
     PROP_DEFAULT_USE_BLENDER_MATERIALS = False
     PROP_DEFAULT_EXTENDED_NORMAL_HANDLING = False
+    PROP_DEFAULT_APPLY_TRANSFORM = True
+    PROP_DEFAULT_APPLY_MODIFIERS = True
+
+    ###########################################################################
+    PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW = 'VIEW'
+    PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER = 'RENDER'
+    PROP_DEFAULT_APPLY_MODIFIERS_MODE = PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW
 
     ###########################################################################
     PROP_ITEM_ROTATION_MODE_EULER = 'EULER'
@@ -407,6 +415,31 @@ class Ms3dExportOperator(Operator, ExportHelper):
             default=Ms3dUi.PROP_DEFAULT_USE_BLENDER_MATERIALS,
             )
 
+    apply_transform = BoolProperty(
+            name=ms3d_str['PROP_NAME_APPLY_TRANSFORM'],
+            description=ms3d_str['PROP_DESC_APPLY_TRANSFORM'],
+            default=Ms3dUi.PROP_DEFAULT_APPLY_TRANSFORM,
+            )
+
+    apply_modifiers = BoolProperty(
+            name=ms3d_str['PROP_NAME_APPLY_MODIFIERS'],
+            description=ms3d_str['PROP_DESC_APPLY_MODIFIERS'],
+            default=Ms3dUi.PROP_DEFAULT_APPLY_MODIFIERS,
+            )
+
+    apply_modifiers_mode =  EnumProperty(
+            name=ms3d_str['PROP_NAME_APPLY_MODIFIERS_MODE'],
+            description=ms3d_str['PROP_DESC_APPLY_MODIFIERS_MODE'],
+            items=( (Ms3dUi.PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW,
+                            ms3d_str['PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW_1'],
+                            ms3d_str['PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW_2']),
+                    (Ms3dUi.PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER,
+                            ms3d_str['PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER_1'],
+                            ms3d_str['PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER_2']),
+                    ),
+            default=Ms3dUi.PROP_DEFAULT_APPLY_MODIFIERS_MODE,
+            )
+
     normalize_weights = BoolProperty(
             name=ms3d_str['PROP_NAME_NORMALIZE_WEIGHTS'],
             description=ms3d_str['PROP_DESC_NORMALIZE_WEIGHTS'],
@@ -454,6 +487,16 @@ class Ms3dExportOperator(Operator, ExportHelper):
         #box.prop(self, 'use_blender_names', icon='LINK_BLEND')
         box.prop(self, 'use_blender_names')
         box.prop(self, 'use_blender_materials')
+
+        box = layout.box()
+        box.label(ms3d_str['LABEL_NAME_MODIFIER'],
+                icon=Ms3dUi.ICON_MODIFIER)
+        box.prop(self, 'apply_transform')
+        row = box.row()
+        row.prop(self, 'apply_modifiers')
+        sub = row.row()
+        sub.active = self.apply_modifiers
+        sub.prop(self, 'apply_modifiers_mode', text="")
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'],

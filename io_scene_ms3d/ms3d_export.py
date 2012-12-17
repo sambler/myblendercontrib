@@ -239,11 +239,31 @@ class Ms3dExporter():
             blender_scene.objects.active = blender_mesh_object_temp
             blender_mesh_temp.validate(self.options.verbose)
 
+            if self.options.apply_transform:
+                matrix_transform = blender_mesh_object_temp.matrix_local
+            else:
+                matrix_transform = Matrix()
+
+            # apply modifiers
+            enable_edit_mode(False)
+            if self.options.apply_modifiers:
+                for modifier in blender_mesh_object_temp.modifiers:
+                    if (self.options.apply_modifiers_mode == Ms3dUi.PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW \
+                            and modifier.show_viewport) \
+                            or (self.options.apply_modifiers_mode == Ms3dUi.PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER \
+                            and modifier.show_render):
+                        if not modifier.type in {'ARMATURE',
+                                'CLOTH', 'COLLISION', 'DYNAMIC_PAINT', 'EXPLODE', 'FLUID_SIMULATION', 'OCEAN',
+                                'PARTICLE_INSTANCE', 'PARTICLE_SYSTEM', 'SMOKE', 'SOFT_BODY', 'SURFACE', }:
+                            if ops.object.modifier_apply.poll():
+                                ops.object.modifier_apply(apply_as='DATA', modifier=modifier.name)
+
             # convert to tris
             enable_edit_mode(True)
             select_all(True)
             if ops.mesh.quads_convert_to_tris.poll():
                 ops.mesh.quads_convert_to_tris()
+
             enable_edit_mode(False)
 
             enable_edit_mode(True)
@@ -291,8 +311,7 @@ class Ms3dExporter():
                     ms3d_vertex = Ms3dVertex()
                     ms3d_vertex.__index = index
 
-                    loc = (bmv.co + blender_mesh_object_temp.location)
-                    ms3d_vertex._vertex = self.geometry_correction(loc)
+                    ms3d_vertex._vertex = self.geometry_correction(matrix_transform * bmv.co)
 
                     if layer_deform:
                         blender_vertex_group_ids = bmv[layer_deform]
@@ -447,7 +466,6 @@ class Ms3dExporter():
             if blender_mesh_temp is not None:
                 blender_mesh_temp.user_clear()
                 blender_context.blend_data.meshes.remove(blender_mesh_temp)
-
 
 
     ###########################################################################
