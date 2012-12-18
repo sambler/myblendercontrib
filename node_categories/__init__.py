@@ -38,24 +38,36 @@ from bl_operators.node import NodeAddOperator
 
 # Types
 
+# Get an iterator over all actual node classes
+def gen_node_subclasses(base):
+    for nodeclass in base.__subclasses__():
+        # get_node_type used to distinguish base classes from actual node type classes
+        if hasattr(nodeclass, 'get_node_type'):
+            yield nodeclass
+        # call recursively for subclasses
+        for subclass in gen_node_subclasses(nodeclass):
+            yield subclass
+
+
 # Enum items callback to get a list of possible node types from context.
 # Used for both the node item and operator properties.
 # self argument is unused, can be None
 def node_type_items(self, context):
     node_tree = context.space_data.edit_tree
-    # XXX This trick only works with static enum items
-    # Future nodes will use dynamic enum item callbacks,
-    # need to find a better way to walk available types then ...
-    return [(item.identifier, item.name, item.description) for item in node_tree.nodes.bl_rna.functions['new'].parameters['type'].enum_items]
 
-# Helper function for getting the enum UI name from the identifier
-# Enum properties always evaluate to the identifier strings by default
-def get_node_type_name(node_type, context):
-    enum_node_types = node_type_items(None, context)
-    for nt in enum_node_types:
-        if nt[0] == node_type:
-            return nt[1]
-    return ""
+    # XXX In customnodes branch, node will use a poll function to determine possible types in the context tree.
+    # For now just use a poll function based on node subclass base
+    if node_tree.type == 'SHADER':
+        poll = lambda nodeclass: issubclass(nodeclass, bpy.types.ShaderNode) or issubclass(nodeclass, bpy.types.SpecialNode)
+    elif node_tree.type == 'COMPOSITING':
+        poll = lambda nodeclass: issubclass(nodeclass, bpy.types.CompositorNode) or issubclass(nodeclass, bpy.types.SpecialNode)
+    elif node_tree.type == 'TEXTURE':
+        poll = lambda nodeclass: issubclass(nodeclass, bpy.types.TextureNode) or issubclass(nodeclass, bpy.types.SpecialNode)
+
+    return [(nc.get_node_type(), nc.bl_rna.name, nc.bl_rna.description) for nc in gen_node_subclasses(bpy.types.Node) if (poll is None) or poll(nc)]
+
+
+node_class_dict = { nc.get_node_type() : nc for nc in set(gen_node_subclasses(bpy.types.Node)) }
 
 
 class NodeCategoryItemSetting(PropertyGroup):
@@ -68,7 +80,7 @@ class NodeCategoryItem(PropertyGroup):
     def node_type_update(self, context):
         # convenience feature: reset to default label when changing the node type
         # XXX might be better to check if the label has actually been modified?
-        self.label = get_node_type_name(self.node_type, context)
+        self.label = node_class_dict[self.node_type].bl_rna.name
 
     node_type = EnumProperty(name="Node Type", description="Node type identifier", items=node_type_items, update=node_type_update)
     label = StringProperty(name="Label")
@@ -229,7 +241,7 @@ def register_node_panel(_category):
                     op = sub.operator("node.category_remove_item", text="", icon='X')
                     op.index = index
 
-                    box.prop_menu_enum(item, "node_type", text="Node: "+get_node_type_name(item.node_type, context), icon='NODE')
+                    box.prop_menu_enum(item, "node_type", text="Node: "+node_class_dict[item.node_type].bl_rna.name, icon='NODE')
 
                     for setting_index, setting in enumerate(item.settings):
                         row = box.row(align=True)
