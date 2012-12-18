@@ -24,7 +24,7 @@ bl_info = {
                 " (conform with v1.8.4)",
         'author': "Alexander Nussbaumer",
         'version': (0, 7, 0, 1),
-        'blender': (2, 6, 5, 0),
+        'blender': (2, 65, 0),
         'location': "File > Import & File > Export",
         #'warning': "",
         'wiki_url': "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
