@@ -1809,15 +1809,12 @@ def CopyObjectGroupsAndLayers (self):
     
     for OBJECT in OBSEL[:-1]:
         for scene in bpy.data.scenes[:]:
-            
-            # CAMBIO ESCENA EN EL UI
-            bpy.context.window.screen.scene=scene
 
             # SI EL OBJETO ACTIVO ESTA EN LA ESCENA
-            if ACTOBJ in bpy.context.scene.objects[:] and OBJECT in bpy.context.scene.objects[:]:
-                scene.objects[OBJECT.name].layers = ACTOBJ.layers
-            elif ACTOBJ not in bpy.context.scene.objects[:] and OBJECT in bpy.context.scene.objects[:]: 
-                scene.objects[OBJECT.name].layers = list(GLOBALLAYERS)                  
+            if ACTOBJ in scene.objects[:] and OBJECT in scene.objects[:]:
+                scene.object_bases[OBJECT.name].layers[:] = scene.object_bases[ACTOBJ.name].layers[:] 
+            elif ACTOBJ not in scene.objects[:] and OBJECT in scene.objects[:]: 
+                scene.object_bases[OBJECT.name].layers[:] = list(GLOBALLAYERS)                  
                 
         # REMUEVO DE TODO GRUPO
         for GROUP in bpy.data.groups[:]:
