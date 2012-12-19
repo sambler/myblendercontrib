@@ -24,7 +24,7 @@ bl_info = {
     "description": "GYES is an addon that can produce Random Materials and Textures . The randomization is controlled by the user and so the user can set what is randomized and how much .",
     "author": "Kilon",
     "version": (1, 0, 0),
-    "blender": (2, 6, 0),
+    "blender": (2, 60, 0),
     "location": "View3D > Left panel ",
     "warning": '',  # used for warning icon and text in addons panel
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/System/Gyes",

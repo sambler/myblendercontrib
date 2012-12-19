@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Node Categories",
     "author": "Lukas Toenne",
-    "blender": (2, 6, 4),
+    "blender": (2, 64, 0),
     "location": "Node editor toolbar",
     "description": "Panels for adding nodes, sorted by category",
     "warning": "",

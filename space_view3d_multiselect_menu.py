@@ -26,7 +26,7 @@ bl_info = {
     "name": "3D View: Multiselect Menu",
     "author": "Sean Olson (liquidApe)",
     "version": (1, 2),
-    "blender": (2, 6, 1),
+    "blender": (2, 61, 0),
     "location": "View3D > Mouse > Menu ",
     "warning":"",
     "description": "Added options for multiselect to the ctrl-tab menu",

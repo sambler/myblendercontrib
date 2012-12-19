@@ -22,7 +22,7 @@ bl_info = {
     "name": "Vertex slide for Bmesh",
     "author": "Valter Battioli (ValterVB) and PKHG",
     "version": (2, 0, 0),
-    "blender": (2, 6, 2),
+    "blender": (2, 62, 0),
     "location": "View3D > Mesh > Vertices (CTRL V-key)",
     "description": "Slide a vertex along an edge or a line",
     "warning": "Work only with Blender 2.62 or higher",
