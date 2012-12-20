@@ -238,7 +238,7 @@ class Ms3dImporter():
         blender_scene = blender_context.scene
         blender_scene.objects.link(blender_mesh_object)
         #blender_mesh_object.location = blender_scene.cursor_location
-        enable_edit_mode(False)
+        enable_edit_mode(False, blender_context)
         select_all(False)
         blender_mesh_object.select = True
         blender_scene.objects.active = blender_mesh_object
@@ -734,7 +734,7 @@ class Ms3dImporter():
             joint_length = 0.01
 
         blender_scene.objects.active = blender_armature_object
-        enable_edit_mode(True)
+        enable_edit_mode(True, blender_context)
         for ms3d_joint in ms3d_joints_ordered:
             blender_edit_bone = blender_armature.edit_bones.new(ms3d_joint.name)
             blender_edit_bone.use_connect = False
@@ -764,10 +764,10 @@ class Ms3dImporter():
 
             ms3d_joint.blender_bone_name = blender_edit_bone.name
             ms3d_joint.blender_edit_bone = blender_edit_bone
-        enable_edit_mode(False)
+        enable_edit_mode(False, blender_context)
 
         if self.options.joint_to_bones:
-            enable_edit_mode(True)
+            enable_edit_mode(True, blender_context)
             for ms3d_joint in ms3d_joints_ordered:
                 blender_edit_bone = blender_armature.edit_bones[ms3d_joint.name]
                 if blender_edit_bone.children:
@@ -780,11 +780,11 @@ class Ms3dImporter():
                         direction = blender_edit_bone.tail - blender_edit_bone.head
                         direction.normalize()
                         blender_edit_bone.tail = blender_edit_bone.head + (direction * new_length)
-            enable_edit_mode(False)
+            enable_edit_mode(False, blender_context)
 
         ##########################
         # post process bones
-        enable_edit_mode(False)
+        enable_edit_mode(False, blender_context)
         for ms3d_joint_name, ms3d_joint in ms3d_joint_by_name.items():
             blender_bone = blender_armature.bones.get(
                     ms3d_joint.blender_bone_name)
@@ -809,7 +809,7 @@ class Ms3dImporter():
 
         ##########################
         # process pose bones
-        enable_pose_mode(True)
+        enable_pose_mode(True, blender_context)
 
         blender_action = blender_context.blend_data.actions.new(ms3d_action_name)
         if blender_armature_object.animation_data is None:
@@ -876,7 +876,7 @@ class Ms3dImporter():
                     fcurve_rotation_y.keyframe_points.insert(frame, rotation_key_frames.rotation[2])
                     fcurve_rotation_z.keyframe_points.insert(frame, rotation_key_frames.rotation[1])
 
-        enable_pose_mode(False)
+        enable_pose_mode(False, blender_context)
 
         return blender_armature_object
 

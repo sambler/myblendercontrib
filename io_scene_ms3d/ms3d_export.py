@@ -81,7 +81,6 @@ from io_scene_ms3d.ms3d_ui import (
 
 #import blender stuff
 from bpy import (
-        context,
         ops,
         )
 import bmesh
@@ -136,15 +135,15 @@ class Ms3dExporter():
 
             post_setup_environment(self, blender_context)
             # restore active object
-            context.scene.objects.active = self.active_object
+            blender_context.scene.objects.active = self.active_object
 
-            if ((not context.scene.objects.active)
-                    and (context.selected_objects)):
-                context.scene.objects.active \
-                        = context.selected_objects[0]
+            if ((not blender_context.scene.objects.active)
+                    and (blender_context.selected_objects)):
+                blender_context.scene.objects.active \
+                        = blender_context.selected_objects[0]
 
             # restore pre operator undo state
-            context.user_preferences.edit.use_global_undo = self.undo
+            blender_context.user_preferences.edit.use_global_undo = self.undo
 
             is_valid, statistics = ms3d_model.is_valid()
             print()
@@ -264,7 +263,7 @@ class Ms3dExporter():
                     True,
                     self.options.apply_modifiers_mode)
 
-            enable_edit_mode(True)
+            enable_edit_mode(True, blender_context)
             bm = bmesh.new()
             bm.from_mesh(blender_mesh_temp)
 
@@ -453,7 +452,7 @@ class Ms3dExporter():
             if bm is not None:
                 bm.free()
 
-            enable_edit_mode(False)
+            enable_edit_mode(False, blender_context)
 
             ##########################
             # remove the temporary data

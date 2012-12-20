@@ -332,7 +332,7 @@ class Ms3dImportOperator(Operator, ImportHelper):
 
 
     # draw the option panel
-    def draw(self, context):
+    def draw(self, blender_context):
         layout = self.layout
 
         box = layout.box()
@@ -369,7 +369,7 @@ class Ms3dImportOperator(Operator, ImportHelper):
         return {'RUNNING_MODAL', }
 
     @staticmethod
-    def menu_func(cls, context):
+    def menu_func(cls, blender_context):
         cls.layout.operator(
                 Ms3dImportOperator.bl_idname,
                 text=ms3d_str['TEXT_OPERATOR'],
@@ -462,16 +462,16 @@ class Ms3dExportOperator(Operator, ExportHelper):
     ##EXPORT_ACTIVE_ONLY:
     ##limit availability to only active mesh object
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.active_object
-                and context.active_object.type in {'MESH', }
-                and context.active_object.data
-                and context.active_object.data.ms3d is not None
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.active_object
+                and blender_context.active_object.type in {'MESH', }
+                and blender_context.active_object.data
+                and blender_context.active_object.data.ms3d is not None
                 )
 
     # draw the option panel
-    def draw(self, context):
+    def draw(self, blender_context):
         layout = self.layout
 
         box = layout.box()
@@ -483,7 +483,7 @@ class Ms3dExportOperator(Operator, ExportHelper):
                 icon=Ms3dUi.ICON_PROCESSING)
         row = box.row()
         row.label(ms3d_str['PROP_NAME_ACTIVE'], icon='ROTACTIVE')
-        row.label(context.active_object.name)
+        row.label(blender_context.active_object.name)
         #box.prop(self, 'use_blender_names', icon='LINK_BLEND')
         box.prop(self, 'use_blender_names')
         box.prop(self, 'use_blender_materials')
@@ -517,7 +517,7 @@ class Ms3dExportOperator(Operator, ExportHelper):
         return {"RUNNING_MODAL", }
 
     @staticmethod
-    def menu_func(cls, context):
+    def menu_func(cls, blender_context):
         cls.layout.operator(
                 Ms3dExportOperator.bl_idname,
                 text=ms3d_str['TEXT_OPERATOR']
@@ -541,19 +541,19 @@ class Ms3dSetSmoothingGroupOperator(Operator):
             )
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object
-                and context.object.type in {'MESH', }
-                and context.object.data
-                and context.object.data.ms3d is not None
-                and context.mode == 'EDIT_MESH'
-                and context.tool_settings.mesh_select_mode[2]
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object
+                and blender_context.object.type in {'MESH', }
+                and blender_context.object.data
+                and blender_context.object.data.ms3d is not None
+                and blender_context.mode == 'EDIT_MESH'
+                and blender_context.tool_settings.mesh_select_mode[2]
                 )
 
-    def execute(self, context):
-        custom_data = context.object.data.ms3d
-        blender_mesh = context.object.data
+    def execute(self, blender_context):
+        custom_data = blender_context.object.data.ms3d
+        blender_mesh = blender_context.object.data
         bm = from_edit_mesh(blender_mesh)
         layer_smoothing_group = bm.faces.layers.int.get(
                 ms3d_str['OBJECT_LAYER_SMOOTHING_GROUP'])
@@ -568,7 +568,7 @@ class Ms3dSetSmoothingGroupOperator(Operator):
             if layer_smoothing_group is None:
                 layer_smoothing_group = bm.faces.layers.int.new(
                         ms3d_str['OBJECT_LAYER_SMOOTHING_GROUP'])
-                blender_mesh_object = context.object
+                blender_mesh_object = blender_context.object
                 get_edge_split_modifier_add_if(blender_mesh_object)
             blender_face_list = []
             for bmf in bm.faces:
@@ -601,8 +601,8 @@ class Ms3dSetSmoothingGroupOperator(Operator):
                     bme.seam = is_border
                     bme.smooth = not is_border
         bm.free()
-        enable_edit_mode(False)
-        enable_edit_mode(True)
+        enable_edit_mode(False, blender_context)
+        enable_edit_mode(True, blender_context)
         return {'FINISHED', }
 
 
@@ -636,19 +636,19 @@ class Ms3dGroupOperator(Operator):
             )
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object
-                and context.object.type in {'MESH', }
-                and context.object.data
-                and context.object.data.ms3d is not None
-                and context.mode == 'EDIT_MESH'
-                #and context.object.data.ms3d.selected_group_index != -1
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object
+                and blender_context.object.type in {'MESH', }
+                and blender_context.object.data
+                and blender_context.object.data.ms3d is not None
+                and blender_context.mode == 'EDIT_MESH'
+                #and blender_context.object.data.ms3d.selected_group_index != -1
                 )
 
-    def execute(self, context):
-        custom_data = context.object.data.ms3d
-        blender_mesh = context.object.data
+    def execute(self, blender_context):
+        custom_data = blender_context.object.data.ms3d
+        blender_mesh = blender_context.object.data
         bm = None
         bm = from_edit_mesh(blender_mesh)
 
@@ -692,8 +692,8 @@ class Ms3dGroupOperator(Operator):
                             bmf[layer_group] = -1
         if bm is not None:
             bm.free()
-        enable_edit_mode(False)
-        enable_edit_mode(True)
+        enable_edit_mode(False, blender_context)
+        enable_edit_mode(True, blender_context)
         return {'FINISHED', }
 
 
@@ -715,22 +715,22 @@ class Ms3dMaterialOperator(Operator):
             )
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object
-                and context.object.type in {'MESH', }
-                and context.object.data
-                and context.object.data.ms3d is not None
-                and context.material
-                and context.material.ms3d is not None
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object
+                and blender_context.object.type in {'MESH', }
+                and blender_context.object.data
+                and blender_context.object.data.ms3d is not None
+                and blender_context.material
+                and blender_context.material.ms3d is not None
                 )
 
-    def execute(self, context):
-        blender_material = context.active_object.active_material
+    def execute(self, blender_context):
+        blender_material = blender_context.active_object.active_material
         ms3d_material = blender_material.ms3d
 
         if self.mode == 'FROM_BLENDER':
-            Ms3dMaterialHelper.copy_from_blender(self, context, ms3d_material, blender_material)
+            Ms3dMaterialHelper.copy_from_blender(self, blender_context, ms3d_material, blender_material)
             pass
 
         elif self.mode == 'TO_BLENDER':
@@ -740,8 +740,8 @@ class Ms3dMaterialOperator(Operator):
         return {'FINISHED', }
 
     # entrypoint for option via UI
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+    def invoke(self, blender_context, event):
+        return blender_context.window_manager.invoke_props_dialog(self)
 
 
 ###############################################################################
@@ -991,40 +991,40 @@ class Ms3dJointProperties(PropertyGroup):
 
 class Ms3dMaterialHelper:
     @staticmethod
-    def copy_to_blender_ambient(cls, context):
+    def copy_to_blender_ambient(cls, blender_context):
         pass
 
     @staticmethod
-    def copy_to_blender_diffuse(cls, context):
+    def copy_to_blender_diffuse(cls, blender_context):
         cls.id_data.diffuse_color = cls.diffuse[0:3]
         #cls.id_data.diffuse_intensity = cls.diffuse[3]
         pass
 
     @staticmethod
-    def copy_to_blender_specular(cls, context):
+    def copy_to_blender_specular(cls, blender_context):
         cls.id_data.specular_color = cls.specular[0:3]
         #cls.id_data.specular_intensity = cls.specular[3]
         pass
 
     @staticmethod
-    def copy_to_blender_emissive(cls, context):
+    def copy_to_blender_emissive(cls, blender_context):
         cls.id_data.emit = (cls.emissive[0] + cls.emissive[1] \
                 + cls.emissive[2]) / 3.0
         pass
 
     @staticmethod
-    def copy_to_blender_shininess(cls, context):
+    def copy_to_blender_shininess(cls, blender_context):
         cls.id_data.specular_hardness = cls.shininess * 4.0
         pass
 
     @staticmethod
-    def copy_to_blender_transparency(cls, context):
+    def copy_to_blender_transparency(cls, blender_context):
         cls.id_data.alpha = 1.0 - cls.transparency
         pass
 
 
     @staticmethod
-    def copy_from_blender(cls, context, ms3d_material, blender_material):
+    def copy_from_blender(cls, blender_context, ms3d_material, blender_material):
         # copy, bacause of auto update, it would distord original values
         blender_material_diffuse_color = blender_material.diffuse_color.copy()
         blender_material_diffuse_intensity = blender_material.diffuse_intensity
@@ -1189,21 +1189,21 @@ class Ms3dMeshPanel(Panel):
     bl_context = 'object'
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object
-                and context.object.type in {'MESH', }
-                and context.object.data
-                and context.object.data.ms3d is not None
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object
+                and blender_context.object.type in {'MESH', }
+                and blender_context.object.data
+                and blender_context.object.data.ms3d is not None
                 )
 
-    def draw_header(self, context):
+    def draw_header(self, blender_context):
         layout = self.layout
         layout.label(icon='PLUGIN')
 
-    def draw(self, context):
+    def draw(self, blender_context):
         layout = self.layout
-        custom_data = context.object.data.ms3d
+        custom_data = blender_context.object.data.ms3d
 
         row = layout.row()
         row.prop(custom_data, 'name')
@@ -1227,23 +1227,23 @@ class Ms3dMaterialPanel(Panel):
     bl_context = 'material'
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object
-                and context.object.type in {'MESH', }
-                and context.object.data
-                and context.object.data.ms3d is not None
-                and context.material
-                and context.material.ms3d is not None
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object
+                and blender_context.object.type in {'MESH', }
+                and blender_context.object.data
+                and blender_context.object.data.ms3d is not None
+                and blender_context.material
+                and blender_context.material.ms3d is not None
                 )
 
-    def draw_header(self, context):
+    def draw_header(self, blender_context):
         layout = self.layout
         layout.label(icon='PLUGIN')
 
-    def draw(self, context):
+    def draw(self, blender_context):
         layout = self.layout
-        custom_data = context.material.ms3d
+        custom_data = blender_context.material.ms3d
 
         row = layout.row()
         row.prop(custom_data, 'name')
@@ -1288,22 +1288,22 @@ class Ms3dBonePanel(Panel):
     bl_context = 'bone'
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object.type in {'ARMATURE', }
-                and context.active_bone
-                and isinstance(context.active_bone, Bone)
-                and context.active_bone.ms3d is not None
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object.type in {'ARMATURE', }
+                and blender_context.active_bone
+                and isinstance(blender_context.active_bone, Bone)
+                and blender_context.active_bone.ms3d is not None
                 )
 
-    def draw_header(self, context):
+    def draw_header(self, blender_context):
         layout = self.layout
         layout.label(icon='PLUGIN')
 
-    def draw(self, context):
+    def draw(self, blender_context):
         import bpy
         layout = self.layout
-        custom_data = context.active_bone.ms3d
+        custom_data = blender_context.active_bone.ms3d
 
         row = layout.row()
         row.prop(custom_data, 'name')
@@ -1322,23 +1322,23 @@ class Ms3dGroupPanel(Panel):
     bl_context = 'data'
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object
-                and context.object.type in {'MESH', }
-                and context.object.data
-                and context.object.data.ms3d is not None
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object
+                and blender_context.object.type in {'MESH', }
+                and blender_context.object.data
+                and blender_context.object.data.ms3d is not None
                 )
 
-    def draw_header(self, context):
+    def draw_header(self, blender_context):
         layout = self.layout
         layout.label(icon='PLUGIN')
 
-    def draw(self, context):
+    def draw(self, blender_context):
         layout = self.layout
-        custom_data = context.object.data.ms3d
-        layout.enabled = (context.mode == 'EDIT_MESH') and (
-                context.tool_settings.mesh_select_mode[2])
+        custom_data = blender_context.object.data.ms3d
+        layout.enabled = (blender_context.mode == 'EDIT_MESH') and (
+                blender_context.tool_settings.mesh_select_mode[2])
 
         row = layout.row()
         row.template_list(
@@ -1401,14 +1401,14 @@ class Ms3dSmoothingGroupPanel(Panel):
 
         return "{}.".format(text)
 
-    def build_preview(self, context):
+    def build_preview(self, blender_context):
         dict = {}
-        if (context.mode != 'EDIT_MESH') or (
-                not context.tool_settings.mesh_select_mode[2]):
+        if (blender_context.mode != 'EDIT_MESH') or (
+                not blender_context.tool_settings.mesh_select_mode[2]):
             return dict
 
-        custom_data = context.object.data.ms3d
-        blender_mesh = context.object.data
+        custom_data = blender_context.object.data.ms3d
+        blender_mesh = blender_context.object.data
         bm = from_edit_mesh(blender_mesh)
         layer_smoothing_group = bm.faces.layers.int.get(
                 ms3d_str['OBJECT_LAYER_SMOOTHING_GROUP'])
@@ -1423,25 +1423,25 @@ class Ms3dSmoothingGroupPanel(Panel):
         return dict
 
     @classmethod
-    def poll(cls, context):
-        return (context
-                and context.object
-                and context.object.type in {'MESH', }
-                and context.object.data
-                and context.object.data.ms3d is not None
+    def poll(cls, blender_context):
+        return (blender_context
+                and blender_context.object
+                and blender_context.object.type in {'MESH', }
+                and blender_context.object.data
+                and blender_context.object.data.ms3d is not None
                 )
 
-    def draw_header(self, context):
+    def draw_header(self, blender_context):
         layout = self.layout
         layout.label(icon='PLUGIN')
 
-    def draw(self, context):
-        dict = self.build_preview(context)
+    def draw(self, blender_context):
+        dict = self.build_preview(blender_context)
 
-        custom_data = context.object.data.ms3d
+        custom_data = blender_context.object.data.ms3d
         layout = self.layout
-        layout.enabled = (context.mode == 'EDIT_MESH') and (
-                context.tool_settings.mesh_select_mode[2])
+        layout.enabled = (blender_context.mode == 'EDIT_MESH') and (
+                blender_context.tool_settings.mesh_select_mode[2])
 
         row = layout.row()
         subrow = row.row()
@@ -1597,21 +1597,21 @@ class Ms3dSetSceneToMetricOperator(Operator):
 
     #
     @classmethod
-    def poll(cls, context):
+    def poll(cls, blender_context):
         return True
 
     # entrypoint for option
-    def execute(self, context):
-        return self.set_sence_to_metric(context)
+    def execute(self, blender_context):
+        return self.set_sence_to_metric(blender_context)
 
     # entrypoint for option via UI
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
+    def invoke(self, blender_context, event):
+        return blender_context.window_manager.invoke_props_dialog(self)
 
 
     ###########################################################################
-    def set_sence_to_metric(self, context):
-        set_sence_to_metric(context)
+    def set_sence_to_metric(self, blender_context):
+        set_sence_to_metric(blender_context)
         return {"FINISHED"}
 
 

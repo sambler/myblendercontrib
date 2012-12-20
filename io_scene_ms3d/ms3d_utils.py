@@ -44,13 +44,12 @@ from io_scene_ms3d.ms3d_strings import (
 
 #import blender stuff
 from bpy import (
-        context,
         ops,
         )
 
 
 ###############################################################################
-def enable_edit_mode(enable, blender_context=context):
+def enable_edit_mode(enable, blender_context):
     if blender_context.active_object is None \
             or not blender_context.active_object.type in {'MESH', 'ARMATURE', }:
         return
@@ -65,7 +64,7 @@ def enable_edit_mode(enable, blender_context=context):
 
 
 ###############################################################################
-def enable_pose_mode(enable, blender_context=context):
+def enable_pose_mode(enable, blender_context):
     if blender_context.active_object is None \
             or not blender_context.active_object.type in {'ARMATURE', }:
         return
@@ -107,13 +106,13 @@ def pre_setup_environment(porter, blender_context):
     porter.active_object = blender_context.scene.objects.active
 
     # change to a well defined mode
-    enable_edit_mode(True)
+    enable_edit_mode(True, blender_context)
 
     # enable face-selection-mode
     blender_context.tool_settings.mesh_select_mode = (False, False, True)
 
     # change back to object mode
-    enable_edit_mode(False)
+    enable_edit_mode(False, blender_context)
 
     blender_context.scene.update()
 
@@ -185,18 +184,18 @@ def matrix_difference(mat_src, mat_dst):
 
 
 ###############################################################################
-def set_sence_to_metric(context):
+def set_sence_to_metric(blender_context):
     try:
         # set metrics
-        context.scene.unit_settings.system = 'METRIC'
-        context.scene.unit_settings.system_rotation = 'DEGREES'
-        context.scene.unit_settings.scale_length = 0.001 # 1.0mm
-        context.scene.unit_settings.use_separate = False
-        context.tool_settings.normal_size = 1.0 # 1.0mm
+        blender_context.scene.unit_settings.system = 'METRIC'
+        blender_context.scene.unit_settings.system_rotation = 'DEGREES'
+        blender_context.scene.unit_settings.scale_length = 0.001 # 1.0mm
+        blender_context.scene.unit_settings.use_separate = False
+        blender_context.tool_settings.normal_size = 1.0 # 1.0mm
 
         # set all 3D views to texture shaded
         # and set up the clipping
-        for screen in context.blend_data.screens:
+        for screen in blender_context.blend_data.screens:
             for area in screen.areas:
                 if (area.type != 'VIEW_3D'):
                     continue
