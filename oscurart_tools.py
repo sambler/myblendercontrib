@@ -1583,13 +1583,6 @@ class ShapeToObjects (bpy.types.Operator):
 
 ## PARA ESCENAS NUEVAS
 
-for scene in bpy.data.scenes[:]:
-    try:
-        scene['OVERRIDE']
-    except:
-        scene['OVERRIDE']="[]"
-
-
 class OverridesOp (bpy.types.Operator):
     bl_idname = "render.overrides_set_list"
     bl_label = "Overrides set list"
