@@ -282,7 +282,7 @@ class reloadImages (bpy.types.Operator):
 
 ##-----------------------------RECONST---------------------------
 
-def defReconst(self, OFFSET, SUBD):
+def defReconst(self, OFFSET):
 
     ##EDIT
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
@@ -293,13 +293,6 @@ def defReconst(self, OFFSET, SUBD):
     OBJETO = bpy.context.active_object
     OBDATA = bmesh.from_edit_mesh(OBJETO.data)
     OBDATA.select_flush(False)
-
-    if SUBD > 0:
-        USESUB=True
-        SUBLEV=SUBD
-    else:
-        USESUB=False
-        SUBLEV=1
 
     ## IGUALO VERTICES CERCANOS A CERO
     for vertice in OBDATA.verts[:]:
@@ -326,7 +319,7 @@ def defReconst(self, OFFSET, SUBD):
     LENUVLISTSIM = LENUVLISTSIM - 1
     OBJETO.data.uv_textures[LENUVLISTSIM:][0].name = "SYMMETRICAL"
     ## UNWRAP
-    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
     ## MODO OBJETO
     bpy.ops.object.mode_set(mode="OBJECT", toggle= False)
     ## APLICO MIRROR
@@ -344,7 +337,7 @@ def defReconst(self, OFFSET, SUBD):
     ## SETEO UV ACTIVO
     OBJETO.data.uv_textures.active = OBJETO.data.uv_textures["ASYMMETRICAL"]
     ## UNWRAP
-    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
 
 
 class reConst (bpy.types.Operator):
@@ -352,9 +345,9 @@ class reConst (bpy.types.Operator):
     bl_label = "ReConst Mesh"
     bl_options = {"REGISTER", "UNDO"}
     OFFSET=bpy.props.FloatProperty(name="Offset", default=0.001, min=-0, max=0.1)
-    SUBD=bpy.props.IntProperty(name="Subdivisions Levels", default=0, min=0, max=4)
+
     def execute(self,context):
-        defReconst(self, self.OFFSET, self.SUBD)
+        defReconst(self, self.OFFSET)
         return {'FINISHED'}
 
 ## -----------------------------------SELECT LEFT---------------------
