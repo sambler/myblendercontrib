@@ -542,7 +542,7 @@ class Ms3dExporter():
                     break
 
             if blender_bones is None \
-                    or (blender_action is None and blender_nla_tracks is None):
+                    and (blender_action is None and blender_nla_tracks is None):
                 continue
 
             ##########################
