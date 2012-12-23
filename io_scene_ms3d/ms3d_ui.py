@@ -91,7 +91,7 @@ from bpy.app import (
 class Ms3dUi:
     DEFAULT_VERBOSE = debug
 
-    ###############################################################################
+    ###########################################################################
     FLAG_TEXTURE_COMBINE_ALPHA = 'COMBINE_ALPHA'
     FLAG_TEXTURE_HAS_ALPHA = 'HAS_ALPHA'
     FLAG_TEXTURE_SPHERE_MAP = 'SPHERE_MAP'
@@ -132,7 +132,8 @@ class Ms3dUi:
     def transparency_mode_from_ms3d(ms3d_value):
         if(ms3d_value == Ms3dSpec.MODE_TRANSPARENCY_SIMPLE):
             return Ms3dUi.MODE_TRANSPARENCY_SIMPLE
-        elif(ms3d_value == Ms3dSpec.MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF):
+        elif(ms3d_value == \
+                Ms3dSpec.MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF):
             return Ms3dUi.MODE_TRANSPARENCY_DEPTH_BUFFERED_WITH_ALPHA_REF
         elif(ms3d_value == Ms3dSpec.MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES):
             return Ms3dUi.MODE_TRANSPARENCY_DEPTH_SORTED_TRIANGLES
@@ -171,7 +172,8 @@ class Ms3dUi:
             ui_value.add(Ms3dUi.FLAG_DIRTY)
         if (ms3d_value & Ms3dSpec.FLAG_ISKEY) == Ms3dSpec.FLAG_ISKEY:
             ui_value.add(Ms3dUi.FLAG_ISKEY)
-        if (ms3d_value & Ms3dSpec.FLAG_NEWLYCREATED) == Ms3dSpec.FLAG_NEWLYCREATED:
+        if (ms3d_value & Ms3dSpec.FLAG_NEWLYCREATED) == \
+                Ms3dSpec.FLAG_NEWLYCREATED:
             ui_value.add(Ms3dUi.FLAG_NEWLYCREATED)
         if (ms3d_value & Ms3dSpec.FLAG_MARKED) == Ms3dSpec.FLAG_MARKED:
             ui_value.add(Ms3dUi.FLAG_MARKED)
@@ -217,7 +219,7 @@ class Ms3dUi:
     PROP_JOINT_SIZE_PRECISION = 2
 
     ###########################################################################
-    PROP_DEFAULT_ANIMATION = True
+    PROP_DEFAULT_USE_ANIMATION = True
     PROP_DEFAULT_NORMALIZE_WEIGHTS = True
     PROP_DEFAULT_SHRINK_TO_KEYS = False
     PROP_DEFAULT_BAKE_EACH_FRAME = True
@@ -272,10 +274,10 @@ class Ms3dImportOperator(Operator, ImportHelper):
             default=Ms3dUi.PROP_DEFAULT_VERBOSE,
             )
 
-    animation = BoolProperty(
-            name=ms3d_str['PROP_NAME_ANIMATION'],
-            description=ms3d_str['PROP_DESC_ANIMATION'],
-            default=Ms3dUi.PROP_DEFAULT_ANIMATION,
+    use_animation = BoolProperty(
+            name=ms3d_str['PROP_NAME_USE_ANIMATION'],
+            description=ms3d_str['PROP_DESC_USE_ANIMATION'],
+            default=Ms3dUi.PROP_DEFAULT_USE_ANIMATION,
             )
 
     rotation_mode = EnumProperty(
@@ -301,7 +303,8 @@ class Ms3dImportOperator(Operator, ImportHelper):
             name=ms3d_str['PROP_NAME_IMPORT_JOINT_SIZE'],
             description=ms3d_str['PROP_DESC_IMPORT_JOINT_SIZE'],
             min=Ms3dUi.PROP_JOINT_SIZE_MIN, max=Ms3dUi.PROP_JOINT_SIZE_MAX,
-            precision=Ms3dUi.PROP_JOINT_SIZE_PRECISION, step=Ms3dUi.PROP_JOINT_SIZE_STEP,
+            precision=Ms3dUi.PROP_JOINT_SIZE_PRECISION, \
+                    step=Ms3dUi.PROP_JOINT_SIZE_STEP,
             default=Ms3dUi.PROP_DEFAULT_JOINT_SIZE,
             subtype='FACTOR',
             #options={'HIDDEN', },
@@ -346,9 +349,10 @@ class Ms3dImportOperator(Operator, ImportHelper):
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)
-        box.prop(self, 'animation')
-        if (self.animation):
-            box.prop(self, 'rotation_mode', icon=Ms3dUi.ICON_ROTATION_MODE, expand=False)
+        box.prop(self, 'use_animation')
+        if (self.use_animation):
+            box.prop(self, 'rotation_mode', icon=Ms3dUi.ICON_ROTATION_MODE,
+                    expand=False)
             box.prop(self, 'use_joint_size')
             if (self.use_joint_size):
                 col = box.column()
@@ -356,7 +360,8 @@ class Ms3dImportOperator(Operator, ImportHelper):
                 row.prop(self, 'joint_size')
             box.prop(self, 'joint_to_bones')
             if (self.joint_to_bones):
-                box.box().label(ms3d_str['LABEL_NAME_JOINT_TO_BONES'], icon=Ms3dUi.ICON_ERROR)
+                box.box().label(ms3d_str['LABEL_NAME_JOINT_TO_BONES'],
+                        icon=Ms3dUi.ICON_ERROR)
 
     # entrypoint for MS3D -> blender
     def execute(self, blender_context):
@@ -440,6 +445,12 @@ class Ms3dExportOperator(Operator, ExportHelper):
             default=Ms3dUi.PROP_DEFAULT_APPLY_MODIFIERS_MODE,
             )
 
+    use_animation = BoolProperty(
+            name=ms3d_str['PROP_NAME_USE_ANIMATION'],
+            description=ms3d_str['PROP_DESC_USE_ANIMATION'],
+            default=Ms3dUi.PROP_DEFAULT_USE_ANIMATION,
+            )
+
     normalize_weights = BoolProperty(
             name=ms3d_str['PROP_NAME_NORMALIZE_WEIGHTS'],
             description=ms3d_str['PROP_DESC_NORMALIZE_WEIGHTS'],
@@ -501,9 +512,11 @@ class Ms3dExportOperator(Operator, ExportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'],
                 icon=Ms3dUi.ICON_ANIMATION)
-        box.prop(self, 'normalize_weights')
-        box.prop(self, 'shrink_to_keys')
-        box.prop(self, 'bake_each_frame')
+        box.prop(self, 'use_animation')
+        if (self.use_animation):
+            box.prop(self, 'normalize_weights')
+            box.prop(self, 'shrink_to_keys')
+            box.prop(self, 'bake_each_frame')
 
     # entrypoint for blender -> MS3D
     def execute(self, blender_context):
@@ -730,7 +743,8 @@ class Ms3dMaterialOperator(Operator):
         ms3d_material = blender_material.ms3d
 
         if self.mode == 'FROM_BLENDER':
-            Ms3dMaterialHelper.copy_from_blender(self, blender_context, ms3d_material, blender_material)
+            Ms3dMaterialHelper.copy_from_blender(self, blender_context,
+                    ms3d_material, blender_material)
             pass
 
         elif self.mode == 'TO_BLENDER':
@@ -819,7 +833,8 @@ class Ms3dModelProperties(PropertyGroup):
             name=ms3d_str['PROP_NAME_JOINT_SIZE'],
             description=ms3d_str['PROP_DESC_JOINT_SIZE'],
             min=Ms3dUi.PROP_JOINT_SIZE_MIN, max=Ms3dUi.PROP_JOINT_SIZE_MAX,
-            precision=Ms3dUi.PROP_JOINT_SIZE_PRECISION, step=Ms3dUi.PROP_JOINT_SIZE_STEP,
+            precision=Ms3dUi.PROP_JOINT_SIZE_PRECISION, \
+                    step=Ms3dUi.PROP_JOINT_SIZE_STEP,
             default=Ms3dUi.PROP_DEFAULT_JOINT_SIZE,
             subtype='FACTOR',
             #options={'HIDDEN', },
@@ -1029,20 +1044,24 @@ class Ms3dMaterialHelper:
         blender_material_diffuse_color = blender_material.diffuse_color.copy()
         blender_material_diffuse_intensity = blender_material.diffuse_intensity
         blender_material_specular_color = blender_material.specular_color.copy()
-        blender_material_specular_intensity = blender_material.specular_intensity
+        blender_material_specular_intensity = \
+                blender_material.specular_intensity
         blender_material_emit = blender_material.emit
-        blender_material_specular_hardness = blender_material.specular_hardness
+        blender_material_specular_hardness = \
+                blender_material.specular_hardness
         blender_material_alpha = blender_material.alpha
 
         blender_material_texture = None
         for slot in blender_material.texture_slots:
-            if slot and slot.use_map_color_diffuse and slot.texture.type == 'IMAGE':
+            if slot and slot.use_map_color_diffuse \
+                    and slot.texture.type == 'IMAGE':
                 blender_material_texture = slot.texture.image.filepath
                 break
 
         blender_material_alphamap = None
         for slot in blender_material.texture_slots:
-            if slot and not slot.use_map_color_diffuse and slot.use_map_alpha and slot.texture.type == 'IMAGE':
+            if slot and not slot.use_map_color_diffuse \
+                    and slot.use_map_alpha and slot.texture.type == 'IMAGE':
                 blender_material_alphamap = slot.texture.image.filepath
                 break
 
@@ -1272,12 +1291,8 @@ class Ms3dMaterialPanel(Panel):
 
         layout.row().operator(
                 Ms3dUi.OPT_MATERIAL_APPLY,
-                text=ms3d_str['ENUM_FROM_BLENDER_1'], icon='APPEND_BLEND').mode = 'FROM_BLENDER'
-
-        # not implemented
-        #layout.row().operator(
-        #        Ms3dUi.OPT_MATERIAL_APPLY,
-        #        text=ms3d_str['ENUM_TO_BLENDER_1'], icon='IMPORT').mode = 'TO_BLENDER'
+                text=ms3d_str['ENUM_FROM_BLENDER_1'],
+                icon='APPEND_BLEND').mode = 'FROM_BLENDER'
         pass
 
 

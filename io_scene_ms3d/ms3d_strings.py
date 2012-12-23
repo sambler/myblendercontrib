@@ -127,7 +127,7 @@ ms3d_str = {
         'PROP_DESC_ALPHAMAP': "ms3d internal raw 'alphamap' file name of"\
                 " Material",
         'PROP_DESC_AMBIENT': "ms3d internal raw 'ambient' of Material",
-        'PROP_DESC_ANIMATION': "keyframes (rotations, positions)",
+        'PROP_DESC_USE_ANIMATION': "keyframes (rotations, positions)",
         'PROP_DESC_COLOR_JOINT': "ms3d internal raw 'color' of Joint",
         'PROP_DESC_COMMENT_GROUP': "ms3d internal raw 'comment' of Group",
         'PROP_DESC_COMMENT_JOINT': "ms3d internal raw 'comment' of Joint",
@@ -140,7 +140,8 @@ ms3d_str = {
         'PROP_DESC_GROUP_NAME': "ms3d internal raw 'name' of Group",
         'PROP_DESC_JOINT_SIZE': "ms3d internal raw 'joint_size' of Model",
         'PROP_DESC_MODE_TEXTURE': "ms3d internal raw 'mode' of Material",
-        'PROP_DESC_NAME_ARMATURE': "ms3d internal raw 'name' of Model (not used for export)",
+        'PROP_DESC_NAME_ARMATURE': "ms3d internal raw 'name' of Model (not used"\
+                " for export)",
         'PROP_DESC_NAME_JOINT': "ms3d internal raw 'name' of Joint",
         'PROP_DESC_NAME_MATERIAL': "ms3d internal raw 'name' of Material",
         'PROP_DESC_NAME_MODEL': "ms3d internal raw 'name' of Model (not used for export)",
@@ -171,7 +172,7 @@ ms3d_str = {
         'PROP_NAME_ALPHA_REF': "Alpha Ref.",
         'PROP_NAME_ALPHAMAP': "Alphamap",
         'PROP_NAME_AMBIENT': "Ambient",
-        'PROP_NAME_ANIMATION': "Animation",
+        'PROP_NAME_USE_ANIMATION': "Animation",
         'PROP_NAME_COLOR': "Color",
         'PROP_NAME_COMMENT': "Comment",
         'PROP_NAME_DIFFUSE': "Diffuse",
@@ -198,42 +199,57 @@ ms3d_str = {
         'PROP_ITEM_ROTATION_MODE_QUATERNION_2' : "use quaternion bone rotation"\
                 " (no gimbal-lock filter available!)",
         'PROP_NAME_USE_JOINT_SIZE': "Override Joint Size",
-        'PROP_DESC_USE_JOINT_SIZE': "use value of 'Joint Size', the value of the ms3d file is ignored for representation.",
+        'PROP_DESC_USE_JOINT_SIZE': "use value of 'Joint Size', the value of the"\
+                " ms3d file is ignored for representation.",
         'PROP_NAME_IMPORT_JOINT_SIZE': "Joint Size",
-        'PROP_DESC_IMPORT_JOINT_SIZE': "size of the joint representation in blender",
+        'PROP_DESC_IMPORT_JOINT_SIZE': "size of the joint representation in"\
+                " blender",
         'BL_LABEL_SET_SCENE_TO_METRIC' : "Set Scene to 'Metric' [1 mm]",
-        'BL_DESC_SET_SCENE_TO_METRIC' : "set Scene | Units to Metric (1 Unit = 1 mm),"\
+        'BL_DESC_SET_SCENE_TO_METRIC' : "set Scene | Units to Metric"\
+                " (1 Unit = 1 mm),"\
                 " Display | Textured Solid,"\
                 " View | Clip (0.001 mm ... 1 km)",
         'PROP_NAME_NORMALIZE_WEIGHTS' : "Normalize Weights",
-        'PROP_DESC_NORMALIZE_WEIGHTS' : "normalize weights to 100%, weight' = weight(i) * (weight1 + weight2 + weight3) / 100.0",
+        'PROP_DESC_NORMALIZE_WEIGHTS' : "normalize weights to 100%,"\
+                " when its sum of weights is greater than 100%",
         'PROP_NAME_SHRINK_TO_KEYS' : "Shrink To Keys",
-        'PROP_DESC_SHRINK_TO_KEYS' : "shrinks the animation to region from first keyframe to last keyframe",
+        'PROP_DESC_SHRINK_TO_KEYS' : "shrinks the animation to region from"\
+                " first keyframe to last keyframe",
         'PROP_NAME_BAKE_EACH_FRAME' : "Bake Each Frame As Key",
-        'PROP_DESC_BAKE_EACH_FRAME' : "if enabled, to each frame there will be a key baked",
+        'PROP_DESC_BAKE_EACH_FRAME' : "if enabled, to each frame there will be"\
+                " a key baked",
         'LABEL_NAME_JOINT_TO_BONES' : "works only with some models!",
         'PROP_NAME_JOINT_TO_BONES' : "Joints To Bones",
         'PROP_DESC_JOINT_TO_BONES' : "changes the length of the bones",
         'PROP_NAME_USE_BLENDER_NAMES' : "Use Blender Names Only",
-        'PROP_DESC_USE_BLENDER_NAMES' : "use only blender names, ignores ms3d names (bone names will always be taken from blender)",
+        'PROP_DESC_USE_BLENDER_NAMES' : "use only blender names, ignores ms3d"\
+                " names (bone names will always be taken from blender)",
         'PROP_NAME_USE_BLENDER_MATERIALS' : "Use Blender Materials",
-        'PROP_DESC_USE_BLENDER_MATERIALS' : "ignores ms3d material definition (you loose some information by choosing this option)",
+        'PROP_DESC_USE_BLENDER_MATERIALS' : "ignores ms3d material definition"\
+                " (you loose some information by choosing this option)",
         'ENUM_FROM_BLENDER_1' : "Copy From Blender",
-        'ENUM_FROM_BLENDER_2' : "takes and copies all available values from blender",
+        'ENUM_FROM_BLENDER_2' : "takes and copies all available values from"\
+                " blender",
         'ENUM_TO_BLENDER_1' : "Copy To Blender",
         'ENUM_TO_BLENDER_2' : "copies and puts all available values to blender",
         'PROP_NAME_EXTENDED_NORMAL_HANDLING': "Extended Normal Handling",
-        'PROP_DESC_EXTENDED_NORMAL_HANDLING': "adds extra vertices if normals are different",
+        'PROP_DESC_EXTENDED_NORMAL_HANDLING': "adds extra vertices if normals"\
+                " are different",
         'PROP_NAME_APPLY_TRANSFORM': "Apply Transform",
-        'PROP_DESC_APPLY_TRANSFORM': "applies location, rotation and scale on export",
+        'PROP_DESC_APPLY_TRANSFORM': "applies location, rotation and scale on"\
+                " export",
         'PROP_NAME_APPLY_MODIFIERS': "Apply Modifiers",
-        'PROP_DESC_APPLY_MODIFIERS': "applies modifiers on export that are enabled (except of armature modifiers)",
+        'PROP_DESC_APPLY_MODIFIERS': "applies modifiers on export that are"\
+                " enabled (except of armature modifiers)",
         'PROP_NAME_APPLY_MODIFIERS_MODE': "Apply Mode",
-        'PROP_DESC_APPLY_MODIFIERS_MODE': "apply modifier, if enabled in its mode",
+        'PROP_DESC_APPLY_MODIFIERS_MODE': "apply modifier, if enabled in its"\
+                " mode",
         'PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW_1': "View",
-        'PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW_2': "apply modifiers that are enabled in viewport",
+        'PROP_ITEM_APPLY_MODIFIERS_MODE_VIEW_2': "apply modifiers that are"\
+                " enabled in viewport",
         'PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER_1': "Render",
-        'PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER_2': "apply modifiers that are enabled in renderer",
+        'PROP_ITEM_APPLY_MODIFIERS_MODE_RENDER_2': "apply modifiers that are"\
+                " enabled in renderer",
 
         'PROP_NAME_': "Name",
         'PROP_DESC_': "Description",

@@ -72,7 +72,6 @@ from io_scene_ms3d.ms3d_ui import (
 
 #import blender stuff
 from bpy import (
-        data,
         ops,
         )
 import bmesh
@@ -323,8 +322,10 @@ class Ms3dImporter():
                 # bm.verts.layers.int does only support signed int32
                 # convert unsigned int32 to signed int32 (little-endian)
                 unsigned_int32 = ms3d_vertex.vertex_ex_object.extra
-                bytes_int32 = unsigned_int32.to_bytes(4, byteorder='little', signed=False)
-                signed_int32 = int.from_bytes(bytes_int32, byteorder='little', signed=True)
+                bytes_int32 = unsigned_int32.to_bytes(
+                        4, byteorder='little', signed=False)
+                signed_int32 = int.from_bytes(
+                        bytes_int32, byteorder='little', signed=True)
                 bmv[layer_extra] = signed_int32
 
         ##########################
@@ -385,7 +386,8 @@ class Ms3dImporter():
                 file_name_diffuse = path.split(ms3d_material.texture)[1]
                 blender_image_diffuse = load_image(
                         file_name_diffuse, dir_name_diffuse)
-                blender_texture_diffuse = blender_context.blend_data.textures.new(
+                blender_texture_diffuse = \
+                        blender_context.blend_data.textures.new(
                         name=file_name_diffuse, type='IMAGE')
                 blender_texture_diffuse.image = blender_image_diffuse
                 blender_texture_slot_diffuse \
@@ -444,13 +446,16 @@ class Ms3dImporter():
                     continue
                 bmv = bm.verts[vert_index]
 
-                blender_normal = self.geometry_correction(ms3d_triangle.vertex_normals[index])
+                blender_normal = self.geometry_correction(
+                        ms3d_triangle.vertex_normals[index])
                 if bmv.normal == blender_invalide_normal:
                     bmv.normal = blender_normal
-                elif bmv.normal != blender_normal and self.options.extended_normal_handling:
+                elif bmv.normal != blender_normal \
+                        and self.options.extended_normal_handling:
                     ## search for an already created extra vertex
                     bmv_new = None
-                    for vert_index_candidat in range(vertex_extra_index, length_verts):
+                    for vert_index_candidat in range(
+                            vertex_extra_index, length_verts):
                         bmv_candidat = bm.verts[vert_index_candidat]
                         if bmv_candidat.co == bmv.co \
                                 and bmv_candidat.normal == blender_normal:
@@ -460,7 +465,8 @@ class Ms3dImporter():
 
                     ## if not exists, create one in blender and ms3d as well
                     if bmv_new is None:
-                        ms3d_model.vertices.append(ms3d_model.vertices[vert_index])
+                        ms3d_model.vertices.append(
+                                ms3d_model.vertices[vert_index])
                         bmv_new = bm.verts.new(bmv.co)
                         bmv_new.normal = blender_normal
                         bmv_new[layer_extra] = bmv[layer_extra]
@@ -631,26 +637,32 @@ class Ms3dImporter():
             if ms3d_vertex.bone_id != Ms3dSpec.NONE_VERTEX_BONE_ID:
                 if ms3d_vertex.vertex_ex_object \
                         and ( \
-                        ms3d_vertex.vertex_ex_object.bone_ids[0] != Ms3dSpec.NONE_VERTEX_BONE_ID \
-                        or ms3d_vertex.vertex_ex_object.bone_ids[1] != Ms3dSpec.NONE_VERTEX_BONE_ID \
-                        or ms3d_vertex.vertex_ex_object.bone_ids[2] != Ms3dSpec.NONE_VERTEX_BONE_ID \
+                        ms3d_vertex.vertex_ex_object.bone_ids[0] != \
+                                Ms3dSpec.NONE_VERTEX_BONE_ID \
+                        or ms3d_vertex.vertex_ex_object.bone_ids[1] != \
+                                Ms3dSpec.NONE_VERTEX_BONE_ID \
+                        or ms3d_vertex.vertex_ex_object.bone_ids[2] != \
+                                Ms3dSpec.NONE_VERTEX_BONE_ID \
                         ):
                     ms3d_vertex_group_ids_weights = []
                     ms3d_vertex_group_ids_weights.append(
                             (ms3d_vertex.bone_id,
                             float(ms3d_vertex.vertex_ex_object.weights[0] % 101) / 100.0,
                             ))
-                    if ms3d_vertex.vertex_ex_object.bone_ids[0] != Ms3dSpec.NONE_VERTEX_BONE_ID:
+                    if ms3d_vertex.vertex_ex_object.bone_ids[0] != \
+                            Ms3dSpec.NONE_VERTEX_BONE_ID:
                         ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[0],
                                 float(ms3d_vertex.vertex_ex_object.weights[1] % 101) / 100.0
                                 ))
-                    if ms3d_vertex.vertex_ex_object.bone_ids[1] != Ms3dSpec.NONE_VERTEX_BONE_ID:
+                    if ms3d_vertex.vertex_ex_object.bone_ids[1] != \
+                            Ms3dSpec.NONE_VERTEX_BONE_ID:
                         ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[1],
                                 float(ms3d_vertex.vertex_ex_object.weights[2] % 101) / 100.0
                                 ))
-                    if ms3d_vertex.vertex_ex_object.bone_ids[2] != Ms3dSpec.NONE_VERTEX_BONE_ID:
+                    if ms3d_vertex.vertex_ex_object.bone_ids[2] != \
+                            Ms3dSpec.NONE_VERTEX_BONE_ID:
                         ms3d_vertex_group_ids_weights.append(
                                 (ms3d_vertex.vertex_ex_object.bone_ids[2],
                                 1.0 -
@@ -670,7 +682,8 @@ class Ms3dImporter():
                     if blender_vertex_group is None:
                         ms3d_to_blender_vertex_groups[ms3d_vertex_group_id] \
                                 = blender_vertex_group = []
-                    blender_vertex_group.append((ms3d_vertex_index, blender_vertex_weight))
+                    blender_vertex_group.append((ms3d_vertex_index,
+                            blender_vertex_weight))
 
         ##########################
         # blender stuff:
@@ -683,12 +696,14 @@ class Ms3dImporter():
             for blender_vertex_id_weight in blender_vertex_index_weight_list:
                 blender_vertex_index = blender_vertex_id_weight[0]
                 blender_vertex_weight = blender_vertex_id_weight[1]
-                blender_vertex_group.add((blender_vertex_index, ), blender_vertex_weight, 'ADD')
+                blender_vertex_group.add((blender_vertex_index, ),
+                        blender_vertex_weight, 'ADD')
 
         ##########################
         # bring joints in the correct order
         ms3d_joints_ordered = []
-        self.build_ms3d_joint_dependency_order(ms3d_model.joints, ms3d_joints_ordered)
+        self.build_ms3d_joint_dependency_order(ms3d_model.joints,
+                ms3d_joints_ordered)
 
         ##########################
         # prepare joint data for later use
@@ -754,8 +769,10 @@ class Ms3dImporter():
             vector_tail_end_up.normalize()
             vector_tail_end_dir.normalize()
             blender_edit_bone.tail = blender_edit_bone.head \
-                    + self.geometry_correction(vector_tail_end_dir * joint_length)
-            blender_edit_bone.align_roll(self.geometry_correction(vector_tail_end_up))
+                    + self.geometry_correction(
+                    vector_tail_end_dir * joint_length)
+            blender_edit_bone.align_roll(self.geometry_correction(
+                    vector_tail_end_up))
 
             if ms3d_joint.parent_name:
                 ms3d_joint_parent = ms3d_joint_by_name[ms3d_joint.parent_name]
@@ -803,7 +820,7 @@ class Ms3dImporter():
                 blender_bone.ms3d.comment = ms3d_comment.comment
 
         ##########################
-        if not self.options.animation:
+        if not self.options.use_animation:
             return blender_armature_object
 
 
@@ -856,9 +873,12 @@ class Ms3dImporter():
                 for rotation_key_frames in ms3d_joint.rotation_key_frames:
                     frame = (rotation_key_frames.time * ms3d_model.animation_fps)
                     matrix_local_rot = (
-                            Matrix.Rotation(rotation_key_frames.rotation[2], 4, 'Y')
-                            * Matrix.Rotation(rotation_key_frames.rotation[1], 4, 'Z')
-                            ) * Matrix.Rotation(-rotation_key_frames.rotation[0], 4, 'X')
+                            Matrix.Rotation(
+                                    rotation_key_frames.rotation[2], 4, 'Y')
+                            * Matrix.Rotation(
+                                    rotation_key_frames.rotation[1], 4, 'Z')
+                            ) * Matrix.Rotation(
+                                    -rotation_key_frames.rotation[0], 4, 'X')
                     q = (matrix_local_rot).to_quaternion()
                     fcurve_rotation_w.keyframe_points.insert(frame, q.w)
                     fcurve_rotation_x.keyframe_points.insert(frame, q.x)
@@ -872,9 +892,12 @@ class Ms3dImporter():
                 fcurve_rotation_z = blender_action.fcurves.new(data_path, index=2)
                 for rotation_key_frames in ms3d_joint.rotation_key_frames:
                     frame = (rotation_key_frames.time * ms3d_model.animation_fps)
-                    fcurve_rotation_x.keyframe_points.insert(frame, -rotation_key_frames.rotation[0])
-                    fcurve_rotation_y.keyframe_points.insert(frame, rotation_key_frames.rotation[2])
-                    fcurve_rotation_z.keyframe_points.insert(frame, rotation_key_frames.rotation[1])
+                    fcurve_rotation_x.keyframe_points.insert(
+                            frame, -rotation_key_frames.rotation[0])
+                    fcurve_rotation_y.keyframe_points.insert(
+                            frame, rotation_key_frames.rotation[2])
+                    fcurve_rotation_z.keyframe_points.insert(
+                            frame, rotation_key_frames.rotation[1])
 
         enable_pose_mode(False, blender_context)
 
@@ -891,9 +914,11 @@ class Ms3dImporter():
         ms3d_joints_children = {"": {}}
         for ms3d_joint in ms3d_joints:
             if ms3d_joint.parent_name:
-                ms3d_joint_children = ms3d_joints_children.get(ms3d_joint.parent_name)
+                ms3d_joint_children = ms3d_joints_children.get(
+                        ms3d_joint.parent_name)
                 if ms3d_joint_children is None:
-                    ms3d_joint_children = ms3d_joints_children[ms3d_joint.parent_name] = {}
+                    ms3d_joint_children = ms3d_joints_children[
+                            ms3d_joint.parent_name] = {}
             else:
                 ms3d_joint_children = ms3d_joints_children[""]
 
@@ -909,7 +934,8 @@ class Ms3dImporter():
 
 
     ###########################################################################
-    def traverse_dependencies(self, ms3d_joints_ordered, ms3d_joints_children, key):
+    def traverse_dependencies(self, ms3d_joints_ordered, ms3d_joints_children,
+            key):
         ms3d_joint_children = ms3d_joints_children.get(key)
         if ms3d_joint_children:
             for item in ms3d_joint_children.items():
