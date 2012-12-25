@@ -37,7 +37,7 @@ import bmesh
 import time
 import random
 
-#r06
+#r07
 
 ## CREA PANELES EN TOOLS
 
@@ -1753,6 +1753,8 @@ def relinkObjects (self):
             LISTSCENE.append(SCENE)
 
     OBJECTS = bpy.selection_osc[:-1]
+    ACTOBJ = bpy.selection_osc[-1] 
+    OBJSEL = bpy.selection_osc[:]
 
     ## REMUEVO ESCENA ACTIVA
     LISTSCENE.remove(bpy.context.scene)
@@ -1769,7 +1771,11 @@ def relinkObjects (self):
     ## LINK
     for SCENE in LISTSCENE:
         bpy.ops.object.make_links_scene(scene=SCENE.name)
-
+    
+    # REESTABLEZCO SELECCION
+    bpy.context.scene.objects.active=ACTOBJ
+    for OBJ in OBJSEL:
+        OBJ.select=True
 
 class OscRelinkObjectsBetween (bpy.types.Operator):
     bl_idname = "objects.relink_objects_between_scenes"
@@ -1812,7 +1818,8 @@ def CopyObjectGroupsAndLayers (self):
             GROUP.objects.link(OBJECT)            
  
     bpy.context.window.screen.scene = ACTSCENE
-
+    bpy.context.scene.objects.active=ACTOBJ
+    
 class OscCopyObjectGAL (bpy.types.Operator):
     bl_idname = "objects.copy_objects_groups_layers"
     bl_label = "Copy Groups And Layers"
