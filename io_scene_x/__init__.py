@@ -22,7 +22,7 @@ bl_info = {
     "name": "DirectX X Format",
     "author": "Chris Foster",
     "version": (3, 0, 0),
-    "blender": (2, 6, 3),
+    "blender": (2, 63, 0),
     "location": "File > Export > DirectX (.x)",
     "description": "Export mesh vertices, UV's, materials, textures, "\
         "vertex colors, armatures, empties, and actions.",

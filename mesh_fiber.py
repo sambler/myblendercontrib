@@ -26,7 +26,7 @@ bl_info = {
     "name": "Fiber",
     "author": "Alan Dennis - Gert De Roost",
     "version": (3, 1, 0),
-    "blender": (2, 6, 4),
+    "blender": (2, 64, 0),
     "location": "View3D > Mesh Tools",
     "description": "Generates mesh grass or hair",
     "warning": "",

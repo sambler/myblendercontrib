@@ -3,7 +3,7 @@ bl_info = {
     "description": "Help Clone tool",
     "author": "kgeogeo",
     "version": (1, 0),
-    "blender": (2, 6, 3),
+    "blender": (2, 63, 0),
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/bprojection",
     "tracker_url":"http://projects.blender.org/tracker/index.php?func=detail&aid=30521&group_id=153&atid=468",
     "category": "Paint"}
@@ -254,8 +254,10 @@ def update_activeviewname(self, context):
         em.custom_active_view = self.custom_active_view
 
 class custom_props(bpy.types.PropertyGroup):
+    custom_fnlevel = IntProperty(name="Fast navigate level", description="Increase or decrease the SubSurf level, decrease make navigation faster", default=0)
+    
     custom_location = FloatVectorProperty(name="Location", description="Location of the plane",
-                                          default=(0,0,-1.0),
+                                          default=(1.0,0,-1.0),
                                           subtype = 'XYZ', 
                                           soft_min = -10,
                                           soft_max = 10,
@@ -309,9 +311,11 @@ class custom_props(bpy.types.PropertyGroup):
 def createcustomprops(context):
     Ob = bpy.types.Object
     
+    Ob.custom_fnlevel = IntProperty(name="Fast navigate level", description="Increase or decrease the SubSurf level, decrease make navigation faster", default=0)
+    
     # plane properties 
     Ob.custom_location = FloatVectorProperty(name="Location", description="Location of the plane",
-                                           default  = (0, 0, -1.0),
+                                           default  = (1.0, 0, -1.0),
                                            subtype  = 'XYZ', 
                                            size     = 3,
                                            step     = 0.5,
@@ -637,6 +641,10 @@ class BProjection(Panel):
                         row = box.column(align =True)
                         row.prop(matBProjection,'alpha', slider = True)
                         row = box.column(align =True)
+                    
+                    row.prop(ob,"custom_fnlevel")
+                    row = box.column(align =True)
+                        
     
                 if ob == bpy.data.objects[em.custom_active_object]:    
                     for item in em.custom_props:
@@ -811,27 +819,28 @@ class AddBProjectionPlane(Operator):
             bpy.ops.object.shape_key_add(from_mix = False)
             
             bpy.ops.object.create_view()
-            # ----------------------------------------------
-            # XXX, this isnt future proof, DON'T USE INDEX's - campbell                    
+                    
             km = bpy.data.window_managers['WinMan'].keyconfigs['Blender'].keymaps['3D View']
-            km.keymap_items[3-1].idname = 'view3d.rotate_view3d'
-            km.keymap_items[21-1].idname = 'view3d.zoom_view3d'
-            km.keymap_items[21-1].properties.delta = 1.0
-            km.keymap_items[22-1].idname = 'view3d.zoom_view3d'
-            km.keymap_items[22-1].properties.delta = -1.0
-            km.keymap_items[4-1].idname = 'view3d.pan_view3d'
-            km.keymap_items[29-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[29-1].properties.view = 'FRONT'
-            km.keymap_items[31-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[31-1].properties.view = 'RIGHT'            
-            km.keymap_items[35-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[35-1].properties.view = 'TOP'
-            km.keymap_items[37-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[37-1].properties.view = 'BACK'
-            km.keymap_items[38-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[38-1].properties.view = 'LEFT'            
-            km.keymap_items[39-1].idname = 'view3d.preset_view3d'
-            km.keymap_items[39-1].properties.view = 'BOTTOM'                                   
+            l = ['view3d.rotate','view3d.move','view3d.zoom','view3d.viewnumpad','MOUSE','KEYBOARD','MIDDLEMOUSE','WHEELINMOUSE','WHEELOUTMOUSE','NUMPAD_1','NUMPAD_3','NUMPAD_7']
+            for kmi in km.keymap_items:
+                if kmi.idname in l and kmi.map_type in l and kmi.type in l:
+                    try:
+                        p = kmi.properties.delta
+                        if p == -1 or p == 1:
+                            kmi.idname = 'view3d.zoom_view3d'
+                            kmi.properties.delta = p
+                    except:
+                        try:
+                            p = kmi.properties.type
+                            if kmi.shift == False :
+                                kmi.idname = 'view3d.preset_view3d'
+                                kmi.properties.view = p
+                        except:
+                            if kmi.idname == 'view3d.rotate':
+                                kmi.idname = 'view3d.rotate_view3d'  
+                            if kmi.idname == 'view3d.move':
+                                kmi.idname = 'view3d.pan_view3d' 
+                                                       
             km = context.window_manager.keyconfigs.default.keymaps['Image Paint']
             kmi = km.keymap_items.new("object.intuitivescale", 'LEFTMOUSE', 'PRESS', shift=True)
                         
@@ -923,26 +932,25 @@ class RemoveBProjectionPlane(Operator):
 
 def reinitkey():
     km = bpy.data.window_managers['WinMan'].keyconfigs['Blender'].keymaps['3D View']
-    # ----------------------------------------------
-    # XXX, this isnt future proof, DON'T USE INDEX's - campbell
-    km.keymap_items[3-1].idname = 'view3d.rotate'
-    km.keymap_items[21-1].idname = 'view3d.zoom'
-    km.keymap_items[21-1].properties.delta = 1.0
-    km.keymap_items[22-1].idname = 'view3d.zoom'
-    km.keymap_items[22-1].properties.delta = -1.0
-    km.keymap_items[4-1].idname = 'view3d.move'
-    km.keymap_items[29-1].idname = 'view3d.viewnumpad'
-    km.keymap_items[29-1].properties.type = 'FRONT'
-    km.keymap_items[31-1].idname = 'view3d.viewnumpad'
-    km.keymap_items[31-1].properties.type = 'RIGHT'            
-    km.keymap_items[35-1].idname = 'view3d.viewnumpad'
-    km.keymap_items[35-1].properties.type = 'TOP'
-    km.keymap_items[37-1].idname = 'view3d.viewnumpad'
-    km.keymap_items[37-1].properties.type = 'BACK'
-    km.keymap_items[38-1].idname = 'view3d.viewnumpad'
-    km.keymap_items[38-1].properties.type = 'LEFT'            
-    km.keymap_items[39-1].idname = 'view3d.viewnumpad'
-    km.keymap_items[39-1].properties.type = 'BOTTOM'            
+    l = ['view3d.zoom_view3d','view3d.preset_view3d','view3d.rotate_view3d','view3d.pan_view3d','MOUSE','KEYBOARD','MIDDLEMOUSE','WHEELINMOUSE','WHEELOUTMOUSE','NUMPAD_1','NUMPAD_3','NUMPAD_7']
+    for kmi in km.keymap_items:
+        if kmi.idname in l and kmi.map_type in l and kmi.type in l:
+            try:
+                p = kmi.properties.delta
+                if p == -1 or p == 1:
+                    kmi.idname = 'view3d.zoom'
+                    kmi.properties.delta = p
+            except:
+                try:
+                    p = kmi.properties.view
+                    if kmi.shift == False :
+                        kmi.idname = 'view3d.viewnumpad'
+                        kmi.properties.type = p
+                except:
+                    if kmi.idname == 'view3d.rotate_view3d':
+                        kmi.idname = 'view3d.rotate'  
+                    if kmi.idname == 'view3d.pan_view3d':
+                        kmi.idname = 'view3d.move'            
             
     km = bpy.context.window_manager.keyconfigs.default.keymaps['Image Paint']
     #to do
@@ -1140,6 +1148,10 @@ class RotateView3D(Operator):
             self.block = 1
             
         if event.value == 'RELEASE':
+            if self.tmp_level > -1:
+                for sub in context.object.modifiers:
+                    if sub.type in ['SUBSURF','MULTIRES']:
+                        sub.levels = self.tmp_level 
             return {'FINISHED'}
 
         if event.type == 'MOUSEMOVE':                        
@@ -1201,15 +1213,6 @@ class RotateView3D(Operator):
                     em.custom_offsetuv = [ouv[0] - deltax/50,ouv[1] - deltay/50] 
     
                 self.pan = Vector((event.mouse_region_x, event.mouse_region_y))
-                
-                        
-        elif event.type == 'MIDDLEMOUSE'and event.value == 'RELEASE':
-            if self.tmp_level > -1:
-                for sub in context.object.modifiers:
-                    if sub.type in ['SUBSURF','MULTIRES']:
-                        sub.levels = self.tmp_level   
-            
-            return {'FINISHED'}
         
         if 'C' in self.key:
             clear_props(context)
@@ -1231,7 +1234,10 @@ class RotateView3D(Operator):
         for sub in context.object.modifiers:
             if sub.type in ['SUBSURF', 'MULTIRES']:
                 self.tmp_level = sub.levels
-                sub.levels = 0
+                if sub.levels - self.tmp_level <0:
+                    sub.levels = 0
+                else:
+                    sub.levels += bpy.context.object.custom_fnlevel
         return {'RUNNING_MODAL'}
             
 
@@ -1288,7 +1294,10 @@ class PanView3D(bpy.types.Operator):
         for sub in context.object.modifiers:
             if sub.type in ['SUBSURF', 'MULTIRES']:
                 self.tmp_level = sub.levels
-                sub.levels = 0  
+                if sub.levels - self.tmp_level <0:
+                    sub.levels = 0
+                else:
+                    sub.levels += bpy.context.object.custom_fnlevel 
                       
         return {'RUNNING_MODAL'}
         

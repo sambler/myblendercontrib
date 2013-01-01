@@ -130,7 +130,7 @@ class Ms3dSpec:
     DEFAULT_MATERIAL_SPECULAR = (1.0, 1.0, 1.0, 1.0)
     DEFAULT_MATERIAL_EMISSIVE = (0.0, 0.0, 0.0, 1.0)
     DEFAULT_MATERIAL_SHININESS = 12.5
-    
+
     DEFAULT_JOINT_COLOR = (0.8, 0.8, 0.8)
 
 ###############################################################################

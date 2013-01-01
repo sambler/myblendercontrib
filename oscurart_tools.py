@@ -20,7 +20,7 @@ bl_info = {
     "name": "Oscurart Tools",
     "author": "Oscurart, CodemanX",
     "version": (3,0),
-    "blender": (2, 6, 3),
+    "blender": (2, 63, 0),
     "location": "View3D > Tools > Oscurart Tools",
     "description": "Tools for objects, render, shapes, and files.",
     "warning": "",
@@ -37,7 +37,7 @@ import bmesh
 import time
 import random
 
-#r06
+#r07
 
 ## CREA PANELES EN TOOLS
 
@@ -282,7 +282,7 @@ class reloadImages (bpy.types.Operator):
 
 ##-----------------------------RECONST---------------------------
 
-def defReconst(self, OFFSET, SUBD):
+def defReconst(self, OFFSET):
 
     ##EDIT
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
@@ -293,13 +293,6 @@ def defReconst(self, OFFSET, SUBD):
     OBJETO = bpy.context.active_object
     OBDATA = bmesh.from_edit_mesh(OBJETO.data)
     OBDATA.select_flush(False)
-
-    if SUBD > 0:
-        USESUB=True
-        SUBLEV=SUBD
-    else:
-        USESUB=False
-        SUBLEV=1
 
     ## IGUALO VERTICES CERCANOS A CERO
     for vertice in OBDATA.verts[:]:
@@ -326,7 +319,7 @@ def defReconst(self, OFFSET, SUBD):
     LENUVLISTSIM = LENUVLISTSIM - 1
     OBJETO.data.uv_textures[LENUVLISTSIM:][0].name = "SYMMETRICAL"
     ## UNWRAP
-    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
     ## MODO OBJETO
     bpy.ops.object.mode_set(mode="OBJECT", toggle= False)
     ## APLICO MIRROR
@@ -344,7 +337,7 @@ def defReconst(self, OFFSET, SUBD):
     ## SETEO UV ACTIVO
     OBJETO.data.uv_textures.active = OBJETO.data.uv_textures["ASYMMETRICAL"]
     ## UNWRAP
-    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=USESUB, uv_subsurf_level=SUBLEV)
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
 
 
 class reConst (bpy.types.Operator):
@@ -352,9 +345,9 @@ class reConst (bpy.types.Operator):
     bl_label = "ReConst Mesh"
     bl_options = {"REGISTER", "UNDO"}
     OFFSET=bpy.props.FloatProperty(name="Offset", default=0.001, min=-0, max=0.1)
-    SUBD=bpy.props.IntProperty(name="Subdivisions Levels", default=0, min=0, max=4)
+
     def execute(self,context):
-        defReconst(self, self.OFFSET, self.SUBD)
+        defReconst(self, self.OFFSET)
         return {'FINISHED'}
 
 ## -----------------------------------SELECT LEFT---------------------
@@ -1583,13 +1576,6 @@ class ShapeToObjects (bpy.types.Operator):
 
 ## PARA ESCENAS NUEVAS
 
-for scene in bpy.data.scenes[:]:
-    try:
-        scene['OVERRIDE']
-    except:
-        scene['OVERRIDE']="[]"
-
-
 class OverridesOp (bpy.types.Operator):
     bl_idname = "render.overrides_set_list"
     bl_label = "Overrides set list"
@@ -1767,6 +1753,8 @@ def relinkObjects (self):
             LISTSCENE.append(SCENE)
 
     OBJECTS = bpy.selection_osc[:-1]
+    ACTOBJ = bpy.selection_osc[-1] 
+    OBJSEL = bpy.selection_osc[:]
 
     ## REMUEVO ESCENA ACTIVA
     LISTSCENE.remove(bpy.context.scene)
@@ -1783,7 +1771,11 @@ def relinkObjects (self):
     ## LINK
     for SCENE in LISTSCENE:
         bpy.ops.object.make_links_scene(scene=SCENE.name)
-
+    
+    # REESTABLEZCO SELECCION
+    bpy.context.scene.objects.active=ACTOBJ
+    for OBJ in OBJSEL:
+        OBJ.select=True
 
 class OscRelinkObjectsBetween (bpy.types.Operator):
     bl_idname = "objects.relink_objects_between_scenes"
@@ -1809,15 +1801,12 @@ def CopyObjectGroupsAndLayers (self):
     
     for OBJECT in OBSEL[:-1]:
         for scene in bpy.data.scenes[:]:
-            
-            # CAMBIO ESCENA EN EL UI
-            bpy.context.window.screen.scene=scene
 
             # SI EL OBJETO ACTIVO ESTA EN LA ESCENA
-            if ACTOBJ in bpy.context.scene.objects[:] and OBJECT in bpy.context.scene.objects[:]:
-                scene.objects[OBJECT.name].layers = ACTOBJ.layers
-            elif ACTOBJ not in bpy.context.scene.objects[:] and OBJECT in bpy.context.scene.objects[:]: 
-                scene.objects[OBJECT.name].layers = list(GLOBALLAYERS)                  
+            if ACTOBJ in scene.objects[:] and OBJECT in scene.objects[:]:
+                scene.object_bases[OBJECT.name].layers[:] = scene.object_bases[ACTOBJ.name].layers[:] 
+            elif ACTOBJ not in scene.objects[:] and OBJECT in scene.objects[:]: 
+                scene.object_bases[OBJECT.name].layers[:] = list(GLOBALLAYERS)                  
                 
         # REMUEVO DE TODO GRUPO
         for GROUP in bpy.data.groups[:]:
@@ -1829,7 +1818,8 @@ def CopyObjectGroupsAndLayers (self):
             GROUP.objects.link(OBJECT)            
  
     bpy.context.window.screen.scene = ACTSCENE
-
+    bpy.context.scene.objects.active=ACTOBJ
+    
 class OscCopyObjectGAL (bpy.types.Operator):
     bl_idname = "objects.copy_objects_groups_layers"
     bl_label = "Copy Groups And Layers"
