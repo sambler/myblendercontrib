@@ -26,11 +26,18 @@ Tooltip: "Load a CMX formatted EDL into the sequencer"
 """
 
 
-class TimeCode(object):
+class TimeCode:
     """
     Simple timecode class
     also supports conversion from other time strings used by EDL
     """
+    __slots__ = (
+        "fps",
+        "hours",
+        "minutes",
+        "seconds",
+        "frame",
+    )
     def __init__(self, data, fps):
         self.fps = fps
         if type(data) == str:
@@ -539,47 +546,46 @@ class EditList(object):
 
         return reels
 
-# from DNA
-SEQ_IMAGE = 0
-SEQ_META = 1
-SEQ_SCENE = 2
-SEQ_MOVIE = 3
-SEQ_RAM_SOUND = 4
-SEQ_HD_SOUND = 5
-SEQ_MOVIE_AND_HD_SOUND = 6
 
-SEQ_EFFECT = 8
-SEQ_CROSS = 8
-SEQ_ADD = 9
-SEQ_SUB = 10
-SEQ_ALPHAOVER = 11
-SEQ_ALPHAUNDER = 12
-SEQ_GAMCROSS = 13
-SEQ_MUL = 14
-SEQ_OVERDROP = 15
-SEQ_PLUGIN = 24
-SEQ_WIPE = 25
-SEQ_GLOW = 26
-SEQ_TRANSFORM = 27
-SEQ_COLOR = 28
-SEQ_SPEED = 29
-
+# ----------------------------------
 # Blender spesific stuff starts here
 import bpy
-import Blender
 
 
-def scale_meta_speed(seq, mov, scale):
+def id_animdata_action_ensure(id_data):
+    id_data.animation_data_create()
+    animation_data = id_data.animation_data
+    if animation_data.action is None:
+        animation_data.action = bpy.data.actions.new(name="Scene Action")
+
+
+def scale_meta_speed(sequence_editor, mov, scale):
     # Add an effect
-    speed = seq.new((SEQ_SPEED, mov,), 199, mov.channel + 1)
-    speed.speedEffectFrameBlending = True
-    meta = seq.new([mov, speed], 199, mov.channel)
+    #speed = sequence_editor.new((SEQ_SPEED, mov,), 199, mov.channel + 1)
+    dummy_frame=0
+    speed = sequence_editor.sequences.new_effect(name="Speed", type='SPEED', seq1=mov, start_frame=dummy_frame, channel=mov.channel + 1)
+    
+    # not working in 2.6x :|
+    speed.use_frame_blend = True
+    #meta = sequence_editor.new([mov, speed], 199, mov.channel)
+
+    
+    # XXX-Meta Operator Mess
+    scene = sequence_editor.id_data
+    for seq in scene.sequence_editor.sequences_all:
+        seq.select = False
+    mov.select = True
+    speed.select = True
+    bpy.ops.sequencer.meta_make()
+    meta = scene.sequence_editor.sequences[-1]
+    # XXX-Meta Operator Mess (END)
+
 
     if scale >= 1.0:
-        mov.endStill = int(mov.length * (scale - 1.0))
+        mov.frame_still_end = int(mov.frame_duration * (scale - 1.0))
     else:
-        speed.speedEffectGlobalSpeed = 1.0 / scale
-        meta.endOffset = mov.length - int(mov.length * scale)
+        speed.multiply_speed = 1.0 / scale
+        meta.frame_offset_end = mov.frame_duration - int(mov.frame_duration * scale)
 
     speed.update()
     meta.update()
@@ -587,44 +593,46 @@ def scale_meta_speed(seq, mov, scale):
 
 
 def apply_dissolve_ipo(mov, blendin):
-    len_disp = float(mov.endDisp - mov.startDisp)
+    scene = mov.id_data
+    id_animdata_action_ensure(scene)
+    action = scene.animation_data.action
+    print(action)
+    
+    data_path = mov.path_from_id("blend_alpha")
+    blend_alpha_fcurve = action.fcurves.new(data_path, index=0)
+    blend_alpha_fcurve.keyframe_points.insert(mov.frame_final_start, 0.0)
+    blend_alpha_fcurve.keyframe_points.insert(mov.frame_final_end, 1.0)
+    
+    blend_alpha_fcurve.keyframe_points[0].interpolation = 'LINEAR'
+    blend_alpha_fcurve.keyframe_points[1].interpolation = 'LINEAR'
 
-    if len_disp <= 0.0:
-        print("Error, strip is zero length")
-        return
-
-    mov.ipo = ipo = bpy.data.ipos.new("fade", "Sequence")
-    icu = ipo.addCurve("Fac")
-
-    icu.interpolation = Blender.IpoCurve.InterpTypes.LINEAR
-    icu.append((0, 0))
-    icu.append(((int(blendin) / len_disp) * 100, 1))
-
-    if mov.type not in {SEQ_HD_SOUND, SEQ_RAM_SOUND}:
-        mov.blendMode = Blender.Scene.Sequence.BlendModes.ALPHAOVER
+    if mov.type != 'SOUND':
+        mov.blend_type = 'ALPHA_OVER'
 
 
 def replace_ext(path, ext):
     return path[:path.rfind(".") + 1] + ext
 
-
-def load_edl(filename, reel_files, reel_offsets):
+TODO_SPEED_SUPPORT = True
+def load_edl(scene, filename, reel_files, reel_offsets):
     """
     reel_files - key:reel <--> reel:filename
     """
 
+    import os
     # For test file
     # frame_offset = -769
 
-    sce = bpy.data.scenes.active
-    fps = sce.render.fps
+    fps = scene.render.fps
+    dummy_frame = 1
 
     elist = EditList()
     if not elist.parse(filename, fps):
         return "Unable to parse %r" % filename
     # elist.clean()
 
-    seq = sce.sequence
+    scene.sequence_editor_create()
+    sequence_editor = scene.sequence_editor
 
     track = 0
 
@@ -660,34 +668,34 @@ def load_edl(filename, reel_files, reel_offsets):
         strip = None
         final_strips = []
         if edit.reel.lower() == "bw":
-            strip = seq.new((0, 0, 0), rec_start, track + 1)
-            strip.length = rec_length  # for color its simple
+            #strip = sequence_editor.new((0, 0, 0), rec_start, track + 1)
+            strip_wipe = sequence_editor.sequences.new_effect(name="Wipe", type='COLOR', start_frame=rec_start, channel=track + 1)
+            strip.frame_duration = rec_length  # for color its simple
             final_strips.append(strip)
         else:
-
             path_full = reel_files[edit.reel]
-            path_fileonly = path_full.split("/")[-1].split("\\")[-1]  # os.path.basename(full)
-            path_dironly = path_full[:-len(path_fileonly)]  # os.path.dirname(full)
+            path_dironly, path_fileonly = os.path.split(path_full)
 
             if edit.edit_type & EDIT_VIDEO:  # and edit.transition_type == TRANSITION_CUT:
 
-                try:
-                    strip = seq.new((path_fileonly, path_dironly, path_full, "movie"), unedited_start + offset_start, track + 1)
-                except:
-                    return "Invalid input for movie"
+                #try:
+                #strip = sequence_editor.new((path_fileonly, path_dironly, path_full, "movie"), unedited_start + offset_start, track + 1)
+                strip = sequence_editor.sequences.new_movie(name=edit.reel, filepath=path_full, channel=track + 1, start_frame=unedited_start + offset_start)
+                #except:
+                #    return "Invalid input for movie"
 
                 # Apply scaled rec in bounds
-                if scale != 1.0:
-                    meta = scale_meta_speed(seq, strip, scale)
+                if scale != 1.0 and TODO_SPEED_SUPPORT:
+                    meta = scale_meta_speed(sequence_editor, strip, scale)
                     final_strip = meta
                 else:
                     final_strip = strip
 
                 final_strip.update()
-                final_strip.startOffset = rec_start - final_strip.startDisp
-                final_strip.endOffset = rec_end - final_strip.endDisp
+                final_strip.frame_offset_start = rec_start - final_strip.frame_final_start
+                final_strip.frame_offset_end = rec_end - final_strip.frame_final_end
                 final_strip.update()
-                final_strip.endOffset += (final_strip.endDisp - rec_end)
+                final_strip.frame_offset_end += (final_strip.frame_final_end - rec_end)
                 final_strip.update()
 
                 if edit.transition_duration:
@@ -696,8 +704,8 @@ def load_edl(filename, reel_files, reel_offsets):
                     else:
                         new_end = rec_start + int(edit.transition_duration)
                         for other in prev_edit.custom_data:
-                            if other.type != SEQ_HD_SOUND and other.type != SEQ_RAM_SOUND:
-                                other.endOffset += (other.endDisp - new_end)
+                            if other.type != 'SOUND':
+                                other.frame_offset_end += (other.frame_final_end - new_end)
                                 other.update()
 
                 # Apply disolve
@@ -707,21 +715,23 @@ def load_edl(filename, reel_files, reel_offsets):
                 if edit.transition_type == TRANSITION_WIPE:
                     other_track = track + 2
                     for other in prev_edit.custom_data:
-                        if other.type != SEQ_HD_SOUND and other.type != SEQ_RAM_SOUND:
+                        if other.type != 'SOUND':
 
-                            strip_wipe = seq.new((SEQ_WIPE, other, final_strip), 1, other_track)
-
+                            #strip_wipe = sequence_editor.new((SEQ_WIPE, other, final_strip), 1, other_track)
+                            strip_wipe = sequence_editor.sequences.new_effect(name="Wipe", type='WIPE', seq1=final_strip, start_frame=dummy_frame, channel=other_track)
+                            
+                            from math import radians
                             if edit.wipe_type == WIPE_0:
-                                strip_wipe.wipeEffectAngle = +90
+                                strip_wipe.angle = radians(+90)
                             else:
-                                strip_wipe.wipeEffectAngle = -90
+                                strip_wipe.angle = radians(-90)
 
                             other_track += 1
 
-                # strip.endOffset = strip.length - int(edit.srcOut)
-                # end_offset = (unedited_start+strip.length) - end
+                # strip.frame_offset_end = strip.frame_duration - int(edit.srcOut)
+                # end_offset = (unedited_start + strip.frame_duration) - end
                 # print start, end, end_offset
-                # strip.endOffset = end_offset
+                # strip.frame_offset_end = end_offset
                 #
                 # break
                 # print(strip)
@@ -733,7 +743,8 @@ def load_edl(filename, reel_files, reel_offsets):
                 if scale == 1.0:  # TODO - scaled audio
 
                     try:
-                        strip = seq.new((path_fileonly, path_dironly, path_full, "audio_hd"), unedited_start + offset_start, track + 6)
+                        #strip = sequence_editor.new((path_fileonly, path_dironly, path_full, "audio_hd"), unedited_start + offset_start, track + 6)
+                        strip = sequence_editor.sequences.new_sound(name=edit.reel, filepath=path_full, channel=track + 6, start_frame=unedited_start + offset_start)
                     except:
 
                         # See if there is a wave file there
@@ -741,7 +752,8 @@ def load_edl(filename, reel_files, reel_offsets):
                         path_fileonly_wav = replace_ext(path_fileonly, "wav")
 
                         #try:
-                        strip = seq.new((path_fileonly_wav, path_dironly, path_full_wav, "audio_hd"), unedited_start + offset_start, track + 6)
+                        #strip = sequence_editor.new((path_fileonly_wav, path_dironly, path_full_wav, "audio_hd"), unedited_start + offset_start, track + 6)
+                        strip = sequence_editor.sequences.new_sound(name=edit.reel, filepath=path_full_wav, channel=track + 6, start_frame=unedited_start + offset_start)
                         #except:
                         #   return "Invalid input for audio"
 
@@ -749,10 +761,10 @@ def load_edl(filename, reel_files, reel_offsets):
 
                     # Copied from above
                     final_strip.update()
-                    final_strip.startOffset = rec_start - final_strip.startDisp
-                    final_strip.endOffset = rec_end - final_strip.endDisp
+                    final_strip.frame_offset_start = rec_start - final_strip.frame_final_start
+                    final_strip.frame_offset_end = rec_end - final_strip.frame_final_end
                     final_strip.update()
-                    final_strip.endOffset += (final_strip.endDisp - rec_end)
+                    final_strip.frame_offset_end += (final_strip.frame_final_end - rec_end)
                     final_strip.update()
 
                     if edit.transition_type == TRANSITION_DISSOLVE:
@@ -760,11 +772,11 @@ def load_edl(filename, reel_files, reel_offsets):
 
                     final_strips.append(final_strip)
 
-            # strip = seq.new((0.6, 0.6, 0.6), start, track+1)
+            # strip = sequence_editor.new((0.6, 0.6, 0.6), start, track+1)
 
         if final_strips:
             for strip in final_strips:
-                # strip.length = length
+                # strip.frame_duration = length
                 final_strip.name = edit.asName()
                 edit.custom_data[:] = final_strips
                 # track = not track
@@ -773,26 +785,35 @@ def load_edl(filename, reel_files, reel_offsets):
 
         #break
 
-    def recursive_update(s):
-        s.update(1)
-        for s_kid in s:
-            recursive_update(s_kid)
+    for s in sequence_editor.sequences_all:
+        s.update(True)
 
-    for s in seq:
-        recursive_update(s)
 
     return ""
 
+    elist = EditList()
 
-#load_edl("/fe/edl/EP30CMXtrk1.edl") # /tmp/test.edl
+
+elist = EditList()
+_filename = "/fe/edl/cinesoft/rush/blender_edl.edl"
+_fps = 25
+if not elist.parse(_filename, _fps):
+    assert(0)
+reels = elist.getReels()
+
+print(list(reels.keys()))
+
+# import pdb; pdb.set_trace()
+msg = load_edl(bpy.context.scene, _filename, {'tapec': "/fe/edl/cinesoft/rush/rushes3.avi"}, {'tapec': 0})  # /tmp/test.edl
+print(msg)
+
+#load_edl("/fe/edl/EP30CMXtrk1.edl", 0) # /tmp/test.edl
 #load_edl("/fe/edl/EP30CMXtrk2.edl") # /tmp/test.edl
 #load_edl("/fe/edl/EP30CMXtrk3.edl") # /tmp/test.edl
 #load_edl("/root/vid/rush/blender_edl.edl", ["/root/vid/rush/rushes3.avi",]) # /tmp/test.edl
 
 # ---------------------- Blender UI part
-from Blender import Draw, Window
-import BPyWindow
-
+'''
 if 0:
     DEFAULT_FILE_EDL = "/root/vid/rush/blender_edl.edl"
     DEFAULT_FILE_MEDIA = "/root/vid/rush/rushes3_wav.avi"
@@ -834,8 +855,8 @@ PREF["reel_act"] = ""
 def edl_reload():
     Window.WaitCursor(1)
     filename = PREF["filename"].val
-    sce = bpy.data.scenes.active
-    fps = sce.render.fps
+    scene = bpy.data.scenes.active
+    fps = scene.render.fps
 
     elist = EditList()
 
@@ -1009,3 +1030,5 @@ def edl_bevent(evt):
 if __name__ == "__main__":
     Draw.Register(edl_draw, edl_event, edl_bevent)
     edl_reload()
+
+'''
