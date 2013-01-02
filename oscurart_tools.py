@@ -159,7 +159,6 @@ class OscPanelMesh(OscPollMesh, bpy.types.Panel):
         row = col.row()
 
         col.operator("mesh.select_side_osc", icon="VERTEXSEL")
-        col.operator("mesh.normals_outside_osc", icon="SNAP_NORMAL")
         colrow=col.row(align=1)
         colrow.operator("mesh.resym_save_map", icon="UV_SYNC_SELECT")
         colrow=col.row(align=1)
@@ -234,6 +233,7 @@ class OscPanelFiles(OscPollFiles, bpy.types.Panel):
         colrow = col.row()
         colrow.operator("file.save_incremental_osc", icon="NEW")
         colrow.operator("image.reload_images_osc", icon="IMAGE_COL")
+        col = layout.column(align=1)
         colrow = col.row(align=1)
         colrow.prop(bpy.context.scene, "oscSearchText", text="")
         colrow.prop(bpy.context.scene, "oscReplaceText", text="")
@@ -656,25 +656,6 @@ class CreaGrupos(bpy.types.Operator):
 
         return {'FINISHED'}
 
-##------------------------------NORMALS OUTSIDE--------------------
-class normalsOutside(bpy.types.Operator):
-    bl_idname = "mesh.normals_outside_osc"
-    bl_label = "Normals Outside"
-    bl_options = {"REGISTER", "UNDO"}
-    def execute(self, context):
-        for OBJETO in bpy.context.selected_objects:
-            ## SETEA OBJETO ACTIVO
-            bpy.data.scenes[0].objects.active = bpy.data.objects[OBJETO.name]
-            ## EDICION
-            bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-            ## SELECCIONA TODOS LOS COMPONENTES
-            bpy.ops.mesh.select_all(action="SELECT")
-            ## EXPULSA NORMALES
-            bpy.ops.mesh.normals_make_consistent(inside=False)
-            ## EDICION
-            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-        return {'FINISHED'}
-
 
 
 ##-------------------------------- RENDER ALL SCENES ----------------------------
@@ -968,54 +949,31 @@ class renderCurrent (bpy.types.Operator):
         return {'FINISHED'}
 
 
-
-
-
 ##--------------------------RENDER CROP----------------------
 ## CREO DATA PARA EL SLIDER
 bpy.types.Scene.rcPARTS = bpy.props.IntProperty(default=0, min=2, max=50, step=1)
 
-
+def OscRenderCropFunc():
+    SCENENAME = os.path.split(bpy.data.filepath)[-1].partition(".")[0]
+    PARTS = bpy.context.scene.rcPARTS
+    CHUNKYSIZE = 1/PARTS
+    FILEPATH = bpy.context.scene.render.filepath
+    bpy.context.scene.render.use_border = True
+    bpy.context.scene.render.use_crop_to_border = True
+    for PART in range(PARTS):
+        bpy.context.scene.render.border_min_y = PART*CHUNKYSIZE
+        bpy.context.scene.render.border_max_y = (PART*CHUNKYSIZE)+CHUNKYSIZE
+        bpy.context.scene.render.filepath = "%s_part%s" % (os.path.join(FILEPATH,SCENENAME,bpy.context.scene.name,SCENENAME),PART)
+        bpy.ops.render.render(animation=False, write_still=True)
+        
+    #RESTORE
+    bpy.context.scene.render.filepath = FILEPATH    
+        
 class renderCrop (bpy.types.Operator):
     bl_idname="render.render_crop_osc"
     bl_label="Render Crop: Render!"
     def execute(self,context):
-
-        FILEPATH = bpy.data.filepath
-        SCENENAME=os.path.basename(FILEPATH.rpartition(".")[0])
-        PARTS = bpy.context.scene.rcPARTS
-        PARTS = PARTS+1
-        PARTES=[i for i in range(1,PARTS)]            
-
-        NUMERODECORTE=1
-        SCACT = bpy.context.scene
-        SCACT.render.use_crop_to_border = 1
-        SCACT.render.use_border = 1
-        RESY = SCACT.render.resolution_y
-        OUTPUTFILEPATH = SCACT.render.filepath
-        LENPARTES = len(PARTES)
-        DIVISOR = 1/PARTES[LENPARTES-1]
-        CMIN = 0
-        CMAX = DIVISOR
-        PARTESRESTADA = PARTES.pop(LENPARTES-1)
-        SCACT.render.border_min_y = CMIN
-        SCACT.render.border_max_y = CMAX
-        SCACT.render.filepath =  "%s/%s/%s_PART%s_" % (OUTPUTFILEPATH,SCENENAME,SCENENAME,str(PARTES[0]))
-        bpy.ops.render.render(animation=True)
-        bpy.context.scene.render.filepath
-        NUMERODECORTE = NUMERODECORTE + 1
-        ## RENDER!
-        for PARTE in PARTES:
-            CMIN = CMIN + DIVISOR
-            CMAX = CMAX + DIVISOR
-            SCACT.render.border_min_y = CMIN
-            SCACT.render.border_max_y = CMAX
-            bpy.context.scene.render.filepath =  "%s%s/%s_PART%s_" % (OUTPUTFILEPATH,SCENENAME,SCENENAME,str(NUMERODECORTE))
-            bpy.ops.render.render(animation=True)
-            NUMERODECORTE = NUMERODECORTE + 1
-
-        SCACT.render.filepath = OUTPUTFILEPATH
-        SCACT.render.use_border = False
+        OscRenderCropFunc()
         return {'FINISHED'}
 
 
@@ -1029,12 +987,23 @@ class SearchAndSelectOt(bpy.types.Operator):
     bl_idname = "object.search_and_select_osc"
     bl_label = "Search And Select"
     bl_options = {"REGISTER", "UNDO"}
+    
+    start = bpy.props.BoolProperty(name="Start With", default=True)
+    count = bpy.props.BoolProperty(name="Contain", default=True)
+    end = bpy.props.BoolProperty(name="End", default=True)
+    
     def execute(self, context):
         for objeto in bpy.context.scene.objects:
             variableNombre = bpy.context.scene.SearchAndSelectOt
-            if objeto.name.startswith(variableNombre) == True :
-                objeto.select = 1
-                print("Selecciona:" + str(objeto.name))
+            if self.start:
+                if objeto.name.startswith(variableNombre):
+                    objeto.select = True
+            if self.count:
+                if objeto.name.count(variableNombre):
+                    objeto.select = True        
+            if self.end:
+                if objeto.name.count(variableNombre):
+                    objeto.select = True                          
         return {'FINISHED'}
 
 ##-------------------------RENAME OBJECTS----------------------------------
@@ -1047,13 +1016,9 @@ class renameObjectsOt (bpy.types.Operator):
     bl_label = "Rename Objects"
     bl_options = {"REGISTER", "UNDO"}
     def execute(self,context):
-
         ## LISTA
-        listaObj = bpy.context.selected_objects
-
-
+        listaObj = bpy.context.selected_objects[:]
         for objeto in listaObj:
-            print(objeto.name)
             objeto.name = bpy.context.scene.RenameObjectOt
         return {'FINISHED'}
 
