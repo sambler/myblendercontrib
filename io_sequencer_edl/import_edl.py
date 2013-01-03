@@ -67,7 +67,7 @@ class TimeCode:
             self.frame = int(text[3])
             return self
         else:
-            print("ERROR: could not convert this into timecode %r" % test)
+            print("ERROR: could not convert this into timecode %r" % text)
             return self
 
     def fromFrame(self, frame):
@@ -277,7 +277,25 @@ def editFlagsToText(flag):
     return "/".join(items)
 
 
-class EditDecision(object):
+class EditDecision:
+    __slots__ = (
+        "number",
+        "reel",
+        "transition_duration",
+        "edit_type",
+        "transition_type",
+        "wipe_type",
+        "key_type",
+        "key_fade",
+        "srcIn",
+        "srcOut",
+        "recIn",
+        "recOut",
+        "m2",
+        "filename",
+        "custom_data",
+    )
+
     def __init__(self, text=None, fps=25):
         # print text
         self.number = -1
@@ -418,7 +436,16 @@ class EditDecision(object):
         return "%d_%s_%s" % (self.number, self.reel, cut_type)
 
 
-class M2(object):
+class M2:
+    __slots__ = (
+        "reel",
+        "fps",
+        "time",
+        "data",
+        "index",
+        "tot",
+    )
+
     def __init__(self):
         self.reel = None
         self.fps = None
@@ -440,7 +467,12 @@ class M2(object):
         self.data = line
 
 
-class EditList(object):
+class EditList:
+    __slots__ = (
+        "edits",
+        "title",
+    )
+
     def __init__(self):
         self.edits = []
         self.title = ""
@@ -514,6 +546,7 @@ class EditList(object):
                     else:
                         edit.m2 = item
 
+        file.close()
         return True
 
     def testOverlap(self, edit_test):
@@ -596,7 +629,6 @@ def apply_dissolve_ipo(mov, blendin):
     scene = mov.id_data
     id_animdata_action_ensure(scene)
     action = scene.animation_data.action
-    print(action)
     
     data_path = mov.path_from_id("blend_alpha")
     blend_alpha_fcurve = action.fcurves.new(data_path, index=0)
@@ -794,18 +826,20 @@ def load_edl(scene, filename, reel_files, reel_offsets):
     elist = EditList()
 
 
-elist = EditList()
-_filename = "/fe/edl/cinesoft/rush/blender_edl.edl"
-_fps = 25
-if not elist.parse(_filename, _fps):
-    assert(0)
-reels = elist.getReels()
+def test():
+    elist = EditList()
+    _filename = "/fe/edl/cinesoft/rush/blender_edl.edl"
+    _fps = 25
+    if not elist.parse(_filename, _fps):
+        assert(0)
+    reels = elist.getReels()
 
-print(list(reels.keys()))
+    print(list(reels.keys()))
 
-# import pdb; pdb.set_trace()
-msg = load_edl(bpy.context.scene, _filename, {'tapec': "/fe/edl/cinesoft/rush/rushes3.avi"}, {'tapec': 0})  # /tmp/test.edl
-print(msg)
+    # import pdb; pdb.set_trace()
+    msg = load_edl(bpy.context.scene, _filename, {'tapec': "/fe/edl/cinesoft/rush/rushes3.avi"}, {'tapec': 0})  # /tmp/test.edl
+    print(msg)
+test()
 
 #load_edl("/fe/edl/EP30CMXtrk1.edl", 0) # /tmp/test.edl
 #load_edl("/fe/edl/EP30CMXtrk2.edl") # /tmp/test.edl
