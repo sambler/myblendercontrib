@@ -23,7 +23,7 @@ bl_info = {
     "author": "Campbell Barton",
     "version": (1, 0),
     "blender": (2, 65, 0),
-    "location": "View3D > Add > Mesh > New Object",
+    "location": "Sequencer -> Track View Properties",
     "description": "Load a CMX formatted EDL into the sequencer",
     "warning": "",
     "wiki_url": "",
@@ -188,7 +188,7 @@ def register():
     bpy.utils.register_class(ImportEDL)
     bpy.utils.register_class(SEQUENCER_PT_import_edl)
 
-    # types
+    # edl_import_info
     bpy.utils.register_class(EDLReelInfo)
     bpy.utils.register_class(EDLImportInfo)
     bpy.types.Scene.edl_import_info = PointerProperty(type=EDLImportInfo)
@@ -199,7 +199,7 @@ def unregister():
     bpy.utils.unregister_class(ImportEDL)
     bpy.utils.unregister_class(SEQUENCER_PT_import_edl)
 
-    # types
+    # edl_import_info
     bpy.utils.unregister_class(EDLImportInfo)
     bpy.utils.unregister_class(EDLReelInfo)
     del bpy.types.Scene.edl_import_info
