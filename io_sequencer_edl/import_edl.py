@@ -18,13 +18,6 @@
 
 # <pep8 compliant>
 
-"""
-Name: "Video Sequence (.edl)..."
-Blender: 248
-Group: "Import"
-Tooltip: "Load a CMX formatted EDL into the sequencer"
-"""
-
 
 class TimeCode:
     """
@@ -38,6 +31,7 @@ class TimeCode:
         "seconds",
         "frame",
     )
+
     def __init__(self, data, fps):
         self.fps = fps
         if type(data) == str:
@@ -315,7 +309,7 @@ class EditDecision:
 
         self.custom_data = []  # use for storing any data you want (blender strip for eg)
 
-        if text != None:
+        if text is not None:
             self.read(text, fps)
 
     def __repr__(self):
@@ -595,14 +589,13 @@ def id_animdata_action_ensure(id_data):
 def scale_meta_speed(sequence_editor, mov, scale):
     # Add an effect
     #speed = sequence_editor.new((SEQ_SPEED, mov,), 199, mov.channel + 1)
-    dummy_frame=0
+    dummy_frame = 0
     speed = sequence_editor.sequences.new_effect(name="Speed", type='SPEED', seq1=mov, start_frame=dummy_frame, channel=mov.channel + 1)
-    
+
     # not working in 2.6x :|
     speed.use_frame_blend = True
     #meta = sequence_editor.new([mov, speed], 199, mov.channel)
 
-    
     # XXX-Meta Operator Mess
     scene = sequence_editor.id_data
     for seq in scene.sequence_editor.sequences_all:
@@ -612,7 +605,6 @@ def scale_meta_speed(sequence_editor, mov, scale):
     bpy.ops.sequencer.meta_make()
     meta = scene.sequence_editor.sequences[-1]
     # XXX-Meta Operator Mess (END)
-
 
     if scale >= 1.0:
         mov.frame_still_end = int(mov.frame_duration * (scale - 1.0))
@@ -629,12 +621,12 @@ def apply_dissolve_ipo(mov, blendin):
     scene = mov.id_data
     id_animdata_action_ensure(scene)
     action = scene.animation_data.action
-    
+
     data_path = mov.path_from_id("blend_alpha")
     blend_alpha_fcurve = action.fcurves.new(data_path, index=0)
     blend_alpha_fcurve.keyframe_points.insert(mov.frame_final_start, 0.0)
     blend_alpha_fcurve.keyframe_points.insert(mov.frame_final_end, 1.0)
-    
+
     blend_alpha_fcurve.keyframe_points[0].interpolation = 'LINEAR'
     blend_alpha_fcurve.keyframe_points[1].interpolation = 'LINEAR'
 
@@ -645,7 +637,7 @@ def apply_dissolve_ipo(mov, blendin):
 def replace_ext(path, ext):
     return path[:path.rfind(".") + 1] + ext
 
-TODO_SPEED_SUPPORT = True
+
 def load_edl(scene, filename, reel_files, reel_offsets):
     """
     reel_files - key:reel <--> reel:filename
@@ -686,7 +678,7 @@ def load_edl(scene, filename, reel_files, reel_offsets):
 
         # print src_length, rec_length, src_start
 
-        if edit.m2 != None:
+        if edit.m2 is not None:
             scale = fps / edit.m2.fps
         else:
             scale = 1.0
@@ -717,7 +709,7 @@ def load_edl(scene, filename, reel_files, reel_offsets):
                 #    return "Invalid input for movie"
 
                 # Apply scaled rec in bounds
-                if scale != 1.0 and TODO_SPEED_SUPPORT:
+                if scale != 1.0:
                     meta = scale_meta_speed(sequence_editor, strip, scale)
                     final_strip = meta
                 else:
@@ -751,7 +743,7 @@ def load_edl(scene, filename, reel_files, reel_offsets):
 
                             #strip_wipe = sequence_editor.new((SEQ_WIPE, other, final_strip), 1, other_track)
                             strip_wipe = sequence_editor.sequences.new_effect(name="Wipe", type='WIPE', seq1=final_strip, start_frame=dummy_frame, channel=other_track)
-                            
+
                             from math import radians
                             if edit.wipe_type == WIPE_0:
                                 strip_wipe.angle = radians(+90)
@@ -820,13 +812,10 @@ def load_edl(scene, filename, reel_files, reel_offsets):
     for s in sequence_editor.sequences_all:
         s.update(True)
 
-
     return ""
 
-    elist = EditList()
 
-
-def test():
+def _test():
     elist = EditList()
     _filename = "/fe/edl/cinesoft/rush/blender_edl.edl"
     _fps = 25
@@ -837,232 +826,9 @@ def test():
     print(list(reels.keys()))
 
     # import pdb; pdb.set_trace()
-    msg = load_edl(bpy.context.scene, _filename, {'tapec': "/fe/edl/cinesoft/rush/rushes3.avi"}, {'tapec': 0})  # /tmp/test.edl
+    msg = load_edl(bpy.context.scene,
+                   _filename,
+                   {'tapec': "/fe/edl/cinesoft/rush/rushes3.avi"},
+                   {'tapec': 0})  # /tmp/test.edl
     print(msg)
-test()
-
-#load_edl("/fe/edl/EP30CMXtrk1.edl", 0) # /tmp/test.edl
-#load_edl("/fe/edl/EP30CMXtrk2.edl") # /tmp/test.edl
-#load_edl("/fe/edl/EP30CMXtrk3.edl") # /tmp/test.edl
-#load_edl("/root/vid/rush/blender_edl.edl", ["/root/vid/rush/rushes3.avi",]) # /tmp/test.edl
-
-# ---------------------- Blender UI part
-'''
-if 0:
-    DEFAULT_FILE_EDL = "/root/vid/rush/blender_edl.edl"
-    DEFAULT_FILE_MEDIA = "/root/vid/rush/rushes3_wav.avi"
-    DEFAULT_FRAME_OFFSET = -769
-else:
-    DEFAULT_FILE_EDL = ""
-    DEFAULT_FILE_MEDIA = ""
-    DEFAULT_FRAME_OFFSET = 0
-
-B_EVENT_IMPORT = 1
-B_EVENT_RELOAD = 2
-B_EVENT_FILESEL_EDL = 3
-B_EVENT_NOP = 4
-
-B_EVENT_FILESEL = 100  # or greater
-
-
-class ReelItemUI(object):
-    __slots__ = "filename_but", "offset_but", "ui_text"
-
-    def __init__(self):
-        self.filename_but = Draw.Create(DEFAULT_FILE_MEDIA)
-        self.offset_but = Draw.Create(DEFAULT_FRAME_OFFSET)
-        self.ui_text = ""
-
-
-REEL_UI = {}    # reel:ui_string
-
-
-#REEL_FILENAMES = {}        # reel:filename
-#REEL_OFFSETS = {}      # reel:filename
-
-PREF = {}
-
-PREF["filename"] = Draw.Create(DEFAULT_FILE_EDL)
-PREF["reel_act"] = ""
-
-
-def edl_reload():
-    Window.WaitCursor(1)
-    filename = PREF["filename"].val
-    scene = bpy.data.scenes.active
-    fps = scene.render.fps
-
-    elist = EditList()
-
-    if filename:
-        if not elist.parse(filename, fps):
-            Draw.PupMenu("Error%t|Could not open the file %r" % filename)
-        reels = elist.getReels()
-    else:
-        reels = {}
-
-    REEL_UI.clear()
-    for reel_key, edits in reels.items():
-
-        if reel_key == "bw":
-            continue
-
-        flag = 0
-        for edit in edits:
-            flag |= edit.edit_type
-
-        reel_item = REEL_UI[reel_key] = ReelItemUI()
-
-        reel_item.ui_text = "%s (%s): " % (reel_key, editFlagsToText(flag))
-
-    Window.WaitCursor(0)
-
-
-def edl_set_path(filename):
-    PREF["filename"].val = filename
-    edl_reload()
-    Draw.Redraw()
-
-
-def edl_set_path_reel(filename):
-    REEL_UI[PREF["reel_act"]].filename_but.val = filename
-    Draw.Redraw()
-
-
-def edl_reel_keys():
-    reel_keys = REEL_UI.keys()
-
-    if "bw" in reel_keys:
-        reel_keys.remove("bw")
-
-    reel_keys.sort()
-    return reel_keys
-
-
-def edl_draw():
-
-    MARGIN = 4
-    rect = BPyWindow.spaceRect()
-    but_width = int((rect[2] - MARGIN * 2) / 4.0)  # 72
-    # Clamp
-    if but_width > 100:
-        but_width = 100
-    but_height = 17
-
-    x = MARGIN
-    y = rect[3] - but_height - MARGIN
-    xtmp = x
-
-    # ---------- ---------- ---------- ----------
-    Blender.Draw.BeginAlign()
-    PREF["filename"] = Draw.String("edl path: ", B_EVENT_RELOAD, xtmp, y, (but_width * 3) - 20, but_height, PREF["filename"].val, 256, "EDL Path")
-    xtmp += (but_width * 3) - 20
-
-    Draw.PushButton("..", B_EVENT_FILESEL_EDL, xtmp, y, 20, but_height, "Select an EDL file")
-    xtmp += 20
-
-    Blender.Draw.EndAlign()
-
-    Draw.PushButton("Reload", B_EVENT_RELOAD, xtmp + MARGIN, y, but_width - MARGIN, but_height, "Read the ID Property settings from the active curve object")
-    xtmp += but_width
-
-    y -= but_height + MARGIN
-    xtmp = x
-    # ---------- ---------- ---------- ----------
-
-    reel_keys = edl_reel_keys()
-
-    if reel_keys:
-        text = "Reel file list..."
-    elif PREF["filename"].val == "":
-        text = "No EDL loaded."
-    else:
-        text = "No reels found!"
-
-    Draw.Label(text, xtmp + MARGIN, y, but_width * 4, but_height)
-    xtmp += but_width * 4
-
-    y -= but_height + MARGIN
-    xtmp = x
-
-    # ---------- ---------- ---------- ----------
-
-    for i, reel_key in enumerate(reel_keys):
-        reel_item = REEL_UI[reel_key]
-
-        Blender.Draw.BeginAlign()
-        REEL_UI[reel_key].filename_but = Draw.String(reel_item.ui_text, B_EVENT_NOP, xtmp, y, (but_width * 3) - 20, but_height, REEL_UI[reel_key].filename_but.val, 256, "Select the reel path")
-        xtmp += (but_width * 3) - 20
-        Draw.PushButton("..", B_EVENT_FILESEL + i, xtmp, y, 20, but_height, "Media path to use for this reel")
-        xtmp += 20
-        Blender.Draw.EndAlign()
-
-        reel_item.offset_but = Draw.Number("ofs:", B_EVENT_NOP, xtmp + MARGIN, y, but_width - MARGIN, but_height, reel_item.offset_but.val, -100000, 100000, "Start offset in frames when applying timecode")
-        xtmp += but_width - MARGIN
-
-        y -= but_height + MARGIN
-        xtmp = x
-
-    # ---------- ---------- ---------- ----------
-
-    Draw.PushButton("Import CMX-EDL Sequencer Strips", B_EVENT_IMPORT, xtmp + MARGIN, MARGIN, but_width * 4 - MARGIN, but_height, "Load the EDL file into the sequencer")
-    xtmp += but_width * 4
-    y -= but_height + MARGIN
-    xtmp = x
-
-
-def edl_event(evt, val):
-    pass
-
-
-def edl_bevent(evt):
-
-    if evt == B_EVENT_NOP:
-        pass
-    elif evt == B_EVENT_IMPORT:
-        """
-        Load the file into blender with UI settings
-        """
-        filename = PREF["filename"].val
-
-        reel_files = {}
-        reel_offsets = {}
-
-        for reel_key, reel_item in REEL_UI.items():
-            reel_files[reel_key] = reel_item.filename_but.val
-            reel_offsets[reel_key] = reel_item.offset_but.val
-
-        error = load_edl(filename, reel_files, reel_offsets)
-        if error != "":
-            Draw.PupMenu("Error%t|" + error)
-        else:
-            Window.RedrawAll()
-
-    elif evt == B_EVENT_RELOAD:
-        edl_reload()
-        Draw.Redraw()
-
-    elif evt == B_EVENT_FILESEL_EDL:
-        filename = PREF["filename"].val
-        if not filename:
-            filename = Blender.sys.join(Blender.sys.expandpath("//"), "*.edl")
-
-        Window.FileSelector(edl_set_path, "Select EDL", filename)
-
-    elif evt >= B_EVENT_FILESEL:
-        reel_keys = edl_reel_keys()
-        reel_key = reel_keys[evt - B_EVENT_FILESEL]
-
-        filename = REEL_UI[reel_key].filename_but.val
-        if not filename:
-            filename = Blender.sys.expandpath("//")
-
-        PREF["reel_act"] = reel_key  # so file set path knows which one to set
-        Window.FileSelector(edl_set_path_reel, "Reel Media", filename)
-
-
-if __name__ == "__main__":
-    Draw.Register(edl_draw, edl_event, edl_bevent)
-    edl_reload()
-
-'''
+# _test()
