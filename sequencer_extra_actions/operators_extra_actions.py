@@ -22,19 +22,18 @@ align strip to the left (shift-s + -lenght)
 
 '''
 
+import bpy
+
 import random
 import math
+import os, sys
 
-
-import bpy
-import os.path
 from bpy.props import IntProperty
 from bpy.props import FloatProperty
 from bpy.props import EnumProperty
 from bpy.props import BoolProperty
 from bpy.props import StringProperty
 
-from . import functions
 from . import functions
 from . import exiftool
 
@@ -48,17 +47,17 @@ def initSceneProperties(scn):
         pass
 
     bpy.types.Scene.default_slide_offset = IntProperty(
-    name='Offset',
-    description='Number of frames to slide',
-    min=-250, max=250,
-    default=0)
+        name='Offset',
+        description='Number of frames to slide',
+        min=-250, max=250,
+        default=0)
     scn.default_slide_offset = 0
 
     bpy.types.Scene.default_fade_duration = IntProperty(
-    name='Duration',
-    description='Number of frames to fade',
-    min=1, max=250,
-    default=scn.render.fps)
+        name='Duration',
+        description='Number of frames to fade',
+        min=1, max=250,
+        default=scn.render.fps)
     scn.default_fade_duration = scn.render.fps
 
     bpy.types.Scene.default_fade_amount = FloatProperty(
@@ -124,11 +123,37 @@ def initSceneProperties(scn):
         description='default build_100',
         default=False)
     scn.default_build_100 = False
+    
+    bpy.types.Scene.default_recursive = BoolProperty(
+        name='Recursive',
+        description='Load in recursive folders',
+        default=False)
+    scn.default_recursive = False
+
+    bpy.types.Scene.default_recursive_ext = BoolProperty(
+        name='Recursive ext',
+        description='Load only clips with selected extension',
+        default=False)
+    scn.default_recursive_ext = False
+
+    bpy.types.Scene.default_recursive_proxies = BoolProperty(
+        name='Recursive proxies',
+        description='Load in recursive folders + proxies',
+        default=False)
+    scn.default_recursive_proxies = False
+    
+    bpy.types.Scene.default_ext = EnumProperty(
+        items=functions.movieextdict,
+        name="ext enum",
+        default="3")
+    scn.default_ext = "3"
 
     bpy.types.Scene.scene_initialized = BoolProperty(
         name='Init',
         default=False)
     scn.scene_initialized = True
+    
+    
 
     return True
 
@@ -228,8 +253,6 @@ class Sequencer_Extra_SlideStrip(bpy.types.Operator):
         options={'HIDDEN'})
     bl_options = {'REGISTER', 'UNDO'}
 
-    initSceneProperties(bpy.context.scene)
-
     @classmethod
     def poll(self, context):
         strip = functions.act_strip(context)
@@ -238,8 +261,6 @@ class Sequencer_Extra_SlideStrip(bpy.types.Operator):
             return strip.type in ('MOVIE', 'IMAGE', 'META', 'SCENE')
         else:
             return False
-
-    slide_offset = bpy.types.Scene.default_slide_offset
 
     def execute(self, context):
         strip = functions.act_strip(context)
@@ -273,6 +294,7 @@ class Sequencer_Extra_SlideStrip(bpy.types.Operator):
 
     def invoke(self, context, event):
         scn = context.scene
+        initSceneProperties(scn)
         self.slide_offset = scn.default_slide_offset
         if self.mode == 'INPUT':
             return context.window_manager.invoke_props_dialog(self)
@@ -777,7 +799,7 @@ class Sequencer_Extra_EditExternally(bpy.types.Operator):
         strip = functions.act_strip(context)
         scn = context.scene
         base_dir = bpy.path.abspath(strip.directory)
-        strip_elem = strip.getStripElem(scn.frame_current)
+        strip_elem = strip.strip_elem_from_frame(scn.frame_current)
         path = base_dir + strip_elem.filename
 
         try:
@@ -827,7 +849,7 @@ class Sequencer_Extra_Edit(bpy.types.Operator):
 
         elif strip.type == 'IMAGE':
             base_dir = bpy.path.abspath(strip.directory)
-            strip_elem = strip.getStripElem(scn.frame_current)
+            strip_elem = strip.strip_elem_from_frame(scn.frame_current)
             elem_name = strip_elem.filename
             path = base_dir + elem_name
 
@@ -880,7 +902,7 @@ class Sequencer_Extra_CopyProperties(bpy.types.Operator):
     ('deinterlace', 'Filter - De-Interlace', ''),
     ('flip', 'Filter - Flip', ''),
     ('float', 'Filter - Convert Float', ''),
-    ('premultiply', 'Filter - Premultiply', ''),
+    ('alpha_mode', 'Filter - Alpha Mode', ''),
     ('reverse', 'Filter - Backwards', ''),
     # SOUND
     ('pan', 'Sound - Pan', ''),
@@ -972,8 +994,8 @@ class Sequencer_Extra_CopyProperties(bpy.types.Operator):
                         i.use_flip_y = strip.use_flip_y
                     elif self.prop == 'float':
                         i.use_float = strip.use_float
-                    elif self.prop == 'premultiply':
-                        i.use_premultiply = strip.use_premultiply
+                    elif self.prop == 'alpha_mode':
+                        i.alpha_mode = strip.alpha_mode
                     elif self.prop == 'reverse':
                         i.use_reverse_frames = strip.use_reverse_frames
                     elif self.prop == 'pan':
@@ -1040,8 +1062,6 @@ class Sequencer_Extra_FadeInOut(bpy.types.Operator):
             )
     bl_options = {'REGISTER', 'UNDO'}
 
-    initSceneProperties(bpy.context.scene)
-
     @classmethod
     def poll(cls, context):
         scn = context.scene
@@ -1049,9 +1069,6 @@ class Sequencer_Extra_FadeInOut(bpy.types.Operator):
             return True
         else:
             return False
-
-    fade_duration = bpy.types.Scene.default_fade_duration
-    fade_amount = bpy.types.Scene.default_fade_amount
 
     def execute(self, context):
         seq = context.scene.sequence_editor
@@ -1125,6 +1142,7 @@ class Sequencer_Extra_FadeInOut(bpy.types.Operator):
 
     def invoke(self, context, event):
         scn = context.scene
+        initSceneProperties(scn)
         self.fade_duration = scn.default_fade_duration
         self.fade_amount = scn.default_fade_amount
         return context.window_manager.invoke_props_dialog(self)
@@ -1189,11 +1207,6 @@ class Sequencer_Extra_Distribute(bpy.types.Operator):
         else:
             return False
 
-    initSceneProperties(bpy.context.scene)
-
-    distribute_offset = bpy.types.Scene.default_distribute_offset
-    distribute_reverse = bpy.types.Scene.default_distribute_reverse
-
     def execute(self, context):
         scn = context.scene
         seq = scn.sequence_editor
@@ -1228,6 +1241,7 @@ class Sequencer_Extra_Distribute(bpy.types.Operator):
 
     def invoke(self, context, event):
         scn = context.scene
+        initSceneProperties(scn)
         self.distribute_offset = scn.default_distribute_offset
         self.distribute_reverse = scn.default_distribute_reverse
         return context.window_manager.invoke_props_dialog(self)
@@ -1398,14 +1412,6 @@ class Sequencer_Extra_PlaceFromFileBrowserProxy(bpy.types.Operator):
     insert = BoolProperty(
     name='Insert',
     default=False)
-
-    proxy_suffix = bpy.types.Scene.default_proxy_suffix
-    proxy_extension = bpy.types.Scene.default_proxy_extension
-    proxy_path = bpy.types.Scene.default_proxy_path
-    build_25 = bpy.types.Scene.default_build_25
-    build_50 = bpy.types.Scene.default_build_50
-    build_75 = bpy.types.Scene.default_build_75
-    build_100 = bpy.types.Scene.default_build_100
 
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1649,6 +1655,22 @@ class Sequencer_Extra_CreateMovieclip(bpy.types.Operator):
                 if a.type == 'CLIP_EDITOR':
                     a.spaces[0].clip = data
 
+        return {'FINISHED'}
+        
+        
+# RECURSIVE LOADER
+
+class Sequencer_Extra_RecursiveLoader(bpy.types.Operator):
+    bl_idname = "sequencerextra.recursiveload"
+    bl_label = "recursive load"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        scn = bpy.context.scene
+        if scn["default_recursive"] == True:
+            functions.loader(functions.sortlist(functions.recursive()))
+        else:
+            functions.loader(functions.sortlist(functions.onefolder()))
         return {'FINISHED'}
 
 
