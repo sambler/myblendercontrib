@@ -35,41 +35,10 @@ class SEQUENCER_EXTRA_MT_input(bpy.types.Menu):
         text='Create Movieclip strip', icon='PLUGIN')
 
 
-class AddRecursiveLoadPanel(bpy.types.Panel):
-    bl_label = "Recursive Load"
-    bl_space_type = "SEQUENCE_EDITOR"
-    bl_region_type = "UI"
-
-    @staticmethod
-    def has_sequencer(context):
-        return (context.space_data.view_type\
-        in {'SEQUENCER', 'SEQUENCER_PREVIEW'})
-
-    @classmethod
-    def poll(cls, context):
-        return cls.has_sequencer(context)
-
-    def draw_header(self, context):
-        layout = self.layout
-        layout.label(text="", icon="NLA")
-
-    def draw(self, context):
-
-        scn = bpy.context.scene
-        self.layout.prop(scn, "default_recursive_ext", text="Same extension")
-        if scn.default_recursive_ext:
-            split = self.layout.split()
-            col = split.column()
-            col.prop(scn, "default_ext", text="extension: ")
-
-        self.layout.prop(scn, "default_recursive", text="Recursive Folders")
-        split = self.layout.split(percentage=0.3)
-
-        split.label(text="")
-        split.prop(scn, "default_recursive_proxies", text="Proxies")
-
-        self.layout.operator("sequencerextra.recursiveload",
-            text="Import from Browser")
+def sequencer_add_menu_func(self, context):
+    self.layout.operator('sequencerextra.recursiveload', 
+    text='recursive load from browser', icon='PLUGIN')
+    self.layout.separator()
 
 
 def sequencer_select_menu_func(self, context):
@@ -83,6 +52,8 @@ def sequencer_select_menu_func(self, context):
     self.layout.operator('sequencerextra.selectcurrentframe',
     text='On Current Frame', icon='PLUGIN').mode = 'ON'
     self.layout.separator()
+    self.layout.operator('sequencerextra.selectsamechannel',
+    text='Same Channel', icon='PLUGIN')
 
 
 def sequencer_strip_menu_func(self, context):
