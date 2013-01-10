@@ -23,7 +23,7 @@ bl_info = {
     'description': "Import / Export MilkShape3D MS3D files"\
             " (conform with v1.8.4)",
     'author': "Alexander Nussbaumer",
-    'version': (0, 90, 0),
+    'version': (0, 91, 0),
     'blender': (2, 65, 0),
     'location': "File > Import & File > Export",
     'warning': "",
@@ -32,7 +32,6 @@ bl_info = {
     'tracker_url': "http://projects.blender.org/tracker/index.php"\
             "?func=detail&aid=29404",
     'category': "Import-Export",
-    'support': 'OFFICIAL',
     }
 
 ###############################################################################

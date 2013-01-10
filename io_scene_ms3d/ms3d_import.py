@@ -527,19 +527,10 @@ class Ms3dImporter():
                 ms3d_material_index \
                         = ms3d_model.groups[ms3d_triangle.group_index].material_index
                 if ms3d_material_index != Ms3dSpec.NONE_GROUP_MATERIAL_INDEX:
-                    # BMFace.material_index expects...
-                    # index of material in types.Mesh.materials,
-                    # not index of material in blender_context.blend_data.materials!
                     bmf.material_index = ms3d_material_index
-
                     # apply diffuse texture image to face, to be visible in 3d view
                     bmf[layer_texture].image = ms3d_to_blender_material.get(
                             ms3d_material_index)
-                else:
-                    # set material index to highes possible index
-                    # - in most cases there is no maretial assigned ;)
-                    bmf.material_index = 32766
-                    pass
 
             # helper dictionary for post-processing smoothing_groups
             smoothing_group_blender_face = smoothing_group_blender_faces.get(
