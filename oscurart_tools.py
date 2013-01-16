@@ -37,7 +37,7 @@ import bmesh
 import time
 import random
 
-#r07
+#r08
 
 ## CREA PANELES EN TOOLS
 
@@ -1801,22 +1801,12 @@ class OscCopyObjectGAL (bpy.types.Operator):
 def DefOscApplyOverrides(self):
     LISTMAT = []
     PROPTOLIST = list(eval(bpy.context.scene['OVERRIDE']))
-    # REVISO SISTEMA
-    if sys.platform.startswith("w"):
-        print("PLATFORM: WINDOWS")
-        SYSBAR = "\\"
-    else:
-        print("PLATFORM:LINUX")
-        SYSBAR = "/"
     FILEPATH=bpy.data.filepath
-    ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
-    ENTFILEPATH= "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
-    XML=open(ENTFILEPATH ,mode="w")
-    ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
+    ACTIVEFOLDER = os.path.split(FILEPATH)[0]
+    ENTFILEPATH= "%s_OVERRIDE.xml" %  (os.path.join(ACTIVEFOLDER, bpy.context.scene.name))    
     
-    LISTMAT = { OBJ : [SLOT.material for SLOT in OBJ.material_slots[:]] for OBJ in bpy.data.objects[:] if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE" }
-    
-    
+    ## GUARDO MATERIALES DE OBJETOS EN GRUPOS        
+    LISTMAT = { OBJ : [SLOT.material for SLOT in OBJ.material_slots[:]] for OBJ in bpy.data.objects[:] if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE" }        
     for OVERRIDE in PROPTOLIST:
         for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
             if OBJECT.type == "MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE": 
@@ -1824,41 +1814,26 @@ def DefOscApplyOverrides(self):
                     for SLOT in OBJECT.material_slots[:]:
                         SLOT.material = bpy.data.materials[OVERRIDE[1]]                    
                 else:
-                    print ("* %s have not Material Slots" % (OBJECT.name))         
-    
-
-    XML.writelines(str(LISTMAT))
-    XML.close()    
+                    print ("* %s have not Material Slots" % (OBJECT.name))          
+    with open(ENTFILEPATH, mode="w") as file:    
+        file.writelines(str(LISTMAT))
     
     
 def DefOscRestoreOverrides(self):    
-    # REVISO SISTEMA
-    if sys.platform.startswith("w"):
-        #print("PLATFORM: WINDOWS")
-        SYSBAR="\\"
-    else:
-        #print("PLATFORM:LINUX")
-        SYSBAR="/"
-
     FILEPATH = bpy.data.filepath
-    ACTIVEFOLDER = FILEPATH.rpartition(SYSBAR)[0]
-    ENTFILEPATH = "%s%s%s_OVERRIDE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name)
-    XML = open(ENTFILEPATH, mode="r")
-    RXML = XML.readlines(0)
-
+    ACTIVEFOLDER = os.path.split(FILEPATH)[0]
+    ENTFILEPATH = "%s_OVERRIDE.xml" %  (os.path.join(ACTIVEFOLDER, bpy.context.scene.name))
+        
+    with open(ENTFILEPATH, mode="r") as file:
+        RXML = file.readlines(0)
     LISTMAT = dict(eval(RXML[0]))
-
-    # RESTAURO MATERIALES  DE OVERRIDES
-    
+    # RESTAURO MATERIALES  DE OVERRIDES    
     for OBJ in LISTMAT:            
         if OBJ.type == "MESH" or OBJ.type == "META" or OBJ.type == "CURVE":
             SLOTIND = 0
             for SLOT in LISTMAT[OBJ]:
                 OBJ.material_slots[SLOTIND].material = SLOT  
-                SLOTIND += 1     
-        
-    # CIERRO
-    XML.close()
+                SLOTIND += 1    
 
     
 ## HAND OPERATOR    
@@ -1866,7 +1841,6 @@ class OscApplyOverrides(bpy.types.Operator):
     bl_idname = "render.apply_overrides"
     bl_label = "Apply Overrides in this Scene"
     bl_options = {"REGISTER", "UNDO"}
-
 
     def execute (self, context):
         DefOscApplyOverrides(self)
@@ -1877,14 +1851,11 @@ class OscRestoreOverrides(bpy.types.Operator):
     bl_label = "Restore Overrides in this Scene"
     bl_options = {"REGISTER", "UNDO"}
 
-
     def execute (self, context):
         DefOscRestoreOverrides(self)        
         return {'FINISHED'}
 
-
 OVERRIDESSTATUS = False
-
     
 class OscOverridesOn(bpy.types.Operator):
     bl_idname = "render.overrides_on"
@@ -2025,43 +1996,36 @@ def reSymSave (self):
     R = {VERT.index : [-VERT.co[0],VERT.co[1],VERT.co[2]]  for VERT in BM.verts[:] if VERT.co[0] > -0.0001}
     
     SYMAP = {VERTL : VERTR for VERTR in R for VERTL in L if R[VERTR] == L[VERTL] }            
-    
-    if sys.platform.startswith("w"):
-        SYSBAR = "\\"
-    else:
-         SYSBAR = "/"   
-    
+        
     FILEPATH=bpy.data.filepath
-    ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
-    ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
-    XML=open(ENTFILEPATH ,mode="w")
-    
-    XML.writelines(str(SYMAP))
-    XML.close()
-    SYMAP.clear()
+    ACTIVEFOLDER = os.path.split(FILEPATH)[0]
+    ENTFILEPATH= "%s_%s_SYM_TEMPLATE.xml" %  (os.path.join(ACTIVEFOLDER, bpy.context.scene.name), bpy.context.object.name)
+    with open(ENTFILEPATH ,mode="w") as file:   
+        file.writelines(str(SYMAP))
+        SYMAP.clear()
 
-def reSymMesh (self, SELECTED, SIDE):
-    
-    bpy.ops.object.mode_set(mode='EDIT')
-    
-    BM = bmesh.from_edit_mesh(bpy.context.object.data)
-    
-    if sys.platform.startswith("w"):
-        SYSBAR = "\\"
-    else:
-         SYSBAR = "/" 
-    
+def reSymMesh (self, SELECTED, SIDE):    
+    bpy.ops.object.mode_set(mode='EDIT')    
+    BM = bmesh.from_edit_mesh(bpy.context.object.data)    
     FILEPATH=bpy.data.filepath
-    ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
-    ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
-    XML=open(ENTFILEPATH ,mode="r")
-    
-    SYMAP = eval(XML.readlines()[0])    
-    
-    if SIDE == "+-":
-        if SELECTED:
-            for VERT in SYMAP:
-                if BM.verts[SYMAP[VERT]].select:
+    ACTIVEFOLDER = os.path.split(FILEPATH)[0]
+    ENTFILEPATH= "%s_%s_SYM_TEMPLATE.xml" %  (os.path.join(ACTIVEFOLDER,bpy.context.scene.name), bpy.context.object.name)
+    with open(ENTFILEPATH ,mode="r") as file: 
+        SYMAP = eval(file.readlines()[0])    
+        if SIDE == "+-":
+            if SELECTED:
+                for VERT in SYMAP:
+                    if BM.verts[SYMAP[VERT]].select:
+                        if VERT == SYMAP[VERT]:
+                            BM.verts[VERT].co[0] = 0
+                            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
+                        else:    
+                            BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
+                            BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
+                            BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]        
+            else:    
+                for VERT in SYMAP:
                     if VERT == SYMAP[VERT]:
                         BM.verts[VERT].co[0] = 0
                         BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
@@ -2069,21 +2033,21 @@ def reSymMesh (self, SELECTED, SIDE):
                     else:    
                         BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
                         BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-                        BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]        
-        else:    
-            for VERT in SYMAP:
-                if VERT == SYMAP[VERT]:
-                    BM.verts[VERT].co[0] = 0
-                    BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]            
-                else:    
-                    BM.verts[VERT].co[0] = -BM.verts[SYMAP[VERT]].co[0]
-                    BM.verts[VERT].co[1] = BM.verts[SYMAP[VERT]].co[1]
-                    BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
-    else:
-        if SELECTED:
-            for VERT in SYMAP:
-                if BM.verts[VERT].select:
+                        BM.verts[VERT].co[2] = BM.verts[SYMAP[VERT]].co[2]
+        else:
+            if SELECTED:
+                for VERT in SYMAP:
+                    if BM.verts[VERT].select:
+                        if VERT == SYMAP[VERT]:
+                            BM.verts[SYMAP[VERT]].co[0] = 0
+                            BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
+                            BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]            
+                        else:    
+                            BM.verts[SYMAP[VERT]].co[0] = -BM.verts[VERT].co[0]
+                            BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
+                            BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]        
+            else:    
+                for VERT in SYMAP:
                     if VERT == SYMAP[VERT]:
                         BM.verts[SYMAP[VERT]].co[0] = 0
                         BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
@@ -2091,30 +2055,16 @@ def reSymMesh (self, SELECTED, SIDE):
                     else:    
                         BM.verts[SYMAP[VERT]].co[0] = -BM.verts[VERT].co[0]
                         BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
-                        BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]        
-        else:    
-            for VERT in SYMAP:
-                if VERT == SYMAP[VERT]:
-                    BM.verts[SYMAP[VERT]].co[0] = 0
-                    BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
-                    BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]            
-                else:    
-                    BM.verts[SYMAP[VERT]].co[0] = -BM.verts[VERT].co[0]
-                    BM.verts[SYMAP[VERT]].co[1] = BM.verts[VERT].co[1]
-                    BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]                        
-    
-    bpy.ops.object.mode_set(mode='OBJECT')
-    bpy.ops.object.mode_set(mode='EDIT')
-    
-    XML.close()
-    SYMAP.clear()
-
-
+                        BM.verts[SYMAP[VERT]].co[2] = BM.verts[VERT].co[2]                    
+        
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.mode_set(mode='EDIT')
+        SYMAP.clear()
+        
 class OscResymSave (bpy.types.Operator):
     bl_idname = "mesh.resym_save_map"
     bl_label = "Resym save XML Map"
     bl_options = {"REGISTER", "UNDO"}
-
 
     def execute (self, context):
         reSymSave(self)
@@ -2128,7 +2078,7 @@ class OscResymMesh (bpy.types.Operator):
     selected=bpy.props.BoolProperty(default=False, name="Only Selected")
     
     side = bpy.props.EnumProperty(
-            name="Side_",
+            name="Side:",
             description="Select Side.",
             items=(('+-', "+X to -X", "+X to -X"),
                    ('-+', "-X to +X", "-X to +X")),
