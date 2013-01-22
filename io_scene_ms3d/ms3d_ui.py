@@ -82,6 +82,7 @@ from bpy.types import (
         Material,
         Action,
         Group,
+        UIList,
         )
 from bpy.app import (
         debug,
@@ -813,11 +814,6 @@ class Ms3dGroupProperties(PropertyGroup):
             #options={'HIDDEN', },
             )
 
-    template_list_controls = StringProperty(
-            default="",
-            options={'HIDDEN', 'SKIP_SAVE', },
-            )
-
     id = IntProperty(options={'HIDDEN', },)
 
 
@@ -1201,6 +1197,13 @@ class Ms3dMaterialProperties(PropertyGroup):
 
 
 ###############################################################################
+# http://projects.blender.org/scm/viewvc.php?view=rev&root=bf-blender&revision=53355
+class Ms3dGroupUILise(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        layout.label(item.name, icon_value=icon)
+
+
+###############################################################################
 class Ms3dMeshPanel(Panel):
     bl_label = ms3d_str['LABEL_PANEL_MODEL']
     bl_space_type = 'PROPERTIES'
@@ -1356,10 +1359,14 @@ class Ms3dGroupPanel(Panel):
                 blender_context.tool_settings.mesh_select_mode[2])
 
         row = layout.row()
+
+        # http://projects.blender.org/scm/viewvc.php?view=rev&root=bf-blender&revision=53355
         row.template_list(
-                custom_data, 'groups',
-                custom_data, 'selected_group_index',
-                prop_list='template_list_controls',
+                listtype_name='Ms3dGroupUILise',
+                dataptr=custom_data,
+                propname='groups',
+                active_dataptr=custom_data,
+                active_propname='selected_group_index',
                 rows=2,
                 type='DEFAULT',
                 )
