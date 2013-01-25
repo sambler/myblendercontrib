@@ -36,19 +36,14 @@ import stat
 import bmesh
 import time
 import random
-
 #r08
-
 ## CREA PANELES EN TOOLS
-
-# VARIABLES DE ENTORNO
 bpy.types.Scene.osc_object_tools = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.osc_mesh_tools = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.osc_shapes_tools = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.osc_render_tools = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.osc_files_tools = bpy.props.BoolProperty(default=False)
 bpy.types.Scene.osc_overrides_tools = bpy.props.BoolProperty(default=False)
-
 # PANEL DE CONTROL
 class OscPanelControl(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
@@ -67,8 +62,6 @@ class OscPanelControl(bpy.types.Panel):
         col.prop(bpy.context.scene, "osc_render_tools", text="Render", icon="SCENE")
         col.prop(bpy.context.scene, "osc_files_tools", text="Files", icon="IMASEL")
         col.prop(bpy.context.scene, "osc_overrides_tools", text="Overrides", icon="GREASEPENCIL")
-
-
 # POLLS
 class OscPollObject():
     bl_space_type = 'VIEW_3D'
@@ -170,7 +163,6 @@ class OscPanelMesh(OscPollMesh, bpy.types.Panel):
         colrow.operator("file.export_groups_osc", icon='GROUP_VCOL')
         colrow.operator("file.import_groups_osc", icon='GROUP_VCOL')
 
-
 class OscPanelShapes(OscPollShapes, bpy.types.Panel):
     bl_idname = "Oscurart Shapes Tools"
     bl_label = "Shapes Tools"
@@ -218,8 +210,6 @@ class OscPanelRender(OscPollRender, bpy.types.Panel):
         colrow.prop(bpy.context.scene, "use_render_scene", text="")  
         colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="Selected Scenes").frametype=False
         colrow.operator("render.render_selected_scenes_osc", icon="RENDER_STILL", text="> Fame").frametype=True   
-   
-
 
 class OscPanelFiles(OscPollFiles, bpy.types.Panel):
     bl_idname = "Oscurart Files Tools"
@@ -229,7 +219,6 @@ class OscPanelFiles(OscPollFiles, bpy.types.Panel):
         active_obj = context.active_object
         layout = self.layout
         col = layout.column(align=1)
-
         colrow = col.row()
         colrow.operator("file.save_incremental_osc", icon="NEW")
         colrow.operator("image.reload_images_osc", icon="IMAGE_COL")
@@ -239,18 +228,14 @@ class OscPanelFiles(OscPollFiles, bpy.types.Panel):
         colrow.prop(bpy.context.scene, "oscReplaceText", text="")
         col.operator("file.replace_file_path_osc", icon="SHORTDISPLAY")
 
-
 class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
     bl_idname = "Oscurart Overrides"
     bl_label = "Overrides Tools"
 
     def draw(self, context):
         layout = self.layout
-
         obj = context.object
-
         col = layout.box().column(align=1)
-
         colrow = col.row()
         col.operator("render.overrides_set_list", text="Create Override List", icon="GREASEPENCIL")
         col.label(text="Active Scene: " + bpy.context.scene.name)
@@ -264,9 +249,6 @@ class OscPanelOverrides(OscPollOverrides, bpy.types.Panel):
         boxcolrow=boxcol.row()
         boxcolrow.operator("render.apply_overrides", text="Apply Overrides", icon="ERROR")
         boxcolrow.operator("render.restore_overrides", text="Restore Overrides", icon="ERROR")
-
-
-    
 
 
 ##---------------------------RELOAD IMAGES------------------
@@ -284,59 +266,42 @@ class reloadImages (bpy.types.Operator):
 
 def defReconst(self, OFFSET):
 
-    ##EDIT
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-
-    ##SETEO VERTEX MODE
     bpy.context.tool_settings.mesh_select_mode = (True, False, False)
 
     OBJETO = bpy.context.active_object
     OBDATA = bmesh.from_edit_mesh(OBJETO.data)
     OBDATA.select_flush(False)
 
-    ## IGUALO VERTICES CERCANOS A CERO
     for vertice in OBDATA.verts[:]:
         if abs(vertice.co[0]) < OFFSET:
             vertice.co[0] = 0
 
-    ##BORRA IZQUIERDA
     bpy.ops.mesh.select_all(action="DESELECT")
 
     for vertices in OBDATA.verts[:]:
       if vertices.co[0] < 0:
         vertices.select = 1
 
-    ## BORRA COMPONENTES
+
     bpy.ops.mesh.delete()
-    ## SUMA MIRROR
     bpy.ops.object.modifier_add(type='MIRROR')
-    ## SELECCIONO TODOS LOS COMPONENTES
     bpy.ops.mesh.select_all(action="SELECT")
-    ## CREO UV TEXTURE DEL SIMETRICO
     bpy.ops.mesh.uv_texture_add()
-    ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
     LENUVLISTSIM = len(bpy.data.objects[OBJETO.name].data.uv_textures)
     LENUVLISTSIM = LENUVLISTSIM - 1
     OBJETO.data.uv_textures[LENUVLISTSIM:][0].name = "SYMMETRICAL"
-    ## UNWRAP
     bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
-    ## MODO OBJETO
     bpy.ops.object.mode_set(mode="OBJECT", toggle= False)
-    ## APLICO MIRROR
     bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Mirror")
-    ## VUELVO A EDIT MODE
     bpy.ops.object.mode_set(mode="EDIT", toggle= False)
     OBDATA = bmesh.from_edit_mesh(OBJETO.data)
     OBDATA.select_flush(0)
-    ## CREO UV TEXTURE DEL ASIMETRICO
     bpy.ops.mesh.uv_texture_add()
-    ## SETEO VARIABLE CON LA CANTIDAD DE UVS, RESTO UNO Y LE DOY UN NOMBRE
     LENUVLISTASIM = len(OBJETO.data.uv_textures)
     LENUVLISTASIM = LENUVLISTASIM  - 1
     OBJETO.data.uv_textures[LENUVLISTASIM:][0].name = "ASYMMETRICAL"
-    ## SETEO UV ACTIVO
     OBJETO.data.uv_textures.active = OBJETO.data.uv_textures["ASYMMETRICAL"]
-    ## UNWRAP
     bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
 
 
@@ -358,29 +323,21 @@ def side (self, nombre, offset):
     OBJECT = bpy.context.active_object
     ODATA = bmesh.from_edit_mesh(OBJECT.data)
     MODE = bpy.context.mode
-
-
-    ##SETEO VERTEX MODE
-
     bpy.context.tool_settings.mesh_select_mode = (True, False, False)
 
-    ## DESELECCIONA TODO
     for VERTICE in ODATA.verts[:]:
         VERTICE.select = False
 
     if nombre == False:
-        ## CONDICION QUE SI EL VERTICE ES MENOR A 0 LO SELECCIONA
         for VERTICES in ODATA.verts[:]:
             if VERTICES.co[0] < (offset):
                 VERTICES.select = 1
     else:
-        ## CONDICION QUE SI EL VERTICE ES MENOR A 0 LO SELECCIONA
         for VERTICES in ODATA.verts[:]:
             if VERTICES.co[0] > (offset):
                 VERTICES.select = 1
 
     ODATA.select_flush(False)
-
     bpy.ops.object.mode_set(mode="EDIT", toggle=0)
 
 
@@ -401,15 +358,12 @@ class SelectMenor (bpy.types.Operator):
 ##-----------------------------------CREATE SHAPES----------------
 
 def DefSplitShapes(self,ACTIVESHAPE,LAYOUTCOMPAT):
-    #PASO A OBJECT MODE
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
     
-    ## VARIABLES
     ACTOBJ=bpy.context.active_object
     LENKB=len(ACTOBJ.data.shape_keys.key_blocks)
     INDEX=ACTOBJ.active_shape_key_index    
     
-    ## RECORTO NOMBRES
     if not LAYOUTCOMPAT:
         for SHAPE in ACTOBJ.data.shape_keys.key_blocks:
             if len(SHAPE.name) > 7:
@@ -429,7 +383,6 @@ def DefSplitShapes(self,ACTIVESHAPE,LAYOUTCOMPAT):
         bpy.ops.object.shape_key_clear()
            
     else:     
-        ## DUPLICO SHAPES Y CONECTO GRUPO
         for SHAPE in ACTOBJ.data.shape_keys.key_blocks[1:]:
             SHAPE.value=1
             bpy.ops.object.shape_key_add(from_mix=True)
@@ -470,28 +423,20 @@ class CreaShapesLayout(bpy.types.Operator):
 
         SEL_OBJ= bpy.context.active_object
         LISTA_KEYS = bpy.context.active_object.data.shape_keys.key_blocks[1:]
-        
-        
-        ##MODOS
+      
         EDITMODE = "bpy.ops.object.mode_set(mode='EDIT')"
         OBJECTMODE = "bpy.ops.object.mode_set(mode='OBJECT')"
         POSEMODE = "bpy.ops.object.mode_set(mode='POSE')"
         
-        ##INDICE DE DRIVERS
         varindex = 0
-        
-        ##CREA NOMBRES A LA ARMATURE
         amt = bpy.data.armatures.new("ArmatureData")
         ob = bpy.data.objects.new("RIG_LAYOUT_"+SEL_OBJ.name, amt)
         
-        ##LINK A LA ESCENA
         scn = bpy.context.scene
         scn.objects.link(ob)
         scn.objects.active = ob
         ob.select = True
-        
-        ## CREO DATA PARA SLIDERS        
-        ## creo data para los contenedores
+
         verticess = [(-1,1,0),(1,1,0),(1,-1,0),(-1,-1,0)]
         edgess = [(0,1),(1,2),(2,3),(3,0)]        
         mesh = bpy.data.meshes.new("%s_data_container" % (SEL_OBJ))
@@ -507,11 +452,9 @@ class CreaShapesLayout(bpy.types.Operator):
             if keyblock.name[-2:] != "_L":
                 if keyblock.name[-2:] != "_R":                     
                     
-                    ## OBJETO ACTIVO
                     scn.objects.active = ob
                     eval(EDITMODE)
-                      
-                    ##CREA HUESOS
+
                     bone = amt.edit_bones.new(keyblock.name)
                     bone.head = (gx,0,0)
                     bone.tail = (gx,0,1)
@@ -519,14 +462,11 @@ class CreaShapesLayout(bpy.types.Operator):
                     bonectrl = amt.edit_bones.new(keyblock.name+"_CTRL")
                     bonectrl.head = (gy,0,0)
                     bonectrl.tail = (gy,0,0.2)        
-            
-                    ##EMPARENTA HUESOS             
-                    ## EMPARENTO
+
                     ob.data.edit_bones[bonectrl.name].parent = ob.data.edit_bones[bone.name]                         
                     bpy.context.scene.objects.active = ob
                     
                     for SIDE in ["L","R"]:
-                        ##LE HAGO UNA VARIABLE
                         DR = SEL_OBJ.data.shape_keys.key_blocks[keyblock.name+"_"+SIDE].driver_add("value")
                         if SIDE == "L":
                             DR.driver.expression = "var+var_001"
@@ -548,7 +488,6 @@ class CreaShapesLayout(bpy.types.Operator):
                     
                     eval(POSEMODE)
                     
-                    ## SETEO ICONOS
                     ob.pose.bones[keyblock.name].custom_shape = object            
                     ob.pose.bones[keyblock.name+"_CTRL"].custom_shape = object
                     CNS = ob.pose.bones[keyblock.name+"_CTRL"].constraints.new(type='LIMIT_LOCATION')               
@@ -568,7 +507,7 @@ class CreaShapesLayout(bpy.types.Operator):
                     CNS.use_transform_limit = True
                     
                     eval(OBJECTMODE)
-                    ## creo tipografias
+
                     bpy.ops.object.text_add(location=(gx,0,0))
                     gx = gx+2.2
                     gy = gy+2.2            
@@ -593,10 +532,8 @@ class CreaShapesLayout(bpy.types.Operator):
 
 ##----------------------------CREATE LMR GROUPS-------------------
 def createLMRGroups(self, FACTORVG, ADDVG):
-    ## SETEO VERTEX MODE EDIT
     bpy.context.window.screen.scene.tool_settings.mesh_select_mode = (True, False, False)
 
-    ## VARIABLES
     ACTOBJ=bpy.context.active_object
     bpy.ops.object.mode_set(mode="EDIT", toggle=False)
     bpy.ops.mesh.select_all(action='DESELECT')
@@ -606,38 +543,28 @@ def createLMRGroups(self, FACTORVG, ADDVG):
 
     for LADO in GRUPOS:
         if MIRRORINDEX == 0:
-            ## SUMO DOS VG
             bpy.ops.object.vertex_group_add()
-            ## ASIGNO TODOS LOS VERTICES AL GRUPO
             bpy.ops.object.mode_set(mode='EDIT', toggle=False)
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.object.vertex_group_assign(new=False)
             bpy.ops.mesh.select_all(action='DESELECT')
             bpy.ops.object.mode_set(mode='WEIGHT_PAINT', toggle=False)
-            ## SETEO VALORES
             for VERTICE in ACTOBJ.data.vertices:
                 VERTICE.groups[-1].weight=(VERTICE.co[0]*FACTORVG)+ADDVG
-            ## RENOMBRO
             ACTOBJ.vertex_groups[-1].name=LADO
 
         else:
-            ## SUMO DOS VG
             bpy.ops.object.vertex_group_add()
-            ## ASIGNO TODOS LOS VERTICES AL GRUPO
             bpy.ops.object.mode_set(mode='EDIT', toggle=False)
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.object.vertex_group_assign(new=False)
             bpy.ops.mesh.select_all(action='DESELECT')
             bpy.ops.object.mode_set(mode='WEIGHT_PAINT', toggle=False)
-            ## SETEO VALORES
             for VERTICE in ACTOBJ.data.vertices:
                 VERTICE.groups[-1].weight=(-VERTICE.co[0]*FACTORVG)+ADDVG
-            ## RENOMBRO
             ACTOBJ.vertex_groups[-1].name=LADO
-        ## CAMBIO MIRROR INDEX
         MIRRORINDEX+=1
 
-    ## SETEO GRUPO ACTIVO
     ACTOBJ.vertex_groups.active_index=len(ACTOBJ.vertex_groups)
 
 
@@ -669,7 +596,6 @@ def defRenderAll (frametype):
     FS=bpy.context.scene.frame_start
     FE=bpy.context.scene.frame_end
     print("---------------------")
-    ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST=[]
         try:
@@ -687,14 +613,12 @@ def defRenderAll (frametype):
         PATH = SCENE.render.filepath
         ENDPATH = PATH
         FILEPATH=bpy.data.filepath
-        # CAMBIO SCENE
         bpy.context.window.screen.scene=SCENE
         if frametype == True:
             bpy.context.scene.frame_start=FC
             bpy.context.scene.frame_end=FC
             bpy.context.scene.frame_end=FC
             bpy.context.scene.frame_start=FC
-        ## SETEO MATERIALES  DE OVERRIDES
         try:
             for OVERRIDE in PROPTOLIST:
                 for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
@@ -720,12 +644,9 @@ def defRenderAll (frametype):
             print("DONE")
             print("---------------------")
 
-        ## REESTABLECE LOS LAYERS
         for layer in LAYERLIST:
             layer.use = 1
-        ## RESTAURA EL PATH FINAL
         SCENE.render.filepath = ENDPATH
-        #RESTAURO MATERIALES  DE OVERRIDES
         for OBJECT in LISTMAT:
             SLOTIND=0
             try:
@@ -734,13 +655,11 @@ def defRenderAll (frametype):
                     SLOTIND+=1
             except:
                 print("OUT OF RANGE")
-        # RESTAURO FRAMES
         if frametype == True:
             SCENE.frame_start=FS
             SCENE.frame_end=FE
             SCENE.frame_end=FE
             SCENE.frame_start=FS
-    # RESTAURO SCENE
     bpy.context.window.screen.scene=ACTSCENE
 
 
@@ -770,7 +689,6 @@ def defRenderSelected(frametype):
     FC = bpy.context.scene.frame_current
     FS = bpy.context.scene.frame_start
     FE = bpy.context.scene.frame_end
-    ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST=[]
         try:
@@ -789,14 +707,12 @@ def defRenderSelected(frametype):
             ENDPATH = PATH
             FILEPATH = bpy.data.filepath
             print("---------------------")
-            # CAMBIO SCENE
             bpy.context.window.screen.scene = SCENE
             if frametype  ==  True:
                 bpy.context.scene.frame_start = FC
                 bpy.context.scene.frame_end = FC
                 bpy.context.scene.frame_end = FC
                 bpy.context.scene.frame_start = FC
-            ## SETEO MATERIALES  DE OVERRIDES
             try:
                 for OVERRIDE in PROPTOLIST:
                     for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
@@ -821,12 +737,9 @@ def defRenderSelected(frametype):
                 bpy.ops.render.render(animation=True, layer=layers.name, write_still=True, scene= SCENE.name)
                 print("DONE")
                 print("---------------------")
-            ## REESTABLECE LOS LAYERS
             for layer in LAYERLIST:
                 layer.use = 1
-            ## RESTAURA EL PATH FINAL
             SCENE.render.filepath = ENDPATH
-            #RESTAURO MATERIALES  DE OVERRIDES
             for OBJECT in LISTMAT:
                 SLOTIND = 0
                 try:
@@ -835,13 +748,11 @@ def defRenderSelected(frametype):
                         SLOTIND += 1
                 except:
                     print("OUT OF RANGE")
-            # RESTAURO FRAMES
             if frametype == True:
                 SCENE.frame_start = FS
                 SCENE.frame_end = FE
                 SCENE.frame_end = FE
                 SCENE.frame_start = FS
-    # RESTAURO SCENE
     bpy.context.window.screen.scene = ACTSCENE
 
 
@@ -869,7 +780,6 @@ def defRenderCurrent (frametype):
     FE = bpy.context.scene.frame_end
 
     print("---------------------")
-    ## GUARDO MATERIALES DE OBJETOS EN GRUPOS
     for OBJECT in bpy.data.objects[:]:
         SLOTLIST = []
         try:
@@ -889,7 +799,6 @@ def defRenderCurrent (frametype):
         bpy.context.scene.frame_end = FC
         bpy.context.scene.frame_end = FC
         bpy.context.scene.frame_start = FC
-    ## SETEO MATERIALES  DE OVERRIDES
     try:
         for OVERRIDE in PROPTOLIST:
             for OBJECT in bpy.data.groups[OVERRIDE[0]].objects[:]:
@@ -914,12 +823,9 @@ def defRenderCurrent (frametype):
         bpy.ops.render.render(animation=True, layer=layers.name, write_still=1, scene= SCENE.name)
         print("DONE")
         print("---------------------")
-    ## REESTABLECE LOS LAYERS
     for layer in LAYERLIST:
         layer.use = 1
-    ## RESTAURA EL PATH FINAL
     SCENE.render.filepath = ENDPATH
-    #RESTAURO MATERIALES  DE OVERRIDES
     for OBJECT in LISTMAT:
         SLOTIND = 0
         try:
@@ -928,7 +834,6 @@ def defRenderCurrent (frametype):
                 SLOTIND += 1
         except:
             print("FUERA DE RANGO")
-    # RESTAURO FRAMES
     if frametype == True:
         SCENE.frame_start = FS
         SCENE.frame_end = FE
@@ -950,7 +855,6 @@ class renderCurrent (bpy.types.Operator):
 
 
 ##--------------------------RENDER CROP----------------------
-## CREO DATA PARA EL SLIDER
 bpy.types.Scene.rcPARTS = bpy.props.IntProperty(default=0, min=2, max=50, step=1)
 
 def OscRenderCropFunc():
@@ -966,7 +870,6 @@ def OscRenderCropFunc():
         bpy.context.scene.render.filepath = "%s_part%s" % (os.path.join(FILEPATH,SCENENAME,bpy.context.scene.name,SCENENAME),PART)
         bpy.ops.render.render(animation=False, write_still=True)
         
-    #RESTORE
     bpy.context.scene.render.filepath = FILEPATH    
         
 class renderCrop (bpy.types.Operator):
@@ -1016,7 +919,6 @@ class renameObjectsOt (bpy.types.Operator):
     bl_label = "Rename Objects"
     bl_options = {"REGISTER", "UNDO"}
     def execute(self,context):
-        ## LISTA
         listaObj = bpy.context.selected_objects[:]
         for objeto in listaObj:
             objeto.name = bpy.context.scene.RenameObjectOt
@@ -1050,21 +952,13 @@ class resymVertexGroups (bpy.types.Operator):
         FILEPATH=bpy.data.filepath
         ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
         ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
-        XML=open(ENTFILEPATH ,mode="r")
-        
-        SYMAP = eval(XML.readlines()[0])
-        
-
-        # SUMO LOS VERTICES QUE NO EXISTEN EN EL VG        
+        XML=open(ENTFILEPATH ,mode="r")        
+        SYMAP = eval(XML.readlines()[0])      
         INL = [VERT for VERT in SYMAP if SYMAP[VERT] in SELVER if VERT!= SYMAP[VERT]] 
         bpy.ops.mesh.select_all(action='DESELECT')
-
         for VERT in INL:
             BM.verts[VERT].select = True
         bpy.ops.object.vertex_group_assign(new=False)    
-     
-
-        # PASO A WEIGHT Y SETEO LOS VALORES
         bpy.ops.object.mode_set(mode='WEIGHT_PAINT')        
         for VERT in INL:
             print(VERT)
@@ -1082,8 +976,6 @@ class resymVertexGroups (bpy.types.Operator):
                 a+=1
                     
             OBACTIVO.data.vertices[VERT].groups[REC].weight = OBACTIVO.data.vertices[SYMAP[VERT]].groups[EM].weight  
-                
-
         XML.close()
         SYMAP.clear()  
       
@@ -1104,23 +996,18 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
         SEL_OBJ= bpy.context.active_object
         LISTA_KEYS = bpy.context.active_object.data.shape_keys.key_blocks[1:]
         
-        ##MODOS
         EDITMODE = "bpy.ops.object.mode_set(mode='EDIT')"
         OBJECTMODE = "bpy.ops.object.mode_set(mode='OBJECT')"
         POSEMODE = "bpy.ops.object.mode_set(mode='POSE')"
-        
-        ##CREA NOMBRES A LA ARMATURE
+
         amtas = bpy.data.armatures.new("ArmatureData")
         obas = bpy.data.objects.new("RIG_LAYOUT_"+SEL_OBJ.name, amtas)
-        
-        ##LINK A LA ESCENA
+
         scn = bpy.context.scene
         scn.objects.link(obas)
         scn.objects.active = obas
         obas.select = True
-        
-        ## CREO DATA PARA SLIDERS            
-        ## creo data para los contenedores
+
         verticess = [(-.1,1,0),(.1,1,0),(.1,0,0),(-.1,0,0)]
         edgess = [(0,1),(1,2),(2,3),(3,0)]            
         mesh = bpy.data.meshes.new("%s_data_container" % (SEL_OBJ))
@@ -1135,11 +1022,8 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
         for keyblock in LISTA_KEYS:        
             if keyblock.name[-2:] != "_L":
                 if keyblock.name[-2:] != "_R":
-                    ## OBJETO ACTIVO
                     scn.objects.active = obas
-                    eval(EDITMODE)
-        
-                    ##CREA HUESOS        
+                    eval(EDITMODE)     
                     bone = amtas.edit_bones.new(keyblock.name)
                     bone.head = (gx,0,0)
                     bone.tail = (gx,0,1)
@@ -1147,16 +1031,12 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
                     bonectrl = amtas.edit_bones.new(keyblock.name+"_CTRL")
                     bonectrl.head = (gy,0,0)
                     bonectrl.tail = (gy,0,0.2)
-        
-                    ##EMPARENTA HUESOS
-                    ## EMPARENTO
-                    obas.data.edit_bones[bonectrl.name].parent = obas.data.edit_bones[bone.name]                         
+                    
+                    obas.data.edit_bones[bonectrl.name].parent = obas.data.edit_bones[bone.name]                        
                     bpy.context.scene.objects.active = obas
                     
-                    ##DESELECCIONA (modo edit)
                     bpy.ops.armature.select_all(action="DESELECT")
         
-                    ##CREA DRIVERS Y LOS CONECTA
                     DR1 = keyblock.driver_add("value")
                     DR1.driver.expression = "var"
                     VAR2 = DR1.driver.variables.new()     
@@ -1168,14 +1048,11 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
                     
                     eval(POSEMODE)
                     
-                    ## SETEO ICONOS
                     obas.pose.bones[keyblock.name].custom_shape = object
                     obas.pose.bones[keyblock.name+"_CTRL"].custom_shape = object
-                    
-                    ## SETEO CONSTRAINTS
         
                     bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones.active = bpy.data.objects["RIG_LAYOUT_"+SEL_OBJ.name].data.bones[keyblock.name+"_CTRL"]
-                    ## SUMO CONSTRAINT
+
                     eval(POSEMODE)
                     CNS = obas.pose.bones[keyblock.name+"_CTRL"].constraints.new(type='LIMIT_LOCATION')                        
                     CNS.min_x = 0
@@ -1195,11 +1072,8 @@ class CreateLayoutAsymmetrical(bpy.types.Operator):
                     CNS.owner_space  = "LOCAL"
                     CNS.use_transform_limit = True        
         
-                    ## PARA QUE EL TEXTO FUNCIONE PASAMOS A OBJECT MODE
                     eval(OBJECTMODE)
         
-                    ## TEXTOS
-                    ## creo tipografias
                     bpy.ops.object.text_add(location=(0,0,0))
                     gx = gx+2.2
                     gy = gy+2.2
@@ -1228,11 +1102,8 @@ class saveIncremental(bpy.types.Operator):
     bl_idname = "file.save_incremental_osc"
     bl_label = "Save Incremental File"
     bl_options = {"REGISTER", "UNDO"}
-    def execute(self, context):
-
-        # SI POSEE _V        
-        filepath = bpy.data.filepath
-        
+    def execute(self, context):     
+        filepath = bpy.data.filepath        
         if filepath.count("_v"):
             strnum = filepath.rpartition("_v")[-1].rpartition(".blend")[0]
             intnum = int(strnum)
@@ -1271,113 +1142,57 @@ def duplicateSymmetrical (self, disconect):
     for objeto in bpy.context.selected_objects:
 
         OBSEL = objeto
-
-        #DESELECT AND SELECT OBJETO
         bpy.ops.object.select_all(action='DESELECT')
         objeto.select = 1
         bpy.context.scene.objects.active = objeto
-
-        #DUPLICA
         bpy.ops.object.duplicate(linked=1)
-
-        #OBJETO ACTIVO
         OBDUP=bpy.context.active_object
-
         print(OBDUP)
-
-        #SUMA DRIVER
         OBDUP.driver_add("location")
-
-        ## LOCATIONS
-
-        #EXPRESION
         OBDUP.animation_data.drivers[0].driver.expression = "-var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[0].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[0].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[0].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[0].driver.variables[0].targets[0].transform_type = 'LOC_X'
-
-        #EXPRESION
         OBDUP.animation_data.drivers[1].driver.expression = "var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[1].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[1].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[1].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[1].driver.variables[0].targets[0].transform_type = 'LOC_Y'
-
-        #EXPRESION
         OBDUP.animation_data.drivers[2].driver.expression = "var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[2].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[2].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[2].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[2].driver.variables[0].targets[0].transform_type = 'LOC_Z'
-
-        ## SCALE
         OBDUP.driver_add("scale")
-
-
-        #EXPRESION
         OBDUP.animation_data.drivers[3].driver.expression = "-var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[3].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[3].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[3].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[3].driver.variables[0].targets[0].transform_type = 'SCALE_X'
-
-        #EXPRESION
         OBDUP.animation_data.drivers[4].driver.expression = "var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[4].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[4].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[4].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[4].driver.variables[0].targets[0].transform_type = 'SCALE_Y'
-
-
-        #EXPRESION
         OBDUP.animation_data.drivers[5].driver.expression = "var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[5].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[5].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[5].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[5].driver.variables[0].targets[0].transform_type = 'SCALE_Z'
-
-
-        ## ROTATION
         OBDUP.driver_add("rotation_euler")
-
-
-        #EXPRESION
         OBDUP.animation_data.drivers[6].driver.expression = "var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[6].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[6].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[6].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[6].driver.variables[0].targets[0].transform_type = 'ROT_X'
-
-        #EXPRESION
         OBDUP.animation_data.drivers[7].driver.expression = "-var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[7].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[7].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[7].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[7].driver.variables[0].targets[0].transform_type = 'ROT_Y'
-
-
-        #EXPRESION
         OBDUP.animation_data.drivers[8].driver.expression = "-var"
-        #CREA VARIABLE
         OBDUP.animation_data.drivers[8].driver.variables.new()
-        #MODIFICO VARIABLE
         OBDUP.animation_data.drivers[8].driver.variables[0].type = "TRANSFORMS"
         OBDUP.animation_data.drivers[8].driver.variables[0].targets[0].id = objeto
         OBDUP.animation_data.drivers[8].driver.variables[0].targets[0].transform_type = 'ROT_Z'
@@ -1407,7 +1222,6 @@ class oscDuplicateSymmetricalOp (bpy.types.Operator):
 
 
 def defoscBatchMaker(TYPE):
-    # REVISO SISTEMA
     if sys.platform.startswith("w"):
         print("PLATFORM: WINDOWS")
         SYSBAR = "\\"
@@ -1419,25 +1233,19 @@ def defoscBatchMaker(TYPE):
         EXTSYS = ".sh"
         QUOTES = ''
 
-    # CREO VARIABLES
     FILENAME = bpy.data.filepath.rpartition(SYSBAR)[-1].rpartition(".")[0]
     BINDIR = bpy.app[4]
     SHFILE = bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + FILENAME + EXTSYS
     FILEBATCH = open(SHFILE,"w")
 
-    # SI ES LINUX LE DOY PERMISOS CHMOD
     if EXTSYS == ".sh":
         try:
             os.chmod(SHFILE, stat.S_IRWXU)
         except:
             print("** Oscurart Batch maker can not modify the permissions.")    
 
-    # DEFINO ARCHIVO DE BATCH
     FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
     FILEBATCH.close()  
-
-
-    # DEFINO LOS ARCHIVOS DE SCRIPT
     
     RLATFILE =  "%s%sosRlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR )
     if not os.path.isfile(RLATFILE):
@@ -1570,7 +1378,7 @@ class OscExportVG (bpy.types.Operator):
         else:
             print("LINUX")
             BAR = "/"
-        # VARIABLES
+
         FILEPATH = bpy.data.filepath
         FILE = open(FILEPATH.rpartition(BAR)[0] + BAR+OBSEL.name + ".xml", mode = "w")
         VERTLIST = []
@@ -1585,21 +1393,14 @@ class OscExportVG (bpy.types.Operator):
                 except:
                     pass
             VERTLIST.append(BONELIST)
-
-        ## CREO LA LISTA CON LOS NOMBRES DE LOS GRUPOS
         NAMEGROUPLIST=[]
         for VG in OBSEL.vertex_groups:
             NAMEGROUPLIST.append(VG.name)
-
-        ## AGREGO LOS NOMBRES A LA LISTA
         VERTLIST.append(NAMEGROUPLIST)
-
-        ## GUARDO Y CIERRO
         FILE.writelines(str(VERTLIST))
         FILE.close()
 
-        ## ---- CREO OTRO ARCHIVO PARA LA DATA ----
-        # VARIABLES
+
         FILEPATH = bpy.data.filepath
         FILE = open(FILEPATH.rpartition(BAR)[0] + BAR + OBSEL.name + "_DATA.xml", mode = "w")
 
@@ -1619,8 +1420,6 @@ class OscExportVG (bpy.types.Operator):
                 DATAVER.append((VERT.index,TEMP,VERT.groups[LISTVGTEMP[TEMP][1]].weight))
                 TEMP += 1
 
-
-        ## GUARDO Y CIERRO
         FILE.writelines(str(DATAVER))
         FILE.close()
 
@@ -1633,14 +1432,13 @@ class OscImportVG (bpy.types.Operator):
     def execute(self,context):
 
         OBSEL = bpy.context.active_object
-        # AVERIGUO EL SISTEMA
         if os.sys.platform.count("win"):
             print("WINDOWS")
             BAR = "\\"
         else:
             print("LINUX")
             BAR = "/"
-        # VARIABLES
+
         FILEPATH = bpy.data.filepath
         FILE = open(FILEPATH.rpartition(BAR)[0] + BAR + OBSEL.name + ".xml", mode="r")
         VERTLIST = FILE.readlines(0)
@@ -1649,37 +1447,26 @@ class OscImportVG (bpy.types.Operator):
         GROUPLIST = VERTLIST[-1:]
         VGINDEX = 0
 
-        ## MODO OBJECT
+
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         for GROUP in GROUPLIST[0]:
-            #CREO GRUPO
             bpy.ops.object.vertex_group_add()
-            #CAMBIO NOMBRE
             OBSEL.vertex_groups[-1].name=GROUP
 
 
 
         for VG in OBSEL.vertex_groups[:]:
-            # SETEO VG
             bpy.ops.object.vertex_group_set_active(group=VG.name)
-            # EDIT
             bpy.ops.object.mode_set(mode='EDIT')
-            # DESELECT
             bpy.ops.mesh.select_all(action='DESELECT')
-            # OBJECT
             bpy.ops.object.mode_set(mode='OBJECT')
-            # SELECCIONO LOS VERTICES
             for VERTI in VERTLISTR[VG.index]:
                 OBSEL.data.vertices[VERTI[0]].select=1
-            ## SETEO EL VALOR DEL PESO
             bpy.context.tool_settings.vertex_group_weight=1
-            # EDIT
             bpy.ops.object.mode_set(mode='EDIT')
-            ## ASIGNO
             bpy.ops.object.vertex_group_assign(new=False)
 
-        # CIERRO
         FILE.close()
 
 
@@ -1690,17 +1477,10 @@ class OscImportVG (bpy.types.Operator):
         DATAPVER = FILE.readlines(0)
         DATAPVER = eval(DATAPVER[0])
 
-        # PASO A MODO OBJECT
         bpy.ops.object.mode_set(mode='OBJECT')
-
-        #for VERT in DATAPVER:
         for VERT in DATAPVER:
             OBSEL.data.vertices[VERT[0]].groups[VERT[1]].weight = VERT[2]
-
-        # CIERRO
         FILE.close()
-
-
         # PASO A MODO PINTURA DE PESO
         bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
         return {'FINISHED'}
@@ -1721,23 +1501,18 @@ def relinkObjects (self):
     ACTOBJ = bpy.selection_osc[-1] 
     OBJSEL = bpy.selection_osc[:]
 
-    ## REMUEVO ESCENA ACTIVA
     LISTSCENE.remove(bpy.context.scene)
 
-    ## DESELECT
     bpy.ops.object.select_all(action='DESELECT')
 
-    ## SELECT
     for OBJETO in OBJECTS:
         if OBJETO.users != len(bpy.data.scenes):
             print(OBJETO.name)
             OBJETO.select = True
 
-    ## LINK
     for SCENE in LISTSCENE:
         bpy.ops.object.make_links_scene(scene=SCENE.name)
     
-    # REESTABLEZCO SELECCION
     bpy.context.scene.objects.active=ACTOBJ
     for OBJ in OBJSEL:
         OBJ.select=True
