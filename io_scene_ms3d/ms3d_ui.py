@@ -478,6 +478,11 @@ class Ms3dExportOperator(Operator, ExportHelper):
             default=Ms3dUi.PROP_DEFAULT_BAKE_EACH_FRAME,
             )
 
+    check_existing = BoolProperty(
+            default=False,
+            options={'HIDDEN', }
+            )
+
     filename_ext = StringProperty(
             default=ms3d_str['FILE_EXT'],
             options={'HIDDEN', }
