@@ -88,16 +88,39 @@ import bmesh
 
 ###############################################################################
 class Ms3dExporter():
-    """ Load a MilkShape3D MS3D File """
-
-    def __init__(self, options):
-        self.options = options
+    """
+    Load a MilkShape3D MS3D File
+    """
+    def __init__(self,
+            report,
+            verbose=False,
+            use_blender_names=True,
+            use_blender_materials=False,
+            apply_transform=True,
+            apply_modifiers=True,
+            apply_modifiers_mode='PREVIEW',
+            use_animation=True,
+            normalize_weights=True,
+            shrink_to_keys=False,
+            bake_each_frame=True,
+            ):
+        self.report = report
+        self.options_verbose = verbose
+        self.options_use_blender_names = use_blender_names
+        self.options_use_blender_materials = use_blender_materials
+        self.options_apply_transform = apply_transform
+        self.options_apply_modifiers = apply_modifiers
+        self.options_apply_modifiers_mode = apply_modifiers_mode
+        self.options_use_animation = use_animation
+        self.options_normalize_weights = normalize_weights
+        self.options_shrink_to_keys = shrink_to_keys
+        self.options_bake_each_frame = bake_each_frame
         pass
 
     # create a empty ms3d ms3d_model
     # fill ms3d_model with blender content
     # writer ms3d file
-    def write(self, blender_context):
+    def write(self, blender_context, filepath):
         """convert bender content to ms3d content and write it to file"""
 
         t1 = time()
@@ -115,22 +138,17 @@ class Ms3dExporter():
 
             t2 = time()
 
-            #self.file = None
             try:
                 # write ms3d file to disk
-                #self.file = io.FileIO(self.options.filepath, "wb")
-                with io.FileIO(self.options.filepath, "wb") as self.file:
-                    ms3d_model.write(self.file)
-                    self.file.flush()
-                    self.file.close()
+                with io.FileIO(filepath, "wb") as raw_io:
+                    ms3d_model.write(raw_io)
+                    raw_io.flush()
+                    raw_io.close()
             finally:
-                # close ms3d file
-                #if self.file is not None:
-                #    self.file.close()
                 pass
 
             # if option is set, this time will enlargs the io time
-            if self.options.verbose:
+            if self.options_verbose:
                 ms3d_model.print_internal()
 
             post_setup_environment(self, blender_context)
@@ -244,17 +262,17 @@ class Ms3dExporter():
             blender_scene.objects.active = blender_mesh_object_temp
 
             # apply transform
-            if self.options.apply_transform:
+            if self.options_apply_transform:
                 matrix_transform = blender_mesh_object_temp.matrix_local
             else:
                 matrix_transform = Matrix()
 
             # apply modifiers
             for modifier in blender_mesh_object_temp.modifiers:
-                if self.options.apply_modifiers:
+                if self.options_apply_modifiers:
                     # disable only armature modifiers and only,
                     # when use_animation is enabled
-                    if  self.options.use_animation \
+                    if  self.options_use_animation \
                             and modifier.type in {'ARMATURE', }:
                         modifier.show_viewport = False
                         modifier.show_render = False
@@ -269,7 +287,7 @@ class Ms3dExporter():
             blender_mesh_temp = blender_mesh_object_temp.to_mesh(
                     blender_scene,
                     True,
-                    self.options.apply_modifiers_mode)
+                    self.options_apply_modifiers_mode)
 
             enable_edit_mode(True, blender_context)
             bm = bmesh.new()
@@ -321,7 +339,7 @@ class Ms3dExporter():
                     ms3d_vertex._vertex = self.geometry_correction(
                             matrix_transform * bmv.co)
 
-                    if self.options.use_animation and layer_deform:
+                    if self.options_use_animation and layer_deform:
                         blender_vertex_group_ids = bmv[layer_deform]
                         if blender_vertex_group_ids:
                             count = 0
@@ -347,12 +365,12 @@ class Ms3dExporter():
                                                 int(blender_weight * 100.0))
                                     elif count == 3:
                                         bone_ids.append(ms3d_joint.__index)
-                                        self.options.report(
+                                        self.report(
                                                 {'WARNING', 'INFO'},
                                                 ms3d_str['WARNING_EXPORT_SKIP_WEIGHT'])
                                     else:
                                         # only first three weights will be supported / four bones
-                                        self.options.report(
+                                        self.report(
                                                 {'WARNING', 'INFO'},
                                                 ms3d_str['WARNING_EXPORT_SKIP_WEIGHT_EX'])
                                         break
@@ -364,7 +382,7 @@ class Ms3dExporter():
                                 weights.append(0)
 
                             # normalize weights to 100
-                            if self.options.normalize_weights:
+                            if self.options_normalize_weights:
                                 weight_sum = 0
                                 for weight in weights:
                                     weight_sum += weight
@@ -508,7 +526,7 @@ class Ms3dExporter():
         # setup scene
         blender_scene = blender_context.scene
 
-        if not self.options.use_animation:
+        if not self.options_use_animation:
             ms3d_model.animation_fps = 24
             ms3d_model.number_total_frames = 1
             ms3d_model.current_time = 0
@@ -618,20 +636,20 @@ class Ms3dExporter():
             frames = frames.union(frames_rotation)
             frames = frames.union(frames_scale)
 
-            if not self.options.shrink_to_keys:
+            if not self.options_shrink_to_keys:
                 frames = frames.intersection(range(
                         blender_scene.frame_start, blender_scene.frame_end + 1))
 
             frames_sorted = list(frames)
             frames_sorted.sort()
 
-            if self.options.shrink_to_keys and len(frames_sorted) >= 2:
+            if self.options_shrink_to_keys and len(frames_sorted) >= 2:
                 frame_start = frames_sorted[0]
                 frame_end = frames_sorted[len(frames_sorted)-1]
                 frame_total = (frame_end - frame_start) + 1
                 frame_offset = frame_start - 1
 
-            if self.options.bake_each_frame:
+            if self.options_bake_each_frame:
                 frames_sorted = range(int(frame_start), int(frame_end + 1),
                         int(frame_step))
 
@@ -747,15 +765,15 @@ class Ms3dExporter():
 
             blender_ms3d_material = blender_material.ms3d
 
-            if not self.options.use_blender_names \
-                    and not self.options.use_blender_materials \
+            if not self.options_use_blender_names \
+                    and not self.options_use_blender_materials \
                     and blender_ms3d_material.name:
                 ms3d_material.name = blender_ms3d_material.name
             else:
                 ms3d_material.name = blender_material.name
 
             temp_material = None
-            if self.options.use_blender_materials:
+            if self.options_use_blender_materials:
                 temp_material = Ms3dMaterial()
                 Ms3dMaterialHelper.copy_from_blender(
                         None, None, temp_material, blender_material)

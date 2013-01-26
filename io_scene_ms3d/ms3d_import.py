@@ -82,17 +82,35 @@ from bpy_extras.image_utils import (
 
 ###############################################################################
 class Ms3dImporter():
-    """ Load a MilkShape3D MS3D File """
-    def __init__(self, options):
-        self.options = options
+    """
+    Load a MilkShape3D MS3D File
+    """
+    def __init__(self,
+            report,
+            verbose=False,
+            use_extended_normal_handling=False,
+            use_animation=True,
+            use_quaternion_rotation=False,
+            use_joint_size=False,
+            joint_size=1.0,
+            use_joint_to_bones=False,
+            ):
+        self.report = report
+        self.options_verbose = verbose
+        self.options_use_extended_normal_handling = use_extended_normal_handling
+        self.options_use_animation = use_animation
+        self.options_use_quaternion_rotation = use_quaternion_rotation
+        self.options_use_joint_size = use_joint_size
+        self.options_joint_size = joint_size
+        self.options_use_joint_to_bones = use_joint_to_bones
         pass
 
     ###########################################################################
     # create empty blender ms3d_model
     # read ms3d file
     # fill blender with ms3d_model content
-    def read(self, blender_context):
-        """ read ms3d file and convert ms3d content to bender content """
+    """ read ms3d file and convert ms3d content to bender content """
+    def read(self, blender_context, filepath):
 
         t1 = time()
         t2 = None
@@ -102,25 +120,23 @@ class Ms3dImporter():
             # setup environment
             pre_setup_environment(self, blender_context)
 
-            # create an empty ms3d template
-            ms3d_model = Ms3dModel(self.filepath_splitted[1])
+            # inject splitted filepath
+            self.directory_name, self.file_name = path.split(filepath)
 
-            #self.file = None
+            # create an empty ms3d template
+            ms3d_model = Ms3dModel(self.file_name)
+
             try:
                 # open ms3d file
-                #self.file = io.FileIO(self.options.filepath, 'rb')
-                with io.FileIO(self.options.filepath, 'rb') as self.file:
+                with io.FileIO(filepath, 'rb') as raw_io:
                     # read and inject ms3d data from disk to internal structure
-                    ms3d_model.read(self.file)
-                    self.file.close()
+                    ms3d_model.read(raw_io)
+                    raw_io.close()
             finally:
-                # close ms3d file
-                #if self.file is not None:
-                #    self.file.close()
                 pass
 
             # if option is set, this time will enlargs the io time
-            if self.options.verbose:
+            if self.options_verbose:
                 ms3d_model.print_internal()
 
             t2 = time()
@@ -164,15 +180,57 @@ class Ms3dImporter():
         return {"FINISHED"}
 
 
+    def internal_read(self, blender_context, raw_io):
+        try:
+            # setup environment
+            pre_setup_environment(self, blender_context)
+
+            try:
+                ms3d_model.read(raw_io)
+            finally:
+                pass
+
+            # if option is set, this time will enlargs the io time
+            if self.options_verbose:
+                ms3d_model.print_internal()
+
+            is_valid, statistics = ms3d_model.is_valid()
+
+            if is_valid:
+                # inject ms3d data to blender
+                blender_empty_object, blender_mesh_object = self.to_blender(blender_context, ms3d_model)
+
+                blender_scene = blender_context.scene
+
+                # finalize/restore environment
+                blender_scene.update()
+
+                post_setup_environment(self, blender_context)
+
+        except Exception:
+            type, value, traceback = exc_info()
+            print("read - exception in try block\n  type: '{0}'\n"
+                    "  value: '{1}'".format(type, value, traceback))
+
+            raise
+
+        else:
+            pass
+
+        return blender_empty_object, blender_mesh_object
+
+
     ###########################################################################
     def to_blender(self, blender_context, ms3d_model):
         blender_mesh_object = self.create_geometry(blender_context, ms3d_model)
         blender_armature_object = self.create_animation(
                 blender_context, ms3d_model, blender_mesh_object)
 
-        self.organize_objects(
+        blender_empty_object = self.organize_objects(
                 blender_context, ms3d_model,
                 [blender_mesh_object, blender_armature_object])
+
+        return blender_empty_object, blender_mesh_object
 
 
     ###########################################################################
@@ -198,6 +256,8 @@ class Ms3dImporter():
             if blender_object is not None:
                 blender_group.objects.link(blender_object)
                 blender_object.parent = blender_empty_object
+
+        return blender_empty_object
 
 
     ###########################################################################
@@ -382,7 +442,7 @@ class Ms3dImporter():
 
             # diffuse texture
             if ms3d_material.texture:
-                dir_name_diffuse = self.filepath_splitted[0]
+                dir_name_diffuse = self.directory_name
                 file_name_diffuse = path.split(ms3d_material.texture)[1]
                 blender_image_diffuse = load_image(
                         file_name_diffuse, dir_name_diffuse)
@@ -404,7 +464,7 @@ class Ms3dImporter():
 
             # alpha texture
             if ms3d_material.alphamap:
-                dir_name_alpha = self.filepath_splitted[0]
+                dir_name_alpha = self.directory_name
                 file_name_alpha = path.split(ms3d_material.alphamap)[1]
                 blender_image_alpha = load_image(
                         file_name_alpha, dir_name_alpha)
@@ -451,7 +511,7 @@ class Ms3dImporter():
                 if bmv.normal == blender_invalide_normal:
                     bmv.normal = blender_normal
                 elif bmv.normal != blender_normal \
-                        and self.options.extended_normal_handling:
+                        and self.options_use_extended_normal_handling:
                     ## search for an already created extra vertex
                     bmv_new = None
                     for vert_index_candidat in range(
@@ -472,13 +532,13 @@ class Ms3dImporter():
                         bmv_new[layer_extra] = bmv[layer_extra]
                         vert_index = length_verts
                         length_verts += 1
-                        self.options.report({'WARNING', 'INFO'},
+                        self.report({'WARNING', 'INFO'},
                                 ms3d_str['WARNING_IMPORT_EXTRA_VERTEX_NORMAL'].format(
                                 bmv.normal, blender_normal))
                     bmv = bmv_new
 
                 if [[x] for x in bmv_list if x == bmv]:
-                    self.options.report(
+                    self.report(
                             {'WARNING', 'INFO'},
                             ms3d_str['WARNING_IMPORT_SKIP_VERTEX_DOUBLE'].format(
                                     ms3d_triangle_index))
@@ -487,7 +547,7 @@ class Ms3dImporter():
                 bmf_normal += bmv.normal
 
             if len(bmv_list) < 3:
-                self.options.report(
+                self.report(
                         {'WARNING', 'INFO'},
                         ms3d_str['WARNING_IMPORT_SKIP_LESS_VERTICES'].format(
                                 ms3d_triangle_index))
@@ -497,7 +557,7 @@ class Ms3dImporter():
 
             bmf = bm.faces.get(bmv_list)
             if bmf is not None:
-                self.options.report(
+                self.report(
                         {'WARNING', 'INFO'},
                         ms3d_str['WARNING_IMPORT_SKIP_FACE_DOUBLE'].format(
                                 ms3d_triangle_index))
@@ -568,7 +628,7 @@ class Ms3dImporter():
         # end BMesh stuff
         ####################################################
 
-        blender_mesh.validate(self.options.verbose)
+        blender_mesh.validate(self.options_verbose)
 
         return blender_mesh_object
 
@@ -732,10 +792,10 @@ class Ms3dImporter():
 
         ##########################
         # ms3d_joint to blender_edit_bone
-        if ms3d_model.model_ex_object and not self.options.use_joint_size:
+        if ms3d_model.model_ex_object and not self.options_use_joint_size:
             joint_length = ms3d_model.model_ex_object.joint_size
         else:
-            joint_length = self.options.joint_size
+            joint_length = self.options_joint_size
         if joint_length < 0.01:
             joint_length = 0.01
 
@@ -774,7 +834,7 @@ class Ms3dImporter():
             ms3d_joint.blender_edit_bone = blender_edit_bone
         enable_edit_mode(False, blender_context)
 
-        if self.options.joint_to_bones:
+        if self.options_use_joint_to_bones:
             enable_edit_mode(True, blender_context)
             for ms3d_joint in ms3d_joints_ordered:
                 blender_edit_bone = blender_armature.edit_bones[ms3d_joint.name]
@@ -811,7 +871,7 @@ class Ms3dImporter():
                 blender_bone.ms3d.comment = ms3d_comment.comment
 
         ##########################
-        if not self.options.use_animation:
+        if not self.options_use_animation:
             return blender_armature_object
 
 
@@ -854,7 +914,7 @@ class Ms3dImporter():
                 fcurve_location_y.keyframe_points.insert(frame, v[2])
                 fcurve_location_z.keyframe_points.insert(frame, v[1])
 
-            if self.options.is_rotation_mode_quaternion:
+            if self.options_use_quaternion_rotation:
                 blender_pose_bone.rotation_mode = 'QUATERNION'
                 data_path = blender_pose_bone.path_from_id("rotation_quaternion")
                 fcurve_rotation_w = blender_action.fcurves.new(data_path, index=0)

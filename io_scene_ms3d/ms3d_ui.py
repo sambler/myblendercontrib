@@ -257,13 +257,6 @@ class Ms3dImportOperator(Operator, ImportHelper):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
 
-    filename_ext = ms3d_str['FILE_EXT']
-
-    filter_glob = StringProperty(
-            default=ms3d_str['FILE_FILTER'],
-            options={'HIDDEN', }
-            )
-
     filepath = StringProperty(
             subtype='FILE_PATH',
             options={'HIDDEN', }
@@ -311,26 +304,36 @@ class Ms3dImportOperator(Operator, ImportHelper):
             #options={'HIDDEN', },
             )
 
-    joint_to_bones = BoolProperty(
+    use_joint_to_bones = BoolProperty(
             name=ms3d_str['PROP_NAME_JOINT_TO_BONES'],
             description=ms3d_str['PROP_DESC_JOINT_TO_BONES'],
             default=Ms3dUi.PROP_DEFAULT_JOINT_TO_BONES,
             )
 
-    extended_normal_handling = BoolProperty(
+    use_extended_normal_handling = BoolProperty(
             name=ms3d_str['PROP_NAME_EXTENDED_NORMAL_HANDLING'],
             description=ms3d_str['PROP_DESC_EXTENDED_NORMAL_HANDLING'],
             default=Ms3dUi.PROP_DEFAULT_EXTENDED_NORMAL_HANDLING,
             )
 
+    filename_ext = StringProperty(
+            default=ms3d_str['FILE_EXT'],
+            options={'HIDDEN', }
+            )
+
+    filter_glob = StringProperty(
+            default=ms3d_str['FILE_FILTER'],
+            options={'HIDDEN', }
+            )
+
 
     @property
-    def is_rotation_mode_euler(self):
+    def use_euler_rotation(self):
         return (Ms3dUi.PROP_ITEM_ROTATION_MODE_EULER \
                 in self.rotation_mode)
 
     @property
-    def is_rotation_mode_quaternion(self):
+    def use_quaternion_rotation(self):
         return (Ms3dUi.PROP_ITEM_ROTATION_MODE_QUATERNION \
                 in self.rotation_mode)
 
@@ -346,7 +349,7 @@ class Ms3dImportOperator(Operator, ImportHelper):
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_PROCESSING'],
                 icon=Ms3dUi.ICON_PROCESSING)
-        box.prop(self, 'extended_normal_handling')
+        box.prop(self, 'use_extended_normal_handling')
 
         box = layout.box()
         box.label(ms3d_str['LABEL_NAME_ANIMATION'], icon=Ms3dUi.ICON_ANIMATION)
@@ -359,8 +362,8 @@ class Ms3dImportOperator(Operator, ImportHelper):
                 col = box.column()
                 row = col.row()
                 row.prop(self, 'joint_size')
-            box.prop(self, 'joint_to_bones')
-            if (self.joint_to_bones):
+            box.prop(self, 'use_joint_to_bones')
+            if (self.use_joint_to_bones):
                 box.box().label(ms3d_str['LABEL_NAME_JOINT_TO_BONES'],
                         icon=Ms3dUi.ICON_ERROR)
 
@@ -368,7 +371,19 @@ class Ms3dImportOperator(Operator, ImportHelper):
     def execute(self, blender_context):
         """ start executing """
         from io_scene_ms3d.ms3d_import import (Ms3dImporter, )
-        return Ms3dImporter(self).read(blender_context)
+        return Ms3dImporter(
+                report=self.report,
+                verbose=self.verbose,
+                use_extended_normal_handling=self.use_extended_normal_handling,
+                use_animation=self.use_animation,
+                use_quaternion_rotation=self.use_quaternion_rotation,
+                use_joint_size=self.use_joint_size,
+                joint_size=self.joint_size,
+                use_joint_to_bones=self.use_joint_to_bones,
+                ).read(
+                        blender_context,
+                        self.filepath
+                        )
 
     def invoke(self, blender_context, event):
         blender_context.window_manager.fileselect_add(self)
@@ -390,13 +405,6 @@ class Ms3dExportOperator(Operator, ExportHelper):
     bl_options = {'PRESET', }
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-
-    filename_ext = ms3d_str['FILE_EXT']
-
-    filter_glob = StringProperty(
-            default=ms3d_str['FILE_FILTER'],
-            options={'HIDDEN', }
-            )
 
     filepath = StringProperty(
             subtype='FILE_PATH',
@@ -470,6 +478,16 @@ class Ms3dExportOperator(Operator, ExportHelper):
             default=Ms3dUi.PROP_DEFAULT_BAKE_EACH_FRAME,
             )
 
+    filename_ext = StringProperty(
+            default=ms3d_str['FILE_EXT'],
+            options={'HIDDEN', }
+            )
+
+    filter_glob = StringProperty(
+            default=ms3d_str['FILE_FILTER'],
+            options={'HIDDEN', }
+            )
+
 
     ##EXPORT_ACTIVE_ONLY:
     ##limit availability to only active mesh object
@@ -523,7 +541,22 @@ class Ms3dExportOperator(Operator, ExportHelper):
     def execute(self, blender_context):
         """start executing"""
         from io_scene_ms3d.ms3d_export import (Ms3dExporter, )
-        return Ms3dExporter(self).write(blender_context)
+        return Ms3dExporter(
+                self.report,
+                verbose=self.verbose,
+                use_blender_names=self.use_blender_names,
+                use_blender_materials=self.use_blender_materials,
+                apply_transform=self.apply_transform,
+                apply_modifiers=self.apply_modifiers,
+                apply_modifiers_mode=self.apply_modifiers_mode,
+                use_animation=self.use_animation,
+                normalize_weights=self.normalize_weights,
+                shrink_to_keys=self.shrink_to_keys,
+                bake_each_frame=self.bake_each_frame,
+                ).write(
+                        blender_context,
+                        self.filepath
+                        )
 
     #
     def invoke(self, blender_context, event):

@@ -37,9 +37,6 @@ from struct import (
 from sys import (
         exc_info,
         )
-from os import (
-        fstat,
-        )
 
 ###############################################################################
 #
@@ -137,9 +134,6 @@ class Ms3dSpec:
 #
 # helper class for basic raw io
 #
-class EOF(BaseException):
-    pass
-
 class Ms3dIo:
     # sizes for IO
     SIZE_BYTE = 1
@@ -154,109 +148,119 @@ class Ms3dIo:
     PRECISION = 4
 
     @staticmethod
-    def raise_on_eof(file):
-        """ pseudo end of file detection """
-        fd = file.fileno()
-        stat = fstat(fd)
-        if file.tell() >= stat.st_size:
-            raise EOF()
-
-    @staticmethod
-    def read_byte(file):
-        """ read a single byte from file """
-        value = unpack('<B', file.read(Ms3dIo.SIZE_BYTE))[0]
+    def read_byte(raw_io):
+        """ read a single byte from raw_io """
+        buffer = raw_io.read(Ms3dIo.SIZE_BYTE)
+        if not buffer:
+            raise EOFError()
+        value = unpack('<B', buffer)[0]
         return value
 
     @staticmethod
-    def write_byte(file, value):
-        """ write a single byte to file """
-        file.write(pack('<B', value))
+    def write_byte(raw_io, value):
+        """ write a single byte to raw_io """
+        raw_io.write(pack('<B', value))
 
     @staticmethod
-    def read_sbyte(file):
-        """ read a single signed byte from file """
-        value = unpack('<b', file.read(Ms3dIo.SIZE_SBYTE))[0]
+    def read_sbyte(raw_io):
+        """ read a single signed byte from raw_io """
+        buffer = raw_io.read(Ms3dIo.SIZE_BYTE)
+        if not buffer:
+            raise EOFError()
+        value = unpack('<b', buffer)[0]
         return value
 
     @staticmethod
-    def write_sbyte(file, value):
-        """ write a single signed byte to file """
-        file.write(pack('<b', value))
+    def write_sbyte(raw_io, value):
+        """ write a single signed byte to raw_io """
+        raw_io.write(pack('<b', value))
 
     @staticmethod
-    def read_word(file):
-        """ read a word from file """
-        value = unpack('<H', file.read(Ms3dIo.SIZE_WORD))[0]
+    def read_word(raw_io):
+        """ read a word from raw_io """
+        buffer = raw_io.read(Ms3dIo.SIZE_WORD)
+        if not buffer:
+            raise EOFError()
+        value = unpack('<H', buffer)[0]
         return value
 
     @staticmethod
-    def write_word(file, value):
-        """ write a word to file """
-        file.write(pack('<H', value))
+    def write_word(raw_io, value):
+        """ write a word to raw_io """
+        raw_io.write(pack('<H', value))
 
     @staticmethod
-    def read_dword(file):
-        """ read a double word from file """
-        value = unpack('<I', file.read(Ms3dIo.SIZE_DWORD))[0]
+    def read_dword(raw_io):
+        """ read a double word from raw_io """
+        buffer = raw_io.read(Ms3dIo.SIZE_DWORD)
+        if not buffer:
+            raise EOFError()
+        value = unpack('<I', buffer)[0]
         return value
 
     @staticmethod
-    def write_dword(file, value):
-        """ write a double word to file """
-        file.write(pack('<I', value))
+    def write_dword(raw_io, value):
+        """ write a double word to raw_io """
+        raw_io.write(pack('<I', value))
 
     @staticmethod
-    def read_float(file):
-        """ read a float from file """
-        value = unpack('<f', file.read(Ms3dIo.SIZE_FLOAT))[0]
+    def read_float(raw_io):
+        """ read a float from raw_io """
+        buffer = raw_io.read(Ms3dIo.SIZE_FLOAT)
+        if not buffer:
+            raise EOFError()
+        value = unpack('<f', buffer)[0]
         return value
 
     @staticmethod
-    def write_float(file, value):
-        """ write a float to file """
-        file.write(pack('<f', value))
+    def write_float(raw_io, value):
+        """ write a float to raw_io """
+        raw_io.write(pack('<f', value))
 
     @staticmethod
-    def read_array(file, itemReader, count):
-        """ read an array[count] of objects from file, by using a itemReader """
+    def read_array(raw_io, itemReader, count):
+        """ read an array[count] of objects from raw_io, by using a itemReader """
         value = []
         for i in range(count):
-            itemValue = itemReader(file)
+            itemValue = itemReader(raw_io)
             value.append(itemValue)
         return tuple(value)
 
     @staticmethod
-    def write_array(file, itemWriter, count, value):
-        """ write an array[count] of objects to file, by using a itemWriter """
+    def write_array(raw_io, itemWriter, count, value):
+        """ write an array[count] of objects to raw_io, by using a itemWriter """
         for i in range(count):
             itemValue = value[i]
-            itemWriter(file, itemValue)
+            itemWriter(raw_io, itemValue)
 
     @staticmethod
-    def read_array2(file, itemReader, count, count2):
-        """ read an array[count][count2] of objects from file,
+    def read_array2(raw_io, itemReader, count, count2):
+        """ read an array[count][count2] of objects from raw_io,
             by using a itemReader """
         value = []
         for i in range(count):
-            itemValue = Ms3dIo.read_array(file, itemReader, count2)
+            itemValue = Ms3dIo.read_array(raw_io, itemReader, count2)
             value.append(tuple(itemValue))
         return value
 
     @staticmethod
-    def write_array2(file, itemWriter, count, count2, value):
-        """ write an array[count][count2] of objects to file,
+    def write_array2(raw_io, itemWriter, count, count2, value):
+        """ write an array[count][count2] of objects to raw_io,
             by using a itemWriter """
         for i in range(count):
             itemValue = value[i]
-            Ms3dIo.write_array(file, itemWriter, count2, itemValue)
+            Ms3dIo.write_array(raw_io, itemWriter, count2, itemValue)
 
     @staticmethod
-    def read_string(file, length):
-        """ read a string of a specific length from file """
+    def read_string(raw_io, length):
+        """ read a string of a specific length from raw_io """
         value = []
         skip = False
         for i in range(length):
-            raw = unpack('<b', file.read(Ms3dIo.SIZE_SBYTE))[0]
+            buffer = raw_io.read(Ms3dIo.SIZE_SBYTE)
+            if not buffer:
+                raise EOFError()
+            raw = (int)(unpack('<b', buffer)[0])
             if (raw >= 32) & (raw <= 255):
                 pass
             else:
@@ -275,8 +279,8 @@ class Ms3dIo:
         return finalValue
 
     @staticmethod
-    def write_string(file, length, value):
-        """ write a string of a specific length to file """
+    def write_string(raw_io, length, value):
+        """ write a string of a specific length to raw_io """
         l = len(value)
         for i in range(length):
             if(i < l):
@@ -292,7 +296,7 @@ class Ms3dIo:
             else:
                 raw = 0
 
-            file.write(pack('<b', raw % 256))
+            raw_io.write(pack('<b', (int)(raw % 256)))
 
 
 ###############################################################################
@@ -330,14 +334,14 @@ class Ms3dHeader:
                 and (self.id == other.id)
                 and (self.version == other.version))
 
-    def read(self, file):
-        self.id = Ms3dIo.read_string(file, Ms3dIo.LENGTH_ID)
-        self.version = Ms3dIo.read_dword(file)
+    def read(self, raw_io):
+        self.id = Ms3dIo.read_string(raw_io, Ms3dIo.LENGTH_ID)
+        self.version = Ms3dIo.read_dword(raw_io)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_string(file, Ms3dIo.LENGTH_ID, self.id)
-        Ms3dIo.write_dword(file, self.version)
+    def write(self, raw_io):
+        Ms3dIo.write_string(raw_io, Ms3dIo.LENGTH_ID, self.id)
+        Ms3dIo.write_dword(raw_io, self.version)
 
 
 ###############################################################################
@@ -410,18 +414,18 @@ class Ms3dVertex:
         return self._vertex_ex_object
 
 
-    def read(self, file):
-        self.flags = Ms3dIo.read_byte(file)
-        self._vertex = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
-        self.bone_id = Ms3dIo.read_sbyte(file)
-        self.reference_count = Ms3dIo.read_byte(file)
+    def read(self, raw_io):
+        self.flags = Ms3dIo.read_byte(raw_io)
+        self._vertex = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
+        self.bone_id = Ms3dIo.read_sbyte(raw_io)
+        self.reference_count = Ms3dIo.read_byte(raw_io)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_byte(file, self.flags)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.vertex)
-        Ms3dIo.write_sbyte(file, self.bone_id)
-        Ms3dIo.write_byte(file, self.reference_count)
+    def write(self, raw_io):
+        Ms3dIo.write_byte(raw_io, self.flags)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.vertex)
+        Ms3dIo.write_sbyte(raw_io, self.bone_id)
+        Ms3dIo.write_byte(raw_io, self.reference_count)
 
 
 ###############################################################################
@@ -508,24 +512,24 @@ class Ms3dTriangle:
         return self._t
 
 
-    def read(self, file):
-        self.flags = Ms3dIo.read_word(file)
-        self._vertex_indices = Ms3dIo.read_array(file, Ms3dIo.read_word, 3)
-        self._vertex_normals = Ms3dIo.read_array2(file, Ms3dIo.read_float, 3, 3)
-        self._s = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
-        self._t = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
-        self.smoothing_group = Ms3dIo.read_byte(file)
-        self.group_index = Ms3dIo.read_byte(file)
+    def read(self, raw_io):
+        self.flags = Ms3dIo.read_word(raw_io)
+        self._vertex_indices = Ms3dIo.read_array(raw_io, Ms3dIo.read_word, 3)
+        self._vertex_normals = Ms3dIo.read_array2(raw_io, Ms3dIo.read_float, 3, 3)
+        self._s = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
+        self._t = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
+        self.smoothing_group = Ms3dIo.read_byte(raw_io)
+        self.group_index = Ms3dIo.read_byte(raw_io)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_word(file, self.flags)
-        Ms3dIo.write_array(file, Ms3dIo.write_word, 3, self.vertex_indices)
-        Ms3dIo.write_array2(file, Ms3dIo.write_float, 3, 3, self.vertex_normals)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.s)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.t)
-        Ms3dIo.write_byte(file, self.smoothing_group)
-        Ms3dIo.write_byte(file, self.group_index)
+    def write(self, raw_io):
+        Ms3dIo.write_word(raw_io, self.flags)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_word, 3, self.vertex_indices)
+        Ms3dIo.write_array2(raw_io, Ms3dIo.write_float, 3, 3, self.vertex_normals)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.s)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.t)
+        Ms3dIo.write_byte(raw_io, self.smoothing_group)
+        Ms3dIo.write_byte(raw_io, self.group_index)
 
 
 ###############################################################################
@@ -592,23 +596,23 @@ class Ms3dGroup:
         return self._comment_object
 
 
-    def read(self, file):
-        self.flags = Ms3dIo.read_byte(file)
-        self.name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
-        _number_triangles = Ms3dIo.read_word(file)
+    def read(self, raw_io):
+        self.flags = Ms3dIo.read_byte(raw_io)
+        self.name = Ms3dIo.read_string(raw_io, Ms3dIo.LENGTH_NAME)
+        _number_triangles = Ms3dIo.read_word(raw_io)
         self._triangle_indices = Ms3dIo.read_array(
-                file, Ms3dIo.read_word, _number_triangles)
-        self.material_index = Ms3dIo.read_sbyte(file)
+                raw_io, Ms3dIo.read_word, _number_triangles)
+        self.material_index = Ms3dIo.read_sbyte(raw_io)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_byte(file, self.flags)
-        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.name)
-        Ms3dIo.write_word(file, self.number_triangles)
+    def write(self, raw_io):
+        Ms3dIo.write_byte(raw_io, self.flags)
+        Ms3dIo.write_string(raw_io, Ms3dIo.LENGTH_NAME, self.name)
+        Ms3dIo.write_word(raw_io, self.number_triangles)
         Ms3dIo.write_array(
-                file, Ms3dIo.write_word, self.number_triangles,
+                raw_io, Ms3dIo.write_word, self.number_triangles,
                 self.triangle_indices)
-        Ms3dIo.write_sbyte(file, self.material_index)
+        Ms3dIo.write_sbyte(raw_io, self.material_index)
 
 
 ###############################################################################
@@ -755,30 +759,30 @@ class Ms3dMaterial:
         return self._comment_object
 
 
-    def read(self, file):
-        self.name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
-        self._ambient = Ms3dIo.read_array(file, Ms3dIo.read_float, 4)
-        self._diffuse = Ms3dIo.read_array(file, Ms3dIo.read_float, 4)
-        self._specular = Ms3dIo.read_array(file, Ms3dIo.read_float, 4)
-        self._emissive = Ms3dIo.read_array(file, Ms3dIo.read_float, 4)
-        self.shininess = Ms3dIo.read_float(file)
-        self.transparency = Ms3dIo.read_float(file)
-        self.mode = Ms3dIo.read_sbyte(file)
-        self.texture = Ms3dIo.read_string(file, Ms3dIo.LENGTH_FILENAME)
-        self.alphamap = Ms3dIo.read_string(file, Ms3dIo.LENGTH_FILENAME)
+    def read(self, raw_io):
+        self.name = Ms3dIo.read_string(raw_io, Ms3dIo.LENGTH_NAME)
+        self._ambient = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 4)
+        self._diffuse = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 4)
+        self._specular = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 4)
+        self._emissive = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 4)
+        self.shininess = Ms3dIo.read_float(raw_io)
+        self.transparency = Ms3dIo.read_float(raw_io)
+        self.mode = Ms3dIo.read_byte(raw_io)
+        self.texture = Ms3dIo.read_string(raw_io, Ms3dIo.LENGTH_FILENAME)
+        self.alphamap = Ms3dIo.read_string(raw_io, Ms3dIo.LENGTH_FILENAME)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.name)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 4, self.ambient)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 4, self.diffuse)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 4, self.specular)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 4, self.emissive)
-        Ms3dIo.write_float(file, self.shininess)
-        Ms3dIo.write_float(file, self.transparency)
-        Ms3dIo.write_sbyte(file, self.mode)
-        Ms3dIo.write_string(file, Ms3dIo.LENGTH_FILENAME, self.texture)
-        Ms3dIo.write_string(file, Ms3dIo.LENGTH_FILENAME, self.alphamap)
+    def write(self, raw_io):
+        Ms3dIo.write_string(raw_io, Ms3dIo.LENGTH_NAME, self.name)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 4, self.ambient)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 4, self.diffuse)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 4, self.specular)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 4, self.emissive)
+        Ms3dIo.write_float(raw_io, self.shininess)
+        Ms3dIo.write_float(raw_io, self.transparency)
+        Ms3dIo.write_byte(raw_io, self.mode)
+        Ms3dIo.write_string(raw_io, Ms3dIo.LENGTH_FILENAME, self.texture)
+        Ms3dIo.write_string(raw_io, Ms3dIo.LENGTH_FILENAME, self.alphamap)
 
 
 ###############################################################################
@@ -812,14 +816,14 @@ class Ms3dRotationKeyframe:
         return self._rotation
 
 
-    def read(self, file):
-        self.time = Ms3dIo.read_float(file)
-        self._rotation = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
+    def read(self, raw_io):
+        self.time = Ms3dIo.read_float(raw_io)
+        self._rotation = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_float(file, self.time)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.rotation)
+    def write(self, raw_io):
+        Ms3dIo.write_float(raw_io, self.time)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.rotation)
 
 
 ###############################################################################
@@ -853,14 +857,14 @@ class Ms3dTranslationKeyframe:
         return self._position
 
 
-    def read(self, file):
-        self.time = Ms3dIo.read_float(file)
-        self._position = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
+    def read(self, raw_io):
+        self.time = Ms3dIo.read_float(raw_io)
+        self._position = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_float(file, self.time)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.position)
+    def write(self, raw_io):
+        Ms3dIo.write_float(raw_io, self.time)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.position)
 
 
 ###############################################################################
@@ -983,35 +987,35 @@ class Ms3dJoint:
         return self._comment_object
 
 
-    def read(self, file):
-        self.flags = Ms3dIo.read_byte(file)
-        self.name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
-        self.parent_name = Ms3dIo.read_string(file, Ms3dIo.LENGTH_NAME)
-        self._rotation = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
-        self._position = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
-        _number_rotation_keyframes = Ms3dIo.read_word(file)
-        _number_translation_keyframes = Ms3dIo.read_word(file)
+    def read(self, raw_io):
+        self.flags = Ms3dIo.read_byte(raw_io)
+        self.name = Ms3dIo.read_string(raw_io, Ms3dIo.LENGTH_NAME)
+        self.parent_name = Ms3dIo.read_string(raw_io, Ms3dIo.LENGTH_NAME)
+        self._rotation = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
+        self._position = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
+        _number_rotation_keyframes = Ms3dIo.read_word(raw_io)
+        _number_translation_keyframes = Ms3dIo.read_word(raw_io)
         self._rotation_keyframes = []
         for i in range(_number_rotation_keyframes):
-            self.rotation_key_frames.append(Ms3dRotationKeyframe().read(file))
+            self.rotation_key_frames.append(Ms3dRotationKeyframe().read(raw_io))
         self._translation_keyframes = []
         for i in range(_number_translation_keyframes):
             self.translation_key_frames.append(
-                    Ms3dTranslationKeyframe().read(file))
+                    Ms3dTranslationKeyframe().read(raw_io))
         return self
 
-    def write(self, file):
-        Ms3dIo.write_byte(file, self.flags)
-        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.name)
-        Ms3dIo.write_string(file, Ms3dIo.LENGTH_NAME, self.parent_name)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.rotation)
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.position)
-        Ms3dIo.write_word(file, self.number_rotation_keyframes)
-        Ms3dIo.write_word(file, self.number_translation_keyframes)
+    def write(self, raw_io):
+        Ms3dIo.write_byte(raw_io, self.flags)
+        Ms3dIo.write_string(raw_io, Ms3dIo.LENGTH_NAME, self.name)
+        Ms3dIo.write_string(raw_io, Ms3dIo.LENGTH_NAME, self.parent_name)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.rotation)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.position)
+        Ms3dIo.write_word(raw_io, self.number_rotation_keyframes)
+        Ms3dIo.write_word(raw_io, self.number_translation_keyframes)
         for i in range(self.number_rotation_keyframes):
-            self.rotation_key_frames[i].write(file)
+            self.rotation_key_frames[i].write(raw_io)
         for i in range(self.number_translation_keyframes):
-            self.translation_key_frames[i].write(file)
+            self.translation_key_frames[i].write(raw_io)
 
 
 ###############################################################################
@@ -1048,16 +1052,16 @@ class Ms3dCommentEx:
         return len(self.comment)
 
 
-    def read(self, file):
-        self.index = Ms3dIo.read_dword(file)
-        _comment_length = Ms3dIo.read_dword(file)
-        self.comment = Ms3dIo.read_string(file, _comment_length)
+    def read(self, raw_io):
+        self.index = Ms3dIo.read_dword(raw_io)
+        _comment_length = Ms3dIo.read_dword(raw_io)
+        self.comment = Ms3dIo.read_string(raw_io, _comment_length)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_dword(file, self.index)
-        Ms3dIo.write_dword(file, self.comment_length)
-        Ms3dIo.write_string(file, self.comment_length, self.comment)
+    def write(self, raw_io):
+        Ms3dIo.write_dword(raw_io, self.index)
+        Ms3dIo.write_dword(raw_io, self.comment_length)
+        Ms3dIo.write_string(raw_io, self.comment_length, self.comment)
 
 
 ###############################################################################
@@ -1090,14 +1094,14 @@ class Ms3dComment:
         return len(self.comment)
 
 
-    def read(self, file):
-        _comment_length = Ms3dIo.read_dword(file)
-        self.comment = Ms3dIo.read_string(file, _comment_length)
+    def read(self, raw_io):
+        _comment_length = Ms3dIo.read_dword(raw_io)
+        self.comment = Ms3dIo.read_string(raw_io, _comment_length)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_dword(file, self.comment_length)
-        Ms3dIo.write_string(file, self.comment_length, self.comment)
+    def write(self, raw_io):
+        Ms3dIo.write_dword(raw_io, self.comment_length)
+        Ms3dIo.write_string(raw_io, self.comment_length, self.comment)
 
 
 ###############################################################################
@@ -1161,14 +1165,14 @@ class Ms3dVertexEx1:
         return 0
 
 
-    def read(self, file):
-        self._bone_ids = Ms3dIo.read_array(file, Ms3dIo.read_sbyte, 3)
-        self._weights = Ms3dIo.read_array(file, Ms3dIo.read_byte, 3)
+    def read(self, raw_io):
+        self._bone_ids = Ms3dIo.read_array(raw_io, Ms3dIo.read_sbyte, 3)
+        self._weights = Ms3dIo.read_array(raw_io, Ms3dIo.read_byte, 3)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_array(file, Ms3dIo.write_sbyte, 3, self.bone_ids)
-        Ms3dIo.write_array(file, Ms3dIo.write_byte, 3, self.weights)
+    def write(self, raw_io):
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_sbyte, 3, self.bone_ids)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_byte, 3, self.weights)
 
 
 ###############################################################################
@@ -1236,16 +1240,16 @@ class Ms3dVertexEx2:
         return 0
 
 
-    def read(self, file):
-        self._bone_ids = Ms3dIo.read_array(file, Ms3dIo.read_sbyte, 3)
-        self._weights = Ms3dIo.read_array(file, Ms3dIo.read_byte, 3)
-        self.extra = Ms3dIo.read_dword(file)
+    def read(self, raw_io):
+        self._bone_ids = Ms3dIo.read_array(raw_io, Ms3dIo.read_sbyte, 3)
+        self._weights = Ms3dIo.read_array(raw_io, Ms3dIo.read_byte, 3)
+        self.extra = Ms3dIo.read_dword(raw_io)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_array(file, Ms3dIo.write_sbyte, 3, self.bone_ids)
-        Ms3dIo.write_array(file, Ms3dIo.write_byte, 3, self.weights)
-        Ms3dIo.write_dword(file, self.extra)
+    def write(self, raw_io):
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_sbyte, 3, self.bone_ids)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_byte, 3, self.weights)
+        Ms3dIo.write_dword(raw_io, self.extra)
 
 
 ###############################################################################
@@ -1323,16 +1327,16 @@ class Ms3dVertexEx3:
         return 0
 
 
-    def read(self, file):
-        self._bone_ids = Ms3dIo.read_array(file, Ms3dIo.read_sbyte, 3)
-        self._weights = Ms3dIo.read_array(file, Ms3dIo.read_byte, 3)
-        self.extra = Ms3dIo.read_dword(file)
+    def read(self, raw_io):
+        self._bone_ids = Ms3dIo.read_array(raw_io, Ms3dIo.read_sbyte, 3)
+        self._weights = Ms3dIo.read_array(raw_io, Ms3dIo.read_byte, 3)
+        self.extra = Ms3dIo.read_dword(raw_io)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_array(file, Ms3dIo.write_sbyte, 3, self.bone_ids)
-        Ms3dIo.write_array(file, Ms3dIo.write_byte, 3, self.weights)
-        Ms3dIo.write_dword(file, self.extra)
+    def write(self, raw_io):
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_sbyte, 3, self.bone_ids)
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_byte, 3, self.weights)
+        Ms3dIo.write_dword(raw_io, self.extra)
 
 
 ###############################################################################
@@ -1362,12 +1366,12 @@ class Ms3dJointEx:
         return self._color
 
 
-    def read(self, file):
-        self._color = Ms3dIo.read_array(file, Ms3dIo.read_float, 3)
+    def read(self, raw_io):
+        self._color = Ms3dIo.read_array(raw_io, Ms3dIo.read_float, 3)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_array(file, Ms3dIo.write_float, 3, self.color)
+    def write(self, raw_io):
+        Ms3dIo.write_array(raw_io, Ms3dIo.write_float, 3, self.color)
 
 
 ###############################################################################
@@ -1398,16 +1402,16 @@ class Ms3dModelEx:
                 p=Ms3dIo.PRECISION
                 )
 
-    def read(self, file):
-        self.joint_size = Ms3dIo.read_float(file)
-        self.transparency_mode = Ms3dIo.read_dword(file)
-        self.alpha_ref = Ms3dIo.read_float(file)
+    def read(self, raw_io):
+        self.joint_size = Ms3dIo.read_float(raw_io)
+        self.transparency_mode = Ms3dIo.read_dword(raw_io)
+        self.alpha_ref = Ms3dIo.read_float(raw_io)
         return self
 
-    def write(self, file):
-        Ms3dIo.write_float(file, self.joint_size)
-        Ms3dIo.write_dword(file, self.transparency_mode)
-        Ms3dIo.write_float(file, self.alpha_ref)
+    def write(self, raw_io):
+        Ms3dIo.write_float(raw_io, self.joint_size)
+        Ms3dIo.write_dword(raw_io, self.transparency_mode)
+        Ms3dIo.write_float(raw_io, self.alpha_ref)
 
 
 ###############################################################################
@@ -1717,51 +1721,51 @@ class Ms3dModel:
         print()
 
 
-    def read(self, file):
+    def read(self, raw_io):
         """
         opens, reads and pars MS3D file.
         add content to blender scene
         """
 
-        self.header.read(file)
+        self.header.read(raw_io)
         if (self.header != Ms3dHeader()):
             print("\nwarning, invalid file header")
 
-        _number_vertices = Ms3dIo.read_word(file)
+        _number_vertices = Ms3dIo.read_word(raw_io)
         if (_number_vertices > Ms3dSpec.MAX_VERTICES):
             print("\nwarning, invalid count: number_vertices: {}".format(
                     _number_vertices))
         self._vertices = []
         for i in range(_number_vertices):
-            self.vertices.append(Ms3dVertex().read(file))
+            self.vertices.append(Ms3dVertex().read(raw_io))
 
-        _number_triangles = Ms3dIo.read_word(file)
+        _number_triangles = Ms3dIo.read_word(raw_io)
         if (_number_triangles > Ms3dSpec.MAX_TRIANGLES):
             print("\nwarning, invalid count: number_triangles: {}".format(
                     _number_triangles))
         self._triangles = []
         for i in range(_number_triangles):
-            self.triangles.append(Ms3dTriangle().read(file))
+            self.triangles.append(Ms3dTriangle().read(raw_io))
 
-        _number_groups = Ms3dIo.read_word(file)
+        _number_groups = Ms3dIo.read_word(raw_io)
         if (_number_groups > Ms3dSpec.MAX_GROUPS):
             print("\nwarning, invalid count: number_groups: {}".format(
                     _number_groups))
         self._groups = []
         for i in range(_number_groups):
-            self.groups.append(Ms3dGroup().read(file))
+            self.groups.append(Ms3dGroup().read(raw_io))
 
-        _number_materials = Ms3dIo.read_word(file)
+        _number_materials = Ms3dIo.read_word(raw_io)
         if (_number_materials > Ms3dSpec.MAX_MATERIALS):
             print("\nwarning, invalid count: number_materials: {}".format(
                     _number_materials))
         self._materials = []
         for i in range(_number_materials):
-            self.materials.append(Ms3dMaterial().read(file))
+            self.materials.append(Ms3dMaterial().read(raw_io))
 
-        self.animation_fps = Ms3dIo.read_float(file)
-        self.current_time = Ms3dIo.read_float(file)
-        self.number_total_frames = Ms3dIo.read_dword(file)
+        self.animation_fps = Ms3dIo.read_float(raw_io)
+        self.current_time = Ms3dIo.read_float(raw_io)
+        self.number_total_frames = Ms3dIo.read_dword(raw_io)
 
         _progress = set()
 
@@ -1769,23 +1773,19 @@ class Ms3dModel:
             # optional data
             # doesn't matter if doesn't existing.
 
-            Ms3dIo.raise_on_eof(file)
-
-            _number_joints = Ms3dIo.read_word(file)
+            _number_joints = Ms3dIo.read_word(raw_io)
             _progress.add('NUMBER_JOINTS')
             if (_number_joints > Ms3dSpec.MAX_JOINTS):
                 print("\nwarning, invalid count: number_joints: {}".format(
                         _number_joints))
             self._joints = []
             for i in range(_number_joints):
-                self.joints.append(Ms3dJoint().read(file))
+                self.joints.append(Ms3dJoint().read(raw_io))
             _progress.add('JOINTS')
 
-            Ms3dIo.raise_on_eof(file)
-
-            self.sub_version_comments = Ms3dIo.read_dword(file)
+            self.sub_version_comments = Ms3dIo.read_dword(raw_io)
             _progress.add('SUB_VERSION_COMMENTS')
-            _number_group_comments = Ms3dIo.read_dword(file)
+            _number_group_comments = Ms3dIo.read_dword(raw_io)
             _progress.add('NUMBER_GROUP_COMMENTS')
             if (_number_group_comments > Ms3dSpec.MAX_GROUPS):
                 print("\nwarning, invalid count:"\
@@ -1796,7 +1796,7 @@ class Ms3dModel:
                         " number_group_comments: {}, number_groups: {}".format(
                         _number_group_comments, _number_groups))
             for i in range(_number_group_comments):
-                item = Ms3dCommentEx().read(file)
+                item = Ms3dCommentEx().read(raw_io)
                 if item.index >= 0 and item.index < _number_groups:
                     self.groups[item.index]._comment_object = item
                 else:
@@ -1805,7 +1805,7 @@ class Ms3dModel:
                             item.index, _number_groups))
             _progress.add('GROUP_COMMENTS')
 
-            _number_material_comments = Ms3dIo.read_dword(file)
+            _number_material_comments = Ms3dIo.read_dword(raw_io)
             _progress.add('NUMBER_MATERIAL_COMMENTS')
             if (_number_material_comments > Ms3dSpec.MAX_MATERIALS):
                 print("\nwarning, invalid count:"\
@@ -1817,7 +1817,7 @@ class Ms3dModel:
                         " {}, number_materials: {}".format(
                         _number_material_comments, _number_materials))
             for i in range(_number_material_comments):
-                item = Ms3dCommentEx().read(file)
+                item = Ms3dCommentEx().read(raw_io)
                 if item.index >= 0 and item.index < _number_materials:
                     self.materials[item.index]._comment_object = item
                 else:
@@ -1826,7 +1826,7 @@ class Ms3dModel:
                             " {}".format(item.index, _number_materials))
             _progress.add('MATERIAL_COMMENTS')
 
-            _number_joint_comments = Ms3dIo.read_dword(file)
+            _number_joint_comments = Ms3dIo.read_dword(raw_io)
             _progress.add('NUMBER_JOINT_COMMENTS')
             if (_number_joint_comments > Ms3dSpec.MAX_JOINTS):
                 print("\nwarning, invalid count:"\
@@ -1837,7 +1837,7 @@ class Ms3dModel:
                         " number_joint_comments: {}, number_joints: {}".format(
                         _number_joint_comments, _number_joints))
             for i in range(_number_joint_comments):
-                item = Ms3dCommentEx().read(file)
+                item = Ms3dCommentEx().read(raw_io)
                 if item.index >= 0 and item.index < _number_joints:
                     self.joints[item.index]._comment_object = item
                 else:
@@ -1846,17 +1846,15 @@ class Ms3dModel:
                             item.index, _number_joints))
             _progress.add('JOINT_COMMENTS')
 
-            _has_model_comment = Ms3dIo.read_dword(file)
+            _has_model_comment = Ms3dIo.read_dword(raw_io)
             _progress.add('HAS_MODEL_COMMENTS')
             if (_has_model_comment != 0):
-                self._comment_object = Ms3dComment().read(file)
+                self._comment_object = Ms3dComment().read(raw_io)
             else:
                 self._comment_object = None
             _progress.add('MODEL_COMMENTS')
 
-            Ms3dIo.raise_on_eof(file)
-
-            self.sub_version_vertex_extra = Ms3dIo.read_dword(file)
+            self.sub_version_vertex_extra = Ms3dIo.read_dword(raw_io)
             _progress.add('SUB_VERSION_VERTEX_EXTRA')
             if self.sub_version_vertex_extra > 0:
                 length = len(self.joints)
@@ -1872,27 +1870,23 @@ class Ms3dModel:
                                 " sub_version_vertex_extra: {}".format(
                                 sub_version_vertex_extra))
                         continue
-                    self.vertices[i]._vertex_ex_object = item.read(file)
+                    self.vertices[i]._vertex_ex_object = item.read(raw_io)
             _progress.add('VERTEX_EXTRA')
 
-            Ms3dIo.raise_on_eof(file)
-
-            self.sub_version_joint_extra = Ms3dIo.read_dword(file)
+            self.sub_version_joint_extra = Ms3dIo.read_dword(raw_io)
             _progress.add('SUB_VERSION_JOINT_EXTRA')
             if self.sub_version_joint_extra > 0:
                 for i in range(_number_joints):
-                    self.joints[i]._joint_ex_object = Ms3dJointEx().read(file)
+                    self.joints[i]._joint_ex_object = Ms3dJointEx().read(raw_io)
             _progress.add('JOINT_EXTRA')
 
-            Ms3dIo.raise_on_eof(file)
-
-            self.sub_version_model_extra = Ms3dIo.read_dword(file)
+            self.sub_version_model_extra = Ms3dIo.read_dword(raw_io)
             _progress.add('SUB_VERSION_MODEL_EXTRA')
             if self.sub_version_model_extra > 0:
-                self._model_ex_object.read(file)
+                self._model_ex_object.read(raw_io)
             _progress.add('MODEL_EXTRA')
 
-        except EOF:
+        except EOFError:
             # reached end of optional data.
             print("Ms3dModel.read - optional data read: {}".format(_progress))
             pass
@@ -1938,70 +1932,70 @@ class Ms3dModel:
         return
 
 
-    def write(self, file):
+    def write(self, raw_io):
         """
         add blender scene content to MS3D
         creates, writes MS3D file.
         """
 
-        self.header.write(file)
+        self.header.write(raw_io)
 
-        Ms3dIo.write_word(file, self.number_vertices)
+        Ms3dIo.write_word(raw_io, self.number_vertices)
         for i in range(self.number_vertices):
-            self.vertices[i].write(file)
+            self.vertices[i].write(raw_io)
 
-        Ms3dIo.write_word(file, self.number_triangles)
+        Ms3dIo.write_word(raw_io, self.number_triangles)
         for i in range(self.number_triangles):
-            self.triangles[i].write(file)
+            self.triangles[i].write(raw_io)
 
-        Ms3dIo.write_word(file, self.number_groups)
+        Ms3dIo.write_word(raw_io, self.number_groups)
         for i in range(self.number_groups):
-            self.groups[i].write(file)
+            self.groups[i].write(raw_io)
 
-        Ms3dIo.write_word(file, self.number_materials)
+        Ms3dIo.write_word(raw_io, self.number_materials)
         for i in range(self.number_materials):
-            self.materials[i].write(file)
+            self.materials[i].write(raw_io)
 
-        Ms3dIo.write_float(file, self.animation_fps)
-        Ms3dIo.write_float(file, self.current_time)
-        Ms3dIo.write_dword(file, self.number_total_frames)
+        Ms3dIo.write_float(raw_io, self.animation_fps)
+        Ms3dIo.write_float(raw_io, self.current_time)
+        Ms3dIo.write_dword(raw_io, self.number_total_frames)
 
         try:
             # optional part
             # doesn't matter if it doesn't complete.
-            Ms3dIo.write_word(file, self.number_joints)
+            Ms3dIo.write_word(raw_io, self.number_joints)
             for i in range(self.number_joints):
-                self.joints[i].write(file)
+                self.joints[i].write(raw_io)
 
-            Ms3dIo.write_dword(file, self.sub_version_comments)
+            Ms3dIo.write_dword(raw_io, self.sub_version_comments)
 
-            Ms3dIo.write_dword(file, self.number_group_comments)
+            Ms3dIo.write_dword(raw_io, self.number_group_comments)
             for i in range(self.number_group_comments):
-                self.group_comments[i].comment_object.write(file)
+                self.group_comments[i].comment_object.write(raw_io)
 
-            Ms3dIo.write_dword(file, self.number_material_comments)
+            Ms3dIo.write_dword(raw_io, self.number_material_comments)
             for i in range(self.number_material_comments):
-                self.material_comments[i].comment_object.write(file)
+                self.material_comments[i].comment_object.write(raw_io)
 
-            Ms3dIo.write_dword(file, self.number_joint_comments)
+            Ms3dIo.write_dword(raw_io, self.number_joint_comments)
             for i in range(self.number_joint_comments):
-                self.joint_comments[i].comment_object.write(file)
+                self.joint_comments[i].comment_object.write(raw_io)
 
-            Ms3dIo.write_dword(file, self.has_model_comment)
+            Ms3dIo.write_dword(raw_io, self.has_model_comment)
             if (self.has_model_comment != 0):
-                self.comment_object.write(file)
+                self.comment_object.write(raw_io)
 
-            Ms3dIo.write_dword(file, self.sub_version_vertex_extra)
+            Ms3dIo.write_dword(raw_io, self.sub_version_vertex_extra)
             if (self.sub_version_vertex_extra in {1, 2, 3}):
                 for i in range(self.number_vertices):
-                    self.vertex_ex[i].write(file)
+                    self.vertex_ex[i].write(raw_io)
 
-            Ms3dIo.write_dword(file, self.sub_version_joint_extra)
+            Ms3dIo.write_dword(raw_io, self.sub_version_joint_extra)
             for i in range(self.number_joints):
-                self.joint_ex[i].write(file)
+                self.joint_ex[i].write(raw_io)
 
-            Ms3dIo.write_dword(file, self.sub_version_model_extra)
-            self.model_ex_object.write(file)
+            Ms3dIo.write_dword(raw_io, self.sub_version_model_extra)
+            self.model_ex_object.write(raw_io)
 
         except Exception:
             type, value, traceback = exc_info()

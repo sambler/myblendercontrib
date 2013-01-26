@@ -116,9 +116,6 @@ def pre_setup_environment(porter, blender_context):
 
     blender_context.scene.update()
 
-    # inject splitted filepath
-    porter.filepath_splitted = path.split(porter.options.filepath)
-
 
 ###############################################################################
 def post_setup_environment(porter, blender_context):
