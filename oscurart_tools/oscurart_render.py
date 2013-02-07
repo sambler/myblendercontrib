@@ -1,6 +1,5 @@
 import bpy
 import math
-import sys
 import os
 import stat
 import bmesh
@@ -24,9 +23,7 @@ def defRenderAll (frametype):
             if OBJECT.type=="MESH" or OBJECT.type == "META" or OBJECT.type == "CURVE":
                 for SLOT in OBJECT.material_slots[:]:
                     SLOTLIST.append(SLOT.material)
-
                 LISTMAT.append((OBJECT,SLOTLIST))
-
         except:
             pass
     for SCENE in SCENES:
@@ -60,12 +57,11 @@ def defRenderAll (frametype):
             print("SCENE: "+CURSC)
             print("LAYER: "+layers.name)
             print("OVERRIDE: "+str(PROPTOLIST))
-            SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
+            SCENE.render.filepath = os.path.join(PATH,SCENENAME,CURSC,layers.name,"%s_%s_%s" % (SCENENAME,SCENE.name,layers.name))
             SCENE.render.layers[layers.name].use = 1
             bpy.ops.render.render(animation=True, write_still=True, layer=layers.name, scene= SCENE.name)
             print("DONE")
             print("---------------------")
-
         for layer in LAYERLIST:
             layer.use = 1
         SCENE.render.filepath = ENDPATH
@@ -91,7 +87,6 @@ class renderAll (bpy.types.Operator):
 
     frametype=bpy.props.BoolProperty(default=False)
 
-
     def execute(self,context):
         defRenderAll(self.frametype)
         return {'FINISHED'}
@@ -99,9 +94,7 @@ class renderAll (bpy.types.Operator):
 
 ##--------------------------------RENDER SELECTED SCENES----------------------------
 
-
 bpy.types.Scene.use_render_scene = bpy.props.BoolProperty()
-
 
 def defRenderSelected(frametype):
     ACTSCENE = bpy.context.scene
@@ -153,7 +146,7 @@ def defRenderSelected(frametype):
                 print("SCENE: "+CURSC)
                 print("LAYER: "+layers.name)
                 print("OVERRIDE: "+str(PROPTOLIST))
-                SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
+                SCENE.render.filepath = os.path.join(PATH,SCENENAME,CURSC,layers.name,"%s_%s_%s" % (SCENENAME,SCENE.name,layers.name))
                 SCENE.render.layers[layers.name].use = 1
                 bpy.ops.render.render(animation=True, layer=layers.name, write_still=True, scene= SCENE.name)
                 print("DONE")
@@ -176,7 +169,6 @@ def defRenderSelected(frametype):
                 SCENE.frame_start = FS
     bpy.context.window.screen.scene = ACTSCENE
 
-
 class renderSelected (bpy.types.Operator):
     bl_idname="render.render_selected_scenes_osc"
     bl_label="Render Selected Scenes"
@@ -187,11 +179,7 @@ class renderSelected (bpy.types.Operator):
         defRenderSelected(self.frametype)
         return {'FINISHED'}
 
-
-
-
 ##--------------------------------RENDER CURRENT SCENE----------------------------
-
 
 def defRenderCurrent (frametype):
     LISTMAT = []
@@ -239,7 +227,7 @@ def defRenderCurrent (frametype):
         print("SCENE: "+CURSC)
         print("LAYER: "+layers.name)
         print("OVERRIDE: "+str(PROPTOLIST))
-        SCENE.render.filepath = "%s/%s/%s/%s/%s_%s_%s_" % (PATH,SCENENAME,CURSC,layers.name,SCENENAME,SCENE.name,layers.name)
+        SCENE.render.filepath = os.path.join(PATH,SCENENAME,CURSC,layers.name,"%s_%s_%s" % (SCENENAME,SCENE.name,layers.name))
         SCENE.render.layers[layers.name].use = 1
         bpy.ops.render.render(animation=True, layer=layers.name, write_still=1, scene= SCENE.name)
         print("DONE")
@@ -260,7 +248,6 @@ def defRenderCurrent (frametype):
         SCENE.frame_end = FE
         SCENE.frame_end = FE
         SCENE.frame_start = FS
-
 
 class renderCurrent (bpy.types.Operator):
     bl_idname="render.render_current_scene_osc"
@@ -300,11 +287,9 @@ class renderCrop (bpy.types.Operator):
         OscRenderCropFunc()
         return {'FINISHED'}
 
-
-
 ##---------------------------BATCH MAKER------------------
 def defoscBatchMaker(TYPE):
-    if sys.platform.startswith("w"):
+    if os.sys.platform.startswith("w"):
         print("PLATFORM: WINDOWS")
         SYSBAR = "\\"
         EXTSYS = ".bat"
@@ -314,44 +299,44 @@ def defoscBatchMaker(TYPE):
         SYSBAR = "/"
         EXTSYS = ".sh"
         QUOTES = ''
-
+    
     FILENAME = bpy.data.filepath.rpartition(SYSBAR)[-1].rpartition(".")[0]
     BINDIR = bpy.app[4]
-    SHFILE = bpy.data.filepath.rpartition(SYSBAR)[0] + SYSBAR + FILENAME + EXTSYS
-    FILEBATCH = open(SHFILE,"w")
+    SHFILE = os.path.join (bpy.data.filepath.rpartition(SYSBAR)[0] , FILENAME + EXTSYS)
+    
+    with open(SHFILE,"w") as FILE:
+        # assign permission in linux
+        if EXTSYS == ".sh":
+            try:
+                os.chmod(SHFILE, stat.S_IRWXU)
+            except:
+                print("** Oscurart Batch maker can not modify the permissions.")    
+    
+        FILE.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
 
-    if EXTSYS == ".sh":
-        try:
-            os.chmod(SHFILE, stat.S_IRWXU)
-        except:
-            print("** Oscurart Batch maker can not modify the permissions.")    
-
-    FILEBATCH.writelines("%s%s%s -b %s -x 1 -o %s -P %s%s.py  -s %s -e %s -a" % (QUOTES,BINDIR,QUOTES,bpy.data.filepath,bpy.context.scene.render.filepath,bpy.data.filepath.rpartition(SYSBAR)[0]+SYSBAR,TYPE,str(bpy.context.scene.frame_start),str(bpy.context.scene.frame_end)) )
-    FILEBATCH.close()  
     
     RLATFILE =  "%s%sosRlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR )
     if not os.path.isfile(RLATFILE):
-        FILESC = open(RLATFILE,"w")        
-        if EXTSYS == ".sh":
-            try:
-                os.chmod(RLATFILE, stat.S_IRWXU)  
-            except:
-                print("** Oscurart Batch maker can not modify the permissions.")                             
-        FILESC.writelines("import bpy \nbpy.ops.render.render_all_scenes_osc()\nbpy.ops.wm.quit_blender()")
-        FILESC.close()
+        with open(RLATFILE,"w")  as file:      
+            if EXTSYS == ".sh":
+                try:
+                    os.chmod(RLATFILE, stat.S_IRWXU)  
+                except:
+                    print("** Oscurart Batch maker can not modify the permissions.")                             
+            file.writelines("import bpy \nbpy.ops.render.render_all_scenes_osc()\nbpy.ops.wm.quit_blender()")
+
     else:
         print("The All Python files Skips: Already exist!")   
          
     RSLATFILE = "%s%sosRSlat.py" % (bpy.data.filepath.rpartition(SYSBAR)[0] , SYSBAR)    
-    if not os.path.isfile(RSLATFILE):          
-        FILESSC = open(RSLATFILE,"w")          
-        if EXTSYS == ".sh":
-            try:
-                os.chmod(RSLATFILE, stat.S_IRWXU)   
-            except:
-                print("** Oscurart Batch maker can not modify the permissions.")                            
-        FILESSC.writelines("import bpy \nbpy.ops.render.render_selected_scenes_osc()\nbpy.ops.wm.quit_blender()")
-        FILESSC.close()
+    if not os.path.isfile(RSLATFILE):  
+        with  open(RSLATFILE,"w")  as file:          
+            if EXTSYS == ".sh":
+                try:
+                    os.chmod(RSLATFILE, stat.S_IRWXU)   
+                except:
+                    print("** Oscurart Batch maker can not modify the permissions.")                            
+            file.writelines("import bpy \nbpy.ops.render.render_selected_scenes_osc()\nbpy.ops.wm.quit_blender()")
     else:
         print("The Selected Python files Skips: Already exist!")          
 
@@ -376,7 +361,7 @@ class oscBatchMaker (bpy.types.Operator):
 ## --------------------------------------PYTHON BATCH--------------------------------------------------------
 def defoscPythonBatchMaker(BATCHTYPE,SIZE):
     # REVISO SISTEMA
-    if sys.platform.startswith("w"):
+    if os.sys.platform.startswith("w"):
         print("PLATFORM: WINDOWS")
         SYSBAR = "\\"
         EXTSYS = ".bat"
@@ -414,7 +399,7 @@ def defoscPythonBatchMaker(BATCHTYPE,SIZE):
     
     # DEFINO ARCHIVO DE BATCH
     FILEBATCH.writelines(SCRIPT)
-    FILEBATCH.close()  
+
     
     
     # ARCHIVO CALL
