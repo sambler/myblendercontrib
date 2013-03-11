@@ -22,7 +22,7 @@ bl_info = {
     "name": "DirectX X Format",
     "author": "Chris Foster",
     "version": (3, 0, 0),
-    "blender": (2, 63, 0),
+    "blender": (2, 66, 0),
     "location": "File > Export > DirectX (.x)",
     "description": "Export mesh vertices, UV's, materials, textures, "\
         "vertex colors, armatures, empties, and actions.",
@@ -110,18 +110,18 @@ class ExportDirectX(bpy.types.Operator):
             ('FULL', "Full Animation", "")),
         default='NONE')
     
-    IncludeFrameRate = BoolProperty(
-        name="Include Frame Rate",
-        description="Include the AnimTicksPerSecond template which is "\
-            "used by some engines to control animation speed",
-        default=False)
-
     #ExportActionsAsSets = BoolProperty(
     #    name="Export Actions as AnimationSets",
     #    description="Export each action of each object as a separate "\
     #        "AnimationSet. Otherwise all current actions are lumped "\
     #        "together into a single set",
     #    default=False)
+
+    IncludeFrameRate = BoolProperty(
+        name="Include Frame Rate",
+        description="Include the AnimTicksPerSecond template which is "\
+            "used by some engines to control animation speed",
+        default=False)
 
     Verbose = BoolProperty(
         name="Verbose",
