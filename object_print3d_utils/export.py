@@ -50,7 +50,8 @@ def write_mesh(context, info, report_cb):
     name += "-%s" % bpy.path.clean_name(obj.name)
 
     # first ensure the path is created
-    os.makedirs(export_path, exist_ok=True)
+    if export_path:
+        os.makedirs(export_path, exist_ok=True)
 
     filepath = os.path.join(export_path, name)
 
@@ -76,6 +77,14 @@ def write_mesh(context, info, report_cb):
         addon_ensure("io_mesh_ply")
         filepath = bpy.path.ensure_ext(filepath, ".ply")
         ret = bpy.ops.export_mesh.ply(
+                context_override,
+                filepath=filepath,
+                use_mesh_modifiers=True,
+                )
+    elif export_format == 'WRL':
+        addon_ensure("io_mesh_vrml2")
+        filepath = bpy.path.ensure_ext(filepath, ".wrl")
+        ret = bpy.ops.export_mesh.vrml2(
                 context_override,
                 filepath=filepath,
                 use_mesh_modifiers=True,
