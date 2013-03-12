@@ -87,20 +87,22 @@ def write_mesh(context, info, report_cb):
                 filepath=filepath,
                 use_mesh_modifiers=True,
                 )
-    elif export_format == 'WRL':
-        addon_ensure("io_mesh_vrml2")
-        filepath = bpy.path.ensure_ext(filepath, ".wrl")
-        ret = bpy.ops.export_mesh.vrml2(
-                context_override,
-                filepath=filepath,
-                use_mesh_modifiers=True,
-                )
     elif export_format == 'X3D':
         addon_ensure("io_scene_x3d")
         filepath = bpy.path.ensure_ext(filepath, ".x3d")
         ret = bpy.ops.export_scene.x3d(
                 context_override,
-                filepath=filepath, use_mesh_modifiers=True,
+                filepath=filepath,
+                use_mesh_modifiers=True,
+                use_selection=True,
+                )
+    elif export_format == 'WRL':
+        addon_ensure("io_scene_vrml2")
+        filepath = bpy.path.ensure_ext(filepath, ".wrl")
+        ret = bpy.ops.export_scene.vrml2(
+                context_override,
+                filepath=filepath,
+                use_mesh_modifiers=True,
                 use_selection=True,
                 )
     elif export_format == 'OBJ':
