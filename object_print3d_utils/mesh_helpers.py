@@ -189,7 +189,7 @@ def bmesh_face_points_random(f, num_points=1, margin=0.05):
 
 
 def bmesh_check_thick_object(obj, thickness):
-    
+
     import bpy
 
     # Triangulate

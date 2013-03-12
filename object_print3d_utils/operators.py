@@ -36,6 +36,16 @@ from . import mesh_helpers
 from . import report
 
 
+def clean_float(text):
+    # strip trailing zeros: 0.000 -> 0.0
+    index = text.rfind(".")
+    if index != -1:
+        index += 2
+        head, tail = text[:index], text[index:]
+        tail = tail.rstrip("0")
+        text = head + tail
+    return text
+
 # ---------
 # Mesh Info
 
@@ -45,16 +55,22 @@ class Print3DInfoVolume(Operator):
     bl_label = "Print3D Info Volume"
 
     def execute(self, context):
+        scene = context.scene
+        unit = scene.unit_settings
+        scale = 1.0 if unit.system == 'NONE' else unit.scale_length
         obj = context.active_object
 
         bm = mesh_helpers.bmesh_copy_from_object(obj)
-        area = mesh_helpers.bmesh_calc_volume(bm)
+        volume = mesh_helpers.bmesh_calc_volume(bm)
         bm.free()
-        
-        # TODO, units!
-        report.update(("Volume: %.4f" % area,
-                      None))
 
+        info = []
+        info.append(("Volume: %s³" % clean_float("%.4f" % volume),
+                    None))
+        info.append(("%s cm³" % clean_float("%.4f" % ((volume * scale) / (0.01 * 0.01 * 0.01) )),
+                    None))
+
+        report.update(*info)
         return {'FINISHED'}
 
 
@@ -64,15 +80,19 @@ class Print3DInfoArea(Operator):
     bl_label = "Print3D Info Area"
 
     def execute(self, context):
+        scene = context.scene
+        unit = scene.unit_settings
+        scale = 1.0 if unit.system == 'NONE' else unit.scale_length
         obj = context.active_object
 
         bm = mesh_helpers.bmesh_copy_from_object(obj)
         area = mesh_helpers.bmesh_calc_area(bm)
         bm.free()
-        
-        # TODO, units!
+
         info = []
-        info.append(("Area: %.4f" % area,
+        info.append(("Area: %s²" % clean_float("%.4f" % area),
+                    None))
+        info.append(("%s cm²" % clean_float("%.4f" % ((area * scale) / (0.01 * 0.01))),
                     None))
         report.update(*info)
         return {'FINISHED'}
@@ -331,7 +351,7 @@ class Print3DCleanDistorted(Operator):
         else:
             return {'CANCELLED'}
 
-    
+
 class Print3DCleanThin(Operator):
     """Ensure minimum thickness"""
     bl_idname = "mesh.print3d_clean_thin"
@@ -384,7 +404,7 @@ class Print3DSelectReport(Operator):
 
         try:
             for i in bm_array:
-                elems[i].select_set(True) 
+                elems[i].select_set(True)
         except:
             # possible arrays are out of sync
             self.report({'WARNING'}, "Report is out of date, re-run check")
