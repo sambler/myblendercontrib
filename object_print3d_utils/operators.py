@@ -60,7 +60,7 @@ class Print3DInfoVolume(Operator):
         scale = 1.0 if unit.system == 'NONE' else unit.scale_length
         obj = context.active_object
 
-        bm = mesh_helpers.bmesh_copy_from_object(obj)
+        bm = mesh_helpers.bmesh_copy_from_object(obj, apply_modifiers=True)
         volume = mesh_helpers.bmesh_calc_volume(bm)
         bm.free()
 
@@ -85,7 +85,7 @@ class Print3DInfoArea(Operator):
         scale = 1.0 if unit.system == 'NONE' else unit.scale_length
         obj = context.active_object
 
-        bm = mesh_helpers.bmesh_copy_from_object(obj)
+        bm = mesh_helpers.bmesh_copy_from_object(obj, apply_modifiers=True)
         area = mesh_helpers.bmesh_calc_area(bm)
         bm.free()
 

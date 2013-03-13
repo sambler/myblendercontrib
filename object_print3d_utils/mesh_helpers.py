@@ -24,20 +24,28 @@ import bmesh
 import array
 
 
-def bmesh_copy_from_object(obj, transform=True, triangulate=True):
+def bmesh_copy_from_object(obj, transform=True, triangulate=True, apply_modifiers=False):
     """
     Returns a transformed, triangulated copy of the mesh
     """
 
     assert(obj.type == 'MESH')
 
-    me = obj.data
-    if obj.mode == 'EDIT':
-        bm_orig = bmesh.from_edit_mesh(me)
-        bm = bm_orig.copy()
-    else:
+    if apply_modifiers and obj.modifiers:
+        import bpy
+        me = obj.to_mesh(bpy.context.scene, True, 'PREVIEW', calc_tessface=False)
         bm = bmesh.new()
         bm.from_mesh(me)
+        bpy.data.meshes.remove(me)
+        del bpy
+    else:
+        me = obj.data
+        if obj.mode == 'EDIT':
+            bm_orig = bmesh.from_edit_mesh(me)
+            bm = bm_orig.copy()
+        else:
+            bm = bmesh.new()
+            bm.from_mesh(me)
 
     # TODO. remove all customdata layers.
     # would save ram
