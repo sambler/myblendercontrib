@@ -67,7 +67,7 @@ class Print3DInfoVolume(Operator):
         info = []
         info.append(("Volume: %s³" % clean_float("%.4f" % volume),
                     None))
-        info.append(("%s cm³" % clean_float("%.4f" % ((volume * scale) / (0.01 * 0.01 * 0.01) )),
+        info.append(("%s cm³" % clean_float("%.4f" % ((volume * (scale * scale * scale)) / (0.01 * 0.01 * 0.01) )),
                     None))
 
         report.update(*info)
@@ -92,7 +92,7 @@ class Print3DInfoArea(Operator):
         info = []
         info.append(("Area: %s²" % clean_float("%.4f" % area),
                     None))
-        info.append(("%s cm²" % clean_float("%.4f" % ((area * scale) / (0.01 * 0.01))),
+        info.append(("%s cm²" % clean_float("%.4f" % ((area * (scale * scale)) / (0.01 * 0.01))),
                     None))
         report.update(*info)
         return {'FINISHED'}
