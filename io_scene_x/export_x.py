@@ -60,6 +60,8 @@ class DirectXExporter:
         self.RootExportList = [Object for Object in self.ExportMap.values()
             if Object.BlenderObject.parent not in ExportList]
         self.RootExportList = Util.SortByNameField(self.RootExportList)
+        
+        self.ExportList = Util.SortByNameField(self.ExportMap.values())
 
         # Determine each object's children from the pool of ExportObjects
         for Object in self.ExportMap.values():
@@ -69,6 +71,16 @@ class DirectXExporter:
                 if Child in self.ExportMap:
                     Object.Children.append(self.ExportMap[Child])
         self.Log("Done")
+        
+        if self.Config.ExportAnimation:
+            AnimationGenerators = self.__GatherAnimationGenerators()
+            
+            if self.Config.ExportActionsAsSets:
+                self.AnimationWriter = SplitSetAnimationWriter(self.Config,
+                    self, AnimationGenerators)
+            else:
+                self.AnimationWriter = JoinedSetAnimationWriter(self.Config,
+                    self, AnimationGenerators)
 
     # "Public" Interface
 
@@ -96,6 +108,9 @@ class DirectXExporter:
         self.Log("Closing Root frame...")
         self.__CloseRootFrame()
         self.Log("Done")
+        
+        if self.AnimationWriter is not None:
+            self.AnimationWriter.WriteAnimationSets()
 
         self.File.Close()
 
@@ -143,6 +158,79 @@ template SkinWeights {\n\
     def __CloseRootFrame(self):
         self.File.Unindent()
         self.File.Write("} // End of Root\n")
+    
+    def __GatherAnimationGenerators(self):
+        Generators = []
+        
+        if not self.Config.ExportActionsAsSets:
+            for Object in self.ExportList:
+                if Object.BlenderObject.type == 'ARMATURE':
+                    Generators.append(ArmatureAnimationGenerator(self.Config, 
+                        None, Object))
+                else:
+                    Generators.append(GenericAnimationGenerator(self.Config,
+                        None, Object))
+        else:
+            ActionlessObjects = []
+            
+            for Object in self.ExportList:
+                if Object.BlenderObject.animation_data is None:
+                    ActionlessObjects.append(Object)
+                    continue
+                else:
+                    if Object.BlenderObject.animation_data.action is None:
+                        ActionlessObjects.append(Object)
+                        continue
+                
+                if Object.BlenderObject.type == 'ARMATURE':
+                    Generators.append(ArmatureAnimationGenerator(self.Config,
+                        Util.SafeName(Object.BlenderObject.animation_data.action.name),
+                        Object))
+                else:
+                    Generators.append(GenericAnimationGenerator(self.Config,
+                        Util.SafeName(Object.BlenderObject.animation_data.action.name),
+                        Object))
+            
+            if self.Config.AttachToFirstArmature:
+                FirstArmature = None
+                for Object in self.ExportList:
+                    if Object.BlenderObject.type == 'ARMATURE':
+                        FirstArmature = Object
+                        break
+                    
+                if FirstArmature is not None:
+                    UsedActions = [BlenderObject.animation_data.action
+                        for BlenderObject in bpy.data.objects
+                        if BlenderObject.animation_data is not None]
+                    FreeActions = [Action for Action in bpy.data.actions
+                        if Action not in UsedActions]
+                    
+                    if FirstArmature in ActionlessObjects and len(FreeActions):
+                        ActionlessObjects.remove(FirstArmature)
+                    
+                    OldAction = None
+                    NoData = False
+                    if FirstArmature.BlenderObject.animation_data is not None:
+                        OldAction = FirstArmature.BlenderObject.animation_data.action
+                    else:
+                        NoData = True
+                        FirstArmature.BlenderObject.animation_data_create()
+                    
+                    for Action in FreeActions:
+                        FirstArmature.BlenderObject.animation_data.action = Action
+                        
+                        Generators.append(ArmatureAnimationGenerator(self.Config,
+                            Util.SafeName(Action.name), FirstArmature))
+                    
+                    FirstArmature.BlenderObject.animation_data.action = OldAction
+                    if NoData:
+                        FirstArmature.BlenderObject.animation_data_clear()
+            
+            if len(ActionlessObjects):
+                Generators.append(GroupAnimationGenerator(self.Config,
+                    "Default_Action", ActionlessObjects))
+
+        return Generators        
 
 
 class ExportObject:
@@ -255,7 +343,7 @@ class MeshExportObject(ExportObject):
             MeshExportObject._MeshEnumerator.__init__(self, Mesh)
             
             self.vertices = Mesh.vertices
-            self.polygons = Mesh.polygons # Needed?
+            self.polygons = Mesh.polygons # Needed? XXX
             
             self.VertexIndexes = tuple(range(0, len(self.vertices))) # Needed?
             self.PolygonVertexIndexes = tuple(tuple(Polygon.vertices)
@@ -283,13 +371,6 @@ class MeshExportObject(ExportObject):
                     Index + len(Polygon.vertices))))
                 Index += len(Polygon.vertices)
             
-            
-            
-            
-            
-            
-            
-
     # "Private" Methods
 
     def __WriteMesh(self, Mesh):
@@ -539,7 +620,7 @@ class MeshExportObject(ExportObject):
                     self.BoneMatrix *= ArmatureObject.matrix_world.inverted()
                     self.BoneMatrix *= BlenderObject.matrix_world
                 
-                def AddVertex(self, Index, Vertex, Weight):
+                def AddVertex(self, Index, Weight):
                     self.Indexes.append(Index)
                     self.Weights.append(Weight)
         
@@ -605,7 +686,7 @@ class MeshExportObject(ExportObject):
                 self.Exporter.File.Indent()
                 self.Exporter.File.Write("\"{}\";\n".format(BoneVertexGroup.SafeName))
                 
-                GroupVertexCount = len(BoneVertexGroup.Vertices)
+                GroupVertexCount = len(BoneVertexGroup.Indexes)
                 self.Exporter.File.Write("{};\n".format(GroupVertexCount))
                 
                 # Write the indexes of the vertices this bone affects.
@@ -633,13 +714,6 @@ class MeshExportObject(ExportObject):
                 self.Exporter.File.Write("}} // End of {} skin weights\n".format(BoneVertexGroup.SafeName))
             
             
-            
-            
-                
-                
-        
-
-
 class ArmatureExportObject(ExportObject):
     def __init__(self, Config, Exporter, BlenderObject):
         ExportObject.__init__(self, Config, Exporter, BlenderObject)
@@ -702,6 +776,242 @@ class ArmatureExportObject(ExportObject):
     
     def __WriteBoneChildren(self, Bone):
         self.__WriteBones(Util.SortByNameField(Bone.children))
+
+
+class Animation:
+    def __init__(self, SafeName):
+        self.SafeName = SafeName
+        
+        self.RotationKeys = []
+        self.ScaleKeys = []
+        self.PositionKeys = []
+        
+    # "Public" Interface
+    
+    def GetKeyCount(self):
+        return len(self.RotationKeys)
+
+
+class AnimationGenerator:
+    def __init__(self, Config, SafeName, ExportObject):
+        self.Config = Config
+        self.SafeName = SafeName
+        self.ExportObject = ExportObject
+        
+        self.Animations = []
+
+
+class GenericAnimationGenerator(AnimationGenerator):
+    def __init__(self, Config, SafeName, ExportObject):
+        AnimationGenerator.__init__(self, Config, SafeName, ExportObject)
+        
+        self._GenerateKeys()
+    
+    # "Protected" Interface
+    
+    def _GenerateKeys(self):
+        Scene = bpy.context.scene # Convenience alias
+        BlenderCurrentFrame = Scene.frame_current
+        
+        CurrentAnimation = Animation(self.ExportObject.SafeName)
+        BlenderObject = self.ExportObject.BlenderObject
+        
+        for Frame in range(Scene.frame_start, Scene.frame_end + 1):
+            Scene.frame_set(Frame)
+            
+            Rotation = BlenderObject.rotation_euler.to_quaternion()
+            Scale = BlenderObject.matrix_local.to_scale()
+            Position = BlenderObject.matrix_local.to_translation()
+            
+            CurrentAnimation.RotationKeys.append(Rotation)
+            CurrentAnimation.ScaleKeys.append(Scale)
+            CurrentAnimation.PositionKeys.append(Position)
+        
+        self.Animations.append(CurrentAnimation)
+        Scene.frame_set(BlenderCurrentFrame)
+        
+
+class GroupAnimationGenerator(AnimationGenerator):
+    def __init__(self, Config, SafeName, ExportObjects):
+        AnimationGenerator.__init__(self, Config, SafeName, None)
+        self.ExportObjects = ExportObjects
+        
+        self._GenerateKeys()
+    
+    # "Protected" Interface
+    
+    def _GenerateKeys(self):
+        for Object in self.ExportObjects:
+            if Object.BlenderObject.type == 'ARMATURE':
+                TemporaryGenerator = ArmatureAnimationGenerator(self.Config,
+                    None, Object)
+                self.Animations += TemporaryGenerator.Animations
+            else:
+                TemporaryGenerator = GenericAnimationGenerator(self.Config,
+                    None, Object)
+                self.Animations += TemporaryGenerator.Animations
+
+
+class ArmatureAnimationGenerator(GenericAnimationGenerator):
+    def __init__(self, Config, SafeName, ArmatureExportObject):
+        GenericAnimationGenerator.__init__(self, Config, SafeName, ArmatureExportObject)
+        
+        if self.Config.ExportArmatureBones:
+            self._GenerateBoneKeys()
+        
+    # "Protected" Interface
+    
+    def _GenerateBoneKeys(self):
+        from itertools import zip_longest as zip
+        
+        Scene = bpy.context.scene # Convenience alias
+        BlenderCurrentFrame = Scene.frame_current
+        
+        ArmatureObject = self.ExportObject.BlenderObject
+        ArmatureSafeName = self.ExportObject.SafeName
+        
+        BoneAnimations = [Animation(ArmatureSafeName + "_" + Util.SafeName(Bone.name))
+            for Bone in ArmatureObject.pose.bones]
+        
+        for Frame in range(Scene.frame_start, Scene.frame_end + 1):
+            Scene.frame_set(Frame)
+            
+            for Bone, BoneAnimation in zip(ArmatureObject.pose.bones, BoneAnimations):
+                Rotation = ArmatureObject.data.bones[Bone.name].matrix.to_quaternion() * \
+                    Bone.rotation_quaternion
+                
+                PoseMatrix = Matrix()
+                if Bone.parent:
+                    PoseMatrix = Bone.parent.matrix.inverted()
+                PoseMatrix *= Bone.matrix
+                
+                Scale = PoseMatrix.to_scale()
+                Position = PoseMatrix.to_translation()
+                
+                BoneAnimation.RotationKeys.append(Rotation)
+                BoneAnimation.ScaleKeys.append(Scale)
+                BoneAnimation.PositionKeys.append(Position)
+        
+        self.Animations += BoneAnimations
+        Scene.frame_set(BlenderCurrentFrame)
+
+
+class AnimationSet:
+    def __init__(self, SafeName, AnimationGenerators):
+        self.SafeName = SafeName
+        self.AnimationGenerators = AnimationGenerators
+
+
+class AnimationWriter:
+    def __init__(self, Config, Exporter, AnimationGenerators):
+        self.Config = Config
+        self.Exporter = Exporter
+        self.AnimationGenerators = AnimationGenerators
+        
+        self.AnimationSets = []
+        
+    # "Public" Interface
+    
+    def WriteAnimationSets(self):
+        if self.Config.IncludeFrameRate:
+            self.__WriteFrameRate()
+            
+        for Set in self.AnimationSets:
+            self.Exporter.File.Write("AnimationSet {} {{\n".format(Set.SafeName))
+            self.Exporter.File.Indent()
+            
+            for Generator in Set.AnimationGenerators:
+                for CurrentAnimation in Generator.Animations:
+                    self.Exporter.File.Write("Animation {\n")
+                    self.Exporter.File.Indent()
+                    self.Exporter.File.Write("{{{}}}\n".format(CurrentAnimation.SafeName))
+                    
+                    KeyCount = CurrentAnimation.GetKeyCount()
+                    
+                    self.Exporter.File.Write("AnimationKey { // Rotation\n");
+                    self.Exporter.File.Indent()
+                    self.Exporter.File.Write("0;\n")
+                    self.Exporter.File.Write("{};\n".format(KeyCount))
+                    
+                    for Frame, Key in enumerate(CurrentAnimation.RotationKeys):
+                        self.Exporter.File.Write("{};4;{:9f},{:9f},{:9f},{:9f};;".format(
+                            Frame, -Key[0], Key[1], Key[2], Key[3]))
+                        
+                        if Frame == KeyCount - 1:
+                            self.Exporter.File.Write(";\n", Indent=False)
+                        else:
+                            self.Exporter.File.Write(",\n", Indent=False)
+                    
+                    self.Exporter.File.Unindent()
+                    self.Exporter.File.Write("}\n")
+                    
+                    self.Exporter.File.Write("AnimationKey { // Scale\n");
+                    self.Exporter.File.Indent()
+                    self.Exporter.File.Write("1;\n")
+                    self.Exporter.File.Write("{};\n".format(KeyCount))
+                    
+                    for Frame, Key in enumerate(CurrentAnimation.ScaleKeys):
+                        self.Exporter.File.Write("{};3;{:9f},{:9f},{:9f};;".format(
+                            Frame, Key[0], Key[1], Key[2]))
+                        
+                        if Frame == KeyCount - 1:
+                            self.Exporter.File.Write(";\n", Indent=False)
+                        else:
+                            self.Exporter.File.Write(",\n", Indent=False)
+                    
+                    self.Exporter.File.Unindent()
+                    self.Exporter.File.Write("}\n")
+                    
+                    self.Exporter.File.Write("AnimationKey { // Position\n");
+                    self.Exporter.File.Indent()
+                    self.Exporter.File.Write("1;\n")
+                    self.Exporter.File.Write("{};\n".format(KeyCount))
+                    
+                    for Frame, Key in enumerate(CurrentAnimation.PositionKeys):
+                        self.Exporter.File.Write("{};3;{:9f},{:9f},{:9f};;".format(
+                            Frame, Key[0], Key[1], Key[2]))
+                        
+                        if Frame == KeyCount - 1:
+                            self.Exporter.File.Write(";\n", Indent=False)
+                        else:
+                            self.Exporter.File.Write(",\n", Indent=False)
+                    
+                    self.Exporter.File.Unindent()
+                    self.Exporter.File.Write("}\n")
+                    
+                    self.Exporter.File.Unindent()
+                    self.Exporter.File.Write("}\n")
+                    
+            self.Exporter.File.Unindent()
+            self.Exporter.File.Write("}} // End of AnimationSet {}\n".format(
+                Set.SafeName))
+    
+    # "Private" Methods
+    
+    def __WriteFrameRate(self):
+        Scene = bpy.context.scene # Convenience alias
+        FrameRate = int(Scene.render.fps / Scene.render.fps_base)
+        
+        self.Exporter.File.Write("AnimTicksPerSecond {\n");
+        self.Exporter.File.Indent()
+        self.Exporter.File.Write("{};\n".format(FrameRate))
+        self.Exporter.File.Unindent()
+        self.Exporter.File.Write("}\n")
+
+
+class JoinedSetAnimationWriter(AnimationWriter):
+    def __init__(self, Config, Exporter, AnimationGenerators):
+        AnimationWriter.__init__(self, Config, Exporter, AnimationGenerators)
+        
+        self.AnimationSets = [AnimationSet("Global", self.AnimationGenerators)]
+
+
+class SplitSetAnimationWriter(AnimationWriter):
+    def __init__(self, Config, Exporter, AnimationGenerators):
+        AnimationWriter.__init__(self, Config, Exporter, AnimationGenerators)
+        
+        self.AnimationSets = [AnimationSet(Generator.SafeName, [Generator])
+            for Generator in AnimationGenerators]
 
 
 class File:
