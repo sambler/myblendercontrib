@@ -72,6 +72,7 @@ class DirectXExporter:
                     Object.Children.append(self.ExportMap[Child])
         self.Log("Done")
         
+        self.AnimationWriter = None
         if self.Config.ExportAnimation:
             AnimationGenerators = self.__GatherAnimationGenerators()
             
@@ -660,7 +661,7 @@ class MeshExportObject(ExportObject):
                 for VertexGroup in Vertex.groups:
                     BoneVertexGroup = GroupIndexToBoneVertexGroups.get(VertexGroup.group)
                     if BoneVertexGroup is not None:
-                        VertexWeightTotal += VertexGroup.group
+                        VertexWeightTotal += VertexGroup.weight
                         VertexInfluences += 1
                 
                 if VertexInfluences > MaximumInfluences:
@@ -964,7 +965,7 @@ class AnimationWriter:
                     
                     self.Exporter.File.Write("AnimationKey { // Position\n");
                     self.Exporter.File.Indent()
-                    self.Exporter.File.Write("1;\n")
+                    self.Exporter.File.Write("2;\n")
                     self.Exporter.File.Write("{};\n".format(KeyCount))
                     
                     for Frame, Key in enumerate(CurrentAnimation.PositionKeys):
