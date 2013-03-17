@@ -46,6 +46,8 @@ class ExportDirectX(bpy.types.Operator):
     bl_label = "Export DirectX"
 
     filepath = StringProperty(subtype='FILE_PATH')
+    
+    # Export options
 
     SelectedOnly = BoolProperty(
         name="Export Selected Objects Only",
@@ -57,7 +59,6 @@ class ExportDirectX(bpy.types.Operator):
         description="Apply object modifiers before export",
         default=False)
         
-    # XXX Change this stuff to property groups if possible
     ExportMeshes = BoolProperty(
         name="Export Meshes",
         description="Export mesh objects",
@@ -78,10 +79,10 @@ class ExportDirectX(bpy.types.Operator):
         description="Export material properties and reference image textures",
         default=True)
 
-    #ExportVertexColors = BoolProperty(
-    #    name="    Export Vertex Colors",
-    #    description="Export mesh vertex colors, if any",
-    #    default=False)
+    ExportVertexColors = BoolProperty(
+        name="    Export Vertex Colors",
+        description="Export mesh vertex colors, if any",
+        default=False)
     
     ExportSkinWeights = BoolProperty(
         name="    Export Skin Weights",
@@ -135,7 +136,7 @@ class ExportDirectX(bpy.types.Operator):
 
         import export_x
         Exporter = export_x.DirectXExporter(self, context)
-        Exporter.Export() # XXX Rename this
+        Exporter.Export()
         return {'FINISHED'}
 
     def invoke(self, context, event):
