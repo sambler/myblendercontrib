@@ -53,11 +53,6 @@ class ExportDirectX(bpy.types.Operator):
         name="Export Selected Objects Only",
         description="Export only selected objects",
         default=True)
-
-    ApplyModifiers = BoolProperty(
-        name="Apply Modifiers",
-        description="Apply object modifiers before export",
-        default=False)
         
     ExportMeshes = BoolProperty(
         name="Export Meshes",
@@ -87,6 +82,11 @@ class ExportDirectX(bpy.types.Operator):
     ExportSkinWeights = BoolProperty(
         name="    Export Skin Weights",
         description="Bind mesh vertices to armature bones",
+        default=False)
+    
+    ApplyModifiers = BoolProperty(
+        name="    Apply Modifiers",
+        description="Apply the effects of object modifiers before export",
         default=False)
     
     ExportArmatureBones = BoolProperty(
@@ -120,7 +120,7 @@ class ExportDirectX(bpy.types.Operator):
         default=False)
     
     AttachToFirstArmature = BoolProperty(
-        name="        Attach Extra Actions to First Armature",
+        name="        Attach Unused Actions to First Armature",
         description="Export each unused action as if used by the first "\
             "armature object",
         default=False)
