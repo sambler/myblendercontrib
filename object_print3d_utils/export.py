@@ -50,7 +50,14 @@ def write_mesh(context, info, report_cb):
     name += "-%s" % bpy.path.clean_name(obj.name)
 
     # first ensure the path is created
-    os.makedirs(export_path, exist_ok=True)
+    if export_path:
+        # this can fail with strange errors,
+        # if the dir cant be made then we get an error later.
+        try:
+            os.makedirs(export_path, exist_ok=True)
+        except:
+            import traceback
+            traceback.print_exc()
 
     filepath = os.path.join(export_path, name)
 
@@ -85,7 +92,17 @@ def write_mesh(context, info, report_cb):
         filepath = bpy.path.ensure_ext(filepath, ".x3d")
         ret = bpy.ops.export_scene.x3d(
                 context_override,
-                filepath=filepath, use_mesh_modifiers=True,
+                filepath=filepath,
+                use_mesh_modifiers=True,
+                use_selection=True,
+                )
+    elif export_format == 'WRL':
+        addon_ensure("io_scene_vrml2")
+        filepath = bpy.path.ensure_ext(filepath, ".wrl")
+        ret = bpy.ops.export_scene.vrml2(
+                context_override,
+                filepath=filepath,
+                use_mesh_modifiers=True,
                 use_selection=True,
                 )
     elif export_format == 'OBJ':

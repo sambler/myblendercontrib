@@ -61,6 +61,7 @@ class Print3DSettings(PropertyGroup):
             description="Format type to export to",
             items=(('STL', "STL", ""),
                    ('PLY', "PLY", ""),
+                   ('WRL', "VRML2", ""),
                    ('X3D', "X3D", ""),
                    ('OBJ', "OBJ", "")),
             default='STL',

@@ -22,7 +22,7 @@ bl_info = {
     "name": "DirectX X Format",
     "author": "Chris Foster",
     "version": (3, 0, 0),
-    "blender": (2, 63, 0),
+    "blender": (2, 66, 0),
     "location": "File > Export > DirectX (.x)",
     "description": "Export mesh vertices, UV's, materials, textures, "\
         "vertex colors, armatures, empties, and actions.",
@@ -99,29 +99,30 @@ class ExportDirectX(bpy.types.Operator):
             "animation)",
         default=False)
 
-    ExportAnimation = EnumProperty(
-        name="Animations",
-        description="Select the type of animations to export. Only object "\
-            "and armature bone animations can be exported. Full Animation "\
-            "exports every frame",
-        items=(
-            ('NONE', "None", ""),
-            ('KEYS', "Keyframes Only", ""),
-            ('FULL', "Full Animation", "")),
-        default='NONE')
-    
+    ExportAnimation = BoolProperty(
+        name="Export Animations",
+        description="Export object and bone animations.  Data is exported for "\
+            "every frame",
+        default=False)
+
     IncludeFrameRate = BoolProperty(
-        name="Include Frame Rate",
+        name="    Include Frame Rate",
         description="Include the AnimTicksPerSecond template which is "\
             "used by some engines to control animation speed",
         default=False)
-
-    #ExportActionsAsSets = BoolProperty(
-    #    name="Export Actions as AnimationSets",
-    #    description="Export each action of each object as a separate "\
-    #        "AnimationSet. Otherwise all current actions are lumped "\
-    #        "together into a single set",
-    #    default=False)
+    
+    ExportActionsAsSets = BoolProperty(
+        name="    Export Actions as AnimationSets",
+        description="Export each action of each object as a separate "\
+            "AnimationSet. Otherwise all current actions are lumped "\
+            "together into a single set",
+        default=False)
+    
+    AttachToFirstArmature = BoolProperty(
+        name="        Attach Extra Actions to First Armature",
+        description="Export each unused action as if used by the first "\
+            "armature object",
+        default=False)
 
     Verbose = BoolProperty(
         name="Verbose",
