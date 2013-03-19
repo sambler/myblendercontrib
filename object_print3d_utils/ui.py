@@ -89,6 +89,9 @@ class Print3DToolBar:
         rowsub = col.row()
         rowsub.operator("mesh.print3d_check_sharp", text="Edge Sharp")
         rowsub.prop(print_3d, "angle_sharp", text="")
+        rowsub = col.row()
+        rowsub.operator("mesh.print3d_check_overhang", text="Overhang")
+        rowsub.prop(print_3d, "angle_overhang", text="")
         col = layout.column()
         col.operator("mesh.print3d_check_all", text="Check All")
 

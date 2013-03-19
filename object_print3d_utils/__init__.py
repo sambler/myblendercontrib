@@ -71,12 +71,6 @@ class Print3DSettings(PropertyGroup):
             description="Path to directory where the files are created",
             default="//", maxlen=1024, subtype="DIR_PATH",
             )
-    angle_sharp = FloatProperty(
-            name="Angle",
-            subtype='ANGLE',
-            default=math.radians(160.0),
-            min=0.0, max=math.radians(180.0),
-            )
     thickness_min = FloatProperty(
             name="Thickness",
             description="Minimum thickness",
@@ -98,6 +92,18 @@ class Print3DSettings(PropertyGroup):
             default=math.radians(15.0),
             min=0.0, max=math.radians(180.0),
             )
+    angle_sharp = FloatProperty(
+            name="Angle",
+            subtype='ANGLE',
+            default=math.radians(160.0),
+            min=0.0, max=math.radians(180.0),
+            )
+    angle_overhang = FloatProperty(
+            name="Angle",
+            subtype='ANGLE',
+            default=0.0,
+            min=0.0, max=math.radians(90.0),
+            )
 
 classes = (
     ui.Print3DToolBarObject,
@@ -111,6 +117,7 @@ classes = (
     operators.Print3DCheckIntersections,
     operators.Print3DCheckThick,
     operators.Print3DCheckSharp,
+    operators.Print3DCheckOverhang,
     operators.Print3DCheckAll,
 
     operators.Print3DCleanIsolated,
