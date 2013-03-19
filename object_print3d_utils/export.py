@@ -32,8 +32,11 @@ def write_mesh(context, info, report_cb):
     obj = obj_base.object
 
     context_override = context.copy()
-    context_override["selected_bases"] = [obj_base]
-    context_override["selected_objects"] = [obj]
+
+    if obj_base not in context_override["selected_bases"]:
+        context_override["selected_bases"].append(obj_base)
+    if obj not in context_override["selected_objects"]:
+        context_override["selected_objects"].append(obj)
 
     export_format = print_3d.export_format
 
