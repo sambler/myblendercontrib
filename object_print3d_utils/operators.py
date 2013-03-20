@@ -185,6 +185,41 @@ class Print3DCheckDegenerate(Operator):
         return execute_check(self, context)
 
 
+class Print3DCheckDistorted(Operator):
+    """Check for non-flat faces """
+    bl_idname = "mesh.print3d_check_distort"
+    bl_label = "Print3D Check Distorted Faces"
+
+    @staticmethod
+    def main_check(obj, info):
+        import array
+
+        scene = bpy.context.scene
+        print_3d = scene.print_3d
+        angle_distort = print_3d.angle_distort
+
+        def face_is_distorted(ele):
+            no = ele.normal
+            angle_fn = no.angle
+            for loop in ele.loops:
+                if angle_fn(loop.calc_normal(), 1000.0) > angle_distort:
+                    return True
+            return False
+
+        bm = mesh_helpers.bmesh_copy_from_object(obj, transform=True, triangulate=False)
+        bm.normal_update()
+
+        faces_distort = array.array('i', (i for i, ele in enumerate(bm.faces) if face_is_distorted(ele)))
+
+        info.append(("Non-Flat Faces: %d" % len(faces_distort),
+                    (bmesh.types.BMFace, faces_distort)))
+
+        bm.free()
+
+    def execute(self, context):
+        return execute_check(self, context)
+
+
 class Print3DCheckThick(Operator):
     """Check geometry is above the minimum thickness preference """ \
     """(relies on correct normals)"""
@@ -275,6 +310,7 @@ class Print3DCheckAll(Operator):
         Print3DCheckSolid,
         Print3DCheckIntersections,
         Print3DCheckDegenerate,
+        Print3DCheckDistorted,
         Print3DCheckThick,
         Print3DCheckSharp,
         Print3DCheckOverhang,
@@ -369,8 +405,9 @@ class Print3DCleanDistorted(Operator):
 
         def face_is_distorted(ele):
             no = ele.normal
+            angle_fn = no.angle
             for loop in ele.loops:
-                if no.angle(loop.calc_normal(), 1000.0) > angle_distort:
+                if angle_fn(loop.calc_normal(), 1000.0) > angle_distort:
                     return True
             return False
 

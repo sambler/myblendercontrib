@@ -26,7 +26,7 @@ bl_info = {
     "description": "Utilities for 3D printing",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
-                "Scripts/XXX",
+                "Scripts/Modeling/PrintToolbox",
     "tracker_url": "",
     "support": 'OFFICIAL',
     "category": "Mesh"}
@@ -75,7 +75,7 @@ class Print3DSettings(PropertyGroup):
             name="Thickness",
             description="Minimum thickness",
             subtype='DISTANCE',
-            default=0.01,
+            default=0.001,  # 1mm
             min=0.0, max=1.0,
             )
     threshold_zero = FloatProperty(
@@ -101,7 +101,7 @@ class Print3DSettings(PropertyGroup):
     angle_overhang = FloatProperty(
             name="Angle",
             subtype='ANGLE',
-            default=0.0,
+            default=math.radians(45.0),
             min=0.0, max=math.radians(90.0),
             )
 
@@ -113,6 +113,7 @@ classes = (
     operators.Print3DInfoArea,
 
     operators.Print3DCheckDegenerate,
+    operators.Print3DCheckDistorted,
     operators.Print3DCheckSolid,
     operators.Print3DCheckIntersections,
     operators.Print3DCheckThick,
