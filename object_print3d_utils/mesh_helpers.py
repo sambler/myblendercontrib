@@ -255,3 +255,69 @@ def bmesh_check_thick_object(obj, thickness):
 
     return array.array('i', faces_error)
 
+
+
+def object_merge(context, objects):
+    """
+    Caller must remove.
+    """
+
+    import bpy
+
+    def cd_remove_all_but_active(seq):
+        tot = len(seq)
+        if tot > 1:
+            act = seq.active_index
+            for i in range(tot - 1, -1, -1):
+                if i != act:
+                    seq.remove(seq[i])
+
+    scene = context.scene
+
+    # deselect all
+    for obj in scene.objects:
+        obj.select = False
+
+    # add empty object
+    mesh_base = bpy.data.meshes.new(name="~tmp~")
+    obj_base = bpy.data.objects.new(name="~tmp~", object_data=mesh_base)
+    base_base = scene.objects.link(obj_base)
+    scene.objects.active = obj_base
+    obj_base.select = True
+
+    # loop over all meshes
+    for obj in objects:
+        if obj.type != 'MESH':
+            continue
+
+        # convert each to a mesh
+        mesh_new = obj.to_mesh(scene=scene,
+                               apply_modifiers=True,
+                               settings='PREVIEW',
+                               calc_tessface=False)
+
+        # remove non-active uvs/vcols
+        cd_remove_all_but_active(mesh_new.vertex_colors)
+        cd_remove_all_but_active(mesh_new.uv_textures)
+
+        # join into base mesh
+        obj_new = bpy.data.objects.new(name="~tmp-new~", object_data=mesh_new)
+        base_new = scene.objects.link(obj_new)
+        obj_new.matrix_world = obj.matrix_world
+
+        fake_context = context.copy()
+        fake_context["active_object"] = obj_base
+        fake_context["selected_editable_bases"] = [base_base, base_new]
+
+        bpy.ops.object.join(fake_context)
+        del base_new, obj_new
+
+        # remove object and its mesh, join does this
+        #~ scene.objects.unlink(obj_new)
+        #~ bpy.data.objects.remove(obj_new)
+
+        bpy.data.meshes.remove(mesh_new)
+
+    # return new object
+    return base_base
+
