@@ -185,6 +185,41 @@ class Print3DCheckDegenerate(Operator):
         return execute_check(self, context)
 
 
+class Print3DCheckDistorted(Operator):
+    """Check for non-flat faces """
+    bl_idname = "mesh.print3d_check_distort"
+    bl_label = "Print3D Check Distorted Faces"
+
+    @staticmethod
+    def main_check(obj, info):
+        import array
+
+        scene = bpy.context.scene
+        print_3d = scene.print_3d
+        angle_distort = print_3d.angle_distort
+
+        def face_is_distorted(ele):
+            no = ele.normal
+            angle_fn = no.angle
+            for loop in ele.loops:
+                if angle_fn(loop.calc_normal(), 1000.0) > angle_distort:
+                    return True
+            return False
+
+        bm = mesh_helpers.bmesh_copy_from_object(obj, transform=True, triangulate=False)
+        bm.normal_update()
+
+        faces_distort = array.array('i', (i for i, ele in enumerate(bm.faces) if face_is_distorted(ele)))
+
+        info.append(("Non-Flat Faces: %d" % len(faces_distort),
+                    (bmesh.types.BMFace, faces_distort)))
+
+        bm.free()
+
+    def execute(self, context):
+        return execute_check(self, context)
+
+
 class Print3DCheckThick(Operator):
     """Check geometry is above the minimum thickness preference """ \
     """(relies on correct normals)"""
@@ -231,6 +266,41 @@ class Print3DCheckSharp(Operator):
         return execute_check(self, context)
 
 
+class Print3DCheckOverhang(Operator):
+    """Check faces don't overhang past a certain angle"""
+    bl_idname = "mesh.print3d_check_overhang"
+    bl_label = "Print3D Check Overhang"
+
+    @staticmethod
+    def main_check(obj, info):
+        import math
+        from mathutils import Vector
+
+        scene = bpy.context.scene
+        print_3d = scene.print_3d
+        angle_overhang = (math.pi / 2.0) - print_3d.angle_overhang
+
+        if angle_overhang == math.pi:
+            info.append(("Skipping Overhang", ()))
+            return
+
+        bm = mesh_helpers.bmesh_copy_from_object(obj, transform=True, triangulate=False)
+        bm.normal_update()
+
+        z_down = Vector((0, 0, -1.0))
+        z_down_angle = z_down.angle
+
+        faces_overhang = [ele.index for ele in bm.faces
+                          if z_down_angle(ele.normal) < angle_overhang]
+
+        info.append(("Overhang Face: %d" % len(faces_overhang),
+                    (bmesh.types.BMFace, faces_overhang)))
+        bm.free()
+
+    def execute(self, context):
+        return execute_check(self, context)
+
+
 class Print3DCheckAll(Operator):
     """Run all checks"""
     bl_idname = "mesh.print3d_check_all"
@@ -240,8 +310,10 @@ class Print3DCheckAll(Operator):
         Print3DCheckSolid,
         Print3DCheckIntersections,
         Print3DCheckDegenerate,
+        Print3DCheckDistorted,
         Print3DCheckThick,
         Print3DCheckSharp,
+        Print3DCheckOverhang,
         )
 
     def execute(self, context):
@@ -333,8 +405,9 @@ class Print3DCleanDistorted(Operator):
 
         def face_is_distorted(ele):
             no = ele.normal
+            angle_fn = no.angle
             for loop in ele.loops:
-                if no.angle(loop.calc_normal(), 1000.0) > angle_distort:
+                if angle_fn(loop.calc_normal(), 1000.0) > angle_distort:
                     return True
             return False
 

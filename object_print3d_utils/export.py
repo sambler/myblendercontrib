@@ -31,11 +31,27 @@ def write_mesh(context, info, report_cb):
     obj_base = scene.object_bases.active
     obj = obj_base.object
 
-    context_override = context.copy()
-    context_override["selected_bases"] = [obj_base]
-    context_override["selected_objects"] = [obj]
-
     export_format = print_3d.export_format
+
+    context_override = context.copy()
+
+    obj_base_tmp = None
+
+    # PLY can only export single mesh objects!
+    if export_format == 'PLY':
+        context_backup = context.copy()
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+
+        from . import mesh_helpers
+        obj_base_tmp = mesh_helpers.object_merge(context, context_override["selected_objects"])
+        context_override["active_object"] = obj_base_tmp.object
+        context_override["selected_bases"] = [obj_base_tmp]
+        context_override["selected_objects"] = [obj_base_tmp.object]
+    else:
+        if obj_base not in context_override["selected_bases"]:
+            context_override["selected_bases"].append(obj_base)
+        if obj not in context_override["selected_objects"]:
+            context_override["selected_objects"].append(obj)
 
     export_path = bpy.path.abspath(print_3d.export_path)
 
@@ -116,6 +132,21 @@ def write_mesh(context, info, report_cb):
                 )
     else:
         assert(0)
+
+    if obj_base_tmp is not None:
+        obj = obj_base_tmp.object
+        mesh = obj.data
+        scene.objects.unlink(obj)
+        bpy.data.objects.remove(obj)
+        bpy.data.meshes.remove(mesh)
+        del obj_base_tmp, obj, mesh
+
+        # restore context
+        base = None
+        for base in context_backup["selected_bases"]:
+            base.select = True
+        del base
+        scene.objects.active = context_backup["active_object"]
 
     if 'FINISHED' in ret:
         info.append(("%r ok" % os.path.basename(filepath), None))

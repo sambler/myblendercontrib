@@ -19,7 +19,7 @@
 bl_info = {
     'name': "Nodes Efficiency Tools",
     'author': "Bartek Skorupa",
-    'version': (2, 0.07),
+    'version': (2, 0.12),
     'blender': (2, 6, 6),
     'location': "Node Editor Properties Panel (Ctrl-SPACE)",
     'description': "Nodes Efficiency Tools",
@@ -30,7 +30,7 @@ bl_info = {
     }
 
 import bpy
-from bpy.props import EnumProperty, StringProperty
+from bpy.props import EnumProperty, StringProperty, BoolProperty, FloatProperty
 
 #################
 # rl_outputs:
@@ -117,10 +117,8 @@ class MergeNodes(bpy.types.Operator):
     bl_label = "Merge Selected Nodes"
     bl_options = {'REGISTER', 'UNDO'}
     
-    combo = StringProperty(
-        name = "Combo",
-        description = "BlendType/ShaderKind/MathOperation and Node Kind",
-        )
+    # option: "BlendType/ShaderKind/MathOperation and Node Kind" separated with space
+    option = StringProperty()
     
     @classmethod
     def poll(cls, context):
@@ -128,10 +126,15 @@ class MergeNodes(bpy.types.Operator):
         return space.type == 'NODE_EDITOR' and space.node_tree is not None
     
     def execute(self, context):
+        tree_type = context.space_data.node_tree.type
+        if tree_type == 'COMPOSITING':
+            node_type = 'CompositorNode'
+        elif tree_type == 'SHADER':
+            node_type = 'ShaderNode'
         set_convenience_variables(context)
-        combo_split = self.combo.split( )
-        mode = combo_split[0]
-        node_kind = combo_split[1]  # kinds: 'AUTO', 'SHADER', 'MIX', 'MATH'
+        option_split = self.option.split( )
+        mode = option_split[0]
+        node_kind = option_split[1]  # kinds: 'AUTO', 'SHADER', 'MIX', 'MATH'
         selected_mix = []  # entry = [index, loc]
         selected_shader = []  # entry = [index, loc]
         selected_math = []  # entry = [index, loc]
@@ -144,7 +147,17 @@ class MergeNodes(bpy.types.Operator):
                         ('RGBA', blend_types, selected_mix),
                         ('VALUE', operations, selected_math),
                         ):
-                        if node.outputs[0].type == type and mode in the_list:
+                        output_type = node.outputs[0].type
+                        valid_mode = mode in the_list
+                        # When mode is 'MIX' use mix node for both 'RGBA' and 'VALUE' output types.
+                        # Cheat that output type is 'RGBA',
+                        # and that 'MIX' exists in math operations list.
+                        # This way when selected_mix list is analyzed:
+                        # Node data will be appended even though it doesn't meet requirements.
+                        if output_type != 'SHADER' and mode == 'MIX':
+                            output_type = 'RGBA'
+                            valid_mode = True
+                        if output_type == type and valid_mode:
                             dst.append([i, node.location.x, node.location.y])
                 else:
                     for (kind, the_list, dst) in (
@@ -154,8 +167,13 @@ class MergeNodes(bpy.types.Operator):
                         ):
                         if node_kind == kind and mode in the_list:
                             dst.append([i, node.location.x, node.location.y])
-                    
-
+        # When nodes with output kinds 'RGBA' and 'VALUE' are selected at the same time
+        # use only 'Mix' nodes for merging.
+        # For that we add selected_math list to selected_mix list and clear selected_math.
+        if selected_mix and selected_math and node_kind == 'AUTO':
+            selected_mix += selected_math
+            selected_math = []
+        
         for the_list in [selected_mix, selected_shader, selected_math]:
             if the_list:
                 count_before = len(nodes)
@@ -175,7 +193,8 @@ class MergeNodes(bpy.types.Operator):
                     do_hide = False
                 for i in range(the_range):
                     if the_list == selected_mix:
-                        add = nodes.new('MIX_RGB')
+                        add_type = node_type + 'MixRGB'
+                        add = nodes.new(add_type)
                         add.blend_type = mode
                         add.show_preview = False
                         add.hide = do_hide
@@ -183,7 +202,8 @@ class MergeNodes(bpy.types.Operator):
                         second = 2
                         add.width_hidden = 100.0
                     elif the_list == selected_math:
-                        add = nodes.new('MATH')
+                        add_type = node_type + 'Math'
+                        add = nodes.new(add_type)
                         add.operation = mode
                         add.hide = do_hide
                         first = 0
@@ -191,12 +211,14 @@ class MergeNodes(bpy.types.Operator):
                         add.width_hidden = 100.0
                     elif the_list == selected_shader:
                         if mode == 'MIX':
-                            add = nodes.new('MIX_SHADER')
+                            add_type = node_type + 'MixShader'
+                            add = nodes.new(add_type)
                             first = 1
                             second = 2
                             add.width_hidden = 100.0
                         elif mode == 'ADD':
-                            add = nodes.new('ADD_SHADER')
+                            add_type = node_type + 'AddShader'
+                            add = nodes.new(add_type)
                             first = 0
                             second = 1
                             add.width_hidden = 100.0
@@ -229,10 +251,8 @@ class BatchChangeNodes(bpy.types.Operator):
     bl_label = "Batch Change Blend Type and Math Operation"
     bl_options = {'REGISTER', 'UNDO'}
     
-    combo = StringProperty(
-        name = "Combo",
-        description = "Mix Blend Type and Math Operation"
-        )
+    # Mix Blend Type and Math Operation separated with space.
+    option = StringProperty()
         
     @classmethod
     def poll(cls, context):
@@ -242,9 +262,9 @@ class BatchChangeNodes(bpy.types.Operator):
     def execute(self, context):
         set_convenience_variables(context)
         navs = ('CURRENT', 'NEXT', 'PREV')
-        combo_split = self.combo.split( )
-        blend_type = combo_split[0]
-        operation = combo_split[1]
+        option_split = self.option.split( )
+        blend_type = option_split[0]
+        operation = option_split[1]
         for node in context.selected_nodes:
             if node.type == 'MIX_RGB':
                 if not blend_type in navs:
@@ -290,10 +310,10 @@ class ChangeMixFactor(bpy.types.Operator):
     bl_label = "Change Factors of Mix Nodes and Mix Shader Nodes"
     bl_options = {'REGISTER', 'UNDO'}
     
-    change = StringProperty(
-        name = "Fac_Change",
-        description = "Factor Change",
-        )
+    # option: Change factor.
+    # If option is 1.0 or 0.0 - set to 1.0 or 0.0
+    # Else - change factor by option value.
+    option = FloatProperty()
     
     @classmethod
     def poll(cls, context):
@@ -302,7 +322,7 @@ class ChangeMixFactor(bpy.types.Operator):
     
     def execute(self, context):
         set_convenience_variables(context)
-        change = float(self.change)
+        option = self.option
         selected = []  # entry = index
         for si, node in enumerate(nodes):
             if node.select:
@@ -312,10 +332,10 @@ class ChangeMixFactor(bpy.types.Operator):
         for si in selected:
             fac = nodes[si].inputs[0]
             nodes[si].hide = False
-            if change in {0.0, 1.0}:
-                fac.default_value = change
+            if option in {0.0, 1.0}:
+                fac.default_value = option
             else:
-                fac.default_value += change
+                fac.default_value += option
         
         return {'FINISHED'}
 
@@ -444,6 +464,9 @@ class NodesClearLabel(bpy.types.Operator):
     bl_label = "Clear Label"
     bl_options = {'REGISTER', 'UNDO'}
     
+    # option: 'confirmed', 'not confirmed'
+    option = StringProperty()
+    
     @classmethod
     def poll(cls, context):
         space = context.space_data
@@ -457,20 +480,26 @@ class NodesClearLabel(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_confirm(self, event)
+        if self.option == 'confirmed':
+            return self.execute(context)
+        else:
+            return context.window_manager.invoke_confirm(self, event)
 
 
 class NodesAddTextureSetup(bpy.types.Operator):
     bl_idname = "node.add_texture"
     bl_label = "Add Texture Node to Active Node Input"
     bl_options = {'REGISTER', 'UNDO'}
+    
+    # placeholder
+    option = StringProperty()
 
     @classmethod
     def poll(cls, context):
         space = context.space_data
         valid = False
         if space.type == 'NODE_EDITOR':
-            if space.tree_type == 'SHADER' and space.node_tree is not None:
+            if space.tree_type == 'ShaderNodeTree' and space.node_tree is not None:
                 valid = True
         return valid
     
@@ -497,11 +526,11 @@ class NodesAddTextureSetup(bpy.types.Operator):
         if valid:
             locx = active.location.x
             locy = active.location.y
-            tex = nodes.new('TEX_IMAGE')
+            tex = nodes.new('ShaderNodeTexImage')
             tex.location = [locx - 200.0, locy + 28.0]
-            map = nodes.new('MAPPING')
+            map = nodes.new('ShaderNodeMapping')
             map.location = [locx - 490.0, locy + 80.0]
-            coord = nodes.new('TEX_COORD')
+            coord = nodes.new('ShaderNodeTexCoord')
             coord.location = [locx - 700, locy + 40.0]
             active.select = False
             nodes.active = tex
@@ -527,6 +556,11 @@ class NodesAddReroutes(bpy.types.Operator):
         return space.type == 'NODE_EDITOR' and space.node_tree is not None
     
     def execute(self, context):
+        tree_type = context.space_data.node_tree.type
+        if tree_type == 'COMPOSITING':
+            node_type = 'CompositorNode'
+        elif tree_type == 'SHADER':
+            node_type = 'ShaderNode'
         option = self.option
         set_convenience_variables(context)
         # output valid when option is 'all' or when 'loose' output has no links
@@ -545,7 +579,7 @@ class NodesAddReroutes(bpy.types.Operator):
                 # Hack needed to calculate real width
                 if node.hide:
                     bpy.ops.node.select_all(action = 'DESELECT')
-                    helper = nodes.new('REROUTE')
+                    helper = nodes.new('NodeReroute')
                     helper.select = True
                     node.select = True
                     # resize node and helper to zero. Then check locations to calculate width
@@ -560,7 +594,7 @@ class NodesAddReroutes(bpy.types.Operator):
                 x = node.location.x + width + 20.0
                 if node.type != 'REROUTE':
                     y -= 35.0
-                y_offset = -20.0
+                y_offset = -22.0
                 loc = [x, y]
             reroutes_count = 0  # will be used when aligning reroutes added to hidden nodes
             for out_i, output in enumerate(node.outputs):
@@ -584,7 +618,7 @@ class NodesAddReroutes(bpy.types.Operator):
                     valid = option == 'all' or (option == 'loose' and not output.links)
                     # Add reroutes only if valid, but offset location in all cases.
                     if valid:
-                        n = nodes.new('REROUTE')
+                        n = nodes.new('NodeReroute')
                         nodes.active = n
                         for link in output.links:
                             links.new(n.outputs[0], link.to_socket)
@@ -607,14 +641,17 @@ class NodesAddReroutes(bpy.types.Operator):
         return {'FINISHED'}
     
 
-class NodesReroutesSwitchesSwap(bpy.types.Operator):
-    bl_idname = "node.reroutes_switches_swap"
+class NodesSwap(bpy.types.Operator):
+    bl_idname = "node.swap_nodes"
     bl_label = "Swap Reroutes and Switches"
     bl_options = {'REGISTER', 'UNDO'}
     
-    # option: 'SWITCH', 'REROUTE'
-    # 'SWITCH' - change selected reroutes to switches
-    # 'REROUTE' - change selected switches to reroutes
+    # option: 'CompositorNodeSwitch', 'NodeReroute', 'NodeMixRGB', 'NodeMath', 'CompositorNodeAlphaOver'
+    # 'CompositorNodeSwitch' - change selected reroutes to switches
+    # 'NodeReroute' - change selected switches to reroutes
+    # 'NodeMixRGB' - change selected switches to MixRGB (prefix 'Compositor' or 'Shader' will be added
+    # 'NodeMath' - change selected switches to Math (prefix 'Compositor' or 'Shader' will be added
+    # 'CompositorNodeAlphaOver'
     option = StringProperty()
     
     @classmethod
@@ -624,37 +661,82 @@ class NodesReroutesSwitchesSwap(bpy.types.Operator):
     
     def execute(self, context):
         set_convenience_variables(context)
+        tree_type = context.space_data.tree_type
+        if tree_type == 'CompositorNodeTree':
+            prefix = 'Compositor'
+        elif tree_type == 'ShaderNodeTree':
+            prefix = 'Shader'
         option = self.option
         selected = [n for n in nodes if n.select]
         reselect = []
-        if option == 'SWITCH':
-            replace_type = 'REROUTE'
-        elif option == 'REROUTE':
-            replace_type = 'SWITCH'
+        mode = None  # will be used to set proper operation or blend type in new Math or Mix nodes.
+        if option == 'CompositorNodeSwitch':
+            replace_types = ('REROUTE', 'MIX_RGB', 'MATH', 'ALPHAOVER')
+            new_type = option
+        elif option == 'NodeReroute':
+            replace_types = ('SWITCH')
+            new_type = option
+        elif option == 'NodeMixRGB':
+            replace_types = ('REROUTE', 'SWITCH', 'MATH', 'ALPHAOVER')
+            new_type = prefix + option
+        elif option == 'NodeMath':
+            replace_types = ('REROUTE', 'SWITCH', 'MIX_RGB', 'ALPHAOVER')
+            new_type = prefix + option
+        elif option == 'CompositorNodeAlphaOver':
+            replace_types = ('REROUTE', 'SWITCH', 'MATH', 'MIX_RGB')
+            new_type = option
         for node in selected:
-            if node.type == replace_type:
-                valid = True
-                if option == 'REROUTE':
-                    if node.inputs[1].links:
-                        valid = False
-                if valid:
-                    new_node = nodes.new(option)
-                    in_link = node.inputs[0].links[0]
-                    if in_link:
-                        links.new(in_link.from_socket, new_node.inputs[0])
-                    for out_link in node.outputs[0].links:
-                        links.new(new_node.outputs[0], out_link.to_socket)
-                    new_node.location = node.location
-                    new_node.label = node.label
-                    new_node.hide = True
-                    new_node.width_hidden = 100.0
-                    nodes.active = new_node
-                    reselect.append(new_node)
-                    bpy.ops.node.select_all(action = "DESELECT")
-                    node.select = True
-                    bpy.ops.node.delete()
-                else:
-                    reselect.append(node)
+            if node.type in replace_types:
+                hide = node.hide
+                if node.type == 'REROUTE':
+                    hide = True
+                new_node = nodes.new(new_type)
+                # if swap Mix to Math of vice-verca - try to set blend type or operation accordingly
+                if new_node.type == 'MIX_RGB':
+                    if node.type == 'MATH':
+                        if node.operation in blend_types:
+                            new_node.blend_type = node.operation
+                elif new_node.type == 'MATH':
+                    if node.type == 'MIX_RGB':
+                        if node.blend_type in operations:
+                            new_node.operation = node.blend_type
+                old_inputs_count = len(node.inputs)
+                new_inputs_count = len(new_node.inputs)
+                if new_inputs_count == 1:
+                    replace = [[0, 0]]  # old input 0 (first of the entry) will be replaced by new input 0.
+                elif new_inputs_count == 2:
+                    if old_inputs_count == 1:
+                        replace = [[0, 0]]
+                    elif old_inputs_count == 2:
+                        replace = [[0, 0], [1, 1]]
+                    elif old_inputs_count == 3:
+                        replace = [[1, 0], [2, 1]]
+                elif new_inputs_count == 3:
+                    if old_inputs_count == 1:
+                        replace = [[0, 1]]
+                    elif old_inputs_count == 2:
+                        replace = [[0, 1], [1, 2]]
+                    elif old_inputs_count == 3:
+                        replace = [[0, 0], [1, 1], [2, 2]]
+                for [old, new] in replace:
+                    if node.inputs[old].links:
+                        in_link = node.inputs[old].links[0]
+                        links.new(in_link.from_socket, new_node.inputs[new])
+                for out_link in node.outputs[0].links:
+                    links.new(new_node.outputs[0], out_link.to_socket)
+                new_node.location = node.location
+                new_node.label = node.label
+                new_node.hide = hide
+                new_node.mute = node.mute
+                new_node.show_preview = node.show_preview
+                new_node.width_hidden = node.width_hidden
+                nodes.active = new_node
+                reselect.append(new_node)
+                bpy.ops.node.select_all(action = "DESELECT")
+                node.select = True
+                bpy.ops.node.delete()
+            else:
+                reselect.append(node)
         for node in reselect:
             node.select = True
             
@@ -666,9 +748,8 @@ class NodesLinkActiveToSelected(bpy.types.Operator):
     bl_label = "Link Active Node to Selected"
     bl_options = {'REGISTER', 'UNDO'}
     
-    # option: 'True/Nodes Names', 'True/Nodes Location', 'True/First Output Only'
-    #         'False/Nodes Names', 'False/Nodes Location', 'False/First Output Only'
-    option = StringProperty()    
+    # option: 'bool bool bool' - replace, use node's name, use outputs' names
+    option = StringProperty()
     
     @classmethod
     def poll(cls, context):
@@ -676,112 +757,69 @@ class NodesLinkActiveToSelected(bpy.types.Operator):
         valid = False
         if space.type == 'NODE_EDITOR':
             if space.node_tree is not None and context.active_node is not None:
-                valid = True
+                if context.active_node.select:
+                    valid = True
         return valid
     
     def execute(self, context):
         set_convenience_variables(context)
-        splitted_option = self.option.split('/')
-        # Will replace existing links or not
-        replace = eval(splitted_option[0])  # True or False
-        # basis for linking: 'Nodes Names', 'Nodes Location', 'First Output Only'
-        option = splitted_option[1]
-        # Links will be made from active node
+        option_split = self.option.split( )
+        replace = eval(option_split[0])
+        use_node_name = eval(option_split[1])
+        use_outputs_names = eval(option_split[2])
         active = nodes.active
-        # create list of selected nodes. Links will be made to those nodes
-        selected = []  # entry = [node index, node locacion.x, node.location.y]
-        for i, node in enumerate(nodes):
-            is_selected = node.select
-            is_not_active = node != active
-            has_inputs = len(node.inputs) > 0
-            is_valid = is_selected and is_not_active and has_inputs
-            if is_valid:
-                selected.append([i, node.location.x, node.location.y])
-        # sort selected by location.y, then location.x. Easier handling of "Nodes Location" option
-        selected.sort(key = lambda k: (-k[2], k[1]))
-        if active:
-            if active.select:
-                # create manageable list of active outputs
-                outputs = []
-                for i, out in enumerate(active.outputs):
-                    if active.type != 'R_LAYERS':
-                        outputs.append(i)
-                    else:
-                        # 'R_LAYERS' node type needs special handling.
-                        # Check if pass represented by output is used.
-                        # global 'rl_outputs' list will be used for that
-                        for [render_pass, out_name, exr_name, in_internal, in_cycles] in rl_outputs:
-                            pass_used = False
-                            if out.name == 'Alpha':
-                                pass_used = True
-                            elif out.name == out_name:
-                                # example 'render_pass' entry: 'use_pass_uv' Check if True in scene render layers
-                                pass_used = getattr(node.scene.render.layers[node.layer], render_pass)
-                                break
-                        if pass_used:
-                            outputs.append(i)
-                if outputs:
-                    if option == 'Nodes Names':
-                        for i, out in enumerate(outputs):
-                            for [ni, x, y] in selected:  # [node index, location.x, location.y]
-                                name = nodes[ni].name
-                                l = len(nodes[ni].inputs)
-                                if nodes[ni].label:
-                                    name = nodes[ni].label
-                                for [render_pass, out_name, exr_name, in_internal, in_cycles] in rl_outputs:
-                                    if name in {out_name, exr_name}:
-                                        names = [out_name, exr_name]  # if out name matches any of those - valid
-                                        break
-                                    else:
-                                        names = [name]  # length of entry doesn't matter.
-                                if len(outputs) > 1:
-                                    if active.outputs[out].name in names:
-                                        out_type = active.outputs[out].type
-                                        input_i = 0
-                                        if (nodes[ni].inputs[0].type != out_type and l > 1):
-                                            for ii in range (1, l):
-                                                if nodes[ni].inputs[ii].type == out_type:
-                                                    input_i = ii
-                                                    break
-                                        links.new(active.outputs[out], nodes[ni].inputs[input_i])
-                                else:
-                                    a_name = active.name
-                                    if active.label:
-                                        a_name = active.label
-                                    if a_name in names:
-                                        out_type = active.outputs[0].type
-                                        input_i = 0
-                                        if (nodes[ni].inputs[0].type != out_type and l > 1):
-                                            for ii in range (1, l):
-                                                if nodes[ni].inputs[ii].type == out_type:
-                                                    input_i = ii
-                                                    break
-                                        links.new(active.outputs[0], nodes[ni].inputs[input_i])
-                    elif option == 'Nodes Location':
-                        for i, out in enumerate(outputs):
-                            if i < len(selected):
-                                out_type = active.outputs[out].type
-                                l = len(nodes[selected[i][0]].inputs)
-                                input_i = 0
-                                if (nodes[selected[i][0]].inputs[0].type != out_type and l > 1):
-                                    for ii in range (1, l):
-                                        if nodes[selected[i][0]].inputs[ii].type == out_type:
-                                            input_i = ii
-                                            break
-                                links.new(active.outputs[out], nodes[selected[i][0]].inputs[input_i])
-                    elif option == 'First Output Only':
-                        out_type = active.outputs[0].type
-                        for [ni, x, y] in selected:
-                            l = len(nodes[ni].inputs)
-                            input_i = 0
-                            if (nodes[ni].inputs[0].type != out_type and l > 1):
-                                for ii in range (1, l):
-                                    if nodes[ni].inputs[ii].type == out_type:
-                                        input_i = ii
-                                        break
-                            links.new(active.outputs[0], nodes[ni].inputs[input_i])
-
-        return {'FINISHED'}            
+        selected = [node for node in nodes if node.select and node != active]
+        outputs = []  # Only usable outputs of active nodes will be stored here.
+        for out in active.outputs:
+            if active.type != 'R_LAYERS':
+                outputs.append(out)
+            else:
+                # 'R_LAYERS' node type needs special handling.
+                # outputs of 'R_LAYERS' are callable even if not seen in UI.
+                # Only outputs that represent used passes should be taken into account
+                # Check if pass represented by output is used.
+                # global 'rl_outputs' list will be used for that
+                for [render_pass, out_name, exr_name, in_internal, in_cycles] in rl_outputs:
+                    pass_used = False  # initial value. Will be set to True if pass is used
+                    if out.name == 'Alpha':
+                        # Alpha output is always present. Doesn't have representation in render pass. Assume it's used.
+                        pass_used = True
+                    elif out.name == out_name:
+                        # example 'render_pass' entry: 'use_pass_uv' Check if True in scene render layers
+                        pass_used = getattr(active.scene.render.layers[active.layer], render_pass)
+                        break
+                if pass_used:
+                    outputs.append(out)
+        doit = True  # Will be changed to False when links successfully added to previous output.
+        for out in outputs:
+            if doit:
+                for node in selected:
+                    dst_name = node.name  # Will be compared with src_name if needed.
+                    # When node has label - use it as dst_name
+                    if node.label:
+                        dst_name = node.label
+                    valid = True  # Initial value. Will be changed to False if names don't match.
+                    src_name = dst_name  # If names not used - this asignment will keep valid = True.
+                    if use_node_name:
+                        # Set src_name to source node name or label
+                        src_name = active.name
+                        if active.label:
+                            src_name = active.label
+                    elif use_outputs_names:
+                        # Set src_name to name of output currently analyzed.
+                        src_name = out.name
+                    if src_name != dst_name:
+                        valid = False
+                    if valid:
+                        for input in node.inputs:
+                            if input.type == out.type or node.type == 'REROUTE':
+                                if replace or not input.is_linked:
+                                    links.new(out, input)
+                                    if not use_node_name and not use_outputs_names:
+                                        doit = False
+                                    break
+        
+        return {'FINISHED'}
 
 
 class AlignNodes(bpy.types.Operator):
@@ -789,16 +827,8 @@ class AlignNodes(bpy.types.Operator):
     bl_label = "Align nodes"
     bl_options = {'REGISTER', 'UNDO'}
     
-    axes = []
-    axes_list = ['Vertically', 'Horizontally']
-    for axis in axes_list:
-        axes.append((axis, axis, axis))
-    
-    align_axis = EnumProperty(
-        name = "align_axis",
-        description = "Align Axis",
-        items = axes
-        )
+    # option: 'Vertically', 'Horizontally'
+    option = StringProperty()
     
     @classmethod
     def poll(cls, context):
@@ -827,7 +857,7 @@ class AlignNodes(bpy.types.Operator):
         count = len(selected)
         # add reroute node then scale all to 0.0 and calculate widths and heights of nodes
         if count > 1:  # aligning makes sense only if at least 2 nodes are selected
-            helper = nodes.new('REROUTE')
+            helper = nodes.new('NodeReroute')
             helper.select = True
             bpy.ops.transform.resize(value = (0.0, 0.0, 0.0))
             # store helper's location for further calculations
@@ -872,7 +902,7 @@ class AlignNodes(bpy.types.Operator):
             max_y_w = selected_sorted_y[count - 1][3]  # width of node with max loc.y
             max_y_h = selected_sorted_y[count - 1][4]  # height of node with max loc.y
             
-            if self.align_axis == 'Vertically':
+            if self.option == 'Vertically':
                 loc_x = min_x
                 #loc_y = (max_x_loc_y + min_x_loc_y) / 2.0
                 loc_y = (max_y - max_y_h / 2.0 + min_y - min_y_h / 2.0) / 2.0
@@ -915,10 +945,8 @@ class SelectParentChildren(bpy.types.Operator):
     bl_label = "Select Parent or Children"
     bl_options = {'REGISTER', 'UNDO'}
     
-    option = StringProperty(
-        name = "option",
-        description = "Parent/Children",
-        )
+    # option: 'Parent', 'Children'
+    option = StringProperty()
     
     @classmethod
     def poll(cls, context):
@@ -964,14 +992,14 @@ class EfficiencyToolsPanel(bpy.types.Panel):
 
         box = layout.box()
         box.menu(MergeNodesMenu.bl_idname)
-        if type == 'SHADER':
+        if type == 'ShaderNodeTree':
             box.operator(NodesAddTextureSetup.bl_idname, text = 'Add Image Texture (Ctrl T)')
         box.menu(BatchChangeNodesMenu.bl_idname, text = 'Batch Change...')
-        box.operator_menu_enum(AlignNodes.bl_idname, "align_axis", text = "Align Nodes (Shift =)")
-        box.menu(CopyNodePropertiesMenu.bl_idname, text = 'Copy to Selected (Shift-C)')
-        box.operator(NodesClearLabel.bl_idname)
+        box.menu(NodeAlignMenu.bl_idname, text = "Align Nodes (Shift =)")
+        box.menu(CopyToSelectedMenu.bl_idname, text = 'Copy to Selected (Shift-C)')
+        box.operator(NodesClearLabel.bl_idname).option = 'confirmed'
         box.menu(AddReroutesMenu.bl_idname, text = 'Add Reroutes')
-        box.menu(ReroutesSwitchesSwapMenu.bl_idname, text = 'Swap Reroutes and Switches')
+        box.menu(NodesSwapMenu.bl_idname, text = 'Swap Nodes')
         box.menu(LinkActiveToSelectedMenu.bl_idname, text = 'Link Active To Selected')
 
 
@@ -992,17 +1020,14 @@ class EfficiencyToolsMenu(bpy.types.Menu):
         type = context.space_data.tree_type
         layout = self.layout
         layout.menu(MergeNodesMenu.bl_idname, text = 'Merge Selected Nodes')
-        if type == 'SHADER':
+        if type == 'ShaderNodeTree':
             layout.operator(NodesAddTextureSetup.bl_idname, text = 'Add Image Texture with coordinates')
         layout.menu(BatchChangeNodesMenu.bl_idname, text = 'Batch Change')
-        layout.operator_menu_enum(
-            AlignNodes.bl_idname,
-            property="align_axis",
-            text="Align Nodes",
-            )
-        layout.menu(CopyNodePropertiesMenu.bl_idname, text = 'Copy to Selected')
+        layout.menu(NodeAlignMenu.bl_idname, text="Align Nodes")
+        layout.menu(CopyToSelectedMenu.bl_idname, text = 'Copy to Selected')
+        layout.operator(NodesClearLabel.bl_idname).option = 'confirmed'
         layout.menu(AddReroutesMenu.bl_idname, text = 'Add Reroutes')
-        layout.menu(ReroutesSwitchesSwapMenu.bl_idname, text = 'Swap Reroutes and Switches')
+        layout.menu(NodesSwapMenu.bl_idname, text = 'Swap Nodes')
         layout.menu(LinkActiveToSelectedMenu.bl_idname, text = 'Link Active To Selected')
 
 
@@ -1018,7 +1043,7 @@ class MergeNodesMenu(bpy.types.Menu):
     def draw(self, context):
         type = context.space_data.tree_type
         layout = self.layout
-        if type == 'SHADER':
+        if type == 'ShaderNodeTree':
             layout.menu(MergeShadersMenu.bl_idname, text = 'Use Shaders')
         layout.menu(MergeMixMenu.bl_idname, text="Use Mix Nodes")
         layout.menu(MergeMathMenu.bl_idname, text="Use Math Nodes")
@@ -1036,8 +1061,8 @@ class MergeShadersMenu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         for type in merge_shaders:
-            combo = type + ' SHADER'
-            layout.operator(MergeNodes.bl_idname, text = type).combo = combo
+            option = type + ' SHADER'
+            layout.operator(MergeNodes.bl_idname, text = type).option = option
 
 
 class MergeMixMenu(bpy.types.Menu):
@@ -1052,8 +1077,8 @@ class MergeMixMenu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         for type in blend_types:
-            combo = type + ' MIX'
-            layout.operator(MergeNodes.bl_idname, text = type).combo = combo        
+            option = type + ' MIX'
+            layout.operator(MergeNodes.bl_idname, text = type).option = option        
 
 
 class MergeMathMenu(bpy.types.Menu):
@@ -1068,8 +1093,8 @@ class MergeMathMenu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         for type in operations:
-            combo = type + ' MATH'
-            layout.operator(MergeNodes.bl_idname, text = type).combo = combo
+            option = type + ' MATH'
+            layout.operator(MergeNodes.bl_idname, text = type).option = option
 
 
 class BatchChangeNodesMenu(bpy.types.Menu):
@@ -1099,8 +1124,8 @@ class BatchChangeBlendTypeMenu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         for blend_type in blend_types:
-            combo = blend_type + ' CURRENT'
-            layout.operator(BatchChangeNodes.bl_idname, text = blend_type).combo = combo
+            option = blend_type + ' CURRENT'
+            layout.operator(BatchChangeNodes.bl_idname, text = blend_type).option = option
 
 
 class BatchChangeOperationMenu(bpy.types.Menu):
@@ -1115,13 +1140,13 @@ class BatchChangeOperationMenu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         for operation in operations:
-            combo = 'CURRENT ' + operation
-            layout.operator(BatchChangeNodes.bl_idname, text = operation).combo = combo
+            option = 'CURRENT ' + operation
+            layout.operator(BatchChangeNodes.bl_idname, text = operation).option = option
                                   
 
-class CopyNodePropertiesMenu(bpy.types.Menu):
+class CopyToSelectedMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_copy_node_properties_menu"
-    bl_label = "Copy Active Node's Properties to Selected"
+    bl_label = "Copy to Selected"
 
     def draw(self, context):
         layout = self.layout
@@ -1150,9 +1175,9 @@ class AddReroutesMenu(bpy.types.Menu):
         layout.operator(NodesAddReroutes.bl_idname, text = 'to Loose Outputs').option = 'loose'
 
 
-class ReroutesSwitchesSwapMenu(bpy.types.Menu):
-    bl_idname = "NODE_MT_reroutes_switches_swap_menu"
-    bl_label = "Swap Reroutes and Switches"
+class NodesSwapMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_swap_menu"
+    bl_label = "Swap Nodes"
     
     @classmethod
     def poll(cls, context):
@@ -1160,14 +1185,20 @@ class ReroutesSwitchesSwapMenu(bpy.types.Menu):
         return space.type == 'NODE_EDITOR' and space.node_tree is not None
     
     def draw(self, context):
+        type = context.space_data.tree_type
         layout = self.layout
-        layout.operator(NodesReroutesSwitchesSwap.bl_idname, text = "Change to Switches").option = 'SWITCH'
-        layout.operator(NodesReroutesSwitchesSwap.bl_idname, text = "Change to Reroutes").option = 'REROUTE'
+        if type == 'CompositorNodeTree':
+            layout.operator(NodesSwap.bl_idname, text = "Change to Switches").option = 'CompositorNodeSwitch'
+            layout.operator(NodesSwap.bl_idname, text = "Change to Reroutes").option = 'NodeReroute'
+        layout.operator(NodesSwap.bl_idname, text = "Change to Mix Nodes").option = 'NodeMixRGB'
+        if type == 'CompositorNodeTree':
+            layout.operator(NodesSwap.bl_idname, text = "Change to Alpha Over").option = 'CompositorNodeAlphaOver'
+        layout.operator(NodesSwap.bl_idname, text = "Change to Math Nodes").option = 'NodeMath'
 
 
 class LinkActiveToSelectedMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_link_active_to_selected_menu"
-    bl_label = "Link Active to Selected, base on..."
+    bl_label = "Link Active to Selected"
 
     @classmethod
     def poll(cls, context):
@@ -1176,9 +1207,69 @@ class LinkActiveToSelectedMenu(bpy.types.Menu):
     
     def draw(self, context):
         layout = self.layout
-        for opt in ('Nodes Names', 'Nodes Location', 'First Output Only'):
-            full_opt = 'True/' + opt
-            layout.operator(NodesLinkActiveToSelected.bl_idname, text=opt).option = full_opt
+        layout.menu(LinkStandardMenu.bl_idname)
+        layout.menu(LinkUseNamesMenu.bl_idname)
+
+
+class LinkStandardMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_link_standard_menu"
+    bl_label = "To All Selected"
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space.type == 'NODE_EDITOR' and space.node_tree is not None
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.operator(NodesLinkActiveToSelected.bl_idname, text="Don't Replace Links (Shift-F)").option = 'False False False'
+        layout.operator(NodesLinkActiveToSelected.bl_idname, text="Replace Links (Ctrl-Shift-F)").option = 'True False False'
+
+
+
+class LinkUseNamesMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_link_use_names_menu"
+    bl_label = "Use Names/Labels..."
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space.type == 'NODE_EDITOR' and space.node_tree is not None
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.menu(LinkUseNodeNameMenu.bl_idname, text="Use Node Name/Label")
+        layout.menu(LinkUseOutputsNamesMenu.bl_idname, text="Use Outputs Names")
+
+
+class LinkUseNodeNameMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_link_use_node_name_menu"
+    bl_label = "Use Node Name/Label"
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space.type == 'NODE_EDITOR' and space.node_tree is not None
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.operator(NodesLinkActiveToSelected.bl_idname, text="Replace Links").option = 'True True False'
+        layout.operator(NodesLinkActiveToSelected.bl_idname, text="Don't Replace Links").option = 'False True False'
+
+
+class LinkUseOutputsNamesMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_link_use_outputs_names_menu"
+    bl_label = "Use Outputs Names"
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space.type == 'NODE_EDITOR' and space.node_tree is not None
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.operator(NodesLinkActiveToSelected.bl_idname, text="Replace Links").option = 'True False True'
+        layout.operator(NodesLinkActiveToSelected.bl_idname, text="Don't Replace Links").option = 'False False True'
 
 
 class NodeAlignMenu(bpy.types.Menu):
@@ -1192,11 +1283,9 @@ class NodeAlignMenu(bpy.types.Menu):
     
     def draw(self, context):
         layout = self.layout
-        layout.operator_menu_enum(
-            AlignNodes.bl_idname,
-            property="align_axis",
-            text="Direction...",
-            )
+        for opt in {'Horizontally', 'Vartically'}:
+            layout.operator(AlignNodes.bl_idname, text=opt).option = opt
+
 
 #############################################################
 #  MENU ITEMS
@@ -1212,159 +1301,117 @@ def select_parent_children_buttons(self, context):
 #############################################################
 
 addon_keymaps = []
+# kmi_defs_operators entry: (operator, key, option_value, Ctrl, Shift, Alt)
+kmi_defs_operators = (
+    # MERGE NODES
+    # MergeNodes with Ctrl (AUTO).
+    (MergeNodes.bl_idname, 'NUMPAD_0', 'MIX AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'ZERO', 'MIX AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'NUMPAD_PLUS', 'ADD AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'EQUAL', 'ADD AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'NUMPAD_ASTERIX', 'MULTIPLY AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'EIGHT', 'MULTIPLY AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'NUMPAD_MINUS', 'SUBTRACT AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'MINUS', 'SUBTRACT AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'NUMPAD_SLASH', 'DIVIDE AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'SLASH', 'DIVIDE AUTO', True, False, False),
+    (MergeNodes.bl_idname, 'COMMA', 'LESS_THAN MATH', True, False, False),
+    (MergeNodes.bl_idname, 'PERIOD', 'GREATER_THAN MATH', True, False, False),
+    # MergeNodes with Ctrl Alt (MIX)
+    (MergeNodes.bl_idname, 'NUMPAD_0', 'MIX MIX', True, False, True),
+    (MergeNodes.bl_idname, 'ZERO', 'MIX MIX', True, False, True),
+    (MergeNodes.bl_idname, 'NUMPAD_PLUS', 'ADD MIX', True, False, True),
+    (MergeNodes.bl_idname, 'EQUAL', 'ADD MIX', True, False, True),
+    (MergeNodes.bl_idname, 'NUMPAD_ASTERIX', 'MULTIPLY MIX', True, False, True),
+    (MergeNodes.bl_idname, 'EIGHT', 'MULTIPLY MIX', True, False, True),
+    (MergeNodes.bl_idname, 'NUMPAD_MINUS', 'SUBTRACT MIX', True, False, True),
+    (MergeNodes.bl_idname, 'MINUS', 'SUBTRACT MIX', True, False, True),
+    (MergeNodes.bl_idname, 'NUMPAD_SLASH', 'DIVIDE MIX', True, False, True),
+    (MergeNodes.bl_idname, 'SLASH', 'DIVIDE MIX', True, False, True),
+    # MergeNodes with Ctrl Shift (MATH)
+    (MergeNodes.bl_idname, 'NUMPAD_0', 'MIX MATH', True, True, False),
+    (MergeNodes.bl_idname, 'ZERO', 'MIX MATH', True, True, False),
+    (MergeNodes.bl_idname, 'NUMPAD_PLUS', 'ADD MATH', True, True, False),
+    (MergeNodes.bl_idname, 'EQUAL', 'ADD MATH', True, True, False),
+    (MergeNodes.bl_idname, 'NUMPAD_ASTERIX', 'MULTIPLY MATH', True, True, False),
+    (MergeNodes.bl_idname, 'EIGHT', 'MULTIPLY MATH', True, True, False),
+    (MergeNodes.bl_idname, 'NUMPAD_MINUS', 'SUBTRACT MATH', True, True, False),
+    (MergeNodes.bl_idname, 'MINUS', 'SUBTRACT MATH', True, True, False),
+    (MergeNodes.bl_idname, 'NUMPAD_SLASH', 'DIVIDE MATH', True, True, False),
+    (MergeNodes.bl_idname, 'SLASH', 'DIVIDE MATH', True, True, False),
+    (MergeNodes.bl_idname, 'COMMA', 'LESS_THAN MATH', True, True, False),
+    (MergeNodes.bl_idname, 'PERIOD', 'GREATER_THAN MATH', True, True, False),
+    # BATCH CHANGE NODES
+    # BatchChangeNodes with Alt
+    (BatchChangeNodes.bl_idname, 'NUMPAD_0', 'MIX CURRENT', False, False, True),
+    (BatchChangeNodes.bl_idname, 'ZERO', 'MIX CURRENT', False, False, True),
+    (BatchChangeNodes.bl_idname, 'NUMPAD_PLUS', 'ADD ADD', False, False, True),
+    (BatchChangeNodes.bl_idname, 'EQUAL', 'ADD ADD', False, False, True),
+    (BatchChangeNodes.bl_idname, 'NUMPAD_ASTERIX', 'MULTIPLY MULTIPLY', False, False, True),
+    (BatchChangeNodes.bl_idname, 'EIGHT', 'MULTIPLY MULTIPLY', False, False, True),
+    (BatchChangeNodes.bl_idname, 'NUMPAD_MINUS', 'SUBTRACT SUBTRACT', False, False, True),
+    (BatchChangeNodes.bl_idname, 'MINUS', 'SUBTRACT SUBTRACT', False, False, True),
+    (BatchChangeNodes.bl_idname, 'NUMPAD_SLASH', 'DIVIDE DIVIDE', False, False, True),
+    (BatchChangeNodes.bl_idname, 'SLASH', 'DIVIDE DIVIDE', False, False, True),
+    (BatchChangeNodes.bl_idname, 'COMMA', 'CURRENT LESS_THAN', False, False, True),
+    (BatchChangeNodes.bl_idname, 'PERIOD', 'CURRENT GREATER_THAN', False, False, True),
+    (BatchChangeNodes.bl_idname, 'DOWN_ARROW', 'NEXT NEXT', False, False, True),
+    (BatchChangeNodes.bl_idname, 'UP_ARROW', 'PREV PREV', False, False, True),
+    # CHANGE MIX FACTOR
+    (ChangeMixFactor.bl_idname, 'LEFT_ARROW', -0.1, False, False, True),
+    (ChangeMixFactor.bl_idname, 'RIGHT_ARROW', 0.1,  False, False, True),
+    (ChangeMixFactor.bl_idname, 'LEFT_ARROW', -0.01, False, True, True),
+    (ChangeMixFactor.bl_idname, 'RIGHT_ARROW', 0.01, False, True, True),
+    (ChangeMixFactor.bl_idname, 'LEFT_ARROW', 0.0, True, True, True),
+    (ChangeMixFactor.bl_idname, 'RIGHT_ARROW', 1.0, True, True, True),
+    (ChangeMixFactor.bl_idname, 'NUMPAD_0', 0.0, True, True, True),
+    (ChangeMixFactor.bl_idname, 'ZERO', 0.0, True, True, True),
+    (ChangeMixFactor.bl_idname, 'NUMPAD_1', 1.0, True, True, True),
+    (ChangeMixFactor.bl_idname, 'ONE', 1.0, True, True, True),
+    # CLEAR LABEL (Alt L)
+    (NodesClearLabel.bl_idname, 'L', 'not confirmed', False, False, True),
+    # ADD TEXTURE SETUP (Ctrl T)
+    (NodesAddTextureSetup.bl_idname, 'T', '', True, False, False),
+    # SELECT PARENT/CHILDREN
+    # Select Children
+    (SelectParentChildren.bl_idname, 'RIGHT_BRACKET', 'Children', False, False, False),
+    # Select Parent
+    (SelectParentChildren.bl_idname, 'LEFT_BRACKET', 'Parent', False, False, False),
+    # LINK ACTIVE TO SELECTED
+    # Don't use names, replace links (Ctrl Shift F)
+    (NodesLinkActiveToSelected.bl_idname, 'F', 'True False False', True, True, False),
+    # Don't use names, don't replace links (Shift F)
+    (NodesLinkActiveToSelected.bl_idname, 'F', 'False False False', False, True, False),
+    )
+
+# kmi_defs_menus entry: (key, CTRL, SHIFT, ALT, menu_name)
+kmi_defs_menus = (
+    ('SPACE', True, False, False, EfficiencyToolsMenu.bl_idname),  # (Ctrl Space) - Main Menu
+    ('SLASH', False, False, False, AddReroutesMenu.bl_idname),  # (Slash) - Add Reroutes Menu
+    ('NUMPAD_SLASH', False, False, False, AddReroutesMenu.bl_idname),  # (Numpad Slash) - Add Reroutes Menu
+    ('EQUAL', False, True, False, NodeAlignMenu.bl_idname),  # (Shift =) - Align Nodes Menu
+    ('F', False, False, True, LinkUseNamesMenu.bl_idname),  # (Alt F) - Link Active To Selected using names/labels
+    ('C', False, True, False, CopyToSelectedMenu.bl_idname),  # (Shift C) - Copy To Selected Menu
+    ('S', False, True, False, NodesSwapMenu.bl_idname),  # (Shift S) - Swap Nodes Menu
+    )
 
 def register():
     bpy.utils.register_module(__name__)
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor', space_type = "NODE_EDITOR")
-
-    kmi = km.keymap_items.new('wm.call_menu', 'SPACE', 'PRESS', ctrl = True)
-    kmi.properties.name = EfficiencyToolsMenu.bl_idname
-    addon_keymaps.append((km, kmi))
     
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_0', 'PRESS', ctrl = True)
-    kmi.properties.combo = 'MIX AUTO'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_PLUS', 'PRESS', ctrl = True)
-    kmi.properties.combo = 'ADD AUTO'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_ASTERIX', 'PRESS', ctrl = True)
-    kmi.properties.combo = 'MULTIPLY AUTO'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_MINUS', 'PRESS', ctrl = True)
-    kmi.properties.combo = 'SUBTRACT AUTO'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_SLASH', 'PRESS', ctrl = True)
-    kmi.properties.combo = 'DIVIDE AUTO'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'COMMA', 'PRESS', ctrl = True)
-    kmi.properties.combo = 'LESS_THAN MATH'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'PERIOD', 'PRESS', ctrl = True)
-    kmi.properties.combo = 'GREATER_THAN MATH'
-    addon_keymaps.append((km, kmi))
+    # keymap items for operators
+    for (operator, key, opt, CTRL, SHIFT, ALT) in kmi_defs_operators:
+        kmi = km.keymap_items.new(operator, key, 'PRESS', ctrl = CTRL, shift = SHIFT, alt = ALT)
+        kmi.properties.option = opt
+        addon_keymaps.append((km, kmi))
     
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_0', 'PRESS', ctrl = True, alt = True)
-    kmi.properties.combo = 'MIX MIX'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_PLUS', 'PRESS', ctrl = True, alt = True)
-    kmi.properties.combo = 'ADD MIX'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_ASTERIX', 'PRESS', ctrl = True, alt = True)
-    kmi.properties.combo = 'MULTIPLY MIX'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_MINUS', 'PRESS', ctrl = True, alt = True)
-    kmi.properties.combo = 'SUBTRACT MIX'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_SLASH', 'PRESS', ctrl = True, alt = True)
-    kmi.properties.combo = 'DIVIDE MIX'
-    addon_keymaps.append((km, kmi))
+    # keymap items for menus
+    for (key, CTRL, SHIFT, ALT, menu_name) in kmi_defs_menus:
+        kmi = km.keymap_items.new('wm.call_menu', key, 'PRESS', ctrl = CTRL, shift = SHIFT, alt = ALT)
+        kmi.properties.name = menu_name
+        addon_keymaps.append((km, kmi))
     
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_PLUS', 'PRESS', ctrl = True, shift = True)
-    kmi.properties.combo = 'ADD MATH'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_ASTERIX', 'PRESS', ctrl = True, shift = True)
-    kmi.properties.combo = 'MULTIPLY MATH'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_MINUS', 'PRESS', ctrl = True, shift = True)
-    kmi.properties.combo = 'SUBTRACT MATH'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'NUMPAD_SLASH', 'PRESS', ctrl = True, shift = True)
-    kmi.properties.combo = 'DIVIDE MATH'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'COMMA', 'PRESS', ctrl = True, shift = True)
-    kmi.properties.combo = 'LESS_THAN MATH'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(MergeNodes.bl_idname, 'PERIOD', 'PRESS', ctrl = True, shift = True)
-    kmi.properties.combo = 'GREATER_THAN MATH'
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'NUMPAD_0', 'PRESS', alt = True)
-    kmi.properties.combo = 'MIX CURRENT'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'NUMPAD_PLUS', 'PRESS', alt = True)
-    kmi.properties.combo = 'ADD ADD'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'NUMPAD_ASTERIX', 'PRESS', alt = True)
-    kmi.properties.combo = 'MULTIPLY MULTIPLY'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'NUMPAD_MINUS', 'PRESS', alt = True)
-    kmi.properties.combo = 'SUBTRACT SUBTRACT'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'NUMPAD_SLASH', 'PRESS', alt = True)
-    kmi.properties.combo = 'DIVIDE DIVIDE'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'DOWN_ARROW', 'PRESS', alt = True)
-    kmi.properties.combo = 'NEXT NEXT'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'UP_ARROW', 'PRESS', alt = True)
-    kmi.properties.combo = 'PREV PREV'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'COMMA', 'PRESS', alt = True)
-    kmi.properties.combo = 'CURRENT LESS_THAN'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(BatchChangeNodes.bl_idname, 'PERIOD', 'PRESS', alt = True)
-    kmi.properties.combo = 'CURRENT GREATER_THAN'
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'LEFT_ARROW', 'PRESS', alt = True)
-    kmi.properties.change = '-0.1'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'RIGHT_ARROW', 'PRESS', alt = True)
-    kmi.properties.change = '0.1'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'LEFT_ARROW', 'PRESS', alt = True, shift = True)
-    kmi.properties.change = '-0.01'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'RIGHT_ARROW', 'PRESS', alt = True, shift = True)
-    kmi.properties.change = '0.01'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'LEFT_ARROW', 'PRESS', ctrl = True, alt = True, shift = True)
-    kmi.properties.change = '0.0'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'RIGHT_ARROW', 'PRESS', ctrl = True, alt = True, shift = True)
-    kmi.properties.change = '1.0'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'NUMPAD_0', 'PRESS', ctrl = True, alt = True, shift = True)
-    kmi.properties.change = '0.0'
-    addon_keymaps.append((km, kmi))
-    kmi = km.keymap_items.new(ChangeMixFactor.bl_idname, 'NUMPAD_1', 'PRESS', ctrl = True, alt = True, shift = True)
-    kmi.properties.change = '1.0'
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new('wm.call_menu', 'SLASH', 'PRESS')
-    kmi.properties.name = AddReroutesMenu.bl_idname
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new('wm.call_menu', 'EQUAL', 'PRESS', shift = True)
-    kmi.properties.name = NodeAlignMenu.bl_idname
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new('wm.call_menu', 'F', 'PRESS', shift = True)
-    kmi.properties.name = LinkActiveToSelectedMenu.bl_idname
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new('wm.call_menu', 'C', 'PRESS', shift = True)
-    kmi.properties.name = CopyNodePropertiesMenu.bl_idname
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new(NodesClearLabel.bl_idname, 'L', 'PRESS', alt = True)
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new('wm.call_menu', 'S', 'PRESS', shift = True)
-    kmi.properties.name = ReroutesSwitchesSwapMenu.bl_idname
-    addon_keymaps.append((km, kmi))
-
-    kmi = km.keymap_items.new(NodesAddTextureSetup.bl_idname, 'T', 'PRESS', ctrl = True)
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new(SelectParentChildren.bl_idname, 'RIGHT_BRACKET', 'PRESS')
-    kmi.properties.option = 'Children'
-    addon_keymaps.append((km, kmi))
-    
-    kmi = km.keymap_items.new(SelectParentChildren.bl_idname, 'LEFT_BRACKET', 'PRESS')
-    kmi.properties.option = 'Parent'
-    addon_keymaps.append((km, kmi))
-    
+    # menu items
     bpy.types.NODE_MT_select.append(select_parent_children_buttons)
 
 def unregister():
@@ -1376,3 +1423,4 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+    

@@ -59,7 +59,7 @@ Integration with toolplating
 
 - http://slic3r.org
 - https://github.com/makerbot/Miracle-Grue/blob/master/README.md
-
+- Use a sliver, like slicer, skeinforge, cura, kissslicer, netfabb, ....
 
 ...not sure yet exactly how this would work, but we could have a `Print` button and it would send the file off and print :).
 
