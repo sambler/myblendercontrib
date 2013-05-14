@@ -233,6 +233,8 @@ def import_fbx(path):
                         verts = tag_get_single(value2, "Vertices")[1]
                         faces = tag_get_single(value2, "PolygonVertexIndex")[1]
                         edges = tag_get_single(value2, "Edges")[1]
+                        if edges is None:
+                            edges = []
 
                         # convert odd fbx verts and faces to a blender mesh.
                         if verts and faces:
@@ -309,7 +311,7 @@ def import_fbx(path):
                                     for idx, val in enumerate(smooth_faces):
                                         new_idx = blen_poly_mapping.get(idx)
                                         if new_idx is not None:
-                                            me.faces[new_idx].use_smooth = val
+                                            me.polygons[new_idx].use_smooth = val
                                 elif type == "ByEdge":
                                     smooth_edges = tag_get_single(i, "Smoothing")[1]
 
@@ -326,7 +328,7 @@ def import_fbx(path):
                                 if type == "ByPolygon":
                                     crease_faces = tag_get_single(i, "Smoothing")[1]
 
-                                    for idx, f in enumerate(me.faces):
+                                    for idx, f in enumerate(me.polygons):
                                         poly_idx = blen_poly_mapping.get(idx)
                                         if poly_idx is not None:
                                             f.use_smooth = crease_faces[idx]
@@ -359,21 +361,13 @@ def import_fbx(path):
                                             uv_in += 1
 
                                     me.uv_textures.new(uv_name)
-                                    uv_layer = me.uv_textures[-1].data
+                                    uv_layer = me.uv_layers[-1].data
                                     uv_counter = 0
                                     if uv_layer:
-                                        for fi, uv in enumerate(uv_layer):
-                                            if(len(me.faces[fi].vertices) == 4):
-                                                uv.uv1 = uv_face[uv_counter]
-                                                uv.uv2 = uv_face[uv_counter + 1]
-                                                uv.uv3 = uv_face[uv_counter + 2]
-                                                uv.uv4 = uv_face[uv_counter + 3]
-                                                uv_counter += 4
-                                            else:
-                                                uv.uv1 = uv_face[uv_counter]
-                                                uv.uv2 = uv_face[uv_counter + 1]
-                                                uv.uv3 = uv_face[uv_counter + 2]
-                                                uv_counter += 3
+                                        for f in me.polygons:
+                                            for li in f.loop_indices:
+                                                uv_layer[li].uv = uv_face[uv_counter]
+                                                uv_counter += 1
 
                             obj = bpy.data.objects.new(fbx_name, me)
                             base = scene.objects.link(obj)
@@ -417,7 +411,11 @@ def import_fbx(path):
                         # Take care of parenting (we assume the parent has already been processed)
                         parent = connections.get(fbx_name)
                         if parent and parent != "Scene" and not parent.startswith("DisplayLayer"):
-                            obj.parent = objects[parent]
+                            try:
+                                # FIXME.
+                                obj.parent = objects[parent]
+                            except:
+                                print("objects[%r]: MISSING, FIXME" % parent)
                             parent = obj.parent
                         else:
                             parent = None
