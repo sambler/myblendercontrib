@@ -43,8 +43,8 @@ class TextureAtlas(bpy.types.Panel):
         row = self.layout.row()
         split = self.layout.split()
         ob = context.object
-        scene = context.scene
-        row.template_list("UI_UL_list", "template_list_controls", scene, "ms_lightmap_groups", scene, "ms_lightmap_groups_index", rows=2,  maxrows=5)
+        thisScene = context.scene
+        row.template_list("UI_UL_list", "template_list_controls", thisScene, "ms_lightmap_groups", thisScene, "ms_lightmap_groups_index", rows=2,  maxrows=5)
         col = row.column(align=True)
         col.operator("scene.ms_add_lightmap_group", icon='ZOOMIN', text="")
         col.operator("scene.ms_del_lightmap_group", icon='ZOOMOUT', text="")
@@ -454,14 +454,14 @@ class mergeObjects(bpy.types.Operator):
         me.update()
         ob_merge.select = False      
       
-        active_object = bpy.data.groups[self.group_name].objects[0]
+        activeNowObject = bpy.data.groups[self.group_name].objects[0]
         bpy.ops.object.select_all(action='DESELECT')
         
         OBJECTLIST = []
         for object in bpy.data.groups[self.group_name].objects:
             OBJECTLIST.append(object)   
             object.select = True   
-        context.scene.objects.active = active_object      
+        context.scene.objects.active = activeNowObject      
 
         
         ### Make Object Single User
@@ -484,8 +484,8 @@ class mergeObjects(bpy.types.Operator):
             object.select = True
             context.scene.objects.active = object
             bpy.ops.object.duplicate(linked=False, mode='TRANSLATION')
-            active_object = context.scene.objects.active
-            active_object.select = True
+            activeNowObject = context.scene.objects.active
+            activeNowObject.select = True
 
             ### hide render of original mesh
             object.hide_render = True
@@ -493,26 +493,26 @@ class mergeObjects(bpy.types.Operator):
             object.select = False
 
             ### delete vertex groups of the object
-            #for group in active_object.vertex_groups:
-                #id = context.active_object.vertex_groups[group.name]
-                #context.active_object.vertex_groups.remove(id)               
+            #for group in activeNowObject.vertex_groups:
+                #id = context.activeNowObject.vertex_groups[group.name]
+                #context.activeNowObject.vertex_groups.remove(id)               
                 
             ### remove unused UV
             #remove UVs
             UVLIST = []
-            for uv in active_object.data.uv_textures:
+            for uv in activeNowObject.data.uv_textures:
                   if uv.name != self.group_name:
                        UVLIST.append(uv.name)
                              
             for uvName in UVLIST:
-                 active_object.data.uv_textures[uvName].active = True
+                 activeNowObject.data.uv_textures[uvName].active = True
                  bpy.ops.mesh.uv_texture_remove()     
             
             UVLIST = [] #clear array
             
             
             ### create vertex groups for each selected object
-            context.scene.objects.active = bpy.data.objects[active_object.name]
+            context.scene.objects.active = bpy.data.objects[activeNowObject.name]
             bpy.ops.object.mode_set(mode = 'EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.object.vertex_group_add()
@@ -532,7 +532,7 @@ class mergeObjects(bpy.types.Operator):
 
             ### merge objects together
             bpy.ops.object.select_all(action='DESELECT')
-            active_object.select = True
+            activeNowObject.select = True
             ob_merge.select = True
             context.scene.objects.active = ob_merge
             bpy.ops.object.join()
