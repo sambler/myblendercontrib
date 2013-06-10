@@ -90,12 +90,30 @@ class runAuto(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
     
         if group.bake == True and len(bpy.data.groups[group.name].objects) > 0:
-
-             res = int(context.scene.ms_lightmap_groups[group.name].resolution)
-             bpy.ops.object.ms_create_lightmap(group_name=group.name, resolution=res)  
-             bpy.ops.object.ms_merge_objects(group_name=group.name, unwrap=True)
-             bpy.ops.object.ms_separate_objects(group_name=group.name) 
-                 
+  
+            
+             # Check if objects are all on the visible Layers.
+             isAllObjectsVisible = True
+             bpy.ops.object.select_all(action='DESELECT')
+             for thisObject in bpy.data.groups[group.name].objects:
+                  isThisObjectVisible = False
+                  context.scene.objects.active = thisObject
+                  layersNumber = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+                  for thisLayerNumb in layersNumber:
+                       if thisObject.layers[thisLayerNumb] == True and context.scene.layers[thisLayerNumb] == True:
+                             isThisObjectVisible = True
+                  # If Object is on an invisible Layer
+                  if isThisObjectVisible == False:
+                       isAllObjectsVisible = False
+             
+             if isAllObjectsVisible == True:
+                  res = int(context.scene.ms_lightmap_groups[group.name].resolution)
+                  bpy.ops.object.ms_create_lightmap(group_name=group.name, resolution=res)  
+                  bpy.ops.object.ms_merge_objects(group_name=group.name, unwrap=True)
+                  bpy.ops.object.ms_separate_objects(group_name=group.name) 
+             else:
+                  self.report({'INFO'}, "Not All Objects Are Visible!!!!")
+                  
         context.area.type = old_context
 
         return{'FINISHED'}   
@@ -117,10 +135,26 @@ class runStart(bpy.types.Operator):
     
         if group.bake == True and len(bpy.data.groups[group.name].objects) > 0:
 
-             res = int(context.scene.ms_lightmap_groups[group.name].resolution)
-             bpy.ops.object.ms_create_lightmap(group_name=group.name, resolution=res)  
-                    
-             bpy.ops.object.ms_merge_objects(group_name=group.name, unwrap=False)
+             # Check if objects are all on the visible Layers.
+             isAllObjectsVisible = True
+             bpy.ops.object.select_all(action='DESELECT')
+             for thisObject in bpy.data.groups[group.name].objects:
+                  isThisObjectVisible = False
+                  context.scene.objects.active = thisObject
+                  layersNumber = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+                  for thisLayerNumb in layersNumber:
+                       if thisObject.layers[thisLayerNumb] == True and context.scene.layers[thisLayerNumb] == True:
+                             isThisObjectVisible = True
+                  # If Object is on an invisible Layer
+                  if isThisObjectVisible == False:
+                       isAllObjectsVisible = False
+                       
+             if isAllObjectsVisible == True:               
+                 res = int(context.scene.ms_lightmap_groups[group.name].resolution)
+                 bpy.ops.object.ms_create_lightmap(group_name=group.name, resolution=res)  
+                 bpy.ops.object.ms_merge_objects(group_name=group.name, unwrap=False)
+             else:
+                  self.report({'INFO'}, "Not All Objects Are Visible!!!!")                 
 
         context.area.type = old_context
         return{'FINISHED'}
@@ -142,7 +176,24 @@ class runFinish(bpy.types.Operator):
     
         if group.bake == True and len(bpy.data.groups[group.name].objects) > 0:
 
-             bpy.ops.object.ms_separate_objects(group_name=group.name) 
+             # Check if objects are all on the visible Layers.
+             isAllObjectsVisible = True
+             bpy.ops.object.select_all(action='DESELECT')
+             for thisObject in bpy.data.groups[group.name].objects:
+                  isThisObjectVisible = False
+                  context.scene.objects.active = thisObject
+                  layersNumber = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+                  for thisLayerNumb in layersNumber:
+                       if thisObject.layers[thisLayerNumb] == True and context.scene.layers[thisLayerNumb] == True:
+                             isThisObjectVisible = True
+                  # If Object is on an invisible Layer
+                  if isThisObjectVisible == False:
+                       isAllObjectsVisible = False
+                       
+             if isAllObjectsVisible == True:            
+                  bpy.ops.object.ms_separate_objects(group_name=group.name) 
+             else:
+                  self.report({'INFO'}, "Not All Objects Are Visible!!!!")                    
                       
         context.area.type = old_context
         #bpy.ops.object.select_all(action='DESELECT')
@@ -387,6 +438,7 @@ class createLightmap(bpy.types.Operator):
       
       for object in bpy.data.groups[self.group_name].objects:  
           bpy.ops.object.select_all(action='DESELECT')
+          object.hide = False
           object.select = True
           context.scene.objects.active = object
           bpy.ops.object.mode_set(mode = 'EDIT')
@@ -571,9 +623,11 @@ class separateObjects(bpy.types.Operator):
         for obj in context.scene.objects:
              if obj.name == self.group_name + "_mergedObject":
   
-                bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+                #if context.scene.objects.active != None:
+                    #bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
                 bpy.ops.object.select_all(action='DESELECT')
                 ob_merged = obj
+                obj.hide = False
                 ob_merged.select = True
                 groupSeparate = bpy.data.groups.new(ob_merged.name)
                 bpy.data.groups[groupSeparate.name].objects.link(ob_merged)
