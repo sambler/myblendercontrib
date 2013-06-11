@@ -28,7 +28,13 @@ bl_info = {
     "category": "UV"}
 
 import bpy
-from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty, FloatProperty
+from bpy.props import (BoolProperty,
+                       CollectionProperty,
+                       EnumProperty,
+                       FloatProperty,
+                       IntProperty,
+                       StringProperty,
+                       )
 import mathutils
 
 class TextureAtlas(bpy.types.Panel):
@@ -73,8 +79,7 @@ class TextureAtlas(bpy.types.Panel):
             row.operator("object.ms_run",text="Start Manual Unwrap/Bake",icon="LAMP_SPOT")
             row.operator("object.ms_run_remove",text="Finsh Manual Unwrap/Bake",icon="LAMP_SPOT")   
 
-        
-        
+
 class runAuto(bpy.types.Operator):
     bl_idname = "object.ms_auto"
     bl_label = "Auto Unwrapping"
@@ -99,8 +104,7 @@ class runAuto(bpy.types.Operator):
              for thisObject in bpy.data.groups[group.name].objects:
                   isThisObjectVisible = False
                   scene.objects.active = thisObject
-                  layersNumber = range(20)
-                  for thisLayerNumb in layersNumber:
+                  for thisLayerNumb in range(20):
                        if thisObject.layers[thisLayerNumb] == True and scene.layers[thisLayerNumb] == True:
                              isThisObjectVisible = True
                              break
@@ -144,8 +148,7 @@ class runStart(bpy.types.Operator):
              for thisObject in bpy.data.groups[group.name].objects:
                   isThisObjectVisible = False
                   scene.objects.active = thisObject
-                  layersNumber = range(20)
-                  for thisLayerNumb in layersNumber:
+                  for thisLayerNumb in range(20):
                        if thisObject.layers[thisLayerNumb] == True and scene.layers[thisLayerNumb] == True:
                              isThisObjectVisible = True
                              break
@@ -187,8 +190,7 @@ class runFinish(bpy.types.Operator):
              for thisObject in bpy.data.groups[group.name].objects:
                   isThisObjectVisible = False
                   scene.objects.active = thisObject
-                  layersNumber = range(20)
-                  for thisLayerNumb in layersNumber:
+                  for thisLayerNumb in range(20):
                        if thisObject.layers[thisLayerNumb] == True and scene.layers[thisLayerNumb] == True:
                              isThisObjectVisible = True
                              break
@@ -207,14 +209,14 @@ class runFinish(bpy.types.Operator):
         
     
 class uv_layers(bpy.types.PropertyGroup):
-    name = bpy.props.StringProperty(default="")
+    name = StringProperty(default="")
 
    
 class vertex_groups(bpy.types.PropertyGroup):
-    name = bpy.props.StringProperty(default="") 
+    name = StringProperty(default="") 
     
 class groups(bpy.types.PropertyGroup):
-    name = bpy.props.StringProperty(default="") 
+    name = StringProperty(default="") 
 
 class ms_lightmap_groups(bpy.types.PropertyGroup):
     
@@ -223,21 +225,39 @@ class ms_lightmap_groups(bpy.types.PropertyGroup):
             #for material in object.data.materials:
                 #material.texture_slots[self.name].use = self.bake
     
-    name = bpy.props.StringProperty(default="")
-    bake = bpy.props.BoolProperty(default=True)
-    #bake = bpy.props.BoolProperty(default=True, update=update)
+    name = StringProperty(default="")
+    bake = BoolProperty(default=True)
+    #bake = BoolProperty(default=True, update=update)
 
-    unwrap_type = EnumProperty(name="unwrap_type",items=(('0','Smart_Unwrap', 'Smart_Unwrap'),('1','Lightmap', 'Lightmap'), ('2','No_Unwrap', 'No_Unwrap')))
-    resolution = EnumProperty(name="resolution",items=(('256','256','256'),('512','512','512'),('1024','1024','1024'),('2048','2048','2048'),('4096','4096','4096')))
-    template_list_controls = StringProperty(default="bake", options={"HIDDEN"})
-    
-    
+    unwrap_type = EnumProperty(
+            name="unwrap_type",
+            items=(('0', 'Smart_Unwrap', 'Smart_Unwrap'),
+                   ('1', 'Lightmap', 'Lightmap'),
+                   ('2', 'No_Unwrap', 'No_Unwrap'),
+                   ),
+            )
+    resolution = EnumProperty(
+            name="resolution",
+            items=(('256', '256', ''),
+                   ('512', '512', ''),
+                   ('1024', '1024', ''),
+                   ('2048', '2048', ''),
+                   ('4096', '4096', ''),
+                   ),
+            )
+    template_list_controls = StringProperty(
+            default="bake",
+            options={"HIDDEN"},
+            )
+
 
 class mergedObjects(bpy.types.PropertyGroup):
-    name = bpy.props.StringProperty(default="")
-    vertex_groups = bpy.props.CollectionProperty(type=vertex_groups)
-    groups = bpy.props.CollectionProperty(type=groups)
-    uv_layers = bpy.props.CollectionProperty(type=uv_layers)
+    name = StringProperty()
+    vertex_groups = CollectionProperty(
+            type=vertex_groups,
+            )
+    groups = CollectionProperty(type=groups)
+    uv_layers = CollectionProperty(type=uv_layers)
     
 
 class addSelectedToGroup(bpy.types.Operator):
@@ -720,11 +740,11 @@ def register():
     bpy.utils.register_class(groups)
     
     bpy.utils.register_class(mergedObjects)
-    bpy.types.Object.ms_merged_objects = bpy.props.CollectionProperty(type=mergedObjects)
+    bpy.types.Object.ms_merged_objects = CollectionProperty(type=mergedObjects)
     
     bpy.utils.register_class(ms_lightmap_groups)
-    bpy.types.Scene.ms_lightmap_groups = bpy.props.CollectionProperty(type=ms_lightmap_groups)
-    bpy.types.Scene.ms_lightmap_groups_index = bpy.props.IntProperty()
+    bpy.types.Scene.ms_lightmap_groups = CollectionProperty(type=ms_lightmap_groups)
+    bpy.types.Scene.ms_lightmap_groups_index = IntProperty()
     
 
 
