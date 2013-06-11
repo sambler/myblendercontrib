@@ -401,24 +401,25 @@ class delLightmapGroup(bpy.types.Operator):
     
 
     def execute(self, context):
-        idx = context.scene.ms_lightmap_groups_index
-        group_name = context.scene.ms_lightmap_groups[idx].name
+        if len(context.scene.ms_lightmap_groups) > 0:
+            idx = context.scene.ms_lightmap_groups_index
+            group_name = context.scene.ms_lightmap_groups[idx].name
         
-        # Remove Group
-        for groupObj in bpy.data.groups:
-             if groupObj.name == group_name:
+            # Remove Group
+            for groupObj in bpy.data.groups:
+                 if groupObj.name == group_name:
        
-                 # Unhide Objects if they are hidden
-                 for obj in bpy.data.groups[group_name].objects:
-                      obj.hide_render = False
+                     # Unhide Objects if they are hidden
+                     for obj in bpy.data.groups[group_name].objects:
+                          obj.hide_render = False
         
-                 bpy.data.groups.remove(bpy.data.groups[context.scene.ms_lightmap_groups[idx].name])
+                     bpy.data.groups.remove(bpy.data.groups[context.scene.ms_lightmap_groups[idx].name])
                  
-        # Remove Lightmap Group         
-        context.scene.ms_lightmap_groups.remove(context.scene.ms_lightmap_groups_index)
-        context.scene.ms_lightmap_groups_index -= 1
-        if context.scene.ms_lightmap_groups_index < 0:
-              context.scene.ms_lightmap_groups_index = 0
+            # Remove Lightmap Group         
+            context.scene.ms_lightmap_groups.remove(context.scene.ms_lightmap_groups_index)
+            context.scene.ms_lightmap_groups_index -= 1
+            if context.scene.ms_lightmap_groups_index < 0:
+                  context.scene.ms_lightmap_groups_index = 0
         
         return {'FINISHED'}
 
