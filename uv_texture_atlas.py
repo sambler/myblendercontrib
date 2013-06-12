@@ -243,6 +243,8 @@ class ms_lightmap_groups(bpy.types.PropertyGroup):
                    ('1024', '1024', ''),
                    ('2048', '2048', ''),
                    ('4096', '4096', ''),
+                   ('8192', '8192', ''),
+                   ('16384', '16384', '')
                    ),
             )
     template_list_controls = StringProperty(
@@ -399,7 +401,7 @@ class addLightmapGroup(bpy.types.Operator):
     bl_label = "add Lightmap"
     bl_description = "Adds a new Lightmap Group"
     
-    name = StringProperty(name="Group Name",default='lightmap') 
+    name = StringProperty(name="Group Name",default='TextureAtlas') 
 
     def execute(self, context):
         scene = context.scene
@@ -497,10 +499,14 @@ class createLightmap(bpy.types.Operator):
           if self.group_name not in bpy.data.images:
               bpy.ops.image.new(name=self.group_name,width=self.resolution,height=self.resolution)
               bpy.ops.object.mode_set(mode = 'EDIT')
-              bpy.data.screens['UV Editing'].areas[1].spaces[0].image = bpy.data.images[self.group_name]
+              context.area.type = 'IMAGE_EDITOR'
+              bpy.data.screens[bpy.context.screen.name].areas[1].spaces[0].image = bpy.data.images[self.group_name]
+              context.area.type = 'VIEW_3D'
           else:
               bpy.ops.object.mode_set(mode = 'EDIT')
-              bpy.data.screens['UV Editing'].areas[1].spaces[0].image = bpy.data.images[self.group_name]
+              context.area.type = 'IMAGE_EDITOR'
+              bpy.data.screens[bpy.context.screen.name].areas[1].spaces[0].image = bpy.data.images[self.group_name]
+              context.area.type = 'VIEW_3D'
               bpy.data.images[self.group_name].generated_type = 'COLOR_GRID'
               bpy.data.images[self.group_name].generated_width = self.resolution
               bpy.data.images[self.group_name].generated_height = self.resolution
