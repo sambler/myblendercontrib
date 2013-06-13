@@ -641,8 +641,8 @@ class mergeObjects(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)    
         
         ### remove all materials
-        for material in ob_merge.material_slots:
-             bpy.ops.object.material_slot_remove()  
+        #for material in ob_merge.material_slots:
+             #bpy.ops.object.material_slot_remove()  
              
         return{'FINISHED'}
 
