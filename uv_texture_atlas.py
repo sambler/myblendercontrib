@@ -37,19 +37,22 @@ from bpy.props import (BoolProperty,
                        )
 import mathutils
 
+
 class TextureAtlas(bpy.types.Panel):
     bl_label = "Texture Atlas"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "render"
     COMPAT_ENGINES = {'BLENDER_RENDER'}
-    
+
     def draw(self, context):
+        scene = context.scene
+        ob = context.object
+
         col = self.layout.column()
         row = self.layout.row()
         split = self.layout.split()
-        ob = context.object
-        scene = context.scene
+
         row.template_list("UI_UL_list", "template_list_controls", scene, "ms_lightmap_groups", scene, "ms_lightmap_groups_index", rows=2,  maxrows=5)
         col = row.column(align=True)
         col.operator("scene.ms_add_lightmap_group", icon='ZOOMIN', text="")
@@ -59,9 +62,10 @@ class TextureAtlas(bpy.types.Panel):
 
         # Resolution and Unwrap types (only if Lightmap group is added)
         if context.scene.ms_lightmap_groups:
-            row.prop(scene.ms_lightmap_groups[scene.ms_lightmap_groups_index], 'resolution', text='Resolution',expand=True)
+            group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
+            row.prop(group, 'resolution', text='Resolution',expand=True)
             row = self.layout.row()
-            row.prop(scene.ms_lightmap_groups[scene.ms_lightmap_groups_index], 'unwrap_type', text='Lightmap',expand=True)
+            row.prop(group, 'unwrap_type', text='Lightmap',expand=True)
             row = self.layout.row()            
 
             row = self.layout.row()
@@ -89,7 +93,7 @@ class runAuto(bpy.types.Operator):
         scene = context.scene
         old_context = context.area.type
 
-        
+
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
         context.area.type = 'VIEW_3D'
         if scene.objects.active is not None:
@@ -330,13 +334,13 @@ class removeFromGroup(bpy.types.Operator):
     def execute(self, context):
         ### set 3dView context
         scene = context.scene
-        old_context = context.area.type        
+        old_context = context.area.type
         context.area.type = 'VIEW_3D'
         
         if scene.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
         
-        for group in scene.ms_lightmap_groups:        
+        for group in scene.ms_lightmap_groups:
             group_name = group.name
 
             for object in context.selected_objects:
@@ -410,7 +414,7 @@ class addLightmapGroup(bpy.types.Operator):
         item = scene.ms_lightmap_groups.add() 
         item.name = group.name
         item.resolution = '1024'
-        scene.ms_lightmap_groups_index = len(scene.ms_lightmap_groups)-1
+        scene.ms_lightmap_groups_index = len(scene.ms_lightmap_groups) - 1
         
         #if len(context.selected_objects) > 0:
         for object in context.selected_objects:
@@ -466,51 +470,49 @@ class createLightmap(bpy.types.Operator):
     resolution = IntProperty(default=1024)
     
     def execute(self, context):  
-        
-      ### create lightmap uv layout
-      scene = context.scene
+        scene = context.scene
+        ### create lightmap uv layout
       
-      # Create/Update Image
-      if self.group_name not in bpy.data.images:
-          bpy.ops.image.new(name=self.group_name,width=self.resolution,height=self.resolution)
-      bpy.data.images[self.group_name].generated_type = 'COLOR_GRID'
-      bpy.data.images[self.group_name].generated_width = self.resolution
-      bpy.data.images[self.group_name].generated_height = self.resolution      
-      
-      # 
-      for object in bpy.data.groups[self.group_name].objects:  
-          bpy.ops.object.select_all(action='DESELECT')
-          object.hide = False
-          object.select = True
-          scene.objects.active = object
-          bpy.ops.object.mode_set(mode = 'EDIT')
-          
+        # Create/Update Image
+        if self.group_name not in bpy.data.images:
+            bpy.ops.image.new(name=self.group_name, width=self.resolution, height=self.resolution)
+        bpy.data.images[self.group_name].generated_type = 'COLOR_GRID'
+        bpy.data.images[self.group_name].generated_width = self.resolution
+        bpy.data.images[self.group_name].generated_height = self.resolution      
         
-          if context.object.data.uv_textures.active == None:
-              bpy.ops.mesh.uv_texture_add()
-              context.object.data.uv_textures.active.name = self.group_name
-          else:    
-              if self.group_name not in context.object.data.uv_textures:
-                  bpy.ops.mesh.uv_texture_add()
-                  context.object.data.uv_textures.active.name = self.group_name
-                  context.object.data.uv_textures[self.group_name].active = True
-                  context.object.data.uv_textures[self.group_name].active_render = True
-              else:
-                  context.object.data.uv_textures[self.group_name].active = True
-                  context.object.data.uv_textures[self.group_name].active_render = True
-        
-          bpy.ops.mesh.select_all(action='SELECT')
-        
-          ### set Image  
-          bpy.ops.mesh.select_all(action='SELECT')
-          context.area.type = 'IMAGE_EDITOR'
-          bpy.data.screens[context.screen.name].areas[1].spaces[0].image = bpy.data.images[self.group_name]
-          context.area.type = 'VIEW_3D'
-
+        # 
+        for object in bpy.data.groups[self.group_name].objects:  
+            bpy.ops.object.select_all(action='DESELECT')
+            object.hide = False
+            object.select = True
+            scene.objects.active = object
+            bpy.ops.object.mode_set(mode='EDIT')
             
-          if scene.objects.active is not None:  
-              bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-      return{'FINISHED'}        
+          
+            if context.object.data.uv_textures.active is None:
+                bpy.ops.mesh.uv_texture_add()
+                context.object.data.uv_textures.active.name = self.group_name
+            else:    
+                if self.group_name not in context.object.data.uv_textures:
+                    bpy.ops.mesh.uv_texture_add()
+                    context.object.data.uv_textures.active.name = self.group_name
+                    context.object.data.uv_textures[self.group_name].active = True
+                    context.object.data.uv_textures[self.group_name].active_render = True
+                else:
+                    context.object.data.uv_textures[self.group_name].active = True
+                    context.object.data.uv_textures[self.group_name].active_render = True
+          
+            bpy.ops.mesh.select_all(action='SELECT')
+          
+            ### set Image  
+            bpy.ops.mesh.select_all(action='SELECT')
+            context.area.type = 'IMAGE_EDITOR'
+            bpy.data.screens[context.screen.name].areas[1].spaces[0].image = bpy.data.images[self.group_name]
+            context.area.type = 'VIEW_3D'
+
+            if scene.objects.active is not None:  
+                bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+        return{'FINISHED'}        
         
         
 class mergeObjects(bpy.types.Operator):
@@ -635,9 +637,9 @@ class mergeObjects(bpy.types.Operator):
         bpy.ops.mesh.select_all(action='SELECT')
         
         if self.unwrap == True and scene.ms_lightmap_groups[self.group_name].unwrap_type == '0':
-               bpy.ops.uv.smart_project(angle_limit=72.0, island_margin=0.2, user_area_weight=0.0)
+            bpy.ops.uv.smart_project(angle_limit=72.0, island_margin=0.2, user_area_weight=0.0)
         elif self.unwrap == True and scene.ms_lightmap_groups[self.group_name].unwrap_type == '1':
-               bpy.ops.uv.lightmap_pack(PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False, PREF_APPLY_IMAGE=False, PREF_IMG_PX_SIZE=1024, PREF_BOX_DIV=48, PREF_MARGIN_DIV=0.2)        
+            bpy.ops.uv.lightmap_pack(PREF_CONTEXT='ALL_FACES', PREF_PACK_IN_ONE=True, PREF_NEW_UVLAYER=False, PREF_APPLY_IMAGE=False, PREF_IMG_PX_SIZE=1024, PREF_BOX_DIV=48, PREF_MARGIN_DIV=0.2)
         bpy.ops.object.mode_set(mode='OBJECT', toggle=False)    
         
         ### remove all materials
