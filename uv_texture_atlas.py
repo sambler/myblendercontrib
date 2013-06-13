@@ -470,6 +470,14 @@ class createLightmap(bpy.types.Operator):
       ### create lightmap uv layout
       scene = context.scene
       
+      # Create/Update Image
+      if self.group_name not in bpy.data.images:
+          bpy.ops.image.new(name=self.group_name,width=self.resolution,height=self.resolution)
+      bpy.data.images[self.group_name].generated_type = 'COLOR_GRID'
+      bpy.data.images[self.group_name].generated_width = self.resolution
+      bpy.data.images[self.group_name].generated_height = self.resolution      
+      
+      # 
       for object in bpy.data.groups[self.group_name].objects:  
           bpy.ops.object.select_all(action='DESELECT')
           object.hide = False
@@ -494,22 +502,11 @@ class createLightmap(bpy.types.Operator):
           bpy.ops.mesh.select_all(action='SELECT')
         
           ### set Image  
-          bpy.ops.object.mode_set(mode = 'EDIT')
           bpy.ops.mesh.select_all(action='SELECT')
-          if self.group_name not in bpy.data.images:
-              bpy.ops.image.new(name=self.group_name,width=self.resolution,height=self.resolution)
-              bpy.ops.object.mode_set(mode = 'EDIT')
-              context.area.type = 'IMAGE_EDITOR'
-              bpy.data.screens[bpy.context.screen.name].areas[1].spaces[0].image = bpy.data.images[self.group_name]
-              context.area.type = 'VIEW_3D'
-          else:
-              bpy.ops.object.mode_set(mode = 'EDIT')
-              context.area.type = 'IMAGE_EDITOR'
-              bpy.data.screens[bpy.context.screen.name].areas[1].spaces[0].image = bpy.data.images[self.group_name]
-              context.area.type = 'VIEW_3D'
-              bpy.data.images[self.group_name].generated_type = 'COLOR_GRID'
-              bpy.data.images[self.group_name].generated_width = self.resolution
-              bpy.data.images[self.group_name].generated_height = self.resolution
+          context.area.type = 'IMAGE_EDITOR'
+          bpy.data.screens[context.screen.name].areas[1].spaces[0].image = bpy.data.images[self.group_name]
+          context.area.type = 'VIEW_3D'
+
             
           if scene.objects.active is not None:  
               bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
