@@ -341,8 +341,8 @@ class removeFromGroup(bpy.types.Operator):
                   if object.type == 'MESH' and bpy.data.groups[group_name] in object.users_group:
 
                          ### remove UV
-                         if object.data.uv_textures[group_name] is not None:
-                             tex = object.data.uv_textures[group_name]
+                         tex = object.data.uv_textures.get(group_name)
+                         if tex is not None:
                              object.data.uv_textures.remove(tex)
 
                          #### remove from group
@@ -482,19 +482,20 @@ class createLightmap(bpy.types.Operator):
             scene.objects.active = object
             bpy.ops.object.mode_set(mode='EDIT')
             
-          
+            tex = None
             if context.object.data.uv_textures.active is None:
-                context.object.data.uv_textures.new()
-                context.object.data.uv_textures.active.name = self.group_name
+                tex = context.object.data.uv_textures.new()
+                tex.name = self.group_name
             else:    
                 if self.group_name not in context.object.data.uv_textures:
-                    context.object.data.uv_textures.new()
-                    context.object.data.uv_textures.active.name = self.group_name
-                    context.object.data.uv_textures[self.group_name].active = True
-                    context.object.data.uv_textures[self.group_name].active_render = True
+                    tex = context.object.data.uv_textures.new()
+                    tex.name = self.group_name
+                    tex.active = True
+                    tex.active_render = True
                 else:
-                    context.object.data.uv_textures[self.group_name].active = True
-                    context.object.data.uv_textures[self.group_name].active_render = True
+                    tex = context.object.data.uv_textures[self.group_name]
+                    tex.active = True
+                    tex.active_render = True
           
             bpy.ops.mesh.select_all(action='SELECT')
           
