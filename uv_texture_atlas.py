@@ -318,14 +318,6 @@ class removeFromGroup(bpy.types.Operator):
     bl_label = "del Selected"
     bl_description = "Remove Selected Group and UVs"
     
-    ### removeUV method
-    def removeUV(self, mesh, name):
-             for uv in mesh.data.uv_textures:
-                   if uv.name == name:
-                        uv.active = True
-                        bpy.ops.mesh.uv_texture_remove()
-                        
-        
         #remove all modifiers
         #for m in mesh.modifiers:
             #bpy.ops.object.modifier_remove(modifier=m.name)
@@ -348,8 +340,10 @@ class removeFromGroup(bpy.types.Operator):
         
                   if object.type == 'MESH' and bpy.data.groups[group_name] in object.users_group:
 
-                         ### remove UV has crash
-                         self.removeUV(object, group_name)
+                         ### remove UV
+                         if object.data.uv_textures[group_name] is not None:
+                             tex = object.data.uv_textures[group_name]
+                             object.data.uv_textures.remove(tex)
 
                          #### remove from group
                          bpy.data.groups[group_name].objects.unlink(object)
@@ -390,8 +384,8 @@ class removeOtherUVs(bpy.types.Operator):
                               UVLIST.append(uv.name)
                          
                    for uvName in UVLIST:
-                        object.data.uv_textures[uvName].active = True
-                        bpy.ops.mesh.uv_texture_remove()                  
+                        tex = object.data.uv_textures[uvName]
+                        object.data.uv_textures.remove(tex)
                   
                    UVLIST.clear() #clear array
                   
@@ -490,11 +484,11 @@ class createLightmap(bpy.types.Operator):
             
           
             if context.object.data.uv_textures.active is None:
-                bpy.ops.mesh.uv_texture_add()
+                context.object.data.uv_textures.new()
                 context.object.data.uv_textures.active.name = self.group_name
             else:    
                 if self.group_name not in context.object.data.uv_textures:
-                    bpy.ops.mesh.uv_texture_add()
+                    context.object.data.uv_textures.new()
                     context.object.data.uv_textures.active.name = self.group_name
                     context.object.data.uv_textures[self.group_name].active = True
                     context.object.data.uv_textures[self.group_name].active_render = True
@@ -534,9 +528,7 @@ class mergeObjects(bpy.types.Operator):
                   scene.objects.active = obj
                   bpy.ops.object.delete(use_global=False)        
 
-
-  
-        
+                  
         me = bpy.data.meshes.new(self.group_name + '_mergedObject')
         ob_merge = bpy.data.objects.new(self.group_name + '_mergedObject', me)
         ob_merge.location = scene.cursor_location   # position object at 3d-cursor
@@ -594,9 +586,9 @@ class mergeObjects(bpy.types.Operator):
                        UVLIST.append(uv.name)
                              
             for uvName in UVLIST:
-                 activeNowObject.data.uv_textures[uvName].active = True
-                 bpy.ops.mesh.uv_texture_remove()     
-            
+                 tex = activeNowObject.data.uv_textures[uvName]
+                 activeNowObject.data.uv_textures.remove(tex)
+
             UVLIST.clear() #clear array
             
             
@@ -694,6 +686,7 @@ class separateObjects(bpy.types.Operator):
                       for obj in groupSeparate.objects:
                            if obj != ob_merged:
                                ob_separeted = obj
+                               break
                                
                       ob_merged.select = False
                       #ob_separeted = context.selected_objects[0]
