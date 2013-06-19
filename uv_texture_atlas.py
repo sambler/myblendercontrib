@@ -92,6 +92,23 @@ class TextureAtlas(bpy.types.Panel):
             row.operator(
                 "object.ms_run_remove", text="Finsh Manual Unwrap/Bake", icon="LAMP_SPOT")
 
+    def check_all_objects_visible(self, context):
+            scene = context.scene
+            group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
+            isAllObjectsVisible = True
+            bpy.ops.object.select_all(action='DESELECT')
+            for thisObject in bpy.data.groups[group.name].objects:
+                isThisObjectVisible = False
+                #scene.objects.active = thisObject
+                for thisLayerNumb in range(20):
+                    if thisObject.layers[thisLayerNumb] is True and scene.layers[thisLayerNumb] is True:
+                        isThisObjectVisible = True
+                        break
+                # If Object is on an invisible Layer
+                if isThisObjectVisible is False:
+                    isAllObjectsVisible = False
+            return isAllObjectsVisible
+
 
 class runAuto(bpy.types.Operator):
     bl_idname = "object.ms_auto"
@@ -110,20 +127,9 @@ class runAuto(bpy.types.Operator):
         if group.bake is True and bpy.data.groups[group.name].objects:
 
             # Check if objects are all on the visible Layers.
-            isAllObjectsVisible = True
-            bpy.ops.object.select_all(action='DESELECT')
-            for thisObject in bpy.data.groups[group.name].objects:
-                isThisObjectVisible = False
-                scene.objects.active = thisObject
-                for thisLayerNumb in range(20):
-                    if thisObject.layers[thisLayerNumb] is True and scene.layers[thisLayerNumb] is True:
-                        isThisObjectVisible = True
-                        break
-                # If Object is on an invisible Layer
-                if isThisObjectVisible is False:
-                    isAllObjectsVisible = False
+            isAllObjVisible = TextureAtlas.check_all_objects_visible(self, context)
 
-            if isAllObjectsVisible is True:
+            if isAllObjVisible is True:
                 res = int(scene.ms_lightmap_groups[group.name].resolution)
                 bpy.ops.object.ms_create_lightmap(
                     group_name=group.name, resolution=res)
@@ -155,20 +161,9 @@ class runStart(bpy.types.Operator):
         if group.bake is True and bpy.data.groups[group.name].objects:
 
             # Check if objects are all on the visible Layers.
-            isAllObjectsVisible = True
-            bpy.ops.object.select_all(action='DESELECT')
-            for thisObject in bpy.data.groups[group.name].objects:
-                isThisObjectVisible = False
-                scene.objects.active = thisObject
-                for thisLayerNumb in range(20):
-                    if thisObject.layers[thisLayerNumb] is True and scene.layers[thisLayerNumb] is True:
-                        isThisObjectVisible = True
-                        break
-                # If Object is on an invisible Layer
-                if isThisObjectVisible is False:
-                    isAllObjectsVisible = False
+            isAllObjVisible = TextureAtlas.check_all_objects_visible(self, context)
 
-            if isAllObjectsVisible is True:
+            if isAllObjVisible is True:
                 res = int(scene.ms_lightmap_groups[group.name].resolution)
                 bpy.ops.object.ms_create_lightmap(
                     group_name=group.name, resolution=res)
@@ -192,26 +187,15 @@ class runFinish(bpy.types.Operator):
 
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
         context.area.type = 'VIEW_3D'
-        if scene.objects.active is not None:
-            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         if group.bake is True and bpy.data.groups[group.name].objects:
 
             # Check if objects are all on the visible Layers.
-            isAllObjectsVisible = True
-            bpy.ops.object.select_all(action='DESELECT')
-            for thisObject in bpy.data.groups[group.name].objects:
-                isThisObjectVisible = False
-                scene.objects.active = thisObject
-                for thisLayerNumb in range(20):
-                    if thisObject.layers[thisLayerNumb] is True and scene.layers[thisLayerNumb] is True:
-                        isThisObjectVisible = True
-                        break
-                # If Object is on an invisible Layer
-                if isThisObjectVisible is False:
-                    isAllObjectsVisible = False
+            isAllObjVisible = TextureAtlas.check_all_objects_visible(self, context)
 
-            if isAllObjectsVisible is True:
+            if isAllObjVisible is True:
+                if scene.objects.active is not None:
+                    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
                 bpy.ops.object.ms_separate_objects(group_name=group.name)
             else:
                 self.report({'INFO'}, "Not All Objects Are Visible!!!!")
