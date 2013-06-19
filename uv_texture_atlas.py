@@ -38,6 +38,23 @@ from bpy.props import (BoolProperty,
                        )
 import mathutils
 
+def check_all_objects_visible(self, context):
+        scene = context.scene
+        group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
+        isAllObjectsVisible = True
+        bpy.ops.object.select_all(action='DESELECT')
+        for thisObject in bpy.data.groups[group.name].objects:
+            isThisObjectVisible = False
+            #scene.objects.active = thisObject
+            for thisLayerNumb in range(20):
+                if thisObject.layers[thisLayerNumb] is True and scene.layers[thisLayerNumb] is True:
+                    isThisObjectVisible = True
+                    break
+            # If Object is on an invisible Layer
+            if isThisObjectVisible is False:
+                isAllObjectsVisible = False
+        return isAllObjectsVisible
+
 
 class TextureAtlas(bpy.types.Panel):
     bl_label = "Texture Atlas"
@@ -92,23 +109,6 @@ class TextureAtlas(bpy.types.Panel):
             row.operator(
                 "object.ms_run_remove", text="Finsh Manual Unwrap/Bake", icon="LAMP_SPOT")
 
-    def check_all_objects_visible(self, context):
-            scene = context.scene
-            group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
-            isAllObjectsVisible = True
-            bpy.ops.object.select_all(action='DESELECT')
-            for thisObject in bpy.data.groups[group.name].objects:
-                isThisObjectVisible = False
-                #scene.objects.active = thisObject
-                for thisLayerNumb in range(20):
-                    if thisObject.layers[thisLayerNumb] is True and scene.layers[thisLayerNumb] is True:
-                        isThisObjectVisible = True
-                        break
-                # If Object is on an invisible Layer
-                if isThisObjectVisible is False:
-                    isAllObjectsVisible = False
-            return isAllObjectsVisible
-
 
 class runAuto(bpy.types.Operator):
     bl_idname = "object.ms_auto"
@@ -127,7 +127,7 @@ class runAuto(bpy.types.Operator):
         if group.bake is True and bpy.data.groups[group.name].objects:
 
             # Check if objects are all on the visible Layers.
-            isAllObjVisible = TextureAtlas.check_all_objects_visible(self, context)
+            isAllObjVisible = check_all_objects_visible(self, context)
 
             if isAllObjVisible is True:
                 res = int(scene.ms_lightmap_groups[group.name].resolution)
@@ -161,7 +161,7 @@ class runStart(bpy.types.Operator):
         if group.bake is True and bpy.data.groups[group.name].objects:
 
             # Check if objects are all on the visible Layers.
-            isAllObjVisible = TextureAtlas.check_all_objects_visible(self, context)
+            isAllObjVisible = check_all_objects_visible(self, context)
 
             if isAllObjVisible is True:
                 res = int(scene.ms_lightmap_groups[group.name].resolution)
@@ -187,15 +187,15 @@ class runFinish(bpy.types.Operator):
 
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
         context.area.type = 'VIEW_3D'
+        if scene.objects.active is not None:
+            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         if group.bake is True and bpy.data.groups[group.name].objects:
 
             # Check if objects are all on the visible Layers.
-            isAllObjVisible = TextureAtlas.check_all_objects_visible(self, context)
+            isAllObjVisible = check_all_objects_visible(self, context)
 
             if isAllObjVisible is True:
-                if scene.objects.active is not None:
-                    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
                 bpy.ops.object.ms_separate_objects(group_name=group.name)
             else:
                 self.report({'INFO'}, "Not All Objects Are Visible!!!!")
@@ -284,7 +284,7 @@ class addSelectedToGroup(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         for object in context.selected_objects:
-            if object.type == 'MESH' and bpy.data.groups[group_name] not in object.users_group:
+            if object.type == 'MESH' and object.name not in bpy.data.groups[group_name].objects:
                 bpy.data.groups[group_name].objects.link(object)
 
         return {'FINISHED'}
@@ -332,7 +332,7 @@ class removeFromGroup(bpy.types.Operator):
             for object in context.selected_objects:
                 scene.objects.active = object
 
-                if object.type == 'MESH' and bpy.data.groups[group_name] in object.users_group:
+                if object.type == 'MESH' and object.name in bpy.data.groups[group_name].objects:
 
                     # remove UV
                     tex = object.data.uv_textures.get(group_name)
@@ -368,7 +368,7 @@ class removeOtherUVs(bpy.types.Operator):
         # Remove other UVs of selected objects
         for object in context.selected_objects:
             scene.objects.active = object
-            if object.type == 'MESH' and bpy.data.groups[group_name] in object.users_group:
+            if object.type == 'MESH' and object.name in bpy.data.groups[group_name].objects:
 
                 # remove UVs
                 UVLIST = []
@@ -460,12 +460,14 @@ class createLightmap(bpy.types.Operator):
         # create lightmap uv layout
 
         # Create/Update Image
+        image = None
         if self.group_name not in bpy.data.images:
-            bpy.ops.image.new(
-                name=self.group_name, width=self.resolution, height=self.resolution)
-        bpy.data.images[self.group_name].generated_type = 'COLOR_GRID'
-        bpy.data.images[self.group_name].generated_width = self.resolution
-        bpy.data.images[self.group_name].generated_height = self.resolution
+            image = bpy.ops.image.new(name=self.group_name, width=self.resolution, height=self.resolution)
+        image = bpy.data.images[self.group_name]
+            
+        image.generated_type = 'COLOR_GRID'
+        image.generated_width = self.resolution
+        image.generated_height = self.resolution
 
         #
         for object in bpy.data.groups[self.group_name].objects:
