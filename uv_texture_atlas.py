@@ -462,8 +462,9 @@ class createLightmap(bpy.types.Operator):
         # Create/Update Image
         image = None
         if self.group_name not in bpy.data.images:
-            image = bpy.ops.image.new(name=self.group_name, width=self.resolution, height=self.resolution)
-        image = bpy.data.images[self.group_name]
+            image = bpy.data.images.new(name=self.group_name, width=self.resolution, height=self.resolution)
+        else:
+            image = bpy.data.images[self.group_name]
             
         image.generated_type = 'COLOR_GRID'
         image.generated_width = self.resolution
