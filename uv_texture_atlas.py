@@ -38,6 +38,7 @@ from bpy.props import (BoolProperty,
                        )
 import mathutils
 
+
 def check_all_objects_visible(self, context):
         scene = context.scene
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
@@ -465,7 +466,7 @@ class createLightmap(bpy.types.Operator):
             image = bpy.data.images.new(name=self.group_name, width=self.resolution, height=self.resolution)
         else:
             image = bpy.data.images[self.group_name]
-            
+
         image.generated_type = 'COLOR_GRID'
         image.generated_width = self.resolution
         image.generated_height = self.resolution
