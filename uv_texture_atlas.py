@@ -173,14 +173,14 @@ class RunStart(Operator):
 
     def execute(self, context):
         scene = context.scene
-        old_context = context.area.type
+        #old_context = context.area.type
 
         # Check if group exists
         if check_group_exist(self, context) is False:
             return {'CANCELLED'}
 
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
-        context.area.type = 'VIEW_3D'
+        #context.area.type = 'VIEW_3D'
 
         if scene.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
@@ -199,7 +199,7 @@ class RunStart(Operator):
             else:
                 self.report({'INFO'}, "Not All Objects Are Visible!!!")
 
-        context.area.type = old_context
+        #context.area.type = old_context
         return{'FINISHED'}
 
 
@@ -356,13 +356,13 @@ class RemoveFromGroup(Operator):
     def execute(self, context):
         # set 3dView context
         scene = context.scene
-        old_context = context.area.type
+        #old_context = context.area.type
 
         # Check if group exists
         if check_group_exist(self, context) is False:
             return {'CANCELLED'}
 
-        context.area.type = 'VIEW_3D'
+        #context.area.type = 'VIEW_3D'
 
         if scene.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
@@ -384,7 +384,7 @@ class RemoveFromGroup(Operator):
                     bpy.data.groups[group_name].objects.unlink(object)
                     object.hide_render = False
 
-        context.area.type = old_context
+        #context.area.type = old_context
         return {'FINISHED'}
 
 
@@ -403,8 +403,8 @@ class RemoveOtherUVs(Operator):
             return {'CANCELLED'}
 
         # set 3dView context
-        old_context = context.area.type
-        context.area.type = 'VIEW_3D'
+        #old_context = context.area.type
+        #context.area.type = 'VIEW_3D'
 
         if scene.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
@@ -427,7 +427,7 @@ class RemoveOtherUVs(Operator):
 
                 UVLIST.clear()  # clear array
 
-        context.area.type = old_context
+        #context.area.type = old_context
         return {'FINISHED'}
 
 
@@ -615,14 +615,9 @@ class MergeObjects(Operator):
 
             # create vertex groups for each selected object
             scene.objects.active = bpy.data.objects[activeNowObject.name]
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.object.vertex_group_add()
-            bpy.ops.object.vertex_group_assign()
-            id = len(context.object.vertex_groups) - 1
-            context.active_object.vertex_groups[id].name = object.name
-            bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+            vgroup = activeNowObject.vertex_groups.new(name=object.name)
+            vgroup.add(list(range(len(activeNowObject.data.vertices))), weight=1.0, type='ADD')
+            id = len(activeNowObject.vertex_groups) - 1
 
             # save object name and object location in merged object
             item = ob_merge.ms_merged_objects.add()
