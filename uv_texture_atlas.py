@@ -152,7 +152,7 @@ class RunAuto(Operator):
             isAllObjVisible = check_all_objects_visible(self, context)
 
             if isAllObjVisible is True:
-                res = int(scene.ms_lightmap_groups[group.name].resolution)
+                res = int(group.resolution)
                 bpy.ops.object.ms_create_lightmap(
                     group_name=group.name, resolution=res)
                 bpy.ops.object.ms_merge_objects(
@@ -190,7 +190,7 @@ class RunStart(Operator):
             isAllObjVisible = check_all_objects_visible(self, context)
 
             if isAllObjVisible is True:
-                res = int(scene.ms_lightmap_groups[group.name].resolution)
+                res = int(group.resolution)
                 bpy.ops.object.ms_create_lightmap(
                     group_name=group.name, resolution=res)
                 bpy.ops.object.ms_merge_objects(
@@ -461,8 +461,7 @@ class DelLightmapGroup(Operator):
                     obj.hide_render = False
                     obj.hide = False
 
-                bpy.data.groups.remove(
-                    bpy.data.groups[scene.ms_lightmap_groups[idx].name])
+                bpy.data.groups.remove(group)
 
             # Remove Lightmap Group
             scene.ms_lightmap_groups.remove(scene.ms_lightmap_groups_index)
@@ -590,7 +589,7 @@ class MergeObjects(Operator):
             UVLIST.clear()  # clear array
 
             # create vertex groups for each selected object
-            scene.objects.active = bpy.data.objects[activeNowObject.name]
+            scene.objects.active = activeNowObject
             vgroup = activeNowObject.vertex_groups.new(name=object.name)
             vgroup.add(
                 list(range(len(activeNowObject.data.vertices))), weight=1.0, type='ADD')
@@ -651,23 +650,22 @@ class SeparateObjects(Operator):
                 obj.hide = False
                 ob_merged.select = True
                 groupSeparate = bpy.data.groups.new(ob_merged.name)
-                bpy.data.groups[groupSeparate.name].objects.link(ob_merged)
+                groupSeparate.objects.link(ob_merged)
                 ob_merged.select = False
 
                 OBJECTLIST = []
-                for object in ob_merged.ms_merged_objects:
-                    OBJECTLIST.append(object.name)
+                for ms_obj in ob_merged.ms_merged_objects:
+                    OBJECTLIST.append(ms_obj.name)
                     # select vertex groups and separate group from merged
                     # object
                     bpy.ops.object.select_all(action='DESELECT')
                     ob_merged.select = True
                     scene.objects.active = ob_merged
-                    # scene.objects[object.name]
-                    # scene.objects.active
+
                     bpy.ops.object.mode_set(mode='EDIT')
                     bpy.ops.mesh.select_all(action='DESELECT')
-                    context.active_object.vertex_groups.active_index = context.active_object.vertex_groups[
-                        object.name].index
+                    ob_merged.vertex_groups.active_index = ob_merged.vertex_groups[
+                        ms_obj.name].index
                     bpy.ops.object.vertex_group_select()
                     bpy.ops.mesh.separate(type='SELECTED')
                     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
@@ -681,9 +679,9 @@ class SeparateObjects(Operator):
                             break
 
                     # Copy UV Coordinates to the original mesh
-                    if object.name in scene.objects:
+                    if ms_obj.name in scene.objects:
                         ob_merged.select = False
-                        ob_original = scene.objects[object.name]
+                        ob_original = scene.objects[ms_obj.name]
                         ob_original.hide = False
                         ob_original.select = True
                         scene.objects.active = ob_separeted
