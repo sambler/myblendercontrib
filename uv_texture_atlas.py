@@ -505,50 +505,31 @@ class CreateLightmap(Operator):
         # create lightmap uv layout
 
         # Create/Update Image
-        image = None
-        if self.group_name not in bpy.data.images:
+        image = bpy.data.images.get(self.group_name)
+        if image is None:
             image = bpy.data.images.new(name=self.group_name, width=self.resolution, height=self.resolution)
-        else:
-            image = bpy.data.images[self.group_name]
 
         image.generated_type = 'COLOR_GRID'
         image.generated_width = self.resolution
         image.generated_height = self.resolution
 
-        #
         for object in bpy.data.groups[self.group_name].objects:
-            bpy.ops.object.select_all(action='DESELECT')
-            object.hide = False
-            object.select = True
-            scene.objects.active = object
-            bpy.ops.object.mode_set(mode='EDIT')
-
-            tex = None
-            if context.object.data.uv_textures.active is None:
-                tex = context.object.data.uv_textures.new()
+            if object.data.uv_textures.active is None:
+                tex = object.data.uv_textures.new()
                 tex.name = self.group_name
             else:
-                if self.group_name not in context.object.data.uv_textures:
-                    tex = context.object.data.uv_textures.new()
+                if self.group_name not in object.data.uv_textures:
+                    tex = object.data.uv_textures.new()
                     tex.name = self.group_name
                     tex.active = True
                     tex.active_render = True
                 else:
-                    tex = context.object.data.uv_textures[self.group_name]
+                    tex = object.data.uv_textures[self.group_name]
                     tex.active = True
                     tex.active_render = True
-
-            bpy.ops.mesh.select_all(action='SELECT')
-
-            # set Image
-            bpy.ops.mesh.select_all(action='SELECT')
-            context.area.type = 'IMAGE_EDITOR'
-            bpy.data.screens[context.screen.name].areas[
-                1].spaces[0].image = bpy.data.images[self.group_name]
-            context.area.type = 'VIEW_3D'
-
-            if scene.objects.active is not None:
-                bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+                    
+            for face_tex in tex.data:
+                face_tex.image = image
         return{'FINISHED'}
 
 
