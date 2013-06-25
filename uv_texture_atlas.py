@@ -51,7 +51,7 @@ def check_all_objects_visible(self, context):
     bpy.ops.object.select_all(action='DESELECT')
     for thisObject in bpy.data.groups[group.name].objects:
         isThisObjectVisible = False
-        #scene.objects.active = thisObject
+        # scene.objects.active = thisObject
         for thisLayerNumb in range(20):
             if thisObject.layers[thisLayerNumb] is True and scene.layers[thisLayerNumb] is True:
                 isThisObjectVisible = True
@@ -173,7 +173,7 @@ class RunStart(Operator):
 
     def execute(self, context):
         scene = context.scene
-        #old_context = context.area.type
+        # old_context = context.area.type
 
         # Check if group exists
         if check_group_exist(self, context) is False:
@@ -351,7 +351,6 @@ class RemoveFromGroup(Operator):
         if check_group_exist(self, context) is False:
             return {'CANCELLED'}
 
-
         if scene.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
@@ -488,7 +487,8 @@ class CreateLightmap(Operator):
         # Create/Update Image
         image = bpy.data.images.get(self.group_name)
         if image is None:
-            image = bpy.data.images.new(name=self.group_name, width=self.resolution, height=self.resolution)
+            image = bpy.data.images.new(
+                name=self.group_name, width=self.resolution, height=self.resolution)
 
         image.generated_type = 'COLOR_GRID'
         image.generated_width = self.resolution
@@ -508,7 +508,7 @@ class CreateLightmap(Operator):
                     tex = object.data.uv_textures[self.group_name]
                     tex.active = True
                     tex.active_render = True
-                    
+
             for face_tex in tex.data:
                 face_tex.image = image
         return{'FINISHED'}
@@ -576,7 +576,6 @@ class MergeObjects(Operator):
             object.hide = True
             object.select = False
 
-
             # remove unused UV
             # remove UVs
             UVLIST = []
@@ -593,7 +592,8 @@ class MergeObjects(Operator):
             # create vertex groups for each selected object
             scene.objects.active = bpy.data.objects[activeNowObject.name]
             vgroup = activeNowObject.vertex_groups.new(name=object.name)
-            vgroup.add(list(range(len(activeNowObject.data.vertices))), weight=1.0, type='ADD')
+            vgroup.add(
+                list(range(len(activeNowObject.data.vertices))), weight=1.0, type='ADD')
 
             # save object name and object location in merged object
             item = ob_merge.ms_merged_objects.add()
@@ -728,7 +728,8 @@ def register():
     bpy.utils.register_class(MSGroups)
 
     bpy.utils.register_class(MSMergedObjects)
-    bpy.types.Object.ms_merged_objects = CollectionProperty(type=MSMergedObjects)
+    bpy.types.Object.ms_merged_objects = CollectionProperty(
+        type=MSMergedObjects)
 
     bpy.utils.register_class(MSLightmapGroups)
     bpy.types.Scene.ms_lightmap_groups = CollectionProperty(
