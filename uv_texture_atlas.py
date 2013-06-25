@@ -295,20 +295,17 @@ class AddSelectedToGroup(Operator):
             scene.ms_lightmap_groups_index].name
 
         # Create a New Group if it was deleted.
-        isExist = False
-        for groupObj in bpy.data.groups:
-            if groupObj == group_name:
-                isExist = True
-        if isExist is False:
-            bpy.data.groups.new(group_name)
+        obj_group = bpy.data.groups.get(group_name)
+        if obj_group is None:
+            obj_group = bpy.data.groups.new(group_name)
 
         # Add objects to  a group
         if scene.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         for object in context.selected_objects:
-            if object.type == 'MESH' and object.name not in bpy.data.groups[group_name].objects:
-                bpy.data.groups[group_name].objects.link(object)
+            if object.type == 'MESH' and object.name not in obj_group.objects:
+                obj_group.objects.link(object)
 
         return {'FINISHED'}
 
@@ -330,7 +327,8 @@ class SelectGroup(Operator):
         if scene.objects.active is not None:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
         bpy.ops.object.select_all(action='DESELECT')
-        for object in bpy.data.groups[group_name].objects:
+        obj_group = bpy.data.groups[group_name]
+        for object in obj_group.objects:
             object.select = True
         return {'FINISHED'}
 
@@ -357,10 +355,11 @@ class RemoveFromGroup(Operator):
         for group in scene.ms_lightmap_groups:
             group_name = group.name
 
+            obj_group = bpy.data.groups[group_name]
             for object in context.selected_objects:
                 scene.objects.active = object
 
-                if object.type == 'MESH' and object.name in bpy.data.groups[group_name].objects:
+                if object.type == 'MESH' and object.name in obj_group.objects:
 
                     # remove UV
                     tex = object.data.uv_textures.get(group_name)
@@ -368,7 +367,7 @@ class RemoveFromGroup(Operator):
                         object.data.uv_textures.remove(tex)
 
                     # remove from group
-                    bpy.data.groups[group_name].objects.unlink(object)
+                    obj_group.objects.unlink(object)
                     object.hide_render = False
 
         return {'FINISHED'}
@@ -392,10 +391,12 @@ class RemoveOtherUVs(Operator):
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
         # bpy.ops.object.select_all(action='DESELECT')
 
+        obj_group = bpy.data.groups[group_name]
+
         # Remove other UVs of selected objects
         for object in context.selected_objects:
             scene.objects.active = object
-            if object.type == 'MESH' and object.name in bpy.data.groups[group_name].objects:
+            if object.type == 'MESH' and object.name in obj_group.objects:
 
                 # remove UVs
                 UVLIST = []
@@ -421,10 +422,10 @@ class AddLightmapGroup(Operator):
 
     def execute(self, context):
         scene = context.scene
-        group = bpy.data.groups.new(self.name)
+        obj_group = bpy.data.groups.new(self.name)
 
         item = scene.ms_lightmap_groups.add()
-        item.name = group.name
+        item.name = obj_group.name
         item.resolution = '1024'
         scene.ms_lightmap_groups_index = len(scene.ms_lightmap_groups) - 1
 
@@ -432,7 +433,7 @@ class AddLightmapGroup(Operator):
         for object in context.selected_objects:
             # scene.objects.active = object
             if context.active_object.type == 'MESH':
-                group.objects.link(object)
+                obj_group.objects.link(object)
 
         return {'FINISHED'}
 
@@ -653,9 +654,7 @@ class SeparateObjects(Operator):
                 groupSeparate.objects.link(ob_merged)
                 ob_merged.select = False
 
-                OBJECTLIST = []
                 for ms_obj in ob_merged.ms_merged_objects:
-                    OBJECTLIST.append(ms_obj.name)
                     # select vertex groups and separate group from merged
                     # object
                     bpy.ops.object.select_all(action='DESELECT')
@@ -692,8 +691,6 @@ class SeparateObjects(Operator):
                     bpy.ops.object.select_all(action='DESELECT')
                     ob_separeted.select = True
                     bpy.ops.object.delete(use_global=False)
-
-                OBJECTLIST.clear()  # clear array
 
                 # delete duplicated object
                 bpy.ops.object.select_all(action='DESELECT')
