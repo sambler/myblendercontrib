@@ -29,6 +29,11 @@ bl_info = {
     "category": "UV"}
 
 import bpy
+from bpy.types import (Operator,
+                       Panel,
+                       PropertyGroup,
+                       )
+
 from bpy.props import (BoolProperty,
                        CollectionProperty,
                        EnumProperty,
@@ -57,17 +62,19 @@ def check_all_objects_visible(self, context):
     return isAllObjectsVisible
 
 
-def check_group_exist(self, context):
+def check_group_exist(self, context, use_report=True):
     scene = context.scene
     group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
 
     if group.name in bpy.data.groups:
         return True
     else:
+        if use_report:
+            self.report({'INFO'}, "No Such Group %r!" % group.name)
         return False
 
 
-class TextureAtlas(bpy.types.Panel):
+class TextureAtlas(Panel):
     bl_label = "Texture Atlas"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -121,7 +128,7 @@ class TextureAtlas(bpy.types.Panel):
                 "object.ms_run_remove", text="FinshManualUnwrap", icon="LAMP_SPOT")
 
 
-class runAuto(bpy.types.Operator):
+class RunAuto(Operator):
     bl_idname = "object.ms_auto"
     bl_label = "Auto Unwrapping"
     bl_description = "Auto Unwrapping"
@@ -132,7 +139,6 @@ class runAuto(bpy.types.Operator):
 
         # Check if group exists
         if check_group_exist(self, context) is False:
-            self.report({'INFO'}, "No Such Group!!!")
             return {'CANCELLED'}
 
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
@@ -160,7 +166,7 @@ class runAuto(bpy.types.Operator):
         return{'FINISHED'}
 
 
-class runStart(bpy.types.Operator):
+class RunStart(Operator):
     bl_idname = "object.ms_run"
     bl_label = "Make Manual Unwrapping Object"
     bl_description = "Makes Manual Unwrapping Object"
@@ -171,7 +177,6 @@ class runStart(bpy.types.Operator):
 
         # Check if group exists
         if check_group_exist(self, context) is False:
-            self.report({'INFO'}, "No Such Group!!!")
             return {'CANCELLED'}
 
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
@@ -198,7 +203,7 @@ class runStart(bpy.types.Operator):
         return{'FINISHED'}
 
 
-class runFinish(bpy.types.Operator):
+class RunFinish(Operator):
     bl_idname = "object.ms_run_remove"
     bl_label = "Remove Manual Unwrapping Object"
     bl_description = "Removes Manual Unwrapping Object"
@@ -209,7 +214,6 @@ class runFinish(bpy.types.Operator):
 
         # Check if group exists
         if check_group_exist(self, context) is False:
-            self.report({'INFO'}, "No Such Group!!!")
             return {'CANCELLED'}
 
         group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
@@ -233,19 +237,19 @@ class runFinish(bpy.types.Operator):
         return{'FINISHED'}
 
 
-class uv_layers(bpy.types.PropertyGroup):
+class MSUVLayers(PropertyGroup):
     name = StringProperty(default="")
 
 
-class vertex_groups(bpy.types.PropertyGroup):
+class MSVertexGroups(PropertyGroup):
     name = StringProperty(default="")
 
 
-class groups(bpy.types.PropertyGroup):
+class MSGroups(PropertyGroup):
     name = StringProperty(default="")
 
 
-class ms_lightmap_groups(bpy.types.PropertyGroup):
+class MSLightmapGroups(PropertyGroup):
 
     # def update(self,context):
         # for object in bpy.data.groups[self.name].objects:
@@ -280,16 +284,16 @@ class ms_lightmap_groups(bpy.types.PropertyGroup):
     )
 
 
-class mergedObjects(bpy.types.PropertyGroup):
+class MSMergedObjects(PropertyGroup):
     name = StringProperty()
     vertex_groups = CollectionProperty(
-        type=vertex_groups,
+        type=MSVertexGroups,
     )
-    groups = CollectionProperty(type=groups)
-    uv_layers = CollectionProperty(type=uv_layers)
+    groups = CollectionProperty(type=MSGroups)
+    uv_layers = CollectionProperty(type=MSUVLayers)
 
 
-class addSelectedToGroup(bpy.types.Operator):
+class AddSelectedToGroup(Operator):
     bl_idname = "scene.ms_add_selected_to_group"
     bl_label = "Add to Group"
     bl_description = "Adds selected Objects to current Group"
@@ -318,7 +322,7 @@ class addSelectedToGroup(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class selectGroup(bpy.types.Operator):
+class SelectGroup(Operator):
     bl_idname = "scene.ms_select_group"
     bl_label = "sel Group"
     bl_description = "Selected Objects of current Group"
@@ -330,7 +334,6 @@ class selectGroup(bpy.types.Operator):
 
         # Check if group exists
         if check_group_exist(self, context) is False:
-            self.report({'INFO'}, "No Such Group!!!")
             return {'CANCELLED'}
 
         if scene.objects.active is not None:
@@ -341,7 +344,7 @@ class selectGroup(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class removeFromGroup(bpy.types.Operator):
+class RemoveFromGroup(Operator):
     bl_idname = "scene.ms_remove_selected"
     bl_label = "del Selected"
     bl_description = "Remove Selected Group and UVs"
@@ -357,7 +360,6 @@ class removeFromGroup(bpy.types.Operator):
 
         # Check if group exists
         if check_group_exist(self, context) is False:
-            self.report({'INFO'}, "No Such Group!!!")
             return {'CANCELLED'}
 
         context.area.type = 'VIEW_3D'
@@ -386,7 +388,7 @@ class removeFromGroup(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class removeOtherUVs(bpy.types.Operator):
+class RemoveOtherUVs(Operator):
     bl_idname = "scene.ms_remove_other_uv"
     bl_label = "remOther"
     bl_description = "Remove Other UVs from Selected"
@@ -398,7 +400,6 @@ class removeOtherUVs(bpy.types.Operator):
 
         # Check if group exists
         if check_group_exist(self, context) is False:
-            self.report({'INFO'}, "No Such Group!!!")
             return {'CANCELLED'}
 
         # set 3dView context
@@ -430,7 +431,7 @@ class removeOtherUVs(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class addLightmapGroup(bpy.types.Operator):
+class AddLightmapGroup(Operator):
     bl_idname = "scene.ms_add_lightmap_group"
     bl_label = "add Lightmap"
     bl_description = "Adds a new Lightmap Group"
@@ -459,7 +460,7 @@ class addLightmapGroup(bpy.types.Operator):
         return wm.invoke_props_dialog(self)
 
 
-class delLightmapGroup(bpy.types.Operator):
+class DelLightmapGroup(Operator):
     bl_idname = "scene.ms_del_lightmap_group"
     bl_label = "delete Lightmap"
     bl_description = "Deletes active Lightmap Group"
@@ -491,7 +492,7 @@ class delLightmapGroup(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class createLightmap(bpy.types.Operator):
+class CreateLightmap(Operator):
     bl_idname = "object.ms_create_lightmap"
     bl_label = "TextureAtlas - Generate Lightmap"
     bl_description = "Generates a Lightmap"
@@ -551,7 +552,7 @@ class createLightmap(bpy.types.Operator):
         return{'FINISHED'}
 
 
-class mergeObjects(bpy.types.Operator):
+class MergeObjects(Operator):
     bl_idname = "object.ms_merge_objects"
     bl_label = "TextureAtlas - MergeObjects"
     bl_description = "Merges Objects and stores Origins"
@@ -680,7 +681,7 @@ class mergeObjects(bpy.types.Operator):
         return{'FINISHED'}
 
 
-class separateObjects(bpy.types.Operator):
+class SeparateObjects(Operator):
     bl_idname = "object.ms_separate_objects"
     bl_label = "TextureAtlas - Separate Objects"
     bl_description = "Separates Objects and restores Origin"
@@ -757,57 +758,59 @@ class separateObjects(bpy.types.Operator):
 def register():
     bpy.utils.register_class(TextureAtlas)
 
-    bpy.utils.register_class(addLightmapGroup)
-    bpy.utils.register_class(delLightmapGroup)
-    bpy.utils.register_class(addSelectedToGroup)
-    bpy.utils.register_class(selectGroup)
-    bpy.utils.register_class(removeFromGroup)
-    bpy.utils.register_class(removeOtherUVs)
+    bpy.utils.register_class(AddLightmapGroup)
+    bpy.utils.register_class(DelLightmapGroup)
+    bpy.utils.register_class(AddSelectedToGroup)
+    bpy.utils.register_class(SelectGroup)
+    bpy.utils.register_class(RemoveFromGroup)
+    bpy.utils.register_class(RemoveOtherUVs)
 
-    bpy.utils.register_class(runAuto)
-    bpy.utils.register_class(runStart)
-    bpy.utils.register_class(runFinish)
-    bpy.utils.register_class(mergeObjects)
-    bpy.utils.register_class(separateObjects)
-    bpy.utils.register_class(createLightmap)
+    bpy.utils.register_class(RunAuto)
+    bpy.utils.register_class(RunStart)
+    bpy.utils.register_class(RunFinish)
+    bpy.utils.register_class(MergeObjects)
+    bpy.utils.register_class(SeparateObjects)
+    bpy.utils.register_class(CreateLightmap)
 
-    bpy.utils.register_class(uv_layers)
-    bpy.utils.register_class(vertex_groups)
-    bpy.utils.register_class(groups)
+    # types
+    bpy.utils.register_class(MSUVLayers)
+    bpy.utils.register_class(MSVertexGroups)
+    bpy.utils.register_class(MSGroups)
 
-    bpy.utils.register_class(mergedObjects)
-    bpy.types.Object.ms_merged_objects = CollectionProperty(type=mergedObjects)
+    bpy.utils.register_class(MSMergedObjects)
+    bpy.types.Object.ms_merged_objects = CollectionProperty(type=MSMergedObjects)
 
-    bpy.utils.register_class(ms_lightmap_groups)
+    bpy.utils.register_class(MSLightmapGroups)
     bpy.types.Scene.ms_lightmap_groups = CollectionProperty(
-        type=ms_lightmap_groups)
+        type=MSLightmapGroups)
     bpy.types.Scene.ms_lightmap_groups_index = IntProperty()
 
 
 def unregister():
     bpy.utils.unregister_class(TextureAtlas)
 
-    bpy.utils.unregister_class(addLightmapGroup)
-    bpy.utils.unregister_class(delLightmapGroup)
-    bpy.utils.unregister_class(addSelectedToGroup)
-    bpy.utils.unregister_class(selectGroup)
-    bpy.utils.unregister_class(removeFromGroup)
-    bpy.utils.unregister_class(removeOtherUVs)
+    bpy.utils.unregister_class(AddLightmapGroup)
+    bpy.utils.unregister_class(DelLightmapGroup)
+    bpy.utils.unregister_class(AddSelectedToGroup)
+    bpy.utils.unregister_class(SelectGroup)
+    bpy.utils.unregister_class(RemoveFromGroup)
+    bpy.utils.unregister_class(RemoveOtherUVs)
 
-    bpy.utils.unregister_class(runAuto)
-    bpy.utils.unregister_class(runStart)
-    bpy.utils.unregister_class(runFinish)
-    bpy.utils.unregister_class(mergeObjects)
-    bpy.utils.unregister_class(separateObjects)
-    bpy.utils.unregister_class(createLightmap)
+    bpy.utils.unregister_class(RunAuto)
+    bpy.utils.unregister_class(RunStart)
+    bpy.utils.unregister_class(RunFinish)
+    bpy.utils.unregister_class(MergeObjects)
+    bpy.utils.unregister_class(SeparateObjects)
+    bpy.utils.unregister_class(CreateLightmap)
 
-    bpy.utils.unregister_class(uv_layers)
-    bpy.utils.unregister_class(vertex_groups)
-    bpy.utils.unregister_class(groups)
+    # types
+    bpy.utils.unregister_class(MSUVLayers)
+    bpy.utils.unregister_class(MSVertexGroups)
+    bpy.utils.unregister_class(MSGroups)
 
-    bpy.utils.unregister_class(mergedObjects)
+    bpy.utils.unregister_class(MSMergedObjects)
 
-    bpy.utils.unregister_class(ms_lightmap_groups)
+    bpy.utils.unregister_class(MSLightmapGroups)
 
 
 if __name__ == "__main__":
