@@ -106,25 +106,18 @@ def menu_init(menu):
 class Translate(MenuItem):
     def op(self, parent, context):
        bpy.context.space_data.show_manipulator = True 
-       bpy.context.space_data.use_manipulator_translate=True
-       bpy.context.space_data.use_manipulator_rotate=False
-       bpy.context.space_data.use_manipulator_scale=False
- 
+       bpy.context.space_data.transform_manipulators= {'TRANSLATE'}
+        
  
 class Rotate(MenuItem):
     def op(self, parent, context):
        bpy.context.space_data.show_manipulator = True
-       bpy.context.space_data.use_manipulator_translate=False
-       bpy.context.space_data.use_manipulator_rotate=True
-       bpy.context.space_data.use_manipulator_scale=False
+       bpy.context.space_data.transform_manipulators= {'ROTATE'}
  
  
 class Scale(MenuItem):
     def op(self, parent, context):
-       bpy.context.space_data.show_manipulator = True
-       bpy.context.space_data.use_manipulator_translate=False
-       bpy.context.space_data.use_manipulator_rotate=False
-       bpy.context.space_data.use_manipulator_scale=True
+       bpy.context.space_data.transform_manipulators= {'SCALE'}
  
  
 class ManipulatorOn(MenuItem):
