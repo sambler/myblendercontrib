@@ -27,7 +27,7 @@ bl_info = {
     "blender": (2, 6, 6),
     "location": "View3D - Set Keybindings in File->Userprefs->Input Tab->(Search: \"pie\")",
     "warning": '',  # used for warning icon and text in addons panel
-    "wiki_url": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/Pie_Menu",
     "tracker_url": "https://bitbucket.org/liquidape/blender-pie-menus/issues",
     "category": "3D View"}
 
