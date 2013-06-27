@@ -24,7 +24,7 @@ bl_info = {
     "description": "Pie Menus for various functionality",
     "author": "Dan Eicher, Sean Olson, Patrick Moore",
     "version": (1, 0, 1),
-    "blender": (2, 6, 6),
+    "blender": (2, 6, 7),
     "location": "View3D - Set Keybindings in File->Userprefs->Input Tab->(Search: \"pie\")",
     "warning": '',  # used for warning icon and text in addons panel
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/Pie_Menu",
