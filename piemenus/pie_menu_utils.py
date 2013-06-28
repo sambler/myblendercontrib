@@ -1,3 +1,20 @@
+# ##### BEGIN GPL LICENSE BLOCK #####
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ##### END GPL LICENSE BLOCK #####
 '''
 Created on Nov 26, 2012
 
@@ -367,18 +384,12 @@ def make_round_slider(minx, miny, maxx, maxy, pct, rad):
         return [left_side, right_side]
     
 def callback_register(self, context):
-        if str(bpy.app.build_revision)[2:7] == "unkno" or eval(str(bpy.app.build_revision)[2:7]) >= 53207:
-            self._handle = bpy.types.SpaceView3D.draw_handler_add(self.menu.draw, (self, context), 'WINDOW', 'POST_PIXEL')
-        else:
-            self._handle = context.region.callback_add(self.menu.draw, (self, context), 'POST_PIXEL')
+        self._handle = bpy.types.SpaceView3D.draw_handler_add(self.menu.draw, (self, context), 'WINDOW', 'POST_PIXEL')
         return None
             
 def callback_cleanup(self, context):
-    if str(bpy.app.build_revision)[2:7] == "unkno" or eval(str(bpy.app.build_revision)[2:7]) >= 53207:
         bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
-    else:
-        context.region.callback_remove(self._handle)
-    return None
+        return None
        
 def draw_outline_or_region(mode, points):
         '''  
