@@ -110,7 +110,7 @@ class bp(bpy.types.Panel):
         row = layout.row()
 
         row = layout.row()
-        row.label("Overide:")
+        row.label("Override:")
 
         #row = layout.row()
         row.prop(context.scene, "gsg1_ignore_pause")
