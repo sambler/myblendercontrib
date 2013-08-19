@@ -110,7 +110,7 @@ class bp(bpy.types.Panel):
         row = layout.row()
 
         row = layout.row()
-        row.label("Overide:")
+        row.label("Override:")
 
         #row = layout.row()
         row.prop(context.scene, "gsg1_ignore_pause")
@@ -370,7 +370,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(bp)
-    bpy.utils.register_class(ClearLog)
+    bpy.utils.uregister_class(ClearLog)
 
 if __name__ == '__main__':
     register()
