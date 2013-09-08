@@ -34,32 +34,18 @@
 from bpy import (
         ops,
         )
+from bpy.path import (
+        resolve_ncase,
+        )
+from os import (
+        path,
+        )
 
 
 class FpxUtilities:
 
-    TAG_NAME = "raw_dump"
-
     ###########################################################################
-    @staticmethod
-    def toGoodName(s):
-        if not s:
-            return s
-
-        sx = []
-        for c in s:
-            if (
-                    (c != '_') and (c != '.') and
-                    (c != '[') and (c != ']') and
-                    (c != '(') and (c != ')') and
-                    (c != '{') and (c != '}') and
-                    (c < '0' or c > '9') and
-                    (c < 'A' or c > 'Z') and
-                    (c < 'a' or c > 'z')
-                    ):
-                c = '_'
-            sx.append(c)
-        return str().join(sx).lower().strip(". ")
+    TAG_NAME = "raw_dump"
 
     @staticmethod
     def str_begin_tag(value):
@@ -71,6 +57,8 @@ class FpxUtilities:
 
     @staticmethod
     def dump_bin(dump, address=0, comment="", max_size=0x0000000FFFFF, sector_list=None, sector_size=None, add_tags=True):
+        if dump is None:
+            return
         tag_name = FpxUtilities.TAG_NAME
         gap_hex = "|| "
         default_marker_left = ' ('
@@ -91,6 +79,16 @@ class FpxUtilities:
             view_address_16 = view_address & 15
 
             # cut of value to char
+            if isinstance(value, str):
+                if (value >= chr(32) and value < chr(127)):
+                    value_chr = value
+                else:
+                    value_chr = '.'
+            else:
+                if (value >= 32 and value < 127):
+                    value_chr = chr(value)
+                else:
+                    value_chr = '.'
             if (value >= 32 and value < 127):
                 value_chr = chr(value)
             else:
@@ -120,7 +118,10 @@ class FpxUtilities:
                     view_output.append(gap_hex)
                     view_chr.append(" ")
 
-            view_output.append("{:02X} ".format(value))
+            if isinstance(value, str):
+                view_output.append("{:02X} ".format(ord(value)))
+            else:
+                view_output.append("{:02X} ".format(value))
             view_chr.append(value_chr)
 
             if index >= max_index or view_address_16 == 15:
@@ -157,6 +158,49 @@ class FpxUtilities:
 
     ###########################################################################
     @staticmethod
+    def toGoodName(s):
+        if not s:
+            return s
+
+        sx = []
+        for c in s:
+            if (
+                    (c != '_') and (c != '.') and
+                    (c != '[') and (c != ']') and
+                    (c != '(') and (c != ')') and
+                    (c != '{') and (c != '}') and
+                    (c < '0' or c > '9') and
+                    (c < 'A' or c > 'Z') and
+                    (c < 'a' or c > 'z')
+                    ):
+                c = '_'
+            sx.append(c)
+        return str().join(sx).lower().strip(". ")
+
+    ###########################################################################
+    @staticmethod
+    def toGoodFilePath(s):
+        """ source path/filenames are based on windows systems """
+        if not s:
+            return s
+
+        # detecting custom operating system
+        if path.sep != '\\':
+            # replace windows sep to custom os sep
+            s = s.replace('\\', path.sep)
+
+            # find and cutoff drive letter
+            i = s.find(':')
+            if i > -1:
+                s = s[i + 1:]
+
+        # try to handle case sensitive names in case of such os
+        s = resolve_ncase(s)
+
+        return s
+
+    ###########################################################################
+    @staticmethod
     def enable_edit_mode(enable, blender_context):
         if blender_context.active_object is None or not blender_context.active_object.type in {'CURVE', 'MESH', 'ARMATURE', }:
             return
@@ -169,6 +213,7 @@ class FpxUtilities:
         if ops.object.mode_set.poll():
             ops.object.mode_set(mode=modeString)
 
+    ###########################################################################
     @staticmethod
     def select_all(select):
         if select:
@@ -187,6 +232,7 @@ class FpxUtilities:
 
 
     ###########################################################################
+    @staticmethod
     def set_scene_to_metric(blender_context):
         # set metrics
         blender_context.scene.unit_settings.system = 'METRIC'
@@ -220,6 +266,7 @@ class FpxUtilities:
 
 
     ###########################################################################
+    @staticmethod
     def set_scene_to_default(blender_scene):
         # set default
         blender_scene.unit_settings.system = 'NONE'

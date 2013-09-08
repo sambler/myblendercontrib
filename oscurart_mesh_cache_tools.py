@@ -16,16 +16,6 @@ import sys
 import os
 import struct
 
-bpy.types.Scene.muu_pc2_rotx = bpy.props.BoolProperty(default=True, name="Rotx = 90")
-bpy.types.Scene.muu_pc2_world_space = bpy.props.BoolProperty(default=True, name="World Space")
-bpy.types.Scene.muu_pc2_modifiers = bpy.props.BoolProperty(default=True, name="Apply Modifiers")
-bpy.types.Scene.muu_pc2_subsurf = bpy.props.BoolProperty(default=True, name="Turn Off SubSurf")
-bpy.types.Scene.muu_pc2_start = bpy.props.IntProperty(default=0, name="Frame Start")
-bpy.types.Scene.muu_pc2_end = bpy.props.IntProperty(default=100, name="Frame End")
-bpy.types.Scene.muu_pc2_group = bpy.props.StringProperty()
-bpy.types.Scene.muu_pc2_folder = bpy.props.StringProperty(default="Set me Please!")
-bpy.types.Scene.muu_pc2_relative_path = bpy.props.StringProperty(default="")
-
 class OscEPc2ExporterPanel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "Mesh Cache Tools"
@@ -63,6 +53,7 @@ def OscFuncExportPc2(self):
 
     for ob in bpy.data.groups[bpy.context.scene.muu_pc2_group].objects[:]:
         pc2list = []
+        bpy.context.window_manager.progress_begin(0, 100) #progressbar
         if ob.type == "MESH":
             with open("%s/%s.pc2" % (os.path.normpath(folderpath), ob.name), mode="wb") as file:
                 #encabezado
@@ -74,6 +65,7 @@ def OscFuncExportPc2(self):
                 obmat = ob.matrix_world
                 for frame in range((end + 1) - start):
                     print("Percentage of %s bake: %s " % (ob.name, frame / end * 100))
+                    bpy.context.window_manager.progress_update(frame / end * 100) #progressbarUpdate
                     bpy.context.scene.frame_set(frame)
                     me = bpy.data.meshes.new_from_object(
                         scene=bpy.context.scene,
@@ -104,7 +96,7 @@ def OscFuncExportPc2(self):
                     file.write(struct.pack("<3f", *frame))
                 print("%s File Compiled Write finished!" % (ob.name))
                 del(pc2list)
-
+        bpy.context.window_manager.progress_end()#progressBarClose
     print("Bake Finished!")
 
 class OscPc2ExporterBatch(bpy.types.Operator):
@@ -241,9 +233,38 @@ class OscMeshCacheUp(bpy.types.Operator):
     
 
 def register():
+    from bpy.types import Scene
+    from bpy.props import (BoolProperty,
+                           IntProperty,
+                           StringProperty,
+                           )
+    
+    Scene.muu_pc2_rotx = BoolProperty(default=True, name="Rotx = 90")
+    Scene.muu_pc2_world_space = BoolProperty(default=True, name="World Space")
+    Scene.muu_pc2_modifiers = BoolProperty(default=True, name="Apply Modifiers")
+    Scene.muu_pc2_subsurf = BoolProperty(default=True, name="Turn Off SubSurf")
+    Scene.muu_pc2_start = IntProperty(default=0, name="Frame Start")
+    Scene.muu_pc2_end = IntProperty(default=100, name="Frame End")
+    Scene.muu_pc2_group = StringProperty()
+    Scene.muu_pc2_folder = StringProperty(default="Set me Please!")
+    Scene.muu_pc2_relative_path = StringProperty(default="")
+
     bpy.utils.register_module(__name__)
 
+
 def unregister():
+    from bpy.types import Scene
+
+    del Scene.muu_pc2_rotx
+    del Scene.muu_pc2_world_space
+    del Scene.muu_pc2_modifiers
+    del Scene.muu_pc2_subsurf
+    del Scene.muu_pc2_start
+    del Scene.muu_pc2_end
+    del Scene.muu_pc2_group
+    del Scene.muu_pc2_folder
+    del Scene.muu_pc2_relative_path
+
     bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__":
