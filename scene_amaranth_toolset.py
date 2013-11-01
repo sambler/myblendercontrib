@@ -19,8 +19,8 @@
 bl_info = {
     "name": "Amaranth Toolset",
     "author": "Pablo Vazquez, Bassam Kurdali, Sergey Sharybin",
-    "version": (0, 6),
-    "blender": (2, 68),
+    "version": (0, 7, 3),
+    "blender": (2, 69),
     "location": "Scene Properties > Amaranth Toolset Panel",
     "description": "A collection of tools and settings to improve productivity",
     "warning": "",
@@ -30,7 +30,8 @@ bl_info = {
 
 
 import bpy
-from bpy.types import Operator, AddonPreferences
+import bmesh
+from bpy.types import Operator, AddonPreferences, Panel
 from bpy.props import BoolProperty
 from mathutils import Vector
 from bpy.app.handlers import persistent
@@ -264,7 +265,7 @@ def label_timeline_extra_info(self, context):
         if (scene.frame_current > frame_end):
             row.label(text="%s Frames Ahead" % ((frame_end - scene.frame_current) * -1))
         elif (scene.frame_current == frame_start):
-            row.label(text="%s Start Frame" % scene.frame_current)
+            row.label(text="Start Frame (%s left)" % (frame_end - scene.frame_current))
         elif (scene.frame_current == frame_end):
             row.label(text="%s End Frame" % scene.frame_current)
         else:
@@ -291,6 +292,63 @@ def button_directory_current_blend(self, context):
             icon='APPEND_BLEND')
 # // FEATURE: Directory Current Blend
 
+# FEATURE: Libraries panel on file browser
+class FILE_PT_libraries(Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'CHANNELS'
+    bl_label = "Libraries"
+
+    def draw(self, context):
+        layout = self.layout
+
+        libs = bpy.data.libraries
+        libslist = []
+
+        # Build the list of folders from libraries
+        import os
+
+        for lib in libs:
+            directory_name = os.path.dirname(lib.filepath)
+            libslist.append(directory_name)
+
+        # Remove duplicates and sort by name
+        libslist = set(libslist)
+        libslist = sorted(libslist)
+
+        # Draw the box with libs
+        
+        row = layout.row()
+        box = row.box()
+       
+        if libslist:
+            for filepath in libslist:
+                if filepath != '//':
+                    split = box.split(percentage=0.85)
+                    col = split.column()
+                    sub = col.column(align=True)
+                    sub.label(text=filepath)
+            
+                    col = split.column()
+                    sub = col.column(align=True)
+                    props = sub.operator(
+                        FILE_OT_directory_go_to.bl_idname,
+                        text="", icon="BOOKMARKS")
+                    props.filepath = filepath
+        else:
+            box.label(text='No libraries loaded')
+
+class FILE_OT_directory_go_to(Operator):
+    """Go to this library's directory"""
+    bl_idname = "file.directory_go_to"
+    bl_label = "Go To"
+    
+    filepath = bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+
+        bpy.ops.file.select_bookmark(dir=self.filepath)
+        return {'FINISHED'}
+    
 # FEATURE: Node Templates
 class NODE_OT_AddTemplateVignette(Operator):
     bl_idname = "node.template_add_vignette"
@@ -382,11 +440,13 @@ class NODE_MT_amaranth_templates(bpy.types.Menu):
             icon='COLOR')
 
 def node_templates_pulldown(self, context):
-    layout = self.layout
-    row = layout.row(align=True)
-    row.scale_x = 1.3
-    row.menu("NODE_MT_amaranth_templates",
-        icon="RADIO")
+
+    if context.space_data.tree_type == 'CompositorNodeTree':
+        layout = self.layout
+        row = layout.row(align=True)
+        row.scale_x = 1.3
+        row.menu("NODE_MT_amaranth_templates",
+            icon="RADIO")
 # // FEATURE: Node Templates
 
 def node_stats(self,context):
@@ -410,7 +470,14 @@ class NODE_PT_simplify(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
     bl_label = 'Simplify'
-#    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data
+        return space.type == 'NODE_EDITOR' \
+                and space.node_tree is not None \
+                and space.tree_type == 'CompositorNodeTree'
 
     def draw(self, context):
         layout = self.layout
@@ -797,19 +864,219 @@ def material_cycles_settings_extra(self, context):
         row.prop(obj, "show_transparent", text="Viewport Alpha")
         row.active = obj.show_transparent
         row.prop(mat, "alpha", text="Alpha")
+# // FEATURE: Cycles Viewport Extra Settings
+
+# FEATURE: Particles Material indicator
+def particles_material_info(self, context):
+
+    layout = self.layout
+
+    ob = context.object
+    psys = context.particle_system
+
+    mats = len(ob.material_slots)
+
+
+    if ob.material_slots:
+        if psys.settings.material <= len(ob.material_slots) \
+        and ob.material_slots[psys.settings.material-1].name == "":
+            layout.label(text="No material on this slot", icon="MATSPHERE")
+        else:
+            layout.label(
+                text="%s" % ob.material_slots[psys.settings.material-1].name \
+                    if psys.settings.material <= mats \
+                    else "No material with this index{}".format( \
+                        ". Using %s" % ob.material_slots[mats-1].name \
+                        if ob.material_slots[mats-1].name != "" else ""),
+                icon="MATERIAL_DATA")
+# // FEATURE: Particles Material indicator
+
+# FEATURE: Mesh Symmetry Tools by Sergey Sharybin
+class MESH_OT_find_asymmetric(Operator):
+    """
+    Find asymmetric vertices
+    """
+
+    bl_idname = "mesh.find_asymmetric"
+    bl_label = "Find Asymmetric"
+    bl_options = {'UNDO', 'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        object = context.object
+        if object:
+            return object.mode == 'EDIT' and object.type == 'MESH'
+        return False
+
+    def execute(self, context):
+        threshold = 1e-6
+
+        object = context.object
+        bm = bmesh.from_edit_mesh(object.data)
+
+        # Deselect all the vertices
+        for v in bm.verts:
+            v.select = False
+
+        for v1 in bm.verts:
+            if abs(v1.co[0]) < threshold:
+                continue
+
+            mirror_found = False
+            for v2 in bm.verts:
+                if v1 == v2:
+                    continue
+                if v1.co[0] * v2.co[0] > 0.0:
+                    continue
+
+                mirror_coord = Vector(v2.co)
+                mirror_coord[0] *= -1
+                if (mirror_coord - v1.co).length_squared < threshold:
+                    mirror_found = True
+                    break
+            if not mirror_found:
+                v1.select = True
+
+        bm.select_flush_mode()
+
+        bmesh.update_edit_mesh(object.data)
+
+        return {'FINISHED'}
+
+class MESH_OT_make_symmetric(Operator):
+    """
+    Make symmetric
+    """
+
+    bl_idname = "mesh.make_symmetric"
+    bl_label = "Make Symmetric"
+    bl_options = {'UNDO', 'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        object = context.object
+        if object:
+            return object.mode == 'EDIT' and object.type == 'MESH'
+        return False
+
+    def execute(self, context):
+        threshold = 1e-6
+
+        object = context.object
+        bm = bmesh.from_edit_mesh(object.data)
+
+        for v1 in bm.verts:
+            if v1.co[0] < threshold:
+                continue
+            if not v1.select:
+                continue
+
+            closest_vert = None
+            closest_distance = -1
+            for v2 in bm.verts:
+                if v1 == v2:
+                    continue
+                if v2.co[0] > threshold:
+                    continue
+                if not v2.select:
+                    continue
+
+                mirror_coord = Vector(v2.co)
+                mirror_coord[0] *= -1
+                distance = (mirror_coord - v1.co).length_squared
+                if closest_vert is None or distance < closest_distance:
+                    closest_distance = distance
+                    closest_vert = v2
+
+            if closest_vert:
+                closest_vert.select = False
+                closest_vert.co = Vector(v1.co)
+                closest_vert.co[0] *= -1
+            v1.select = False
+
+        for v1 in bm.verts:
+            if v1.select:
+                closest_vert = None
+                closest_distance = -1
+                for v2 in bm.verts:
+                    if v1 != v2:
+                        mirror_coord = Vector(v2.co)
+                        mirror_coord[0] *= -1
+                        distance = (mirror_coord - v1.co).length_squared
+                        if closest_vert is None or distance < closest_distance:
+                            closest_distance = distance
+                            closest_vert = v2
+                if closest_vert:
+                    v1.select = False
+                    v1.co = Vector(closest_vert.co)
+                    v1.co[0] *= -1
+
+        bm.select_flush_mode()
+        bmesh.update_edit_mesh(object.data)
+
+        return {'FINISHED'}
+# // FEATURE: Mesh Symmetry Tools by Sergey Sharybin
+
+# FEATURE: Cycles Render Samples per Scene
+def render_cycles_scene_samples(self, context):
+
+    layout = self.layout
+
+    scenes = bpy.data.scenes
+    scene = context.scene
+    cscene = scene.cycles
+
+    if (len(bpy.data.scenes) > 1):
+        layout.separator()
+
+        layout.label(text="Samples Per Scene:")
+
+        if cscene.progressive == 'PATH':
+            for s in bpy.data.scenes:
+                if s != scene and s.render.engine == 'CYCLES':
+                    cscene = s.cycles
+    
+                    split = layout.split()
+                    col = split.column()
+                    sub = col.column(align=True)
+    
+                    sub.label(text="%s" % s.name)
+    
+                    col = split.column()
+                    sub = col.column(align=True)
+                    sub.prop(cscene, "samples", text="Render")
+        else:
+            for s in bpy.data.scenes:
+                if s != scene and s.render.engine == 'CYCLES':
+                    cscene = s.cycles
+    
+                    split = layout.split()
+                    col = split.column()
+                    sub = col.column(align=True)
+    
+                    sub.label(text="%s" % s.name)
+    
+                    col = split.column()
+                    sub = col.column(align=True)
+                    sub.prop(cscene, "aa_samples", text="Render")
+# // FEATURE: Cycles Render Samples per Scene
 
 classes = (SCENE_OT_refresh,
            WM_OT_save_reload,
+           MESH_OT_find_asymmetric,
+           MESH_OT_make_symmetric,
            NODE_OT_AddTemplateVignette,
            NODE_MT_amaranth_templates,
            FILE_OT_directory_current_blend,
+           FILE_OT_directory_go_to,
            NODE_PT_indices,
            NODE_PT_simplify,
            NODE_OT_toggle_mute,
            NODE_OT_show_active_node_image,
            VIEW3D_OT_render_border_camera,
            VIEW3D_OT_show_only_render,
-           OBJECT_OT_select_meshlights)
+           OBJECT_OT_select_meshlights,
+           FILE_PT_libraries)
 
 addon_keymaps = []
 
@@ -843,11 +1110,14 @@ def register():
     bpy.types.NODE_HT_header.append(node_stats)
 
     bpy.types.CyclesMaterial_PT_settings.append(material_cycles_settings_extra)
+    bpy.types.CyclesRender_PT_sampling.append(render_cycles_scene_samples)
 
     bpy.types.FILEBROWSER_HT_header.append(button_directory_current_blend)
 
     bpy.types.SCENE_PT_simplify.append(unsimplify_ui)
     bpy.types.CyclesScene_PT_simplify.append(unsimplify_ui)
+
+    bpy.types.PARTICLE_PT_render.prepend(particles_material_info)
 
     bpy.app.handlers.render_pre.append(unsimplify_render_pre)
     bpy.app.handlers.render_post.append(unsimplify_render_post)
@@ -865,6 +1135,22 @@ def register():
         kmi.properties.data_path = 'space_data.viewport_shade'
         kmi.properties.value_1 = 'SOLID'
         kmi.properties.value_2 = 'RENDERED'
+
+        km = kc.keymaps.new(name='Graph Editor', space_type='GRAPH_EDITOR')
+        kmi = km.keymap_items.new('wm.context_set_enum', 'TAB', 'PRESS', ctrl=True)
+        kmi.properties.data_path = 'area.type'
+        kmi.properties.value = 'DOPESHEET_EDITOR'
+
+        km = kc.keymaps.new(name='Dopesheet', space_type='DOPESHEET_EDITOR')
+        kmi = km.keymap_items.new('wm.context_set_enum', 'TAB', 'PRESS', ctrl=True)
+        kmi.properties.data_path = 'area.type'
+        kmi.properties.value = 'GRAPH_EDITOR'
+
+        km = kc.keymaps.new(name='Dopesheet', space_type='DOPESHEET_EDITOR')
+        kmi = km.keymap_items.new('wm.context_toggle_enum', 'TAB', 'PRESS', shift=True)
+        kmi.properties.data_path = 'space_data.mode'
+        kmi.properties.value_1 = 'ACTION'
+        kmi.properties.value_2 = 'DOPESHEET'
 
         km = kc.keymaps.new(name='Node Editor', space_type='NODE_EDITOR')
         km.keymap_items.new("node.show_active_node_image", 'ACTIONMOUSE', 'RELEASE')
@@ -905,11 +1191,14 @@ def unregister():
     bpy.types.NODE_HT_header.remove(node_stats)
 
     bpy.types.CyclesMaterial_PT_settings.remove(material_cycles_settings_extra)
+    bpy.types.CyclesRender_PT_sampling.remove(render_cycles_scene_samples)
 
     bpy.types.FILEBROWSER_HT_header.remove(button_directory_current_blend)
 
     bpy.types.SCENE_PT_simplify.remove(unsimplify_ui)
     bpy.types.CyclesScene_PT_simplify.remove(unsimplify_ui)
+
+    bpy.types.PARTICLE_PT_render.remove(particles_material_info)
 
     bpy.app.handlers.render_pre.remove(unsimplify_render_pre)
     bpy.app.handlers.render_post.remove(unsimplify_render_post)

@@ -30,6 +30,9 @@
 # ##### END COPYRIGHT BLOCK #####
 
 
+DEV_MODE__APPEND_TO_EXISTING = False # do not enable - only for developing purpose (e.g. appending fpx_resource.blend)
+
+
 #import python stuff
 import io
 from mathutils import (
@@ -311,7 +314,13 @@ class FpmImporter():
         model_filepath = dst_sub_path_names.get("primary_model_data")
         if model_filepath:
             if self.use_scene_per_model:
-                blender_scene = blender_context.blend_data.scenes.new(FORMAT_SCENE.format(model_name))
+                if DEV_MODE__APPEND_TO_EXISTING:
+                    blender_scene = blender_context.blend_data.scenes.get(FpxUtilities.toGoodName(FORMAT_SCENE.format(model_name)))
+                    if not blender_scene:
+                        print("#DEBUG missing scene for:", model_name)
+                        return
+                else:
+                    blender_scene = blender_context.blend_data.scenes.new(FpxUtilities.toGoodName(FORMAT_SCENE.format(model_name)))
                 blender_context.screen.scene = blender_scene
             else:
                 blender_scene = blender_context.scene
@@ -321,23 +330,16 @@ class FpmImporter():
             blender_scene.layers = self.LAYERS_PRIMARY_MODEL
             #{'FINISHED'}
             #{'CANCELLED'}
-            if 'FINISHED' in ops.import_scene.ms3d(filepath=model_filepath, use_animation=True):
-                name = blender_context.active_object.name
-                src_ext = "ms3d"
-                index = name.rfind(".{}.".format(src_ext))
-                if index < 0:
-                    index = name.rfind(".")
-                    #if index < 0:
-                    #    return
+            if DEV_MODE__APPEND_TO_EXISTING or 'FINISHED' in ops.import_scene.ms3d(filepath=model_filepath, use_animation=True):
+                if not DEV_MODE__APPEND_TO_EXISTING:
+                    remove_material(blender_context)
 
-                src_name = "{}.{}".format(name[:index], src_ext)
+                    if not self.keep_name:
+                        src_name = get_object_src_name(blender_context)
+                        rename_active_ms3d(blender_context, src_name, model_name)
 
-                remove_material(blender_context)
-                if not self.keep_name:
-                    rename_active_ms3d(blender_context, src_name, model_name)
-
-                if self.use_model_adjustment:
-                    adjust_position(blender_context, blender_scene, dst_sub_path_names)
+                    if self.use_model_adjustment:
+                        adjust_position(blender_context, blender_scene, dst_sub_path_names)
 
                 if FpxUI.USE_MODEL_FILTER_SECONDARY in self.use_model_filter:
                     model_filepath = dst_sub_path_names.get("secondary_model_data")
@@ -346,6 +348,7 @@ class FpmImporter():
                         if 'FINISHED' in ops.import_scene.ms3d(filepath=model_filepath, use_animation=False):
                             remove_material(blender_context)
                             if not self.keep_name:
+                                src_name = get_object_src_name(blender_context)
                                 rename_active_ms3d(blender_context, src_name, model_name, "secondary")
 
                 if FpxUI.USE_MODEL_FILTER_MASK in self.use_model_filter:
@@ -355,6 +358,7 @@ class FpmImporter():
                         if 'FINISHED' in ops.import_scene.ms3d(filepath=model_filepath, use_animation=False):
                             remove_material(blender_context)
                             if not self.keep_name:
+                                src_name = get_object_src_name(blender_context)
                                 rename_active_ms3d(blender_context, src_name, model_name, "mask")
 
                 if FpxUI.USE_MODEL_FILTER_REFLECTION in self.use_model_filter:
@@ -364,6 +368,7 @@ class FpmImporter():
                         if 'FINISHED' in ops.import_scene.ms3d(filepath=model_filepath, use_animation=False):
                             remove_material(blender_context)
                             if not self.keep_name:
+                                src_name = get_object_src_name(blender_context)
                                 rename_active_ms3d(blender_context, src_name, model_name, "reflection")
 
                 if FpxUI.USE_MODEL_FILTER_COLLISION in self.use_model_filter:
@@ -391,7 +396,6 @@ class FpmImporter():
                     rmdir(sub_dir_path)
                 except:
                     pass
-
 
 
 ###############################################################################
@@ -592,6 +596,12 @@ class FptImporter():
             True, True, False, False, True,
             False, False, False, False, False,
             True, False, False, False, False,
+            False, False, False, False, False
+            )
+    LAYERS_AO = (
+            True, True, False, False, False,
+            False, False, False, False, False,
+            False, False, False, False, False,
             False, False, False, False, False
             )
     BLENDER_OBJECT_NAME = 0
@@ -883,7 +893,8 @@ class FptImporter():
                                 #if ops.mesh.primitive_ico_sphere_add.poll():
                                 #    ops.mesh.primitive_ico_sphere_add(subdivisions=2, size=self.debug_lightball_size, location=blender_empty_object.location + Vector((0.0, 0.0, self.debug_lightball_height)), layers=FptImporter.LAYERS_LIGHT_SPHERE)
                                 #    self.append_light_material(self.__context.active_object)
-                                self.add_lamp(fpx_item_name, blender_empty_object.location + Vector((0.0, 0.0, self.debug_lightball_height)), layers=FptImporter.LAYERS_LIGHT_SPHERE)
+                                #self.add_lamp(fpx_item_name, blender_empty_object.location + Vector((0.0, 0.0, self.debug_lightball_height)), layers=FptImporter.LAYERS_LIGHT_SPHERE)
+                                pass
 
                     # cleanup
                     if not self.keep_temp:
@@ -921,7 +932,8 @@ class FptImporter():
                             pass
 
 
-                self.add_camera(fpx_reader.Table_Data)
+                self.add_table_camera(fpx_reader.Table_Data)
+                self.add_table_lamp(fpx_reader.Table_Data)
 
                 # setup all current 3d Views of the current scene to metric units
                 FpxUtilities.set_scene_to_metric(self.__context)
@@ -959,7 +971,7 @@ class FptImporter():
 
         return {"FINISHED"}
 
-    def add_camera(self, fpx_table_data):
+    def add_table_camera(self, fpx_table_data):
         name = "Camera.table"
         camera = self.__data.cameras.new(name)
         obj = self.__data.objects.new(name, camera)
@@ -968,6 +980,7 @@ class FptImporter():
         obj.location = (width / 2.0, -1600.0, 550.0)
         obj.rotation_euler = (radians(63.0), 0.0, 0.0)
         obj.select = True
+        obj.layers = FptImporter.LAYERS_AO
         camera.lens_unit = 'FOV'
         camera.clip_start = 1.0 # 1.0mm
         camera.clip_end = 10000.0 # 10.0m
@@ -988,7 +1001,63 @@ class FptImporter():
                                 (0.0000,  0.0000, 0.0000,    1.0000)))
                         space.region_3d.view_location = (width / 2.0, -107.2920, -210.5727)
                         space.region_3d.view_rotation = obj.rotation_euler.to_quaternion()
-                        #space.region_3d.view_perspective = 'CAMERA'
+
+    def add_table_lamp(self, fpx_table_data):
+        width = fpx_table_data.get_value("width", default=100.0)
+        length = fpx_table_data.get_value("length", default=500.0)
+        width2 = width / 2.0
+        length2 = length / 2.0
+        width4 = width / 4.0
+        length4 = length / 4.0
+
+        name = "AreaLamp.table"
+        lamp = self.__data.lamps.get(name)
+
+        # blender internal
+        if not lamp:
+            lamp = self.__data.lamps.new(name, 'AREA')
+            tmp_engine = self.__scene.render.engine
+            self.__scene.render.engine = 'BLENDER_RENDER'
+            lamp.shadow_method = 'RAY_SHADOW'
+            lamp.shadow_ray_samples_x = 10
+            lamp.shadow_ray_samples_y = 10
+            lamp.distance = 500.0
+            lamp.energy = 1.0
+            lamp.use_specular = False
+            lamp.size = width2
+            lamp.shape = 'RECTANGLE'
+            lamp.size_y = length2
+
+            self.__scene.render.engine = 'CYCLES'
+            lamp.cycles.use_multiple_importance_sampling = True
+            lamp.use_nodes = True
+            self.__scene.render.engine = tmp_engine
+
+        obj = self.__data.objects.new(FORMAT_LAMP_OBJECT.format(name), lamp)
+        self.__scene.objects.link(obj)
+        obj.location = (width2, -length * (2.0/3.0), 600.0)
+        obj.layers = FptImporter.LAYERS_AO
+
+        # cycles
+        mesh = self.__data.meshes.new(FORMAT_MESH.format("{}.arealamp".format(name)))
+        obj = self.__data.objects.new(FORMAT_MESH_OBJECT.format(name), mesh)
+        self.__scene.objects.link(obj)
+        obj.location = (width2, -length * (2.0/3.0), 610.0)
+        obj.layers = FptImporter.LAYERS_AO
+        bm = bmesh.new()
+        bmv_list = []
+        bmv = bm.verts.new(self.geometry_correction((width4, -length4, 0.0)))
+        bmv_list.append(bmv)
+        bmv = bm.verts.new(self.geometry_correction((width4, length4, 0.0)))
+        bmv_list.append(bmv)
+        bmv = bm.verts.new(self.geometry_correction((-width4, length4, 0.0)))
+        bmv_list.append(bmv)
+        bmv = bm.verts.new(self.geometry_correction((-width4, -length4, 0.0)))
+        bmv_list.append(bmv)
+        bmf = bm.faces.new(bmv_list)
+        bm.to_mesh(mesh)
+        bm.free()
+        self.append_light_material(obj)
 
     def add_lamp(self, name, location, layers):
         name_lamp = FORMAT_LAMP.format(name)
@@ -1073,52 +1142,60 @@ class FptImporter():
                         tex_slot.texture_coords = 'UV'
                         tex_slot.uv_layer = uv_layer
 
-                    # blender cycles
-                    self.__scene.render.engine = 'CYCLES'
+                    # prepare for nodes
                     blender_material.use_nodes = True
                     nodes = blender_material.node_tree.nodes
                     links = blender_material.node_tree.links
                     gap = 50.0
                     nodes.clear()
-                    node0 = nodes.new('ShaderNodeOutputMaterial')
-                    node1 = nodes.new('ShaderNodeMixShader')
-                    node2 = nodes.new('ShaderNodeBsdfTransparent')
-                    node3 = nodes.new('ShaderNodeAddShader')
-                    node4 = nodes.new('ShaderNodeEmission')
+
+                    # blender internal nodes
+                    node_i0 = nodes.new('ShaderNodeOutput')
+                    node_i1 = nodes.new('ShaderNodeMaterial')
+                    node_i1.material = blender_material
+                    link_i1_0 = links.new(node_i1.outputs['Color'], node_i0.inputs['Color'])
+                    link_i1_0 = links.new(node_i1.outputs['Alpha'], node_i0.inputs['Alpha'])
+                    node_i1_height = 410.0 # issue: [#37075] the height of nodes are always 100.0
+                    node_i1.location = (0.0, node_i1_height + gap)
+                    node_i0.location = (node_i1.location.x + node_i1.width + gap, node_i1_height + gap)
+
+                    # blender cycles nodes
+                    self.__scene.render.engine = 'CYCLES'
+                    node_c0 = nodes.new('ShaderNodeOutputMaterial')
+                    node_c1 = nodes.new('ShaderNodeMixShader')
+                    node_c2 = nodes.new('ShaderNodeBsdfTransparent')
+                    node_c3 = nodes.new('ShaderNodeAddShader')
+                    node_c4 = nodes.new('ShaderNodeEmission')
                     if light_on:
-                        node4.inputs['Strength'].default_value = 1.0
+                        node_c4.inputs['Strength'].default_value = 1.0
                     else:
-                        node4.inputs['Strength'].default_value = 0.0
-                    #node5 = nodes.new('ShaderNodeBsdfGlossy')
-                    #node5.inputs['Roughness'].default_value = 0.25
-                    node5 = nodes.new('ShaderNodeBsdfDiffuse')
-                    node6 = nodes.new('ShaderNodeTexImage')
-                    node6.image = blender_image
-                    node7 = nodes.new('ShaderNodeTexCoord')
-
-                    node7.location = (0.0, 0.0)
-                    node6.location = (node7.location.x + node7.width + gap, 0.0)
-                    node5.location = (node6.location.x + node6.width + gap, 0.0)
-                    node4.location = (node5.location.x + node5.width + gap, 0.0)
-                    node3.location = (node4.location.x + node4.width + gap, 0.0)
-                    node2.location = (node3.location.x + node3.width + gap, 0.0)
-                    node1.location = (node2.location.x + node2.width + gap, 0.0)
-                    node0.location = (node1.location.x + node1.width + gap, 0.0)
-
-                    link1_0 = links.new(node1.outputs['Shader'], node0.inputs['Surface'])
-                    link6_1a = links.new(node6.outputs['Alpha'], node1.inputs[0]) # Fac
-                    link2_1b = links.new(node2.outputs['BSDF'], node1.inputs[1]) # 1'st Shader
-                    link3_1c = links.new(node3.outputs['Shader'], node1.inputs[2]) # 2'nd Shader
-                    link4_3a = links.new(node4.outputs['Emission'], node3.inputs[0]) # 1'st Shader
-                    link5_3b = links.new(node5.outputs['BSDF'], node3.inputs[1]) # 2'nd Shader
-                    link6_4 = links.new(node6.outputs['Color'], node4.inputs['Color'])
-                    link6_5 = links.new(node6.outputs['Color'], node5.inputs['Color'])
+                        node_c4.inputs['Strength'].default_value = 0.0
+                    #node_c5 = nodes.new('ShaderNodeBsdfGlossy')
+                    #node_c5.inputs['Roughness'].default_value = 0.25
+                    node_c5 = nodes.new('ShaderNodeBsdfDiffuse')
+                    node_c6 = nodes.new('ShaderNodeTexImage')
+                    node_c6.image = blender_image
+                    node_c7 = nodes.new('ShaderNodeTexCoord')
+                    node_c7.location = (0.0, 0.0)
+                    node_c6.location = (node_c7.location.x + node_c7.width + gap, 0.0)
+                    node_c5.location = (node_c6.location.x + node_c6.width + gap, 0.0)
+                    node_c4.location = (node_c5.location.x + node_c5.width + gap, 0.0)
+                    node_c3.location = (node_c4.location.x + node_c4.width + gap, 0.0)
+                    node_c2.location = (node_c3.location.x + node_c3.width + gap, 0.0)
+                    node_c1.location = (node_c2.location.x + node_c2.width + gap, 0.0)
+                    node_c0.location = (node_c1.location.x + node_c1.width + gap, 0.0)
+                    link_c1_0 = links.new(node_c1.outputs['Shader'], node_c0.inputs['Surface'])
+                    link_c6_1a = links.new(node_c6.outputs['Alpha'], node_c1.inputs[0]) # Fac
+                    link_c2_1b = links.new(node_c2.outputs['BSDF'], node_c1.inputs[1]) # 1'st Shader
+                    link_c3_1c = links.new(node_c3.outputs['Shader'], node_c1.inputs[2]) # 2'nd Shader
+                    link_c4_3a = links.new(node_c4.outputs['Emission'], node_c3.inputs[0]) # 1'st Shader
+                    link_c5_3b = links.new(node_c5.outputs['BSDF'], node_c3.inputs[1]) # 2'nd Shader
+                    link_c6_4 = links.new(node_c6.outputs['Color'], node_c4.inputs['Color'])
+                    link_c6_5 = links.new(node_c6.outputs['Color'], node_c5.inputs['Color'])
                     if uv_layer:
-                        link7_6 = links.new(node7.outputs['UV'], node6.inputs['Vector'])
+                        link_c7_6 = links.new(node_c7.outputs['UV'], node_c6.inputs['Vector'])
                     else:
-                        link7_6 = links.new(node7.outputs['Generated'], node6.inputs['Vector'])
-                    if render_engine != 'CYCLES':
-                        blender_material.use_nodes = False
+                        link_c7_6 = links.new(node_c7.outputs['Generated'], node_c6.inputs['Vector'])
 
                     """
                     # blender game
@@ -1155,25 +1232,34 @@ class FptImporter():
             blender_material.specular_slope = 0.020
             blender_material.raytrace_mirror.use = True
             blender_material.raytrace_mirror.reflect_factor = 1.0
+            blender_material.raytrace_mirror.depth = 6
 
-            # blender cycles
-            self.__scene.render.engine = 'CYCLES'
+            # prepare for nodes
             blender_material.use_nodes = True
             nodes = blender_material.node_tree.nodes
             links = blender_material.node_tree.links
             gap = 50.0
             nodes.clear()
-            node0 = nodes.new('ShaderNodeOutputMaterial')
-            node1 = nodes.new('ShaderNodeBsdfGlossy')
-            node1.inputs['Roughness'].default_value = 0.0
-            node1.inputs['Color'].default_value = color
 
-            node1.location = (0.0, 0.0)
-            node0.location = (node1.location.x + node1.width + gap, 0.0)
+            # blender internal nodes
+            node_i0 = nodes.new('ShaderNodeOutput')
+            node_i1 = nodes.new('ShaderNodeMaterial')
+            node_i1.material = blender_material
+            link_i1_0 = links.new(node_i1.outputs['Color'], node_i0.inputs['Color'])
+            link_i1_0 = links.new(node_i1.outputs['Alpha'], node_i0.inputs['Alpha'])
+            node_i1_height = 410.0 # issue: [#37075] the height of nodes are always 100.0
+            node_i1.location = (0.0, node_i1_height + gap)
+            node_i0.location = (node_i1.location.x + node_i1.width + gap, node_i1_height + gap)
 
-            link1_0 = links.new(node1.outputs['BSDF'], node0.inputs['Surface'])
-            if render_engine != 'CYCLES':
-                blender_material.use_nodes = False
+            # blender cycles nodes
+            self.__scene.render.engine = 'CYCLES'
+            node_c0 = nodes.new('ShaderNodeOutputMaterial')
+            node_c1 = nodes.new('ShaderNodeBsdfGlossy')
+            node_c1.inputs['Roughness'].default_value = 0.0
+            node_c1.inputs['Color'].default_value = color
+            node_c1.location = (0.0, 0.0)
+            node_c0.location = (node_c1.location.x + node_c1.width + gap, 0.0)
+            link_c1_0 = links.new(node_c1.outputs['BSDF'], node_c0.inputs['Surface'])
 
             """
             # blender game
@@ -1186,7 +1272,7 @@ class FptImporter():
         if not blender_object.data.materials.get(bm_name):
             blender_object.data.materials.append(blender_material)
 
-    def append_christal_material(self, blender_object, color=(0.5, 0.5, 0.5, 1.0)):
+    def append_christal_material(self, blender_object, color=(0.9, 0.9, 0.9, 1.0)):
         if not blender_object:
             return
         if blender_object.type not in {'MESH', 'CURVE', }:
@@ -1211,30 +1297,40 @@ class FptImporter():
             blender_material.raytrace_mirror.use = True
             blender_material.raytrace_mirror.reflect_factor = 1.0
             blender_material.raytrace_mirror.fresnel = 4.0
+            blender_material.raytrace_mirror.depth = 6
             blender_material.use_transparency = True
             blender_material.transparency_method = 'RAYTRACE'
             blender_material.raytrace_transparency.ior = 1.45
             blender_material.raytrace_transparency.fresnel = 4.0
             blender_material.raytrace_transparency.filter = 1.0
+            blender_material.raytrace_transparency.depth = 6
 
-            # blender cycles
-            self.__scene.render.engine = 'CYCLES'
+            # prepare for nodes
             blender_material.use_nodes = True
             nodes = blender_material.node_tree.nodes
             links = blender_material.node_tree.links
             gap = 50.0
             nodes.clear()
-            node0 = nodes.new('ShaderNodeOutputMaterial')
-            node1 = nodes.new('ShaderNodeBsdfGlass')
-            node1.inputs['Roughness'].default_value = 0.0
-            node1.inputs['Color'].default_value = color
 
-            node1.location = (0.0, 0.0)
-            node0.location = (node1.location.x + node1.width + gap, 0.0)
+            # blender internal nodes
+            node_i0 = nodes.new('ShaderNodeOutput')
+            node_i1 = nodes.new('ShaderNodeMaterial')
+            node_i1.material = blender_material
+            link_i1_0 = links.new(node_i1.outputs['Color'], node_i0.inputs['Color'])
+            link_i1_0 = links.new(node_i1.outputs['Alpha'], node_i0.inputs['Alpha'])
+            node_i1_height = 410.0 # issue: [#37075] the height of nodes are always 100.0
+            node_i1.location = (0.0, node_i1_height + gap)
+            node_i0.location = (node_i1.location.x + node_i1.width + gap, node_i1_height + gap)
 
-            link1_0 = links.new(node1.outputs['BSDF'], node0.inputs['Surface'])
-            if render_engine != 'CYCLES':
-                blender_material.use_nodes = False
+            # blender cycles nodes
+            self.__scene.render.engine = 'CYCLES'
+            node_c0 = nodes.new('ShaderNodeOutputMaterial')
+            node_c1 = nodes.new('ShaderNodeBsdfGlass')
+            node_c1.inputs['Roughness'].default_value = 0.0
+            node_c1.inputs['Color'].default_value = color
+            node_c1.location = (0.0, 0.0)
+            node_c0.location = (node_c1.location.x + node_c1.width + gap, 0.0)
+            link_c1_0 = links.new(node_c1.outputs['BSDF'], node_c0.inputs['Surface'])
 
             """
             # blender game
@@ -1247,7 +1343,7 @@ class FptImporter():
         if not blender_object.data.materials.get(bm_name):
             blender_object.data.materials.append(blender_material)
 
-    def append_light_material(self, blender_object, color=(0.9, 0.9, 0.8, 1.0)):
+    def append_light_material(self, blender_object, color=(0.9, 0.9, 0.8, 1.0), strength=10.0):
         if not blender_object:
             return
         if blender_object.type not in {'MESH', 'CURVE', }:
@@ -1267,26 +1363,34 @@ class FptImporter():
             blender_material.diffuse_color=color[:3]
             blender_material.specular_color=color[:3]
             blender_material.use_shadeless = True
-            blender_material.emit = 10.0
+            blender_material.emit = strength
 
-            # blender cycles
-            self.__scene.render.engine = 'CYCLES'
+            # prepare for nodes
             blender_material.use_nodes = True
             nodes = blender_material.node_tree.nodes
             links = blender_material.node_tree.links
             gap = 50.0
             nodes.clear()
-            node0 = nodes.new('ShaderNodeOutputMaterial')
-            node1 = nodes.new('ShaderNodeEmission')
-            node1.inputs['Strength'].default_value = 10.0
-            node1.inputs['Color'].default_value = color
 
-            node1.location = (0.0, 0.0)
-            node0.location = (node1.location.x + node1.width + gap, 0.0)
+            # blender internal nodes
+            node_i0 = nodes.new('ShaderNodeOutput')
+            node_i1 = nodes.new('ShaderNodeMaterial')
+            node_i1.material = blender_material
+            link_i1_0 = links.new(node_i1.outputs['Color'], node_i0.inputs['Color'])
+            link_i1_0 = links.new(node_i1.outputs['Alpha'], node_i0.inputs['Alpha'])
+            node_i1_height = 410.0 # issue: [#37075] the height of nodes are always 100.0
+            node_i1.location = (0.0, node_i1_height + gap)
+            node_i0.location = (node_i1.location.x + node_i1.width + gap, node_i1_height + gap)
 
-            link1_0 = links.new(node1.outputs['Emission'], node0.inputs['Surface'])
-            if render_engine != 'CYCLES':
-                blender_material.use_nodes = False
+            # blender cycles nodes
+            self.__scene.render.engine = 'CYCLES'
+            node_c0 = nodes.new('ShaderNodeOutputMaterial')
+            node_c1 = nodes.new('ShaderNodeEmission')
+            node_c1.inputs['Strength'].default_value = strength
+            node_c1.inputs['Color'].default_value = color
+            node_c1.location = (0.0, 0.0)
+            node_c0.location = (node_c1.location.x + node_c1.width + gap, 0.0)
+            link_c1_0 = links.new(node_c1.outputs['Emission'], node_c0.inputs['Surface'])
 
             """
             # blender game
@@ -1384,6 +1488,7 @@ class FptImporter():
         mesh = self.__data.meshes.new(FORMAT_MESH.format(name))
         obj = self.__data.objects.new(FORMAT_MESH_OBJECT.format(name), mesh)
         self.__scene.objects.link(obj)
+        obj.layers = FptImporter.LAYERS_AO
 
         #inner playfield
         bm = bmesh.new()
@@ -1419,6 +1524,7 @@ class FptImporter():
         obj_box = self.__data.objects.new(FORMAT_MESH_OBJECT.format("{}.playfield".format(name)), mesh_box)
         obj_box.parent = obj
         self.__scene.objects.link(obj_box)
+        obj_box.layers = FptImporter.LAYERS_AO
 
         bm = bmesh.new()
         #inner back
@@ -1477,6 +1583,7 @@ class FptImporter():
         obj_translite = self.__data.objects.new(FORMAT_MESH_OBJECT.format("{}.translite".format(name)), mesh_translite)
         obj_translite.parent = obj
         self.__scene.objects.link(obj_translite)
+        obj_translite.layers = FptImporter.LAYERS_AO
 
         #inner translite
         bm = bmesh.new()
@@ -1562,15 +1669,9 @@ class FptImporter():
         bevel_name = "__fpx_rubber_shapeable_bevel__"
         rubber_bevel = self.__data.objects.get(bevel_name)
         if rubber_bevel is None:
-            if ops.curve.primitive_bezier_circle_add.poll():
-                ops.curve.primitive_bezier_circle_add()
-                rubber_bevel = self.__context.active_object
-                rubber_bevel.name = bevel_name
-                rubber_bevel.data.dimensions = '2D'
-                rubber_bevel.data.resolution_u = self.resolution_rubber
-                rubber_bevel.data.splines[0].resolution_u = self.resolution_rubber
-                scale = 2.4
-                rubber_bevel.scale = Vector((scale,scale,scale))
+            scale = 2.4
+            rubber_bevel = self.create_bevel(bevel_name, scale, self.resolution_rubber)
+
         cu.bevel_object = rubber_bevel
 
         offset = 2.5
@@ -1586,11 +1687,11 @@ class FptImporter():
         diameter = [13.5, 18.5, 12, 44, ]
 
         bevel_name = "__fpx_guide_rubber_bevel__"
-        wire_bevel = self.__data.objects.get(bevel_name)
-        if wire_bevel is None:
+        rubber_bevel = self.__data.objects.get(bevel_name)
+        if rubber_bevel is None:
             cu0 = self.__data.curves.new(bevel_name, 'CURVE')
-            wire_bevel = self.__data.objects.new(bevel_name, cu0)
-            self.__scene.objects.link(wire_bevel)
+            rubber_bevel = self.__data.objects.new(bevel_name, cu0)
+            self.__scene.objects.link(rubber_bevel)
             cu0.dimensions = '2D'
             cu0.resolution_u = self.resolution_rubber_bevel
 
@@ -1636,7 +1737,7 @@ class FptImporter():
         spline1.bezier_points[3].handle_left_type = h
         spline1.bezier_points[3].handle_right_type = h
 
-        cu1.bevel_object = wire_bevel
+        cu1.bevel_object = rubber_bevel
 
         return obj
 
@@ -1653,15 +1754,9 @@ class FptImporter():
             bevel_name = "__fpx_guide_wire_bevel_{}__".format(width)
             wire_bevel = self.__data.objects.get(bevel_name)
             if wire_bevel is None:
-                if ops.curve.primitive_bezier_circle_add.poll():
-                    ops.curve.primitive_bezier_circle_add()
-                    wire_bevel = self.__context.active_object
-                    wire_bevel.name = bevel_name
-                    wire_bevel.data.dimensions = '2D'
-                    wire_bevel.data.resolution_u = self.resolution_wire_bevel
-                    wire_bevel.data.splines[0].resolution_u = self.resolution_wire_bevel
-                    scale = width / 2.0
-                    wire_bevel.scale = Vector((scale,scale,scale))
+                scale = width / 2.0
+                wire_bevel = self.create_bevel(bevel_name, scale, self.resolution_wire_bevel)
+
             cu.bevel_object = wire_bevel
             cu.use_fill_caps = True
         else:
@@ -2056,7 +2151,7 @@ class FptImporter():
 
     def create_wire_ramp_guide_piece(self, name, parent_obj, layers, wire_bevel, wire_index, point_index, last_bezier_point_template, bezier_point_template, last_object):
         if last_object:
-            #reuse previouse curve
+            #reuse previous curve
             spline = last_object.data.splines[0]
             spline.bezier_points.add(1)
             bezier_point = spline.bezier_points[-1]
@@ -2390,6 +2485,34 @@ class FptImporter():
             #bezier_point.handle_left_type = 'FREE'
             bezier_point.handle_left = bezier_handle_point
 
+    def create_bevel(self, name, size, resolution):
+        curve_points = [(0.0, size), (size, 0.0), (0.0, -size), (-size, 0.0),]
+
+        cu = self.__data.curves.new("{}.bevel_curve".format(name), 'CURVE')
+        obj = self.__data.objects.new("{}".format(name), cu)
+        self.__scene.objects.link(obj)
+
+        cu.dimensions = '2D'
+        cu.twist_mode = 'Z_UP'
+        cu.resolution_u = resolution
+        cu.splines.new('BEZIER')
+        sp = cu.splines[-1]
+        sp.resolution_u = resolution
+        sp.use_cyclic_u = True
+
+        # create curve points
+        sp.bezier_points.add(len(curve_points) - len(sp.bezier_points))
+
+        for index, curve_point in enumerate(curve_points):
+            bezier_point = sp.bezier_points[index]
+            bezier_point.co = (curve_point[0], curve_point[1], 0.0)
+
+            handle_type = 'AUTO'
+            bezier_point.handle_left_type = handle_type
+            bezier_point.handle_right_type = handle_type
+
+        return obj
+
     def create_wire_ramp_bevel(self, curve, wire_index):
         wire_diameter = [Vector((0.0, -2.0, 0.0)), Vector((-2.0, 0.0, 0.0)), Vector((0.0, 2.0, 0.0)), Vector((2.0, 0.0, 0.0))]
         wire_position = [Vector((-11.0, -2.0, 0.0)), Vector((11.0, -2.0, 0.0)), Vector((-17.0, 11, 0.0)), Vector((17.0, 11.0, 0.0)), Vector((-11.0, 24.0, 0.0)), Vector((11.0, 24.0, 0.0)), Vector((0.0, 33.0, 0.0))]
@@ -2428,9 +2551,6 @@ class FptImporter():
             self.create_wire_ramp_bevel(cu, 1) # base right inner
 
             if self.debug_create_full_ramp_wires:
-                """
-                there are problems, see [#36007] http://projects.blender.org/tracker/index.php?func=detail&aid=36007&group_id=9&atid=498
-                """
                 self.create_wire_ramp_bevel(cu, 2) # left inner
                 self.create_wire_ramp_bevel(cu, 3) # right inner
                 self.create_wire_ramp_bevel(cu, 4) # upper left inner
@@ -3065,6 +3185,18 @@ def remove_material(blender_context):
         image.user_clear()
         blender_data.images.remove(image)
 
+def get_object_src_name(blender_context):
+    name = blender_context.active_object.name
+    src_ext = "ms3d"
+    index = name.rfind(".{}.".format(src_ext))
+    if index < 0:
+        index = name.rfind(".")
+        #if index < 0:
+        #    return
+
+    src_name = "{}.{}".format(name[:index], src_ext)
+    return src_name
+
 def rename_active_ms3d(blender_context, src_name, dst_name, dst_type=None):
     #print("#DEBUG rename_active_ms3d >", blender_context.active_object, src_name, dst_name, dst_type)
     if not blender_context.active_object:
@@ -3092,34 +3224,34 @@ def rename_active_ms3d(blender_context, src_name, dst_name, dst_type=None):
     dst_group_name = FpxUtilities.toGoodName(FORMAT_GROUP.format(dst_name))
 
     obj = blender_context.blend_data.objects.get(src_empty_object_name)
-    if obj:
+    if obj and not blender_context.blend_data.objects.get(dst_empty_object_name):
         obj.name = dst_empty_object_name
 
     obj = data.objects.get(src_mesh_object_name)
-    if obj:
+    if obj and not data.objects.get(dst_mesh_object_name):
         obj.name = dst_mesh_object_name
         mod = obj.modifiers.get(src_armature_name)
-        if mod:
+        if mod and not obj.modifiers.get(dst_armature_name):
             mod.name = dst_armature_name
 
     obj = data.objects.get(src_armature_object_name)
-    if obj:
+    if obj and not data.objects.get(dst_armature_object_name):
         obj.name = dst_armature_object_name
 
     obj = data.meshes.get(src_mesh_name)
-    if obj:
+    if obj and not data.meshes.get(dst_mesh_name):
         obj.name = dst_mesh_name
 
     obj = data.armatures.get(src_armature_name)
-    if obj:
+    if obj and not data.armatures.get(dst_armature_name):
         obj.name = dst_armature_name
 
     obj = data.actions.get(src_action_name)
-    if obj:
+    if obj and not data.actions.get(dst_action_name):
         obj.name = dst_action_name
 
     obj = data.groups.get(src_group_name)
-    if obj:
+    if obj and not data.groups.get(dst_group_name):
         obj.name = dst_group_name
 
 def rename_active_fpm(blender_context, dst_name):
