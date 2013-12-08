@@ -52,7 +52,7 @@ class BreakPoint_Class:
         bpy.types.Scene.gsg1_mode = EnumProperty(attr='mode', name='bp_mode', items=(\
         ('enable', 'Enable', 'Enable all BreakPoint statements.'),\
         ('disable', 'Disable', "Disable all BreakPoint statements, and discontinue incrementing the 'BreakPoint' log counter.")), default='enable')
- 
+
         bpy.types.Scene.gsg1_console_print = BoolProperty(name= "Print to Console", description = "Select to print 'BreakPoint' commands to the 'Console' window." , default = True)
         bpy.types.Scene.gsg1_panel_print = BoolProperty(name= "Print to Panel", description = "Select to print 'BreakPoint' commands to the 'BreakPoint' panel." , default = True)
         bpy.types.Scene.gsg1_log_print = BoolProperty(name= "Print to Log", description = "Select to print 'BreakPoint' commands to the log." , default = False)
@@ -82,13 +82,13 @@ class bp(bpy.types.Panel):
 
     done_once = False
     breakpoints = 0
-	
-	
+
+
     def draw(self, context):
         scn = bpy.context.scene
         #done_once = False
 
-        layout = self.layout; 
+        layout = self.layout;
         row = layout.row(align = True)
         row.prop(context.scene , "gsg1_mode", expand = True)
         row = layout.row()
@@ -181,12 +181,12 @@ class bp(bpy.types.Panel):
             box = layout.box()
             box.prop(context.scene,"gsg1_display_help", toggle = True)
             box.label(text=" BreakPoint Disabled.", icon=pic)
-            
+
             for i in range(1, 3):
                 box.label("")
 
 
-    #Process text to wrap according to user-setting, and create box labels.                        
+    #Process text to wrap according to user-setting, and create box labels.
     def panel_wrap_text(self, list, ui, text_width, help = False):
         if help:
             pic = 'QUESTION'
@@ -205,8 +205,8 @@ class bp(bpy.types.Panel):
                 else:
                     ui.label(text=el[y])
 
-				
-				
+
+
     def bp(dictionary = {}, pause = True, prnt = True):
         scn = bpy.context.scene
         bp.done_once = True
@@ -235,7 +235,7 @@ class bp(bpy.types.Panel):
         scrpt = str(lst[0])
         scrpt = scrpt[0 : len(scrpt) - 1]
 
-		
+
         #Print the line, object, and file from which 'Breakpoint' was called.
         text = "Breakpoint #" + str(bp.breakpoints) + " >>  Line: " + str(s[1]) + "  In: '" + str(s[2]) + "'  File: '" + scrpt + "'"
         bpy.types.Scene.gsg1_variables_list.append(text)
@@ -253,7 +253,7 @@ class bp(bpy.types.Panel):
         else:
             d = dictionary
 
-        
+
         #Alphabetize by key.
         d_sorted_by_value = OrderedDict(sorted(d.items(), key=lambda x: x[0]))
         text = ""
@@ -279,14 +279,14 @@ class bp(bpy.types.Panel):
         return
 
 
-		
+
 class ClearLog(bpy.types.Operator):
     bl_idname = "gsg1.clear_log"
     bl_label = "Clear Log."
     bl_description = "This clears the 'Breakpoint_Log' file, and resets the Breakpoint counter."
 
     def execute(self, context):
-        #Check exists with 'try' 
+        #Check exists with 'try'
         prepare_to_log()
         #Empty the file.
         bpy.data.texts["BreakPoint_Log"].clear()
@@ -295,14 +295,14 @@ class ClearLog(bpy.types.Operator):
 
         return {'FINISHED'}
 
-	
 
-		
+
+
 def prepare_to_log():
     try:
         #Move the cursor to the 'EOF'.
         bpy.data.texts["BreakPoint_Log"].write("")
-        
+
     except:
         #Text file doesn't exist, so create it.
         bpy.data.texts.new(name='BreakPoint_Log')
@@ -311,8 +311,8 @@ def prepare_to_log():
 def print_to_log(text):
     if bpy.context.scene.gsg1_log_print:
         bpy.data.texts["BreakPoint_Log"].write("\n" + text)
-		
-#Process text to wrap, and print it to the log.                        
+
+#Process text to wrap, and print it to the log.
 def print_to_log_wrap(list):
     if bpy.context.scene.gsg1_log_print:
         for x in range(0,len(list)):
@@ -330,7 +330,7 @@ def print_to_log_wrap(list):
 
         bpy.data.texts["BreakPoint_Log"].write("\n")
 
-			
+
 def print_to_console(text):
     if bpy.context.scene.gsg1_console_print:
         print(text)
@@ -352,12 +352,12 @@ def print_to_console_wrap(list):
                 print(list[x])
 
             if bpy.context.scene.gsg1_double_space:
-                print() 
+                print()
 
         print()
         if bpy.context.scene.gsg1_update_panel: print()
 
-		
+
 def force_redraw():
     if bpy.context.scene.gsg1_update_panel:
         bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
@@ -370,7 +370,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(bp)
-    bpy.utils.register_class(ClearLog)
+    bpy.utils.unregister_class(ClearLog)
 
 if __name__ == '__main__':
     register()
