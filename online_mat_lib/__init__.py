@@ -30,8 +30,8 @@
 bl_info = {
     "name": "Online Material Library",
     "author": "Peter Cassetta",
-    "version": (0, 6),
-    "blender": (2, 64, 0),
+    "version": (0, 7),
+    "blender": (2, 69, 0),
     "location": "Properties > Material > Online Material Library",
     "description": "Browse and download materials from online CC0 libraries",
     "warning": "Beta version",
@@ -116,6 +116,7 @@ material_tileabilities = []
 material_lines = []
 
 material_file_contents = ""
+xml_header_string = '<?xml version="1.0" encoding="UTF-8"?>'
 
 current_material_number = -1
 current_material_cached = False
@@ -126,6 +127,7 @@ node_message = []
 save_filename = ""
 script_stack = []
 group_stack = []
+group_translations = {}
 curve_stack = []
 group_curve_stack = []
 group_script_stack = []
@@ -160,6 +162,43 @@ bpy.types.Scene.mat_lib_bcg_open_location = bpy.props.StringProperty(name = "Ope
 
 #subcategory_enum_items = [("None0", "None", "No Subcategory Selected")]
 #bpy.types.Scene.mat_lib_material_subcategory = bpy.props.EnumProperty(name = "", items = subcategory_enum_items, description = "Choose a subcategory", options = {'SKIP_SAVE'})
+
+def filenameClean(string):
+    string = string.replace("(", "")
+    string = string.replace(")", "")
+    string = string.replace("!", "")
+    string = string.replace("@", "")
+    string = string.replace("#", "")
+    string = string.replace("$", "")
+    string = string.replace("%", "")
+    string = string.replace("&", "")
+    string = string.replace("*", "")
+    string = string.replace("/", "")
+    string = string.replace("|", "")
+    string = string.replace("\\", "")
+    string = string.replace("'", "")
+    string = string.replace("\"", "")
+    string = string.replace("?", "")
+    string = string.replace(";", "")
+    string = string.replace(":", "")
+    string = string.replace("[", "")
+    string = string.replace("]", "")
+    string = string.replace("{", "")
+    string = string.replace("}", "")
+    string = string.replace("`", "")
+    string = string.replace("~", "")
+    string = string.replace("+", "")
+    string = string.replace("=", "")
+    string = string.replace(".", "")
+    string = string.replace(",", "")
+    string = string.replace("<", "")
+    string = string.replace(">", "")
+    string = string.replace(" ", "_")
+    string = string.replace("-", "_")
+    return string
+
+def filenameCleanLower(string):
+    return filenameClean(string).lower()
 
 class OnlineMaterialLibraryPanel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
@@ -1043,13 +1082,13 @@ class LibraryConnect(bpy.types.Operator):
             mat_lib_contents = str(response)
 
             #Check for connection errors
-            if "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" not in mat_lib_contents:
+            if xml_header_string not in mat_lib_contents:
                 self.report({'ERROR'}, "Error connecting; see console for details.")
                 print("Received following response from server:\n" + mat_lib_contents)
                 return {'CANCELLED'}
 
             #Format nicely
-            mat_lib_contents = mat_lib_contents.replace("b'<?xml version=\"1.0\" encoding=\"UTF-8\"?>",'')
+            mat_lib_contents = mat_lib_contents.replace("b'"+xml_header_string,'')
             mat_lib_contents = mat_lib_contents.replace("\\r\\n",'')
             mat_lib_contents = mat_lib_contents.replace("\\t",'')[:-1]
             mat_lib_contents = mat_lib_contents.replace("\\",'')
@@ -1110,12 +1149,12 @@ class LibraryConnect(bpy.types.Operator):
                     os.mkdir(os.path.join(mat_lib_folder, mat_lib_host, "cycles", "scripts"))
                 library = "composite"
 
-            if '<?xml version="1.0" encoding="UTF-8"?>' not in mat_lib_contents:
+            if xml_header_string not in mat_lib_contents:
                 self.report({'ERROR'}, "Cached XML file is invalid!")
                 return {'CANCELLED'}
 
             #Format nicely
-            mat_lib_contents = mat_lib_contents.replace('<?xml version="1.0" encoding="UTF-8"?>', '')
+            mat_lib_contents = mat_lib_contents.replace(xml_header_string, '')
             mat_lib_contents = mat_lib_contents.replace("\r\n",'')
             mat_lib_contents = mat_lib_contents.replace("\n",'')
             mat_lib_contents = mat_lib_contents.replace("\t",'')
@@ -1815,7 +1854,6 @@ class AddLibraryMaterial(bpy.types.Operator):
         global node_message
         global current_material_cached
         global osl_scripts
-        global node_groups
         global mapping_curves
 
         findLibrary()
@@ -1839,7 +1877,7 @@ class AddLibraryMaterial(bpy.types.Operator):
                 response = connection.getresponse().read()
 
                 #Check file for validitity
-                if '<?xml version="1.0" encoding="UTF-8"?>' not in str(response)[2:40]:
+                if xml_header_string not in str(response)[2:40]:
                     self.report({'ERROR'}, "Material file is either outdated or invalid.")
                     self.filename = ""
                     return {'CANCELLED'}
@@ -1867,7 +1905,7 @@ class AddLibraryMaterial(bpy.types.Operator):
                 bcm_file.close()
 
                 #Check file for validitity
-                if '<?xml version="1.0" encoding="UTF-8"?>' not in material_file_contents:
+                if xml_header_string not in material_file_contents:
                     self.open_location = ""
                     self.report({'ERROR'}, "Material file is either outdated or invalid.")
                     return {'CANCELLED'}
@@ -1891,7 +1929,7 @@ class AddLibraryMaterial(bpy.types.Operator):
 
             print(material_file_contents)
             #Check file for validitity
-            if '<?xml version="1.0" encoding="UTF-8"?>' not in material_file_contents[0:40]:
+            if xml_header_string not in material_file_contents[0:40]:
                 self.report({'ERROR'}, "Material data is either outdated or invalid.")
                 self.text_block = ""
                 return {'CANCELLED'}
@@ -1917,7 +1955,7 @@ class AddLibraryMaterial(bpy.types.Operator):
             else:
                 mat_name = context.scene.mat_lib_bcm_name
 
-        if '<?xml version="1.0" encoding="UTF-8"?>' in material_file_contents[0:40]:
+        if xml_header_string in material_file_contents[0:40]:
             material_file_contents = material_file_contents[material_file_contents.index("<material"):(material_file_contents.rindex("</material>") + 11)]
         else:
             self.mat_name = ""
@@ -1928,13 +1966,22 @@ class AddLibraryMaterial(bpy.types.Operator):
             print(material_file_contents)
             return {'CANCELLED'}
 
+        #Parse file
+        dom = xml.dom.minidom.parseString(material_file_contents)
+        m = dom.getElementsByTagName("material")[0]
+
         #Create new material
-        new_mat = bpy.data.materials.new(mat_name)
+        if "name" in m.attributes:
+            new_mat = bpy.data.materials.new(m.attributes["name"].value)
+        else:
+            new_mat = bpy.data.materials.new(mat_name)
+
         new_mat.use_nodes = True
         new_mat.node_tree.nodes.clear()
 
-        #Parse file
-        dom = xml.dom.minidom.parseString(material_file_contents)
+        #Create internal node groups
+        groups = dom.getElementsByTagName("group")
+        addAllNodeGroups(groups)
 
         #Create internal OSL scripts
         scripts = dom.getElementsByTagName("script")
@@ -1945,14 +1992,6 @@ class AddLibraryMaterial(bpy.types.Operator):
             osl_text = osl_text[1:].replace("<br/>","\n").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
             osl_datablock.write(osl_text)
             osl_scripts.append(osl_datablock)
-
-        #Create internal node groups
-        groups = dom.getElementsByTagName("group")
-        node_groups = []
-        for g in groups:
-            group_text = g.toxml()#[g.toxml().index(">"):g.toxml().rindex("<")]
-            group_datablock = addNodeGroup(g.attributes['name'].value, group_text)
-            node_groups.append(group_datablock)
 
         #Prepare curve data
         mapping_curves = []
@@ -1984,8 +2023,6 @@ class AddLibraryMaterial(bpy.types.Operator):
         #Create links
         links = dom.getElementsByTagName("link")
         createLinks(links, new_mat.node_tree)
-
-        m = dom.getElementsByTagName("material")[0]
 
         #Set viewport color
         new_mat.diffuse_color = color(m.attributes["view_color"].value)
@@ -2025,7 +2062,6 @@ class ApplyLibraryMaterial(bpy.types.Operator):
         global node_message
         global current_material_cached
         global osl_scripts
-        global node_groups
         global mapping_curves
 
         findLibrary()
@@ -2059,7 +2095,7 @@ class ApplyLibraryMaterial(bpy.types.Operator):
                 response = connection.getresponse().read()
 
                 #Check file for validitity
-                if '<?xml version="1.0" encoding="UTF-8"?>' not in str(response)[2:40]:
+                if xml_header_string not in str(response)[2:40]:
                     self.report({'ERROR'}, "Material file is either outdated or invalid.")
                     self.mat_name = ""
                     self.filename = ""
@@ -2140,7 +2176,7 @@ class ApplyLibraryMaterial(bpy.types.Operator):
         context.active_object.active_material.use_nodes = True
         context.active_object.active_material.node_tree.nodes.clear()
 
-        if '<?xml version="1.0" encoding="UTF-8"?>' in material_file_contents[0:40]:
+        if xml_header_string in material_file_contents[0:40]:
             material_file_contents = material_file_contents[material_file_contents.index("<material"):(material_file_contents.rindex("</material>") + 11)]
         else:
             self.mat_name = ""
@@ -2154,6 +2190,10 @@ class ApplyLibraryMaterial(bpy.types.Operator):
         #Parse file
         dom = xml.dom.minidom.parseString(material_file_contents)
 
+        #Create internal node groups
+        groups = dom.getElementsByTagName("group")
+        addAllNodeGroups(groups)
+
         #Create internal OSL scripts
         scripts = dom.getElementsByTagName("script")
         osl_scripts = []
@@ -2163,14 +2203,6 @@ class ApplyLibraryMaterial(bpy.types.Operator):
             osl_text = osl_text[1:].replace("<br/>","\n").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
             osl_datablock.write(osl_text)
             osl_scripts.append(osl_datablock)
-
-        #Create internal node groups
-        groups = dom.getElementsByTagName("group")
-        node_groups = []
-        for g in groups:
-            group_text = g.toxml()
-            group_datablock = addNodeGroup(g.attributes['name'].value, group_text)
-            node_groups.append(group_datablock)
 
         #Prepare curve data
         mapping_curves = []
@@ -2251,7 +2283,7 @@ class CacheLibraryMaterial(bpy.types.Operator):
             return {'CANCELLED'}
 
         material_file_contents = str(response)
-        if '<?xml version="1.0" encoding="UTF-8"?>' in material_file_contents[2:40]:
+        if xml_header_string in material_file_contents[2:40]:
             material_file_contents = material_file_contents[material_file_contents.index("<material"):(material_file_contents.rindex("</material>") + 11)]
         else:
             self.report({'ERROR'}, "Invalid material file.")
@@ -2457,7 +2489,7 @@ class SaveLibraryMaterial(bpy.types.Operator, ExportHelper):
         bcm_file.write(response)
         bcm_file.close()
 
-        if '<?xml version="1.0" encoding="UTF-8"?>' in material_file_contents[0:40]:
+        if xml_header_string in material_file_contents[0:40]:
             material_file_contents = material_file_contents[material_file_contents.index("<material"):(material_file_contents.rindex("</material>") + 11)]
         else:
             self.report({'ERROR'}, "Invalid material file.")
@@ -2714,7 +2746,7 @@ class AddLibraryGroup(bpy.types.Operator):
                 response = connection.getresponse().read()
 
                 #Check file for validitity
-                if '<?xml version="1.0" encoding="UTF-8"?>' not in str(response)[2:40]:
+                if xml_header_string not in str(response)[2:40]:
                     self.report({'ERROR'}, "Nodegroup file is invalid.")
                     self.filename = ""
                     return {'CANCELLED'}
@@ -2742,7 +2774,7 @@ class AddLibraryGroup(bpy.types.Operator):
                 bcg_file.close()
 
                 #Check file for validitity
-                if '<?xml version="1.0" encoding="UTF-8"?>' not in group_file_contents:
+                if xml_header_string not in group_file_contents:
                     self.open_location = ""
                     self.report({'ERROR'}, "Nodegroup file is invalid.")
                     return {'CANCELLED'}
@@ -2765,7 +2797,7 @@ class AddLibraryGroup(bpy.types.Operator):
                 return {'CANCELLED'}
 
             #Check file for validitity
-            if '<?xml version="1.0" encoding="UTF-8"?>' not in group_file_contents[0:38]:
+            if xml_header_string not in group_file_contents[0:38]:
                 self.report({'ERROR'}, "Nodegroup data is invalid.")
                 self.text_block = ""
                 return {'CANCELLED'}
@@ -2791,8 +2823,8 @@ class AddLibraryGroup(bpy.types.Operator):
             else:
                 group_name = context.scene.mat_lib_bcg_name
 
-        if '<?xml version="1.0" encoding="UTF-8"?>' in group_file_contents[0:40]:
-            group_file_contents = group_file_contents[group_file_contents.index("<group"):(group_file_contents.rindex("</group>") + 8)]
+        if xml_header_string in group_file_contents[0:40]:
+            group_file_contents = group_file_contents[group_file_contents.index("<groups"):(group_file_contents.rindex("</groups>") + 9)]
         else:
             self.group_name = ""
             self.filename = ""
@@ -2805,10 +2837,9 @@ class AddLibraryGroup(bpy.types.Operator):
         #Parse file
         dom = xml.dom.minidom.parseString(group_file_contents)
 
-        #Create node group
-        group = dom.getElementsByTagName("group")[0]
-        group_text = group.toxml()
-        addNodeGroup(group_name, group_text)
+        #Create node groups
+        groups = dom.getElementsByTagName("group")
+        addAllNodeGroups(groups)
 
         self.group_name = ""
         self.filename = ""
@@ -2881,7 +2912,7 @@ class InsertLibraryGroup(bpy.types.Operator):
                 response = connection.getresponse().read()
 
                 #Check file for validitity
-                if '<?xml version="1.0" encoding="UTF-8"?>' not in str(response)[2:40]:
+                if xml_header_string not in str(response)[2:40]:
                     self.report({'ERROR'}, "Nodegroup file is invalid.")
                     self.filename = ""
                     return {'CANCELLED'}
@@ -2909,7 +2940,7 @@ class InsertLibraryGroup(bpy.types.Operator):
                 bcg_file.close()
 
                 #Check file for validitity
-                if '<?xml version="1.0" encoding="UTF-8"?>' not in group_file_contents:
+                if xml_header_string not in group_file_contents:
                     self.open_location = ""
                     self.report({'ERROR'}, "Nodegroup file is invalid.")
                     return {'CANCELLED'}
@@ -2932,7 +2963,7 @@ class InsertLibraryGroup(bpy.types.Operator):
                 return {'CANCELLED'}
 
             #Check file for validitity
-            if '<?xml version="1.0" encoding="UTF-8"?>' not in group_file_contents[0:38]:
+            if xml_header_string not in group_file_contents[0:38]:
                 self.report({'ERROR'}, "Nodegroup data is invalid.")
                 self.text_block = ""
                 return {'CANCELLED'}
@@ -2958,8 +2989,8 @@ class InsertLibraryGroup(bpy.types.Operator):
             else:
                 group_name = context.scene.mat_lib_bcg_name
 
-        if '<?xml version="1.0" encoding="UTF-8"?>' in group_file_contents[0:40]:
-            group_file_contents = group_file_contents[group_file_contents.index("<group"):(group_file_contents.rindex("</group>") + 8)]
+        if xml_header_string in group_file_contents[0:40]:
+            group_file_contents = group_file_contents[group_file_contents.index("<groups"):(group_file_contents.rindex("</groups>") + 9)]
         else:
             self.group_name = ""
             self.filename = ""
@@ -2972,13 +3003,16 @@ class InsertLibraryGroup(bpy.types.Operator):
         #Parse file
         dom = xml.dom.minidom.parseString(group_file_contents)
 
-        #Create node group
-        group = dom.getElementsByTagName("group")[0]
-        group_text = group.toxml()
-        new_nodegroup = addNodeGroup(group_name, group_text)
+        old_groups_list = bpy.data.node_groups.keys()
 
-        #Insert the nodegroup as a group node into the active material
-        context.active_object.active_material.node_tree.nodes.new('GROUP', new_nodegroup)
+        #Create node groups
+        groups = dom.getElementsByTagName("group")
+        addAllNodeGroups(groups)
+
+        #Insert the nodegroups as a group node into the active material
+        for tmp_group in bpy.data.node_groups:
+            if tmp_group.name not in old_groups_list:
+                context.active_object.active_material.node_tree.nodes.new('ShaderNodeGroup').node_tree = tmp_group
 
         self.group_name = ""
         self.filename = ""
@@ -3010,7 +3044,7 @@ class CacheLibraryGroup(bpy.types.Operator):
             return {'CANCELLED'}
 
         group_file_contents = str(response)
-        if '<?xml version="1.0" encoding="UTF-8"?>' in group_file_contents[2:40]:
+        if xml_header_string in group_file_contents[2:40]:
             group_file_contents = group_file_contents[group_file_contents.index("<group"):(group_file_contents.rindex("</group>") + 8)]
         else:
             self.report({'ERROR'}, "Invalid nodegroup file.")
@@ -3171,7 +3205,7 @@ class SaveLibraryGroup(bpy.types.Operator, ExportHelper):
         bcg_file.write(response)
         bcg_file.close()
 
-        if '<?xml version="1.0" encoding="UTF-8"?>' in group_file_contents[0:40]:
+        if xml_header_string in group_file_contents[0:40]:
             group_file_contents = group_file_contents[group_file_contents.index("<group"):(group_file_contents.rindex("</group>") + 8)]
         else:
             self.report({'ERROR'}, "Invalid nodegroup file.")
@@ -3791,14 +3825,103 @@ class mappingCurve:
         self.extend = extend
         self.points = points
 
+def addAllNodeGroups(groups):
+    global node_groups
+
+    node_groups = []
+
+    # create all node groups
+    for g in groups:
+        group_text = g.toxml()
+        group_name = g.attributes['name'].value
+        group_datablock = addNodeGroup(group_name, group_text)
+        node_groups.append(group_datablock)
+
+    # fill in all groups nodes
+    for g in groups:
+        group_text = g.toxml()
+        fillNodeGroup(g.attributes['name'].value, group_text)
+
 def addNodeGroup(name, group_text):
     global group_curves
     global group_scripts
 
-    group = bpy.data.node_groups.new(name, 'SHADER')
+    group = bpy.data.node_groups.new(name, 'ShaderNodeTree')
+
+    if name != group.name:
+        group_translations[name] = group.name
 
     group_text = group_text[group_text.index("<group"):group_text.rindex("</group>") + 8]
     gdom = xml.dom.minidom.parseString(group_text)
+
+    inputs = gdom.getElementsByTagName("groupinput")
+    for input in inputs:
+        input_data = input.attributes
+        input_type = input_data['type'].value
+        if 'name' in input_data:
+            input_name = input_data['name'].value
+            if input_type == 'RGBA':
+                new_input = group.inputs.new('NodeSocketColor', input_name)
+                new_input.default_value = color(input_data['value'].value)
+            elif input_type == 'VECTOR':
+                new_input = group.inputs.new('NodeSocketVector', input_name)
+                new_input.default_value = vector(input_data['value'].value)
+            elif input_type == 'VALUE':
+                new_input = group.inputs.new('NodeSocketFloat', input_name)
+                new_input.default_value = float(input_data['value'].value)
+            elif input_type == 'INT':
+                new_input = group.inputs.new('NodeSocketInt', input_name)
+                new_input.default_value = int(input_data['value'].value)
+            elif input_type == 'BOOLEAN':
+                new_input = group.inputs.new('NodeSocketBool', input_name)
+                new_input.default_value = boolean(input_data['value'].value)
+            elif input_type == 'STRING':
+                new_input = group.inputs.new('NodeSocketString', input_name)
+                new_input.default_value = str(input_data['value'].value)
+            elif input_type == 'SHADER':
+                new_input = group.inputs.new('NodeSocketShader', input_name)
+            else:
+                self.report({'WARNING'}, "Unknown group input type - ", input_type)
+
+    outputs = gdom.getElementsByTagName("groupoutput")
+    for output in outputs:
+        output_data = output.attributes
+        output_type = output_data['type'].value
+        if 'name' in output_data:
+            output_name = output_data['name'].value
+            if output_type == 'RGBA':
+                new_output = group.outputs.new('NodeSocketColor', output_name)
+                new_output.default_value = color(output_data['value'].value)
+            elif output_type == 'VECTOR':
+                new_output = group.outputs.new('NodeSocketVector', output_name)
+                new_output.default_value = vector(output_data['value'].value)
+            elif output_type == 'VALUE':
+                new_output = group.outputs.new('NodeSocketFloat', output_name)
+                new_output.default_value = float(output_data['value'].value)
+            elif output_type == 'INT':
+                new_output = group.outputs.new('NodeSocketInt', output_name)
+                new_output.default_value = int(output_data['value'].value)
+            elif output_type == 'BOOLEAN':
+                new_output = group.outputs.new('NodeSocketBool', output_name)
+                new_output.default_value = boolean(output_data['value'].value)
+            elif output_type == 'STRING':
+                new_output = group.outputs.new('NodeSocketString', output_name)
+                new_output.default_value = str(output_data['value'].value)
+            elif output_type == 'SHADER':
+                new_output = group.outputs.new('NodeSocketShader', output_name)
+            else:
+                self.report({'WARNING'}, "Unknown group output type - ", output_type)
+
+    return group
+
+def fillNodeGroup(name, group_text):
+    if name in group_translations:
+        name = group_translations[name]
+
+    group_text = group_text[group_text.index("<group"):group_text.rindex("</group>") + 8]
+    gdom = xml.dom.minidom.parseString(group_text)
+
+    group = bpy.data.node_groups[name]
 
     #Prepare curve data
     curves = gdom.getElementsByTagName("groupcurve")
@@ -3826,55 +3949,14 @@ def addNodeGroup(name, group_text):
     nodes = gdom.getElementsByTagName("groupnode")
     addNodes(nodes, group, True)
 
-    inputs = gdom.getElementsByTagName("groupinput")
-    for input in inputs:
-        input_data = input.attributes
-        input_type = input_data['type'].value
-        new_input = group.inputs.new(input_data['name'].value, input_data['type'].value)
-        if 'value' in input_data:
-            input_value = input_data['value'].value
-            if input_type == 'RGBA':
-                new_input.default_value = color(input_value)
-            elif input_type == 'VECTOR':
-                new_input.default_value = vector(input_value)
-            elif input_type == 'VALUE':
-                new_input.default_value = float(input_value)
-            elif input_type == 'INT':
-                new_input.default_value = int(input_value)
-            elif input_type == 'BOOL':
-                new_input.default_value = boolean(input_value)
-            elif output_type != 'SHADER':
-                new_input.default_value = str(input_value)
-
-    outputs = gdom.getElementsByTagName("groupoutput")
-    for output in outputs:
-        output_data = output.attributes
-        output_type = output_data['type'].value
-        new_output = group.outputs.new(output_data['name'].value, output_data['type'].value)
-        if 'value' in output_data:
-            output_value = output_data['value'].value
-            if output_type == 'RGBA':
-                new_output.default_value = color(output_value)
-            elif output_type == 'VECTOR':
-                new_output.default_value = vector(output_value)
-            elif output_type == 'VALUE':
-                new_output.default_value = float(output_value)
-            elif output_type == 'INT':
-                new_output.default_value = int(output_value)
-            elif output_type == 'BOOL':
-                new_output.default_value = boolean(output_value)
-            elif output_type != 'SHADER':
-                new_output.default_value = str(output_value)
-
     links = gdom.getElementsByTagName("grouplink")
     createLinks(links, group)
-
-    return group
 
 def addNodes(nodes, node_tree, group_mode = False):
     global node_message
     global osl_scripts
     global node_groups
+    global group_translations
 
     for dom_node in nodes:
         node_type = dom_node.attributes['type'].value
@@ -4705,7 +4787,7 @@ You may need a newer version of Blender for this material to work properly."""]
                             input.default_value = float(node_data[input.name.lower()].value)
                         elif input.type == 'INT':
                             input.default_value = int(node_data[input.name.lower()].value)
-                        elif input.type == 'BOOL':
+                        elif input.type == 'BOOLEAN':
                             input.default_value = boolean(node_data[input.name.lower()].value)
                         elif input.type != 'SHADER':
                             input.default_value = str(node_data[input.name.lower()].value)
@@ -4779,30 +4861,30 @@ You may need a newer version of Blender for this material to work properly."""]
                     group_text = group_file.read()
                     group_file.close()
                     node_group = addNodeGroup(group_name, group_text)
+                    fillNodeGroup(group_name, group_text)
                 else:
                     node_group = None
-            elif 'group' in node_data:
-                node_group = node_groups[int(node_data['group'].value)]
+
+            elif node_data['node_tree'].value in group_translations:
+                node_group = bpy.data.node_groups[group_translations[node_data['node_tree'].value]]
+
+            elif node_data['node_tree'].value in bpy.data.node_groups:
+                node_group = bpy.data.node_groups[node_data['node_tree'].value]
+
+            else:
+                node_group = None
+
             if node_group:
-                node = node_tree.nodes.new("ShaderNodeGroup", node_group)
-            if node.inputs:
-                for input in node.inputs:
-                    if input.name.lower().replace(" ", "_") in node_data:
-                        if input.type == 'RGBA':
-                            input.default_value = color(node_data[input.name.lower().replace(" ", "_")].value)
-                        elif input.type == 'VECTOR':
-                            input.default_value = vector(node_data[input.name.lower().replace(" ", "_")].value)
-                        elif input.type == 'VALUE':
-                            input.default_value = float(node_data[input.name.lower().replace(" ", "_")].value)
-                        elif input.type == 'INT':
-                            input.default_value = int(node_data[input.name.lower().replace(" ", "_")].value)
-                        elif input.type == 'BOOL':
-                            input.default_value = boolean(node_data[input.name.lower().replace(" ", "_")].value)
-                        elif input.type != 'SHADER':
-                            input.default_value = str(node_data[input.name.lower().replace(" ", "_")].value)
-                    elif input.type != 'SHADER':
-                        node_message = ['WARNING', "There was no value specified for input \"%s\", leaving at default." % input.name]
-                    print(input.type)
+                node = node_tree.nodes.new("ShaderNodeGroup")
+                node.node_tree = node_group
+
+        elif node_type == "GROUP_INPUT":
+            print ("GROUP_INPUT")
+            node = node_tree.nodes.new("NodeGroupInput")
+
+        elif node_type == "GROUP_OUTPUT":
+            print ("GROUP_INPUT")
+            node = node_tree.nodes.new("NodeGroupOutput")
 
         else:
             node_message = ['ERROR', """The material file contains the node type \"%s\", which is not known.
@@ -4920,53 +5002,26 @@ class MaterialConvert(bpy.types.Operator):
 
             if txt not in bpy.data.texts:
                 bpy.data.texts.new(txt)
+            else:
+                bpy.data.texts[txt].clear()
+
+            material_file_contents = ""
+            write(xml_header_string)
 
         j = 0
         while j < loop_length:
             if self.save_location is not "":
                 if self.all_materials:
-                    filename = bpy.data.materials[mat].name.replace("(", "")
+                    filename = filenameCleanLower(bpy.data.materials[mat].name)
                 else:
-                    filename = mat.replace("(", "")
-                filename = filename.replace(")", "")
-                filename = filename.replace("!", "")
-                filename = filename.replace("@", "")
-                filename = filename.replace("#", "")
-                filename = filename.replace("$", "")
-                filename = filename.replace("%", "")
-                filename = filename.replace("&", "")
-                filename = filename.replace("*", "")
-                filename = filename.replace("/", "")
-                filename = filename.replace("|", "")
-                filename = filename.replace("\\", "")
-                filename = filename.replace("'", "")
-                filename = filename.replace("\"", "")
-                filename = filename.replace("?", "")
-                filename = filename.replace(";", "")
-                filename = filename.replace(":", "")
-                filename = filename.replace("[", "")
-                filename = filename.replace("]", "")
-                filename = filename.replace("{", "")
-                filename = filename.replace("}", "")
-                filename = filename.replace("`", "")
-                filename = filename.replace("~", "")
-                filename = filename.replace("+", "")
-                filename = filename.replace("=", "")
-                filename = filename.replace(".", "")
-                filename = filename.replace(",", "")
-                filename = filename.replace("<", "")
-                filename = filename.replace(">", "")
-                filename = filename.replace(" ", "_")
-                filename = filename.replace("-", "_")
-                filename = filename.lower()
-
-            material_file_contents = ""
-            write('<?xml version="1.0" encoding="UTF-8"?>')
+                    filename = filenameCleanLower(mat)
+                material_file_contents = ""
+                write(xml_header_string)
 
             red = smallFloat(bpy.data.materials[mat].diffuse_color.r)
             green = smallFloat(bpy.data.materials[mat].diffuse_color.g)
             blue = smallFloat(bpy.data.materials[mat].diffuse_color.b)
-            write("\n<material view_color=\"%s\"" % ("rgb(" + red + ", " + green + ", " + blue + ")"))
+            write("\n<material name=\"%s\" view_color=\"%s\"" % (bpy.data.materials[mat].name, "rgb(" + red + ", " + green + ", " + blue + ")"))
 
             write(" sample_lamp=\"" + str(bpy.data.materials[mat].cycles.sample_as_light) + "\"")
             if bpy.data.materials[mat].preview_render_type != 'SPHERE':
@@ -4976,10 +5031,8 @@ class MaterialConvert(bpy.types.Operator):
             group_warning = False
             frame_warning = False
             for node in bpy.data.materials[mat].node_tree.nodes:
-                if hasattr(node, 'node_tree'):
-                    node_type = "GROUP"
-                    #group_warning = True
-                    write("\n\t\t<node type=\"GROUP\"")
+                if node.type == 'GROUP':
+                    write("\n\t\t<node type=\"GROUP\" node_tree=\"%s\"" % node.node_tree.name)
 
                     #Write node custom color
                     if hasattr(node, 'use_custom_color') and node.use_custom_color:
@@ -5001,18 +5054,11 @@ class MaterialConvert(bpy.types.Operator):
                         write(" mute=\"True\"")
 
                     if self.save_location is not "" and context.scene.mat_lib_external_groups:
-                        group_filename = node.node_tree.name.lower()
-                        group_filename = group_filename.replace("(", "").replace(")", "").replace("!", "").replace("@", "")
-                        group_filename = group_filename.replace("#", "").replace("$", "").replace("%", "").replace("&", "")
-                        group_filename = group_filename.replace("*", "").replace("/", "").replace("|", "").replace("\\", "")
-                        group_filename = group_filename.replace("'", "").replace("\"", "").replace("?", "").replace(";", "")
-                        group_filename = group_filename.replace(":", "").replace("[", "").replace("]", "").replace("{", "")
-                        group_filename = group_filename.replace("}", "").replace("`", "").replace("~", "").replace("+", "")
-                        group_filename = group_filename.replace("=", "").replace(".", "").replace(",", "").replace("<", "")
-                        group_filename = self.save_location + group_filename.replace(">", "").replace(" ", "_").replace("-", "_") + ".bcg"
+                        group_filename = filenameCleanLower(node.node_tree.name)
+                        group_filename = self.save_location + group_filename + ".bcg"
                         write(" group=\"file://%s\"" % group_filename)
                         group_file = open(group_filename, mode="w", encoding="UTF-8")
-                        group_file.write(getGroupData(node.node_tree.name).replace("\n\t\t", "\n").replace("\n<group", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<group"))
+                        group_file.write(getGroupData(node.node_tree.name).replace("\n\t\t", "\n").replace("\n<group", xml_header_string+"\n<group"))
                         group_file.close()
                     else:
                         if node.node_tree.name in group_stack:
@@ -5021,23 +5067,6 @@ class MaterialConvert(bpy.types.Operator):
                             write(" group=\"%s\"" % len(group_stack))
                             group_stack.append(node.node_tree.name)
 
-                    if node.inputs:
-                        for input in node.inputs:
-                            if input.type == 'RGBA':
-                                input_value = rgba(input.default_value)
-                            elif input.type == 'VECTOR':
-                                input_value = smallVector(input.default_value)
-                            elif input.type == 'VALUE':
-                                input_value = smallFloat(input.default_value)
-                            elif input.type == 'INT':
-                                input_value = str(input.default_value)
-                            elif input.type == 'BOOL':
-                                input_value = str(input.default_value)
-                            elif input.type != 'SHADER':
-                                input_value = str(input.default_value)
-
-                            if input.type != 'SHADER':
-                                write(" %s=\"%s\"" % (input.name.lower().replace(" ", "_"), input_value))
                     if bpy.app.version[0] + (bpy.app.version[1] / 100.0) > 2.65:
                         if node.hide:
                             write(" width=\"%s\"" % int(node.width_hidden))
@@ -5151,6 +5180,7 @@ class MaterialConvert(bpy.types.Operator):
             j += 1
             if self.all_materials:
                 mat += 1
+
         if self.all_materials and not group_warning and not frame_warning:
             self.report({'INFO'}, "All materials successfully saved!")
 
@@ -5169,11 +5199,14 @@ class GroupConvert(bpy.types.Operator):
         global material_file_contents
         global script_stack
         global group_stack
+        txt = ""
 
         if self.all_groups:
             #For all_groups, access the node groups with an index
             group = 0
             loop_length = len(bpy.data.node_groups)
+            for ng in bpy.data.node_groups:
+                group_stack.append(ng.name)
         else:
             if not context.active_object:
                 self.save_location = ""
@@ -5203,59 +5236,36 @@ class GroupConvert(bpy.types.Operator):
 
             if txt not in bpy.data.texts:
                 bpy.data.texts.new(txt)
+            else:
+                bpy.data.texts[txt].clear()
+
+            bpy.data.texts[txt].write(xml_header_string + "\n<groups>")
 
         j = 0
         while j < loop_length:
             if self.save_location != "":
                 if self.all_groups:
-                    filename = bpy.data.node_groups[group].name.replace("(", "")
+                    filename = filenameCleanLower(bpy.data.node_groups[group].name)
                 else:
-                    filename = group.replace("(", "")
-                filename = filename.replace(")", "")
-                filename = filename.replace("!", "")
-                filename = filename.replace("@", "")
-                filename = filename.replace("#", "")
-                filename = filename.replace("$", "")
-                filename = filename.replace("%", "")
-                filename = filename.replace("&", "")
-                filename = filename.replace("*", "")
-                filename = filename.replace("/", "")
-                filename = filename.replace("|", "")
-                filename = filename.replace("\\", "")
-                filename = filename.replace("'", "")
-                filename = filename.replace("\"", "")
-                filename = filename.replace("?", "")
-                filename = filename.replace(";", "")
-                filename = filename.replace(":", "")
-                filename = filename.replace("[", "")
-                filename = filename.replace("]", "")
-                filename = filename.replace("{", "")
-                filename = filename.replace("}", "")
-                filename = filename.replace("`", "")
-                filename = filename.replace("~", "")
-                filename = filename.replace("+", "")
-                filename = filename.replace("=", "")
-                filename = filename.replace(".", "")
-                filename = filename.replace(",", "")
-                filename = filename.replace("<", "")
-                filename = filename.replace(">", "")
-                filename = filename.replace(" ", "_")
-                filename = filename.replace("-", "_")
-                filename = filename.lower()
+                    filename = filenameCleanLower(group)
+
                 group_location = self.save_location + filename + ".bcg"
                 group_file = open(group_location, mode="w", encoding="UTF-8")
-                group_file.write(getGroupData(bpy.data.node_groups[group].name).replace("\n\t\t", "\n").replace("\n<group", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<group"))
+                group_file.write(xml_header_string + "\n<groups>")
+                group_file.write(getGroupData(bpy.data.node_groups[group].name).replace("\n\t\t", "\n\t"))
+                group_file.write("\n</groups>")
                 group_file.close()
                 if not self.all_groups:
-                    self.report({'INFO'}, "Nodegroup \"" + group + "\" saved to \"" + filename + ".bcg\"")
+                    self.report({'INFO'}, "Nodegroup \"" + str(group) + "\" saved to \"" + filename + ".bcg\"")
             else:
-                bpy.data.texts[txt].clear()
-                bpy.data.texts[txt].write(getGroupData(group).replace("\n\t\t", "\n").replace("\n<group", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<group"))
-                self.report({'INFO'}, "Nodegroup \"" + group + "\" saved to \"" + txt + "\"")
+                bpy.data.texts[txt].write(getGroupData(group).replace("\n\t\t", "\n\t"))
+                self.report({'INFO'}, "Nodegroup \"" + str(group) + "\" saved to \"" + txt + "\"")
             j += 1
             if self.all_groups:
                 group += 1
         if self.all_groups:
+            if txt:
+                bpy.data.texts[txt].write("\n</groups>")
             self.report({'INFO'}, "All nodegroups successfully saved!")
 
         self.save_location = ""
@@ -5263,6 +5273,7 @@ class GroupConvert(bpy.types.Operator):
         return {'FINISHED'}
 
 def getGroupData(index):
+    global group_stack
     global group_script_stack
     global group_curve_stack
 
@@ -5270,6 +5281,8 @@ def getGroupData(index):
     if type(index) == int:
         group_text += (" name=\"%s\" id=\"%s\"" % (group_stack[index], str(index)))
         index = group_stack[index]
+    else:
+        group_text += (" name=\"%s\"" % index)
 
     group_text += (">\n\t\t\t<groupnodes>")
     for node in bpy.data.node_groups[index].nodes:
@@ -5277,7 +5290,13 @@ def getGroupData(index):
         group_text += ("\n\t\t\t\t<groupnode ")
 
         #Write node type
-        group_text += ("type=\"%s\"" % node.type)
+        group_text += ("type=\"%s\"" %node.type)
+
+        # make sure that group nodes get added to export file
+        if node.type == "GROUP":
+            if node.node_tree.name not in group_stack:
+                group_stack.append(node.node_tree.name)
+            group_text += (" group=\"%s\"" % group_stack.index(node.node_tree.name))
 
         #Write node custom color
         if hasattr(node, 'use_custom_color') and node.use_custom_color:
@@ -5303,12 +5322,13 @@ def getGroupData(index):
 
         #Write node closing bracket
         group_text += (" />")
+
     group_text += ("\n\t\t\t</groupnodes>")
 
     if bpy.data.node_groups[index].inputs:
         group_text += ("\n\t\t\t<groupinputs>")
         for input in bpy.data.node_groups[index].inputs:
-            group_text += ("\n\t\t\t\t<groupinput name=\"%s\" type=\"%s\"" % (input.name, input.type))
+            group_text += ("\n\t\t\t\t<groupinput id=\"%s\" name=\"%s\" type=\"%s\"" % (input.identifier,input.name, input.type))
             if input.type == 'RGBA':
                 input_value = rgba(input.default_value)
             elif input.type == 'VECTOR':
@@ -5317,7 +5337,7 @@ def getGroupData(index):
                 input_value = smallFloat(input.default_value)
             elif input.type == 'INT':
                 input_value = str(input.default_value)
-            elif input.type == 'BOOL':
+            elif input.type == 'BOOLEAN':
                 input_value = str(input.default_value)
             elif input.type != 'SHADER':
                 input_value = str(input.default_value)
@@ -5330,7 +5350,7 @@ def getGroupData(index):
     if bpy.data.node_groups[index].outputs:
         group_text += ("\n\t\t\t<groupoutputs>")
         for output in bpy.data.node_groups[index].outputs:
-            group_text += ("\n\t\t\t\t<groupoutput name=\"%s\" type=\"%s\"" % (output.name, output.type))
+            group_text += ("\n\t\t\t\t<groupoutput id=\"%s\" name=\"%s\" type=\"%s\"" % (output.identifier,output.name, output.type))
             if output.type == 'RGBA':
                 output_value = rgba(output.default_value)
             elif output.type == 'VECTOR':
@@ -5339,7 +5359,7 @@ def getGroupData(index):
                 output_value = smallFloat(output.default_value)
             elif output.type == 'INT':
                 output_value = str(output.default_value)
-            elif output.type == 'BOOL':
+            elif output.type == 'BOOLEAN':
                 output_value = str(output.default_value)
             elif hasattr(output, 'default_value'):
                 output_value = str(output.default_value)
@@ -5407,19 +5427,22 @@ def getNodeData(node, group_mode = False):
     global curve_stack
     global script_stack
 
+    node_type = node.type
     text = ""
 
     I = node.inputs
     O = node.outputs
 
-    if "NodeGroup" in str(node.items):
-        node_type = "GROUP"
-    else:
-        node_type = node.type
-
+        # GROUP TYPES
     if node_type == "GROUP":
-        print("GROUP NODE!")
-        text += ("ERROR: NESTED GROUP NODES NOT YET SUPPORTED.")
+        print("GROUP")
+        text += (" node_tree=\"%s\"" % node.node_tree.name)
+
+    elif node_type == "GROUP_INPUT":
+        print("GROUP_INPUT")
+
+    elif node_type == "GROUP_OUTPUT":
+        print("GROUP_OUTPUT")
 
         #INPUT TYPES
     elif node_type == "ATTRIBUTE":
