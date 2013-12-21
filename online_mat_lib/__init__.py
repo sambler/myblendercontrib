@@ -4698,6 +4698,9 @@ You may need a newer version of Blender for this material to work properly.""" %
             if bpy.app.version[0] + (bpy.app.version[1] / 100.0) >= 2.65:
                 print("FRAME")
                 node = node_tree.nodes.new("NodeFrame")
+                # we set the frame name for parenting purposes
+                if 'name' in node_data:
+                    node.name = node_data['name'].value
 
         elif node_type == "REROUTE":
             print ("REROUTE")
@@ -4890,6 +4893,16 @@ You may need a newer version of Blender for this material to work properly."""]
             node_message = ['ERROR', """The material file contains the node type \"%s\", which is not known.
 The material file may contain an error, or you may need to check for updates to this add-on.""" % node_type]
             return
+
+        #Set node sizes
+        if 'width' in node_data:
+            node.width = int(node_data['width'].value)
+        if 'width_hidden' in node_data and hasattr(node, 'width_hidden'):
+            node.width_hidden = int(node_data['width_hidden'].value)
+        if 'height' in node_data:
+            node.height = int(node_data['height'].value)
+        if 'parent' in node_data and node_data['parent'].value in node_tree.nodes:
+            node.parent = node_tree.nodes[node_data['parent'].value]
         node.location = node_location
 
         #Give the node a custom label
@@ -4908,13 +4921,6 @@ The material file may contain an error, or you may need to check for updates to 
         #Mute node if needed and able to
         if 'mute' in node_data and hasattr(node, 'mute'):
             node.mute = boolean(node_data['mute'].value)
-
-        #Set node width
-        if 'width' in node_data and bpy.app.version[0] + (bpy.app.version[1] / 100.0) > 2.66:
-            if node.hide:
-                node.width = int(node_data['width'].value)
-            else:
-                node.width = int(node_data['width'].value)
 
 def boolean(string):
     if string == "True":
@@ -5067,15 +5073,10 @@ class MaterialConvert(bpy.types.Operator):
                             write(" group=\"%s\"" % len(group_stack))
                             group_stack.append(node.node_tree.name)
 
-                    if bpy.app.version[0] + (bpy.app.version[1] / 100.0) > 2.65:
-                        if node.hide:
-                            write(" width=\"%s\"" % int(node.width_hidden))
-                        else:
-                            write(" width=\"%s\"" % int(node.width))
                     write(getLocation(node))
                     write(" />")
 
-                elif node.type == 'FRAME' and bpy.app.version[0] + (bpy.app.version[1] / 100.0) >= 2.65:
+                elif node.type == 'FRAME' and bpy.app.version[0] + (bpy.app.version[1] / 100.0) <= 2.65:
                     #Don't attempt to write frame nodes in builds previous
                     #to 2.65, as Blender's nodes.new() operator was
                     #unable to add FRAME nodes. Was fixed with r51926.
@@ -5839,6 +5840,8 @@ def getNodeData(node, group_mode = False):
         #MISCELLANEOUS NODE TYPES
     elif node_type == "FRAME":
         print("FRAME")
+        # we want the frame's' name to set proper parenting on import
+        text += (" name=\"%s\"" % node.name)
 
     elif node_type == "REROUTE":
         print("REROUTE")
@@ -5883,11 +5886,6 @@ def getNodeData(node, group_mode = False):
     else:
         return " ERROR: UNKNOWN NODE TYPE. "
 
-    if bpy.app.version[0] + (bpy.app.version[1] / 100.0) > 2.65:
-        if node.hide:
-            text += (" width=\"%s\"" % int(node.width_hidden))
-        else:
-            text += (" width=\"%s\"" % int(node.width))
     text += getLocation(node)
     return text
 
@@ -5912,12 +5910,19 @@ def write (string):
     material_file_contents += string
 
 def getLocation(node):
+    locationData = (" height=\"%s\"" % int(node.height))
+    locationData += (" width=\"%s\"" % int(node.width))
+    if hasattr(node, 'width_hidden'):
+        locationData += (" width_hidden=\"%s\"" % int(node.width_hidden))
+    if hasattr(node.parent,'name'):
+        locationData += (" parent=\"%s\"" % node.parent.name)
     #X location
     x = str(int(node.location.x))
     #Y location
     y = str(int(node.location.y))
+    locationData += (" loc=\"%s, %s\"" % (x, y))
 
-    return (" loc=\"" + x + ", " + y + "\"")
+    return locationData
 
 def writeNodeLinks(node_tree):
     global material_file_contents
