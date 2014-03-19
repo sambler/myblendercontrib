@@ -11,37 +11,32 @@ C = bpy.context
 D = bpy.data
 
 ##-----------------------------RECONST---------------------------
-def defReconst(self, OFFSET):
+def defReconst(self, OFFSET): 
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-    bpy.context.tool_settings.mesh_select_mode = (True, False, False)
-    OBJETO = bpy.context.active_object
-    OBDATA = bmesh.from_edit_mesh(OBJETO.data)
-    OBDATA.select_flush(False)
-    for vertice in OBDATA.verts[:]:
+    bpy.context.tool_settings.mesh_select_mode = (True, True, True)
+    ob = bpy.context.active_object
+    bm = bmesh.from_edit_mesh(ob.data)
+    bm.select_flush(False)
+    for vertice in bm.verts[:]:
         if abs(vertice.co[0]) < OFFSET:
-            vertice.co[0] = 0
-    bpy.ops.mesh.select_all(action="DESELECT")
-    for vertices in OBDATA.verts[:]:
-      if vertices.co[0] < 0:
-        vertices.select = 1
-    bpy.ops.mesh.delete()
-    bpy.ops.object.modifier_add(type='MIRROR')
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.uv_texture_add()
-    LENUVLISTSIM = len(bpy.data.objects[OBJETO.name].data.uv_textures)
-    LENUVLISTSIM = LENUVLISTSIM - 1
-    OBJETO.data.uv_textures[LENUVLISTSIM:][0].name = "SYMMETRICAL"
+            vertice.co[0] = 0            
+    for vertice in bm.verts[:]:
+      if vertice.co[0] < 0:
+        bm.verts.remove(vertice)
+        bmesh.update_edit_mesh(ob.data) 
+    mod = ob.modifiers.new("Mirror","MIRROR")
+    uv = ob.data.uv_textures.new(name="SYMMETRICAL")
+    for v in bm.faces: v.select = 1
+    bmesh.update_edit_mesh(ob.data)
+    ob.data.uv_textures.active = ob.data.uv_textures['SYMMETRICAL']
     bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
     bpy.ops.object.mode_set(mode="OBJECT", toggle= False)
     bpy.ops.object.modifier_apply(apply_as='DATA', modifier="Mirror")
     bpy.ops.object.mode_set(mode="EDIT", toggle= False)
-    OBDATA = bmesh.from_edit_mesh(OBJETO.data)
-    OBDATA.select_flush(0)
-    bpy.ops.mesh.uv_texture_add()
-    LENUVLISTASIM = len(OBJETO.data.uv_textures)
-    LENUVLISTASIM = LENUVLISTASIM  - 1
-    OBJETO.data.uv_textures[LENUVLISTASIM:][0].name = "ASYMMETRICAL"
-    OBJETO.data.uv_textures.active = OBJETO.data.uv_textures["ASYMMETRICAL"]
+    bm = bmesh.from_edit_mesh(ob.data)
+    bm.select_flush(0)
+    uv = ob.data.uv_textures.new(name="ASYMMETRICAL")
+    ob.data.uv_textures.active = ob.data.uv_textures['ASYMMETRICAL']
     bpy.ops.uv.unwrap(method='ANGLE_BASED', fill_holes=True, correct_aspect=False, use_subsurf_data=0)
 
 class reConst (bpy.types.Operator):
@@ -99,46 +94,18 @@ class resymVertexGroups (bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     def execute(self,context):
 
-        OBACTIVO = bpy.context.active_object
-        VGACTIVO = OBACTIVO.vertex_groups.active.index
-        
-        bpy.ops.object.mode_set(mode='EDIT')
-        BM = bmesh.from_edit_mesh(bpy.context.object.data)  
-        bpy.ops.mesh.select_all(action='DESELECT')
-        bpy.ops.object.vertex_group_select()
-        SELVER=[VERT.index for VERT in BM.verts[:] if VERT.select]   
-        
-        SYSBAR = os.sep     
-         
-        FILEPATH=bpy.data.filepath
-        ACTIVEFOLDER=FILEPATH.rpartition(SYSBAR)[0]
-        ENTFILEPATH= "%s%s%s_%s_SYM_TEMPLATE.xml" %  (ACTIVEFOLDER, SYSBAR, bpy.context.scene.name, bpy.context.object.name)
-        XML=open(ENTFILEPATH ,mode="r")        
-        SYMAP = eval(XML.readlines()[0])      
-        INL = [VERT for VERT in SYMAP if SYMAP[VERT] in SELVER if VERT!= SYMAP[VERT]] 
-        bpy.ops.mesh.select_all(action='DESELECT')
-        for VERT in INL:
-            BM.verts[VERT].select = True
-        bpy.ops.object.vertex_group_assign()    
-        bpy.ops.object.mode_set(mode='WEIGHT_PAINT')        
-        for VERT in INL:
-            for i, GRA in enumerate(OBACTIVO.data.vertices[SYMAP[VERT]].groups[:]):
-                if GRA.group == VGACTIVO:
-                    print (i)
-                    EM = i                    
+        with open("%s_%s_SYM_TEMPLATE.xml" % (os.path.join(os.path.dirname(bpy.data.filepath),bpy.context.scene.name),bpy.context.object.name)) as file:
+            ob = bpy.context.object
+            actgr = ob.vertex_groups.active
+            actind = ob.vertex_groups.active_index
+            ls = eval(file.read())
+            wdict = {left: actgr.weight(right)  for left, right in ls.items() for group in ob.data.vertices[right].groups  if group.group == actind}
+            actgr.remove([vert.index for vert in ob.data.vertices if vert.co[0] <= 0])       
+            for ind, weight in wdict.items():
+                actgr.add([ind],weight,'REPLACE')
+            bpy.context.object.data.update()                
 
-            for a, GRA in enumerate(OBACTIVO.data.vertices[VERT].groups[:]):     
-                if GRA.group == VGACTIVO:
-                    print (a)
-                    REC = a
-
-                    
-            OBACTIVO.data.vertices[VERT].groups[REC].weight = OBACTIVO.data.vertices[SYMAP[VERT]].groups[EM].weight  
-        XML.close()
-        SYMAP.clear()  
-      
-
-        print("===============(JOB DONE)=============")
+ 
         return {'FINISHED'}
 
 
@@ -150,10 +117,17 @@ class OscExportVG (bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     def execute(self,context):
         
-        with open(os.path.join(os.path.split(bpy.data.filepath)[0],"%s_vg" % (bpy.context.object.name)), "w") as FILE:
-            WEIGHTLIST = [[group.group, vert.index, group.weight] for vert in bpy.context.object.data.vertices[:] for group in vert.groups[:]]
-            WEIGHTLIST.append([group.name for group in bpy.context.object.vertex_groups])
-            FILE.write(str(WEIGHTLIST))
+        ob = bpy.context.object
+        with open(os.path.join(os.path.dirname(bpy.data.filepath),ob.name+".txt"), mode="w") as file:
+            grs = {group.name for group in ob.vertex_groups}
+            vg = {vert.index : list(map(  lambda x: (ob.vertex_groups[x.group].name, x.weight)  , vert.groups  )) for vert in ob.data.vertices if len(vert.groups) > 0}
+            neworder = {}
+            for indice, data in vg.items():
+                for group, weight in data:
+                    neworder.setdefault(group,[]).append((indice,weight))
+            file.write(str(grs))
+            file.write(str("\n"))
+            file.write(str(neworder))
 
         return {'FINISHED'}
 
@@ -163,13 +137,15 @@ class OscImportVG (bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     def execute(self,context):
         
-        with open(os.path.join(os.path.split(bpy.data.filepath)[0],"%s_vg" % (bpy.context.object.name)), "r") as FILE:
-            WEIGHTLIST = eval(FILE.read())
-            for group in WEIGHTLIST[-1]:
-                bpy.context.object.vertex_groups.new(name=group)
-            for ind ,(gr, index, weight) in enumerate(WEIGHTLIST[:-1]):
-                print(ind, gr, index, weight)
-                bpy.context.object.vertex_groups[gr].add(index=(index,index),weight=weight, type="REPLACE")
+        ob = bpy.context.object    
+        with open(os.path.join(os.path.dirname(bpy.data.filepath),ob.name+".txt"), mode="r") as file:   
+            grs = eval(file.readlines(1)[0] )
+            neworder = eval(file.readlines(2)[0] )
+            for gr in grs:
+                bpy.context.object.vertex_groups.new(name=gr)
+            for group, data in neworder.items():
+                for indice, weight in data:
+                    ob.vertex_groups[group].add([indice],weight,"REPLACE")
         
         return {'FINISHED'}
 
