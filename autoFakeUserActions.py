@@ -1,6 +1,6 @@
 
 bl_info = {
-    "name": "Save unused Materials and Textures",
+    "name": "Save unused Actions",
     "author": "CoDEmanX",
     "version": (1, 0, 0),
     "blender": (2, 63, 0),
