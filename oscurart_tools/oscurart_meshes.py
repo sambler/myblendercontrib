@@ -275,19 +275,19 @@ class OscObjectToMesh(bpy.types.Operator):
 ## ----------------------------- OVERLAP UV --------------------------------------------
 
 
-def DefOscOverlapUv(valprecision):
+def DefOscOverlapUv(valprecision,scale):
     inicio= time.time()
     mode = bpy.context.object.mode
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
     ob = bpy.context.object
     uvm = ob.data.uv_layers.active
-    redondeo = lambda x : (round(x[0],valprecision),round(x[1],valprecision),round(x[2],valprecision))
+    redondeo = lambda x : (round(x[0]*scale,valprecision),round(x[1]*scale,valprecision),round(x[2]*scale,valprecision))
     absol = lambda x : (abs(x[0]),x[1],x[2])
 
     polydict = {redondeo(poly.center[:]) : poly  for poly in ob.data.polygons }
     vertdict = {redondeo(vert.co[:]) : vert for vert in ob.data.vertices }
 
-    polyeq = { indice.index : polydict[absol(center)].index for center,indice in polydict.items() if center[0] <= 0
+    polyeq = { indice.index : polydict[absol(center)].index for center,indice in polydict.items() if center[0] < 0
         if polydict.get(absol(center))}
     verteq = { indice.index : vertdict[absol(co)].index for co,indice in vertdict.items() if co[0] <= 0
         if vertdict.get(absol(co))}
@@ -295,44 +295,29 @@ def DefOscOverlapUv(valprecision):
     dict = { poly.index : {ob.data.loops[vertex].vertex_index :vertex  for vertex in poly.loop_indices} for poly in ob.data.polygons}
 
     for poly,data in dict.items():
-        if ob.data.polygons[poly].center.x <= 0:
-            poly, data
-            polyeq[poly], dict[polyeq[poly]]
-            for ind in data:
-                ind, verteq[ind]
-                data[ind], dict[polyeq[poly]][verteq[ind]]
-                uvm.data[data[ind]].uv = uvm.data[dict[polyeq[poly]][verteq[ind]]].uv 
+        if ob.data.polygons[poly].center.x < 0 and poly in polyeq:
+            for   vertice, vertex in data.items():              
+                if len(dict[poly]) ==  len(dict[polyeq[poly]]) and vertice in verteq : # DEBUG
+                    source, target = dict[poly][vertice] , dict[polyeq[poly]][verteq[vertice]]  
+                    if uvm.data[target].select:
+                        uvm.data[target].uv = uvm.data[source].uv
 
-    bpy.ops.object.mode_set(mode=mode, toggle=False)      
+    bpy.ops.object.mode_set(mode=mode, toggle=False) 
+   
     print("Time elapsed: %4s seconds" % (time.time()-inicio))          
     
-    """
-    rd = 4
-    ACTOBJ = bpy.context.object
-    inicio= time.time()
-    bpy.ops.mesh.faces_mirror_uv(direction='POSITIVE', precision=valprecision)
-    bpy.ops.object.mode_set(mode='OBJECT') 
-    SELUVVERT = [ver for ver in ACTOBJ.data.uv_layers[ACTOBJ.data.uv_textures.active.name].data[:] if ver.select]
-    MAY = [ver for ver in SELUVVERT if ver.uv[0] > .5]
 
-    
-    for vl in MAY:
-        vl.uv = (1-vl.uv[0],vl.uv[1])   
-                   
-    bpy.ops.object.mode_set(mode='EDIT')
-
-    
-    print("Time elapsed: %4s seconds" % (time.time()-inicio))
-    """
 
 class OscOverlapUv(bpy.types.Operator):
     bl_idname = "mesh.overlap_uv_faces"
     bl_label = "Overlap Uvs"
     bl_options = {"REGISTER", "UNDO"}
-
+    
+    scale = bpy.props.IntProperty(default=100, min=1, name="scale" )
     precision = bpy.props.IntProperty(default=4, min=1, max=10, name="precision" )
+    
     def execute(self, context):
-        DefOscOverlapUv(self.precision)
+        DefOscOverlapUv(self.precision,self.scale)
         return {'FINISHED'}
 
 ## ------------------------------- IO VERTEX COLORS --------------------
@@ -421,3 +406,5 @@ class ModalIndexOperator(bpy.types.Operator):
             self.report({"WARNING"}, "Is not a 3D Space")
             return {'CANCELLED'}
                 
+
+
