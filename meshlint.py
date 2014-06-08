@@ -19,7 +19,7 @@ bl_info = {
     "name": "MeshLint: Like Spell-checking for your Meshes",
     "author": "rking",
     "version": (1, 0),
-    "blender": (2, 6, 3),
+    "blender": (2, 63, 0),
     "location": "Object Data properties > MeshLint",
     "description": "Check objects for: Tris / Ngons / Nonmanifoldness / etc",
     "warning": "",
@@ -199,7 +199,7 @@ try:
                     self.select_face(i)
                 else:
                     print("MeshLint says: Huh?? → elemtype of %s." % elemtype)
-        
+
         def select_vert(self, index):
             self.b.verts[index].select = True
 
@@ -411,7 +411,7 @@ try:
                 elif 'EDIT_MESH' != original_mode:
                     ensure_not_edit_mode()
             return {'FINISHED'}
-        
+
         def handle_troubled_meshes(self):
             pass
 
@@ -467,7 +467,7 @@ try:
                 play_pause = 'PLAY'
             right.operator(
                 'meshlint.live_toggle', text=live_label, icon=play_pause)
-            
+
             layout.split().operator(
                 'meshlint.objects_deselect',
                 text='Deselect all Lint-free Objects',
