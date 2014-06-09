@@ -20,14 +20,12 @@ bl_info = {
     'name': 'Freen\'s Animation Tools',
     'author': 'Beorn Leonard',
     'version': (2, 2),
-    "blender": (2, 6, 4),
+    "blender": (2, 64, 0),
     "api": 36157,
     'location': 'View3D > Properties panel > Animation Tools',
     'description': 'A simple panel  for the 3D view properties panel with some common tools used by animators',
-    "wiki_url": ""\
-        "",
-    "tracker_url": ""\
-        "",
+    "wiki_url": "",
+    "tracker_url": "",
     'category': 'Animation'}
 
 """
@@ -75,7 +73,7 @@ class AnimPanel(bpy.types.Panel):
         else:
             row.prop(scene, "frame_preview_start", text="In")
             row.prop(scene, "frame_preview_end", text="Out")
-        
+
         row = layout.row(align=True)
         row.prop(scene, "frame_current", text="")
         row.separator()

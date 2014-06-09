@@ -24,7 +24,7 @@ bl_addon_info = {
     "description": "Create facial bones and body bones for rigify.",
     "author": "khuuyj",
     "version": (0,1),
-    "blender": (2, 5, 6),
+    "blender": (2, 56, 0),
     "location": "Tool > Face Bone Tool",
     "warning": '', # used for warning icon and text in addons panel
     "wiki_url": "",
@@ -36,7 +36,7 @@ bl_info = {
     "description": "Create facial bones and body bones for rigify.",
     "author": "khuuyj",
     "version": (0,1),
-    "blender": (2, 5, 6),
+    "blender": (2, 56, 0),
     "location": "Tool > Face Bone Tool",
     "warning": '', # used for warning icon and text in addons panel
     "wiki_url": "",
@@ -336,7 +336,7 @@ body_constraints=[["Ad-d-index.L","Stretch To","STRETCH_TO","rig","ORG-finger_in
 ["Ad-p-tri.01.R","IK","IK","rig","Ad-t-tri.R",2,1.000],
 ["Ad-p-tri.03.L","Stretch To","STRETCH_TO","rig","Ad-t-tri_up.L",0.000,1.000,"VOLUME_XZX","PLANE_X",1.000],
 ["Ad-p-tri.03.R","Stretch To","STRETCH_TO","rig","Ad-t-tri_up.R",0.000,1.000,"VOLUME_XZX","PLANE_X",1.000],
-["Ad-t-scapula.L","Locked Track","LOCKED_TRACK","rig","DEF-upper_arm.L.02","TRACK_X","LOCK_Y",0.500],   
+["Ad-t-scapula.L","Locked Track","LOCKED_TRACK","rig","DEF-upper_arm.L.02","TRACK_X","LOCK_Y",0.500],
 ["Ad-t-scapula.R","Locked Track","LOCKED_TRACK","rig","DEF-upper_arm.R.02","TRACK_NEGATIVE_X","LOCK_Y",0.500],
 ["Ad-d-serratus.L","Stretch To","STRETCH_TO","rig","Ad-t-serratus.L",0.000,1.000,"NO_VOLUME","PLANE_X",0.500],
 ["Ad-d-serratus.R","Stretch To","STRETCH_TO","rig","Ad-t-serratus.R",0.000,1.000,"NO_VOLUME","PLANE_X",0.500],
@@ -479,7 +479,7 @@ lipsync_prop = [['Lip_01_',1,''],['Lip_02_a',2,'a'],['Lip_03_i',3,'i'],['Lip_04_
 def create_bones(rig,bones,constraints):
     eb = rig.data.edit_bones
     pb = rig.pose.bones
-    
+
     # Root
     if bones[0][8]=='****':
         face_editting = True
@@ -496,12 +496,12 @@ def create_bones(rig,bones,constraints):
 
     # Bone Edit
     for d in bones:
-        
+
         bpy.ops.object.mode_set(mode='EDIT')
 
         b = eb.get(d[0])
         if b==None:
-            
+
             if face_editting:
                 p1 = eb[p0]
             else:
@@ -539,7 +539,7 @@ def create_bones(rig,bones,constraints):
             elif d[0]=='Ad-d-elbow.R':
                 b.roll = 1.13446
             else:
-                b.roll = 0                
+                b.roll = 0
             b.use_connect = d[9]
         # Even when there is the bone,these properties are reset.
         if d[8]=='****':
@@ -578,7 +578,7 @@ def create_bones(rig,bones,constraints):
         p.ik_max_y = d[22]
         p.ik_min_z = d[23]
         p.ik_max_z = d[24]
-        p.ik_stretch = d[25]                   
+        p.ik_stretch = d[25]
 
     # Reset RestLength
     bpy.ops.object.mode_set(mode='EDIT')
@@ -589,7 +589,7 @@ def create_bones(rig,bones,constraints):
             eb[c[0]].tail = t_bone.head * (1-c[5]) + t_bone.tail * c[5]
         elif c[2] == 'IK' and pb[c[0]].ik_stretch > 0:
             eb[c[0]].tail = eb[c[4]].head
-            
+
     bpy.ops.object.mode_set(mode='OBJECT')
     pose_mode = context.object.data.pose_position
     context.object.data.pose_position = 'REST'
@@ -617,10 +617,10 @@ def create_bones(rig,bones,constraints):
                 cn.use_x = c[5]
                 cn.use_y = c[6]
                 cn.use_z = c[7]
-                cn.invert_x = c[8]            
-                cn.invert_y = c[9]            
-                cn.invert_z = c[10]            
-                cn.use_offset = c[11] 
+                cn.invert_x = c[8]
+                cn.invert_y = c[9]
+                cn.invert_z = c[10]
+                cn.use_offset = c[11]
                 cn.target_space = c[12]
                 cn.owner_space = c[13]
                 cn.influence = c[14]
@@ -651,11 +651,11 @@ def create_bones(rig,bones,constraints):
     context.object.data.pose_position = pose_mode
     return (0)
 
-#-------------------------------------------------------         
+#-------------------------------------------------------
 # Preset LipSync Action
-#-------------------------------------------------------         
+#-------------------------------------------------------
 def action_set(obj):
-    
+
     bb = obj.data.bones.get('ORG-head')
     if bb==None:
         bb = obj.data.bones.get('head')
@@ -663,7 +663,7 @@ def action_set(obj):
         return (-1)
     else:
         scale = bb.length / 0.15
-        
+
     #Properties
     prop = obj.get('LipSync')
     if prop==None:
@@ -671,7 +671,7 @@ def action_set(obj):
         prop['min'] = 0.000
         prop['max'] = 1.000
     obj['LipSync'] = 1.000
-    
+
     for p in lipsync_prop:
         prop = obj.get(p[0])
         if prop==None:
@@ -691,7 +691,7 @@ def action_set(obj):
                 grp = syn_action.groups.new(k[0])
             f = syn_action.fcurves.new(k[1],k[2],k[0])
             f.color_mode = 'AUTO_RGB'
-            for i in range(len(k)-3):   
+            for i in range(len(k)-3):
                 j = i + 3
                 p = f.keyframe_points.add(lipsync_prop[i][1],k[j] * scale)
     syn_action.use_fake_user = True
@@ -751,14 +751,14 @@ def create_lip_driver(drv,obj,path):
         v1.name = 'influence'
         v1.targets[0].id_type = 'OBJECT'
         v1.targets[0].id = obj
-        v1.targets[0].data_path = '["' + path + '"]'                
+        v1.targets[0].data_path = '["' + path + '"]'
 
-#-------------------------------------------------------         
+#-------------------------------------------------------
 # Replace Driver
-#-------------------------------------------------------         
+#-------------------------------------------------------
 def replace_driver(obj):
     obj_name = obj.name.rpartition('.')
-    
+
     try:
         for d in obj.data.shape_keys.animation_data.drivers:
             for v in d.driver.variables:
@@ -777,7 +777,7 @@ def replace_driver(obj):
                         t.id = obj
     except:
         pass
-    
+
 #-----------------------------------------------------------------------
 # LipSync Tool
 #-----------------------------------------------------------------------
@@ -924,8 +924,8 @@ class VSQ_Data:
                 r1 = r0
 
         return(r1)
-    
-    def __readfile(self):                 
+
+    def __readfile(self):
         r0 = []
         r1 = []
         cnt = 0
@@ -1190,14 +1190,14 @@ def create_lipsync(obj,vsq,filepath):
                             # Driver
                             df = c.driver_add('influence')
                             create_lip_driver(df,obj,l[0])
-                     
+
     # Action Name Create
     path0 = filepath.rpartition('/')
     path1 = path0[len(path0)-1].rpartition('\\')
     ac = path1[len(path1)-1]
     ac1 = ac.rpartition('.')
     ac = ac1[0]
-    
+
     # Read Track
     for tr in vsq.mtrk:
         if tr.text=='Master Track':
@@ -1215,7 +1215,7 @@ def create_lipsync(obj,vsq,filepath):
                 a = bpy.data.actions.new(ac1)
                 a.use_fake_user = True
             a.animation_data_clear
-            
+
             # Set Keyframe Points
             for e in tr.eventlist:
                 if e.rec==None:
@@ -1253,7 +1253,7 @@ def create_lipsync(obj,vsq,filepath):
                         accent = start + int(e.rec.length) * int(e.rec.demaccent) / 100 * bar_fps
                         if accent < start + 1:
                             accent = start + 1
-                        ga = int(e.rec.demdecgainrate) 
+                        ga = int(e.rec.demdecgainrate)
                         if ga==0:  # For UTAU
                             ga = 50
                         if ga <= int(e.rec.demaccent):
@@ -1278,7 +1278,7 @@ def create_lipsync(obj,vsq,filepath):
                         else:
                             f.keyframe_points.add(gain,v1)
                         f.keyframe_points.add(end,0)
-            # Remove points among 1 frame 
+            # Remove points among 1 frame
             for f in a.fcurves:
                 k0 = None
                 k1 = None
@@ -1312,9 +1312,9 @@ def read_vsq(obj,path):
     vsq.read()
     create_lipsync(obj,vsq,path)
 
-#-------------------------------------------------------         
+#-------------------------------------------------------
 # UI Settings
-#-------------------------------------------------------         
+#-------------------------------------------------------
 def _check_ui_poll(obj):
     try:
         if obj.type=='ARMATURE':
@@ -1338,14 +1338,14 @@ class VIEW3D_PT_tool_facebone(bpy.types.Panel):
     bl_region_type = 'TOOLS'
     bl_label = "Face Bone Tool"
     bl_options = {'DEFAULT_CLOSED'}
-    
+
     @classmethod
     def poll(cls,context):
         if context.area.type=='VIEW_3D':
             return(_check_ui_poll(context.object))
         else:
             return(0)
-    
+
     def draw(self,context):
         layout = self.layout
         # Bone Tool
@@ -1362,7 +1362,7 @@ class VIEW3D_PT_tool_facebone(bpy.types.Panel):
         col1 = box_syn.column(align=True)
         col1.label(text='LipSync')
         col1.operator('import_vsq',text='Import VSQ')
-        
+
 # UI Parts : Button ( Face )
 class face_bones(bpy.types.Operator):
     bl_idname = "face_bones"
@@ -1380,7 +1380,7 @@ class face_bones(bpy.types.Operator):
         if context.object.data.get('LipSync')==None:
             action_set(context.object)
         return {'FINISHED'}
-          
+
 # UI Parts : Button ( Body )
 class body_bones(bpy.types.Operator):
     bl_idname = "body_bones"
@@ -1394,7 +1394,7 @@ class body_bones(bpy.types.Operator):
         else:
             return(0)
     def execute(self,context):
-        create_bones(context.object,body_bone,body_constraints)        
+        create_bones(context.object,body_bone,body_constraints)
         return {'FINISHED'}
 
 # UI Parts : Button ( Reset Drivers )
@@ -1415,7 +1415,7 @@ class import_vsq(bpy.types.Operator):
     bl_label = "Import VSQ File"
     bl_description = "Import VSQ File."
 
-    filepath = bpy.props.StringProperty(name='File Path', 
+    filepath = bpy.props.StringProperty(name='File Path',
         description='Filepath for VSQ File', maxlen= 1024,
         default= '',subtype='FILE_PATH')
 
@@ -1427,12 +1427,12 @@ class import_vsq(bpy.types.Operator):
         wm = context.window_manager
         wm.fileselect_add(self)
         return {'RUNNING_MODAL'}
-    
+
 def register():
     pass
- 
+
 def unregister():
     pass
-    
+
 if __name__ == "__main__":
     register()
