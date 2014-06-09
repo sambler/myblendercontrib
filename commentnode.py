@@ -1,12 +1,18 @@
+
+# based on original code from
+# http://blender.stackexchange.com/questions/7825/is-there-a-way-to-make-comments-in-the-node-editor
+# modifications by Shane Ambler
+
 bl_info = {
     "name": "Comment Node",
     "author": "CoDEmanX",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (2, 67, 0),
     "location": "Node Editor > Add > Other Nodes > Comment",
     "description": "Add a node comment node (string property collection)",
     "warning": "",
-    "wiki_url": "http://blender.stackexchange.com/questions/7825/is-there-a-way-to-make-comments-in-the-node-editor",
+    "wiki_url": "https://github.com/sambler/myblendercontrib/blob/master/commentnode.py",
+    "tracker_url": "https://github.com/sambler/myblendercontrib/issues",
     "category": "Node"}
 
 import bpy
@@ -88,13 +94,13 @@ from nodeitems_utils import NodeCategory, NodeItem
 
 # our own base class with an appropriate poll function,
 # so the categories only show up in our own tree type
-class MyNodeCategory(NodeCategory):
+class CommentNodeCategory(NodeCategory):
     pass
 
 # all categories in a list
-node_categories = [
+comment_node_categories = [
     # identifier, label, items list
-    MyNodeCategory("OTHERNODES", "Other Nodes", items=[
+    CommentNodeCategory("COMMENTNODES", "Commenting", items=[
         NodeItem(CommentNode.bl_idname, label="Comment"),
         ]),
     ]
@@ -105,13 +111,13 @@ def register():
     bpy.utils.register_class(CommentNode)
 
     try:
-        nodeitems_utils.register_node_categories("CUSTOM_NODES", node_categories)
+        nodeitems_utils.register_node_categories("COMMENT_NODES", comment_node_categories)
     except:
         pass
 
 
 def unregister():
-    nodeitems_utils.unregister_node_categories("CUSTOM_NODES")
+    nodeitems_utils.unregister_node_categories("COMMENT_NODES")
 
     bpy.utils.register_class(NodeComment)
     bpy.utils.register_class(CommentNode)
