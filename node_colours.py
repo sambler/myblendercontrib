@@ -123,15 +123,36 @@ class NodeColourOff(bpy.types.Operator):
         setNodeColourOption(False)
         return {'FINISHED'}
 
+class NodeColourPanel(bpy.types.Panel):
+    bl_idname = "node_colour_panel"
+    bl_label = "Node Colours"
+    bl_space_type = 'NODE_EDITOR'
+    bl_region_type = 'UI'
+    use_pin = True
+
+    @classmethod
+    def poll(cls, context):
+        return context.area.type == 'NODE_EDITOR'
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        row = col.row()
+        row.operator(NodeColourOn.bl_idname)
+        row.operator(NodeColourOff.bl_idname)
+
 def register():
     bpy.utils.register_class(NodeColourPreferences)
     bpy.utils.register_class(NodeColourOn)
     bpy.utils.register_class(NodeColourOff)
+    bpy.utils.register_class(NodeColourPanel)
 
 def unregister():
     bpy.utils.unregister_class(NodeColourPreferences)
     bpy.utils.unregister_class(NodeColourOn)
     bpy.utils.unregister_class(NodeColourOff)
+    bpy.utils.unregister_class(NodeColourPanel)
 
 if __name__ == "__main__":
     try:
