@@ -45,20 +45,9 @@ bl_info = {
 import os
 import sys
 
-path = sys.path
-flag = False
-for item in path:
-    if "sverchok" in item:
-        flag = True
-        break
-if flag is False:
-    # the below add 3 ugly paths, is it really needed? why not just the right one?
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'sverchok'))
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'sverchok-refactoring'))
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'sverchok-master'))
-    # like this?
-    #sys.path.append(os.path.dirname(__file__))
-    print("Sverchok_nodes: added to pythonpath :-)")
+current_path = os.path.dirname(__file__) 
+if not current_path in sys.path:
+    sys.path.append(current_path)
     print("Have a nice day with Sverchok")
 
 
@@ -66,10 +55,14 @@ if flag is False:
 # importing first allows to stores a list of nodes before eventually reloading
 # potential problem : are new nodes imported???
 import importlib
+import nodes
+
 import data_structure
 import node_tree
+import menu
 from .utils import sv_tools
-import nodes
+from .core import handlers
+
 nodes_list = []
 for category, names in nodes.nodes_dict.items():
     nodes_cat = importlib.import_module('.{}'.format(category), 'nodes')
@@ -80,15 +73,22 @@ for category, names in nodes.nodes_dict.items():
 
 if "bpy" in locals():
     import importlib
+    import nodeitems_utils
     importlib.reload(data_structure)
     importlib.reload(node_tree)
     importlib.reload(nodes)
+    importlib.reload(menu)
     importlib.reload(sv_tools)
+    importlib.reload(handlers)
     # (index_)viewer_draw -> name not defined error, because I never used it??
     #importlib.reload(viewer_draw)
     #importlib.reload(index_viewer_draw)
     for n in nodes_list:
         importlib.reload(n)
+    
+    if 'SVERCHOK' in nodeitems_utils._node_categories:
+        nodeitems_utils.unregister_node_categories("SVERCHOK")
+    nodeitems_utils.register_node_categories("SVERCHOK", menu.make_categories())
 
 import bpy
 from bpy.types import AddonPreferences
@@ -99,14 +99,14 @@ class SverchokPreferences(AddonPreferences):
     bl_idname = __name__
 
     def update_debug_mode(self, context):
-        print(dir(context))
+        #print(dir(context))
         data_structure.DEBUG_MODE = self.show_debug
 
     def update_heat_map(self, context):
         data_structure.heat_map_state(self.heat_map)
 
     def set_frame_change(self, context):
-        node_tree.set_frame_change(self.frame_change_mode)
+        handlers.set_frame_change(self.frame_change_mode)
         
     show_debug = BoolProperty(name="Print update timings",
                               description="Print update timings in console",
@@ -174,12 +174,12 @@ def register():
     sv_tools.register()
     text_editor_plugins.register()
     text_editor_submenu.register()
+    handlers.register()
 
     bpy.utils.register_class(SverchokPreferences)
 
     if 'SVERCHOK' not in nodeitems_utils._node_categories:
-        nodeitems_utils.register_node_categories("SVERCHOK",
-                                                 node_tree.make_categories())
+        nodeitems_utils.register_node_categories("SVERCHOK", menu.make_categories())
 
 
 def unregister():
@@ -192,9 +192,9 @@ def unregister():
     sv_tools.unregister()
     text_editor_plugins.unregister()
     text_editor_submenu.unregister()
+    handlers.unregister()
 
     bpy.utils.unregister_class(SverchokPreferences)
 
     if 'SVERCHOK' not in nodeitems_utils._node_categories:
-        nodeitems_utils.unregister_node_categories("SVERCHOK",
-                                                   node_tree.make_categories())
+        nodeitems_utils.unregister_node_categories("SVERCHOK")

@@ -39,7 +39,6 @@ class CentersPolsNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('MatrixSocket', "Centers", "Centers")
 
     def update(self):
-        # достаём два слота - вершины и полики
         if self.outputs['Centers'].links or self.outputs['Normals'].links or \
                 self.outputs['Origins'].links or self.outputs['Norm_abs'].links:
             if 'Polygons' in self.inputs and 'Vertices' in self.inputs \
@@ -73,14 +72,14 @@ class CentersPolsNode(bpy.types.Node, SverchCustomTreeNode):
                             v3 = versv[p[l]]
                             poi_2 = (v2+v3)/2
                             # normals
-                            norm = geometry.normal(v0, v1, v3)
+                            norm = geometry.normal(v0, v1, v2, v3)
                             normals.append(norm)
                         else:
                             poi_2 = v2
                             # normals
                             norm = geometry.normal(v0, v1, v2)
                             normals.append(norm)
-                        poi_1 = (v0+v1)/2.1
+                        poi_1 = (v0+v1)/2
                         vm = poi_2 - poi_1
                         medians.append(vm)
                         # centrs
@@ -96,34 +95,21 @@ class CentersPolsNode(bpy.types.Node, SverchCustomTreeNode):
                     origins.append(centrs)
                     normals_out.extend(normals)
                     mat_collect_ = []
-                    for c, med, nor in zip(centrs, medians, normals):
-                        mat_loc = Matrix.Translation(c)
-                        # need better solution for Y vector 
-                        aa = Vector((0, 1e-6, 1))
-                        bb = nor #Vector((nor[:]))
-
-                        vec = aa
-                        q_rot = vec.rotation_difference(bb).to_matrix().to_4x4()
-
-                        vec2 = bb
-                        q_rot2 = vec2.rotation_difference(aa).to_matrix().to_4x4()
-
-                        a = Vector((1e-6, 1, 0)) * q_rot2
-                        b = med
-                        vec1 = a
-                        q_rot1 = vec1.rotation_difference(b).to_matrix().to_4x4()
-
-                        M = mat_loc*q_rot1*q_rot
-                        lM = []
-
-                        for j in M:
-                            lM.append((j[:]))
-                        # отдаётся параметр матрицы на сокет. просто присвоение матрицы
+                    for cen, med, nor in zip(centrs, medians, normals):
+                        loc = Matrix.Translation(cen)
+                        # need better solution for Z,Y vectors + may be X vector correction
+                        vecz = Vector((0, 1e-6, 1))
+                        q_rot0 = vecz.rotation_difference(nor).to_matrix().to_4x4()
+                        q_rot2 = nor.rotation_difference(vecz).to_matrix().to_4x4()
+                        vecy = Vector((1e-6, 1, 0)) * q_rot2
+                        q_rot1 = vecy.rotation_difference(med).to_matrix().to_4x4()
+                        # loc is matrix * rot vector * rot vector
+                        M = loc*q_rot1*q_rot0
+                        lM = [ j[:] for j in M ]
                         mat_collect_.append(lM)
                     mat_collect.extend(mat_collect_)
                 
-                if 'Centers' in self.outputs and self.outputs['Centers'].links:
-                    SvSetSocketAnyType(self, 'Centers', mat_collect)
+                SvSetSocketAnyType(self, 'Centers', mat_collect)
                 SvSetSocketAnyType(self, 'Norm_abs', Vector_degenerate(norm_abs_out))
                 SvSetSocketAnyType(self, 'Origins', Vector_degenerate(origins))
                 SvSetSocketAnyType(self, 'Normals', Vector_degenerate([normals_out]))
@@ -138,6 +124,9 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(CentersPolsNode)
+    
 if __name__ == '__main__':
     register()
+
+
 
