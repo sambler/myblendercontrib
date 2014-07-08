@@ -155,9 +155,5 @@ def unregister():
     bpy.utils.unregister_class(NodeColourPanel)
 
 if __name__ == "__main__":
-    try:
-        unregister()
-    except:
-        pass
     register()
 
