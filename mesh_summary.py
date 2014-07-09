@@ -31,7 +31,7 @@ bl_info = {
     "name": "Mesh Summary",
     "author": "sambler",
     "version": (1,0),
-    "blender": (2, 63, 0),
+    "blender": (2, 66, 0),
     "location": "Properties > Scene > Object Info Panel",
     "description": "Summarize details about the mesh objects in this file.",
     "warning": "",
