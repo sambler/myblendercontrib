@@ -20,19 +20,19 @@
 # Repeats extrusion + rotation + scale for one or more faces                   #
 
 ################################################################################
-
+'''
 bl_info = {
     "name": "MExtrude Plus",
     "author": "liero",
     "version": (1, 2, 8),
-    "blender": (2, 62, 0),
+    "blender": (2, 71, 0),
     "location": "View3D > Tool Shelf",
     "description": "Repeat extrusions from faces to create organic shapes",
     "warning": "",
     "wiki_url": "",
     "tracker_url": "https://developer.blender.org/T28570",
     "category": "Mesh"}
-
+'''
 
 import  bpy, bmesh, mathutils, random
 from random import gauss
@@ -282,7 +282,7 @@ class BB(bpy.types.Operator):
             scn.objects.active = obj
             for t in range(self.numb):
                 bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.object.vertex_group_assign(new=True)
+                bpy.ops.object.vertex_group_add()
                 for m in range(self.skip+1):
                     bpy.ops.mesh.select_more()
                 bpy.ops.object.vertex_group_deselect()

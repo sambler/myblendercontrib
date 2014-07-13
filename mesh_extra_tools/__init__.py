@@ -22,8 +22,8 @@ bl_info = {
     "name": "Extra Tools",
     "author": "various",
     "version": (0, 1),
-    "blender": (2, 64, 0),
-    "location": "View3D > Toolbar and View3D > Specials (W-key)",
+    "blender": (2, 71, 0),
+    "location": "View3D > Toolshelf > Addons Tab & Specials (W-key)",
     "description": "Add extra mesh edit tools",
     "warning": "",
     "wiki_url": "",
@@ -85,6 +85,7 @@ class ExtrasPanel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     bl_context = 'mesh_edit'
+    bl_category = 'Addons'
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -124,6 +125,7 @@ class ExtrudePanel(bpy.types.Panel):
     bl_label = 'Multi Extrude Plus'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
+    bl_category = 'Addons'
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
