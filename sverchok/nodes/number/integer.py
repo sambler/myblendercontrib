@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from bpy.props import IntProperty
+from bpy.props import IntProperty, BoolProperty
 from node_tree import SverchCustomTreeNode
 from data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
 
@@ -31,6 +31,23 @@ class IntegerNode(bpy.types.Node, SverchCustomTreeNode):
     int_ = IntProperty(name='Int', description='integer number',
                        default=1,
                        options={'ANIMATABLE'}, update=updateNode)
+    maxim = IntProperty(name='max', description='maximum',
+                       default=1000,
+                       update=updateNode)
+    minim = IntProperty(name='min', description='minimum',
+                       default=-1000,
+                       update=updateNode)
+
+    def draw_label(self):
+        if not self.inputs[0].links:
+            return str(self.int_)
+        else:
+            return self.bl_label
+
+    def draw_buttons_ext(self, context, layout):
+        row = layout.row(align=True)
+        row.prop(self, 'minim')
+        row.prop(self, 'maxim')
 
     def init(self, context):
         self.inputs.new('StringsSocket', "Integer", "Integer").prop_name = 'int_'
@@ -40,10 +57,13 @@ class IntegerNode(bpy.types.Node, SverchCustomTreeNode):
         # inputs
         if 'Integer' in self.inputs and self.inputs['Integer'].links:
             tmp = SvGetSocketAnyType(self, self.inputs['Integer'])
-            Integer = tmp[0][0]
+            Integer = int(tmp[0][0])
         else:
             Integer = self.int_
-
+        if Integer > self.maxim:
+            Integer = self.int_ = self.maxim
+        if Integer < self.minim:
+            Integer = self.int_ = self.minim
         # outputs
         if 'Integer' in self.outputs and self.outputs['Integer'].links:
             SvSetSocketAnyType(self, 'Integer', [[Integer]])
@@ -58,3 +78,6 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(IntegerNode)
+
+if __name__ == '__main__':
+    register()

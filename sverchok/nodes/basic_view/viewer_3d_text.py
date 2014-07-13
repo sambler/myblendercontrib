@@ -26,7 +26,7 @@ from utils.sv_bmesh_utils import bmesh_from_pydata
 
 import random
 
-
+        
 def get_random_init():
     greek_alphabet = [
         'Alpha', 'Beta', 'Gamma', 'Delta',
@@ -63,7 +63,7 @@ def make_bmesh_geometry(context, name, verts, edges, faces, matrix):
         temp_mesh = default_mesh(name)
         sv_object = objects.new(name, temp_mesh)
         scene.objects.link(sv_object)
-        # scene.update()
+        scene.update()
 
     # definitely verts, definitely do something.
     bm = bmesh_from_pydata(verts, edges, faces)
@@ -200,6 +200,45 @@ class BmeshViewerNode(bpy.types.Node, SverchCustomTreeNode):
         # row.template_ID
         row.prop(self, "material", text="mat.")
 
+    # execution of text
+    def execute(self, context):
+        obj = bpy.context.selected_objects
+        
+        for ob in obj:
+            mw = ob.matrix_world
+            name_all = re.match(r'(\w+)', ob.name)
+            name = name_all.group(1)
+            len = 1#abs(max(ob.dimensions) * (sum(mw.to_scale()) / 3))
+            #print ()
+            self.run(mw,name,len)
+        return {'FINISHED'}
+
+    #text baking
+    def run(self, origin,text,length):
+       # Create and name TextCurve object
+        bpy.ops.object.text_add(view_align=False,
+        enter_editmode=False,location=origin.translation[:], 
+        rotation=origin.to_euler()[:])
+        ob = bpy.context.object
+        ob.name = 'lable_'+str(text)
+        tcu = ob.data
+        tcu.name = 'lable_'+str(text)
+        # TextCurve attributes
+        tcu.body = str(text)
+        tcu.font = bpy.data.fonts[0]
+        tcu.offset_x = 0
+        tcu.offset_y = -0.25
+        tcu.resolution_u = 2
+        tcu.shear = 0
+        Tsize = self.size #* length
+        tcu.size = Tsize
+        tcu.space_character = 1
+        tcu.space_word = 1
+        tcu.align = 'CENTER'
+        # Inherited Curve attributes
+        tcu.extrude = 0.0
+        tcu.fill_mode = 'NONE'
+        
     def get_corrected_data(self, socket_name, socket_type):
         inputs = self.inputs
         socket = inputs[socket_name].links[0].from_socket
@@ -349,3 +388,4 @@ def unregister():
 
 if __name__ == '__main__':
     register()
+

@@ -830,6 +830,20 @@ def get_socket_type_full(node, inputsocketname):
     #if type(node.inputs[inputsocketname].links[0].from_socket) == bpy.types.MatrixSocket:
     #    return 'MatrixSocket'
 
+def get_other_socket(socket):
+    """ 
+    Get next real upstream socket.
+    This should be expanded to support wifi nodes also.
+    Will return None if there isn't a another socket connect
+    so no need to check socket.links
+    """
+    if socket.links and not socket.is_output:
+        other = socket.links[0].from_socket
+        if other.node.bl_idname == 'NodeReroute':
+            return get_other_socket(other.node.inputs[0])
+        else:
+            return other
+    return None
 
 ###########################################
 # Multysocket magic / множественный сокет #
@@ -1021,3 +1035,8 @@ def reset_socket_cache(ng):
 def svQsort(L):
     if L: return svQsort([x for x in L[1:] if x<L[0]]) + L[0:1] + svQsort([x for x in L[1:] if x>=L[0]])
     return []
+
+
+
+
+
