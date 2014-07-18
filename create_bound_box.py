@@ -28,15 +28,14 @@
 # http://blender.stackexchange.com/q/14072/935
 #
 # NOTE:
-# camera, lamp and lattice objects have a bounding box that stretches
-# from their location to the centre of the scene (0,0,0)
-# If all objects are to one side this will distort the bounding box
-#
+# Non-render objects have a zero size bounding box
+# when only one of these objects is selected you will get
+# a zero sized cube. Such as camera, lamp, lattice, armature, empty
 
 bl_info = {
     "name": "Create Bounding Box",
     "author": "sambler",
-    "version": (1,0),
+    "version": (1,1),
     "blender": (2, 65, 0),
     "location": "View3D > Add > Mesh > Create Bounding Box",
     "description": "Create a mesh cube that encompasses all selected objects",
@@ -112,7 +111,8 @@ class CreateBoundingBox(bpy.types.Operator):
         return context.area.type == 'VIEW_3D' and context.mode == 'OBJECT'
 
     def execute(self, context):
-        minx, miny, minz, maxx, maxy, maxz = (0.0,)*6
+        minx, miny, minz = (999999.0,)*3
+        maxx, maxy, maxz = (-999999.0,)*3
         for obj in context.selected_objects:
             for v in obj.bound_box:
                 v_world = obj.matrix_world * mathutils.Vector((v[0],v[1],v[2]))
@@ -149,6 +149,7 @@ class CreateBoundingBox(bpy.types.Operator):
         bbox = object_utils.object_data_add(context, mesh, operator=self)
         # does a bounding box need to display more than the bounds??
         bbox.object.draw_type = 'BOUNDS'
+        bbox.object.hide_render = True
 
         return {'FINISHED'}
 
