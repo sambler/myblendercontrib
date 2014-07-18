@@ -35,7 +35,7 @@
 bl_info = {
     "name": "Create Bounding Box",
     "author": "sambler",
-    "version": (1,1),
+    "version": (1,2),
     "blender": (2, 65, 0),
     "location": "View3D > Add > Mesh > Create Bounding Box",
     "description": "Create a mesh cube that encompasses all selected objects",
@@ -87,7 +87,6 @@ class CreateBoundingBox(bpy.types.Operator):
     bl_idname = "mesh.boundbox_add"
     bl_label = "Create Bounding Box"
     bl_description = "Create a bounding box around selected objects"
-    bl_context = "objectmode"
     bl_options = {'REGISTER', 'UNDO'}
 
     # generic transform props
@@ -108,7 +107,7 @@ class CreateBoundingBox(bpy.types.Operator):
     def poll(cls, context):
         if len(context.selected_objects) == 0:
             return False
-        return context.area.type == 'VIEW_3D' and context.mode == 'OBJECT'
+        return True
 
     def execute(self, context):
         minx, miny, minz = (999999.0,)*3
