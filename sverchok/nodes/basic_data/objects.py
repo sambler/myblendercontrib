@@ -164,9 +164,12 @@ class ObjectsNode(bpy.types.Node, SverchCustomTreeNode):
         else:
             self.use_custom_color = True
             self.color = (0, 0.1, 0.05)
+        #reload handle if possible
         if self.objects_local and not handle[0]:
             handle_write(name, literal_eval(self.objects_local))
-        elif handle[0]:
+            handle = handle_read(name)    
+            
+        if handle[0]:
             objs = handle[1]
             edgs_out = []
             vers_out = []
