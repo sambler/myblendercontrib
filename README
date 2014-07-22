@@ -5,3 +5,6 @@ separate from the official contrib addons.
 Some of these were originally added to https://github.com/sambler/myblendercontrib
 All of these files will be merged into myblendercontrib to keep it
 as one folder that gets used during the blender build process.
+
+To get official blender source or binaries see http://blender.org
+For my blender repo see https://github.com/sambler/myblender
