@@ -1,0 +1,7 @@
+addonsByMe is a collection of blender addons that I have created.
+This allows better tracking of my work and issues to be reported
+separate from the official contrib addons.
+
+Some of these were originally added to https://github.com/sambler/myblendercontrib
+All of these files will be merged into myblendercontrib to keep it
+as one folder that gets used during the blender build process.
