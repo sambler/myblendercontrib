@@ -119,3 +119,18 @@ Example usage:
 .. image:: https://cloud.githubusercontent.com/assets/619340/3905771/193b5d86-22ec-
  11e4-93e5-724863a30bbc.png
  
+
+.. image:: https://cloud.githubusercontent.com/assets/619340/3895396/81f3b96c-224d-11e4-9ca7-f07756f40a0e.png
+
+
+Gotchas
+-------
+
+The update mechanism doesn't process inputs or anything until the following conditions are satisfied:
+
+ * Profile Node has at least one input socket connected
+ * The file field on the Node points to an existing Text File.
+
+Updates made to the profile path text file are not propagated automatically to any nodes that might be reading that file. 
+To refresh (for now) click one of the inputs or output sockets of Profile Node. There are other ways to refresh (change a value on one of the incoming nodes, or clicking the sockets of the incoming nodes)
+
