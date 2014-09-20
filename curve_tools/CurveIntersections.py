@@ -469,8 +469,9 @@ class CurvesIntersector:
     @staticmethod
     def InitGlobals():
         CurvesIntersector.ResetGlobals()
-        
-        
+        global algoDIR
+        global algoPOV
+
         algo = bpy.context.scene.curvetools.IntersectCurvesAlgorithm
         if algo == 'From View':
             regionView3D = Util.GetFirstRegionView3D()
@@ -486,8 +487,7 @@ class CurvesIntersector:
                 viewMatrix = regionView3D.view_matrix
                 print("--", "viewMatrix:")
                 print(viewMatrix)
-                
-                global algoDIR
+
                 algoDIR = Vector((viewMatrix[2][0], viewMatrix[2][1], viewMatrix[2][2]))
                 print("--", "algoDIR:", algoDIR)
 
@@ -496,8 +496,7 @@ class CurvesIntersector:
                 viewMatrix = regionView3D.view_matrix
                 print("--", "viewMatrix:")
                 print(viewMatrix)
-                
-                global algoPOV
+
                 algoPOV = regionView3D.view_location.copy()
                 print("--", "algoPOV:", algoPOV)
                 
@@ -532,14 +531,12 @@ class CurvesIntersector:
 
                 if cameraData.type == 'ORTHO':
                     cameraMatrix = camera.matrix_world
-                
-                    global algoDIR
+
                     #algoDIR = Vector((cameraMatrix[2][0], cameraMatrix[2][1], cameraMatrix[2][2]))
                     algoDIR = Vector((- cameraMatrix[0][2], - cameraMatrix[1][2], - cameraMatrix[2][2]))
                     print("--", "algoDIR:", algoDIR)
 
                 if cameraData.type == 'PERSP':
-                    global algoPOV
                     algoPOV = camera.location.copy()
                     print("--", "algoPOV:", algoPOV)
 
