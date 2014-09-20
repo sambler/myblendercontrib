@@ -97,7 +97,7 @@ class VIEW3D_OT_SnapTargetVariable(bpy.types.Operator):
 class VIEW3D_OT_SnapElementMenu(Menu):
     bl_idname = "snap.snapelementmenu"
     bl_label = "Snap Element"
-    settings = bpy.context.scene.tool_settings
+    #settings = bpy.context.scene.tool_settings
 
     def draw(self, context):
         layout = self.layout
