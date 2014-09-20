@@ -87,13 +87,13 @@ def setNodeColourOption(setOption):
 
     if prefs.set_material_nodes:
         for mat in bpy.data.materials:
-            if mat.node_tree.nodes:
+            if mat.node_tree and mat.node_tree.nodes:
                 for n in mat.node_tree.nodes:
                     n.use_custom_color = setOption
 
     if prefs.set_texture_nodes:
         for tex in bpy.data.textures:
-            if tex.node_tree.nodes:
+            if tex.node_tree and tex.node_tree.nodes:
                 for n in tex.node_tree.nodes:
                     n.use_custom_color = setOption
 
