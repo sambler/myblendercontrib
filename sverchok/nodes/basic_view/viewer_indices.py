@@ -34,6 +34,123 @@ FAIL_COLOR = (0.1, 0.05, 0)
 READY_COLOR = (1, 0.3, 0)
 
 
+class TextBaker(object):
+
+    def __init__(self, context):
+        self.context = context
+        self.node = context.node
+
+    def collect_text_to_bake(self):
+        node = self.node
+        inputs = node.inputs
+
+        def has_good_link(name, TypeSocket):
+            if inputs[name].links:
+                if isinstance(inputs[name].links[0].from_socket, TypeSocket):
+                    return True
+
+        def get_data(name, fallback=[]):
+            if name in {'edges', 'faces', 'text'}:
+                TypeSocket = StringsSocket
+            else:
+                TypeSocket = MatrixSocket if name == 'matrix' else VerticesSocket
+
+            if has_good_link(name, TypeSocket):
+                d = dataCorrect(SvGetSocketAnyType(node, inputs[name]))
+                if name == 'matrix':
+                    d = Matrix_generate(d) if d else []
+                elif name == 'vertices':
+                    d = Vector_generate(d) if d else []
+                return d
+            return fallback
+
+        data_vector = get_data('vertices')
+        if not data_vector:
+            return
+
+        data_edges = get_data('edges')
+        data_faces = get_data('faces')
+        data_matrix = get_data('matrix')
+        data_text = get_data('text', '')
+
+        for obj_index, verts in enumerate(data_vector):
+            final_verts = verts
+
+            if data_text:
+                text_obj = data_text[obj_index]
+            else:
+                text_obj = ''
+
+            if data_matrix:
+                matrix = data_matrix[obj_index]
+                final_verts = [matrix * v for v in verts]
+
+            if node.display_vert_index:
+                for idx, v in enumerate(final_verts):
+                    if text_obj:
+                        self.bake(idx, v, text_obj[idx])
+                    else:
+                        self.bake(idx, v)
+
+            if data_edges and node.display_edge_index:
+                for edge_index, (idx1, idx2) in enumerate(data_edges[obj_index]):
+
+                    v1 = Vector(final_verts[idx1])
+                    v2 = Vector(final_verts[idx2])
+                    loc = v1 + ((v2 - v1) / 2)
+                    if text_obj:
+                        self.bake(edge_index, loc, text_obj[edge_index])
+                    else:
+                        self.bake(edge_index, loc)
+
+            if data_faces and node.display_face_index:
+                for face_index, f in enumerate(data_faces[obj_index]):
+                    verts = [Vector(final_verts[idx]) for idx in f]
+                    median = self.calc_median(verts)
+                    if text_obj:
+                        self.bake(face_index, median, text_obj[face_index])
+                    else:
+                        self.bake(face_index, median)
+
+    def bake(self, index, origin, text_=''):
+
+        node = self.node
+        text = str(text_[0] if text_ else index)
+
+        # Create and name TextCurve object
+        bpy.ops.object.text_add(view_align=0, enter_editmode=0, location=origin)
+        ob = self.context.object
+        ob.name = 'sv_text_' + text
+
+        # TextCurve attributes
+        tcu = ob.data
+        tcu.name = 'sv_text_' + text
+        tcu.body = text
+
+        try:
+            tcu.font = bpy.data.fonts[node.fonts]
+        except:
+            tcu.font = bpy.data.fonts[0]
+
+        tcu.offset_x = 0
+        tcu.offset_y = 0
+        tcu.resolution_u = 2
+        tcu.shear = 0
+        tcu.size = node.font_size
+        tcu.space_character = 1
+        tcu.space_word = 1
+        tcu.align = 'CENTER'
+
+        tcu.extrude = 0.0
+        tcu.fill_mode = 'NONE'
+
+    def calc_median(self, vlist):
+        a = Vector((0, 0, 0))
+        for v in vlist:
+            a += v
+        return a / len(vlist)
+
+
 class SvBakeText (bpy.types.Operator):
 
     """3Dtext baking"""
@@ -42,8 +159,8 @@ class SvBakeText (bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        n = context.node
-        n.collect_text_to_bake()
+        baker_obj = TextBaker(context)
+        baker_obj.collect_text_to_bake()
         return {'FINISHED'}
 
 
@@ -84,51 +201,23 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
         update=updateNode)
 
     fonts = StringProperty(name='fonts', default='', update=updateNode)
-    # fontsize
-    #fonts = EnumProperty(items=[('Bfont', 'Bfont', 'Bfont')],
-    #                     name='fonts', update=updateNode)
 
     font_size = FloatProperty(
         name="font_size", description='',
         min=0.01, default=0.1,
         update=updateNode)
 
-    # color props
-    bg_edges_col = FloatVectorProperty(
-        name="bg_edges", description='',
-        size=4, min=0.0, max=1.0,
-        default=(.2, .2, .2, 1.0), subtype='COLOR',
-        update=updateNode)
+    def make_color_prop(name, col):
+        return FloatVectorProperty(
+            name=name, description='', size=4, min=0.0, max=1.0,
+            default=col, subtype='COLOR', update=updateNode)
 
-    bg_faces_col = FloatVectorProperty(
-        name="bg_faces", description='',
-        size=4, min=0.0, max=1.0,
-        default=(.2, .2, .2, 1.0), subtype='COLOR',
-        update=updateNode)
-
-    bg_verts_col = FloatVectorProperty(
-        name="bg_verts", description='',
-        size=4, min=0.0, max=1.0,
-        default=(.2, .2, .2, 1.0), subtype='COLOR',
-        update=updateNode)
-
-    numid_edges_col = FloatVectorProperty(
-        name="numid_edges", description='',
-        size=4, min=0.0, max=1.0,
-        default=(1.0, 1.0, 0.1, 1.0), subtype='COLOR',
-        update=updateNode)
-
-    numid_faces_col = FloatVectorProperty(
-        name="numid_faces", description='',
-        size=4, min=0.0, max=1.0,
-        default=(1.0, .8, .8, 1.0), subtype='COLOR',
-        update=updateNode)
-
-    numid_verts_col = FloatVectorProperty(
-        name="numid_verts", description='',
-        size=4, min=0.0, max=1.0,
-        default=(1, 1, 1, 1.0), subtype='COLOR',
-        update=updateNode)
+    bg_edges_col = make_color_prop("bg_edges", (.2, .2, .2, 1.0))
+    bg_faces_col = make_color_prop("bg_faces", (.2, .2, .2, 1.0))
+    bg_verts_col = make_color_prop("bg_verts", (.2, .2, .2, 1.0))
+    numid_edges_col = make_color_prop("numid_edges", (1.0, 1.0, 0.1, 1.0))
+    numid_faces_col = make_color_prop("numid_faces", (1.0, .8, .8, 1.0))
+    numid_verts_col = make_color_prop("numid_verts", (1, 1, 1, 1.0))
 
     def init(self, context):
         self.inputs.new('VerticesSocket', 'vertices', 'vertices')
@@ -161,27 +250,25 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
             row.operator('object.sv_text_baking', text='B A K E')
             row = col.row(align=True)
             row.prop(self, "font_size")
-            #fonts_ = [(n.name,n.name,n.name) for n in bpy.data.fonts]
-            #self.fonts = EnumProperty(items=fonts_, name='fonts', update=updateNode)
+
             row = col.row(align=True)
-            row.prop(self, "fonts")
+            row.prop_search(self, 'fonts', bpy.data, 'fonts', text='', icon='FONT_DATA')
 
     def get_settings(self):
         '''Produce a dict of settings for the callback'''
-        settings = {}
         # A copy is needed, we can't have reference to the
         # node in a callback, it will crash blender on undo
-        settings['bg_edges_col'] = self.bg_edges_col[:]
-        settings['bg_faces_col'] = self.bg_faces_col[:]
-        settings['bg_verts_col'] = self.bg_verts_col[:]
-        settings['numid_edges_col'] = self.numid_edges_col[:]
-        settings['numid_faces_col'] = self.numid_faces_col[:]
-        settings['numid_verts_col'] = self.numid_verts_col[:]
-        settings['display_vert_index'] = self.display_vert_index
-        settings['display_edge_index'] = self.display_edge_index
-        settings['display_face_index'] = self.display_face_index
-
-        return settings
+        return {
+            'bg_edges_col': self.bg_edges_col[:],
+            'bg_faces_col': self.bg_faces_col[:],
+            'bg_verts_col': self.bg_verts_col[:],
+            'numid_edges_col': self.numid_edges_col[:],
+            'numid_faces_col': self.numid_faces_col[:],
+            'numid_verts_col': self.numid_verts_col[:],
+            'display_vert_index': self.display_vert_index,
+            'display_edge_index': self.display_edge_index,
+            'display_face_index': self.display_face_index
+        }
 
     def draw_buttons_ext(self, context, layout):
         row = layout.row(align=True)
@@ -225,134 +312,13 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
                 col4.scale_x = little_width
                 col4.prop(self, colprop, text="")
 
-        layout.prop(self, 'bakebuttonshow')
-
-    # baking
-    def collect_text_to_bake(self):
-        # n_id, settings, text
-        context = bpy.context
-
-        # ensure data or empty lists.
-        # gather vertices from input
-        if self.inputs['vertices'].links:
-            if isinstance(self.inputs['vertices'].links[0].from_socket, VerticesSocket):
-                propv = dataCorrect(
-                    SvGetSocketAnyType(self, self.inputs['vertices']))
-                data_vector = Vector_generate(propv) if propv else []
-        else:
-            return
-        data_edges, data_faces = [], []
-        if self.inputs['edges'].links:
-            if isinstance(self.inputs['edges'].links[0].from_socket, StringsSocket):
-                data_edges = dataCorrect(
-                    SvGetSocketAnyType(self, self.inputs['edges']))
-        if self.inputs['faces'].links:
-            if isinstance(self.inputs['faces'].links[0].from_socket, StringsSocket):
-                data_faces = dataCorrect(
-                    SvGetSocketAnyType(self, self.inputs['faces']))
-        data_matrix = []
-        if self.inputs['matrix'].links:
-            if isinstance(self.inputs['matrix'].links[0].from_socket, MatrixSocket):
-                matrix = dataCorrect(
-                    SvGetSocketAnyType(self, self.inputs['matrix']))
-                data_matrix = Matrix_generate(matrix) if matrix else []
-        data_text = ''
-        if self.inputs['text'].links:
-            if isinstance(self.inputs['text'].links[0].from_socket, StringsSocket):
-                data_text = dataCorrect(
-                    SvGetSocketAnyType(self, self.inputs['text']))
-
-        display_vert_index = self.display_vert_index
-        display_edge_index = self.display_edge_index
-        display_face_index = self.display_face_index
-
-        ########
-        # points
-        def calc_median(vlist):
-            a = Vector((0, 0, 0))
-            for v in vlist:
-                a += v
-            return a / len(vlist)
-
-        for obj_index, verts in enumerate(data_vector):
-            final_verts = verts
-            if data_text:
-                text_obj = data_text[obj_index]
-            else:
-                text_obj = ''
-
-            # quickly apply matrix if necessary
-            if data_matrix:
-                matrix = data_matrix[obj_index]
-                final_verts = [matrix * v for v in verts]
-
-            if display_vert_index:
-                for idx, v in enumerate(final_verts):
-                    if text_obj:
-                        self.bake(idx, v, text_obj[idx])
-                    else:
-                        self.bake(idx, v)
-
-            if data_edges and display_edge_index:
-                for edge_index, (idx1, idx2) in enumerate(data_edges[obj_index]):
-
-                    v1 = Vector(final_verts[idx1])
-                    v2 = Vector(final_verts[idx2])
-                    loc = v1 + ((v2 - v1) / 2)
-                    if text_obj:
-                        self.bake(edge_index, loc, text_obj[edge_index])
-                    else:
-                        self.bake(edge_index, loc)
-
-            if data_faces and display_face_index:
-                for face_index, f in enumerate(data_faces[obj_index]):
-                    verts = [Vector(final_verts[idx]) for idx in f]
-                    median = calc_median(verts)
-                    if text_obj:
-                        self.bake(face_index, median, text_obj[face_index])
-                    else:
-                        self.bake(face_index, median)
-
-    def bake(self, index, origin, text_=''):
-        if text_:
-            text = str(text_[0])
-        else:
-            text = str(index)
-        # Create and name TextCurve object
-        bpy.ops.object.text_add(view_align=False,
-                                enter_editmode=False,location=origin)
-        ob = bpy.context.object
-        ob.name = 'sv_text_' + text
-        tcu = ob.data
-        tcu.name = 'sv_text_' + text
-        # TextCurve attributes
-        tcu.body = text
-        try:
-            tcu.font = bpy.data.fonts[self.fonts]
-        except:
-            tcu.font = bpy.data.fonts[0]
-        tcu.offset_x = 0
-        tcu.offset_y = 0
-        tcu.resolution_u = 2
-        tcu.shear = 0
-        Tsize = self.font_size
-        tcu.size = Tsize
-        tcu.space_character = 1
-        tcu.space_word = 1
-        tcu.align = 'CENTER'
-        # Inherited Curve attributes
-        tcu.extrude = 0.0
-        tcu.fill_mode = 'NONE'
+        layout.prop(self, 'bakebuttonshow', text='show bake UI')
 
     def update(self):
         inputs = self.inputs
-        text = ''
-
-        # if you change this change in free() also
         n_id = node_id(self)
         IV.callback_disable(n_id)
 
-        # end early
         # check if UI is populated.
         if not ('text' in inputs):
             return
@@ -361,57 +327,56 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
         if not self.id_data.sv_show:
             return
 
-        # alias in case it is present
-        iv_links = inputs['vertices'].links
         self.use_custom_color = True
 
-        if self.activate and iv_links:
-            IV.callback_disable(n_id)
-            draw_verts, draw_matrix = [], []
-
-            # gather vertices from input
-            if isinstance(iv_links[0].from_socket, VerticesSocket):
-                propv = SvGetSocketAnyType(self, inputs['vertices'])
-                draw_verts = dataCorrect(propv)
-
-            # idea to make text in 3d
-            if 'text' in inputs and inputs['text'].links:
-                text_so = SvGetSocketAnyType(self, inputs['text'])
-                text = dataCorrect(text_so)
-                fullList(text, len(draw_verts))
-                for i, t in enumerate(text):
-                    fullList(text[i], len(draw_verts[i]))
-
-            # matrix might be operating on vertices, check and act on.
-            if 'matrix' in inputs:
-                im_links = inputs['matrix'].links
-
-                # end early, skips to drwa vertex indices without matrix
-                if im_links and isinstance(im_links[0].from_socket, MatrixSocket):
-                    propm = SvGetSocketAnyType(self, inputs['matrix'])
-                    draw_matrix = dataCorrect(propm)
-
-            data_feind = []
-            for socket in ['edges', 'faces']:
-                try:
-                    propm = SvGetSocketAnyType(self, inputs[socket])
-                    input_stream = dataCorrect(propm)
-                except:
-                    input_stream = []
-                finally:
-                    data_feind.append(input_stream)
-
-            draw_edges, draw_faces = data_feind
-
-            bg = self.draw_bg
-            settings = self.get_settings()
-            IV.callback_enable(
-                n_id, draw_verts, draw_edges, draw_faces,
-                draw_matrix, bg, settings.copy(), text)
-                
+        if self.activate and inputs['vertices'].links:
+            self.process(n_id, IV)
             self.color = READY_COLOR
         else:
             self.color = FAIL_COLOR
+
+    def process(self, n_id, IV):
+        inputs = self.inputs
+        iv_links = inputs['vertices'].links
+        im_links = inputs['matrix'].links
+
+        draw_verts, draw_matrix = [], []
+        text = ''
+
+        # gather vertices from input
+        if isinstance(iv_links[0].from_socket, VerticesSocket):
+            propv = SvGetSocketAnyType(self, inputs['vertices'])
+            draw_verts = dataCorrect(propv)
+
+        # idea to make text in 3d
+        if inputs['text'].links:
+            text_so = SvGetSocketAnyType(self, inputs['text'])
+            text = dataCorrect(text_so)
+            fullList(text, len(draw_verts))
+            for i, t in enumerate(text):
+                fullList(text[i], len(draw_verts[i]))
+
+        if im_links and isinstance(im_links[0].from_socket, MatrixSocket):
+            propm = SvGetSocketAnyType(self, inputs['matrix'])
+            draw_matrix = dataCorrect(propm)
+
+        data_feind = []
+        for socket in ['edges', 'faces']:
+            try:
+                propm = SvGetSocketAnyType(self, inputs[socket])
+                input_stream = dataCorrect(propm)
+            except:
+                input_stream = []
+            finally:
+                data_feind.append(input_stream)
+
+        draw_edges, draw_faces = data_feind
+
+        bg = self.draw_bg
+        settings = self.get_settings()
+        IV.callback_enable(
+            n_id, draw_verts, draw_edges, draw_faces,
+            draw_matrix, bg, settings.copy(), text)
 
     def update_socket(self, context):
         self.update()
@@ -432,4 +397,3 @@ def unregister():
 
 if __name__ == '__main__':
     register()
-
