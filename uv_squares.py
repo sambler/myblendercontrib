@@ -17,7 +17,7 @@ bl_info = {
     "name": "UV Squares",
     "description": "UV Editor tool for reshaping selection to grid.",
     "author": "Reslav Hollos",
-    "version": (1, 4, 0),
+    "version": (1, 4, 21),
     "blender": (2, 71, 0),
     "category": "Mesh",
     #"location": "UV Image Editor > UVs > UVs to grid of squares",
@@ -53,8 +53,8 @@ def main(context, operator, square = False, snapToClosest = False):
     #    operator.report({'ERROR'}, "selected more than " +str(allowedFaces) +" allowed faces.")
     #   return 
 
-    edgeVerts, filteredVerts, selFaces, nonQuadFaces, vertsDict = ListsOfVerts(uv_layer, bm)
-       
+    edgeVerts, filteredVerts, selFaces, nonQuadFaces, vertsDict, noEdge = ListsOfVerts(uv_layer, bm)   
+    
     if len(filteredVerts) is 0: return 
     if len(filteredVerts) is 1: 
         SnapCursorToClosestSelected(filteredVerts)
@@ -95,19 +95,26 @@ def main(context, operator, square = False, snapToClosest = False):
         for l in nf.loops:
             luv = l[uv_layer]
             luv.select = False
-        
+    
     if square: FollowActiveUV(operator, me, targetFace, selFaces, 'EVEN')
     else: FollowActiveUV(operator, me, targetFace, selFaces)
     
-    #edge has ripped so we connect it back 
-    for ev in edgeVerts:
-        key = (round(ev.uv.x, precision), round(ev.uv.y, precision))
-        if key in vertsDict:
-            ev.uv = vertsDict[key][0].uv
-            ev.select = True
-    
+    if noEdge is False:
+        #edge has ripped so we connect it back 
+        for ev in edgeVerts:
+            key = (round(ev.uv.x, precision), round(ev.uv.y, precision))
+            if key in vertsDict:
+                ev.uv = vertsDict[key][0].uv
+                ev.select = True
+        
     return SuccessFinished(me, startTime)
 
+'''def ScaleSelection(factor, pivot = 'CURSOR'):
+    last_pivot = bpy.context.space_data.pivot_point
+    bpy.context.space_data.pivot_point = pivot
+    bpy.ops.transform.resize(value=(factor, factor, factor), constraint_axis=(False, False, False), constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH', proportional_size=1)
+    bpy.context.space_data.pivot_point = last_pivot
+    return'''
 
 def ShapeFace(uv_layer, operator, targetFace, vertsDict, square):
     corners = []
@@ -241,14 +248,24 @@ def ListsOfVerts(uv_layer, bm):
         
         else: edgeVerts.extend(facesEdgeVerts)
     
-    if len(edgeVerts) is 0: 
+    noEdge = False
+    if len(edgeVerts) is 0:
+        noEdge = True
         edgeVerts.extend(allEdgeVerts)
+    
+    if len(selFaces) is 0:
+        for ev in edgeVerts:
+            if ListQuasiContainsVect(filteredVerts, ev) is False:
+                filteredVerts.append(ev)
+    else: filteredVerts = edgeVerts
         
-    for ev in edgeVerts:
-        if ev not in filteredVerts:
-            filteredVerts.append(ev)
+    return edgeVerts, filteredVerts, selFaces, nonQuadFaces, vertsDict, noEdge
 
-    return edgeVerts, filteredVerts, selFaces, nonQuadFaces, vertsDict
+def ListQuasiContainsVect(list, vect):
+    for v in list:
+        if AreVertsQuasiEqual(v, vect):
+            return True
+    return False
 
 #modified ideasman42's uvcalc_follow_active.py
 def FollowActiveUV(operator, me, f_act, faces, EXTEND_MODE = 'LENGTH_AVERAGE'):
@@ -438,7 +455,7 @@ def SymmetrySelected(axis, pivot = "MEDIAN"):
 def AreVectsLinedOnAxis(verts):
     areLinedX = True
     areLinedY = True
-    allowedError = 0.0001
+    allowedError = 0.0009
     valX = verts[0].uv.x
     valY = verts[0].uv.y
     for v in verts:
@@ -456,7 +473,7 @@ def MakeEqualDistanceBetweenVertsInLine(filteredVerts, vertsDict, startv = None)
     last = verts[len(verts)-1].uv
     
     horizontal = True
-    if ((last.x - first.x) >0.0001):
+    if ((last.x - first.x) >0.0009):
         slope = (last.y - first.y)/(last.x - first.x)
         if (slope > 1) or (slope <-1):
             horizontal = False 
@@ -538,7 +555,7 @@ def ScaleTo0OnAxisAndCursor(filteredVerts, vertsDict, startv = None, horizontal 
     
     if horizontal is None:
         horizontal = True
-        if ((last.uv.x - first.uv.x) >0.0001):
+        if ((last.uv.x - first.uv.x) >0.0009):
             slope = (last.uv.y - first.uv.y)/(last.uv.x - first.uv.x)
             if (slope > 1) or (slope <-1):
                 horizontal = False 
@@ -978,6 +995,7 @@ if __name__ == "__main__":
 
 
  
+
 
 
 
