@@ -119,6 +119,7 @@ def OscFuncExportPc2(self):
     start = bpy.context.scene.muu_pc2_start
     end = bpy.context.scene.muu_pc2_end
     folderpath = bpy.context.scene.muu_pc2_folder
+    framerange = end-start
 
     for ob in bpy.data.groups[bpy.context.scene.muu_pc2_group].objects[:]:
         bpy.context.window_manager.progress_begin(0, 100) #progressbar
@@ -131,9 +132,9 @@ def OscFuncExportPc2(self):
                 file.write(headerStr)
                 #bakeado
                 obmat = ob.matrix_world
-                for frame in range((end + 1) - start):
-                    print("Percentage of %s bake: %s " % (ob.name, frame / end * 100))
-                    bpy.context.window_manager.progress_update(frame / end * 100) #progressbarUpdate
+                for i,frame in enumerate(range(start,end+1)):
+                    print("Percentage of %s bake: %s " % (ob.name, i * 100 / framerange))
+                    bpy.context.window_manager.progress_update(i * 100 / framerange) #progressbarUpdate
                     bpy.context.scene.frame_set(frame)
                     me = bpy.data.meshes.new_from_object(
                         scene=bpy.context.scene,
@@ -151,6 +152,7 @@ def OscFuncExportPc2(self):
                         file.write(struct.pack("<3f", *vert.co)) 
                     #dreno mesh
                     bpy.data.meshes.remove(me)
+
 
                 print("%s Bake finished!" % (ob.name))
                 
@@ -187,8 +189,6 @@ class OscRemoveSubsurf(bpy.types.Operator):
             for MOD in OBJ.modifiers[:]:
                 if MOD.type in GENERATE:
                     if eval("bpy.context.scene.mesh_cache_tools_settings.%s" % (MOD.type.lower())):
-                        print(OBJ.name)
-                        print("---" + MOD.name)
                         OBJ.modifiers.remove(MOD)
   
         return {'FINISHED'}
@@ -212,6 +212,7 @@ class OscPc2iMporterBatch(bpy.types.Operator):
             MOD.forward_axis = "POS_Y"
             MOD.up_axis = "POS_Z"
             MOD.flip_axis = set(())
+            MOD.frame_start = bpy.context.scene.muu_pc2_start
 
         return {'FINISHED'}
 
