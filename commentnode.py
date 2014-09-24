@@ -119,8 +119,8 @@ def register():
 def unregister():
     nodeitems_utils.unregister_node_categories("COMMENT_NODES")
 
-    bpy.utils.register_class(NodeComment)
-    bpy.utils.register_class(CommentNode)
+    bpy.utils.unregister_class(NodeComment)
+    bpy.utils.unregister_class(CommentNode)
 
 
 if __name__ == "__main__":
