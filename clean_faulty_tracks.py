@@ -8,7 +8,7 @@ bl_info = {
 "warning": "",
 "wiki_url": "",
 "tracker_url": "",
-"category": "Tracking"}
+"category": "Movie Tracking"}
 
 
 
@@ -27,36 +27,36 @@ def filter_values(threshold, context):
     frameEnd = scene.frame_end
     sc = context.space_data
     clip = sc.clip
-    
+
     print( frameStart, "to", frameEnd )
-    
+
 
     clean_up_list=[]
     for i in range(frameStart,frameEnd):
-        
+
         print("Frame: ", i)
-        
+
         # get clean track list of valid tracks
         trackList = list(filter( lambda x: (x.markers.find_frame(i) and x.markers.find_frame(i-1)), clip.tracking.tracks))
-                  
+
         # get average velocity and deselect track
         averageVelocity = Vector().to_2d()
         for t in trackList:
-            t.select = False        
+            t.select = False
             marker = t.markers
             averageVelocity += 1000.0*(marker.find_frame(i).co - marker.find_frame(i-1).co)
-            
+
         averageVelocity = averageVelocity / float(len(trackList))
-        
+
 
         # now compare all markers with average value and store in clean_up_list
-        for t in trackList:            
+        for t in trackList:
             marker = t.markers
-            # get velocity from current track 
+            # get velocity from current track
             tVelocity = 1000.0*(marker.find_frame(i).co - marker.find_frame(i-1).co)
             # create vector between current velocity and average and calc length
             distance = (averageVelocity-tVelocity).magnitude
-            
+
             # if length greater than threshold add to list
             if distance > threshold and not t in clean_up_list:
                 print( "Add Track:" , t.name, "Average Velocity:", averageVelocity.x, averageVelocity.y, "Distance:", distance )
@@ -66,7 +66,7 @@ def filter_values(threshold, context):
     for t in clean_up_list:
         t.select = True
     return (len(clean_up_list))
-    
+
 
 class CLIP_OT_filter_tracks(bpy.types.Operator):
     bl_idname="clip.filter_tracks"
@@ -87,12 +87,12 @@ class CLIP_OT_filter_tracks(bpy.types.Operator):
 
 class CLIP_PT_filter_tracks(bpy.types.Panel):
     bl_idname = "clip.filter_track_panel"
-    bl_label = "Filter Tracks"  
+    bl_label = "Filter Tracks"
     bl_space_type = "CLIP_EDITOR"
     bl_region_type = "TOOLS"
     bl_category = "Track"
 
-    
+
 
     def draw(self, context):
         layout = self.layout
@@ -118,9 +118,8 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_class(CLIP_OT_filter_tracks)
     bpy.utils.unregister_class(CLIP_PT_filter_tracks)
-
+    bpy.utils.unregister_class(CLIP_OT_filter_tracks)
 
 if __name__ == "__main__":
     register()

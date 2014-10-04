@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Blendermada Client",
     "author": "Sergey Ozerov, <ozzyrov@gmail.com>",
-    "version": (0, 1, 1),
+    "version": (0, 1, 2),
     "blender": (2, 70, 0),
     "location": "Properties > Material > Blendermada Client",
     "description": "Browse and download materials from online CC0 database.",
@@ -259,13 +259,22 @@ class BMDImport(bpy.types.Operator):
             return {'CANCELLED'}
         else:
             storage = get_library(context.scene.bmd_material_active.library_url)
-            full_path = '%s\\Material\\' % (storage,)
-            bpy.ops.wm.link_append(
-                directory=full_path,
-                filename=context.scene.bmd_material_active.storage_name,
-                relative_path=False,
-                link=False,
-            )
+            directory = '%s/Material/' % (storage,)
+            filename = context.scene.bmd_material_active.storage_name
+            if bpy.app.version < (2, 72):
+                bpy.ops.wm.link_append(
+                    filepath=('%s%s' % (directory, filename)),
+                    directory=directory,
+                    filename=filename,
+                    relative_path=True,
+                    link=False,
+                )
+            else:
+                bpy.ops.wm.append(
+                    filepath=('%s%s' % (directory, filename)),
+                    directory=directory,
+                    filename=filename,
+                )
             if not material_imported(context): # some error while importing
                 self.report(
                     {'WARNING'},
