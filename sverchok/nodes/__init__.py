@@ -31,7 +31,8 @@ nodes_dict = {
         'wifi_in',
         'wifi_out',
         'eval_knieval',
-        'switch'
+        'switch',
+        'obj_remote'
     ],
 
     'basic_debug': [
@@ -56,6 +57,7 @@ nodes_dict = {
         'plane',
         'random_vector',
         'script',
+        'script_mk2',
         'formula',
         'sphere',
         'basic_spline',

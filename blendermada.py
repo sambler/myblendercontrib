@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Blendermada Client",
     "author": "Sergey Ozerov, <ozzyrov@gmail.com>",
-    "version": (0, 1, 2),
+    "version": (0, 1, 3),
     "blender": (2, 70, 0),
     "location": "Properties > Material > Blendermada Client",
     "description": "Browse and download materials from online CC0 database.",
@@ -15,7 +15,7 @@ bl_info = {
 import bpy
 from bpy.props import *
 
-from urllib import request
+from urllib import request, parse
 import json
 import os
 import pickle
@@ -24,9 +24,9 @@ from datetime import datetime
 
 
 ENGINE_MAPPING = {
-    'BLENDER_RENDER': 'internal',
-    'BLENDER_GAME': 'internal',
-    'CYCLES': 'cycles',
+    'BLENDER_RENDER': 'int',
+    'BLENDER_GAME': 'int',
+    'CYCLES': 'cyc',
 }
 
 
@@ -73,11 +73,20 @@ def get_engine():
     except:
         return ''
 
+def bmd_urlopen(url, **kwargs):
+    full_url = parse.urljoin('http://blendermada.com/', url)
+    params = parse.urlencode(kwargs)
+    return request.urlopen('%s?%s' % (full_url, params))
+
 def get_materials(category):
     engine = get_engine()
     filepath = os.path.join(get_cache_path(), '%s-cat-%s' % (engine, category))
     if file_expired(filepath, 300):
-        r = request.urlopen('http://blendermada.com/api/materials/category/%s.json' % (category,))
+        r = bmd_urlopen(
+            '/api/materials/materials.json',
+            engine=engine,
+            category=category,
+        )
         ans = json.loads(str(r.read(), 'UTF-8'))
         dump_data(ans, filepath)
     return load_data(filepath)
@@ -85,15 +94,15 @@ def get_materials(category):
 def get_categories():
     filepath = os.path.join(get_cache_path(), 'categories')
     if file_expired(filepath, 300):
-        r = request.urlopen('http://blendermada.com/api/materials/index.json')
+        r = bmd_urlopen('/api/materials/categories.json')
         ans = json.loads(str(r.read(), 'UTF-8'))
         dump_data(ans, filepath)
     return load_data(filepath)
 
-def get_material_detail(pk, slug):
-    filepath = os.path.join(get_cache_path(), 'mat-%s-%s' % (pk, slug))
+def get_material_detail(id):
+    filepath = os.path.join(get_cache_path(), 'mat-%s' % (id,))
     if file_expired(filepath, 300):
-        r = request.urlopen('http://blendermada.com/api/materials/material/%s-%s.json' % (pk, slug))
+        r = bmd_urlopen('/api/materials/material.json', id=id)
         ans = json.loads(str(r.read(), 'UTF-8'))
         dump_data(ans, filepath)
     return load_data(filepath)
@@ -104,7 +113,7 @@ def get_image(url):
         os.mkdir(filepath)
     filepath = os.path.join(filepath, url.split('/')[-1])
     if file_expired(filepath, 300):
-        r = request.urlopen(url)
+        r = bmd_urlopen(url)
         with open(filepath, 'wb+') as f:
             f.write(r.read())
     return filepath
@@ -115,7 +124,7 @@ def get_library(url):
         os.mkdir(filepath)
     filepath = os.path.join(filepath, url.split('/')[-1])
     if file_expired(filepath, 300):
-        r = request.urlopen(url)
+        r = bmd_urlopen(url)
         with open(filepath, 'wb+') as f:
             f.write(r.read())
     return filepath
@@ -130,15 +139,16 @@ def update_categories(context):
     context.scene.bmd_category_list.clear()
     for i in get_categories():
         a = context.scene.bmd_category_list.add()
+        a.id   = i['id']
         a.slug = i['slug']
         a.name = i['name']
     update_materials(None, context)
 
 def update_materials(self, context):
     context.scene.bmd_material_list.clear()
-    for i in get_materials(category=context.scene.bmd_category_list[context.scene.bmd_category_list_idx].slug):
+    for i in get_materials(context.scene.bmd_category_list[context.scene.bmd_category_list_idx].id):
         a = context.scene.bmd_material_list.add()
-        a.pk = i['pk']
+        a.id = i['id']
         a.slug = i['slug']
         a.name = i['name']
     context.scene.bmd_material_list_idx = 0
@@ -146,16 +156,15 @@ def update_materials(self, context):
 
 def update_active_material(self, context):
     mat = get_material_detail(
-        context.scene.bmd_material_list[context.scene.bmd_material_list_idx].pk,
-        context.scene.bmd_material_list[context.scene.bmd_material_list_idx].slug,
+        context.scene.bmd_material_list[context.scene.bmd_material_list_idx].id,
     )
-    context.scene.bmd_material_active.pk = mat['pk']
+    context.scene.bmd_material_active.id = mat['id']
     context.scene.bmd_material_active.slug = mat['slug']
     context.scene.bmd_material_active.name = mat['name']
     context.scene.bmd_material_active.description = mat['description']
     context.scene.bmd_material_active.storage_name = mat['storage_name']
-    context.scene.bmd_material_active.image_url = 'http://blendermada.com' + mat['image']
-    context.scene.bmd_material_active.library_url = 'http://blendermada.com' + mat['storage']
+    context.scene.bmd_material_active.image_url = mat['image']
+    context.scene.bmd_material_active.library_url = mat['storage']
 
 
 ###############################################
@@ -164,6 +173,7 @@ def update_active_material(self, context):
 
 
 class BMDCategoryPG(bpy.types.PropertyGroup):
+    id   = IntProperty()
     slug = StringProperty()
     name = StringProperty()
 
@@ -174,7 +184,7 @@ bpy.types.Scene.bmd_category_active = PointerProperty(type=BMDCategoryPG)
 
 
 class BMDMaterialListPG(bpy.types.PropertyGroup):
-    pk   = IntProperty()
+    id   = IntProperty()
     slug = StringProperty()
     name = StringProperty()
 
@@ -184,7 +194,7 @@ bpy.types.Scene.bmd_material_list_idx = IntProperty(update=update_active_materia
 
 
 class BMDMaterialDetailPG(bpy.types.PropertyGroup):
-    pk   = IntProperty()
+    id   = IntProperty()
     slug = StringProperty()
     name = StringProperty()
     description = StringProperty()

@@ -8,6 +8,7 @@ Generator
    line
    plane
    box
+   box_rounded   
    circle
    cylinder
    sphere
@@ -19,3 +20,4 @@ Generator
    profile_parametric
    scripted
    formula_shape
+   scripted2

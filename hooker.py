@@ -1,7 +1,7 @@
 bl_info = {
 "name": "Object Track Hooker",
 "author": "Sebastian Koenig",
-"version": (1, 0),
+"version": (1, 0, 1),
 "blender": (2, 7, 2),
 "location": "",
 "description": "",
@@ -31,7 +31,7 @@ def create_hook_empties(context, tracks, hooks):
         # create a new empty, assign name and location
         h = bpy.data.objects.new("CTRL_" + t.name, None)
         h.location = t.matrix_world.to_translation()
-        h.empty_draw_size = 0.025
+        h.empty_draw_size = 0.015
         h.empty_draw_type = "CUBE"
 
         # link it to the scene
@@ -46,6 +46,8 @@ def create_hook_empties(context, tracks, hooks):
         h.select = True
         bpy.context.scene.objects.active = t
         bpy.ops.object.parent_set()
+  
+    bpy.ops.object.select_all(action='DESELECT')
 
 
 def get_location(hooks):
@@ -55,7 +57,7 @@ def get_location(hooks):
     return coords
 
 
-def create_object(context, name, hooks, cleanobject):
+def create_object(context, name, hooks, cleanobject, cams):
     from bpy_extras.io_utils import unpack_list
 
     # get all locations of the hooks in the list
@@ -74,6 +76,7 @@ def create_object(context, name, hooks, cleanobject):
     # link it to the scene and make it active
     bpy.context.scene.objects.link(ob)
     bpy.context.scene.objects.active=ob
+    ob.layers = [True] + [False] * 19
 
     # go into edit mode, select all vertices and create the face
     if not context.object.mode=="EDIT":
@@ -83,6 +86,13 @@ def create_object(context, name, hooks, cleanobject):
     bpy.ops.object.mode_set(mode="OBJECT")
 
     cleanobject.append(ob)
+
+    bpy.ops.object.select_all(action='DESELECT')
+    camera = cams[0]
+    ob.select = True
+    bpy.context.scene.objects.active = camera
+    bpy.ops.object.parent_set()
+    camera.select = False
 
 
 
@@ -110,46 +120,91 @@ def hook_em_up(hooks, ob):
     bpy.ops.object.mode_set(mode = 'OBJECT')
 
 
+def hooker_cam(context, cams):
+
+    for ob in bpy.data.objects:
+        if ob.type=="CAMERA":
+            cams.append(ob)
+    camera = cams[0]
+    camera.rotation_euler=(1.570796251296997, -0.0, 0.0)
+    camera.location = (0,-8,2.2)
+
 
 class VIEW3D_OT_track_hooker(bpy.types.Operator):
-    bl_idname = "object.track_hooker"
+    bl_idname = "clip.track_hooker"
     bl_label = "John Lee Hooker"
 
     @classmethod
     def poll(cls, context):
         space = context.space_data
-        return space.type == 'VIEW_3D'
+        return space.type == 'CLIP_EDITOR'
 
     def execute(self, context):
+
+        name="canvas"
+
         hooks=[]
         tracks=[]
         cleanobject=[]
-        name="canvas"
+        cams=[]
 
+        # setup the camera
+        hooker_cam(context, cams)
+
+        # create the empties
+        bpy.ops.clip.track_to_empty()
+
+        # collect all empties that are selected (which is automatically the case after creating the track empties)
         get_track_empties(context, tracks)
+
+        # create empties that will be the hooks and parent them to the tracks
         create_hook_empties(context, tracks, hooks)
 
-        create_object(context, name, hooks, cleanobject)
-        print(cleanobject)
+        # get the position of the tracks, create a new object there and parent it to the camera
+        create_object(context, name, hooks, cleanobject, cams)
 
+        # make the cleaned object active via list, to avoid confusion
         ob = bpy.data.objects.get(cleanobject[0].name)
-        print(ob)
         bpy.context.scene.objects.active = ob
 
+        #finally create the hooks 
         hook_em_up(hooks, ob)
 
+
         return {'FINISHED'}
+
+
+class CLIP_PT_corner_hooker(bpy.types.Panel):
+    bl_idname = "clip.corner_hooker"
+    bl_label = "Corner Hoocker"
+    bl_space_type = "CLIP_EDITOR"
+    bl_region_type = "TOOLS"
+    bl_category = "Solve"
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row()
+        row.operator("clip.track_hooker")
+
+
 
 ########## REGISTER ############
 
 def register():
     bpy.utils.register_class(VIEW3D_OT_track_hooker)
+    bpy.utils.register_class(CLIP_PT_corner_hooker)
+
+    wm = bpy.context.window_manager
+    km = wm.keyconfigs.addon.keymaps.new(name='Clip', space_type='CLIP_EDITOR')
+    kmi = km.keymap_items.new('clip.track_hooker', 'J', 'PRESS')
 
 
 
 def unregister():
 
     bpy.utils.unregister_class(VIEW3D_OT_track_hooker)
+    bpy.utils.unregister_class(CLIP_PT_corner_hooker)
 
 if __name__ == "__main__":
     register()

@@ -23,10 +23,10 @@
 #
 #  The Original Code is: all of this file.
 #
-#  Contributor(s): 
-#     Nedovizin Alexander 
-#     Gorodetskiy Nikita 
-#     Linus Yng 
+#  Contributor(s):
+#     Nedovizin Alexander
+#     Gorodetskiy Nikita
+#     Linus Yng
 #     Agustin Gimenez
 #     Dealga McArdle
 #
@@ -36,14 +36,20 @@
 
 bl_info = {
     "name": "Sverchok",
-    "author": "(sverchok-b3d@yandex.ru) Nedovizin Alexander, Gorodetskiy Nikita, Linus Yng, Agustin Jimenez, Dealga McArdle",
+    "author": (
+        "(sverchok-b3d@yandex.ru) "
+        "Nedovizin Alexander, Gorodetskiy Nikita, Linus Yng, "
+        "Agustin Jimenez, Dealga McArdle"
+    ),
     "version": (0, 4),
     "blender": (2, 7, 0),
     "location": "Nodes > CustomNodesTree > Add user nodes",
     "description": "Do parametric node-based geometry programming",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Nodes/Sverchok",
-    "tracker_url": "http://www.blenderartists.org/forum/showthread.php?272679-Addon-WIP-Sverchok-parametric-tool-for-architects",
+    "tracker_url": (
+        "http://www.blenderartists.org/forum/showthread.php?272679"
+        "-Addon-WIP-Sverchok-parametric-tool-for-architects"),
     "category": "Node"}
 
 
@@ -64,12 +70,20 @@ imported_modules = []
 node_list = []
 # ugly hack, should make respective dict in __init__ like nodes
 # or parse it
-root_modules = ["node_tree", "data_structure", "menu"]
+root_modules = ["node_tree", "data_structure", "sv_nodes_menu"]
 core_modules = ["handlers", "update_system", "upgrade_nodes"]
 utils_modules = [
-    "cad_module", "sv_bmesh_utils", "text_editor_submenu",
-    "index_viewer_draw", "sv_curve_utils", "viewer_draw", "viewer_draw_mk2",
-    "sv_tools", "voronoi", "nodeview_bgl_viewer_draw", "text_editor_plugins"]
+    # non UI tools
+    "cad_module", "sv_bmesh_utils", "sv_curve_utils", "voronoi", 
+    "sv_script", "sv_itertools", "script_importhelper",
+    # callbacks for bgl
+    "viewer_draw", "index_viewer_draw", "nodeview_bgl_viewer_draw", "viewer_draw_mk2",
+    # UI
+    #     - text editor ui
+    "text_editor_submenu", "text_editor_plugins",
+    #     - node_view ui tool + panels + custom menu
+    "sv_panels_tools", "sv_IO_panel", "sv_panels", "nodeview_space_menu"
+]
 
 # parse the nodes/__init__.py dictionary and load all nodes
 def make_node_list():
@@ -104,8 +118,7 @@ utils = importlib.import_module('utils')
 imported_modules.append(utils)
 
 for m in utils_modules:
-    im = importlib.import_module('.{}'.format(m),
-                                 'utils')
+    im = importlib.import_module('.{}'.format(m), 'utils')
     imported_modules.append(im)
 
 nodes = importlib.import_module('nodes')
@@ -122,7 +135,9 @@ if "bpy" in locals():
 
     if 'SVERCHOK' in nodeitems_utils._node_categories:
         nodeitems_utils.unregister_node_categories("SVERCHOK")
-    nodeitems_utils.register_node_categories("SVERCHOK", menu.make_categories()[0])
+
+    from sv_nodes_menu import make_categories
+    nodeitems_utils.register_node_categories("SVERCHOK", make_categories()[0])
     # core.upgrade_nodes.upgrade_all()  # doesn't work, anyway.
     reload_event = True
 
@@ -131,7 +146,9 @@ import bpy
 
 def register():
     import nodeitems_utils
-    categors_menu = menu.make_categories()
+    from sv_nodes_menu import make_categories
+
+    categors_menu = make_categories()
     print("** Sverchok has  {i} nodes **".format(i=categors_menu[1]))
     for m in imported_modules + node_list:
         if hasattr(m, "register"):
@@ -158,10 +175,3 @@ def unregister():
 
     if 'SVERCHOK' in nodeitems_utils._node_categories:
         nodeitems_utils.unregister_node_categories("SVERCHOK")
-
-
-
-
-
-
-
