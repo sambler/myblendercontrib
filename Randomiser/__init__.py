@@ -27,7 +27,7 @@ bl_info = {
     "description": "Tools for randomising and animating text data (and some limited object data). Website: http://bensimonds.com/2014/04/02/randomiser-add-on/",
     #"warning": "",
     "wiki_url": "",
-    "tracker_url": "",
+    "tracker_url": "https://github.com/BenSimonds/Randomiser/issues",
     "category": "Object",
     }
 
@@ -42,7 +42,7 @@ class RandomiserPanelObject(bpy.types.Panel):
     bl_region_type = "WINDOW"
     bl_context = "object"
     bl_label = "Randomise Object Data"
-    
+
     def draw(self, context):
         ob = bpy.context.active_object
         randomise = ob.randomiser
@@ -74,7 +74,7 @@ class RandomiserPanelObject(bpy.types.Panel):
             if randomise.generate_method == 'random':
                 row = box.row()
                 row.alignment = 'RIGHT'
-                row.prop(randomise, "no_repeats")    
+                row.prop(randomise, "no_repeats")
 
 class RandomiserPanelText(bpy.types.Panel):
     bl_space_type = "PROPERTIES"
@@ -97,7 +97,7 @@ class RandomiserPanelText(bpy.types.Panel):
 
             row = layout.row()
             row.prop(randomise, "use_randomise")
-            
+
             if randomise.use_randomise:
                 row.prop(randomise, "seed")
                 #Update Method Props:
@@ -156,7 +156,7 @@ class RandomiserPanelText(bpy.types.Panel):
                         h = h % 12
                     string = str(h).zfill(2) + ":" + str(m).zfill(2) + ":" + str(s).zfill(2)
                     row.label(text = "Time: " + string)
-                
+
                 else:
                     row = col.row()
                     row.label(text = "Source:")
@@ -174,8 +174,8 @@ class RandomiserPanelText(bpy.types.Panel):
                     elif randomise.generate_method == "ticker":
                         row = box.row()
                         row.prop(randomise, "textdata")
-                    
-                    else:             
+
+                    else:
                         if randomise.textsource in ["alphanumeric","characters"]:
                             box.prop(randomise, "textsource")
                             box.prop(randomise, "caps")
@@ -224,8 +224,8 @@ class RandomiserPanelText(bpy.types.Panel):
                         #row.alignment = 'RIGHT'
                         row.prop(randomise, "noise_ignore_whitespace")
                         row.prop(randomise, "noise_ignore_custom")
-                            
-                            
+
+
                     #Noise source for both noise and leader:
                     if randomise.use_noise or randomise.leader == 'random':
                         row = box.row()
@@ -244,7 +244,7 @@ def register():
     bpy.utils.register_class(RandomiserTextProps)
     bpy.types.Object.randomiser = bpy.props.PointerProperty(type = RandomiserObjectProps)
     bpy.types.TextCurve.randomiser = bpy.props.PointerProperty(type = RandomiserTextProps)
-    
+
     #Operators:
     bpy.utils.register_class(RandomiseTextData)
     bpy.utils.register_class(RandomiseObjectData)
@@ -258,7 +258,7 @@ def register():
     #Handlers
     bpy.app.handlers.frame_change_post.append(randomise_handler)
     bpy.app.handlers.render_post.append(randomise_handler)
-    
+
 
 def unregister():
     #Properties:
