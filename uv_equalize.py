@@ -19,7 +19,7 @@
 bl_info = {"name": "UV Equalize",
            "description": "Equalizes scale of UVs of selected objects to active object.",
            "author": "Jakub Uhlik",
-           "version": (0, 2, 0),
+           "version": (0, 2, 2),
            "blender": (2, 70, 0),
            "location": "View3d > Object > UV Equalize",
            "warning": "",
@@ -34,6 +34,11 @@ bl_info = {"name": "UV Equalize",
 
 
 # changelog:
+# 2014.10.23 fixed bug which prevented script to work, operators are used for transforming uvs,
+#            but when in image editor is loaded 'Render Result', UV will not be displayed
+#            and therefore operators will not work.. it's one line fix, just set displayed
+#            image to None..
+# 2014.10.22 auto deselect non mesh objects
 # 2014.10.13 complete rewrite, now it is pure math
 # 2014.10.12 fixed different uv names bug
 # 2014.06.16 uuid windows workaround
@@ -55,7 +60,9 @@ def equalize(operator, context, use_pack, rotate, margin, use_active, ):
         sc.objects.active = o
     
     ao = context.scene.objects.active
-    obs = [ob for ob in context.scene.objects if ob.name != ao.name and ob.select]
+    # obs = [ob for ob in context.scene.objects if ob.name != ao.name and ob.select]
+    # make it easier to select all, exclude non-mesh objects from list
+    obs = [ob for ob in context.scene.objects if ob.name != ao.name and ob.select and ob.type == 'MESH']
     
     # some checks
     for o in obs:
@@ -79,7 +86,11 @@ def equalize(operator, context, use_pack, rotate, margin, use_active, ):
             pass
         # prepare
         bm = bmesh.new()
-        bm.from_mesh(o.data)
+        # bm.from_mesh(o.data)
+        # this way modifiers are taken into count, like mirror etc..
+        me = o.to_mesh(context.scene, True, 'PREVIEW', )
+        bm.from_mesh(me)
+        #
         bm.transform(o.matrix_world)
         bmesh.ops.triangulate(bm, faces=bm.faces)
         # mesh
@@ -103,6 +114,8 @@ def equalize(operator, context, use_pack, rotate, margin, use_active, ):
         uv_area = sum(tas)
         # cleanup
         bm.free()
+        # also remove temp mesh
+        bpy.data.meshes.remove(me)
         # cache
         cache[k] = (mesh_area, uv_area, )
         return mesh_area, uv_area
@@ -138,6 +151,9 @@ def equalize(operator, context, use_pack, rotate, margin, use_active, ):
         
         original_type = bpy.context.area.type
         bpy.context.area.type = "IMAGE_EDITOR"
+        # reset image inside editor, it might be Render Result and in this case,
+        # UV operators will not work because UVs will not be displayed..
+        bpy.context.area.spaces[0].image = None
         
         om, ouv = calc_areas(o)
         x = (aouv / aom) * om
