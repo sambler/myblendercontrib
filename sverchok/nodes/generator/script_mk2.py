@@ -35,8 +35,8 @@ READY_COLOR = (0, 0.8, 0.95)
 
 from utils.sv_panels_tools import sv_get_local_path
 import utils.script_importhelper
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode , node_id
+from sv_node_tree import SverchCustomTreeNode
+from sv_data_structure import updateNode , node_id
 
 sv_path = os.path.dirname(sv_get_local_path()[0])
 
@@ -189,18 +189,8 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
                     
         if hasattr(script, 'update'):
             script.update()
-        else:
-            # basic sanity
-
-            if len(script.inputs) != len(self.inputs):
-                return
-            if len(script.outputs) != len(self.outputs):
-                return
-            # check if no default and not linked, return
-            for data, socket in zip(script.inputs, self.inputs): 
-                if len(data) == 2 and not socket.links:
-                    return
-            self.process()
+        
+        self.process()
     
     def process(self):
         script = self.script
