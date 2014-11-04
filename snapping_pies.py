@@ -101,12 +101,11 @@ class VIEW3D_OT_SnapElementMenu(Menu):
 
     def draw(self, context):
         layout = self.layout
-
         layout.operator("object.snapelementvariable", text="Vertex").variable='VERTEX'
         layout.operator("object.snapelementvariable", text="Edge").variable='EDGE'
         layout.operator("object.snapelementvariable", text="Face").variable='FACE'
         layout.operator("object.snapelementvariable", text="Increment").variable='INCREMENT'
-        layout.operator("object.snapelementvariable", text="Volume").variable='VOLUME'
+        #layout.operator("object.snapelementvariable", text="Volume").variable='VOLUME'
 
 
 class VIEW3D_OT_SnapElementVariable(bpy.types.Operator):
@@ -193,6 +192,7 @@ def register():
 
 
     wm = bpy.context.window_manager
+    
 
     km = wm.keyconfigs.addon.keymaps.new(name = 'Object Mode')
     kmi = km.keymap_items.new('wm.call_menu_pie', 'S', 'PRESS', shift=True).properties.name = "object.snapping_pie"

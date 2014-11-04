@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Blendermada Client",
     "author": "Sergey Ozerov, <ozzyrov@gmail.com>",
-    "version": (0, 1, 3),
+    "version": (0, 2, 1),
     "blender": (2, 70, 0),
     "location": "Properties > Material > Blendermada Client",
     "description": "Browse and download materials from online CC0 database.",
@@ -13,7 +13,9 @@ bl_info = {
 
 
 import bpy
+import bgl
 from bpy.props import *
+
 
 from urllib import request, parse
 import json
@@ -61,7 +63,7 @@ def file_expired(filepath, seconds_to_live):
     return True
 
 
-###############################################
+
 ###############################################
 ###############################################
 
@@ -135,6 +137,93 @@ def get_library(url):
 ###############################################
 
 
+class Preview(object):
+    def __init__(self):
+        self.activated = False
+        self.x = 10
+        self.y = 10
+        self.width = 128
+        self.height = 128
+        self.move = False
+        self.glImage = None
+        self.bindcode = None
+    def load_image(self, image_url):
+        self.glImage = bpy.data.images.load(get_image(image_url))
+        self.glImage.gl_load(bgl.GL_NEAREST, bgl.GL_NEAREST)
+        self.bindcode = self.glImage.bindcode
+    def unload_image(self):
+        if not self.glImage == None:
+            self.glImage.gl_free()
+            self.glImage.user_clear()
+            bpy.data.images.remove(self.glImage)
+        self.glImage = None
+        self.bindcode = None
+    def activate(self, context):
+        self.handler = bpy.types.SpaceProperties.draw_handler_add(
+                                   render_callback,
+                                   (self, context), 'WINDOW', 'POST_PIXEL')
+        bpy.context.scene.cursor_location.x += 0.0 # refresh display
+        self.activated = True
+    def deactivate(self, context):
+        bpy.types.SpaceProperties.draw_handler_remove(self.handler, 'WINDOW')
+        bpy.context.scene.cursor_location.x += 0.0 # refresh display
+        self.activated = False
+    def event_callback(self, context, event):
+        if self.activated == False:
+            return {'FINISHED'}
+        if event.type == 'MIDDLEMOUSE':
+            if event.value == 'PRESS':
+                self.move = True
+                return {'RUNNING_MODAL'}
+            elif event.value == 'RELEASE':
+                self.move = False
+                return {'RUNNING_MODAL'}
+        if self.move and event.type == 'MOUSEMOVE':
+            self.x += event.mouse_x - event.mouse_prev_x
+            self.y += event.mouse_y - event.mouse_prev_y
+            bpy.context.scene.cursor_location.x += 0.0 # refresh display
+            return {'RUNNING_MODAL'}
+        else:
+            return {'PASS_THROUGH'}
+
+
+preview = Preview()
+
+
+def image_changed(self, value):
+    preview.unload_image()
+    if value:
+        preview.load_image(value)
+    
+
+def render_callback(self, context):
+    if self.bindcode != None:
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D,
+                            bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_LINEAR)
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D,
+                            bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_LINEAR)
+        bgl.glEnable(bgl.GL_BLEND)
+        bgl.glBindTexture(bgl.GL_TEXTURE_2D, self.bindcode)
+        bgl.glEnable(bgl.GL_TEXTURE_2D)
+        bgl.glColor4f(1.0, 1.0, 1.0, 1.0)
+        bgl.glBegin(bgl.GL_QUADS)
+        bgl.glTexCoord2f(0.0, 0.0)
+        bgl.glVertex2f(self.x, self.y)
+        bgl.glTexCoord2f(1.0, 0.0)
+        bgl.glVertex2f(self.x + self.width, self.y)
+        bgl.glTexCoord2f(1.0, 1.0)
+        bgl.glVertex2f(self.x + self.width, self.y + self.height)
+        bgl.glTexCoord2f(0.0, 1.0)
+        bgl.glVertex2f(self.x, self.y + self.height)
+        bgl.glEnd()
+        bgl.glDisable(bgl.GL_TEXTURE_2D)
+
+
+###############################################
+###############################################
+###############################################
+
+
 def update_categories(context):
     context.scene.bmd_category_list.clear()
     for i in get_categories():
@@ -151,8 +240,9 @@ def update_materials(self, context):
         a.id = i['id']
         a.slug = i['slug']
         a.name = i['name']
-    context.scene.bmd_material_list_idx = 0
-    update_active_material(self, context)
+    if len(context.scene.bmd_material_list) > 0:
+        context.scene.bmd_material_list_idx = 0
+        update_active_material(self, context)
 
 def update_active_material(self, context):
     mat = get_material_detail(
@@ -199,7 +289,7 @@ class BMDMaterialDetailPG(bpy.types.PropertyGroup):
     name = StringProperty()
     description = StringProperty()
     storage_name = StringProperty()
-    image_url = StringProperty()
+    image_url = StringProperty(set=image_changed)
     library_url = StringProperty()
 
 bpy.utils.register_class(BMDMaterialDetailPG)
@@ -233,7 +323,9 @@ class BMDPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator('bmd.update')
+        row = layout.row()
+        row.operator('bmd.update')
+        row.operator('bmd.preview')
         layout.label('Category')
         layout.template_list('BMDCategoryList', '', context.scene, 'bmd_category_list', context.scene, 'bmd_category_list_idx', rows=3)
         layout.label('Material')
@@ -257,7 +349,6 @@ class BMDCategoryList(bpy.types.UIList):
 class BMDImport(bpy.types.Operator):
     bl_idname = "bmd.import"
     bl_label = "Import"
-
     def execute(self, context):
         if material_imported(context):
             self.report(
@@ -306,12 +397,30 @@ class BMDUpdate(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class BMDPreview(bpy.types.Operator):
+    bl_idname = 'bmd.preview'
+    bl_label = 'Preview'
+    def __init__(self):
+        super(BMDPreview, self).__init__()
+    def modal(self, context, event):
+        return preview.event_callback(context, event)
+    def invoke(self, context, event):
+        if not preview.activated:
+            preview.activate(context)
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+        else:
+            preview.deactivate(context)
+            return {'FINISHED'}
+
+
 def register():
     bpy.utils.register_class(BMDPanel)
     bpy.utils.register_class(BMDImport)
     bpy.utils.register_class(BMDMaterialList)
     bpy.utils.register_class(BMDCategoryList)
     bpy.utils.register_class(BMDUpdate)
+    bpy.utils.register_class(BMDPreview)
 
 
 def unregister():
@@ -320,6 +429,7 @@ def unregister():
     bpy.utils.unregister_class(BMDMaterialList)
     bpy.utils.unregister_class(BMDCategoryList)
     bpy.utils.unregister_class(BMDUpdate)
+    bpy.utils.unregister_class(BMDPreview)
 
 
 if __name__ == '__main__':
