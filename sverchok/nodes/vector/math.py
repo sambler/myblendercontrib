@@ -24,8 +24,8 @@ from bpy.props import EnumProperty, BoolProperty, StringProperty
 from mathutils import Vector
 from mathutils.noise import noise_vector, cell_vector, noise, cell
 
-from node_tree import SverchCustomTreeNode, VerticesSocket, StringsSocket
-from data_structure import (fullList, levelsOflist, updateNode,
+from sverchok.node_tree import SverchCustomTreeNode, VerticesSocket, StringsSocket
+from sverchok.data_structure import (fullList, levelsOflist, updateNode,
                             SvSetSocketAnyType, SvGetSocketAnyType)
 
 '''
@@ -121,7 +121,7 @@ class VectorMathNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         layout.prop(self, "items_", "Functions:")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', "U", "u")
         self.inputs.new('VerticesSocket', "V", "v")
         self.outputs.new('VerticesSocket', "W", "W")
@@ -189,28 +189,18 @@ class VectorMathNode(bpy.types.Node, SverchCustomTreeNode):
                 remove_last_input()
                 add_vector_input()
 
-    def nothing_to_process(self):
-        inputs = self.inputs
-        outputs = self.outputs
-
-        if not (('out' in outputs) or ('W' in outputs)):
-            return True
-
-        if not outputs[0].links:
-            return True
-
-    def update(self):
+    def process(self):
         inputs = self.inputs
         outputs = self.outputs
         operation = self.items_
         self.label = self.items_
 
-        if self.nothing_to_process():
+        if not outputs[0].is_linked:
             return
 
         # this input is shared over both.
         vector1 = []
-        if 'U' in inputs and inputs['U'].links:
+        if inputs['U'].is_linked:
             if isinstance(inputs['U'].links[0].from_socket, VerticesSocket):
                 vector1 = SvGetSocketAnyType(self, inputs['U'], deepcopy=False)
 
@@ -224,7 +214,7 @@ class VectorMathNode(bpy.types.Node, SverchCustomTreeNode):
         result = []
 
         # vector-output
-        if 'W' in outputs and outputs['W'].links:
+        if 'W' in outputs and outputs['W'].is_linked:
 
             func = vector_out[operation][0]
             if len(inputs) == 1:
@@ -268,7 +258,7 @@ class VectorMathNode(bpy.types.Node, SverchCustomTreeNode):
             SvSetSocketAnyType(self, 'W', result)
 
         # scalar-output
-        if 'out' in outputs and outputs['out'].links:
+        if 'out' in outputs and outputs['out'].is_linked:
 
             vector2, result = [], []
             func = scalar_out[operation][0]
@@ -321,9 +311,6 @@ class VectorMathNode(bpy.types.Node, SverchCustomTreeNode):
             for u, v in zip_longest(l1, l2, fillvalue=fl):
                 res_append(self.recurse_fxy(u, v, f, leve-1))
         return res
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

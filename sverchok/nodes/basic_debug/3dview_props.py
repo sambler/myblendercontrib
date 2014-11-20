@@ -18,7 +18,7 @@
 
 import bpy
 
-from node_tree import SverchCustomTreeNode
+from sverchok.node_tree import SverchCustomTreeNode
 
 
 class Sv3DviewPropsNode(bpy.types.Node, SverchCustomTreeNode):
@@ -27,9 +27,6 @@ class Sv3DviewPropsNode(bpy.types.Node, SverchCustomTreeNode):
     bl_idname = 'Sv3DviewPropsNode'
     bl_label = 'Sv 3Dview Props Node'
     bl_icon = 'OUTLINER_OB_EMPTY'
-
-    def init(self, context):
-        pass
 
     def draw_buttons(self, context, layout):
         context = bpy.context
@@ -85,10 +82,6 @@ class Sv3DviewPropsNode(bpy.types.Node, SverchCustomTreeNode):
 
     def update(self):
         pass
-
-    def update_socket(self, context):
-        self.update()
-
 
 def register():
     bpy.utils.register_class(Sv3DviewPropsNode)

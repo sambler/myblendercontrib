@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import FloatProperty, BoolProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import SvSetSocketAnyType, SvGetSocketAnyType
 
 
 class FloatNode(bpy.types.Node, SverchCustomTreeNode):
@@ -44,7 +44,7 @@ class FloatNode(bpy.types.Node, SverchCustomTreeNode):
         if self.float_ > self.maxim:
             self.float_ = self.maxim
             return  # recursion protection
-        updateNode(self, context)
+        self.process_node(context)
         
     def update_max(self, context):
         if self.maxim < self.minim:
@@ -72,7 +72,7 @@ class FloatNode(bpy.types.Node, SverchCustomTreeNode):
     to3d = BoolProperty(name='to3d', description='show in 3d panel',
                        default=True)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Float").prop_name = 'float_'
         self.outputs.new('StringsSocket', "Float")
 
@@ -89,20 +89,12 @@ class FloatNode(bpy.types.Node, SverchCustomTreeNode):
         else:
             return self.bl_label
             
-    def update(self):
+    def process(self):
         # inputs
-        if 'Float' in self.inputs and self.inputs['Float'].links:
-            tmp = SvGetSocketAnyType(self, self.inputs['Float'])
-            Float = min(max(float(tmp[0][0]), self.minim), self.maxim)
-        else:
-            Float = self.float_
+        Float = min(max(float(self.inputs[0].sv_get()[0][0]), self.minim), self.maxim)
         # outputs
-        if 'Float' in self.outputs and self.outputs['Float'].links:
+        if self.outputs['Float'].is_linked:
             SvSetSocketAnyType(self, 'Float', [[Float]])
-
-    def update_socket(self, context):
-        self.update()
-
 
 def register():
     bpy.utils.register_class(FloatNode)

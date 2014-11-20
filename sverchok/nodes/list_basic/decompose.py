@@ -19,11 +19,12 @@
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (levelsOflist, multi_socket, changable_sockets,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (levelsOflist, multi_socket, changable_sockets,
                             get_socket_type_full, SvSetSocket, SvGetSocketAnyType,
-                            updateNode)
+                            updateNode, get_other_socket)
 
+from sverchok.core import update_system
 
 class SvListDecomposeNode(bpy.types.Node, SverchCustomTreeNode):
     ''' List devided to multiple sockets in some level '''
@@ -32,44 +33,64 @@ class SvListDecomposeNode(bpy.types.Node, SverchCustomTreeNode):
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     # two veriables for multi socket input
-    base_name = 'data'
-    multi_socket_type = 'StringsSocket'
-
-    typ = StringProperty(name='typ',
-                         default='')
-    newsock = BoolProperty(name='newsock',
-                           default=False)
-                           
+    base_name = StringProperty(default='data')
+    multi_socket_type = StringProperty(default='StringsSocket')
+    
+    def auto_count(self):
+        data = self.inputs['data'].sv_get(default="not found")
+        other = get_other_socket(self.inputs['data'])
+        if other and data == "not found":
+            update_system.process_to_node(other.node)
+            data = self.inputs['data'].sv_get()
+            
+        leve = levelsOflist(data)
+        if leve+1 < self.level:
+            self.level = leve+1
+        result = self.beat(data, self.level)
+        self.count = min(len(result), 16)
+        
+    def set_count(self, context):
+        other = get_other_socket(self.inputs[0])
+        if not other:
+            return
+        self.multi_socket_type = other.bl_idname
+        multi_socket(self, min=1, start=0, breck=True, out_count=self.count)
+        
     level = IntProperty(name='level',
                         default=1, min=1, update=updateNode)
+    
+    count = IntProperty(name='Count',
+                    default=1, min=1, max=16, update=set_count)
 
     def draw_buttons(self, context, layout):
         col = layout.column(align=True)
         col.prop(self, 'level')
+        row = col.row()
+        row.prop(self, 'count')
+        op = row.operator("node.sverchok_text_callback",text="Auto set")
+        op.fn_name="auto_count"
+        
+    def sv_init(self, context):
+        self.inputs.new('StringsSocket', "data")        
+        self.outputs.new('StringsSocket', "data[0]")
 
-    def init(self, context):
-        self.inputs.new('StringsSocket', "data", "data")
-        self.outputs.new('StringsSocket', "data", "data")
 
     def update(self):
-        if 'data' in self.inputs and self.inputs['data'].links:
-            data = SvGetSocketAnyType(self, self.inputs['data'])
+        other = get_other_socket(self.inputs[0])
+        if not other:
+            return
+        self.multi_socket_type = other.bl_idname
+        multi_socket(self, min=1, start=0, breck=True, out_count=self.count)
+        outputsocketname = [name.name for name in self.outputs]
+        changable_sockets(self, 'data', outputsocketname)
 
-            leve = levelsOflist(data)
-            if leve+1 < self.level:
-                self.level = leve+1
-            result = self.beat(data, self.level)
-            
-
-            self.multi_socket_type = get_socket_type_full(self, 'data')
-            multi_socket(self, min=1, start=2, breck=True, output=len(result))
-            outputsocketname = [name.name for name in self.outputs]
-            changable_sockets(self, 'data', outputsocketname)
-
-            for i, out in enumerate(result):
-                if i > 30:
-                    break
-                SvSetSocket(self.outputs[i], out)
+       
+    def process(self):
+        data = SvGetSocketAnyType(self, self.inputs['data'])
+        result = self.beat(data, self.level)
+        for out, socket in zip(result, self.outputs[:30]):
+            if socket.is_linked:
+                socket.sv_set(out)
 
     def beat(self, data, level, count=1):
         out = []

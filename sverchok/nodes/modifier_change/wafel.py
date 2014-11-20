@@ -26,12 +26,12 @@ from mathutils.geometry import intersect_line_line as IL2L
 from mathutils.geometry import intersect_line_plane as IL2P
 from mathutils.geometry import normal as NM
 from mathutils import kdtree as KDT
-from data_structure import Vector_generate, Vector_degenerate, fullList, \
+from sverchok.data_structure import Vector_generate, Vector_degenerate, fullList, \
                            SvSetSocketAnyType, SvGetSocketAnyType, dataCorrect, \
                            updateNode
 from math import sin, atan, cos, degrees, radians
 from bpy.props import FloatProperty, BoolProperty, EnumProperty
-from node_tree import SverchCustomTreeNode
+from sverchok.node_tree import SverchCustomTreeNode
 
 
 class SvWafelNode(bpy.types.Node, SverchCustomTreeNode):
@@ -40,6 +40,27 @@ class SvWafelNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Wafel'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
+
+    def ext_draw_checking(self, context):
+        # check for sockets to add
+        if self.bindCircle and not ('radCircle' in self.inputs):
+            self.inputs.new('StringsSocket', 'radCircle').prop_name = 'circle_rad'
+        elif not self.bindCircle and ('radCircle' in self.inputs):
+            self.inputs.remove(self.inputs['radCircle'])
+        if self.do_tube_sect and not any([('vecTube' in self.inputs), ('radTube' in self.inputs)]):
+            self.inputs.new('VerticesSocket', 'vecTube', 'vecTube')
+            self.inputs.new('StringsSocket', 'radTube').prop_name = 'tube_radius'
+        elif not self.do_tube_sect and any([('vecTube' in self.inputs), ('radTube' in self.inputs)]):
+            self.inputs.remove(self.inputs['vecTube'])
+            self.inputs.remove(self.inputs['radTube'])
+        if self.do_contra and not ('vecContr' in self.inputs):
+            self.inputs.new('VerticesSocket', 'vecContr')
+        elif not self.do_contra and ('vecContr' in self.inputs):
+            self.inputs.remove(self.inputs['vecContr'])
+    
+    # now we just need to sort out the properties that creates socket
+    # from the ones that should process.
+    
     thick = FloatProperty(name='thick', description='thickness of material',
                            default=0.01)
 
@@ -62,15 +83,15 @@ class SvWafelNode(bpy.types.Node, SverchCustomTreeNode):
                            default = False, update=updateNode)
 
     bindCircle = BoolProperty(name='Bind2', description='circle for leyer to bind with contras',
-                           default=False, update=updateNode)
+                           default=False, update=ext_draw_checking)
 
     do_contra = BoolProperty(name='Contra', description='making contraversion for some coplanar segment',
-                            default = False, update=updateNode)
+                            default = False, update=ext_draw_checking)
 
     do_tube_sect = BoolProperty(name='Tube', description='making tube section',
-                            default = False, update=updateNode)
+                            default = False, update=ext_draw_checking)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'vecLine', 'vecLine')
         self.inputs.new('VerticesSocket', 'vecPlane', 'vecPlane')
         self.inputs.new('StringsSocket', 'edgPlane', 'edgPlane')
@@ -184,29 +205,8 @@ class SvWafelNode(bpy.types.Node, SverchCustomTreeNode):
                     return True
         return False
 
-    def ext_draw_checking(self):
-        # check for sockets to add
-        if self.bindCircle and not ('radCircle' in self.inputs):
-            self.inputs.new('StringsSocket', 'radCircle').prop_name = 'circle_rad'
-        elif not self.bindCircle and ('radCircle' in self.inputs):
-            self.inputs.remove(self.inputs['radCircle'])
-        if self.do_tube_sect and not any([('vecTube' in self.inputs), ('radTube' in self.inputs)]):
-            self.inputs.new('VerticesSocket', 'vecTube', 'vecTube')
-            self.inputs.new('StringsSocket', 'radTube').prop_name = 'tube_radius'
-        elif not self.do_tube_sect and any([('vecTube' in self.inputs), ('radTube' in self.inputs)]):
-            self.inputs.remove(self.inputs['vecTube'])
-            self.inputs.remove(self.inputs['radTube'])
-        if self.do_contra and not ('vecContr' in self.inputs):
-            self.inputs.new('VerticesSocket', 'vecContr', 'vecContr')
-        elif not self.do_contra and ('vecContr' in self.inputs):
-            self.inputs.remove(self.inputs['vecContr'])
 
-    def update(self):
-        if not 'centers' in self.outputs or \
-                not self.inputs['vecLine'].links or \
-                not self.outputs['vert'].links:
-            return
-        self.ext_draw_checking()
+    def process(self):
             
         if 'vecLine' in self.inputs and \
                 'vecPlane' in self.inputs and \
@@ -506,10 +506,6 @@ class SvWafelNode(bpy.types.Node, SverchCustomTreeNode):
                     SvSetSocketAnyType(self, 'centers', centers)
                 print(self.name, 'is finishing')
         
-
-    def update_socket(self, context):
-        self.update()
-
 
 def register():
     bpy.utils.register_class(SvWafelNode)

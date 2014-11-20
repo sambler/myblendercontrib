@@ -21,8 +21,8 @@ import parser
 import bpy
 from bpy.props import StringProperty
 
-from node_tree import SverchCustomTreeNode, StringsSocket
-from data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode, StringsSocket
+from sverchok.data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
 from math import cos, sin, pi, tan
 
 
@@ -39,51 +39,40 @@ class FormulaNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         layout.prop(self, "formula", text="formula")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "X", "X")
         self.inputs.new('StringsSocket', "n[.]", "n[.]")
         self.outputs.new('StringsSocket', "Result", "Result")
 
-    def check_slots(self, num):
-        l = []
-        if len(self.inputs) < num+1:
-            return False
-        for i, sl in enumerate(self.inputs[num:]):
-            if len(sl.links) == 0:
-                l.append(i+num)
-        if l:
-            return l
-        else:
-            return False
 
     def update(self):
         # inputs
-        ch = self.check_slots(1)
-        if ch:
-            for c in ch[:-1]:
-                self.inputs.remove(self.inputs[ch[0]])
-
-        if 'X' in self.inputs and self.inputs['X'].links:
-            vecs = SvGetSocketAnyType(self, self.inputs['X'])
+        if not self.inputs:
+            return
+        if self.inputs[-1].links:
+            self.inputs.new('StringsSocket', 'n[.]')
         else:
-            vecs = [[0.0]]
+            while len(node.inputs) > min and not node.inputs[-2].links:
+                node.inputs.remove(node.inputs[-1])
 
+    def process(self):
+        vecs = self.inputs['X'].sv_get(default=[[0]])
+        
         list_mult = []
-        for idx, multi in enumerate(self.inputs[1:]):
-            if multi.links and \
-               type(multi.links[0].from_socket) == StringsSocket:
+        for idx, socket in enumerate(self.inputs[1:-1]):
+            if socket.is_linked and \
+               type(socket.links[0].from_socket) == StringsSocket:
 
-                mult = SvGetSocketAnyType(self, multi)
-                ch = self.check_slots(2)
-                if not ch:
-                    self.inputs.new('StringsSocket', 'n[.]', "n[.]")
-
+                mult = socket.sv_get()
                 list_mult.extend(mult)
+            else:
+                list_mult.extend([[0]])
+                
         if len(list_mult) == 0:
             list_mult = [[0.0]]
 
         # outputs
-        if 'Result' in self.outputs and self.outputs['Result'].links:
+        if self.outputs['Result'].is_linked:
 
             code_formula = parser.expr(self.formula).compile()
             r_ = []

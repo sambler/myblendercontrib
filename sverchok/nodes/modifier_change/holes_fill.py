@@ -20,10 +20,10 @@ import bpy
 from bpy.props import IntProperty
 import bmesh
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (updateNode, repeat_last, dataCorrect,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (updateNode, repeat_last, dataCorrect,
                             SvSetSocketAnyType, SvGetSocketAnyType)
-from utils.sv_bmesh_utils import bmesh_from_pydata
+from sverchok.utils.sv_bmesh_utils import bmesh_from_pydata
 
 
 def fill_holes(vertices, edges, s):
@@ -62,7 +62,7 @@ class SvFillHolesNode(bpy.types.Node, SverchCustomTreeNode):
                         default=4, min=3,
                         update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'vertices')
         self.inputs.new('StringsSocket', 'edges')
         self.inputs.new('StringsSocket', 'Sides').prop_name = 'sides'
@@ -71,9 +71,7 @@ class SvFillHolesNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('StringsSocket', 'edges', 'edges')
         self.outputs.new('StringsSocket', 'polygons', 'polygons')
 
-    def update(self):
-        if 'polygons' not in self.outputs:
-            return
+    def process(self):
 
         if 'vertices' in self.inputs and self.inputs['vertices'].links and \
            'edges' in self.inputs and self.inputs['edges'].links:
@@ -102,8 +100,6 @@ class SvFillHolesNode(bpy.types.Node, SverchCustomTreeNode):
             if 'polygons' in self.outputs and self.outputs['polygons'].links:
                 SvSetSocketAnyType(self, 'polygons', polys_out)
 
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

@@ -21,8 +21,8 @@ from bpy.props import EnumProperty, StringProperty
 import mathutils
 from mathutils import Vector
 
-from node_tree import SverchCustomTreeNode
-from data_structure import SvSetSocketAnyType, SvGetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import SvSetSocketAnyType, SvGetSocketAnyType
 
 
 # documentation/blender_python_api_2_70_release/mathutils.kdtree.html
@@ -113,7 +113,7 @@ class SvKDTreeNode(bpy.types.Node, SverchCustomTreeNode):
         layout.label("Search mode:")
         layout.prop(self, "mode", expand=True)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Verts', 'Verts')
         self.inputs.new('VerticesSocket', 'Check Verts', 'Check Verts')
 
@@ -123,7 +123,7 @@ class SvKDTreeNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('StringsSocket', pIdxs, pIdxs)
         self.outputs.new('StringsSocket', pDists, pDists)
 
-    def update(self):
+    def process(self):
         inputs = self.inputs
         outputs = self.outputs
 

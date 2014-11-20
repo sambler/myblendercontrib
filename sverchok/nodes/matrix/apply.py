@@ -17,10 +17,10 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
-from node_tree import SverchCustomTreeNode, VerticesSocket, MatrixSocket
-from data_structure import (Vector_generate, Vector_degenerate,
+from sverchok.node_tree import SverchCustomTreeNode, VerticesSocket, MatrixSocket
+from sverchok.data_structure import (Vector_generate, Vector_degenerate,
                             Matrix_generate, updateNode,
                             SvGetSocketAnyType, SvSetSocketAnyType)
 
@@ -31,31 +31,20 @@ class MatrixApplyNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Apply matrix for vectors'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', "Vectors", "Vectors")
         self.inputs.new('MatrixSocket', "Matrixes", "Matrixes")
         self.outputs.new('VerticesSocket', "Vectors", "Vectors")
 
-    def update(self):
+    def process(self):
         # inputs
-        if 'Vectors' in self.outputs and self.outputs['Vectors'].links:
-            if not ('Vectors' in self.inputs and self.inputs['Vectors'].links):
-                return
-            if not ('Matrixes' in self.inputs and self.inputs['Matrixes'].links):
-                return
-            if type(self.inputs['Vectors'].links[0].from_socket) == VerticesSocket and \
-               type(self.inputs['Matrixes'].links[0].from_socket) == MatrixSocket:
+        if self.outputs['Vectors'].is_linked:
+            vecs_ = SvGetSocketAnyType(self, self.inputs['Vectors'])
+            vecs = Vector_generate(vecs_)
 
-                vecs_ = SvGetSocketAnyType(self, self.inputs['Vectors'])
-                vecs = Vector_generate(vecs_)
+            mats_ = SvGetSocketAnyType(self, self.inputs['Matrixes'])
+            mats = Matrix_generate(mats_)
 
-                mats_ = SvGetSocketAnyType(self, self.inputs['Matrixes'])
-                mats = Matrix_generate(mats_)
-            else:
-                vecs = [[]]
-                mats = [Matrix()]
-
-            # outputs
             vectors_ = self.vecscorrect(vecs, mats)
             vectors = Vector_degenerate(vectors_)
             SvSetSocketAnyType(self, 'Vectors', vectors)
@@ -73,8 +62,6 @@ class MatrixApplyNode(bpy.types.Node, SverchCustomTreeNode):
             out.append(out_)
         return out
 
-    def update_socket(self, context):
-        updateNode(self, context)
 
 
 def register():

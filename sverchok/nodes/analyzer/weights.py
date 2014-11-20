@@ -19,15 +19,15 @@
 import bpy
 import parser
 from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty
-from node_tree import SverchCustomTreeNode, StringsSocket
-from data_structure import (SvGetSocketAnyType, updateNode, match_short,
+from sverchok.node_tree import SverchCustomTreeNode, StringsSocket
+from sverchok.data_structure import (SvGetSocketAnyType, updateNode, match_short,
                             match_long_cycle)
 
 
 class SvVertexGroupNode(bpy.types.Node, SverchCustomTreeNode):
     ''' Vertex Group '''
     bl_idname = 'SvVertexGroupNode'
-    bl_label = 'vertex group weights'
+    bl_label = 'Vertex group weights'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     Itermodes = [
@@ -59,26 +59,18 @@ class SvVertexGroupNode(bpy.types.Node, SverchCustomTreeNode):
         row = layout.row(align=True)
         row.prop(self, "fade_speed", text="Clearing speed")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "VertIND")
         self.inputs.new('StringsSocket', "Weights")
 
-    def update(self):
 
-        if not (self.formula in bpy.data.objects):
-            return
-
-        if not ('Weights' in self.inputs):
-            return
+    def process(self):
 
         vertex_weight = self.inputs['Weights'].links
         if not (vertex_weight and (type(vertex_weight[0].from_socket) ==
                 StringsSocket)):
             return
 
-        self.process()
-
-    def process(self):
         obj = bpy.data.objects[self.formula]
 
         if self.inputs['VertIND'].links:
@@ -110,9 +102,6 @@ class SvVertexGroupNode(bpy.types.Node, SverchCustomTreeNode):
 
         else:
             obj.vertex_groups.active = obj.vertex_groups.new(name='Sv_VGroup')
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

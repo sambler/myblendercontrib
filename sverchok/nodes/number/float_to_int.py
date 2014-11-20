@@ -18,9 +18,7 @@
 
 import bpy
 
-from node_tree import SverchCustomTreeNode, StringsSocket
-from data_structure import SvSetSocketAnyType, SvGetSocketAnyType
-
+from sverchok.node_tree import SverchCustomTreeNode, StringsSocket
 
 class Float2IntNode(bpy.types.Node, SverchCustomTreeNode):
     ''' Float2Int '''
@@ -28,39 +26,22 @@ class Float2IntNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Float2int'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "float", "float")
         self.outputs.new('StringsSocket', "int", "int")
 
-    def update(self):
-        # inputs
-        if 'float' in self.inputs and self.inputs['float'].links and \
-           type(self.inputs['float'].links[0].from_socket) == StringsSocket:
-
-            Number = SvGetSocketAnyType(self, self.inputs['float'])
-        else:
-            Number = []
-
-        # outputs
-        if 'int' in self.outputs and self.outputs['int'].links:
+    def process(self):
+        Number = self.inputs['float'].sv_get()
+        if  self.outputs['int'].is_linked:        
             result = self.inte(Number)
-            SvSetSocketAnyType(self, 'int', result)
+            self.outputs['int'].sv_set(result)
 
-    def update_socket(self, context):
-        self.update()
-
-    def inte(self, l):
-        if type(l) == int or type(l) == float:
+    @staticmethod
+    def inte(l):
+        if isinstance(l, (int, float)):
             return round(l)
         else:
             return [self.inte(i) for i in l]
-
-    def levels(self, list):
-        level = 1
-        for n in list:
-            if type(n) == list:
-                level += self.levels(n)
-            return level
 
 
 def register():

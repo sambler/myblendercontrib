@@ -23,8 +23,8 @@ from mathutils import Matrix, Vector, Euler, Quaternion
 import bpy
 from bpy.props import FloatProperty, EnumProperty, StringProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (SvGetSocketAnyType, SvSetSocketAnyType,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (SvGetSocketAnyType, SvSetSocketAnyType,
                             updateNode, match_long_repeat)
 
 
@@ -119,7 +119,7 @@ class SvRotationNode(bpy.types.Node, SverchCustomTreeNode):
                           default="XYZ", items=orders,
                           update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', "Vertices", "Vertices")
         self.inputs.new('VerticesSocket', "Center", "Center")
         self.inputs.new('VerticesSocket', "Axis", "Axis")
@@ -131,7 +131,7 @@ class SvRotationNode(bpy.types.Node, SverchCustomTreeNode):
         if self.mode == 'EULER':
             layout.prop(self, "order", text="Order:")
 
-    def update(self):
+    def process(self):
         # inputs
         if self.mode == 'AXIS':
             if 'Vertices' in self.inputs and self.inputs['Vertices'].links:
@@ -193,8 +193,6 @@ class SvRotationNode(bpy.types.Node, SverchCustomTreeNode):
                 points = [quat_rotation(m, x, y, z, w) for m, x, y, z, w in zip(*parameters)]
                 SvSetSocketAnyType(self, 'Vertices', points)
 
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

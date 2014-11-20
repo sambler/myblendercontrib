@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (updateNode, changable_sockets, repeat_last,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (updateNode, changable_sockets, repeat_last,
                             SvSetSocketAnyType, SvGetSocketAnyType)
 
 # ListSlice
@@ -47,15 +47,10 @@ class ListSliceNode(bpy.types.Node, SverchCustomTreeNode):
                        default=1,
                        update=updateNode)
 
-    typ = StringProperty(name='typ',
-                         default='')
-    newsock = BoolProperty(name='newsock',
-                           default=False)
-
     def draw_buttons(self, context, layout):
         layout.prop(self, "level", text="level")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Data")
         self.inputs.new('StringsSocket', "Start").prop_name = 'start'
         self.inputs.new('StringsSocket', "Stop").prop_name = 'stop'
@@ -63,48 +58,45 @@ class ListSliceNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('StringsSocket', "Other", "Other")
 
     def update(self):
-        if 'Data' in self.inputs and len(self.inputs['Data'].links) > 0:
+        if 'Data' in self.inputs and self.inputs['Data'].links:
             inputsocketname = 'Data'
             outputsocketname = ['Slice', 'Other']
             changable_sockets(self, inputsocketname, outputsocketname)
+            
+    def process(self):
+        data = SvGetSocketAnyType(self, self.inputs['Data'])
 
-        if 'Slice' in self.outputs and self.outputs['Slice'].links or \
-                'Other' in self.outputs and self.outputs['Other'].links:
+        if self.inputs['Start'].is_linked:
+            start = SvGetSocketAnyType(self, self.inputs['Start'])[0]
+        else:
+            start = [self.start]
 
-            if 'Data' in self.inputs and self.inputs['Data'].links:
-                data = SvGetSocketAnyType(self, self.inputs['Data'])
+        if self.inputs['Stop'].is_linked:
+            stop = SvGetSocketAnyType(self, self.inputs['Stop'])[0]
+        else:
+            stop = [self.stop]
 
-                if 'Start' in self.inputs and self.inputs['Start'].links:
-                    start = SvGetSocketAnyType(self, self.inputs['Start'])[0]
-                else:
-                    start = [self.start]
-
-                if 'Stop' in self.inputs and self.inputs['Stop'].links:
-                    stop = SvGetSocketAnyType(self, self.inputs['Stop'])[0]
-                else:
-                    stop = [self.stop]
-
-                if 'Slice' in self.outputs and self.outputs['Slice'].links:
-                    if self.level:
-                        out = self.get(data, start, stop, self.level, self.slice)
-                    else:
-                        out = self.slice(data, start[0], stop[0])
-                    SvSetSocketAnyType(self, 'Slice', out)
-                if 'Other' in self.outputs and self.outputs['Other'].links:
-                    if self.level:
-                        out = self.get(data, start, stop, self.level, self.other)
-                    else:
-                        out = self.other(data, start[0], stop[0])
-                    SvSetSocketAnyType(self, 'Other', out)
+        if self.outputs['Slice'].is_linked:
+            if self.level:
+                out = self.get(data, start, stop, self.level, self.slice)
+            else:
+                out = self.slice(data, start[0], stop[0])
+            SvSetSocketAnyType(self, 'Slice', out)
+        if self.outputs['Other'].is_linked:
+            if self.level:
+                out = self.get(data, start, stop, self.level, self.other)
+            else:
+                out = self.other(data, start[0], stop[0])
+            SvSetSocketAnyType(self, 'Other', out)
 
     def slice(self, data, start, stop):
-        if type(data) in [tuple, list]:
+        if isinstance(data, (tuple, list)):
             return data[start:stop]
         else:
             return None
 
     def other(self, data, start, stop):
-        if type(data) in [tuple, list]:
+        if isinstance(data, (tuple, list)):
             return data[:start]+data[stop:]
         else:
             return None
@@ -118,9 +110,6 @@ class ListSliceNode(bpy.types.Node, SverchCustomTreeNode):
             return [f(obj, next(start_iter), next(stop_iter)) for obj in data]
         else:  # Fail
             return None
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

@@ -22,11 +22,12 @@ import re
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
+from mathutils import Matrix
 
-from node_tree import (
+from sverchok.node_tree import (
     SverchCustomTreeNode, VerticesSocket, MatrixSocket, StringsSocket)
-from data_structure import dataCorrect, fullList, updateNode, SvGetSocketAnyType
-from utils.sv_bmesh_utils import bmesh_from_pydata
+from sverchok.data_structure import dataCorrect, fullList, updateNode, SvGetSocketAnyType
+from sverchok.utils.sv_bmesh_utils import bmesh_from_pydata
 
 
 def natural_plus_one(object_names):
@@ -131,6 +132,8 @@ def make_bmesh_geometry(node, context, name, verts, *topology):
 
     if matrix:
         sv_object.matrix_local = list(zip(*matrix))
+    else:
+        sv_object.matrix_local = Matrix.Identity(4)
 
 
 class SvBmeshViewOp(bpy.types.Operator):
@@ -211,7 +214,7 @@ class BmeshViewerNode(bpy.types.Node, SverchCustomTreeNode):
         update=updateNode,
         description="This auto sets all faces to smooth shade")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.use_custom_color = True
         self.inputs.new('VerticesSocket', 'vertices', 'vertices')
         self.inputs.new('StringsSocket', 'edges', 'edges')
@@ -231,19 +234,18 @@ class BmeshViewerNode(bpy.types.Node, SverchCustomTreeNode):
             elif button_type == 's':
                 icon = 'RESTRICT_SELECT_' + ['ON', 'OFF'][self.state_select]
             return icon
-        
+
         #split = row.split()
         col = layout.column(align=True)
         row = col.row(align=True)
         #split = row.split()
         #r = split.column()
         row.column().prop(self, "activate", text="UPD", toggle=True, icon=view_icon)
-        
+
         #row = layout.row(align=True)
         #split = row.split()
         #col1 = split.column()
         #col1.prop(self, "activate", text="Update")
-
 
         #split = split.split()
         #if split:
@@ -251,7 +253,6 @@ class BmeshViewerNode(bpy.types.Node, SverchCustomTreeNode):
         row.operator(sh, text='', icon=icons('v')).fn_name = 'hide_view'
         row.operator(sh, text='', icon=icons('s')).fn_name = 'hide_select'
         row.operator(sh, text='', icon=icons('r')).fn_name = 'hide_render'
-
 
         col = layout.column(align=True)
         row = col.row(align=True)
@@ -296,9 +297,9 @@ class BmeshViewerNode(bpy.types.Node, SverchCustomTreeNode):
 
     def get_geometry_from_sockets(self):
         inputs = self.inputs
-        get_data = lambda s, t: self.get_corrected_data(s, t) if inputs[s].links else []
-
-        mverts = get_data('vertices', VerticesSocket)
+        get_data = lambda s, t: self.get_corrected_data(s, t) if inputs[s].is_linked else []
+        # if we don't have vertices we can do anything anyway, fail now.
+        mverts = dataCorrect(inputs[0].sv_get())
         mmtrix = get_data('matrix', MatrixSocket)
         medges = get_data('edges', StringsSocket)
         mfaces = get_data('faces', StringsSocket)
@@ -315,35 +316,12 @@ class BmeshViewerNode(bpy.types.Node, SverchCustomTreeNode):
         finally:
             return j
 
-    def set_dormant_color(self):
-        self.color = (0.5, 0.5, 0.5)
-
     def update(self):
-
-        # startup safety net
-        try:
-            l = bpy.data.node_groups[self.id_data.name]
-        except Exception as e:
-            print(self.name, "cannot run during startup, press update.")
-            self.set_dormant_color()
-            return
-
-        # explicit statement about which states are useful to process.
-        if not self.activate:
-            self.set_dormant_color()
-            return
-
-        inputs = self.inputs
-        if not ('matrix' in inputs) or not self.inputs['vertices'].links:
-            self.set_dormant_color()
-            return
-
-        self.color = (1, 0.3, 0)
-        self.process()
+        pass
 
     def process(self):
         mverts, *mrest = self.get_geometry_from_sockets()
-
+        
         def get_edges_faces_matrices(obj_index):
             for geom in mrest:
                 yield self.get_structure(geom, obj_index)
@@ -364,6 +342,7 @@ class BmeshViewerNode(bpy.types.Node, SverchCustomTreeNode):
             make_bmesh_geometry(self, bpy.context, mesh_name, Verts, *data)
 
         self.remove_non_updated_objects(obj_index)
+
         objs = self.get_children()
 
         if self.grouping:

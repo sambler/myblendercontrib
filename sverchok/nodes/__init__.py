@@ -14,15 +14,11 @@ nodes_dict = {
     ],
 
     'basic_view': [
-        'bakery',
-        'test',
         'viewer_bmesh',
         'viewer_indices',
         'viewer_text',
-        'viewer',
         'viewer_mk2',
         'empty_out',
-        'reroute'
     ],
 
     'basic_data': [
@@ -30,9 +26,11 @@ nodes_dict = {
         'text',
         'wifi_in',
         'wifi_out',
-        'eval_knieval',
         'switch',
-        'obj_remote'
+        'obj_remote',
+        'group',
+        'cache',
+        'getsetprop'
     ],
 
     'basic_debug': [
@@ -117,7 +115,7 @@ nodes_dict = {
         'rotation',
         'scale',
         'vertices_mask',
-        'wafel'
+        'wafel', 
     ],
 
     'modifier_make': [
@@ -132,7 +130,6 @@ nodes_dict = {
         'polygons_adaptative',
         'solidify',
         'voronoi_2d',
-        'voronoi',
         'wireframe'
     ],  #
 
@@ -141,15 +138,12 @@ nodes_dict = {
         'float',
         'integer',
         'random',
-        'formula',
         'formula2',
         'scalar',
         'list_input',
         'range_map',
-        'range',
         'range_float',
         'range_int',
-        'series',
         'logic'
     ],
 
@@ -167,4 +161,5 @@ nodes_dict = {
         'vertices_sort',
         'axis_input'
     ]
+        
 }

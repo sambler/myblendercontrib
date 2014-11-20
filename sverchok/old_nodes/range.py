@@ -17,40 +17,40 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from bpy.props import FloatProperty
+from bpy.props import IntProperty, FloatProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
 
 
-class GenSeriesNode(bpy.types.Node, SverchCustomTreeNode):
-    ''' Generator series '''
-    bl_idname = 'GenSeriesNode'
-    bl_label = 'List Series'
+class GenRangeNode(bpy.types.Node, SverchCustomTreeNode):
+    ''' Generator: Range '''
+    bl_idname = 'GenRangeNode'
+    bl_label = 'List Range'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     start_ = FloatProperty(name='start', description='start',
                            default=0,
                            options={'ANIMATABLE'}, update=updateNode)
     stop_ = FloatProperty(name='stop', description='stop',
-                          default=10,
-                          options={'ANIMATABLE'}, update=updateNode)
-    step_ = FloatProperty(name='step', description='step',
                           default=1,
                           options={'ANIMATABLE'}, update=updateNode)
+    divisions_ = IntProperty(name='divisions', description='divisions',
+                             default=10, min=2,
+                             options={'ANIMATABLE'}, update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Start", "Start")
         self.inputs.new('StringsSocket', "Stop", "Stop")
-        self.inputs.new('StringsSocket', "Step", "Step")
-        self.outputs.new('StringsSocket', "Series", "Series")
+        self.inputs.new('StringsSocket', "Divisions", "Divisons")
+        self.outputs.new('StringsSocket', "Range", "Range")
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "start_", text="start")
         layout.prop(self, "stop_", text="stop")
-        layout.prop(self, "step_", text="step")
+        layout.prop(self, "divisions_", text="divisons")
 
-    def update(self):
+    def process(self):
         # inputs
         if 'Start' in self.inputs and self.inputs['Start'].links:
             tmp = SvGetSocketAnyType(self, self.inputs['Start'])
@@ -64,35 +64,34 @@ class GenSeriesNode(bpy.types.Node, SverchCustomTreeNode):
         else:
             Stop = self.stop_
 
-        if 'Step' in self.inputs and self.inputs['Step'].links:
-            tmp = SvGetSocketAnyType(self, self.inputs['Step'])
-            Step = tmp[0][0]
+        if 'Divisions' in self.inputs and self.inputs['Divisions'].links:
+            tmp = SvGetSocketAnyType(self, self.inputs['Divisions'])
+            Divisions = tmp[0][0]
         else:
-            Step = self.step_
+            Divisions = self.divisions_
 
         # outputs
-        if 'Series' in self.outputs and len(self.outputs['Series'].links) > 0:
-            #print (Start, Stop, Step)
-            if Step < 0:
-                Step = 1
-            if Stop < Start:
-                Stop = Start+1
-            series = [c for c in self.xfrange(Start, Stop, Step)]
+        if 'Range' in self.outputs and self.outputs['Range'].links:
+            if Divisions < 2:
+                Divisions = 2
+            Range = [Start]
+            if Divisions > 2:
+                Range.extend([c for c in self.xfrange(Start, Stop, Divisions)])
+            Range.append(Stop)
+            SvSetSocketAnyType(self, 'Range', [Range])
 
-            SvSetSocketAnyType(self, 'Series', [series])
+    def xfrange(self, start, stop, divisions):
+        step = (stop - start) / (divisions - 1)
+        count = start
+        for i in range(divisions - 2):
+            count += step
+            yield count
 
-    def xfrange(self, start, stop, step):
-        while start < stop:
-            yield start
-            start += step
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():
-    bpy.utils.register_class(GenSeriesNode)
+    bpy.utils.register_class(GenRangeNode)
 
 
 def unregister():
-    bpy.utils.unregister_class(GenSeriesNode)
+    bpy.utils.unregister_class(GenRangeNode)

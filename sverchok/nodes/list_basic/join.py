@@ -18,8 +18,8 @@
 
 import bpy
 from bpy.props import BoolProperty, IntProperty, StringProperty
-from node_tree import SverchCustomTreeNode
-from data_structure import (changable_sockets, joiner, multi_socket,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (changable_sockets, joiner, multi_socket,
                             myZip_2, wrapper_2, updateNode,
                             SvGetSocketAnyType, SvSetSocketAnyType)
 
@@ -47,7 +47,7 @@ class ListJoinNode(bpy.types.Node, SverchCustomTreeNode):
     base_name = 'data '
     multi_socket_type = 'StringsSocket'
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "data", "data")
         self.outputs.new('StringsSocket', 'data', 'data')
 
@@ -65,6 +65,7 @@ class ListJoinNode(bpy.types.Node, SverchCustomTreeNode):
             outputsocketname = ['data']
             changable_sockets(self, inputsocketname, outputsocketname)
 
+    def process(self):
         if 'data' in self.outputs and self.outputs['data'].links:
             slots = []
             for socket in self.inputs:
@@ -88,10 +89,6 @@ class ListJoinNode(bpy.types.Node, SverchCustomTreeNode):
                     result = list_wrap_mix.copy()
 
             SvSetSocketAnyType(self, 'data', result)
-
-    def update_socket(self, context):
-        self.update()
-
 
 def register():
     bpy.utils.register_class(ListJoinNode)

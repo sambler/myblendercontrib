@@ -19,8 +19,8 @@
 from math import degrees
 
 import bpy
-from node_tree import SverchCustomTreeNode
-from data_structure import (Matrix_generate,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (Matrix_generate,
                             Matrix_location, Matrix_scale, Matrix_rotation,
                             SvGetSocketAnyType, SvSetSocketAnyType)
 
@@ -31,14 +31,14 @@ class MatrixOutNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Matrix out'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    def init(self, context):
+    def sv_init(self, context):
         self.outputs.new('VerticesSocket', "Location", "Location")
         self.outputs.new('VerticesSocket', "Scale", "Scale")
         self.outputs.new('VerticesSocket', "Rotation", "Rotation")
         self.outputs.new('StringsSocket', "Angle", "Angle")
         self.inputs.new('MatrixSocket', "Matrix", "Matrix")
 
-    def update(self):
+    def process(self):
         if 'Matrix' in self.inputs and self.inputs['Matrix'].links:
             matrixes_ = SvGetSocketAnyType(self, self.inputs['Matrix'])
             matrixes = Matrix_generate(matrixes_)

@@ -18,9 +18,9 @@
 
 import bpy
 import bmesh
-from node_tree import SverchCustomTreeNode
-from utils.sv_bmesh_utils import bmesh_from_pydata
-from data_structure import (dataCorrect, updateNode,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.utils.sv_bmesh_utils import bmesh_from_pydata
+from sverchok.data_structure import (dataCorrect, updateNode,
                             SvSetSocketAnyType, SvGetSocketAnyType,
                             Vector_generate)
 
@@ -34,12 +34,12 @@ class SvVolumeNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         pass
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Vers', 'Vers')
         self.inputs.new('StringsSocket', "Pols", "Pols")
         self.outputs.new('StringsSocket', "Volume", "Volume")
 
-    def update(self):
+    def process(self):
 
         if self.outputs['Volume'].links and self.inputs['Vers'].links:
             vertices = Vector_generate(dataCorrect(SvGetSocketAnyType(self, self.inputs['Vers'])))

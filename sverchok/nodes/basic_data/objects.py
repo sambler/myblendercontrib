@@ -21,8 +21,8 @@ from ast import literal_eval
 import bpy
 from bpy.props import BoolProperty, StringProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (handle_read, handle_write, handle_delete,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (handle_read, handle_write, handle_delete,
                             SvSetSocketAnyType, updateNode)
 
 
@@ -83,13 +83,16 @@ class ObjectsNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Objects_in'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    #def object_select(self, context):
-        #return [tuple(3 * [ob.name]) for ob in context.scene.objects if ob.type == 'MESH' or ob.type == 'EMPTY']
+    def hide_show_versgroups(self, context):
+        if self.vergroups and not ('Vers_grouped' in self.outputs):
+            self.outputs.new('StringsSocket', "Vers_grouped", "Vers_grouped")
+        elif not self.vergroups and ('Vers_grouped' in self.outputs):
+            self.outputs.remove(self.outputs['Vers_grouped'])
+        
     objects_local = StringProperty(
         name='local objects in', description='objects, binded to current node',
-        default='',
-        update=updateNode)
-    #ObjectProperty = EnumProperty(items = object_select, name = 'ObjectProperty')
+        default='', update=updateNode)
+
     groupname = StringProperty(
         name='groupname', description='group of objects (green outline CTRL+G)',
         default='',
@@ -103,14 +106,14 @@ class ObjectsNode(bpy.types.Node, SverchCustomTreeNode):
         name='Vergroups',
         description='Use vertex groups to nesty insertion',
         default=False,
-        update=updateNode)
+        update=hide_show_versgroups)
     sort = BoolProperty(
         name='sort by name',
         description='sorting inserted objects by names',
         default=True,
         update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.outputs.new('VerticesSocket', "Vertices", "Vertices")
         self.outputs.new('StringsSocket', "Edges", "Edges")
         self.outputs.new('StringsSocket', "Polygons", "Polygons")
@@ -145,25 +148,14 @@ class ObjectsNode(bpy.types.Node, SverchCustomTreeNode):
                 handle_write(self.name+self.id_data.name, literal_eval(self.objects_local))
         else:
             layout.label('--None--')
+        
 
     def update(self):
-        # check for grouping socket
-        if self.vergroups and not ('Vers_grouped' in self.outputs):
-            self.outputs.new('StringsSocket', "Vers_grouped", "Vers_grouped")
-        elif not self.vergroups and ('Vers_grouped' in self.outputs):
-            self.outputs.remove(self.outputs['Vers_grouped'])
-        
+        pass
+            
+    def process(self):
         name = self.name + self.id_data.name
         handle = handle_read(name)
-        #print (handle)
-        if self.objects_local:
-            # bpy.ops.node.sverchok_object_insertion(node_name=self.name, tree_name=self.id_data.name, grup_name=self.groupname)
-            # not updating. need to understand mechanic of update
-            self.use_custom_color = True
-            self.color = (0, 0.5, 0.2)
-        else:
-            self.use_custom_color = True
-            self.color = (0, 0.1, 0.05)
         #reload handle if possible
         if self.objects_local and not handle[0]:
             handle_write(name, literal_eval(self.objects_local))
@@ -188,8 +180,6 @@ class ObjectsNode(bpy.types.Node, SverchCustomTreeNode):
                         mtrx.append(m[:])
 
                 else:
-                    #obj_data = obj.data
-                    # post modifier geometry if ticked
                     scene = bpy.context.scene
                     settings = 'PREVIEW'
                     # create a temporary mesh
@@ -201,14 +191,12 @@ class ObjectsNode(bpy.types.Node, SverchCustomTreeNode):
                         if self.vergroups and v.groups.values():
                             vers_grouped.append(k)
                         vers.append(list(v.co))
-                    #for edg in obj_data.edges:
-                    #    edgs.append([edg.vertices[0], edg.vertices[1]])
                     edgs = obj_data.edge_keys
                     for p in obj_data.polygons:
                         pols.append(list(p.vertices))
                     # remove the temp mesh
                     bpy.data.meshes.remove(obj_data)
-                    #print (vers, edgs, pols, mtrx)
+
                 edgs_out.append(edgs)
                 vers_out.append(vers)
                 vers_out_grouped.append(vers_grouped)
@@ -216,23 +204,20 @@ class ObjectsNode(bpy.types.Node, SverchCustomTreeNode):
                 mtrx_out.append(mtrx)
             if vers_out[0]:
 
-                if 'Vertices' in self.outputs and self.outputs['Vertices'].links:
+                if self.outputs['Vertices'].is_linked:
                     SvSetSocketAnyType(self, 'Vertices', vers_out)
 
-                if 'Edges' in self.outputs and self.outputs['Edges'].links:
+                if self.outputs['Edges'].is_linked:
                     SvSetSocketAnyType(self, 'Edges', edgs_out)
 
-                if 'Polygons' in self.outputs and self.outputs['Polygons'].links:
+                if self.outputs['Polygons'].is_linked:
                     SvSetSocketAnyType(self, 'Polygons', pols_out)
 
-                if 'Vers_grouped' in self.outputs and self.outputs['Vers_grouped'].links:
+                if self.vergroups and self.outputs['Vers_grouped'].is_linked:
                     SvSetSocketAnyType(self, 'Vers_grouped', vers_out_grouped)
 
-            if 'Matrixes' in self.outputs and self.outputs['Matrixes'].links:
+            if self.outputs['Matrixes'].is_linked:
                 SvSetSocketAnyType(self, 'Matrixes', mtrx_out)
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

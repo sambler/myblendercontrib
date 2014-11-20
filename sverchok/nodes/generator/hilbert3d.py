@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import IntProperty, FloatProperty
 import numpy as np
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
 
 
 class Hilbert3dNode(bpy.types.Node, SverchCustomTreeNode):
@@ -36,7 +36,7 @@ class Hilbert3dNode(bpy.types.Node, SverchCustomTreeNode):
                           default=1.0, min=0.1,
                           options={'ANIMATABLE'}, update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Level", "Level").prop_name = 'level_'
         self.inputs.new('StringsSocket', "Size", "Size").prop_name = 'size_'
         self.outputs.new('VerticesSocket', "Vertices", "Vertices")
@@ -45,7 +45,7 @@ class Hilbert3dNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         pass
 
-    def update(self):
+    def process(self):
 
         if not ('Edges' in self.outputs):
             return

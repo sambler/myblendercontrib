@@ -21,8 +21,8 @@ from mathutils import Vector
 import bpy
 from bpy.props import FloatProperty, BoolProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import SvGetSocketAnyType, SvSetSocketAnyType, updateNode, match_long_repeat
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import SvGetSocketAnyType, SvSetSocketAnyType, updateNode, match_long_repeat
 
 
 class SvScaleNode(bpy.types.Node, SverchCustomTreeNode):
@@ -34,12 +34,11 @@ class SvScaleNode(bpy.types.Node, SverchCustomTreeNode):
     factor_ = FloatProperty(name='Factor', description='scaling factor',
                            default=1.0,
                            options={'ANIMATABLE'}, update=updateNode)
-
     Separate = BoolProperty(name='Separate', description='Separate UV coords',
-                            default=False,
-                            update=updateNode)
+                           default=False,
+                           update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', "Vertices", "Vertices")
         self.inputs.new('VerticesSocket', "Center", "Center")
         self.inputs.new('StringsSocket', "Factor", "Factor").prop_name = "factor_"
@@ -66,7 +65,7 @@ class SvScaleNode(bpy.types.Node, SverchCustomTreeNode):
                 scaled.extend(scaled_)
         return scaled
   
-    def update(self):
+    def process(self):
         # inputs
         if 'Vertices' in self.inputs and self.inputs['Vertices'].links:
             Vertices = SvGetSocketAnyType(self, self.inputs['Vertices'])

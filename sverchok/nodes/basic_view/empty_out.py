@@ -20,8 +20,8 @@ import bpy
 from mathutils import Matrix
 from bpy.props import StringProperty, BoolProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import SvGetSocketAnyType, node_id, Matrix_generate
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import SvGetSocketAnyType, node_id, Matrix_generate
 
 
 class SvEmptyOutNode(bpy.types.Node, SverchCustomTreeNode):
@@ -57,7 +57,7 @@ class SvEmptyOutNode(bpy.types.Node, SverchCustomTreeNode):
         self.empty_ref_name = empty.name
         return empty
 
-    def init(self, context):
+    def sv_init(self, context):
         self.create_empty()
         self.inputs.new('MatrixSocket', "Matrix")
 
@@ -90,15 +90,7 @@ class SvEmptyOutNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons_ext(self, context, layout):
         layout.prop(self, "auto_remove")
 
-    def update(self):
-        if not "Matrix" in self.inputs:
-            return
-        # startup safety net
-        try:
-            l = bpy.data.node_groups[self.id_data.name]
-        except:
-            print(self.name, "cannot run during startup, press update.")
-            return
+    def process(self):    
         empty = self.find_empty()
         if not empty:
             empty = self.create_empty()

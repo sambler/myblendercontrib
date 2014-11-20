@@ -19,14 +19,11 @@
 import bpy
 from bpy.props import StringProperty, EnumProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, SvSetSocketAnyType, SvGetSocketAnyType
 
 # Warning, changing this node without modifying the update system might break functionlaity
 # bl_idname and var_name is used by the update system
-
-READY_COLOR = (0.674, 0.242, 0.363)
-FAIL_COLOR =  (0.536, 0.242, 0.674)
 
 
 class WifiOutNode(bpy.types.Node, SverchCustomTreeNode):
@@ -64,7 +61,6 @@ class WifiOutNode(bpy.types.Node, SverchCustomTreeNode):
 
     def reset_var_name(self):
         self.var_name = ""
-        self.color = FAIL_COLOR
         self.outputs.clear()
 
     def draw_buttons(self, context, layout):
@@ -80,9 +76,8 @@ class WifiOutNode(bpy.types.Node, SverchCustomTreeNode):
             op = layout.operator(op_name, text='Link')
             op.fn_name = "set_var_name"
 
-    def init(self, context):
-        self.use_custom_color = True
-        self.color = FAIL_COLOR
+    def sv_init(self, context):
+        pass
 
     def gen_var_name(self):
         #from socket
@@ -100,11 +95,6 @@ class WifiOutNode(bpy.types.Node, SverchCustomTreeNode):
 
         node = wifi_dict.get(self.var_name)
         if node:
-            inputs = node.inputs
-            outputs = self.outputs
-            if any(s.links for s in outputs):
-                self.color = READY_COLOR
-            #node is the wifi node
             inputs = node.inputs
             outputs = self.outputs
 
@@ -131,12 +121,19 @@ class WifiOutNode(bpy.types.Node, SverchCustomTreeNode):
                         s_type = 'StringsSocket'
                     s_name = socket.name
                     outputs.new(s_type, s_name)
+    
+    def process(self):
+        ng = self.id_data
+        wifi_dict = {node.var_name: node
+                     for name, node in ng.nodes.items()
+                     if node.bl_idname == 'WifiInNode'}
 
-            # transfer data
-            for in_socket, out_socket in zip(node.inputs, self.outputs):
-                if in_socket.links and out_socket.links:
-                    data = SvGetSocketAnyType(node, in_socket, deepcopy=False)
-                    SvSetSocketAnyType(self, out_socket.name, data)
+        node = wifi_dict.get(self.var_name)
+        # transfer data
+        for in_socket, out_socket in zip(node.inputs, self.outputs):
+            if in_socket.links and out_socket.links:
+                data = SvGetSocketAnyType(node, in_socket, deepcopy=False)
+                SvSetSocketAnyType(self, out_socket.name, data)
 
 
 def register():

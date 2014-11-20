@@ -23,15 +23,15 @@ from bpy.props import (
 
 from mathutils import Matrix
 
-from node_tree import (
+from sverchok.node_tree import (
     SvColors, SverchCustomTreeNode,
     StringsSocket, VerticesSocket, MatrixSocket)
 
-from data_structure import (
+from sverchok.data_structure import (
     cache_viewer_baker, node_id, updateNode, dataCorrect,
     Vector_generate, Matrix_generate, SvGetSocketAnyType)
 
-from utils.viewer_draw_mk2 import callback_disable, callback_enable
+from sverchok.ui.viewer_draw_mk2 import callback_disable, callback_enable
 # from nodes.basic_view.viewer import SvObjBake
 
 # status colors
@@ -152,7 +152,7 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Viewer Draw2'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    n_id = StringProperty(default='', options={'SKIP_SAVE'})
+    n_id = StringProperty(default='')
 
     activate = BoolProperty(
         name='Show', description='Activate',
@@ -191,10 +191,12 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
 
     display_edges = BoolProperty(
         name="Edges", description="Display edges",
+        default=True,
         update=updateNode)
 
     display_faces = BoolProperty(
         name="Faces", description="Display faces",
+        default=True,
         update=updateNode)
 
     vertex_size = FloatProperty(
@@ -221,11 +223,10 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
         default=False,
         update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'vertices', 'vertices')
         self.inputs.new('StringsSocket', 'edg_pol', 'edg_pol')
         self.inputs.new('MatrixSocket', 'matrix', 'matrix')
-        self.use_custom_color = True
 
     def draw_main_ui_elements(self, context, layout):
         view_icon = 'RESTRICT_VIEW_' + ('OFF' if self.activate else 'ON')
@@ -290,18 +291,18 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
     # reset n_id on duplicate (shift-d)
     def copy(self, node):
         self.n_id = ''
-
+     
     def update(self):
-        if 'matrix' not in self.inputs:
+        if not "matrix" in self.inputs:
             return
-
+        if self.inputs[0].links or self.inputs[2].links:
+            callback_disable(node_id(self))
+         
+    def process(self):
         if not (self.id_data.sv_show and self.activate):
             callback_disable(node_id(self))
             return
 
-        self.process()
-
-    def process(self):
         n_id = node_id(self)
 
         global cache_viewer_baker
@@ -341,11 +342,8 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
                         cache_viewer_baker[matrix_ref] = dataCorrect(propm)
 
         if cache_viewer_baker[vertex_ref] or cache_viewer_baker[matrix_ref]:
-            config_options = self.get_options().copy()
+            config_options = self.get_options()
             callback_enable(n_id, cache_viewer_baker, config_options)
-            self.color = (1, 1, 1)
-        else:
-            self.color = (0.7, 0.7, 0.7)
 
     def get_options(self):
         return {
@@ -363,10 +361,8 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
             'edge_width': self.edge_width,
             'forced_tessellation': self.ngon_tessellate,
             'timings': self.callback_timings
-            }
+            }.copy()
 
-    def update_socket(self, context):
-        self.update()
 
     def free(self):
         global cache_viewer_baker

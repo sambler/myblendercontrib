@@ -21,12 +21,12 @@ from mathutils import Vector
 from bpy.props import (BoolProperty, FloatVectorProperty, StringProperty,
                        FloatProperty, EnumProperty)
 
-from node_tree import SverchCustomTreeNode, MatrixSocket, VerticesSocket, StringsSocket
-from data_structure import (
+from sverchok.node_tree import SverchCustomTreeNode, MatrixSocket, VerticesSocket, StringsSocket
+from sverchok.data_structure import (
     dataCorrect, node_id, updateNode, SvGetSocketAnyType, fullList,
     Vector_generate, Matrix_generate)
 
-from utils import index_viewer_draw as IV
+from sverchok.ui import index_viewer_draw as IV
 
 
 # status colors
@@ -214,7 +214,7 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
     numid_faces_col = make_color_prop("numid_faces", (1.0, .8, .8, 1.0))
     numid_verts_col = make_color_prop("numid_verts", (1, 1, 1, 1.0))
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'vertices', 'vertices')
         self.inputs.new('StringsSocket', 'edges', 'edges')
         self.inputs.new('StringsSocket', 'faces', 'faces')
@@ -227,9 +227,9 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
 
     def draw_buttons(self, context, layout):
         view_icon = 'RESTRICT_VIEW_' + ('OFF' if self.activate else 'ON')
-        
+
         column_all = layout.column()
-        
+
         row = column_all.row(align=True)
         split = row.split()
         r = split.column()
@@ -242,7 +242,6 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
         row.prop(self, "numid_verts_col", text="")
         if self.draw_bg:
             row.prop(self, "bg_verts_col", text="")
-            
 
         row = col.row(align=True)
         row.prop(self, "display_edge_index", toggle=True, icon='EDGESEL', text='')
@@ -255,7 +254,6 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
         row.prop(self, "numid_faces_col", text="")
         if self.draw_bg:
             row.prop(self, "bg_faces_col", text="")
-        
 
         if self.bakebuttonshow:
             col = column_all.column(align=True)
@@ -285,7 +283,7 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
             'display_vert_index': self.display_vert_index,
             'display_edge_index': self.display_edge_index,
             'display_face_index': self.display_face_index
-        }
+        }.copy()
 
     def draw_buttons_ext(self, context, layout):
         row = layout.row(align=True)
@@ -333,13 +331,15 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
         layout.prop(self, 'bakebuttonshow', text='show bake UI')
 
     def update(self):
-        inputs = self.inputs
+        # used because this node should disable itself in certain scenarios
+        # : namely , no inputs.
         n_id = node_id(self)
         IV.callback_disable(n_id)
 
-        # check if UI is populated.
-        if not ('text' in inputs):
-            return
+    def process(self):
+        inputs = self.inputs
+        n_id = node_id(self)
+        IV.callback_disable(n_id)
 
         # end if tree status is set to not show
         if not self.id_data.sv_show:
@@ -347,13 +347,12 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
 
         self.use_custom_color = True
 
-        if self.activate and inputs['vertices'].links:
-            self.process(n_id, IV)
-            self.color = READY_COLOR
-        else:
-            self.color = FAIL_COLOR
+        if not (self.activate and inputs['vertices'].is_linked):
+            return
 
-    def process(self, n_id, IV):
+        self.generate_callback(n_id, IV)
+
+    def generate_callback(self, n_id, IV):
         inputs = self.inputs
         iv_links = inputs['vertices'].links
         im_links = inputs['matrix'].links
@@ -394,10 +393,7 @@ class IndexViewerNode(bpy.types.Node, SverchCustomTreeNode):
         settings = self.get_settings()
         IV.callback_enable(
             n_id, draw_verts, draw_edges, draw_faces,
-            draw_matrix, bg, settings.copy(), text)
-
-    def update_socket(self, context):
-        self.update()
+            draw_matrix, bg, settings, text)
 
     def free(self):
         IV.callback_disable(node_id(self))

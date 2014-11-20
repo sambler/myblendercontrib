@@ -33,10 +33,10 @@ from bpy.props import (
 FAIL_COLOR = (0.8, 0.1, 0.1)
 READY_COLOR = (0, 0.8, 0.95)
 
-from utils.sv_panels_tools import sv_get_local_path
-import utils.script_importhelper
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode , node_id
+from sverchok.utils.sv_panels_tools import sv_get_local_path
+from  sverchok.utils import script_importhelper
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode , node_id
 
 sv_path = os.path.dirname(sv_get_local_path()[0])
 
@@ -57,7 +57,6 @@ class SvDefaultScript2Template(bpy.types.Operator):
         path_to_template = os.path.join(templates_path, self.script_name)
         bpy.ops.text.open(filepath=path_to_template, internal=True)
         return {'FINISHED'}
-
 
 
 socket_types = {
@@ -166,10 +165,14 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         self.use_custom_color = False
     
     def load(self):
+        if not self.script_name in bpy.data.texts:
+            self.script_name = ""
+            self.clear()
+            return
         self.script_str = bpy.data.texts[self.script_name].as_string()
         print("loading...")
         # load in a different namespace using import helper
-        self.script = utils.script_importhelper.load_script(self.script_str, self.script_name)
+        self.script = script_importhelper.load_script(self.script_str, self.script_name)
         if self.script:
             self.use_custom_color = True
             self.color = READY_COLOR
@@ -189,20 +192,42 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
                     
         if hasattr(script, 'update'):
             script.update()
-        
-        self.process()
+ 
     
     def process(self):
         script = self.script
+        
+        if not script:
+            self.load()
+            script = self.script
+            if not script:
+                return
+        
+        if hasattr(script, "process"):
+            script.process()
+        '''
+        # basic sanity. Shouldn't be needed
+
+        if len(script.inputs) != len(self.inputs):
+            return
+        if len(script.outputs) != len(self.outputs):
+            return
+        # check if no default and not linked, return
+     
+        
+        for data, socket in zip(script.inputs, self.inputs): 
+            if len(data) == 2 and not socket.links:
+                return
+
         if not script:
             return
-        script.process()
+        '''
                         
     def copy(self, node):
         self.n_id = ""
         node_id(self)
                 
-    def init(self, context):
+    def sv_init(self, context):
         node_id(self)
         self.color = FAIL_COLOR
     

@@ -21,9 +21,9 @@ import parser
 import mathutils
 from mathutils import Vector
 from bpy.props import StringProperty, BoolProperty, EnumProperty
-from node_tree import SverchCustomTreeNode, StringsSocket, VerticesSocket, \
+from sverchok.node_tree import SverchCustomTreeNode, StringsSocket, VerticesSocket, \
     MatrixSocket
-from data_structure import (updateNode, Vector_generate, SvSetSocketAnyType,
+from sverchok.data_structure import (updateNode, Vector_generate, SvSetSocketAnyType,
                             SvGetSocketAnyType, match_short, match_long_repeat)
 
 
@@ -55,23 +55,20 @@ class SvRayCastNode(bpy.types.Node, SverchCustomTreeNode):
                              update=updateNode)
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, "formula", text="")
+        if self.Modes == 'Object':
+            layout.prop(self, "formula", text="")
         row = layout.row(align=True)
         layout.prop(self, "Modes", "Raycast modes")
         layout.prop(self, "Iteration", "Iteration modes")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'start', 'start')
         self.inputs.new('VerticesSocket', 'end', 'end')
         self.outputs.new('VerticesSocket', "HitP", "HitP")
         self.outputs.new('VerticesSocket', "HitNorm", "HitNorm")
         self.outputs.new('StringsSocket', "INDEX/Succes", "INDEX/Succes")
 
-    def update(self):
-
-        if not ('INDEX/Succes' in self.outputs):
-            return
-
+    def process(self):
         start_links = self.inputs['start'].links
         if not (start_links and (type(start_links[0].from_socket) ==
                 VerticesSocket)):
@@ -82,9 +79,6 @@ class SvRayCastNode(bpy.types.Node, SverchCustomTreeNode):
                 VerticesSocket)):
             return
 
-        self.process()
-
-    def process(self):
 
         SSSAT = SvSetSocketAnyType
         bcsrc = bpy.context.scene.ray_cast

@@ -20,12 +20,12 @@ import bpy
 from bpy.props import FloatProperty
 import bmesh
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (updateNode, Vector_generate, repeat_last,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (updateNode, Vector_generate, repeat_last,
                             SvSetSocketAnyType, SvGetSocketAnyType,
                             fullList)
 
-from utils.sv_bmesh_utils import bmesh_from_pydata
+from sverchok.utils.sv_bmesh_utils import bmesh_from_pydata
 # by Linus Yng
 
 
@@ -73,7 +73,7 @@ class SvSolidifyNode(bpy.types.Node, SverchCustomTreeNode):
                               default=0.1,
                               update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
 
         self.inputs.new('StringsSocket', 'thickness').prop_name = 'thickness'
         self.inputs.new('VerticesSocket', 'vertices', 'vertices')
@@ -84,9 +84,7 @@ class SvSolidifyNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('StringsSocket', 'polygons', 'polygons')
         self.outputs.new('StringsSocket', 'newpols', 'newpols')
 
-    def update(self):
-        if not 'polygons' in self.outputs:
-            return
+    def process(self):
         if not any((s.links for s in self.outputs)):
             return
 

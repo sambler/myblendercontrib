@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import IntProperty, EnumProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (match_short, match_long_cycle, updateNode,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (match_short, match_long_cycle, updateNode,
                             match_long_repeat, match_cross2,
                             SvSetSocketAnyType, SvGetSocketAnyType)
 
@@ -50,7 +50,7 @@ class ListMatchNode(bpy.types.Node, SverchCustomTreeNode):
     mode_final = EnumProperty(default='REPEAT', items=modes,
                               update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', 'Data 0', 'Data 0')
         self.inputs.new('StringsSocket', 'Data 1', 'Data 1')
         self.outputs.new('StringsSocket', 'Data 0', 'Data 0')
@@ -82,12 +82,6 @@ class ListMatchNode(bpy.types.Node, SverchCustomTreeNode):
     def update(self):
         # inputs
         # these functions are in util.py
-        func_dict = {
-            'SHORT': match_short,
-            'CYCLE': match_long_cycle,
-            'REPEAT': match_long_repeat,
-            'XREF': match_cross2
-            }
 
         # socket handling
         if self.inputs[-1].links:
@@ -111,24 +105,31 @@ class ListMatchNode(bpy.types.Node, SverchCustomTreeNode):
                     self.outputs.new(socket.links[0].from_socket.bl_idname, socket.name, socket.name)
                     self.outputs.move(len(self.outputs)-1, idx)
 
+    def process(self):
         # check inputs and that there is at least one output
+        func_dict = {
+            'SHORT': match_short,
+            'CYCLE': match_long_cycle,
+            'REPEAT': match_long_repeat,
+            'XREF': match_cross2
+            }
+        count_inputs = sum(s.is_linked for s in self.inputs)
+        count_outputs = sum(s.is_linked for s in self.outputs)
         if count_inputs == len(self.inputs)-1 and count_outputs:
             out = []
             lsts = []
             # get data
             for socket in self.inputs:
-                if socket.links:
+                if socket.is_linked:
                     lsts.append(SvGetSocketAnyType(self, socket))
-            try:
-                out = self.match(lsts, self.level, func_dict[self.mode], func_dict[self.mode_final])
-            except:
-                print(self.name, " failed")
+            
+            out = self.match(lsts, self.level, func_dict[self.mode], func_dict[self.mode_final])
 
             # output into linked sockets s
             for i, socket in enumerate(self.outputs):
                 if i == len(out):  # never write to last socket
                     break
-                if socket.links:
+                if socket.is_linked:
                     SvSetSocketAnyType(self, socket.name, out[i])
 
 

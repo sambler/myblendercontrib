@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import IntProperty, EnumProperty, FloatProperty, StringProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, match_long_repeat
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, match_long_repeat
 
 
 def frange(start, stop, step):
@@ -114,7 +114,7 @@ class SvGenFloatRange(bpy.types.Node, SverchCustomTreeNode):
 
     mode = EnumProperty(items=modes, default='FRANGE', update=mode_change)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Start").prop_name = 'start_'
         self.inputs.new('StringsSocket', "Step").prop_name = 'stop_'
         self.inputs.new('StringsSocket', "Stop").prop_name = 'step_'
@@ -128,18 +128,15 @@ class SvGenFloatRange(bpy.types.Node, SverchCustomTreeNode):
                  'FRANGE_COUNT': frange_count,
                  'FRANGE_STEP': frange_step}
 
-    def update(self):
+    def process(self):
         inputs = self.inputs
         outputs = self.outputs
-
-        # outputs, end early.
-        if 'Range' not in outputs or not outputs['Range'].links:
+        if not outputs[0].is_linked:
             return
-
         param = [inputs[i].sv_get()[0] for i in range(3)]
         f = self.func_dict[self.mode]
         out = [list(f(*args)) for args in zip(*match_long_repeat(param))]
-        self.outputs['Range'].sv_set(out)
+        outputs['Range'].sv_set(out)
 
 
 def register():

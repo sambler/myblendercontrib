@@ -20,57 +20,18 @@
 import bpy
 from bpy.props import StringProperty, CollectionProperty, BoolProperty
 
-from core.update_system import sverchok_update, build_update_list
-from node_tree import SverchCustomTreeNode
+from sverchok.node_tree import SverchCustomTreeNode
 
 
-# global veriables in tools
-from utils.sv_panels_tools import sv_script_paths, bl_addons_path, \
-                     sv_version_local, sv_version
-
-class ToolsNode(bpy.types.Node, SverchCustomTreeNode):
-    ''' NOT USED '''
-    bl_idname = 'ToolsNode'
-    bl_label = 'Tools node'
-    bl_icon = 'OUTLINER_OB_EMPTY'
-    #bl_height_default = 110
-    #bl_width_min = 20
-    #color = (1,1,1)
-    color_ = bpy.types.ColorRamp
-
-    def init(self, context):
-        pass
-
-    def draw_buttons(self, context, layout):
-        col = layout.column()
-        col.scale_y = 15
-        col.template_color_picker
-        u = "Update "
-        #col.operator(SverchokUpdateAll.bl_idname, text=u)
-        op = col.operator("node.sverchok_update_current", text=u+self.id_data.name)
-        op.node_group = self.id_data.name
-        #box = layout.box()
-
-        # add back if you need
-
-        node_count = len(self.id_data.nodes)
-        tex = str(node_count) + ' | ' + str(self.id_data.name)
-        layout.label(text=tex)
-        #layout.template_color_ramp(self, 'color_', expand=True)
-
-    def update(self):
-        self.use_custom_color = True
-        self.color = (1.0, 0.0, 0.0)
-
-    def update_socket(self, context):
-        pass
+# global variables in tools
+from sverchok.utils import sv_panels_tools 
 
 class Sv3DPanel(bpy.types.Panel):
     ''' Panel to manipuplate parameters in sverchok layouts '''
 
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
-    bl_label = "Sverchok "+sv_version_local
+    bl_label = "Sverchok " + sv_panels_tools.sv_version_local
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = 'SV'
 
@@ -117,10 +78,18 @@ class Sv3DPanel(bpy.types.Panel):
                     split.prop(tree, 'sv_show', icon='RESTRICT_VIEW_ON', text=' ')
                 split = row.column(align=True)
                 split.scale_x = little_width
-                if tree.sv_animate:
-                    split.prop(tree, 'sv_animate', icon='UNLOCKED', text=' ')
-                else:
-                    split.prop(tree, 'sv_animate', icon='LOCKED', text=' ')
+                #if tree.sv_animate:
+                split.prop(tree, 'sv_animate', icon='ANIM', text=' ')
+                #else:
+                #    split.prop(tree, 'sv_animate', icon='LOCKED', text=' ')
+                
+                split = row.column(align=True)
+                split.scale_x = little_width
+                split.prop(tree, "sv_process", toggle=True, text="P")
+                
+                split = row.column(align=True)
+                split.scale_x = little_width
+                split.prop(tree, 'use_fake_user', toggle=True, text='F')
 
                 # veriables
                 if tree.SvShowIn3D:
@@ -153,7 +122,7 @@ class Sv3DPanel(bpy.types.Panel):
 
 class SverchokToolsMenu(bpy.types.Panel):
     bl_idname = "Sverchok_tools_menu"
-    bl_label = "SV "+sv_version_local
+    bl_label = "SV "+sv_panels_tools.sv_version_local
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
     bl_category = 'Sverchok'
@@ -196,7 +165,15 @@ class SverchokToolsMenu(bpy.types.Panel):
         col2 = row.column(align=True)
         col2.scale_x = little_width
         col2.label(icon='ANIM', text=' ')
-        col2.icon
+        
+        col3 = row.column(align=True)
+        col3.scale_x = little_width
+        col3.label(text='P')
+        
+        col3 = row.column(align=True)
+        col3.scale_x = little_width
+        col3.label(text='F')
+            
 
         for name, tree in bpy.data.node_groups.items():
             if tree.bl_idname == 'SverchCustomTreeType':
@@ -222,10 +199,18 @@ class SverchokToolsMenu(bpy.types.Panel):
 
                 split = row.column(align=True)
                 split.scale_x = little_width
-                animate_icon = ('UN' if tree.sv_animate else '') + 'LOCKED'
-                split.prop(tree, 'sv_animate', icon=animate_icon, text=' ')
+                #animate_icon = ('UN' if tree.sv_animate else '') + 'LOCKED'
+                split.prop(tree, 'sv_animate', icon='ANIM', text=' ')
 
-        if bpy.context.scene.sv_new_version:
+                split = row.column(align=True)
+                split.scale_x = little_width
+                split.prop(tree, "sv_process", toggle=True, text="P")
+
+                split = row.column(align=True)
+                split.scale_x = little_width
+                split.prop(tree, 'use_fake_user', toggle=True, text='F')
+
+        if context.scene.sv_new_version:
             row = layout.row()
             row.alert = True
             row.operator(
@@ -234,11 +219,10 @@ class SverchokToolsMenu(bpy.types.Panel):
             layout.row().operator(
                 "node.sverchok_check_for_upgrades", text='Check for new version')
         #       row.prop(tree, 'sv_bake',text=' ')
-
-
+            
+        
 sv_tools_classes = [
     SverchokToolsMenu,
-    ToolsNode,
     Sv3DPanel,
 ]
 

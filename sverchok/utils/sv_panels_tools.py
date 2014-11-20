@@ -23,24 +23,25 @@ import urllib.request
 from zipfile import ZipFile
 import traceback
 import collections
+import ast
+import tempfile
 
 import bpy
 from bpy.props import StringProperty, CollectionProperty, BoolProperty
 
-from core.update_system import sverchok_update, build_update_list
-from node_tree import SverchCustomTreeNode
-
+from sverchok.core.update_system import process_tree, build_update_list
+from sverchok.node_tree import SverchCustomTreeNode
+import sverchok
 
 def sv_get_local_path():
     sv_script_paths = os.path.normpath(os.path.dirname(__file__))
     bl_addons_path = os.path.split(os.path.dirname(sv_script_paths))[0]
-    sv_version = os.path.normpath(os.path.join(sv_script_paths, 'version'))
-    with open(sv_version) as sv_local_file:
-        sv_version_local = next(sv_local_file).strip()
-    return sv_script_paths, bl_addons_path, sv_version_local, sv_version
+    sv_version_local = ".".join(map(str, sverchok.bl_info["version"]))
+    return sv_script_paths, bl_addons_path, sv_version_local
 
-# global veriables in tools
-sv_script_paths, bl_addons_path, sv_version_local, sv_version = sv_get_local_path()
+# global variables in tools
+sv_script_paths, bl_addons_path, sv_version_local = sv_get_local_path()
+
 
 
 
@@ -51,8 +52,11 @@ class SverchokUpdateAll(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        sv_ngs = filter(lambda ng:ng.bl_idname == 'SverchCustomTreeType', bpy.data.node_groups)
+        for ng in sv_ngs:
+            ng.unfreeze(hard=True)
         build_update_list()
-        sverchok_update()
+        process_tree()
         return {'FINISHED'}
 
 
@@ -92,8 +96,9 @@ class SverchokUpdateCurrent(bpy.types.Operator):
     def execute(self, context):
         ng = bpy.data.node_groups.get(self.node_group)
         if ng:
-            build_update_list(tree=ng)
-            sverchok_update(tree=ng)
+            ng.unfreeze(hard=True)
+            build_update_list(ng)
+            process_tree(ng)
         return {'FINISHED'}
 
 
@@ -132,29 +137,34 @@ class SverchokCheckForUpgrades(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-        os.curdir = sv_script_paths
-        os.chdir(os.curdir)
         report = self.report
+        import sverchok
+        version_local = sverchok.bl_info["version"]
         try:
-            with open(sv_version) as sv_local_file:
-                version_local = next(sv_local_file).strip()
-        except:
-            report({'INFO'}, "Failed to read local version")
-            return {'CANCELLED'}
-        try:
-            # here change folder
-            url = 'https://raw.githubusercontent.com/nortikin/sverchok/master/utils/version'
-            version_url = urllib.request.urlopen(url).read().strip().decode()
+            # for testing
+            #url = 'https://raw.githubusercontent.com/nortikin/sverchok/toProcess/__init__.py'
+            # when it is master
+            url = 'https://raw.githubusercontent.com/nortikin/sverchok/master/__init__.py'
+            lines = urllib.request.urlopen(url).readlines()
+            for l in map(str,lines):
+                if '"version"' in l:
+                    version = l[l.find("("):l.find(")")+1]    
+                    break
+            version_url = ast.literal_eval(version) 
         except urllib.error.URLError:
             traceback.print_exc()
             report({'INFO'}, "Unable to contact github, or SSL not compiled.")
             return {'CANCELLED'}
-
+        except Error as e:
+            traceback.print_exc()
+            report({'INFO'}, "Unable to find version info")
+            return {'CANCELLED'}
         if version_local != version_url:
             bpy.context.scene.sv_new_version = True
+            v_str = ".".join(map(str, version_url))
             report({'INFO'}, "New version {0}".format(version_url))
         else:
-            report({'INFO'}, "Your version {0} is last.".format(version_local))
+            report({'INFO'}, "Your version {0} is latest.".format(sv_version_local))
         return {'FINISHED'}
 
 
@@ -170,9 +180,7 @@ class SverchokUpdateAddon(bpy.types.Operator):
         bpy.data.window_managers[0].progress_begin(0, 100)
         bpy.data.window_managers[0].progress_update(20)
         try:
-            # here change folder
             url = 'https://github.com/nortikin/sverchok/archive/master.zip'
-            # here change folder
             to_path = os.path.normpath(os.path.join(os.curdir, 'master.zip'))
             file = urllib.request.urlretrieve(url, to_path)
             bpy.data.window_managers[0].progress_update(50)

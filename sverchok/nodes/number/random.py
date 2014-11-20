@@ -21,8 +21,8 @@ import random
 import bpy
 from bpy.props import IntProperty, FloatProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, match_long_repeat, SvSetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, match_long_repeat, SvSetSocketAnyType
 
 
 class RandomNode(bpy.types.Node, SverchCustomTreeNode):
@@ -33,50 +33,40 @@ class RandomNode(bpy.types.Node, SverchCustomTreeNode):
 
     count_inner = IntProperty(name='Count',
                               default=1, min=1,
-                              options={'ANIMATABLE'}, update=updateNode)
+                               update=updateNode)
     seed = FloatProperty(name='Seed',
                          default=0,
-                         options={'ANIMATABLE'}, update=updateNode)
+                         update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Count").prop_name = 'count_inner'
         self.inputs.new('StringsSocket', "Seed").prop_name = 'seed'
 
         self.outputs.new('StringsSocket', "Random", "Random")
 
-    def draw_buttons(self, context, layout):
-        pass
-        #layout.prop(self, "count_inner", text="Count")
-        #layout.prop(self, "seed", text="Seed")
-
-    def update(self):
-        if 'Random' not in self.outputs:
+    def process(self):
+        if not self.outputs[0].is_linked:
             return
-        # inputs
-        if 'Count' in self.inputs:
-            Coun = self.inputs['Count'].sv_get()[0]
+            
+        Coun = self.inputs['Count'].sv_get()[0]
 
-        if 'Seed' in self.inputs:
-            Seed = self.inputs['Seed'].sv_get()[0]
+        Seed = self.inputs['Seed'].sv_get()[0]
 
         # outputs
 
-        if 'Random' in self.outputs and self.outputs['Random'].links:
-            Random = []
-            if len(Seed) == 1:
-                random.seed(Seed[0])
-                for c in Coun:
-                    Random.append([random.random() for i in range(int(c))])
-            else:
-                param = match_long_repeat([Seed, Coun])
-                for s, c in zip(*param):
-                    random.seed(s)
-                    Random.append([random.random() for i in range(int(c))])
-
-            SvSetSocketAnyType(self, 'Random', Random)
-
-    def update_socket(self, context):
-        self.update()
+        
+        Random = []
+        if len(Seed) == 1:
+            random.seed(Seed[0])
+            for c in Coun:
+                Random.append([random.random() for i in range(int(c))])
+        else:
+            param = match_long_repeat([Seed, Coun])
+            for s, c in zip(*param):
+                random.seed(s)
+                Random.append([random.random() for i in range(int(c))])
+        
+        self.outputs[0].sv_set(Random)
 
 
 def register():

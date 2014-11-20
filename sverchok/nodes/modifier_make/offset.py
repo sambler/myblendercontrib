@@ -20,9 +20,9 @@ import bpy
 from bpy.props import BoolProperty, StringProperty, IntProperty, FloatProperty
 
 import bmesh
-from utils.sv_bmesh_utils import bmesh_from_pydata
-from node_tree import SverchCustomTreeNode
-from data_structure import (changable_sockets, multi_socket,
+from sverchok.utils.sv_bmesh_utils import bmesh_from_pydata
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (changable_sockets, multi_socket,
                             fullList, dataCorrect, updateNode,
                             SvSetSocketAnyType, SvGetSocketAnyType,
                             Vector_generate)
@@ -50,7 +50,7 @@ class SvOffsetNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         pass
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Vers', 'Vers')
         self.inputs.new('StringsSocket', "Pols", "Pols")
         self.inputs.new('StringsSocket', "Offset", "Offset").prop_name = 'offset'
@@ -61,7 +61,7 @@ class SvOffsetNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('StringsSocket', "OutPols", "OutPols")
         self.outputs.new('StringsSocket', "InPols", "InPols")
 
-    def update(self):
+    def process(self):
         
         if self.outputs['Vers'].links and self.inputs['Vers'].links:
                 vertices = Vector_generate(SvGetSocketAnyType(self, self.inputs['Vers']))

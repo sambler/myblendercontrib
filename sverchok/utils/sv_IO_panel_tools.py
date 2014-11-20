@@ -22,6 +22,7 @@ import re
 import zipfile
 import traceback
 
+
 from os.path import basename
 from os.path import dirname
 from itertools import chain
@@ -30,13 +31,16 @@ import bpy
 from bpy.types import EnumProperty
 from bpy.props import StringProperty
 from bpy.props import BoolProperty
-from node_tree import SverchCustomTree
-from node_tree import SverchCustomTreeNode
+from sverchok import old_nodes
 
-
-_EXPORTER_REVISION_ = '0.043 pre alpha'
+_EXPORTER_REVISION_ = '0.054'
 
 '''
+0.054 group support, hash of text files
+0.053 support old_nodes on demand
+0.052 respect selection
+0.051 fake node removed, freeze and unfreeze used instead
+0.05 fake node inserted to stop updates
 0.043 remap dict for duplicates (when importing into existing tree)
 0.042 add fake user to imported layouts + switch to new tree.
 0.04x support for profilenode
@@ -108,14 +112,18 @@ def has_state_switch_protection(node, k):
         return node.bl_idname in {'VectorMathNode'}
 
 
-def create_dict_of_tree(ng):
+def create_dict_of_tree(ng, skip_set={}, selected=False):
     nodes = ng.nodes
     layout_dict = {}
     nodes_dict = {}
+    groups_dict = {}
     texts = bpy.data.texts
-
-    skip_set = {'SvImportExport', 'Sv3DviewPropsNode'}
-
+    if not skip_set:
+        skip_set = {'SvImportExport', 'Sv3DviewPropsNode'}
+        
+    if selected:
+        nodes = list(filter(lambda n:n.select, nodes))
+    
     ''' get nodes and params '''
     for node in nodes:
 
@@ -128,6 +136,8 @@ def create_dict_of_tree(ng):
 
         ObjectsNode = (node.bl_idname == 'ObjectsNode')
         ProfileParamNode = (node.bl_idname == 'SvProfileNode')
+        IsGroupNode = (node.bl_idname == 'SvGroupNode')
+
 
         for k, v in node.items():
 
@@ -150,6 +160,14 @@ def create_dict_of_tree(ng):
             if ProfileParamNode and (k == "filename"):
                 '''add file content to dict'''
                 node_dict['path_file'] = texts[node.filename].as_string()
+            
+            if IsGroupNode and (k == "group_name"):
+                if v not in groups_dict:
+                    group_ng = bpy.data.node_groups[v]
+                    group_dict = create_dict_of_tree(group_ng)
+                    group_json = json.dumps(group_dict)
+                    groups_dict[v] = group_json
+                     
 
             if isinstance(v, (float, int, str)):
                 node_items[k] = v
@@ -171,11 +189,12 @@ def create_dict_of_tree(ng):
         nodes_dict[node.name] = node_dict
 
     layout_dict['nodes'] = nodes_dict
+    layout_dict['groups'] = groups_dict
 
-    ''' get connections '''
-    links = (compile_socket(l) for l in ng.links)
-    connections_dict = {idx: link for idx, link in enumerate(links)}
-    layout_dict['connections'] = connections_dict
+    #''' get connections '''
+    #links = (compile_socket(l) for l in ng.links)
+    #connections_dict = {idx: link for idx, link in enumerate(links)}
+    #layout_dict['connections'] = connections_dict
 
     ''' get framed nodes '''
     framed_nodes = {}
@@ -185,18 +204,28 @@ def create_dict_of_tree(ng):
             continue
 
         if node.parent:
-            framed_nodes[node.name] = node.parent.name
+            if selected and node.parent.select:
+                framed_nodes[node.name] = node.parent.name
+            elif not selected:
+                framed_nodes[node.name] = node.parent.name
+                
     layout_dict['framed_nodes'] = framed_nodes
 
     ''' get update list (cache, order to link) '''
-    # try/except for now, it can occur after f8 that the cache is dumped.
-    # should issue an update if nodetree isn't found in the cache
+    # try/except for now, node tree links might be invalid
+    # among other things. auto rebuild on F8
     try:
+        ng.build_update_list()
         links_out = []
-        for node in chain(*ng.get_update_lists()[0]):
-            for socket in ng.nodes[node].inputs:
+        for name in chain(*ng.get_update_lists()[0]):
+            for socket in ng.nodes[name].inputs:
+                if selected and not ng.nodes[name].select:
+                    continue
                 if socket.links:
-                    links_out.append(compile_socket(socket.links[0]))
+                    link = socket.links[0]
+                    if selected and not link.from_node.select:
+                        continue
+                    links_out.append(compile_socket(link))
         layout_dict['update_lists'] = links_out
     except Exception as err:
         print(traceback.format_exc())
@@ -208,7 +237,7 @@ def create_dict_of_tree(ng):
     return layout_dict
 
 
-def import_tree(ng, fullpath):
+def import_tree(ng, fullpath='', nodes_json=None, create_texts=True):
 
     nodes = ng.nodes
     ng.use_fake_user = True
@@ -224,14 +253,24 @@ def import_tree(ng, fullpath):
 
         ''' first create all nodes. '''
         nodes_to_import = nodes_json['nodes']
+        groups_to_import = nodes_json.get('groups',{})
+        
+        group_name_remap = {}
+        for name in groups_to_import:
+            group_ng = bpy.data.node_groups.new(name, 'SverchGroupTreeType')
+            if group_ng.name != name:
+                group_name_remap[name] = ng.name
+            import_tree(group_ng, '', groups_to_import[name])
+            
         name_remap = {}
         texts = bpy.data.texts
-
+        
         for n in sorted(nodes_to_import):
             node_ref = nodes_to_import[n]
             bl_idname = node_ref['bl_idname']
-
             try:
+                if old_nodes.is_old(bl_idname):
+                    old_nodes.register_old(bl_idname)
                 node = nodes.new(bl_idname)
             except Exception as err:
                 print(traceback.format_exc())
@@ -269,19 +308,29 @@ def import_tree(ng, fullpath):
             Also is a script/profile is used for more than one node it will lead to duplication
             All names have to collected and then fixed at end
             '''
-            if node.bl_idname in ('SvScriptNode', 'SvScriptNodeMK2'):
-                new_text = texts.new(node.script_name)
-                #  there is no gurantee that we get the name we request
-                if new_text.name != node.script_name:
-                    node.script_name = new_text.name
-                new_text.from_string(node.script_str)
-                node.load()
+            if create_texts:
+                if node.bl_idname in ('SvScriptNode', 'SvScriptNodeMK2'):
+                    new_text = texts.new(node.script_name)
+                    #  there is no gurantee that we get the name we request
+                    if new_text.name != node.script_name:
+                        node.script_name = new_text.name
+                    new_text.from_string(node.script_str)
+                    node.load()
 
-            elif node.bl_idname == 'SvProfileNode':
-                new_text = texts.new(node.filename)
-                new_text.from_string(node_ref['path_file'])
-                #  update will get called many times, is this really needed?
-                node.update()
+                elif node.bl_idname == 'SvProfileNode':
+                    new_text = texts.new(node.filename)
+                    new_text.from_string(node_ref['path_file'])
+                    #  update will get called many times, is this really needed?
+                    node.update()
+            '''
+            Nodes that require post processing to work properly
+            '''
+            if node.bl_idname in {'SvGroupInputsNode', 'SvGroupOutputsNode'}:
+                node.load()
+            elif node.bl_idname in {'SvGroupNode'}:
+                node.load()
+                group_name = node.group_name
+                node.group_name = group_name_remap.get(group_name, group_name)
 
         update_lists = nodes_json['update_lists']
         print('update lists:')
@@ -291,7 +340,12 @@ def import_tree(ng, fullpath):
         ''' now connect them '''
 
         # naive
+        # freeze updates while connecting the tree, otherwise
+        # each connection will cause an update event
+        ng.freeze(hard=True)
+        
         failed_connections = []
+        
         for link in update_lists:
             try:
                 ng.links.new(*resolve_socket(*link, name_dict=name_remap))
@@ -311,8 +365,12 @@ def import_tree(ng, fullpath):
         framed_nodes = nodes_json['framed_nodes']
         for node_name, parent in framed_nodes.items():
             ng.nodes[finalize(node_name)].parent = ng.nodes[finalize(parent)]
-
-        bpy.ops.node.sverchok_update_current(node_group=ng.name)
+        
+        old_nodes.scan_for_old(ng)
+        ng.unfreeze(hard=True)
+        ng.update()
+        #bpy.ops.node.sverchok_update_current(node_group=ng.name)
+        
         # bpy.ops.node.select_all(action='DESELECT')
         # ng.update()
         # bpy.ops.node.view_all()
@@ -327,6 +385,9 @@ def import_tree(ng, fullpath):
         with open(fullpath) as fp:
             nodes_json = json.load(fp)
             generate_layout(fullpath, nodes_json)
+    elif nodes_json:
+        generate_layout(fullpath, nodes_json)
+        
 
 
 class SvNodeTreeExporter(bpy.types.Operator):
@@ -432,55 +493,6 @@ class SvNodeTreeImporter(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 
-class SverchokIOLayoutsMenu(bpy.types.Panel):
-    bl_idname = "Sverchok_iolayouts_menu"
-    bl_label = "SV import/export"
-    bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = 'Sverchok'
-    bl_options = {'DEFAULT_CLOSED'}
-    use_pin = True
-
-    @classmethod
-    def poll(cls, context):
-        try:
-            return context.space_data.node_tree.bl_idname == 'SverchCustomTreeType'
-        except:
-            return False
-
-    def draw(self, context):
-        layout = self.layout
-        ntree = context.space_data.node_tree
-        row = layout.row()
-        row.scale_y = 0.5
-        row.label(_EXPORTER_REVISION_)
-
-        ''' export '''
-
-        col = layout.column(align=False)
-        row1 = col.row(align=True)
-        row1.scale_y = 1.4
-        row1.prop(ntree, 'compress_output', text='Zip', toggle=True)
-        imp = row1.operator('node.tree_exporter', text='Export', icon='FILE_BACKUP')
-        imp.id_tree = ntree.name
-        imp.compress = ntree.compress_output
-
-        ''' import '''
-
-        col = layout.column(align=True)
-        row3 = col.row(align=True)
-        row3.scale_y = 1
-        row3.prop(ntree, 'new_nodetree_name', text='')
-        row2 = col.row(align=True)
-        row2.scale_y = 1.2
-        exp1 = row2.operator('node.tree_importer', text='Here', icon='RNA')
-        exp1.id_tree = ntree.name
-
-        exp2 = row2.operator('node.tree_importer', text='New', icon='RNA_ADD')
-        exp2.id_tree = ''
-        exp2.new_nodetree_name = ntree.new_nodetree_name
-
-
 def register():
     bpy.types.SverchCustomTreeType.new_nodetree_name = StringProperty(
         name='new_nodetree_name',
@@ -494,11 +506,9 @@ def register():
 
     bpy.utils.register_class(SvNodeTreeExporter)
     bpy.utils.register_class(SvNodeTreeImporter)
-    bpy.utils.register_class(SverchokIOLayoutsMenu)
 
 
 def unregister():
-    bpy.utils.unregister_class(SverchokIOLayoutsMenu)
     bpy.utils.unregister_class(SvNodeTreeImporter)
     bpy.utils.unregister_class(SvNodeTreeExporter)
     del bpy.types.SverchCustomTreeType.new_nodetree_name

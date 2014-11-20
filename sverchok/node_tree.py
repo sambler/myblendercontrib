@@ -17,19 +17,30 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import time
+
+
 import bpy
 from bpy.props import StringProperty, BoolProperty, FloatVectorProperty, IntProperty
 from bpy.types import NodeTree, NodeSocket, NodeSocketStandard
-from nodeitems_utils import NodeCategory, NodeItem
 
-import data_structure
-from data_structure import (SvGetSocketInfo, SvGetSocket,
-                            SvSetSocket,  updateNode)
-from core.update_system import (build_update_list, sverchok_update,
-                                get_update_lists)
-from core import upgrade_nodes
+from sverchok import data_structure
+from sverchok.data_structure import (SvGetSocketInfo, SvGetSocket,
+                                     SvSetSocket, updateNode,
+                                     get_other_socket, SvNoDataError)
+
+from sverchok.core.update_system import (build_update_list, process_from_node,
+                                         process_tree, get_update_lists)
+from sverchok.ui import color_def
+
+sentinel = object()
 
 
+def process_from_socket(self, context):
+    self.node.process_node(context)
+
+
+# this property group is only used by the old viewer draw
 class SvColors(bpy.types.PropertyGroup):
     """ Class for colors CollectionProperty """
     color = FloatVectorProperty(
@@ -45,11 +56,13 @@ class MatrixSocket(NodeSocket):
     bl_idname = "MatrixSocket"
     bl_label = "Matrix Socket"
     prop_name = StringProperty(default='')
+    
 
-    # beta interface only use for debug, might change
-    def sv_get(self, default=None, deepcopy=False):
-        if self.links and not self.is_output:
+    def sv_get(self, default=sentinel, deepcopy=True):
+        if self.is_linked and not self.is_output:
             return SvGetSocket(self, deepcopy)
+        elif default is sentinel:
+            raise SvNoDataError
         else:
             return default
 
@@ -57,8 +70,6 @@ class MatrixSocket(NodeSocket):
         SvSetSocket(self, data)
 
     def draw(self, context, layout, node, text):
-    #    if not self.is_output and not self.is_linked and self.prop_name:
-    #        layout.prop(node,self.prop_name,expand=False)
         if self.is_linked:
             layout.label(text + '. ' + SvGetSocketInfo(self))
         else:
@@ -70,47 +81,41 @@ class MatrixSocket(NodeSocket):
         else: '''
         return(.2, .8, .8, 1.0)
 
-'''
-class ObjectSocket(NodeSocket):
-        'ObjectSocket'
-        bl_idname = "ObjectSocket"
-        bl_label = "Object Socket"
 
-        ObjectProperty = StringProperty(name= "ObjectProperty", update=updateSlot)
-
-        def draw(self, context, layout, node, text):
-            if self.is_linked:
-                layout.label(text)
-            else:
-                col = layout.column(align=True)
-                row = col.row(align=True)
-                row.prop(self, 'ObjectProperty', text=text)
-
-        def draw_color(self, context, node):
-            return(0.8,0.8,0.2,1.0)
-'''
-
-
-class VerticesSocket(NodeSocketStandard):
+class VerticesSocket(NodeSocket):
     '''String Vertices - one string'''
     bl_idname = "VerticesSocket"
     bl_label = "Vertices Socket"
-    prop_name = StringProperty(default='')
 
-    # beta interface only use for debug, might change
-    def sv_get(self, default=None, deepcopy=False):
-        if self.links and not self.is_output:
+    prop = FloatVectorProperty(default=(0, 0, 0), size=3, update=process_from_socket)
+    prop_name = StringProperty(default='')
+    use_prop = BoolProperty(default=False)
+    
+    
+    def sv_get(self, default=sentinel, deepcopy=True):
+        if self.is_linked and not self.is_output:
             return SvGetSocket(self, deepcopy)
+        if self.prop_name:
+            return [[getattr(self.node, self.prop_name)[:]]]
+        elif self.use_prop:
+            return [[self.prop[:]]]
+        elif default is sentinel:
+            raise SvNoDataError
         else:
             return default
-
+            
     def sv_set(self, data):
         SvSetSocket(self, data)
 
     def draw(self, context, layout, node, text):
-    #    if not self.is_output and not self.is_linked and self.prop_name:
-    #        layout.prop(node,self.prop_name,expand=False)
-        if self.is_linked:
+        if not self.is_output and not self.is_linked:
+            if self.prop_name:
+                layout.template_component_menu(node, self.prop_name, name=self.name)
+            elif self.use_prop:
+                layout.template_component_menu(self, "prop", name=self.name)
+            else:
+                layout.label(text)
+        elif self.is_linked:
             layout.label(text + '. ' + SvGetSocketInfo(self))
         else:
             layout.label(text)
@@ -125,21 +130,22 @@ class StringsSocket(NodeSocketStandard):
     bl_label = "Strings Socket"
 
     prop_name = StringProperty(default='')
-    
+
     prop_type = StringProperty(default='')
     prop_index = IntProperty()
 
-    def sv_get(self, default=None, deepcopy=False):
-        if self.links and not self.is_output:
-            out = SvGetSocket(self, deepcopy)
-            if out:
-                return out
-        if self.prop_name:
+
+    def sv_get(self, default=sentinel, deepcopy=True):
+        if self.is_linked and not self.is_output:
+            return SvGetSocket(self, deepcopy)
+        elif self.prop_name:
             return [[getattr(self.node, self.prop_name)]]
-        if self.prop_type:
+        elif self.prop_type:
             return [[getattr(self.node, self.prop_type)[self.prop_index]]]
-        return default
-        
+        elif default is not sentinel:
+            return default
+        else:
+            raise SvNoDataError
 
     def sv_set(self, data):
         SvSetSocket(self, data)
@@ -172,24 +178,75 @@ class StringsSocket(NodeSocketStandard):
         return(0.6, 1.0, 0.6, 1.0)
 
 
-class SverchCustomTree(NodeTree):
+class SvNodeTreeCommon(object):
+    '''
+    Common methods shared between Sverchok node trees
+    '''
+    def build_update_list(self):
+        build_update_list(self)
+
+    def adjust_reroutes(self):
+
+        reroutes = [n for n in self.nodes if n.bl_idname == 'NodeReroute']
+        if not reroutes:
+            return
+        for n in reroutes:
+            s = n.inputs[0]
+            if s.links:
+                self.freeze(True)
+
+                other = get_other_socket(s)
+                s_type = other.bl_idname
+                if n.outputs[0].bl_idname != s_type:
+                    out_socket = n.outputs.new(s_type, "Output")
+                    in_sockets = [l.to_socket for l in n.outputs[0].links]
+                    n.outputs.remove(n.outputs[0])
+                    for i_s in in_sockets:
+                        l = self.links.new(i_s, out_socket)
+
+                self.unfreeze(True)
+
+    def freeze(self, hard=False):
+        if hard:
+            self["don't update"] = 1
+        elif not self.is_frozen():
+            self["don't update"] = 0
+
+    def is_frozen(self):
+        return "don't update" in self
+
+    def unfreeze(self, hard=False):
+        if self.is_frozen():
+            if hard or self["don't update"] == 0:
+                del self["don't update"]
+
+    def get_update_lists(self):
+        return get_update_lists(self)
+
+
+class SverchCustomTree(NodeTree, SvNodeTreeCommon):
     ''' Sverchok - architectural node programming of geometry in low level '''
     bl_idname = 'SverchCustomTreeType'
     bl_label = 'Sverchok Node Tree'
     bl_icon = 'RNA'
 
     def turn_off_ng(self, context):
-        sverchok_update(tree=self)
-        #should turn off tree. for now it does by updating it
+        process_tree(self)
+
+        #should turn off tree. for now it does by updating it whole
+        # should work something like this
+        # outputs = filter(lambda n: isinstance(n,SvOutput), self.nodes)
+        # for node in outputs:
+        #   node.disable()
 
     sv_animate = BoolProperty(name="Animate", default=True, description='Animate this layout')
-    sv_show = BoolProperty(name="Show", default=True, description='Show this layout', update=turn_off_ng)
+    sv_show = BoolProperty(name="Show", default=True, description='Show this layout',
+                           update=turn_off_ng)
     sv_bake = BoolProperty(name="Bake", default=True, description='Bake this layout')
+    sv_process = BoolProperty(name="Process", default=True, description='Process layout')
     sv_user_colors = StringProperty(default="")
 
     # get update list for debug info, tuple (fulllist,dictofpartiallists)
-    def get_update_lists(self):
-        return get_update_lists(self)
 
     def update(self):
         '''
@@ -201,35 +258,85 @@ class SverchCustomTree(NodeTree):
             l = bpy.data.node_groups[self.id_data.name]
         except:
             return
+        if self.is_frozen():
+            print("Skippiping update of {}".format(self.name))
+            return
 
-        build_update_list(tree=self)
-        sverchok_update(tree=self)
+        self.adjust_reroutes()
+
+        self.build_update_list()
+        if self.sv_process:
+            process_tree(self)
 
     def update_ani(self):
         """
         Updates the Sverchok node tree if animation layers show true. For animation callback
         """
         if self.sv_animate:
-            sverchok_update(tree=self)
+            process_tree(self)
+
+
+class SverchGroupTree(NodeTree, SvNodeTreeCommon):
+    ''' Sverchok - groups '''
+    bl_idname = 'SverchGroupTreeType'
+    bl_label = 'Sverchok Group Node Tree'
+    bl_icon = 'NONE'
+
+    def update(self):
+        try:
+            l = bpy.data.node_groups[self.id_data.name]
+        except:
+            return
+        if self.is_frozen():
+            return
+        self.adjust_reroutes()
+
+    @classmethod
+    def poll(cls, context):
+        return False
 
 
 class SverchCustomTreeNode:
     @classmethod
     def poll(cls, ntree):
-        return ntree.bl_idname == 'SverchCustomTreeType'
-    #def draw_buttons(self, context, layout):
-    #    layout.label('sverchok')
+        return ntree.bl_idname in ['SverchCustomTreeType', 'SverchGroupTreeType']
 
+    def set_color(self):
+        color = color_def.get_color(self.bl_idname)
+        if color:
+            self.use_custom_color = True
+            self.color = color
 
-class SverchNodeCategory(NodeCategory):
-    @classmethod
-    def poll(cls, context):
-        return context.space_data.tree_type == 'SverchCustomTreeType'
+    def init(self, context):
+        ng = self.id_data
+        ng.freeze()
+        # color
+        if hasattr(self, "sv_init"):
+            self.sv_init(context)
+        self.set_color()
+        ng.unfreeze()
+
+    def process_node(self, context):
+        '''
+        Doesn't work as intended, inherited functions can't be used for bpy.props
+        update=
+        Still this is called from updateNode
+        '''
+        if self.id_data.is_frozen():
+            return
+        if data_structure.DEBUG_MODE:
+            a = time.perf_counter()
+            process_from_node(self)
+            b = time.perf_counter()
+            print("Partial update from node", self.name, "in", round(b-a, 4))
+        else:
+            process_from_node(self)
 
 
 def register():
     bpy.utils.register_class(SvColors)
     bpy.utils.register_class(SverchCustomTree)
+    bpy.utils.register_class(SverchGroupTree)
     bpy.utils.register_class(MatrixSocket)
     bpy.utils.register_class(StringsSocket)
     bpy.utils.register_class(VerticesSocket)
@@ -240,10 +347,5 @@ def unregister():
     bpy.utils.unregister_class(StringsSocket)
     bpy.utils.unregister_class(MatrixSocket)
     bpy.utils.unregister_class(SverchCustomTree)
+    bpy.utils.unregister_class(SverchGroupTree)
     bpy.utils.unregister_class(SvColors)
-
-
-
-
-
-

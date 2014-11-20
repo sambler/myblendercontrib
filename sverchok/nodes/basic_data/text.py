@@ -30,8 +30,8 @@ import pprint
 import bpy
 from bpy.props import BoolProperty, EnumProperty, StringProperty
 
-from node_tree import SverchCustomTreeNode, StringsSocket
-from data_structure import (node_id, multi_socket,
+from sverchok.node_tree import SverchCustomTreeNode, StringsSocket
+from sverchok.data_structure import (node_id, multi_socket,
                             updateNode, SvGetSocketAnyType, SvSetSocketAnyType)
 
 
@@ -232,7 +232,7 @@ class SvTextInNode(bpy.types.Node, SverchCustomTreeNode):
         # too work.
         updateNode(self, None)
 
-    def update(self):  # dispatch based on mode
+    def process(self):  # dispatch based on mode
         # startup safety net
         try:
             l = bpy.data.node_groups[self.id_data.name]
@@ -580,7 +580,7 @@ class SvTextOutNode(bpy.types.Node, SverchCustomTreeNode):
     # interesting bug dangerous, will think a bit more
     dump_on_update = BoolProperty(default=False, description="Dump file on every update")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', 'Col 0', 'Col 0')
 
     def draw_buttons(self, context, layout):

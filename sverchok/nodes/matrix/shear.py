@@ -20,8 +20,8 @@ import bpy
 from bpy.props import EnumProperty, FloatProperty
 from mathutils import Matrix
 
-from node_tree import SverchCustomTreeNode, StringsSocket
-from data_structure import (updateNode, fullList, Matrix_listing,
+from sverchok.node_tree import SverchCustomTreeNode, StringsSocket
+from sverchok.data_structure import (updateNode, fullList, Matrix_listing,
                             SvSetSocketAnyType, SvGetSocketAnyType)
 
 
@@ -49,7 +49,7 @@ class MatrixShearNode(bpy.types.Node, SverchCustomTreeNode):
                           default="XY", items=mode_items,
                           update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Factor1").prop_name = 'factor1_'
         self.inputs.new('StringsSocket', "Factor2").prop_name = 'factor2_'
         self.outputs.new('MatrixSocket', "Matrix", "Matrix")
@@ -57,7 +57,7 @@ class MatrixShearNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         layout.prop(self, "plane_", "Shear plane:", expand=True)
 
-    def update(self):
+    def process(self):
         # inputs
         factor1 = []
         factor2 = []

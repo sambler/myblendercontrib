@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import BoolProperty, BoolVectorProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import multi_socket, SvGetSocketAnyType, updateNode
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import multi_socket, SvGetSocketAnyType, updateNode
 
 
 class SvDebugPrintNode(bpy.types.Node, SverchCustomTreeNode):
@@ -42,7 +42,7 @@ class SvDebugPrintNode(bpy.types.Node, SverchCustomTreeNode):
                               default=True,
                               update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         socket = self.inputs.new('StringsSocket', "Data 0")
 
     def draw_buttons(self, context, layout):
@@ -55,23 +55,14 @@ class SvDebugPrintNode(bpy.types.Node, SverchCustomTreeNode):
 
     def update(self):
         multi_socket(self, min=1)
-        
+
+    def process(self):    
         if not self.print_data:
-            return
-        
+            return        
         for i, socket in enumerate(self.inputs):
             if socket.links and self.print_socket[i]:
                 print(SvGetSocketAnyType(self, socket, deepcopy=False))
-        if self.inputs['Data 0'].links:
-            self.use_custom_color = True
-            self.color = (0.5,0.5,1)
-        else:
-            self.use_custom_color = True
-            self.color = (0.05,0.05,0.1)
-    def update_socket(self, context):
-        self.update()
-
-
+       
 def register():
     bpy.utils.register_class(SvDebugPrintNode)
 

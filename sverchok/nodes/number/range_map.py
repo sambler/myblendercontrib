@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import BoolProperty, FloatProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, repeat_last
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, repeat_last
 
 
 class SvMapRangeNode(bpy.types.Node, SverchCustomTreeNode):
@@ -56,7 +56,7 @@ class SvMapRangeNode(bpy.types.Node, SverchCustomTreeNode):
 
     clamp = BoolProperty(default=True, name='Clamp', update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Value").prop_name = 'value'
         self.inputs.new('StringsSocket', "Old Min").prop_name = 'old_min'
         self.inputs.new('StringsSocket', "Old Max").prop_name = 'old_max'
@@ -67,7 +67,7 @@ class SvMapRangeNode(bpy.types.Node, SverchCustomTreeNode):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "clamp")
-
+    
     def map_range(self, x_list, old_min, old_max, new_min, new_max):
         old_d = old_max - old_min
         new_d = new_max - new_min
@@ -81,12 +81,12 @@ class SvMapRangeNode(bpy.types.Node, SverchCustomTreeNode):
         else:
             return [f(x) for x in x_list]
 
-    def update(self):
+    def process(self):
         inputs = self.inputs
         outputs = self.outputs
 
-        # outputs, end early.
-        if 'Value' not in outputs or not outputs['Value'].links:
+        # no outputs, end early.
+        if not outputs['Value'].is_linked:
             return
         value_in = iter(inputs[0].sv_get())
         param = [repeat_last(inputs[i].sv_get()[0]) for i in range(1, 5)]

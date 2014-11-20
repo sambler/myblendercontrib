@@ -28,9 +28,9 @@ from bpy.props import BoolProperty, StringProperty, EnumProperty, FloatVectorPro
 from mathutils import Vector
 from mathutils.geometry import interpolate_bezier
 
-from utils.sv_curve_utils import Arc
-from node_tree import SverchCustomTreeNode
-from data_structure import fullList, updateNode, dataCorrect, SvSetSocketAnyType, SvGetSocketAnyType
+from sverchok.utils.sv_curve_utils import Arc
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import fullList, updateNode, dataCorrect, SvSetSocketAnyType, SvGetSocketAnyType
 
 
 idx_map = {i: j for i, j in enumerate(ascii_lowercase)}
@@ -487,7 +487,7 @@ class SvProfileNode(bpy.types.Node, SverchCustomTreeNode):
         row = layout.row(align=True)
         row.prop(self, "extended_parsing", text="extended parsing")
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "a", "a")
         self.inputs.new('StringsSocket', "b", "b")
 
@@ -531,10 +531,6 @@ class SvProfileNode(bpy.types.Node, SverchCustomTreeNode):
         self.adjust_inputs()
 
         # 0 == verts, this is a minimum requirement.
-        if not self.outputs[0].links:
-            return
-
-        self.process()
 
     def homogenize_input(self, segments, longest):
         '''
@@ -550,6 +546,7 @@ class SvProfileNode(bpy.types.Node, SverchCustomTreeNode):
         - if socket has no links, then return fallback value
         - s_name can be an index instead of socket name
         '''
+        
         inputs = self.inputs
         if inputs[s_name].links:
             socket_in = SvGetSocketAnyType(self, inputs[s_name])
@@ -584,6 +581,9 @@ class SvProfileNode(bpy.types.Node, SverchCustomTreeNode):
         return segments, longest
 
     def process(self):
+        if not self.outputs[0].links:
+            return
+
         segments, longest = self.get_input()
 
         if longest < 1:

@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import FloatProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (updateNode, Vector_generate, Vector_degenerate,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (updateNode, Vector_generate, Vector_degenerate,
                             SvSetSocketAnyType, SvGetSocketAnyType)
 
 # "coauthor": "Alessandro Zomparelli (sketchesofcode)"
@@ -37,7 +37,7 @@ class AdaptivePolsNode(bpy.types.Node, SverchCustomTreeNode):
                                default=1.0, max=3.0, min=0.5,
                                update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', "VersR", "VersR")
         self.inputs.new('StringsSocket', "PolsR", "PolsR")
         self.inputs.new('VerticesSocket', "VersD", "VersD")
@@ -66,7 +66,7 @@ class AdaptivePolsNode(bpy.types.Node, SverchCustomTreeNode):
         #print (loc, nor, v[2], z)
         return loc + nor*v[2]*z
 
-    def update(self):
+    def process(self):
         # достаём два слота - вершины и полики
         if 'Vertices' in self.outputs and self.outputs['Vertices'].links:
             if (self.inputs['PolsR'].links

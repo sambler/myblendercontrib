@@ -20,8 +20,8 @@ from ast import literal_eval
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
-from node_tree import SverchCustomTreeNode
-from data_structure import (changable_sockets, preobrazovatel, updateNode,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (changable_sockets, preobrazovatel, updateNode,
                             SvSetSocketAnyType, SvGetSocketAnyType)
 
 
@@ -40,7 +40,7 @@ class ListLevelsNode(bpy.types.Node, SverchCustomTreeNode):
     newsock = BoolProperty(name='newsock',
                            default=False)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', 'data', 'data')
         self.outputs.new('StringsSocket', 'data', 'data')
 
@@ -52,14 +52,12 @@ class ListLevelsNode(bpy.types.Node, SverchCustomTreeNode):
             inputsocketname = 'data'
             outputsocketname = ['data', ]
             changable_sockets(self, inputsocketname, outputsocketname)
-
-            if 'data' in self.outputs and len(self.outputs['data'].links) > 0:
-                data = SvGetSocketAnyType(self, self.inputs['data'])
-                userlevelb = literal_eval('['+self.Sverch_LisLev+']')
-                SvSetSocketAnyType(self, 'data', preobrazovatel(data, userlevelb))
-
-    def update_socket(self, context):
-        self.update()
+    
+    def process(self):
+        if self.outputs['data'].is_linked:
+            data = SvGetSocketAnyType(self, self.inputs['data'])
+            userlevelb = literal_eval('['+self.Sverch_LisLev+']')
+            SvSetSocketAnyType(self, 'data', preobrazovatel(data, userlevelb))
 
 
 def register():

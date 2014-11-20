@@ -20,8 +20,8 @@ import bpy
 from bpy.props import (EnumProperty, FloatVectorProperty,
                        IntProperty, IntVectorProperty)
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, SvSetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, SvSetSocketAnyType
 
 
 class SvListInputNode(bpy.types.Node, SverchCustomTreeNode):
@@ -68,7 +68,7 @@ class SvListInputNode(bpy.types.Node, SverchCustomTreeNode):
                         default='int_list',
                         update=changeMode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.outputs.new('StringsSocket', "List", "List")
 
     def draw_buttons(self, context, layout):
@@ -90,21 +90,17 @@ class SvListInputNode(bpy.types.Node, SverchCustomTreeNode):
             for i in range(self.int_):
                 col.prop(self, self.mode, index=i, text=str(i))
 
-    def update(self):
-        if any((n in self.outputs for n in ['List', 'Vector List'])) and self.outputs[0].links:
+    def process(self):
+        if self.outputs[0].is_linked:
             if self.mode == 'int_list':
-                SvSetSocketAnyType(self, "List", [list(self.int_list[:self.int_])])
+                data = [list(self.int_list[:self.int_])]
             elif self.mode == 'float_list':
-                SvSetSocketAnyType(self, "List", [list(self.float_list[:self.int_])])
+                data = [list(self.float_list[:self.int_])]
             elif self.mode == 'vector':
                 c = self.v_int*3
                 v_l = list(self.vector_list)
-                out = list(zip(v_l[0:c:3], v_l[1:c:3], v_l[2:c:3]))
-                SvSetSocketAnyType(self, "Vector List", [out])
-
-    def update_socket(self, context):
-        self.update()
-
+                data = [list(zip(v_l[0:c:3], v_l[1:c:3], v_l[2:c:3]))]
+            self.outputs[0].sv_set(data)
 
 def register():
     bpy.utils.register_class(SvListInputNode)

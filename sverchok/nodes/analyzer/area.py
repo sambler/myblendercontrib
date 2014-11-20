@@ -23,8 +23,8 @@ from mathutils import Vector, Matrix
 import bpy
 from bpy.props import BoolProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode
 
 
 # unit normal vector of plane defined by points a, b, and c
@@ -90,7 +90,7 @@ class AreaNode(bpy.types.Node, SverchCustomTreeNode):
                             default=True,
                             update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', "Vertices", "Vertices")
         self.inputs.new('StringsSocket', "Polygons", "Polygons")
         self.outputs.new('StringsSocket', "Area", "Area")
@@ -98,7 +98,7 @@ class AreaNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         layout.prop(self, "per_face", text="Count faces")
 
-    def update(self):
+    def process(self):
         # inputs
         inputs = self.inputs
         outputs = self.outputs
@@ -113,8 +113,6 @@ class AreaNode(bpy.types.Node, SverchCustomTreeNode):
         if outputs['Area'].links:
             outputs['Area'].sv_set([areas(Vertices, Polygons, self.per_face)])
 
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

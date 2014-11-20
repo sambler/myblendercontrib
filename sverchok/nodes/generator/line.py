@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import IntProperty, FloatProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, fullList, match_long_repeat
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, fullList, match_long_repeat
 
 from mathutils import Vector
 
@@ -56,7 +56,7 @@ class LineNode(bpy.types.Node, SverchCustomTreeNode):
                           default=1.0, options={'ANIMATABLE'},
                           update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Nº Vertices").prop_name = 'int_'
         self.inputs.new('StringsSocket', "Step").prop_name = 'step_'
 
@@ -66,7 +66,7 @@ class LineNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         pass
 
-    def update(self):
+    def process(self):
         inputs = self.inputs
         outputs = self.outputs
 
@@ -85,9 +85,6 @@ class LineNode(bpy.types.Node, SverchCustomTreeNode):
 
         if outputs['Edges'].links:
             outputs['Edges'].sv_set(out[1])
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

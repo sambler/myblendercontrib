@@ -22,7 +22,21 @@ import time
 import bpy
 from mathutils import Vector
 
-import data_structure
+from sverchok import data_structure
+from sverchok.data_structure import SvNoDataError
+import sverchok
+
+import traceback
+import ast
+
+no_data_color = (1, 0.3, 0)
+exception_color = (0.8, 0.0, 0)
+
+def update_error_colors(self, context):
+    global no_data_color
+    global exception_color
+    no_data_color = self.no_data_color[:]
+    exception_color = self.exception_color[:]
 
 # cache node group update trees
 update_cache = {}
@@ -30,31 +44,40 @@ update_cache = {}
 partial_update_cache = {}
 
 
-def make_dep_dict(node_tree):
+def make_dep_dict(node_tree, down=False):
     """
     Create a dependency dictionary for node group.
     """
     ng = node_tree
-    deps = {name: set() for name in ng.nodes.keys()}
-    for link in ng.links:
-        if not link.is_valid:
-            return []  # this happens more often than one might think
-        deps[link.to_node.name].add(link.from_node.name)
-
+    
+    deps = collections.defaultdict(set)
+   
     # create wifi out dependencies, process if needed
+   
     wifi_out_nodes = [(name, node.var_name)
-                      for name, node in ng.nodes.items()
-                      if node.bl_idname == 'WifiOutNode' and node.outputs]
+                  for name, node in ng.nodes.items()
+                  if node.bl_idname == 'WifiOutNode' and node.outputs]
     if wifi_out_nodes:
         wifi_dict = {node.var_name: name
                      for name, node in ng.nodes.items()
                      if node.bl_idname == 'WifiInNode'}
-        for name, var_name in wifi_out_nodes:
-            if var_name not in wifi_dict:
-                print("Unsatisifed Wifi dependency: node, {0} var,{1}".format(name, var_name))
-                return []
-            deps[name].add(wifi_dict[var_name])
+        
+    for link in ng.links:
+        if not link.is_valid:
+            return collections.defaultdict(set)  # this happens more often than one might think
+        key, value = (link.from_node.name, link.to_node.name) if down else (link.to_node.name, link.from_node.name) 
+        deps[key].add(value)
 
+    for name, var_name in wifi_out_nodes:
+        other = wifi_dict.get(var_name)
+        if not other:
+            print("Unsatisifed Wifi dependency: node, {0} var,{1}".format(name, var_name))
+            return collections.defaultdict(set)
+        if down:
+            deps[other].add(name)
+        else:
+            deps[name].add(other)
+    
     return deps
 
 
@@ -71,7 +94,7 @@ def make_update_list(node_tree, node_set=None, dependencies=None):
         node_set = set(ng.nodes.keys())
     if len(node_set) == 1:
         return list(node_set)
-    if node_set:
+    if node_set:  # get one name
         name = node_set.pop()
         node_set.add(name)
     else:
@@ -120,40 +143,20 @@ def separate_nodes(ng, links=None):
     Arguments: Node group
     Returns: A list of sets with separate node groups
     '''
-    node_links = {name: set() for name in ng.nodes.keys()}
     nodes = set(ng.nodes.keys())
     if not nodes:
         return []
-    for link in ng.links:
-        if not link.is_valid:
-            return []
-        f_name = link.from_node.name
-        t_name = link.to_node.name
-        node_links[f_name].add(t_name)
-        node_links[t_name].add(f_name)
-
-    wifi_out_nodes = [(name, node.var_name)
-                      for name, node in ng.nodes.items()
-                      if node.bl_idname == 'WifiOutNode' and node.outputs]
-    if wifi_out_nodes:
-        wifi_dict = {node.var_name: name
-                     for name, node in ng.nodes.items()
-                     if node.bl_idname == 'WifiInNode'}
-        for name, var_name in wifi_out_nodes:
-            in_name = wifi_dict.get(var_name)
-            if not in_name:
-                print("Unsatisifed Wifi dependency: node, {0} var,{1}".format(name, var_name))
-                return []
-            node_links[name].add(in_name)
-            node_links[in_name].add(name)
-
+    node_links = make_dep_dict(ng)
+    down = make_dep_dict(ng, down=True)
+    for name, links in down.items():
+        node_links[name].update(links) 
     n = nodes.pop()
     node_set_list = [set([n])]
     node_stack = collections.deque()
     # find separate sets
     node_stack_append = node_stack.append
     node_stack_pop = node_stack.pop
-
+    
     while nodes:
         for node in node_links[n]:
             if node not in node_set_list[-1]:
@@ -166,15 +169,19 @@ def separate_nodes(ng, links=None):
                 n = node_stack_pop()
             nodes.discard(n)
             node_set_list[-1].add(n)
-
-    return [node for node in node_set_list if len(node) > 1]
-
-
-def make_tree_from_nodes(node_names, tree):
     """
-    Create a partial update list from a sub-tree, node_names is a list of node that
+    if ng.bl_idname == "SverchCustomTreeType":
+        skip_types = {"SvGroupInputsNode", "SvGroupOutputsNode"}
+        skip_nodes = {n.name for n in ng.nodes if n.bl_idname in skip_types}
+        if skip_nodes:
+            node_set_list = filter(lambda ns:ns.isdisjoint(skip_nodes), node_set_list)
+    """    
+    return [ns for ns in node_set_list if len(ns) > 1]
+
+def make_tree_from_nodes(node_names, tree, down=True):
+    """
+    Create a partial update list from a sub-tree, node_names is a list of nodes that
     drives change for the tree
-    Only nodes downtree from node_name are updated
     """
     ng = tree
     nodes = ng.nodes
@@ -188,26 +195,7 @@ def make_tree_from_nodes(node_names, tree):
     current_node = out_stack.pop()
 
     # build downwards links, this should be cached perhaps
-    node_links = {name: set() for name in nodes.keys()}
-    for link in ng.links:
-        if not link.is_valid:
-            return []
-        node_links[link.from_node.name].add(link.to_node.name)
-
-    wifi_out_nodes = [(name, node.var_name)
-                      for name, node in nodes.items()
-                      if node.bl_idname == 'WifiOutNode' and node.outputs]
-    if wifi_out_nodes:
-        wifi_dict = {node.var_name: name
-                     for name, node in nodes.items()
-                     if node.bl_idname == 'WifiInNode'}
-        for name, var_name in wifi_out_nodes:
-            in_name = wifi_dict.get(var_name)
-            if not in_name:
-                print("Unsatisifed Wifi dependency: node, {0} var,{1}".format(name, var_name))
-                return []
-            node_links[in_name].add(name)
-
+    node_links = make_dep_dict(ng, down)
     while current_node:
         for node in node_links[current_node]:
             if node not in out_set:
@@ -218,14 +206,22 @@ def make_tree_from_nodes(node_names, tree):
         else:
             current_node = ''
 
-    return make_update_list(ng, out_set)
+    if len(out_set) == 1:
+        return list(out_set)
+    else:
+        return make_update_list(ng, out_set)
 
 
 # to make update tree based on node types and node names bases
 # no used yet
 # should add a check do find animated or driven nodes.
+# needs some updates
 
 def make_animation_tree(node_types, node_list, tree_name):
+    """
+    Create update list for specific purposes depending on which nodes are dynamic
+    node_types 
+    """
     global update_cache
     ng = bpy.data.node_groups[tree_name]
     node_set = set(node_list)
@@ -235,55 +231,18 @@ def make_animation_tree(node_types, node_list, tree_name):
     return a_tree
 
 
-def build_update_list(tree=None):
-    """
-    Makes a complete update list for the tree,
-    If tree is not passed
-    """
-    global update_cache
-    global partial_update_cache
-    # clear cache on every full update
-
-    if tree is not None:
-        tree_list = [(tree.name, tree)]
-    else:
-        tree_list = bpy.data.node_groups.items()
-
-    for name, ng in tree_list:
-        if ng.bl_idname == 'SverchCustomTreeType':
-            node_sets = separate_nodes(ng)
-            deps = make_dep_dict(ng)
-            out = [make_update_list(ng, s, deps) for s in node_sets]
-            update_cache[name] = out
-            partial_update_cache[name] = {}
-            data_structure.reset_socket_cache(ng)
-
-
 def do_update_heat_map(node_list, nodes):
     """
-    Create a heat map for the node tree, under development.
+    Create a heat map for the node tree, 
+    Needs development.
     """
-    global DEBUG_MODE
-    times = []
-    total_test = 0
-    node_list = list(node_list)
-    for name in node_list:
-        if name in nodes:
-            start = time.perf_counter()
-            nodes[name].update()
-            delta = time.perf_counter()-start
-            total_test += delta
-            if data_structure.DEBUG_MODE:
-                print("Updated  {0} in: {1}".format(name, round(delta, 4)))
-            times.append(delta)
-    if data_structure.DEBUG_MODE:
-        print("Layout updated in: {0} seconds".format(round(total_test, 4)))
-    if not times:
-        return
     if not nodes.id_data.sv_user_colors:
         color_data = {node.name: (node.color[:], node.use_custom_color) for node in nodes}
         nodes.id_data.sv_user_colors = str(color_data)
 
+    times = do_update_general(node_list, nodes)
+    if not times:
+        return
     t_max = max(times)
     addon_name = data_structure.SVERCHOK_NAME
     addon = bpy.context.user_preferences.addons.get(addon_name)
@@ -300,97 +259,164 @@ def do_update_heat_map(node_list, nodes):
         # linear scale.
         nodes[name].color = cold.lerp(hot, t / t_max)
 
+def update_error_nodes(ng, name, err):
+    if "error nodes" in ng:
+        error_nodes = ast.literal_eval(ng["error nodes"])
+    else:
+        error_nodes = {}
+    node = ng.nodes.get(name)
+    if not node:
+        return
+    error_nodes[name] = (node.use_custom_color, node.color[:])
+    ng["error nodes"] = str(error_nodes)
 
-def do_update_debug(node_list, nods):
+    if isinstance(err, SvNoDataError):
+        node.color = no_data_color
+    else:
+        node.color = exception_color
+    node.use_custom_color=True
+
+def reset_error_nodes(ng):
+    if "error nodes" in ng:
+        error_nodes = ast.literal_eval(ng["error nodes"])
+        for name, data in error_nodes.items():
+            node = ng.nodes.get(name)
+            if node:
+                node.use_custom_color = data[0]
+                node.color = data[1]
+        del ng["error nodes"]
+
+def do_update_general(node_list, nodes, procesed_nodes=set()):
     """
-    Debug update, under development
+    General update function for node set
     """
     timings = []
-    total_test = 0
-    for nod_name in node_list:
-        if nod_name in nods:
-            delta = None
-            #try:
+    total_time = 0
+    done_nodes = set(procesed_nodes)
+    
+    for node_name in node_list:
+        if node_name in done_nodes:
+            continue
+        try:
+            node = nodes[node_name]
             start = time.perf_counter()
-            nods[nod_name].update()
+            if hasattr(node, "process"):
+                node.process()
             delta = time.perf_counter()-start
-            #except Exception as e:
-            #    nods[nod_name].color=(.9,0,0)
-            #    nods[nod_name].use_custom_color=True
-            #    print("Node {0} had exception {1}".format(nod_name,e))
-            if delta:
-                total_test += delta
-                print("Updated  {0} in: {1}".format(nod_name, round(delta, 4)))
-                timings.append((nod_name, delta)) # why we need it?
+            total_time += delta
+            if data_structure.DEBUG_MODE:
+                print("Processed  {} in: {:.4f}".format(node_name, delta))
+            timings.append(delta)
+
+        except Exception as err:
+            ng = nodes.id_data
+            update_error_nodes(ng, node_name, err)
+            traceback.print_tb(err.__traceback__)
+            print("Node {0} had exception {1}".format(node_name, err))
+            return None
+
     if data_structure.DEBUG_MODE:
-        print("Layout updated in: {0} seconds".format(round(total_test, 4)))
+        print("Node set updated in: {:.4f} seconds".format(total_time))
+    return timings
 
+def do_update(node_list, nodes):
+    if data_structure.HEAT_MAP:
+        do_update_heat_map(node_list, nodes)
+    else:
+        do_update_general(node_list, nodes)
 
-def sverchok_update(start_node=None, tree=None, animation_mode=False):
+def build_update_list(ng=None):
     """
-    Sverchok master update function.
-    Update from a given node, or a complete layout.
+    Makes a complete update list for the tree,
+    If tree is not passed, all sverchok custom tree
+    are processced
     """
     global update_cache
     global partial_update_cache
-
-    def do_update(node_list, nods):
-        for nod_name in node_list:
-            if nod_name in nods:
-                nods[nod_name].update()
-
-    # first update event after a reload, apply sverchok startup
-    if data_structure.RELOAD_EVENT:
-        data_structure.RELOAD_EVENT = False
-        from core import handlers
-        handlers.sv_post_load([])
-        return
-    if data_structure.DEBUG_MODE:
-        do_update = do_update_debug
-    if data_structure.HEAT_MAP:
-        do_update = do_update_heat_map
-    
-
-    # try to update optimized animation trees, not ready
-    if animation_mode:
-        pass
-    # start from the mentioned node the which has had changed property,
-    # called from updateNode
-    if start_node:
-        tree = start_node.id_data
-        if tree.name in update_cache and update_cache[tree.name]:
-            update_list = None
-            p_u_c = partial_update_cache.get(tree.name)
-            if p_u_c:
-                update_list = p_u_c.get(start_node.name)
-            if not update_list:
-                update_list = make_tree_from_nodes([start_node.name], tree)
-                partial_update_cache[tree.name][start_node.name] = update_list
-            nods = tree.nodes
-            do_update(update_list, nods)
-            return
-        else:
-            build_update_list(tree)
-            update_list = update_cache[tree.name]
-            for l in update_list:
-                do_update(l, tree.nodes)
-            return
-    # draw the complete named tree, called from SverchokCustomTreeNode
-    if tree:
-        node_groups = [(tree.name, tree)]
+    if not ng:
+        for ng in sverchok_trees():
+            build_update_list(ng)
     else:
-        node_groups = bpy.data.node_groups.items()
+        node_sets = separate_nodes(ng)
+        deps = make_dep_dict(ng)
+        out = [make_update_list(ng, s, deps) for s in node_sets]
+        update_cache[ng.name] = out
+        partial_update_cache[ng.name] = {}
+        data_structure.reset_socket_cache(ng)
 
-    # update all node trees
-    for name, ng in node_groups:
-        if ng.bl_idname == 'SverchCustomTreeType':
-            update_list = update_cache.get(name)
-            if not update_list:
-                build_update_list(ng)
-                update_list = update_cache.get(name)
-            for l in update_list:
-                do_update(l, ng.nodes)
 
+def process_to_node(node):
+    """
+    Process nodes upstream until node
+    """
+    ng = node.id_data
+    reset_error_nodes(ng)
+
+    if data_structure.RELOAD_EVENT:
+        reload_sverchok()
+        return
+    
+    update_list = make_tree_from_nodes([node.name], ng, down=False)
+    do_update(update_list, ng.nodes)
+    
+def process_from_node(node):
+    """
+    Process downstream from a given node
+    """
+    global update_cache
+    global partial_update_cache
+    ng = node.id_data
+    reset_error_nodes(ng)
+
+    if data_structure.RELOAD_EVENT:
+        reload_sverchok()
+        return
+    if update_cache.get(ng.name):
+        p_u_c = partial_update_cache.get(ng.name)
+        update_list = None
+        if p_u_c:
+            update_list = p_u_c.get(node.name)
+        if not update_list:
+            update_list = make_tree_from_nodes([node.name], ng)
+            partial_update_cache[ng.name][node.name] = update_list
+        nodes = ng.nodes
+        if not ng.sv_process:
+            return
+        do_update(update_list, nodes)
+    else:
+        process_tree(ng)
+
+def sverchok_trees():
+    for ng in bpy.data.node_groups:
+        if ng.bl_idname == "SverchCustomTreeType":
+            yield ng
+    
+def process_tree(ng=None):
+    global update_cache
+    global partial_update_cache
+
+    if data_structure.RELOAD_EVENT:
+        reload_sverchok()
+        return
+    if not ng:
+        for ng in sverchok_trees():
+            process_tree(ng)
+    elif ng.bl_idname == "SverchCustomTreeType" and ng.sv_process:
+        update_list = update_cache.get(ng.name)
+        reset_error_nodes(ng)
+        if not update_list:
+            build_update_list(ng)
+            update_list = update_cache.get(ng.name)
+        for l in update_list:
+            do_update(l, ng.nodes)
+    else:
+        pass
+        
+        
+def reload_sverchok():
+    data_structure.RELOAD_EVENT = False
+    from sverchok.core import handlers
+    handlers.sv_post_load([])    
 
 def get_update_lists(ng):
     """
@@ -399,5 +425,12 @@ def get_update_lists(ng):
     """
     global update_cache
     global partial_update_cache
-    return (update_cache[ng.name], partial_update_cache[ng.name])
-
+    if not ng.name in update_cache:
+        build_update_list(ng)
+    return (update_cache.get(ng.name), partial_update_cache.get(ng.name))
+    
+def register():
+    addon_name = sverchok.__name__
+    addon = bpy.context.user_preferences.addons.get(addon_name)
+    if addon:
+        update_error_colors(addon.preferences, [])

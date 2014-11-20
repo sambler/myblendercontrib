@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import IntProperty, StringProperty, BoolProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (SvSetSocketAnyType, SvGetSocketAnyType,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (SvSetSocketAnyType, SvGetSocketAnyType,
                             get_other_socket, updateNode)
 
 
@@ -54,7 +54,7 @@ class SvSwitchNode(bpy.types.Node, SverchCustomTreeNode):
     switch_count = IntProperty(name="count", min=1, 
                                max=10, default=1, update=change_count)
         
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new("StringsSocket", "State").prop_name = 'switch_state'
         self.inputs.new("StringsSocket", "T 0")
         self.inputs.new("StringsSocket", "F 0")
@@ -76,13 +76,21 @@ class SvSwitchNode(bpy.types.Node, SverchCustomTreeNode):
                     self.outputs.new(other.bl_idname, name)
                     self.outputs.move(len(self.outputs)-1, i-1) 
                 count = i
+    
+    def process(self):
         state = self.inputs[0].sv_get()[0][0]
+        count = self.switch_count
         if state:
             sockets = self.inputs[1:count + 1]
         else:
             sockets = self.inputs[1 + count:]
+        '''
+        dep_sockets = [get_other_socket(in_s) for in_s,out_s in zip(sockets, self.outputs) if out_s.is_linked]
+        ul = make_tree_from_nodes([s.node.name for s in dep_sockets], self.id_data, True)
+        do_update(ul, self.id_data.nodes)
+        '''
         for in_s,out_s in zip(sockets, self.outputs):
-            if in_s.links and out_s.links:
+            if out_s.is_linked:
                 data = in_s.sv_get(deepcopy=False)
                 out_s.sv_set(data)
             

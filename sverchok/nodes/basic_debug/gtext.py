@@ -23,8 +23,8 @@ import bpy
 from bpy.props import IntProperty, IntVectorProperty, StringProperty
 from mathutils import Vector
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode
 
 
 def info(v):
@@ -172,16 +172,8 @@ class GTextNode(bpy.types.Node, SverchCustomTreeNode):
                 layout.prop(gp_layer, 'line_width')
                 layout.prop(self, 'text_scale')
 
-    def init(self, context):
-        pass
-
     def update(self):
-        if self.text != 'your text here':
-            self.use_custom_color = True
-            self.color = (0.5,0.5,1)
-        else:
-            self.use_custom_color = True
-            self.color = (0.05,0.05,0.1)
+        pass
 
     def set_gtest(self):
         self.text = bpy.context.window_manager.clipboard

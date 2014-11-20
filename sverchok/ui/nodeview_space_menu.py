@@ -29,12 +29,12 @@ from bpy.props import (
     StringProperty,
 )
 
-import data_structure
-from sv_nodes_menu import make_node_cats
+import sverchok
+from sverchok.menu import make_node_cats
 
 node_cats = make_node_cats()
 
-addon_name = data_structure.SVERCHOK_NAME
+addon_name = sverchok.__name__
 
 menu_prefs = {}
 
@@ -124,12 +124,13 @@ class NODEVIEW_MT_Dynamic_Menu(bpy.types.Menu):
         layout.menu("NODEVIEW_MT_AddNumber")
         layout.menu("NODEVIEW_MT_AddVector")
         layout.menu("NODEVIEW_MT_AddMatrix")
-        layout.menu("NODEVIEW_MT_AddConditionals")
+        layout.menu("NODEVIEW_MT_AddLogic")
         layout.menu("NODEVIEW_MT_AddListOps")
         layout.separator()
-        layout.menu("NODEVIEW_MT_AddBasicViz")
-        layout.menu("NODEVIEW_MT_AddBasicData")
-        layout.menu("NODEVIEW_MT_AddBasicDebug")
+        layout.menu("NODEVIEW_MT_AddViz")
+        layout.menu("NODEVIEW_MT_AddText")
+        layout.menu("NODEVIEW_MT_AddScene")
+        layout.menu("NODEVIEW_MT_AddLayout")
         layout.separator()
         if show_icons:
             layout.menu("NODEVIEW_MT_AddBetas", icon='OUTLINER_DATA_POSE')
@@ -152,7 +153,7 @@ class NODEVIEW_MT_AddGenerators(bpy.types.Menu):
 
 
 class NODEVIEW_MT_AddModifiers(bpy.types.Menu):
-    bl_label = "Modifiers (Make, Change)"
+    bl_label = "Modifiers"
 
     def draw(self, context):
         layout = self.layout
@@ -161,7 +162,7 @@ class NODEVIEW_MT_AddModifiers(bpy.types.Menu):
 
 
 class NODEVIEW_MT_AddListOps(bpy.types.Menu):
-    bl_label = "List operations"
+    bl_label = "List"
 
     def draw(self, context):
         layout = self.layout
@@ -178,11 +179,12 @@ classes = [
     # like magic.
     # make | NODEVIEW_MT_Add + class name , menu name
     make_class('GeneratorsExt', "Extended Generators"),
-    make_class('Transforms', "Transforms (Vec, Mat)"),
+    make_class('Transforms', "Transforms"),
     make_class('Analyzers', "Analyzers"),
-    make_class('BasicViz', "Basic Viz"),
-    make_class('BasicData', "Basic Data"),
-    make_class('BasicDebug', "Basic Debug"),
+    make_class('Viz', "Viz"),
+    make_class('Text', "Text"),
+    make_class('Scene', "Scene"),
+    make_class('Layout', "Layout"),
     make_class('Listmain', "List main"),
     make_class('Liststruct', "List struct"),
     make_class('Number', "Number"),
@@ -190,7 +192,7 @@ classes = [
     make_class('Matrix', "Matrix"),
     make_class('ModifierChange', "Modifier Change"),
     make_class('ModifierMake', "Modifier Make"),
-    make_class('Conditionals', "Conditionals"),
+    make_class('Logic', "Logic"),
     make_class('Betas', "Beta Nodes"),
     make_class('Alphas', "Alpha Nodes"),
 ]

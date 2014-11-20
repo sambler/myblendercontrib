@@ -3,11 +3,8 @@ bl_info = {
 "author": "Sebastian Koenig",
 "version": (1, 1),
 "blender": (2, 7, 2),
-"location": "Clip Editor > Masking Pies",
+"location": "Clip Editor > Tracking Pies",
 "description": "Pie Controls for Tracking",
-"warning": "",
-"wiki_url": "",
-"tracker_url": "",
 "category": "Movie Tracking"}
 
 '''
@@ -100,8 +97,8 @@ def filter_values(threshold, context):
 class CLIP_OT_track_settings_to_track(bpy.types.Operator):
     """Copy tracking settings from active track to selected tracks"""
 
-    bl_idname = "clip.track_settings_to_track"
     bl_label = "Copy Track Settings"
+    bl_idname = "clip.track_settings_to_track"
     bl_options = {'UNDO', 'REGISTER'}
 
     @classmethod
@@ -148,8 +145,8 @@ class CLIP_OT_track_settings_to_track(bpy.types.Operator):
 
 
 class CLIP_OT_filter_tracks(bpy.types.Operator):
-    bl_idname="clip.filter_tracks"
     bl_label="Filter Tracks"
+    bl_idname="clip.filter_tracks"
 
     @classmethod
     def poll(cls, context):
@@ -164,8 +161,8 @@ class CLIP_OT_filter_tracks(bpy.types.Operator):
 
 
 class CLIP_OT_set_active_clip(bpy.types.Operator):
-    bl_idname = "clip.set_active_clip"
     bl_label = "Set Active Clip"
+    bl_idname = "clip.set_active_clip"
 
     @classmethod
     def poll(cls, context):
@@ -443,8 +440,8 @@ class CLIP_PIE_timecontrol_pie(Menu):
 
 
 class CLIP_PT_filter_tracks(bpy.types.Panel):
-    bl_idname = "clip.filter_track_panel"
     bl_label = "Filter Tracks"
+    bl_idname = "clip.filter_track_panel"
     bl_space_type = "CLIP_EDITOR"
     bl_region_type = "TOOLS"
     bl_category = "Track"

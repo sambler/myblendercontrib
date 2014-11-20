@@ -18,17 +18,18 @@
 #  The Original Code is Copyright (C) 2013-2014 by Gorodetskiy Nikita  ###
 #  All rights reserved.
 #
-#  Contact:      sverchok-b3d@yandex.ru    ###
-#  Information:  http://nikitron.cc.ua/sverchok.html   ###
+#  Contact:      sverchok-b3d@ya.ru    ###
+#  Information:  http://nikitron.cc.ua/sverchok_en.html   ###
 #
 #  The Original Code is: all of this file.
 #
 #  Contributor(s):
-#     Nedovizin Alexander
-#     Gorodetskiy Nikita
-#     Linus Yng
-#     Agustin Gimenez
-#     Dealga McArdle
+#     Nedovizin Alexander (aka Cfyzzz)
+#     Gorodetskiy Nikita (aka Nikitron)
+#     Linus Yng (aka Ly29)
+#     Agustin Jimenez (aka AgustinJB)
+#     Dealga McArdle (aka Zeffii)
+#     Konstantin Vorobiew (aka Kosvor)
 #
 #  ***** END GPL LICENSE BLOCK *****
 #
@@ -37,14 +38,14 @@
 bl_info = {
     "name": "Sverchok",
     "author": (
-        "(sverchok-b3d@yandex.ru) "
-        "Nedovizin Alexander, Gorodetskiy Nikita, Linus Yng, "
-        "Agustin Jimenez, Dealga McArdle"
+        "sverchok-b3d@ya.ru, "
+        "Cfyzzz, Nikitron, Ly29, "
+        "AgustinJB, Zeffii, Kosvor,"
     ),
-    "version": (0, 4),
-    "blender": (2, 7, 0),
+    "version": (0, 5, 0, 7),
+    "blender": (2, 7, 2),
     "location": "Nodes > CustomNodesTree > Add user nodes",
-    "description": "Do parametric node-based geometry programming",
+    "description": "Parametric node-based geometry programming",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Nodes/Sverchok",
     "tracker_url": (
@@ -52,126 +53,113 @@ bl_info = {
         "-Addon-WIP-Sverchok-parametric-tool-for-architects"),
     "category": "Node"}
 
-
-import os
 import sys
-
-current_path = os.path.dirname(__file__)
-if not current_path in sys.path:
-    sys.path.append(current_path)
-    print("\n***** Sverchok  loading *****")
-
-# use importlib instead of imp, which is deprecated since python 3.4
-# importing first allows to stores a list of nodes before eventually reloading
-# potential problem : are new nodes imported???
 import importlib
 
+
+# monkey patch the sverchok name, I am sure there is a better way to do this.
+
+if __name__ != "sverchok":
+    sys.modules["sverchok"] = sys.modules[__name__]
+    
+# to store imported modules
 imported_modules = []
-node_list = []
+
 # ugly hack, should make respective dict in __init__ like nodes
 # or parse it
-root_modules = ["node_tree", "data_structure", "sv_nodes_menu"]
+root_modules = ["menu", "node_tree", "data_structure","core", 
+                "utils", "ui", "nodes", "old_nodes"]
 core_modules = ["handlers", "update_system", "upgrade_nodes"]
 utils_modules = [
     # non UI tools
     "cad_module", "sv_bmesh_utils", "sv_curve_utils", "voronoi", 
     "sv_script", "sv_itertools", "script_importhelper",
-    # callbacks for bgl
-    "viewer_draw", "index_viewer_draw", "nodeview_bgl_viewer_draw", "viewer_draw_mk2",
     # UI
     #     - text editor ui
     "text_editor_submenu", "text_editor_plugins",
-    #     - node_view ui tool + panels + custom menu
-    "sv_panels_tools", "sv_IO_panel", "sv_panels", "nodeview_space_menu"
+    #     - operators
+    "sv_panels_tools", "sv_IO_panel_tools", "group_tools",
+]
+ui_modules = [
+    "color_def", "sv_IO_panel", "sv_panels", "nodeview_space_menu",
+    # bgl modules
+    "viewer_draw",  "viewer_draw_mk2", "nodeview_bgl_viewer_draw",
+    "index_viewer_draw"
 ]
 
-# parse the nodes/__init__.py dictionary and load all nodes
-def make_node_list():
-    node_list = []
-    for category, names in nodes.nodes_dict.items():
-        nodes_cat = importlib.import_module('.{}'.format(category), 'nodes')
-        for name in names:
-            node = importlib.import_module('.{}'.format(name),
-                                           'nodes.{}'.format(category))
-            node_list.append(node)
-    return node_list
+# modules and pkg path, nodes are done separately.
+mods_bases = [(root_modules,  "sverchok"), 
+              (core_modules,  "sverchok.core"), 
+              (utils_modules, "sverchok.utils"),
+              (ui_modules,    "sverchok.ui")]
 
-for m in root_modules:
-    im = importlib.import_module('{}'.format(m), __name__)
-    imported_modules.append(im)
-
-menu = imported_modules[-1]
-
-# settings needs __package__ set, so we use relative import
-settings = importlib.import_module('.settings', __name__)
+#  settings have to be treated separately incase the folder name
+#  is something else than sverchok...
+settings = importlib.import_module(".settings", __name__)
 imported_modules.append(settings)
 
-core = importlib.import_module('core')
-imported_modules.append(core)
+def import_modules(modules, base, im_list):
+    for m in modules:
+        im = importlib.import_module('.{}'.format(m), base)
+        im_list.append(im)
 
+# parse the nodes/__init__.py dictionary and load all nodes
 
-for m in core_modules:
-    im = importlib.import_module('.{}'.format(m), "core")
-    imported_modules.append(im)
+def make_node_list():
+    node_list = []
+    base_name = "sverchok.nodes"
+    for category, names in nodes.nodes_dict.items():
+        importlib.import_module('.{}'.format(category), base_name)
+        import_modules(names, '{}.{}'.format(base_name, category), node_list)
+    return node_list
 
-utils = importlib.import_module('utils')
-imported_modules.append(utils)
+for mods, base in mods_bases:
+    import_modules(mods, base, imported_modules)
 
-for m in utils_modules:
-    im = importlib.import_module('.{}'.format(m), 'utils')
-    imported_modules.append(im)
-
-nodes = importlib.import_module('nodes')
-imported_modules.append(nodes)
 node_list = make_node_list()
-reload_event = False
 
-if "bpy" in locals():
+reload_event = bool("bpy" in locals())
+
+if reload_event:   
     import nodeitems_utils
-    nodes = importlib.reload(nodes)
-    node_list = make_node_list()
-    for im in imported_modules+node_list:
+    #  reload the base modules
+    #  then reload nodes after the node module as been reloaded
+    for im in imported_modules:
         importlib.reload(im)
-
-    if 'SVERCHOK' in nodeitems_utils._node_categories:
-        nodeitems_utils.unregister_node_categories("SVERCHOK")
-
-    from sv_nodes_menu import make_categories
-    nodeitems_utils.register_node_categories("SVERCHOK", make_categories()[0])
-    # core.upgrade_nodes.upgrade_all()  # doesn't work, anyway.
-    reload_event = True
+    node_list = make_node_list()
+    for node in node_list:
+        importlib.reload(node)
+    old_nodes.reload_old()
+    menu.reload_menu()
 
 import bpy
 
+sv_ascii_logo = """\
+      ::::::  :::   ::: :::::::: :::::::   ::::::  :::  :::  ::::::  :::  ::: 
+    :+:  :+: :+:   :+: :+:      :+:  :+: :+:  :+: :+:  :+: :+:  :+: :+: :+:   
+   +:+      +:+   +:+ +:+      +:+  +:+ +:+      +:+  +:+ +:+  +:+ +:+ :+     
+  +#+++#++ +#+   +:+ +#+++#   +#+++#:  +#+      +#+++#++ +#+  +:+ +#+++       
+      +#+  +#+ +#+  +#+      +#+  +#+ +#+      +#+  +#+ +#+  +#+ +#+ #+       
+#+#  #+#   #+#+#   #+#      #+#  #+# #+#  #+# #+#  #+# #+#  #+# #+# #+#       
+######      #     ######## ###  ###  ######  ###  ###  ######  ###  ###       
+"""
 
 def register():
-    import nodeitems_utils
-    from sv_nodes_menu import make_categories
-
-    categors_menu = make_categories()
-    print("** Sverchok has  {i} nodes **".format(i=categors_menu[1]))
     for m in imported_modules + node_list:
         if hasattr(m, "register"):
             m.register()
-        else:
-            pass
-            #print("failed to register {}".format(m.__name__))
-    if 'SVERCHOK' not in nodeitems_utils._node_categories:
-        nodeitems_utils.register_node_categories("SVERCHOK", categors_menu[0])
+    # this is used to access preferences, should/could be hidden
+    # in an interface
+    data_structure.SVERCHOK_NAME = __name__
+    print("** Have a nice day with sverchok  **\n")
+    print(sv_ascii_logo)   
+    
     if reload_event:
-        # tag reload event which will cause a full sverchok startup on
-        # first update event
-        for m in imported_modules:
-            if m.__name__ == "data_structure":
-                m.RELOAD_EVENT = True
+        data_structure.RELOAD_EVENT = True
         print("Sverchok is reloaded, press update")
 
 
 def unregister():
-    import nodeitems_utils
     for m in reversed(imported_modules + node_list):
         if hasattr(m, "unregister"):
             m.unregister()
-
-    if 'SVERCHOK' in nodeitems_utils._node_categories:
-        nodeitems_utils.unregister_node_categories("SVERCHOK")

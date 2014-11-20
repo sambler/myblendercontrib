@@ -23,8 +23,8 @@ from bpy.props import EnumProperty
 from mathutils import Matrix, Vector
 from mathutils.geometry import intersect_point_line
 
-from node_tree import SverchCustomTreeNode
-from data_structure import (repeat_last, Matrix_generate, Vector_generate,
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import (repeat_last, Matrix_generate, Vector_generate,
                             updateNode, SvSetSocketAnyType, SvGetSocketAnyType)
 
 
@@ -74,7 +74,7 @@ class SvVertSortNode(bpy.types.Node, SverchCustomTreeNode):
         if self.mode == "XYZ":
             pass
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Vertices', 'Vertices')
         self.inputs.new('StringsSocket', 'PolyEdge', 'PolyEdge')
 
@@ -82,7 +82,7 @@ class SvVertSortNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('StringsSocket', 'PolyEdge')
         self.outputs.new('StringsSocket', 'Item order')
 
-    def update(self):
+    def process(self):
 
         if 'Vertices' in self.inputs and self.inputs['Vertices'].links:
             verts = SvGetSocketAnyType(self, self.inputs['Vertices'])
@@ -197,9 +197,6 @@ class SvVertSortNode(bpy.types.Node, SverchCustomTreeNode):
                 SvSetSocketAnyType(self, 'PolyEdge', poly_edge_out)
             if orderOutput:
                 SvSetSocketAnyType(self, 'Item order', item_order)
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

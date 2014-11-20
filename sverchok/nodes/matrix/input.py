@@ -19,8 +19,8 @@
 import bpy
 from bpy.props import FloatVectorProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, Matrix_listing, SvSetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, Matrix_listing, SvSetSocketAnyType
 
 
 class SvMatrixValueIn(bpy.types.Node, SverchCustomTreeNode):
@@ -38,7 +38,7 @@ class SvMatrixValueIn(bpy.types.Node, SverchCustomTreeNode):
                                  default=id_matrix, subtype='MATRIX',
                                  size=16, precision=3, update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.outputs.new('MatrixSocket', "Matrix", "Matrix")
         self.width = 300
 
@@ -52,13 +52,11 @@ class SvMatrixValueIn(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons_ext(self, context, layout):
         pass
 
-    def update(self):
+    def process(self):
         if 'Matrix' in self.outputs and self.outputs['Matrix'].links:
             m_out = Matrix_listing([self.matrix])
             SvSetSocketAnyType(self, 'Matrix', m_out)
 
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

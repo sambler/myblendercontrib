@@ -3,8 +3,8 @@ from math import sin, cos, radians
 import bpy
 from bpy.props import IntProperty, FloatProperty, BoolProperty
 
-from node_tree import SverchCustomTreeNode
-from data_structure import updateNode, match_long_repeat, SvSetSocketAnyType
+from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.data_structure import updateNode, match_long_repeat, SvSetSocketAnyType
 
 
 def sphere_verts(U, V, Radius, Separate):
@@ -82,7 +82,7 @@ class SphereNode(bpy.types.Node, SverchCustomTreeNode):
                             default=False,
                             update=updateNode)
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('StringsSocket', "Radius").prop_name = 'rad_'
         self.inputs.new('StringsSocket', "U").prop_name = 'U_'
         self.inputs.new('StringsSocket', "V").prop_name = 'V_'
@@ -94,7 +94,7 @@ class SphereNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         layout.prop(self, "Separate", text="Separate")
 
-    def update(self):
+    def process(self):
         # inputs
         if 'Polygons' not in self.outputs:
             return
@@ -118,8 +118,6 @@ class SphereNode(bpy.types.Node, SverchCustomTreeNode):
             faces = [sphere_faces(u, v) for u, v, r in zip(*params)]
             SvSetSocketAnyType(self, 'Polygons', faces)
 
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

@@ -20,13 +20,13 @@ import bpy
 from bpy.props import BoolProperty, StringProperty
 from mathutils import Matrix
 
-from node_tree import (SverchCustomTreeNode, SvColors,
+from sverchok.node_tree import (SverchCustomTreeNode, SvColors,
                        StringsSocket, VerticesSocket, MatrixSocket)
-from data_structure import (cache_viewer_baker,
+from sverchok.data_structure import (cache_viewer_baker,
                             dataCorrect, node_id,
                             Vector_generate, Matrix_generate,
                             updateNode, SvGetSocketAnyType)
-from utils.viewer_draw import callback_disable, callback_enable
+from sverchok.ui.viewer_draw import callback_disable, callback_enable
 
 
 class SvObjBake(bpy.types.Operator):
@@ -157,7 +157,7 @@ class ViewerNode(bpy.types.Node, SverchCustomTreeNode):
 
     color_view = SvColors.color
 
-    def init(self, context):
+    def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'vertices', 'vertices')
         self.inputs.new('StringsSocket', 'edg_pol', 'edg_pol')
         self.inputs.new('MatrixSocket', 'matrix', 'matrix')
@@ -187,7 +187,7 @@ class ViewerNode(bpy.types.Node, SverchCustomTreeNode):
     def copy(self, node):
         self.n_id = ''
 
-    def update(self):
+    def process(self):
         global cache_viewer_baker
         # node id, used as ref
         n_id = node_id(self)
