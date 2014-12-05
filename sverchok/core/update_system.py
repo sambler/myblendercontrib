@@ -62,7 +62,14 @@ def make_dep_dict(node_tree, down=False):
                      for name, node in ng.nodes.items()
                      if node.bl_idname == 'WifiInNode'}
         
-    for link in ng.links:
+    for i,link in enumerate(list(ng.links)):
+        #  this proctects against a rare occurance where 
+        #  a link is considered valid without a to_socket
+        #  or a from_socket. proctects against a blender crash
+        #  see https://github.com/nortikin/sverchok/issues/493
+        if not (link.to_socket and link.from_socket):
+            ng.links.remove(link)
+            raise ValueError("Invalid link found!, please report this file")
         if not link.is_valid:
             return collections.defaultdict(set)  # this happens more often than one might think
         if link.is_hidden:
@@ -261,7 +268,7 @@ def do_update_heat_map(node_list, nodes):
         # linear scale.
         nodes[name].color = cold.lerp(hot, t / t_max)
 
-def update_error_nodes(ng, name, err):
+def update_error_nodes(ng, name, err=Exception):
     if "error nodes" in ng:
         error_nodes = ast.literal_eval(ng["error nodes"])
     else:

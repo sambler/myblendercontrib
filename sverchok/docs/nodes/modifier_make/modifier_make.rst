@@ -16,3 +16,5 @@ Modifier Make
    voronoi
    convex_hull
    lathe
+   wafel
+   pipe_tubes

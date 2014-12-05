@@ -30,7 +30,8 @@ from sverchok.data_structure import (SvGetSocketInfo, SvGetSocket,
                                      get_other_socket, SvNoDataError)
 
 from sverchok.core.update_system import (build_update_list, process_from_node,
-                                         process_tree, get_update_lists)
+                                         process_tree, get_update_lists,
+                                         update_error_nodes)
 from sverchok.ui import color_def
 
 sentinel = object()
@@ -300,6 +301,16 @@ class SverchCustomTreeNode:
     @classmethod
     def poll(cls, ntree):
         return ntree.bl_idname in ['SverchCustomTreeType', 'SverchGroupTreeType']
+    
+    def mark_error(self, err):
+        """
+        marks the with system error color
+        will automaticly be cleared and restored to
+        the old color
+        """
+        ng = self.id_data
+        update_error_nodes(ng, self.name, err)
+
 
     def set_color(self):
         color = color_def.get_color(self.bl_idname)
@@ -319,7 +330,7 @@ class SverchCustomTreeNode:
     def process_node(self, context):
         '''
         Doesn't work as intended, inherited functions can't be used for bpy.props
-        update=
+        update= ...
         Still this is called from updateNode
         '''
         if self.id_data.is_frozen():

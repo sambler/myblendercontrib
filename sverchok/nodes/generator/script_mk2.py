@@ -19,6 +19,7 @@
 # author Linus Yng, partly based on script node 
 
 import os
+import traceback
 
 import bpy
 from bpy.props import (
@@ -59,6 +60,45 @@ class SvDefaultScript2Template(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class SvLoadScript(bpy.types.Operator):
+    """ Load script data """
+    bl_idname = "node.sverchok_load_script2"
+    bl_label = "Sverchok text input"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # from object in
+    fn_name = StringProperty(name='Function name')
+
+    def execute(self, context):
+        n = context.node
+        fn_name = self.fn_name
+
+        f = getattr(n, fn_name, None)
+        if not f:
+            msg = "{0} has no function named '{1}'".format(n.name, fn_name)
+            self.report({"WARNING"}, msg)
+            return {'CANCELLED'}
+        try:
+            f()
+        except SyntaxError as err:
+            msg = "SyntaxError'{0}'".format(err)
+            self.report({"WARNING"}, msg)
+            n.mark_error(err)
+            traceback.print_exc()
+            return {'CANCELLED'}
+        except TypeError as err:
+            n.mark_error(err)
+            traceback.print_exc()
+            self.report({"WARNING"}, "No valid script in textfile {}".format(node.script_name))
+            return {'CANCELLED'}
+        except Exception as err:
+            n.mark_error(err)
+            traceback.print_exc()
+            self.report({"WARNING"}, "No valid script in textfile {}".format(node.script_name))
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
 socket_types = {
     'v': 'VerticesSocket',
     's': 'StringsSocket',
@@ -94,7 +134,8 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
     
     # Also used to keep track if a script is loaded.
     script_str = StringProperty(description = "The acutal script as text")
-    script_name = StringProperty(name = "Text file", description = "Blender Text object containing script")
+    script_name = StringProperty(name = "Text file", 
+                                 description = "Blender Text object containing script")
     
     # properties that the script can expose either in draw or as socket
     # management needs to be reviewed.
@@ -176,7 +217,7 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         if self.script:
             self.use_custom_color = True
             self.color = READY_COLOR
-        self.create_sockets()
+            self.create_sockets()
     
     def update(self):
         if not self.script_str:
@@ -205,23 +246,7 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         
         if hasattr(script, "process"):
             script.process()
-        '''
-        # basic sanity. Shouldn't be needed
-
-        if len(script.inputs) != len(self.inputs):
-            return
-        if len(script.outputs) != len(self.outputs):
-            return
-        # check if no default and not linked, return
-     
-        
-        for data, socket in zip(script.inputs, self.inputs): 
-            if len(data) == 2 and not socket.is_linked:
-                return
-
-        if not script:
-            return
-        '''
+    
                         
     def copy(self, node):
         self.n_id = ""
@@ -260,11 +285,11 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
             import_operator.script_name = self.files_popup
             row = col.row()
             row.prop_search(self, 'script_name', bpy.data, 'texts', text='', icon='TEXT')
-            row.operator('node.sverchok_text_callback', text='', icon='PLUGIN').fn_name = 'load'
+            row.operator('node.sverchok_load_script2', text='', icon='PLUGIN').fn_name = 'load'
         else:
             script = self.script
             row = col.row()
-            row.operator("node.sverchok_text_callback", text='Reload').fn_name = 'load'
+            row.operator("node.sverchok_load_script2", text='Reload').fn_name = 'load'
             row.operator("node.sverchok_text_callback", text='Clear').fn_name = 'clear'
             if hasattr(script, "draw_buttons"):
                 script.draw_buttons(context, layout)
@@ -286,8 +311,10 @@ class SvScriptNodeMK2(bpy.types.Node, SverchCustomTreeNode):
 
 def register():
     bpy.utils.register_class(SvScriptNodeMK2)    
+    bpy.utils.register_class(SvLoadScript)
     bpy.utils.register_class(SvDefaultScript2Template)
 
 def unregister():
     bpy.utils.unregister_class(SvScriptNodeMK2)
+    bpy.utils.unregister_class(SvLoadScript)
     bpy.utils.unregister_class(SvDefaultScript2Template)

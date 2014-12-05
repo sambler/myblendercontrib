@@ -42,12 +42,12 @@ bl_info = {
         "Cfyzzz, Nikitron, Ly29, "
         "AgustinJB, Zeffii, Kosvor,"
     ),
-    "version": (0, 5, 0, 7),
+    "version": (0, 5, 0, 10),
     "blender": (2, 7, 2),
     "location": "Nodes > CustomNodesTree > Add user nodes",
     "description": "Parametric node-based geometry programming",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Nodes/Sverchok",
+    "wiki_url": "http://nikitron.cc.ua/sverch/html/main.html",
     "tracker_url": (
         "http://www.blenderartists.org/forum/showthread.php?272679"
         "-Addon-WIP-Sverchok-parametric-tool-for-architects"),
