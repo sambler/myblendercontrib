@@ -18,54 +18,60 @@
 
 # <pep8 compliant>
 
-import bpy
+import bpy, sys
+from math import *
 from mathutils import *
 
 def project_on_ground(groundob, co):
     groundmat4 = groundob.matrix_world
+    inv_groundmat4 = groundmat4.inverted()
     groundmat3 = groundmat4.to_3x3()
     
-    zmin = min(p[2] for p in groundob.bound_box)
-    zmax = max(p[2] for p in groundob.bound_box)
+    zmin = min(p[2] for p in groundob.bound_box) - 1.0
+    zmax = max(p[2] for p in groundob.bound_box) + 1.0
     
-    ray_start = (co[0], co[1], zmax)
-    ray_end = (co[0], co[1], zmin)
+    obco = inv_groundmat4 * Vector(co[0:3] + (1.0,)) # co expected to be in world space
+    ray_start = (obco[0], obco[1], zmax)
+    ray_end = (obco[0], obco[1], zmin)
     
     hit, nor, index = groundob.ray_cast(ray_start, ray_end)
     if index >= 0:
-        return True, groundmat4 * hit, groundmat3 * nor
+        return True, groundmat4 * hit, groundmat3 * nor, index
     else:
-        return False, co, (0.0, 0.0, 1.0)
+        return False, co, (0.0, 0.0, 1.0), -1
 
 
-def make_dupli_mesh(name, obmat, samples):
-    tot = len(samples)
+def make_dupli_mesh(name, obmat, samples, scale):
     scalemat = Matrix()
-    scalemat[0][0] = scalemat[1][1] = scalemat[2][2] = 0.1
+    scalemat[0][0] = scalemat[1][1] = scalemat[2][2] = scale
     scalemat[3][3] = 1.0
     
     invobmat = obmat.inverted()
     
-    def verts():
-        for loc, nor in samples:
-            mat = Matrix.Translation(loc) * invobmat * scalemat
-            yield ( mat * Vector((-0.86603, -0.5, 0.0)) )[:]
-            yield ( mat * Vector(( 0.86603, -0.5, 0.0)) )[:]
-            yield ( mat * Vector(( 0.0,      1.0, 0.0)) )[:]
+    def make_verts():
+        verts = []
+        i = 0
+        for i, (loc, rot) in enumerate(samples):
+            mat = Matrix.Translation(loc) * invobmat * rot * scalemat
+            verts.append(mat * Vector((-0.86603, -0.5, 0.0)))
+            verts.append(mat * Vector(( 0.86603, -0.5, 0.0)))
+            verts.append(mat * Vector(( 0.0,      1.0, 0.0)))
+        return i, verts
     
-    def edges():
+    def edges(tot):
         for i in range(tot):
             yield (i*3 + 0, i*3 + 1)
             yield (i*3 + 1, i*3 + 2)
             yield (i*3 + 2, i*3 + 0)
     
-    def faces():
+    def faces(tot):
         for i in range(tot):
             yield (i*3 + 0, i*3 + 1, i*3 + 2)
     
+    tot, verts = make_verts()
     mesh = bpy.data.meshes.new(name)
     # XXX edges somehow are broken, but can be calculated automatically
-    #mesh.from_pydata([v for v in verts()], [e for e in edges()], [f for f in faces()])
-    mesh.from_pydata([v for v in verts()], [], [f for f in faces()])
+    #mesh.from_pydata(verts, [e for e in edges(tot)], [f for f in faces(tot)])
+    mesh.from_pydata(verts, [], [f for f in faces(tot)])
     mesh.update()
     return mesh

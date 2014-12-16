@@ -18,7 +18,7 @@
 
 # <pep8 compliant>
 
-import bpy, os
+import bpy, os, cProfile, pstats, io
 from mathutils import *
 
 from object_physics_meadow import settings as _settings
@@ -26,9 +26,12 @@ from object_physics_meadow import patch, blob
 from object_physics_meadow.duplimesh import project_on_ground
 #from object_physics_meadow import dupliparticle
 #from object_physics_meadow.pointcache import cache_filename
+from object_physics_meadow.util import *
 
 from object_physics_meadow.best_candidate import best_candidate_gen
-from object_physics_meadow.hierarchical_dart_throw import hierarchical_dart_throw_gen, MeshDebug
+from object_physics_meadow.hierarchical_dart_throw import hierarchical_dart_throw_gen
+
+use_profiling = False
 
 def make_samples(context, gridob, groundob):
     settings = _settings.get(context)
@@ -40,40 +43,45 @@ def make_samples(context, gridob, groundob):
     zmin = min(p[2] for p in groundob.bound_box)
     zmax = max(p[2] for p in groundob.bound_box)
     
-    debug = None
-    #debug = MeshDebug(drawsize=0.1)
-    
     # get a sample generator implementation
-    #gen = best_candidate_gen(gridob.meadow.patch_radius, xmin, xmax, ymin, ymax)
-    gen = hierarchical_dart_throw_gen(gridob.meadow.patch_radius, gridob.meadow.sampling_levels, xmin, xmax, ymin, ymax, debug)
+    #gen = best_candidate_gen(groundob.meadow.patch_radius, xmin, xmax, ymin, ymax)
+    gen = hierarchical_dart_throw_gen(groundob.meadow.patch_radius, groundob.meadow.sampling_levels, xmin, xmax, ymin, ymax)
     
-    loc2D = [(p[0], p[1]) for p in gen(gridob.meadow.seed, gridob.meadow.max_patches)]
-    #debug.to_object(context)
+    mat = groundob.matrix_world
+    loc2D = [(mat * Vector(p[0:3] + (1.0,)))[0:2] for p in gen(groundob.meadow.seed, groundob.meadow.max_patches)]
     
-    # project samples onto the ground object
-    samples = []
-    for loc in loc2D:
-        ok, loc, nor = project_on_ground(groundob, loc)
-        if ok:
-            samples.append((loc, nor))
-    
-    return samples
+    return loc2D
 
-def generate_meadow(context, gridob, groundob):
-    settings = _settings.get(context)
+### Duplicators for later instancing ###
+def make_blobs(context, gridob, groundob):
+    # patches are linked to current blobs, clear to avoid confusing reset
+    patch.patch_group_clear(context)
+    
+    if use_profiling:
+        prof = cProfile.Profile()
+        prof.enable()
+    
+    samples2D = make_samples(context, gridob, groundob)
+    blob.make_blobs(context, gridob, groundob, samples2D, groundob.meadow.patch_radius)
+
+    if use_profiling:
+        prof.disable()
+
+        s = io.StringIO()
+        ps = pstats.Stats(prof, stream=s).sort_stats('tottime')
+        ps.print_stats()
+        print(s.getvalue())
+
+def delete_blobs(context, groundob):
+    if groundob:
+        blob.object_free_blob_data(groundob)
+
+    patch.patch_group_clear(context)
+    blob.blob_group_clear(context)
+
+### Patch copies for simulation ###
+def make_patches(context, gridob, groundob):
     scene = context.scene
     template_objects = [ob for ob in scene.objects if ob.meadow.type == 'TEMPLATE']
-    
-    ### Patch copies for simulation ###
-    
-    patch.make_patches(context, gridob, template_objects)
-    
-    ### Samples ###
-    
-    samples = make_samples(context, gridob, groundob)
-    
-    ### Duplicators for instancing ###
-    
-    blob.make_blobs(context, gridob, groundob, samples)
-
-    blob.setup_blob_duplis(context)
+    patch.make_patches(context, groundob, gridob, template_objects)
+    blob.setup_blob_duplis(context, groundob, 0.333 * groundob.meadow.patch_radius)

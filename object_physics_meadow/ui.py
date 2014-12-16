@@ -23,6 +23,19 @@ from bpy.types import Operator, Panel
 from bpy.props import *
 
 from object_physics_meadow import meadow, settings as _settings, patch, blob
+from object_physics_meadow.settings import find_meadow_object
+from object_physics_meadow.util import *
+from object_physics_meadow import progress
+
+# default progress reports
+def progress_default():
+    progress.show_progress_bar = True
+    progress.show_stdout = True
+# XXX baking: wm.progress updates are disabled for now,
+# because the bake operator overrides this with it's own progress numbers ...
+def progress_baking():
+    progress.show_progress_bar = False
+    progress.show_stdout = True
 
 class OBJECT_PT_Meadow(Panel):
     """Settings for meadow components"""
@@ -32,52 +45,66 @@ class OBJECT_PT_Meadow(Panel):
     bl_region_type = 'WINDOW'
     bl_context = "object"
     
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        if not ob:
+            return False
+        return True
+    
     def draw(self, context):
         settings = _settings.get(context)
+        groundob = find_meadow_object(context, 'GROUND')
+        has_samples = blob.object_has_blob_data(groundob) if groundob else False
         ob = context.object
+        meadow = ob.meadow
         layout = self.layout
         
-        # draw general settings here as well
-        type(settings).draw_ex(settings, layout, context)
+        layout.prop(meadow, "type", expand=True)
         
-        layout.operator("scene.generate_meadow", icon='PARTICLE_PATH')
-        layout.operator("scene.rebake_meadow")
+        layout.separator()
         
-        if ob:
-            meadow = ob.meadow
+        if meadow.type == 'TEMPLATE':
+            row = layout.row()
+            if groundob:
+                row.prop_search(meadow, "density_vgroup_name", groundob, "vertex_groups", text="Density Vertex Group")
+            else:
+                row.active = False
+                row.prop(meadow, "density_vgroup_name", text="Density Vertex Group")
             
-            layout.separator()
+            row = layout.row()
+            row.prop(meadow, "use_as_dupli")
+            sub = row.row()
+            sub.enabled = meadow.use_as_dupli
+            sub.prop(meadow, "use_centered")
+        
+        elif meadow.type == 'GROUND':
+            box = layout.box()
             
-            layout.prop(meadow, "type", expand=True)
+            sub = box.column()
+            # this politely prevents users from changing settings unwantedly,
+            # they have to delete the samples first
+            sub.enabled = not has_samples
+            sub.prop(meadow, "seed")
+            col = sub.column(align=True)
+            col.prop(meadow, "patch_radius")
+            col.prop(meadow, "max_patches")
+            sub.prop(meadow, "sampling_levels")
             
-            if meadow.type == 'TEMPLATE':
-                layout.prop(meadow, "use_as_dupli")
-            elif meadow.type == 'BLOBGRID':
-                layout.prop(meadow, "seed")
-                layout.prop(meadow, "sampling_levels")
-                
-                layout.prop(meadow, "patch_radius")
-                layout.prop(meadow, "max_patches")
+            if has_samples:
+                box.operator("meadow.delete_blobs", icon='X', text="Delete Samples")
+            else:
+                box.operator("meadow.make_blobs", icon='STICKY_UVS_DISABLE', text="Create Samples")
+        
+        layout.separator()
+        
+        sub = layout.column()
+        sub.enabled = has_samples
+        sub.operator("meadow.make_patches", icon='PARTICLE_PATH', text="Update Patches")
+        sub.operator("meadow.rebake_meadow", icon='MOD_PHYSICS', text="Update Physics Cache")
 
 
 class MeadowOperatorBase():
-    def find_meadow_object(self, context, type):
-        scene = context.scene
-        for ob in scene.objects:
-            if ob.meadow.type == type:
-                return ob
-
-
-class GenerateMeadowOperator(MeadowOperatorBase, Operator):
-    """Generate meadow instances"""
-    bl_idname = "scene.generate_meadow"
-    bl_label = "Generate Meadow"
-    bl_options = {'REGISTER', 'UNDO'}
-    
-    @classmethod
-    def poll(cls, context):
-        return True
-    
     def verify_cache_dir(self):
         if not bpy.data.is_saved:
             self.report({'ERROR'}, "File must be saved for generating external cache directory")
@@ -95,6 +122,13 @@ class GenerateMeadowOperator(MeadowOperatorBase, Operator):
                 self.report({'ERROR'}, "{0}".format(err))
                 return False, ""
         return True, cache_dir
+
+
+class MakeBlobsOperator(MeadowOperatorBase, Operator):
+    """Generate Blob objects storing dupli distribution"""
+    bl_idname = "meadow.make_blobs"
+    bl_label = "Make Blobs"
+    bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
         scene = context.scene
@@ -103,46 +137,116 @@ class GenerateMeadowOperator(MeadowOperatorBase, Operator):
         #cache_ok, cache_dir = self.verify_cache_dir()
         #if not cache_ok:
         #    return {'CANCELLED'}
-        
-        if not settings.patch_group(context):
-            # patch group is filled by us, so can just create it
-            bpy.data.groups.new(settings.patch_groupname)
         if not settings.blob_group(context):
-            # blob group is filled by us, so can just create it
             bpy.data.groups.new(settings.blob_groupname)
         
-        groundob = self.find_meadow_object(context, 'GROUND')
+        groundob = find_meadow_object(context, 'GROUND')
         if not groundob:
             self.report({'ERROR'}, "Could not find meadow Ground object")
             return {'CANCELLED'}
-        blobgridob = self.find_meadow_object(context, 'BLOBGRID')
+        blobgridob = find_meadow_object(context, 'BLOBGRID')
         if not blobgridob:
             self.report({'ERROR'}, "Could not find meadow Blob Grid object")
             return {'CANCELLED'}
         
-        meadow.generate_meadow(context, blobgridob, groundob)
+        with ObjectSelection():
+            progress_default()
+            meadow.make_blobs(context, blobgridob, groundob)
+        
+        return {'FINISHED'}
+
+
+class DeleteBlobsOperator(MeadowOperatorBase, Operator):
+    """Delete Blob objects storing dupli distribution"""
+    bl_idname = "meadow.delete_blobs"
+    bl_label = "Delete Blobs"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        scene = context.scene
+        settings = _settings.get(context)
+        
+        groundob = find_meadow_object(context, 'GROUND')
+        
+        with ObjectSelection():
+            progress_default()
+            meadow.delete_blobs(context, groundob)
+        
+        return {'FINISHED'}
+
+
+class MakePatchesOperator(MeadowOperatorBase, Operator):
+    """Make Patch copies across the grid for simulation and set up duplis"""
+    bl_idname = "meadow.make_patches"
+    bl_label = "Make Patches"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        scene = context.scene
+        settings = _settings.get(context)
+        
+        if not settings.patch_group(context):
+            bpy.data.groups.new(settings.patch_groupname)
+        if not settings.blob_group(context):
+            bpy.data.groups.new(settings.blob_groupname)
+        
+        groundob = find_meadow_object(context, 'GROUND')
+        if not groundob:
+            self.report({'ERROR'}, "Could not find meadow Ground object")
+            return {'CANCELLED'}
+        blobgridob = find_meadow_object(context, 'BLOBGRID')
+        if not blobgridob:
+            self.report({'ERROR'}, "Could not find meadow Blob Grid object")
+            return {'CANCELLED'}
+        
+        with ObjectSelection():
+            progress_default()
+            meadow.make_patches(context, blobgridob, groundob)
+        
+        return {'FINISHED'}
+
+
+# Combines blob + patches operator for menu entry
+class MakeMeadowOperator(MeadowOperatorBase, Operator):
+    """Make blobs and patches based on designated meadow objects"""
+    bl_idname = "meadow.make_meadow"
+    bl_label = "Make Meadow"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        result = bpy.ops.meadow.make_blobs()
+        if 'FINISHED' not in result:
+            return result
+        result = bpy.ops.meadow.make_patches()
+        if 'FINISHED' not in result:
+            return result
         
         return {'FINISHED'}
 
 
 class RebakeMeadowOperator(MeadowOperatorBase, Operator):
     """Rebake meadow simulation"""
-    bl_idname = "scene.rebake_meadow"
+    bl_idname = "meadow.rebake_meadow"
     bl_label = "Rebake Meadow"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        patch.patch_objects_rebake(context)
+        with ObjectSelection():
+            progress_baking()
+            patch.patch_objects_rebake(context)
         return {'FINISHED'}
 
 
 def menu_generate_meadow(self, context):
-    self.layout.operator("scene.generate_meadow", icon='PARTICLE_PATH')
+    self.layout.operator("meadow.make_meadow", icon='PARTICLE_PATH')
 
 def register():
     bpy.utils.register_class(OBJECT_PT_Meadow)
     
-    bpy.utils.register_class(GenerateMeadowOperator)
+    bpy.utils.register_class(MakeBlobsOperator)
+    bpy.utils.register_class(DeleteBlobsOperator)
+    bpy.utils.register_class(MakePatchesOperator)
+    bpy.utils.register_class(MakeMeadowOperator)
     bpy.utils.register_class(RebakeMeadowOperator)
     bpy.types.INFO_MT_add.append(menu_generate_meadow)
 
@@ -150,5 +254,8 @@ def unregister():
     bpy.utils.unregister_class(OBJECT_PT_Meadow)
     
     bpy.types.INFO_MT_add.remove(menu_generate_meadow)
-    bpy.utils.unregister_class(GenerateMeadowOperator)
+    bpy.utils.unregister_class(MakeBlobsOperator)
+    bpy.utils.unregister_class(DeleteBlobsOperator)
+    bpy.utils.unregister_class(MakePatchesOperator)
+    bpy.utils.unregister_class(MakeMeadowOperator)
     bpy.utils.unregister_class(RebakeMeadowOperator)

@@ -23,14 +23,11 @@ import bpy
 from math import *
 
 from object_physics_meadow.util import *
+from object_physics_meadow import progress
 
 # Implements Poisson Disk sampling according to
 # "Poisson Disk Point Sets by Hierarchical Dart Throwing"
 # (White, Cline, Egbert)
-
-prof_find_cell = Profiling("find_cell")
-prof_test_coverage = Profiling("test_coverage")
-prof_test_disk = Profiling("test_disk")
 
 class GridCell():
     __slots__ = ('i', 'j', 'k')
@@ -41,27 +38,42 @@ class GridCell():
         self.k = k
 
 class GridLevel():
-    __slots__ = ('index', 'size', 'weight', 'cells', 'debug')
+    __slots__ = ('index', 'size', 'grid_factor', 'weight', 'cells')
     
-    def __init__(self, index, size):
+    def __init__(self, index, size, radius):
         self.index = index
         self.size = size
+        self.grid_factor = size / radius
         self.weight = size * size # 2D
         self.cells = []
-        self.debug = None
 
     def activate(self, i, j, k):
         cell = GridCell(i, j, k)
         self.cells.append(cell)
-        
-        x0, x1, y0, y1, _, _ = self.cell_corners(cell)
-        if self.debug:
-            self.debug.add_grid_cell(x0, x1, y0, y1)
-        
         return cell
 
+    @staticmethod
+    def num_cells_in_range(imin, imax, jmin, jmax, kmin, kmax):
+        return (imax - imin) * (jmax - jmin) * (kmax - kmin)
+
+    def set_active_cells(self, imin, imax, jmin, jmax, kmin, kmax):
+        tot = (imax - imin) * (jmax - jmin) * (kmax - kmin)
+        self.cells = [None] * tot
+        c = 0
+        for k in range(kmin, kmax):
+            for j in range(jmin, jmax):
+                for i in range(imin, imax):
+                    progress.progress_add(1)
+                    self.cells[c] = GridCell(i, j, k)
+                    c += 1
+
     def deactivate(self, index):
-        return self.cells.pop(index)
+        c = self.cells[index]
+        if index < len(self.cells)-1:
+            self.cells[index] = self.cells.pop()
+        else:
+            self.cells.pop()
+        return c
 
     def cell_corners(self, cell):
         x0 = float(cell.i)
@@ -97,7 +109,9 @@ def pop_cell(levels):
     for level in levels:
         level_totweight = len(level.cells) * level.weight
         if u < level_totweight:
-            cell_index = int(u / level.weight)
+            # Note: using int(u / level.weight) as cell index works in theory,
+            # but rounding errors can cause an invalid index >= len(level.cells)
+            cell_index = random.randrange(len(level.cells))
             cell = level.deactivate(cell_index)
             return level, cell
         else:
@@ -111,49 +125,90 @@ class PointCell():
         self.points = []
 
 class PointGrid():
-    def __init__(self, radius, b0, gridmin, gridmax):
+    @staticmethod
+    def num_cells(radius, gridmin, gridmax):
+        size = radius
+        amin = ifloor(gridmin[0] / size) - 1
+        bmin = ifloor(gridmin[1] / size) - 1
+        na = ifloor(gridmax[0] / size) + 2 - amin
+        nb = ifloor(gridmax[1] / size) + 2 - bmin
+        
+        return na * nb
+
+    def __init__(self, radius, gridmin, gridmax):
         width = gridmax[0] - gridmin[0]
         height = gridmax[1] - gridmin[1]
+        size = radius
         
-        self.amin = ifloor(gridmin[0] / radius) - 1
-        self.bmin = ifloor(gridmin[1] / radius) - 1
-        self.na = ifloor(gridmax[0] / radius) + 2 - self.amin
-        self.nb = ifloor(gridmax[1] / radius) + 2 - self.bmin
+        self.size = size
+        self.invsize = 1.0 / size
         
-        self.size = radius
-        self.invsize = 1.0 / radius
+        self.amin = ifloor(gridmin[0] / size) - 1
+        self.bmin = ifloor(gridmin[1] / size) - 1
+        self.na = ifloor(gridmax[0] / size) + 2 - self.amin
+        self.nb = ifloor(gridmax[1] / size) + 2 - self.bmin
         
-        # factor to get point grid index from cell grid index
-        self.cell_grid_factor = b0 / radius
-        
+        # modified range generator for progress reports
+        def range_progress(tot):
+            for i in range(tot):
+                progress.progress_add(1)
+                yield i
         # note: row-major, so we can address it with cells[i][j]
-        self.cells = tuple(tuple(PointCell() for j in range(self.nb)) for i in range(self.na))
+        self.cells = tuple(tuple(PointCell() for j in range_progress(self.nb)) for i in range(self.na))
+
+    def grid_from_loc(self, point):
+        s = self.invsize
+        return (point[0] * s, point[1] * s)
 
     def insert(self, point):
+        def add_to_cell(point, a, b):
+            #if a < 0 or a >= self.na or b < 0 or b >= self.nb:
+            #    return
+            cell = self.cells[a][b]
+            cell.points.append(point)
+        
         s = self.invsize
-        a = ifloor(point[0] * s) - self.amin
-        b = ifloor(point[1] * s) - self.bmin
-        cell = self.cells[a][b]
-        assert(len(cell.points) <= 3)
-        cell.points.append(point)
+        u = point[0] * s
+        v = point[1] * s
+        
+        a = ifloor(u) - self.amin
+        b = ifloor(v) - self.bmin
+        
+        # optimization: also store the point in neighboring cells,
+        # so slow loops over multiple cells in neighbor lookup
+        # can be avoided (as suggested in the original paper)
+        use_aminus = a > 0
+        use_aplus = a < self.na-1
+        use_bminus = b > 0
+        use_bplus = b < self.nb-1
+        if use_bminus:
+            if use_aminus:
+                add_to_cell(point, a-1, b-1)
+            add_to_cell(point, a  , b-1)
+            if use_aplus:
+                add_to_cell(point, a+1, b-1)
+        if use_aminus:
+            add_to_cell(point, a-1, b  )
+        add_to_cell(point, a  , b  )
+        if use_aplus:
+            add_to_cell(point, a+1, b  )
+        if use_bplus:
+            if use_aminus:
+                add_to_cell(point, a-1, b+1)
+            add_to_cell(point, a  , b+1)
+            if use_aplus:
+                add_to_cell(point, a+1, b+1)
 
     def neighbors(self, level, cell_i, cell_j):
         # multiplier between cell grid and base grid
-        grid_factor = self.cell_grid_factor / (2 ** level.index)
+        grid_factor = level.grid_factor
         
-        ca = ifloor(cell_i * grid_factor)
-        cb = ifloor(cell_j * grid_factor)
-        amin = max(ca - self.amin - 1, 0)
-        amax = min(ca - self.amin + 2, self.na)
-        bmin = max(cb - self.bmin - 1, 0)
-        bmax = min(cb - self.bmin + 2, self.nb)
-        for a in range(amin, amax):
-            for b in range(bmin, bmax):
-                for p in self.cells[a][b].points:
-                    yield p
+        a = ifloor(cell_i * grid_factor) - self.amin
+        b = ifloor(cell_j * grid_factor) - self.bmin
+        for p in self.cells[a][b].points:
+            yield p
 
 def is_covered(radius2, b0, pgrid, level, cell_i, cell_j, x0, x1, y0, y1):
-    #with prof_test_coverage:
     cx = 0.5*(x0 + x1)
     cy = 0.5*(y0 + y1)
     for point in pgrid.neighbors(level, cell_i, cell_j):
@@ -166,7 +221,6 @@ def is_covered(radius2, b0, pgrid, level, cell_i, cell_j, x0, x1, y0, y1):
     return False
 
 def test_disk(radius2, pgrid, point, level, cell_i, cell_j):
-    #with prof_test_disk:
     for npoint in pgrid.neighbors(level, cell_i, cell_j):
         dx = point[0] - npoint[0]
         dy = point[1] - npoint[1]
@@ -183,7 +237,7 @@ def split_cell(radius2, b0, pgrid, child_level, cell, x0, x1, y0, y1, z0, z1):
             if not is_covered(radius2, b0, pgrid, child_level, ci, cj, cx0, cx1, cy0, cy1):
                 child_cell = child_level.activate(ci, cj, ck)
 
-def hierarchical_dart_throw_gen(radius, max_levels, xmin, xmax, ymin, ymax, debug=None):
+def hierarchical_dart_throw_gen(radius, max_levels, xmin, xmax, ymin, ymax):
     radius2 = radius * radius
     gridmin = (xmin, ymin)
     gridmax = (xmax, ymax)
@@ -192,78 +246,40 @@ def hierarchical_dart_throw_gen(radius, max_levels, xmin, xmax, ymin, ymax, debu
     nj = jmax - jmin
     nk = 1 # for 2D grid
 
-    base_level = GridLevel(0, b0)
-    levels = [base_level] + [GridLevel(i, base_level.size / (2**i)) for i in range(1, max_levels)]
-    epsilon = levels[-1].weight * 0.5
-    for level in levels:
-        level.debug = debug
-    
-    for j in range(jmin, jmax):
-        for i in range(imin, imax):
-            base_level.activate(i, j, 0)
-    
-    pgrid = PointGrid(radius, b0, gridmin, gridmax)
-    
     def gen(seed, num):
         random.seed(seed)
         
-        for i in range(num):
-            if not any(level.cells for level in levels):
-                break
-            
-            #with prof_find_cell:
-            level, cell = pop_cell(levels)
-            if level:
-                x0, x1, y0, y1, z0, z1 = level.cell_corners(cell)
+        base_level = GridLevel(0, b0, radius)
+        levels = [base_level] + [GridLevel(i, base_level.size / (2**i), radius) for i in range(1, max_levels)]
+        epsilon = levels[-1].weight * 0.5
+        
+        with progress.ProgressContext("Activate Cells", 0, GridLevel.num_cells_in_range(imin, imax, jmin, jmax, 0, 1)):
+            base_level.set_active_cells(imin, imax, jmin, jmax, 0, 1)
+        
+        with progress.ProgressContext("Init Spatial Grid", 0, PointGrid.num_cells(radius, gridmin, gridmax)):
+            pgrid = PointGrid(radius, gridmin, gridmax)
+        
+        with progress.ProgressContext("Generate Samples", 0, num):
+            for i in range(num):
+                progress.progress_add(1)
                 
-                # test coverage
-                if not is_covered(radius2, b0, pgrid, level, cell.i, cell.j, x0, x1, y0, y1):
-                    point = level.sample(x0, x1, y0, y1, z0, z1)
-                    if test_disk(radius2, pgrid, point, level, cell.i, cell.j):
-                        yield point
-                        pgrid.insert(point)
-                        if debug:
-                            debug.add_sample(point)
-                    else:
-                        if level.index < max_levels - 1:
-                            split_cell(radius2, b0, pgrid, levels[level.index+1], cell, x0, x1, y0, y1, z0, z1)
-            else:
-                break
-    
-        #print(prof_find_cell.as_string())
-        #print(prof_test_coverage.as_string())
-        #print(prof_test_disk.as_string())
-    
+                if not any(level.cells for level in levels):
+                    break
+                
+                level, cell = pop_cell(levels)
+                if level:
+                    x0, x1, y0, y1, z0, z1 = level.cell_corners(cell)
+                    
+                    # test coverage
+                    if not is_covered(radius2, b0, pgrid, level, cell.i, cell.j, x0, x1, y0, y1):
+                        point = level.sample(x0, x1, y0, y1, z0, z1)
+                        if test_disk(radius2, pgrid, point, level, cell.i, cell.j):
+                            yield point
+                            pgrid.insert(point)
+                        else:
+                            if level.index < max_levels - 1:
+                                split_cell(radius2, b0, pgrid, levels[level.index+1], cell, x0, x1, y0, y1, z0, z1)
+                else:
+                    break
+
     return gen
-
-#-----------------------------------------------------------------------
-
-class MeshDebug:
-    def __init__(self, drawsize = 0.1):
-        self.verts = []
-        self.edges = []
-        self.drawsize = drawsize
-    
-    def add_grid_cell(self, x0, x1, y0, y1):
-        N = len(self.verts)
-        self.verts += [(x0, y0, 0.0), (x1, y0, 0.0), (x1, y1, 0.0), (x0, y1, 0.0)]
-        self.edges += [(N+0, N+1), (N+1, N+2), (N+2, N+3), (N+3, N+0)]
-    
-    def add_sample(self, sample):
-        #verts += (sample[0], sample[1], 0.0)
-        u = self.drawsize * 0.5
-        N = len(self.verts)
-        self.verts += [(sample[0]-u, sample[1]-u, 0.0), (sample[0]+u, sample[1]+u, 0.0), (sample[0]-u, sample[1]+u, 0.0), (sample[0]+u, sample[1]-u, 0.0)]
-        self.edges += [(N+0, N+1), (N+2, N+3)]
-    
-    def to_object(self, context):
-        from bpy_extras import object_utils
-        
-        name = "PoissonSamplesDebug"
-        
-        mesh = bpy.data.meshes.new(name)
-        mesh.from_pydata(self.verts, self.edges, [])
-        mesh.update()
-        
-        ob = object_utils.object_data_add(context, mesh, operator=None).object
-        return ob

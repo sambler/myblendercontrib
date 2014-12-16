@@ -24,13 +24,7 @@ from bpy_extras import object_utils
 
 from object_physics_meadow import settings as _settings
 from object_physics_meadow.util import *
-
-# supported relation types between patch objects
-# yields (data, property) pairs to object pointer properties
-def object_relations(ob):
-    for md in ob.modifiers:
-        if md.type == 'PARTICLE_INSTANCE':
-            yield md, "object"
+from object_physics_meadow import progress
 
 #-----------------------------------------------------------------------
 
@@ -43,30 +37,16 @@ def patch_objects(context):
 def patch_group_clear(context):
     settings = _settings.get(context)
     patch_group = settings.patch_group(context)
-    scene = context.scene
     
-    # local list copy to avoid messing up the iterator
-    objects = [ob for ob in patch_group.objects]
-    
-    # unlink objects to avoid invalid pointers when deleting them
-    for ob in objects:
-        for data, prop in object_relations(ob):
-            setattr(data, prop, None)
-    
-    for ob in objects:
-        scene.objects.unlink(ob)
-        patch_group.objects.unlink(ob)
-        
-        # note: this can fail if something still references the object
-        # we try to unlink own pointers above, but users might add own
-        if ob.users == 0:
-            bpy.data.objects.remove(ob)
-        else:
-            print("Warning: could not remove object %r" % ob.name)
+    if patch_group:
+        delete_objects(context, patch_group.objects)
 
-def patch_group_assign(context, patchob):
+def patch_group_assign(context, patchob, test=False):
     settings = _settings.get(context)
     patch_group = settings.patch_group(context)
+    
+    if test and patchob in patch_group.objects.values():
+        return
     
     patch_group.objects.link(patchob)
     # NOTE: unsetting the type is important, otherwise gathering templates
@@ -146,37 +126,38 @@ def make_copies(scene, gridob, childob):
     
     return duplicates
 
-def make_patches(context, gridob, template_objects):
+def make_patches(context, groundob, gridob, template_objects):
     scene = context.scene
     gridmat = gridob.matrix_world
     
     patch_group_clear(context)
     
     temp_copies = {}
-    with ObjectSelection():
-        for tempob in template_objects:
-            # create patch copies
-            copies = make_copies(scene, gridob, tempob)
+    for tempob in template_objects:
+        # create patch copies
+        copies = make_copies(scene, gridob, tempob)
+        
+        # customize copies
+        for ob, (index, vert) in zip(copies, enumerate(gridob.data.vertices)):
+            # put it in the patch group
+            patch_group_assign(context, ob)
+            # assign the index for mapping
+            ob.meadow.blob_index = index
+            # use ground object as parent to keep the outliner clean
+            set_object_parent(ob, groundob)
             
-            # customize copies
-            for ob, (index, vert) in zip(copies, enumerate(gridob.data.vertices)):
-                # put it in the patch group
-                patch_group_assign(context, ob)
-                # assign the index for mapping
-                ob.meadow.blob_index = index
-                
-                # apply transform
-                vertmat = Matrix.Translation(vert.co)
-                duplimat = gridmat * vertmat
-                ob.matrix_world = duplimat
-                
-                # XXX WARNING: having lots of objects in the scene slows down
-                # the make-duplis-real operator to an absolute crawl!!
-                # Therefore we unlink all copies here until the copying
-                # of other objects is done
-                scene.objects.unlink(ob)
+            # apply transform
+            vertmat = Matrix.Translation(vert.co)
+            duplimat = gridmat * vertmat
+            ob.matrix_world = duplimat
             
-            temp_copies[tempob] = copies
+            # XXX WARNING: having lots of objects in the scene slows down
+            # the make-duplis-real operator to an absolute crawl!!
+            # Therefore we unlink all copies here until the copying
+            # of other objects is done
+            scene.objects.unlink(ob)
+        
+        temp_copies[tempob] = copies
     
     # copying is done, re-link stuff to the scene
     for tempob, copies in temp_copies.items():
@@ -256,44 +237,6 @@ def bake_psys(context, ob, psys):
     # restore
     ob.particle_systems.active = curpsys
 
-def bake_all(context):
-    settings = _settings.get(context)
-    wm = context.window_manager
-    
-    total_time = 0.0
-    avg_time = 0.0
-    
-    # XXX Note: wm.progress updates are disabled for now, because the bake
-    # operator overrides this with it's own progress numbers ...
-    
-    total = count_bakeable(context)
-    #wm.progress_begin(0, total)
-    
-    num = 0
-    for ob in patch_objects(context):
-        for psys in ob.particle_systems:
-            sys.stdout.write("Baking blob {}/{} ... ".format(str(num).rjust(5), str(total).ljust(5)))
-            sys.stdout.flush()
-            
-            start_time = time.time()
-            
-            bake_psys(context, ob, psys)
-            
-            duration = time.time() - start_time
-            total_time += duration
-            avg_time = total_time / float(num + 1)
-            
-            #wm.progress_update(num)
-            time_string = lambda x: time.strftime("%H:%M:%S", time.gmtime(x)) + ".%02d" % (int(x * 100.0) % 100)
-            durstr = time_string(duration)
-            avgstr = time_string(avg_time) if avg_time > 0.0 else "--:--:--"
-            etastr = time_string(avg_time * (total - num)) if avg_time > 0.0 else "--:--:--"
-            sys.stdout.write("{} (avg. {}, ETA {})\n".format(durstr, avgstr, etastr))
-            sys.stdout.flush()
-            num += 1
-    
-    #wm.progress_end()
-
 def count_bakeable(context):
     num = 0
     for ob in patch_objects(context):
@@ -301,19 +244,33 @@ def count_bakeable(context):
             num += 1
     return num
 
+def bake_all(context):
+    settings = _settings.get(context)
+    wm = context.window_manager
+    
+    total_time = 0.0
+    avg_time = 0.0
+    
+    total = count_bakeable(context)
+    
+    with progress.ProgressContext("Bake Blob", 0, total):
+        for ob in patch_objects(context):
+            for psys in ob.particle_systems:
+                progress.progress_add(1)
+                bake_psys(context, ob, psys)
+
 def patch_objects_rebake(context):
     settings = _settings.get(context)
     wm = context.window_manager
     
-    with ObjectSelection():
-        # we disable all sim modifiers selectively to make sure only one sim has to be calculated at a time
-        with BakeSimContext():
-            scene = context.scene
-            curframe = scene.frame_current
-            
-            # XXX have to set this because bake operator only bakes up to the last frame ...
-            scene.frame_current = scene.frame_end
-            
-            bake_all(context)
-            
-            scene.frame_set(curframe)
+    # we disable all sim modifiers selectively to make sure only one sim has to be calculated at a time
+    with BakeSimContext():
+        scene = context.scene
+        curframe = scene.frame_current
+        
+        # XXX have to set this because bake operator only bakes up to the last frame ...
+        scene.frame_current = scene.frame_end
+        
+        bake_all(context)
+        
+        scene.frame_set(curframe)

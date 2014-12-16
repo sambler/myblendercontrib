@@ -25,15 +25,13 @@ from bpy.props import *
 def copy_rna_enum_items(type, prop):
     return [(item.identifier, item.name, item.description) for item in type.bl_rna.properties[prop].enum_items]
 
+def find_meadow_object(context, type):
+    scene = context.scene
+    for ob in scene.objects:
+        if ob.meadow.type == type:
+            return ob
+
 #-----------------------------------------------------------------------
-
-dupli_draw_type_items = copy_rna_enum_items(bpy.types.Object, 'draw_type')
-
-def dupli_draw_type_update(self, context):
-    from object_physics_meadow import blob # import here to avoid cyclic import
-    
-    for ob in blob.blob_objects(context):
-        blob.blob_apply_settings(ob, self)
 
 class MeadowAddonPreferences(AddonPreferences):
     bl_idname = __package__
@@ -49,14 +47,6 @@ class MeadowAddonPreferences(AddonPreferences):
         default="Blobs"
         )
 
-    dupli_draw_type = EnumProperty(
-        name="Dupli Draw Type",
-        description="Maximum draw type in the viewport for duplis",
-        items=dupli_draw_type_items,
-        default='BOUNDS',
-        update=dupli_draw_type_update
-        )
-
     def patch_group(self, context):
         return bpy.data.groups.get(self.patch_groupname)
     def blob_group(self, context):
@@ -65,11 +55,6 @@ class MeadowAddonPreferences(AddonPreferences):
     def draw_ex(self, layout, context):
         layout.prop(self, "patch_groupname")
         layout.prop(self, "blob_groupname")
-        
-        layout.separator()
-        
-        layout.prop(self, "dupli_draw_type")
-
 
     def draw(self, context):
         self.draw_ex(self, self.layout, context)
@@ -95,6 +80,12 @@ def type_update(self, context):
             if ob != self.id_data and ob.meadow.type == self.type:
                 ob.meadow.type = 'NONE'
 
+def vgroup_items(self, context):
+    groundob = find_meadow_object(context, 'GROUND')
+    if groundob:
+        return [(v.name, v.name, "", 'NONE', v.index) for v in groundob.vertex_groups]
+    return []
+
 class MeadowObjectSettings(PropertyGroup):
     type = EnumProperty(
         name="Type",
@@ -107,6 +98,12 @@ class MeadowObjectSettings(PropertyGroup):
         name="Use as Dupli",
         description="Use the object for dupli instances",
         default=True
+        )
+    
+    use_centered = BoolProperty(
+        name="Use Centered",
+        description="Move copies to the center before duplifying (use with particle instance)",
+        default=False
         )
     
     seed = IntProperty(
@@ -134,6 +131,19 @@ class MeadowObjectSettings(PropertyGroup):
         soft_max=10000
         )
     
+    density_vgroup_name = StringProperty(
+        name="Density Vertex Group Name",
+        description="Name of the vertex group to use for patch density",
+        default=""
+        )
+
+    # XXX enum wrapper would be more convenient, but harder to manage
+#    density_vgroup = EnumProperty(
+#        name="Density Vertex Group",
+#        description="Vertex group to use for patch density",
+#        items=vgroup_items
+#        )
+
     # internal
     blob_index = IntProperty(
         name="Blob Index",

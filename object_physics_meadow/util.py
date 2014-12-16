@@ -18,7 +18,8 @@
 
 # <pep8 compliant>
 
-import bpy, time
+import bpy, time, sys
+from math import *
 
 def ifloor(x):
     return int(x) if x >= 0.0 else int(x) - 1
@@ -48,41 +49,48 @@ def select_single_object(ob):
 
 #-----------------------------------------------------------------------
 
-class Profiling():
-    def __init__(self, name):
-        self.name = name
-        self.total = 0.0
-        self.count = 0
-        self.last = 0.0
+# supported relation types between patch objects
+# yields (data, property) pairs to object pointer properties
+def object_relations(ob):
+    for md in ob.modifiers:
+        if md.type == 'PARTICLE_INSTANCE':
+            yield md, "object"
+
+def delete_objects(context, objects):
+    scene = context.scene
     
-    def reset(self):
-        self.total = 0.0
-        self.count = 0
-        self.last = 0.0
+    obset = set(objects)
     
-    @property
-    def average(self):
-        return self.total / float(self.count) if self.count > 0 else 0.0
-    
-    def __enter__(self):
-        self.start_time = time.time()
-    
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.last = time.time() - self.start_time
-        self.total += self.last
-        self.count += 1
+    while obset:
+        ob = obset.pop()
         
-    def as_string(self, show_total=True, show_count=True, show_average=True, show_last=False):
-        precision = 6
-        factor = 10 ** precision
-        time_str = lambda t: "{}:{}".format(time.strftime("%M:%S", time.gmtime(t)), str(int(t * float(factor)) % factor).rjust(precision, '0'))
-        result = "{}:\n".format(self.name)
-        if show_total:
-            result += "\ttotal = {}\n".format(time_str(self.total))
-        if show_count:
-            result += "\tcount = {}\n".format(self.count)
-        if show_average:
-            result += "\taverage = {}\n".format(time_str(self.average))
-        if show_last:
-            result += "\tlast = {}\n".format(time_str(self.last))
-        return result
+        #remove from groups
+        for g in bpy.data.groups:
+            if ob in g.objects.values():
+                g.objects.unlink(ob)
+        
+        # unlink from other objects
+        for relob in bpy.data.objects:
+            for data, prop in object_relations(relob):
+                if getattr(data, prop, None) == ob:
+                    setattr(data, prop, None)
+        
+        # unlink from scenes
+        for scene in bpy.data.scenes:
+            if ob in scene.objects.values():
+                scene.objects.unlink(ob)
+        
+        # note: this can fail if something still references the object
+        # we try to unlink own pointers above, but users might add own
+        if ob.users == 0:
+            bpy.data.objects.remove(ob)
+        else:
+            print("Warning: could not remove object %r" % ob.name)
+
+#-----------------------------------------------------------------------
+
+# set the object parent without modifying world space transform
+def set_object_parent(ob, parent):
+    mat = ob.matrix_world
+    ob.parent = parent
+    ob.matrix_world = mat
