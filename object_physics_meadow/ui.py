@@ -77,6 +77,8 @@ class OBJECT_PT_Meadow(Panel):
             sub = row.row()
             sub.enabled = meadow.use_as_dupli
             sub.prop(meadow, "use_centered")
+            row = layout.row()
+            row.prop(meadow, "hide")
         
         elif meadow.type == 'GROUND':
             box = layout.box()
@@ -102,6 +104,15 @@ class OBJECT_PT_Meadow(Panel):
         sub.enabled = has_samples
         sub.operator("meadow.make_patches", icon='PARTICLE_PATH', text="Update Patches")
         sub.operator("meadow.rebake_meadow", icon='MOD_PHYSICS', text="Update Physics Cache")
+
+        row = layout.row()
+        row.prop(groundob.meadow, "use_layers")
+        sub = row.row()
+        if groundob.meadow.use_layers:
+            sub.template_layers(groundob.meadow, "layers", groundob.meadow, "used_layers", -1)
+        else:
+            sub.enabled = False
+            sub.template_layers(groundob, "layers", groundob.meadow, "used_layers", -1)
 
 
 class MeadowOperatorBase():

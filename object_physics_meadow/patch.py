@@ -145,12 +145,19 @@ def make_patches(context, groundob, gridob, template_objects):
             ob.meadow.blob_index = index
             # use ground object as parent to keep the outliner clean
             set_object_parent(ob, groundob)
-            
+            # apply layers
+            if groundob.meadow.use_layers:
+                ob.layers = groundob.meadow.layers
+
             # apply transform
             vertmat = Matrix.Translation(vert.co)
             duplimat = gridmat * vertmat
             ob.matrix_world = duplimat
             
+            # optional visibility override
+            if ob.meadow.hide:
+                ob.hide = True
+
             # XXX WARNING: having lots of objects in the scene slows down
             # the make-duplis-real operator to an absolute crawl!!
             # Therefore we unlink all copies here until the copying
