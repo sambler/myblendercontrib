@@ -45,7 +45,7 @@ https://github.com/TheDuckCow/Blender_Effectors
 
 
 bl_info = {
-	"name": "Effector Motion",
+	"name": "Blender Effectors",
 	"author": "Patrick W. Crawford",
 	"version": (1, 0, 3),
 	"blender": (2, 71, 0),
@@ -214,7 +214,10 @@ def addEffectorObj(objList, rig):
 	
 	#empty list versus obj list?
 	emptyList = []
-
+	
+	# explicit state set
+	bpy.ops.object.mode_set(mode='OBJECT')
+	
 	# iterate over all objects passed in
 	for obj in objList:
 		if obj.type=="EMPTY": continue
@@ -387,24 +390,31 @@ class separateFaces(bpy.types.Operator):
 	
 	def execute(self, context):
 		
+		# make sure it's currently in object mode for sanity
+		bpy.ops.object.mode_set(mode='OBJECT')
+		
 		for obj in bpy.context.selected_objects:
 			bpy.context.scene.objects.active = obj
 			if obj.type != "MESH": continue
 			#set scale to 1
-			bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+			try:
+				bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+			except:
+				print("couodn't transform")
+			print("working?")
 			#mark all edges sharp
-			bpy.ops.object.editmode_toggle()
+			bpy.ops.object.mode_set(mode='EDIT')
 			bpy.ops.mesh.select_all(action='SELECT')
 			bpy.ops.mesh.mark_sharp()
-			bpy.ops.object.editmode_toggle()
+			bpy.ops.object.mode_set(mode='OBJECT')
 			#apply modifier to split faces
 			bpy.ops.object.modifier_add(type='EDGE_SPLIT')
 			obj.modifiers[-1].split_angle = 0
 			bpy.ops.object.modifier_apply(apply_as='DATA', modifier=obj.modifiers[-1].name)
 			#clear sharp
-			bpy.ops.object.editmode_toggle()
+			bpy.ops.object.mode_set(mode='EDIT')
 			bpy.ops.mesh.mark_sharp(clear=True)
-			bpy.ops.object.editmode_toggle()
+			bpy.ops.object.mode_set(mode='OBJECT')
 			#separate to meshes
 			bpy.ops.mesh.separate(type="LOOSE")
 		bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
