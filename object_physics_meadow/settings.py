@@ -150,21 +150,32 @@ class MeadowObjectSettings(PropertyGroup):
         description="General random number seed value",
         default=12345
         )
+
     sampling_levels = IntProperty(
         name="Sampling Levels",
         description="Maximum number of sampling subdivision levels",
         default=4
         )
-    
-    patch_radius = FloatProperty(
-        name="Patch Radius",
-        description="Free area around each patch where no other patch overlaps",
+
+    sample_distance = FloatProperty(
+        name="Sample Distance",
+        description="Minimum distance between samples to prevent overlap",
         default=1.0,
         min=0.01
         )
-    max_patches = IntProperty(
-        name="Maximum Patch Number",
-        description="Maximum number of patches",
+
+    slope_rotation = FloatProperty(
+        name="Slope Rotation",
+        description="Influence of the slope on dupli rotation",
+        subtype='FACTOR',
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        )
+
+    max_samples = IntProperty(
+        name="Maximum Samples",
+        description="Maximum number of samples",
         default=1000,
         max=1000000,
         soft_max=10000

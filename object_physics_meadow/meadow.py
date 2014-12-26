@@ -19,6 +19,7 @@
 # <pep8 compliant>
 
 import bpy, os, cProfile, pstats, io
+from math import *
 from mathutils import *
 
 from object_physics_meadow import settings as _settings
@@ -33,22 +34,37 @@ from object_physics_meadow.hierarchical_dart_throw import hierarchical_dart_thro
 
 use_profiling = False
 
+# estimate an upper bound on sample number based on optimal circle packing
+def estimate_max_samples(context, groundob, precision=3):
+    radius = groundob.meadow.sample_distance
+    area_circle = pi * radius*radius
+    
+    mat = groundob.matrix_world
+    bbmin = mat * Vector(tuple(min(p[i] for p in groundob.bound_box) for i in range(3)))
+    bbmax = mat * Vector(tuple(max(p[i] for p in groundob.bound_box) for i in range(3)))
+    area_bounds = (bbmax[0] - bbmin[0]) * (bbmax[1] - bbmin[1])
+    # optimal circle packing area ratio is pi/(2*sqrt(3)) ~= 0.9069
+    # http://en.wikipedia.org/wiki/Circle_packing
+    area_max = area_bounds * pi / (2.0*sqrt(3.0))
+
+    num = area_max / area_circle
+    # round to precision
+    num = int(round_sigfigs(num + 0.5, precision))
+
+    groundob.meadow.max_samples = num
+
 def make_samples(context, gridob, groundob):
     settings = _settings.get(context)
     
-    xmin = min(p[0] for p in groundob.bound_box)
-    xmax = max(p[0] for p in groundob.bound_box)
-    ymin = min(p[1] for p in groundob.bound_box)
-    ymax = max(p[1] for p in groundob.bound_box)
-    zmin = min(p[2] for p in groundob.bound_box)
-    zmax = max(p[2] for p in groundob.bound_box)
+    mat = groundob.matrix_world
+    bbmin = mat * Vector(tuple(min(p[i] for p in groundob.bound_box) for i in range(3)))
+    bbmax = mat * Vector(tuple(max(p[i] for p in groundob.bound_box) for i in range(3)))
     
     # get a sample generator implementation
-    #gen = best_candidate_gen(groundob.meadow.patch_radius, xmin, xmax, ymin, ymax)
-    gen = hierarchical_dart_throw_gen(groundob.meadow.patch_radius, groundob.meadow.sampling_levels, xmin, xmax, ymin, ymax)
+    #gen = best_candidate_gen(groundob.meadow.sample_distance, bbmin[0], bbmax[0], bbmin[1], bbmax[1])
+    gen = hierarchical_dart_throw_gen(groundob.meadow.sample_distance, groundob.meadow.sampling_levels, bbmin[0], bbmax[0], bbmin[1], bbmax[1])
     
-    mat = groundob.matrix_world
-    loc2D = [(mat * Vector(p[0:3] + (1.0,)))[0:2] for p in gen(groundob.meadow.seed, groundob.meadow.max_patches)]
+    loc2D = [p[0:2] for p in gen(groundob.meadow.seed, groundob.meadow.max_samples)]
     
     return loc2D
 
@@ -62,7 +78,7 @@ def make_blobs(context, gridob, groundob):
         prof.enable()
     
     samples2D = make_samples(context, gridob, groundob)
-    blob.make_blobs(context, gridob, groundob, samples2D, groundob.meadow.patch_radius)
+    blob.make_blobs(context, gridob, groundob, samples2D, groundob.meadow.sample_distance)
 
     if use_profiling:
         prof.disable()
@@ -82,6 +98,22 @@ def delete_blobs(context, groundob):
 ### Patch copies for simulation ###
 def make_patches(context, gridob, groundob):
     scene = context.scene
+
+    if use_profiling:
+        prof = cProfile.Profile()
+        prof.enable()
+    
     template_objects = [ob for ob in scene.objects if ob.meadow.type == 'TEMPLATE']
     patch.make_patches(context, groundob, gridob, template_objects)
-    blob.setup_blob_duplis(context, groundob, 0.333 * groundob.meadow.patch_radius)
+    # XXX use a tiny radius here to hide duplicator faces in the viewport as much as possible
+    # this is not ideal, but we can't easily separate duplicator visibility and dupli visibility:
+    # hiding the duplicator would also hide the duplis!
+    blob.setup_blob_duplis(context, groundob, 0.0001)
+
+    if use_profiling:
+        prof.disable()
+
+        s = io.StringIO()
+        ps = pstats.Stats(prof, stream=s).sort_stats('tottime')
+        ps.print_stats()
+        print(s.getvalue())

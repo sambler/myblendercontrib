@@ -333,7 +333,7 @@ def assign_sample_patches(groundob, blob, patches):
     return vgroup_samples
 
 def setup_blob_duplis(context, groundob, display_radius):
-    slope_factor = 0.0
+    slope_rotation = groundob.meadow.slope_rotation
 
     blobs = blobs_from_customprops(groundob.meadow)
 
@@ -365,15 +365,13 @@ def setup_blob_duplis(context, groundob, display_radius):
             def mesh_samples():
                 up = Vector((0,0,1))
                 for loc, nor in samples:
-                    mat = (slope_factor * up.rotation_difference(nor)).to_matrix()
+                    mat = (slope_rotation * up.rotation_difference(nor)).to_matrix()
                     mat.resize_4x4()
                     yield loc, mat
 
             if ob.meadow.use_as_dupli:
                 # make a duplicator for the patch object
-                # XXX use a tiny radius here to hide them in the viewport as much as possible
-                # this is not ideal, but we can't easily separate duplicator visibility and dupli visibility
-                dob = make_blob_object(context, blob_index, blob.loc, mesh_samples(), 0.0001)
+                dob = make_blob_object(context, blob_index, blob.loc, mesh_samples(), display_radius)
                 # put the duplicator in the patch group,
                 # so it gets removed together with patch copies
                 patch_group_assign(context, dob)

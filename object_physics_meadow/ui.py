@@ -22,7 +22,7 @@ import bpy, os
 from bpy.types import Operator, Panel
 from bpy.props import *
 
-from object_physics_meadow import meadow, settings as _settings, patch, blob
+from object_physics_meadow import meadow, settings as _settings, patch, blob, physics
 from object_physics_meadow.settings import find_meadow_object
 from object_physics_meadow.util import *
 from object_physics_meadow import progress
@@ -30,11 +30,6 @@ from object_physics_meadow import progress
 # default progress reports
 def progress_default():
     progress.show_progress_bar = True
-    progress.show_stdout = True
-# XXX baking: wm.progress updates are disabled for now,
-# because the bake operator overrides this with it's own progress numbers ...
-def progress_baking():
-    progress.show_progress_bar = False
     progress.show_stdout = True
 
 class OBJECT_PT_Meadow(Panel):
@@ -89,8 +84,10 @@ class OBJECT_PT_Meadow(Panel):
             sub.enabled = not has_samples
             sub.prop(meadow, "seed")
             col = sub.column(align=True)
-            col.prop(meadow, "patch_radius")
-            col.prop(meadow, "max_patches")
+            col.prop(meadow, "sample_distance")
+            sub2 = col.row(align=True)
+            sub2.prop(meadow, "max_samples")
+            sub2.operator("meadow.estimate_max_samples", text="Estimate")
             sub.prop(meadow, "sampling_levels")
             
             if has_samples:
@@ -100,19 +97,26 @@ class OBJECT_PT_Meadow(Panel):
         
         layout.separator()
         
-        sub = layout.column()
-        sub.enabled = has_samples
-        sub.operator("meadow.make_patches", icon='PARTICLE_PATH', text="Update Patches")
-        sub.operator("meadow.rebake_meadow", icon='MOD_PHYSICS', text="Update Physics Cache")
+        col = layout.column()
+        col.enabled = has_samples
 
-        row = layout.row()
-        row.prop(groundob.meadow, "use_layers")
-        sub = row.row()
-        if groundob.meadow.use_layers:
-            sub.template_layers(groundob.meadow, "layers", groundob.meadow, "used_layers", -1)
-        else:
-            sub.enabled = False
-            sub.template_layers(groundob, "layers", groundob.meadow, "used_layers", -1)
+        box = col.box()
+        box.prop(meadow, "slope_rotation")
+        box.operator("meadow.make_patches", icon='PARTICLE_PATH', text="Update Patches")
+        
+        row = col.row()
+        row.operator("meadow.bake_physics", icon='MOD_PHYSICS')
+        row.operator("meadow.free_physics", icon='X')
+
+        if groundob:
+            row = layout.row()
+            row.prop(groundob.meadow, "use_layers")
+            sub = row.row()
+            if groundob.meadow.use_layers:
+                sub.template_layers(groundob.meadow, "layers", groundob.meadow, "used_layers", -1)
+            else:
+                sub.enabled = False
+                sub.template_layers(groundob, "layers", groundob.meadow, "used_layers", -1)
 
 
 class MeadowOperatorBase():
@@ -133,6 +137,23 @@ class MeadowOperatorBase():
                 self.report({'ERROR'}, "{0}".format(err))
                 return False, ""
         return True, cache_dir
+
+
+class EstimateMaxSamplesOperator(MeadowOperatorBase, Operator):
+    """Estimate an upper bound for the number of samples fitting on the ground object"""
+    bl_idname = "meadow.estimate_max_samples"
+    bl_label = "Estimate Maximum Samples"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        groundob = find_meadow_object(context, 'GROUND')
+        if not groundob:
+            self.report({'ERROR'}, "Could not find meadow Ground object")
+            return {'CANCELLED'}
+        
+        meadow.estimate_max_samples(context, groundob)
+        
+        return {'FINISHED'}
 
 
 class MakeBlobsOperator(MeadowOperatorBase, Operator):
@@ -235,16 +256,29 @@ class MakeMeadowOperator(MeadowOperatorBase, Operator):
         return {'FINISHED'}
 
 
-class RebakeMeadowOperator(MeadowOperatorBase, Operator):
-    """Rebake meadow simulation"""
-    bl_idname = "meadow.rebake_meadow"
-    bl_label = "Rebake Meadow"
+class MEADOW_OT_BakePhysics(MeadowOperatorBase, Operator):
+    """Bake all physics caches"""
+    bl_idname = "meadow.bake_physics"
+    bl_label = "Bake Physics"
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
         with ObjectSelection():
-            progress_baking()
-            patch.patch_objects_rebake(context)
+            progress_default()
+            physics.scene_bake_all(context)
+        return {'FINISHED'}
+
+
+class MEADOW_OT_FreePhysics(MeadowOperatorBase, Operator):
+    """Free all physics caches"""
+    bl_idname = "meadow.free_physics"
+    bl_label = "Free Physics"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        with ObjectSelection():
+            progress_default()
+            physics.scene_free_all(context)
         return {'FINISHED'}
 
 
@@ -254,19 +288,23 @@ def menu_generate_meadow(self, context):
 def register():
     bpy.utils.register_class(OBJECT_PT_Meadow)
     
+    bpy.utils.register_class(EstimateMaxSamplesOperator)
     bpy.utils.register_class(MakeBlobsOperator)
     bpy.utils.register_class(DeleteBlobsOperator)
     bpy.utils.register_class(MakePatchesOperator)
     bpy.utils.register_class(MakeMeadowOperator)
-    bpy.utils.register_class(RebakeMeadowOperator)
+    bpy.utils.register_class(MEADOW_OT_BakePhysics)
+    bpy.utils.register_class(MEADOW_OT_FreePhysics)
     bpy.types.INFO_MT_add.append(menu_generate_meadow)
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_PT_Meadow)
     
+    bpy.utils.unregister_class(EstimateMaxSamplesOperator)
     bpy.types.INFO_MT_add.remove(menu_generate_meadow)
     bpy.utils.unregister_class(MakeBlobsOperator)
     bpy.utils.unregister_class(DeleteBlobsOperator)
     bpy.utils.unregister_class(MakePatchesOperator)
     bpy.utils.unregister_class(MakeMeadowOperator)
-    bpy.utils.unregister_class(RebakeMeadowOperator)
+    bpy.utils.unregister_class(MEADOW_OT_BakePhysics)
+    bpy.utils.unregister_class(MEADOW_OT_FreePhysics)
