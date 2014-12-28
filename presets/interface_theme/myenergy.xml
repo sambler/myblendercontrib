@@ -806,7 +806,7 @@
         <space>
           <ThemeSpaceGeneric back="#333333"
                              title="#000000"
-                             text="#000000"
+                             text="#fdfdfd"
                              text_hi="#ffffff"
                              header="#333333"
                              header_text="#ffa600"
