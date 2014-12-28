@@ -19,7 +19,7 @@
 bl_info = {"name": "Tube UV Unwrap",
            "description": "UV unwrap tube-like meshes (all quads, no caps, fixed number of vertices in each ring)",
            "author": "Jakub Uhlik",
-           "version": (0, 2, 4),
+           "version": (0, 2, 5),
            "blender": (2, 70, 0),
            "location": "Edit mode > Mesh > UV Unwrap... > Tube UV Unwrap",
            "warning": "",
@@ -455,6 +455,8 @@ def tube_unwrap(operator, context, mark_seams, flip, ):
     uv_lay = make_uvmap(bm, "UVMap")
     
     # convert verts from bm2 to bm
+    if(bpy.app.version >= (2, 73, 0)):
+        bm.verts.ensure_lookup_table()
     seam = [bm.verts[v.index] for v in seam]
     rs = []
     for ring in rings:
