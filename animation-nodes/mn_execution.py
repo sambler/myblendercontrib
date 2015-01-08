@@ -10,39 +10,40 @@ from animation_nodes.utils.mn_node_utils import *
 COMPILE_BLOCKER = 0
 executionUnits = []
 
-def updateAnimationTrees(event = "NONE"):
+def updateAnimationTrees(event = "NONE", sender = None):
 	if COMPILE_BLOCKER == 0:
 		forbidCompiling()
 		
 		start = time.clock()
 		
-		secureExecution(event)
-		
-		if len(executionUnits) > 0 and event != "TREE":
-			bpy.context.scene.update()
-			
-		resetForceUpdateProperties()
+		secureExecution(event, sender)
 		clearExecutionCache()
+		
 		timeSpan = time.clock() - start
 		
 		if bpy.context.scene.mn_settings.developer.printUpdateTime:
 			printTimeSpan("Update Time ", timeSpan)
 			
+		try:
+			bpy.context.scene.update()
+			redraw_areas_if_possible()
+		except: pass
+			
 		allowCompiling()
 		
-def secureExecution(event):
-	try: executeUnits(event)
+def secureExecution(event, sender):
+	try: executeUnits(event, sender)
 	except:
 		resetCompileBlocker()
 		generateExecutionUnits()
 		forbidCompiling()
-		try: executeUnits(event)
+		try: executeUnits(event, sender)
 		except Exception as e: print(e)
 		
 		
-def executeUnits(event):
+def executeUnits(event, sender):
 	for executionUnit in executionUnits:
-		executionUnit.execute(event)
+		executionUnit.execute(event, sender)
 			
 def allowCompiling():
 	global COMPILE_BLOCKER
@@ -53,13 +54,6 @@ def forbidCompiling():
 def resetCompileBlocker():
 	global COMPILE_BLOCKER
 	COMPILE_BLOCKER = 0
-	
-def resetForceUpdateProperties():
-	nodes = getNodesFromType("mn_NetworkUpdateSettingsNode")
-	try:
-		for node in nodes:
-			node.settings.forceExecution = False
-	except: pass
 			
 		
 		
@@ -102,7 +96,6 @@ def sceneUpdateHandler(scene):
 @persistent
 def fileLoadHandler(scene):
 	generateExecutionUnits()
-	updateAnimationTrees()
 def nodePropertyChanged(self, context):
 	updateAnimationTrees("PROPERTY")
 def settingPropertyChanged(self, context):
@@ -111,7 +104,15 @@ def settingPropertyChanged(self, context):
 def nodeTreeChanged(self = None, context = None):
 	generateExecutionUnits()
 	updateAnimationTrees("TREE")
+def forceExecution(sender = None):
+	generateExecutionUnits()
+	updateAnimationTrees("FORCE", sender)
 	
+def redraw_areas_if_possible():
+	try:
+		for area in bpy.context.screen.areas:
+			area.tag_redraw()
+	except: pass
 	
 bpy.app.handlers.frame_change_post.append(frameChangeHandler)
 bpy.app.handlers.scene_update_post.append(sceneUpdateHandler)

@@ -53,9 +53,10 @@ class BakePass(bpy.types.PropertyGroup):
     pair_counter = bpy.props.IntProperty(name="Pair Counter", description="", default=0)
     pass_name = bpy.props.EnumProperty(name = "Pass", default = "NORMAL",
                                     items = (("COMBINED","Combined",""),
+                                            ("MAT_ID","Material ID",""),
                                             #("Z","Depth",""),
                                             #("COLOR","Color",""),
-                                            #("DIFFUSE","Diffuse",""),
+                                            # ("DIFFUSE","Diffuse",""),
                                             #("SPECULAR","Specular",""),
                                             ("SHADOW","Shadow",""),
                                             ("AO","Ambient Occlusion",""),
@@ -87,6 +88,10 @@ class BakePass(bpy.types.PropertyGroup):
     samples = bpy.props.IntProperty(name="Samples", description="", default=1)
     suffix = bpy.props.StringProperty(name="Suffix", description="", default="")
 
+    clean_environment = bpy.props.BoolProperty(name = "Clean Environment", default = False)
+    environment_highpoly = bpy.props.BoolProperty(name = "Highpoly", default = False)
+    environment_group = bpy.props.StringProperty(name="", description="Environment", default="")
+    
     nm_space = bpy.props.EnumProperty(name = "Normal map space", default = "TANGENT",
                                     items = (("TANGENT","Tangent",""),
                                             ("OBJECT", "Object", "")))
@@ -115,21 +120,23 @@ class BakePass(bpy.types.PropertyGroup):
     def props(self):
         props = set()
         if self.pass_name == "COMBINED":
-            props = {"samples"}
+            props = {"samples", "clean_environment", "environment"}
         if self.pass_name == "SHADOW":
             props = {"samples"}
         if self.pass_name == "AO":
-            props = {"ao_distance", "samples"}
+            props = {"ao_distance", "samples", "clean_environment", "environment"}
         if self.pass_name == "NORMAL":
             props = {"nm_space", "swizzle"}
+        # if self.pass_name == "DIFFUSE":
+            # props = {"samples", "clean_environment", "environment"}
         if self.pass_name == "DIFFUSE_DIRECT":
-            props = {"samples"}
+            props = {"samples", "clean_environment", "environment"}
         if self.pass_name == "DIFFUSE_INDIRECT":
-            props = {"samples"}
+            props = {"samples", "clean_environment", "environment"}
         if self.pass_name == "GLOSSY_DIRECT":
-            props = {"samples"}
+            props = {"samples", "clean_environment", "environment"}
         if self.pass_name == "GLOSSY_INDIRECT":
-            props = {"samples"}
+            props = {"samples", "clean_environment", "environment"}
         if self.pass_name == "TRANSMISSION_DIRECT":
             props = {"samples"}
         if self.pass_name == "TRANSMISSION_INDIRECT":
@@ -139,7 +146,29 @@ class BakePass(bpy.types.PropertyGroup):
         if self.pass_name == "SUBSURFACE_INDIRECT":
             props = {"samples"}            
         return props
-        
+    
+    def get_cycles_pass_type(self):
+        if self.pass_name == "COMBINED": return "COMBINED"
+        if self.pass_name == "MAT_ID": return "DIFFUSE_COLOR"
+        if self.pass_name == "SHADOW": return "SHADOW"
+        if self.pass_name == "AO": return "AO"
+        if self.pass_name == "NORMAL": return "NORMAL"
+        if self.pass_name == "UV": return "UV"
+        if self.pass_name == "EMIT": return "EMIT"
+        if self.pass_name == "ENVIRONMENT": return "ENVIRONMENT"
+        if self.pass_name == "DIFFUSE_DIRECT": return "DIFFUSE_DIRECT"
+        if self.pass_name == "DIFFUSE_INDIRECT": return "DIFFUSE_INDIRECT"
+        if self.pass_name == "DIFFUSE_COLOR": return "DIFFUSE_COLOR"
+        if self.pass_name == "GLOSSY_DIRECT": return "GLOSSY_DIRECT"
+        if self.pass_name == "GLOSSY_INDIRECT": return "GLOSSY_INDIRECT"
+        if self.pass_name == "GLOSSY_COLOR": return "GLOSSY_COLOR"
+        if self.pass_name == "TRANSMISSION_DIRECT": return "TRANSMISSION_DIRECT"
+        if self.pass_name == "TRANSMISSION_INDIRECT": return "TRANSMISSION_INDIRECT"
+        if self.pass_name == "TRANSMISSION_COLOR": return "TRANSMISSION_COLOR"
+        if self.pass_name == "SUBSURFACE_DIRECT": return "SUBSURFACE_DIRECT"
+        if self.pass_name == "SUBSURFACE_INDIRECT": return "SUBSURFACE_INDIRECT"
+        if self.pass_name == "SUBSURFACE_COLOR": return "SUBSURFACE_COLOR"
+              
     def get_filepath(self, bj):
         path = bj.output 
         if path[-1:] != "/":
@@ -165,6 +194,8 @@ class BakeJob(bpy.types.PropertyGroup):
     expand = bpy.props.BoolProperty(name = "Expand", default = True)
     resolution_x = bpy.props.IntProperty(name="Resolution X", default = 1024)
     resolution_y = bpy.props.IntProperty(name="Resolution Y", default = 1024)
+    antialiasing = bpy.props.BoolProperty(name="4x Antialiasing", description="", default=False)
+    aa_sharpness = bpy.props.FloatProperty(name="AA Sharpness", description="", default=0.5, min = 0.0, max = 1.0)
     
     margin = bpy.props.IntProperty(name="Margin", default = 16, min = 0)
     
@@ -178,6 +209,12 @@ class BakeJob(bpy.types.PropertyGroup):
     
     bake_queue = bpy.props.CollectionProperty(type=BakePair)
     bake_pass_queue = bpy.props.CollectionProperty(type=BakePass)
+    
+    def get_render_resolution(self):
+        if self.antialiasing == True:
+            return [self.resolution_x * 2, self.resolution_y * 2]
+        else:
+            return [self.resolution_x, self.resolution_y]
     
 register_class(BakeJob)
 
@@ -201,63 +238,36 @@ class MeltdownBakeOp(bpy.types.Operator):
     bake_target = bpy.props.StringProperty()
     
     def create_temp_node(self):
+        mds = bpy.context.scene.meltdown_settings
+        pair = mds.bake_job_queue[self.job].bake_queue[self.pair]
         #add an image node to the lowpoly model's material
-        bake_mat = bpy.context.active_object.active_material
+        bake_mat = bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].active_material
         
+        bake_mat.use_nodes = True
         if "MDtarget" not in bake_mat.node_tree.nodes:
             imgnode = bake_mat.node_tree.nodes.new(type = "ShaderNodeTexImage")
-            imgnode.image = bpy.data.images[self.bake_target]
+            imgnode.image = bpy.data.images["MDtarget"]
             imgnode.name = 'MDtarget'
             imgnode.label = 'MDtarget'
         else:
             imgnode = bake_mat.node_tree.nodes['MDtarget']
-            imgnode.image = bpy.data.images[self.bake_target]
+            imgnode.image = bpy.data.images["MDtarget"]
         
         bake_mat.node_tree.nodes.active = imgnode
-    
-    def cleanup_temp_node(self):
-        bake_mat = bpy.context.active_object.active_material
-        if "MDtarget" in bake_mat.node_tree.nodes:
-            imgnode = bake_mat.node_tree.nodes['MDtarget']
-            bake_mat.node_tree.nodes.remove(imgnode)
-            
-    def prepare_scene(self):
-        mds = bpy.context.scene.meltdown_settings
-        pair = mds.bake_job_queue[self.job].bake_queue[self.pair]
-        
-        # make selections
-        bpy.ops.object.select_all(action='DESELECT')
-        if pair.highpoly != "":
-            if pair.hp_obj_vs_group == "GRP":
-                for object in bpy.data.groups[pair.highpoly].objects:
-                    object.select = True
-            else:
-                bpy.data.scenes[0].objects[pair.highpoly].select = True
-        else:
-            pair.use_hipoly = False
-        
-        bpy.data.scenes[0].objects[pair.lowpoly].select = True
-        bpy.context.scene.objects.active = bpy.data.scenes[0].objects[pair.lowpoly]
-        
+
     def create_render_target(self):
         mds = bpy.context.scene.meltdown_settings
-        bakepass = mds.bake_job_queue[self.job].bake_pass_queue[self.bakepass]
         job = mds.bake_job_queue[self.job]
-        
-        if "MDtarget" not in bpy.data.images:
-            bpy.ops.image.new(name="MDtarget", width= job.resolution_x, height = job.resolution_y, \
-                                color=(0.0, 0.0, 0.0, 0.0), alpha=True, generated_type='BLANK', float=False)
-        baketarget = bpy.data.images["MDtarget"]
-        self.bake_target = "MDtarget"
-        
-        #assign file path to render target
-        baketarget.filepath = bakepass.get_filepath(job)
+
+        bpy.ops.image.new(name="MDtarget", width= job.get_render_resolution()[0], \
+        height = job.get_render_resolution()[1], \
+        color=(0.0, 0.0, 0.0, 0.0), alpha=True, generated_type='BLANK', float=False)
         
     def cleanup_render_target(self):
-        baketarget = bpy.data.images[self.bake_target]
+        baketarget = bpy.data.images["MDtarget"]
         
-        #save image
-        baketarget.save()
+        # call compo trees here
+        self.compo_nodes_margin(baketarget)
         
         #unlink from image editors
         for wm in bpy.data.window_managers:
@@ -265,10 +275,167 @@ class MeltdownBakeOp(bpy.types.Operator):
                 for area in window.screen.areas:
                     if area.type == "IMAGE_EDITOR":
                         area.spaces[0].image = None
-        #remove image
-        baketarget.user_clear()
-        bpy.data.images.remove(baketarget)
     
+    # def apply_modifiers(self):
+    
+    # def merge_group(self):
+    
+    def scene_copy(self):
+        # store the original names of things in the scene so we can easily identify them later
+        for object in bpy.context.scene.objects:
+            object.md_orig_name = object.name
+        for group in bpy.data.groups:
+            group.md_orig_name = group.name
+        for world in bpy.data.worlds:
+            world.md_orig_name = world.name
+        for material in bpy.data.materials:
+            material.md_orig_name = material.name
+        
+        # duplicate the scene
+        bpy.ops.scene.new(type='FULL_COPY')
+        bpy.context.scene.name = "MD_TEMP"
+        
+        # tag the copied object names with _MD_TMP
+        for object in bpy.data.scenes["MD_TEMP"].objects:
+            object.name = object.md_orig_name + "_MD_TMP"
+        for group in bpy.data.groups:
+            if group.name != group.md_orig_name:
+                group.name = group.md_orig_name + "_MD_TMP"
+        for world in bpy.data.worlds:
+            if world.name != world.md_orig_name:
+                world.name = "MD_TEMP"
+        for material in bpy.data.materials:
+            if material.name != material.md_orig_name:
+                material.name = material.md_orig_name + "_MD_TMP"
+    
+    def scene_new_compo(self):
+        bpy.ops.scene.new(type = "EMPTY")
+        bpy.context.scene.name = "MD_COMPO"
+    
+    def copy_cycles_settings(self):
+        mds = bpy.context.scene.meltdown_settings
+        bakepass = mds.bake_job_queue[self.job].bake_pass_queue[self.bakepass]
+        
+        #copy pass settings to cycles settings
+        bpy.data.scenes["MD_TEMP"].cycles.bake_type = bakepass.get_cycles_pass_type()
+        bpy.data.scenes["MD_TEMP"].cycles.samples = bakepass.samples
+        bpy.data.worlds["MD_TEMP"].light_settings.distance = bakepass.ao_distance
+    
+    def pass_material_id_prep(self):
+        mds = bpy.context.scene.meltdown_settings
+        pair = mds.bake_job_queue[self.job].bake_queue[self.pair]
+        
+        def change_material(hp):
+            for slot in hp.material_slots:
+                mat = slot.material
+                mat.use_nodes = True
+                
+                for node in mat.node_tree.nodes:
+                    mat.node_tree.nodes.remove(node)
+                
+                tree = mat.node_tree
+                
+                tree.nodes.new(type = "ShaderNodeBsdfDiffuse")
+                tree.nodes.new(type = "ShaderNodeOutputMaterial")
+                output = tree.nodes["Diffuse BSDF"].outputs["BSDF"]
+                input = tree.nodes["Material Output"].inputs["Surface"]
+                tree.links.new(output, input)
+                
+                mat.node_tree.nodes["Diffuse BSDF"].inputs["Color"].default_value = \
+                [mat.diffuse_color[0], mat.diffuse_color[1], mat.diffuse_color[2], 1]
+        
+        
+        if pair.highpoly != "":
+            if pair.hp_obj_vs_group == "GRP":
+                for object in bpy.data.groups[pair.highpoly+"_MD_TMP"].objects:
+                    change_material(object)
+            else:
+                change_material(hp = bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"])
+        
+    
+    def prepare_scene(self):
+        mds = bpy.context.scene.meltdown_settings
+        pair = mds.bake_job_queue[self.job].bake_queue[self.pair]
+        pair_list = mds.bake_job_queue[self.job].bake_queue
+        bakepass = mds.bake_job_queue[self.job].bake_pass_queue[self.bakepass]
+        
+        self.scene_copy()
+        self.copy_cycles_settings()
+        
+        # bpy.data.scenes["MD_TEMP"].active_layer = 0
+        bpy.data.scenes["MD_TEMP"].layers[0] = True
+        
+        # make selections, ensure visibility
+        bpy.ops.object.select_all(action='DESELECT')
+        if pair.highpoly != "":
+            if pair.hp_obj_vs_group == "GRP":
+                for object in bpy.data.groups[pair.highpoly+"_MD_TMP"].objects:
+                    object.hide = False
+                    object.hide_select = False
+                    object.hide_render = False
+                    object.layers[0] = True
+                    object.select = True
+            else:
+                bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].hide = False
+                bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].hide_select = False
+                bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].hide_render = False
+                bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].layers[0] = True
+                bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].select = True
+        else:
+            pair.use_hipoly = False
+        
+        #lowpoly visibility
+        bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].hide = False
+        bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].hide_select = False
+        bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].hide_render = False
+        bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].layers[0] = True
+        bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].select = True
+        
+        #cage visibility
+        if pair.cage != "":
+            bpy.data.scenes["MD_TEMP"].objects[pair.cage+"_MD_TMP"].hide = True
+            bpy.data.scenes["MD_TEMP"].objects[pair.cage+"_MD_TMP"].hide_render = True
+        
+        bpy.context.scene.objects.active = bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"]
+        
+        if bakepass.clean_environment == False and bakepass.environment_highpoly == True:
+            # iterate over objects designated as highpoly and select them
+            for rem_i, rem_pair in enumerate(pair_list):
+                if rem_pair.hp_obj_vs_group == "GRP":
+                    for object in  bpy.data.groups[rem_pair.highpoly+"_MD_TMP"].objects:
+                        object.hide = False
+                        object.hide_select = False
+                        object.hide_render = False
+                        object.select = True
+                        object.layers[0] = True
+                else:
+                    bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].hide = False
+                    bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].hide_select = False
+                    bpy.data.scenes["MD_TEMP"].objects[pair.highpoly+"_MD_TMP"].hide_render = False
+                    bpy.data.scenes["MD_TEMP"].objects[rem_pair.highpoly+"_MD_TMP"].select = True
+                    bpy.data.scenes["MD_TEMP"].objects[rem_pair.highpoly+"_MD_TMP"].layers[0] = True
+                
+        if bakepass.clean_environment == False \
+        and bakepass.environment_highpoly == False \
+        and bakepass.environment_group != "":
+            for object in bpy.data.groups[bakepass.environment_group+"_MD_TMP"].objects:
+                object.hide = False
+                object.hide_select = False
+                object.hide_render = False
+                object.select = True
+                object.layers[0] = True
+        
+        # remove unnecessary objects
+        if bakepass.environment_group != "" \
+        or bakepass.clean_environment == True \
+        or bakepass.environment_highpoly == True: #do not remove if environment group empty
+            for object in bpy.data.scenes["MD_TEMP"].objects:
+                if object.select == False:
+                    self.remove_object(object)
+        
+        if bakepass.pass_name == "MAT_ID":
+            self.pass_material_id_prep()
+        
     def bake_set(self):
         mds = bpy.context.scene.meltdown_settings
         pair = mds.bake_job_queue[self.job].bake_queue[self.pair]
@@ -279,13 +446,13 @@ class MeltdownBakeOp(bpy.types.Operator):
         
         no_materials = False
         #ensure lowpoly has material
-        if len(bpy.data.scenes[0].objects[pair.lowpoly].data.materials) == 0 \
-            or bpy.data.scenes[0].objects[pair.lowpoly].material_slots[0].material == None:
+        if len(bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].data.materials) == 0 \
+            or bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].material_slots[0].material == None:
             no_materials = True
-            temp_mat = bpy.data.materials.new("MeltdownTempMat")
+            temp_mat = bpy.data.materials.new("Meltdown_MD_TMP")
             temp_mat.use_nodes = True
-            bpy.data.scenes[0].objects[pair.lowpoly].data.materials.append(temp_mat)
-            bpy.data.scenes[0].objects[pair.lowpoly].active_material = temp_mat
+            bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].data.materials.append(temp_mat)
+            bpy.data.scenes["MD_TEMP"].objects[pair.lowpoly+"_MD_TMP"].active_material = temp_mat
         
         self.create_temp_node()
         
@@ -301,32 +468,20 @@ class MeltdownBakeOp(bpy.types.Operator):
         
         #bake
         bpy.ops.object.bake(type=bpy.context.scene.cycles.bake_type, filepath="", \
-        width=bj.resolution_x, height=bj.resolution_y, margin=bj.margin, \
+        width=bj.get_render_resolution()[0], height=bj.get_render_resolution()[1], margin=0, \
         use_selected_to_active=pair.use_hipoly, cage_extrusion=pair.extrusion, cage_object=pair.cage, \
         normal_space=bakepass.nm_space, \
         normal_r=bakepass.normal_r, normal_g=bakepass.normal_g, normal_b=bakepass.normal_b, \
         save_mode='INTERNAL', use_clear=clear, use_cage=pair_use_cage, \
         use_split_materials=False, use_automatic_name=False)
     
-        # bake_mat.node_tree.nodes.remove(imgnode)
-        self.cleanup_temp_node()
-        
-        if no_materials:
-            bpy.data.scenes[0].objects[pair.lowpoly].data.materials.clear()
-            bpy.ops.object.material_slot_remove()
-            
+        self.cleanup()
+          
     def bake_pass(self):
         mds = bpy.context.scene.meltdown_settings
         bakepass = mds.bake_job_queue[self.job].bake_pass_queue[self.bakepass]
         bj = mds.bake_job_queue[self.job]
-        
-        self.create_render_target()
-        
-        #copy pass settings to cycles settings
-        bpy.data.scenes[0].cycles.bake_type = bakepass.pass_name
-        bpy.data.scenes[0].cycles.samples = bakepass.samples
-        bpy.data.worlds[0].light_settings.distance = bakepass.ao_distance
-        
+
         #the pair counter is used to determine whether to clear the image
         #set it to 0 after each bake pass
         bakepass.pair_counter = 0
@@ -337,16 +492,146 @@ class MeltdownBakeOp(bpy.types.Operator):
                 self.bake_set()
     
         self.cleanup_render_target()
+
+    def remove_object(self, object):
+        if bpy.data.objects[object.name]:            
+            if object.type == "MESH":
+                bpy.data.scenes["MD_TEMP"].objects.unlink(object)
+                mesh_to_remove = object.data
+                bpy.data.objects.remove(object)
+                bpy.data.meshes.remove(mesh_to_remove)
+            else:
+                bpy.data.scenes["MD_TEMP"].objects.unlink(object)
+                bpy.data.objects.remove(object)
+    
+    def cleanup(self):
+        
+        for object in bpy.data.scenes["MD_TEMP"].objects:
+            self.remove_object(object)
+        
+        for material in bpy.data.materials:
+            if material.name.endswith("_MD_TMP"):
+                bpy.data.materials.remove(material)
+        
+        for group in bpy.data.groups:
+            if group.name.endswith("_MD_TMP"):
+                bpy.data.groups.remove(group)
+        
+        bpy.ops.scene.delete()
+    
+    def compo_nodes_margin(self, targetimage):
+        mds = bpy.context.scene.meltdown_settings
+        bj = mds.bake_job_queue[self.job]
+        bakepass = mds.bake_job_queue[self.job].bake_pass_queue[self.bakepass]
+        # job = mds.bake_job_queue[self.job]
+        self.scene_new_compo()
+        
+        # make sure the compositor is using nodes
+        bpy.data.scenes["MD_COMPO"].use_nodes = True
+        bpy.data.scenes["MD_COMPO"].render.resolution_x = bj.resolution_x
+        bpy.data.scenes["MD_COMPO"].render.resolution_y = bj.resolution_y
+        bpy.data.scenes["MD_COMPO"].render.resolution_percentage = 100
+        bpy.data.scenes["MD_COMPO"].render.filepath = bakepass.get_filepath(bj)
+        bpy.data.scenes["MD_COMPO"].render.image_settings.compression = 0
+        
+        tree = bpy.data.scenes["MD_COMPO"].node_tree
+        
+        # get rid of all nodes
+        for node in tree.nodes:
+            tree.nodes.remove(node)
+        
+        # make a dictionary of all the nodes we're going to need
+        # the vector is for placement only, otherwise useless
+        nodes = {
+            "Image": ["CompositorNodeImage", (-900.0, 100.0)],
+            "Inpaint": ["CompositorNodeInpaint", (-700.0, 100.0)],
+            "Filter": ["CompositorNodeValue", (-700.0, -100.0)],
+            "Negative": ["CompositorNodeMath", (-700.0, -300.0)],
+            "TF1": ["CompositorNodeTransform", (-500.0, 100.0)],
+            "TF2": ["CompositorNodeTransform", (-500.0, -100.0)],
+            "TF3": ["CompositorNodeTransform", (-500.0, -300.0)],
+            "TF4": ["CompositorNodeTransform", (-500.0, -500.0)],
+            "Mix1": ["CompositorNodeMixRGB", (-300.0, 100.0)],
+            "Mix2": ["CompositorNodeMixRGB", (-300.0, -300.0)],
+            "Mix3": ["CompositorNodeMixRGB", (-100.0, 100.0)],
+            "Output": ["CompositorNodeComposite", (200.0, 100.0)]
+        }
+        
+        # add all the listed nodes
+        for key, node_data in nodes.items():
+            node = tree.nodes.new(type = node_data[0])
+            node.location = node_data[1]
+            node.name = key
+            node.label = key
             
+        links = [
+            ["Image", "Image", "Inpaint", "Image"],
+            ["Filter", "Value", "Negative", 1],
+            ["Inpaint", "Image", "TF1", "Image"],
+            ["Inpaint", "Image", "TF2", "Image"],
+            ["Inpaint", "Image", "TF3", "Image"],
+            ["Inpaint", "Image", "TF4", "Image"],
+            ["Filter", "Value", "TF1", 2],
+            ["Filter", "Value", "TF2", 1],
+            ["Filter", "Value", "TF2", 2],
+            ["Filter", "Value", "TF4", 1],
+            ["Negative", "Value", "TF1", 1],
+            ["Negative", "Value", "TF3", 1],
+            ["Negative", "Value", "TF3", 2],
+            ["Negative", "Value", "TF4", 2],
+            ["TF1", "Image", "Mix1", 1],
+            ["TF2", "Image", "Mix1", 2],
+            ["TF3", "Image", "Mix2", 1],
+            ["TF4", "Image", "Mix2", 2],
+            ["Mix1", "Image", "Mix3", 1],
+            ["Mix2", "Image", "Mix3", 2],
+            ["Mix3", "Image", "Output", "Image"]
+        ]
+        
+        for link in links:
+            output = tree.nodes[link[0]].outputs[link[1]]
+            input = tree.nodes[link[2]].inputs[link[3]]
+            tree.links.new(output, input)
+
+        if bj.antialiasing == True:
+            margin = bj.margin*2
+            filter_width = (1.0-bj.aa_sharpness)/2.0
+            print("filter "+str(filter_width))
+            transform_scale = 0.5
+        else:
+            margin = bj.margin
+            filter_width = 0.0            
+            transform_scale = 1.0
+        
+        tree.nodes["Image"].image = targetimage
+        tree.nodes["Inpaint"].distance = margin
+        tree.nodes["Filter"].outputs[0].default_value = filter_width
+        tree.nodes["Negative"].inputs[0].default_value = 0.0
+        tree.nodes["Negative"].operation = "SUBTRACT"
+        tree.nodes["TF1"].inputs[4].default_value = transform_scale
+        tree.nodes["TF2"].inputs[4].default_value = transform_scale
+        tree.nodes["TF3"].inputs[4].default_value = transform_scale
+        tree.nodes["TF4"].inputs[4].default_value = transform_scale
+        tree.nodes["TF1"].filter_type = "BICUBIC"
+        tree.nodes["TF2"].filter_type = "BICUBIC"
+        tree.nodes["TF3"].filter_type = "BICUBIC"
+        tree.nodes["TF4"].filter_type = "BICUBIC"
+        tree.nodes["Mix1"].inputs[0].default_value = 0.5
+        tree.nodes["Mix2"].inputs[0].default_value = 0.5
+        tree.nodes["Mix3"].inputs[0].default_value = 0.5
+        
+
+        bpy.ops.render.render(write_still = True, scene = "MD_COMPO")
+        bpy.ops.scene.delete()
     
     def execute(self, context):
         mds = context.scene.meltdown_settings
-
+        self.create_render_target()
         for i_job, bj in enumerate(mds.bake_job_queue):
             if bj.activated == True:
                 self.job = i_job
                 
-                #ensure save path exists
+                # ensure save path exists
                 if not os.path.exists(bpy.path.abspath(bj.output)):
                     os.makedirs(bpy.path.abspath(bj.output))
                 
@@ -355,15 +640,22 @@ class MeltdownBakeOp(bpy.types.Operator):
                         self.bakepass = i_pass
                         self.bake_pass()
         
+        bpy.data.images["MDtarget"].user_clear()
+        bpy.data.images.remove(bpy.data.images["MDtarget"])
+        
         return {'FINISHED'}
 
 class MeltdownPanel(bpy.types.Panel):
     bl_label = "Meltdown bake tools"
     bl_idname = "OBJECT_PT_meltdown"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "render"
-
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Meltdown"
+    
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.scene.render.engine == "CYCLES"
+    
     def draw(self, context):
         layout = self.layout
         edit = context.user_preferences.edit
@@ -408,6 +700,15 @@ class MeltdownPanel(bpy.types.Panel):
                 row.alignment = 'EXPAND'
                 row.prop(bj, 'resolution_x', text="X")
                 row.prop(bj, 'resolution_y', text="Y")
+                
+                row = layout.row(align=True)
+                row.alignment = 'EXPAND'
+                row.prop(bj, 'antialiasing', text="4x Antialiasing")
+                
+                if bj.antialiasing == True:
+                    row = layout.row(align=True)
+                    row.alignment = 'EXPAND'
+                    row.prop(bj, 'aa_sharpness', text="AA sharpness")
                 
                 row = layout.row(align=True)
                 row.alignment = 'EXPAND'
@@ -509,7 +810,24 @@ class MeltdownPanel(bpy.types.Panel):
                             subrow = box.row(align=True)
                             subrow.alignment = 'EXPAND'
                             subrow.prop(bakepass, 'samples', text = "Samples")    
-                
+                        
+                        if "clean_environment" in bakepass.props():
+                            subrow = box.row(align=True)
+                            subrow.alignment = 'EXPAND'
+                            subrow.prop(bakepass, 'clean_environment', text = "Clean Environment")
+                        
+                        if bakepass.clean_environment == False and "clean_environment" in bakepass.props():
+                            subrow = box.row(align=True)
+                            subrow.alignment = 'EXPAND'
+                            subrow.prop(bakepass, 'environment_highpoly', text = "All Highpoly")  
+                        
+                        if bakepass.clean_environment == False and \
+                        bakepass.environment_highpoly == False and \
+                        "clean_environment" in bakepass.props():
+                            subrow = box.row(align=True)
+                            subrow.alignment = 'EXPAND'
+                            subrow.prop_search(bakepass, "environment_group", bpy.data, "groups", text = "Environment")
+                            
                     col = row.column()
                     row = col.row()
                     rem = row.operator("meltdown.rem_pass", text = "", icon = "X")
@@ -543,7 +861,8 @@ class MeltdownAddPairOp(bpy.types.Operator):
     
     job_index = bpy.props.IntProperty()
     def execute(self, context):
-        bpy.data.scenes[0].meltdown_settings.bake_job_queue[self.job_index].bake_queue.add()
+        scene_name = bpy.context.scene.name
+        bpy.data.scenes[scene_name].meltdown_settings.bake_job_queue[self.job_index].bake_queue.add()
         
         return {'FINISHED'}
 
@@ -556,7 +875,8 @@ class MeltdownRemPairOp(bpy.types.Operator):
     pair_index = bpy.props.IntProperty()
     job_index = bpy.props.IntProperty()
     def execute(self, context):
-        bpy.data.scenes[0].meltdown_settings.bake_job_queue[self.job_index].bake_queue.remove(self.pair_index)
+        scene_name = bpy.context.scene.name
+        bpy.data.scenes[scene_name].meltdown_settings.bake_job_queue[self.job_index].bake_queue.remove(self.pair_index)
         
         return {'FINISHED'}
         
@@ -568,7 +888,8 @@ class MeltdownAddPassOp(bpy.types.Operator):
     
     job_index = bpy.props.IntProperty()
     def execute(self, context):
-        bpy.data.scenes[0].meltdown_settings.bake_job_queue[self.job_index].bake_pass_queue.add()
+        scene_name = bpy.context.scene.name
+        bpy.data.scenes[scene_name].meltdown_settings.bake_job_queue[self.job_index].bake_pass_queue.add()
         return {'FINISHED'}
 
 class MeltdownRemPassOp(bpy.types.Operator):
@@ -580,7 +901,8 @@ class MeltdownRemPassOp(bpy.types.Operator):
     pass_index = bpy.props.IntProperty()
     job_index = bpy.props.IntProperty()
     def execute(self, context):
-        bpy.data.scenes[0].meltdown_settings.bake_job_queue[self.job_index].bake_pass_queue.remove(self.pass_index)
+        scene_name = bpy.context.scene.name
+        bpy.data.scenes[scene_name].meltdown_settings.bake_job_queue[self.job_index].bake_pass_queue.remove(self.pass_index)
         return {'FINISHED'}
 
 class MeltdownAddJobOp(bpy.types.Operator):
@@ -590,7 +912,8 @@ class MeltdownAddJobOp(bpy.types.Operator):
     bl_label = "Add Bake Job"
     
     def execute(self, context):
-        bpy.data.scenes[0].meltdown_settings.bake_job_queue.add()
+        scene_name = bpy.context.scene.name
+        bpy.data.scenes[scene_name].meltdown_settings.bake_job_queue.add()
         return {'FINISHED'}
 
 class MeltdownRemJobOp(bpy.types.Operator):
@@ -601,11 +924,17 @@ class MeltdownRemJobOp(bpy.types.Operator):
     
     job_index = bpy.props.IntProperty()
     def execute(self, context):
-        bpy.data.scenes[0].meltdown_settings.bake_job_queue.remove(self.job_index)
+        scene_name = bpy.context.scene.name
+        bpy.data.scenes[scene_name].meltdown_settings.bake_job_queue.remove(self.job_index)
         return {'FINISHED'}
     
 def register():
     bpy.utils.register_module(__name__)
+    bpy.types.Object.md_orig_name = bpy.props.StringProperty(name="Original Name")
+    bpy.types.Group.md_orig_name = bpy.props.StringProperty(name="Original Name")
+    bpy.types.World.md_orig_name = bpy.props.StringProperty(name="Original Name")
+    bpy.types.Material.md_orig_name = bpy.props.StringProperty(name="Original Name")
+    
     
     #bpy.data.scenes[0].bakejob_settings.bake_queue.add()
     

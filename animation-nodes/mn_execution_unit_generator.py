@@ -20,7 +20,7 @@ class ExecutionUnit:
 			self.updateSettingsNode = (updateSettingsNode.id_data.name, updateSettingsNode.name)
 		else: self.updateSettingsNode = None
 		
-	def execute(self, event = "NONE"):
+	def execute(self, event = "NONE", sender = None):
 		update = bpy.context.scene.mn_settings.update
 		developer = bpy.context.scene.mn_settings.developer
 		
@@ -42,9 +42,11 @@ class ExecutionUnit:
 			onPropertyChange = node.settings.propertyChanged
 			onTreeChange = node.settings.treeChanged
 			skipFrames = node.settings.skipFramesAmount
-			forceExecution = node.settings.forceExecution
 			printTime = node.settings.printTime
 			unitName = node.settings.unitName
+			
+		if node is not None and node == sender and event == "FORCE":
+			forceExecution = True
 			
 		# don't use scene/property update when animation plays back
 		if event in ["SCENE", "PROPERTY", "FRAME"]:
@@ -165,10 +167,11 @@ class NetworkCodeGenerator:
 		codeParts.append(self.getNodeReferencingCode())
 		codeParts.append(self.getNodeExecuteReferencingCode())
 		codeParts.append(self.getSocketReferencingCode())
+		codeParts.append(self.getSocketValueReferencingCode())
 		codeParts.append(self.getOutputUseDeclarationCode())
 		codeParts.append(self.getTimerDefinitions())
-		codeParts.append(self.getDeterminedNodesCode())
 		codeParts.append(self.getFunctionsCode())
+		codeParts.append(self.getDeterminedNodesCode())
 		codeParts.append(mainCode)
 		codeParts.append(self.getCodeToPrintProfilingResult())
 		
@@ -208,7 +211,7 @@ class NetworkCodeGenerator:
 			codeLines[i] = "    " + line
 			
 	def getFunctionsCode(self):
-		return "\n\n".join(self.functions.values())
+		return "\n\n".join(self.functions.values()) + "\n"
 		
 	def getNodeCodeLines(self, node):
 		codeLines = []
@@ -358,8 +361,14 @@ class NetworkCodeGenerator:
 		for node in self.executeNodes:
 			codeLines.append(self.getNodeFunctionDeclarationString(node))
 		return "\n".join(codeLines)
-		
+	
 	def getSocketReferencingCode(self):
+		codeLines = []
+		for socket in self.neededSocketReferences:
+			codeLines.append(getInputSocketName(socket) + " = " + getSocketReferenceString(socket))
+		return "\n".join(codeLines)
+		
+	def getSocketValueReferencingCode(self):
 		codeLines = []
 		for socket in self.neededSocketReferences:
 			codeLines.append(self.getSocketDeclarationString(socket))
@@ -400,11 +409,11 @@ class NetworkCodeGenerator:
 			return "{ " + ", ".join(inputParts) + " }"
 	def getInputPartFromSameNode(self, socket, useFastMethod, inputSocketNames):
 		if useFastMethod:
-			return inputSocketNames[socket.identifier] + " = " + getInputValueVariable(socket)
+			return inputSocketNames[socket.identifier] + " = " + self.getInputValueString(socket)
 		else:
-			return "'" + socket.identifier + "' : " + getInputValueVariable(socket)
+			return "'" + socket.identifier + "' : " + self.getInputValueString(socket)
 	def getInputPartFromOtherNode(self, socket, originSocket, useFastMethod, inputSocketNames):
-		return self.getInputPartStart(socket, useFastMethod, inputSocketNames) + getInputValueVariable(socket)  
+		return self.getInputPartStart(socket, useFastMethod, inputSocketNames) + self.getInputValueString(socket)  
 	def getInputPartStart(self, socket, useFastMethod, inputSocketNames):
 		if useFastMethod:
 			return inputSocketNames[socket.identifier] + " = "
@@ -418,7 +427,7 @@ class NetworkCodeGenerator:
 	def getNodeFunctionDeclarationString(self, node):
 		return getNodeExecutionName(node) + " = " + getNodeVariableName(node) + ".execute"
 	def getSocketDeclarationString(self, socket):
-		return getInputSocketVariableName(socket) + " = " + getNodeVariableName(socket.node) + ".inputs['" + socket.name + "'].getValue()"
+		return getInputSocketValueName(socket) + " = " + getSocketValueGetterString(socket)
 	def getNodeExecutionLines(self, node):
 		useInLineExecution = False
 		if hasattr(node, "useInLineExecution"):
@@ -431,7 +440,7 @@ class NetworkCodeGenerator:
 			outputSocketNames = node.getOutputSocketNames()
 			for identifier, name in inputSocketNames.items():
 				socket = node.inputs[identifier]
-				inLineString = inLineString.replace("%" + name + "%", getInputValueVariable(socket))
+				inLineString = inLineString.replace("%" + name + "%", self.getInputValueString(socket))
 				if not treeInfo.hasOtherDataOrigin(socket):
 					self.neededSocketReferences.append(socket)
 			for identifier, name in outputSocketNames.items():
@@ -440,6 +449,44 @@ class NetworkCodeGenerator:
 		else:
 			self.executeNodes.append(node)
 			return [getNodeOutputString(node) + " = " + getNodeExecutionName(node) + "(" + self.generateInputListString(node) + ")"]
+			
+	def getInputValueString(self, socket):
+		originSocket = treeInfo.getDataOriginSocket(socket)
+		inputVariableName = self.getInputValueVariable(socket, originSocket)
+		
+		if self.copyValueBeforeUsing(socket, originSocket):
+			functionName = self.makeCopyFunction(socket, originSocket)
+			return functionName + "(" + inputVariableName + ")"
+		else:
+			return inputVariableName
+				
+	def getInputValueVariable(self, socket, originSocket):
+		if originSocket is None:
+			return getInputSocketValueName(socket)
+		else:
+			return getOutputValueVariable(originSocket)
+			
+	def copyValueBeforeUsing(self, socket, originSocket):
+		if hasattr(socket, "getCopyValueFunctionString") or hasattr(originSocket, "getCopyValueFunctionString"):
+			index = treeInfo.getTargetIndexFromOutputSocket(originSocket, socket)
+			amount = len(treeInfo.getDataTargetSockets(originSocket))
+			return originSocket is None or (amount >= 2)# and index < amount - 1)
+		return False
+				
+	def makeCopyFunction(self, socket, originSocket):
+		codeLines = []
+		if hasattr(originSocket, "getCopyValueFunctionString"):
+			functionName = getCopyValueFunctionName(originSocket)
+			codeLines.append("def " + getCopyValueFunctionName(originSocket) + "(value):")
+			functionLines = originSocket.getCopyValueFunctionString().split("\n")
+		else:
+			functionName = getCopyValueFunctionName(socket)
+			codeLines.append("def " + getCopyValueFunctionName(socket) + "(value):")
+			functionLines = socket.getCopyValueFunctionString().split("\n")
+		self.setIndentationOnEveryLine(functionLines)
+		codeLines.extend(functionLines)
+		self.functions[functionName] = "\n".join(codeLines)
+		return functionName
 			
 def getNodeOutputString(node):
 	if usesFastCall(node):
@@ -482,12 +529,7 @@ def usesFastCall(node):
 def usesOutputUseParameter(node):
 	return hasattr(node, "outputUseParameterName")
 	
-def getInputValueVariable(socket):
-	originSocket = treeInfo.getDataOriginSocket(socket)
-	if originSocket is not None:
-		return getOutputValueVariable(originSocket)
-	else:
-		return getInputSocketVariableName(socket)
+
 def getOutputValueVariable(socket):
 	if usesFastCall(socket.node):
 		outputSocketNames = socket.node.getOutputSocketNames()
@@ -520,9 +562,18 @@ def getNodeTimerStartName(node):
 	return "timer_start_" + str(node.codeIndex)
 def getNodeTimerName(node):
 	return "timer_" + str(node.codeIndex)
-def getInputSocketVariableName(socket):
+def getInputSocketValueName(socket):
 	node = socket.node
 	return getNodeVariableName(node) + "_socketvalue_" + str(node.inputs.find(socket.name))
+def getInputSocketName(socket):
+	node = socket.node
+	return getNodeVariableName(node) + "_socket_" + str(node.inputs.find(socket.name))
+def getSocketReferenceString(socket):
+	return getNodeVariableName(socket.node) + ".inputs['" + socket.name + "']"
+def getSocketValueGetterString(socket):
+	return getInputSocketName(socket) + ".getValue()"
+def getCopyValueFunctionName(socket):
+	return socket.bl_idname + "_copy"
 	
 	
 	
@@ -571,6 +622,8 @@ convertRules[("Float", "Vector")] = "mn_CombineVector"
 convertRules[("Integer", "Vector")] = "mn_CombineVector"
 convertRules[("Vector", "Float")] = "mn_SeparateVector"
 convertRules[("Text Block", "String")] = "mn_TextBlockReader"
+convertRules[("Vector", "Matrix")] = "mn_TranslationMatrix"
+convertRules[("Mesh Data", "Mesh")] = "mn_CreateMeshFromData"
 
 for dataType in ["Object", "Vertex", "Polygon", "Float", "Vector", "String"]:
 	convertRules[(dataType + " List", "Integer")] = "mn_GetListLengthNode"
