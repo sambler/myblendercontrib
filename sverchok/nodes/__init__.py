@@ -46,6 +46,7 @@ nodes_dict = {
         'box',
         'box_rounded',
         'circle',
+        'ngon',
         'cylinder',
         'hilbert_image',
         'hilbert',
@@ -115,6 +116,8 @@ nodes_dict = {
         'rotation',
         'scale',
         'vertices_mask',
+        'randomize',
+        'iterate',
     ],
 
     'modifier_make': [
@@ -126,6 +129,7 @@ nodes_dict = {
         'lathe',
         'line_connect',
         'offset',
+        'inset_special',
         'polygons_adaptative',
         'solidify',
         'voronoi_2d',
@@ -146,6 +150,8 @@ nodes_dict = {
         'range_map',
         'range_float',
         'range_int',
+        'fibonacci',
+        'exponential',
         'logic'
     ],
 

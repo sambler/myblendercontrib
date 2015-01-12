@@ -224,12 +224,18 @@ def make_node_cats():
         ["SvWafelNode",         "Wafel"],
         ["SvFormulaShapeNode",  "Formula shape", "IPO"],
         ["SvScriptNodeMK2",     "Script 2"],
+        ["SvGenFibonacci", "Fibonacci sequence"],
+        ["SvGenExponential", "Exponential sequence"],
+        ['SvNGonNode',    'NGon',     'RNDCURVE'],
+        ["SvRandomizeVerticesNode", "Randomize input vertices"],
+        ["SvIterateNode", "Iterate matrix transformation"],
     ]
 
     node_cats["Alpha Nodes"] = [
         ["SvImageComponentsNode", "Image Decompose",  "GROUP_VCOL"],
         ["SvJoinTrianglesNode",   "Join Triangles"],
         ["SvCacheNode",           "Cache"],
+        ["SvInsetSpecial",        "Inset Special"],
         ["SvCSGBooleanNode",      "GSG Boolean"],
 
     ]
