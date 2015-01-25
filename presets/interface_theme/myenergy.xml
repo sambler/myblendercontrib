@@ -715,7 +715,8 @@
     </text_editor>
     <timeline>
       <ThemeTimeline grid="#262626"
-                     frame_current="#60c040">
+                     frame_current="#60c040"
+                     time_keyframe="#ff8500">
         <space>
           <ThemeSpaceGeneric back="#2a2a2a"
                              title="#000000"
