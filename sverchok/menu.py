@@ -219,23 +219,32 @@ def make_node_cats():
     node_cats["Beta Nodes"] = [
         # for testing convenience, and while no documentation
         ['SvPipeNode',          'Pipe'],
+        ['SvBevelNode',         "Bevel"],
         ["SvOffsetNode",        "Offset"],
+        ["SvExtrudeSeparateNode", "Extrude Separate Faces"],
         ["SvListDecomposeNode", "List Decompose"],
         ["SvWafelNode",         "Wafel"],
         ["SvFormulaShapeNode",  "Formula shape", "IPO"],
         ["SvScriptNodeMK2",     "Script 2"],
+        ["VectorPolarInNode", "Vector polar input"],
+        ["VectorPolarOutNode", "Vector polar output"],
+        ["GetNormalsNode", "Calculate normals"],
         ["SvGenFibonacci", "Fibonacci sequence"],
         ["SvGenExponential", "Exponential sequence"],
         ['SvNGonNode',    'NGon',     'RNDCURVE'],
+        ['SvBricksNode', 'Bricks grid'],
         ["SvRandomizeVerticesNode", "Randomize input vertices"],
+        ["SvDuplicateAlongEdgeNode", "Duplicate objects along edge"],
         ["SvIterateNode", "Iterate matrix transformation"],
     ]
 
     node_cats["Alpha Nodes"] = [
         ["SvImageComponentsNode", "Image Decompose",  "GROUP_VCOL"],
         ["SvJoinTrianglesNode",   "Join Triangles"],
+        ["SvCurveViewerNode",   "Curve Viewer",     'MOD_CURVE'],
         ["SvCacheNode",           "Cache"],
         ["SvInsetSpecial",        "Inset Special"],
+        ["SkinViewerNode",        "Skin Mesher"],
         ["SvCSGBooleanNode",      "GSG Boolean"],
 
     ]

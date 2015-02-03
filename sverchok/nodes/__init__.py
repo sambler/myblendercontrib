@@ -1,6 +1,7 @@
 nodes_dict = {
     'analyzer': [
         'area',
+        'normals',
         'volume',
         'bbox',
         'distance_pp',
@@ -16,6 +17,8 @@ nodes_dict = {
     'basic_view': [
         'viewer_bmesh',
         'viewer_indices',
+        'viewer_curves',
+        'viewer_skin',
         'viewer_text',
         'viewer_mk2',
         'empty_out',
@@ -54,6 +57,7 @@ nodes_dict = {
         'image',
         'line',
         'plane',
+        'bricks',
         'random_vector',
         'script',
         'script_mk2',
@@ -116,7 +120,10 @@ nodes_dict = {
         'rotation',
         'scale',
         'vertices_mask',
+        'bevel',
+        'objects_along_edge',
         'randomize',
+        'extrude_separate',
         'iterate',
     ],
 
@@ -163,6 +170,8 @@ nodes_dict = {
         'move',
         'noise',
         'normal',
+        'vector_polar_in',
+        'vector_polar_out',
         'vector_in',
         'vector_out',
         'vertices_delete_doubles',
