@@ -4,6 +4,7 @@ nodes_dict = {
         'normals',
         'volume',
         'bbox',
+        'mesh_filter',
         'distance_pp',
         'polygons_centers',
         'neuro_elman',
@@ -16,6 +17,7 @@ nodes_dict = {
 
     'basic_view': [
         'viewer_bmesh',
+        'viewer_bmesh_mk2',
         'viewer_indices',
         'viewer_curves',
         'viewer_skin',
@@ -98,6 +100,7 @@ nodes_dict = {
 
     'matrix': [
         'apply',
+        'apply_and_join',
         'deform',
         'destructor',
         'generator',

@@ -7,15 +7,8 @@ Beta
 
    image_decompose
    bevel
-   fibonacci
-   exponential
-   calc_normals
-   vector_polar_in
-   vector_polar_out
-   ngon
+   mesh_filter
    bricks
-   randomize
-   objects_along_edge
-   extrude_separate
+   matrix_apply_and_join
    iterate
 

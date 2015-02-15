@@ -1,8 +1,8 @@
 bl_info = {
 "name": "Tracking Pies",
-"author": "Sebastian Koenig",
-"version": (1, 1),
-"blender": (2, 7, 2),
+"author": "Sebastian Koenig, Keir Mierle, Andreas Schuster",
+"version": (1, 2),
+"blender": (2, 7, 3),
 "location": "Clip Editor > Tracking Pies",
 "description": "Pie Controls for Tracking",
 "category": "Movie Tracking"}
@@ -103,10 +103,10 @@ class CLIP_OT_track_settings_to_track(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        sc = context.space_data
-        if sc.type != 'CLIP_EDITOR':
+        space = context.space_data
+        if space.type != 'CLIP_EDITOR':
             return False
-        clip = sc.clip
+        clip = space.clip
         return clip and clip.tracking.tracks.active
 
 
@@ -114,11 +114,10 @@ class CLIP_OT_track_settings_to_track(bpy.types.Operator):
 
         marker = track.markers.find_frame(framenr, False)
         marker_selected = track_selected.markers.find_frame(framenr, False)
-
-        track_selected.correlation_min = track.correlation_min
         marker_selected.pattern_corners = marker.pattern_corners
         marker_selected.search_min = marker.search_min
         marker_selected.search_max = marker.search_max
+        track_selected.correlation_min = track.correlation_min
         track_selected.frames_limit = track.frames_limit
         track_selected.pattern_match = track.pattern_match
         track_selected.margin = track.margin
@@ -132,10 +131,12 @@ class CLIP_OT_track_settings_to_track(bpy.types.Operator):
         track_selected.weight = track.weight
 
     def execute(self, context):
-        sc = context.space_data
-        clip = sc.clip
+        space = context.space_data
+        clip = space.clip
         track = clip.tracking.tracks.active
+
         framenr = context.scene.frame_current - clip.frame_start + 1
+
         for t in clip.tracking.tracks:
             if t.select:
                 self.CLIP_settings_from_track_to_track(t, track, framenr)
@@ -147,15 +148,23 @@ class CLIP_OT_track_settings_to_track(bpy.types.Operator):
 class CLIP_OT_filter_tracks(bpy.types.Operator):
     bl_label="Filter Tracks"
     bl_idname="clip.filter_tracks"
+    bl_options = {'UNDO', 'REGISTER'}
+
+    track_threshold = bpy.props.FloatProperty \
+      (
+        name = "Track Threshold",
+        description = "Filter Threshold",
+        default = 5.0
+      )
 
     @classmethod
     def poll(cls, context):
-        sc = context.space_data
-        return (sc.type == 'CLIP_EDITOR') and sc.clip
+        space = context.space_data
+        return (space.type == 'CLIP_EDITOR') and space.clip
 
     def execute(self, context):
-        num_tracks = filter_values(bpy.context.scene.track_threshold, context)
-        self.report({"INFO"}, "Identified %d faulty tracks" % num_tracks)
+        num_tracks = filter_values(self.track_threshold, context)
+        self.report({"INFO"}, "Identified %d problematic tracks" % num_tracks)
         return {'FINISHED'}
 
 
@@ -172,7 +181,6 @@ class CLIP_OT_set_active_clip(bpy.types.Operator):
     def execute(self, context):
         clip = context.space_data.clip
         scene = context.scene
-
         scene.active_clip = clip
         scene.render.resolution_x = clip.size[0]
         scene.render.resolution_y = clip.size[1]
@@ -181,71 +189,67 @@ class CLIP_OT_set_active_clip(bpy.types.Operator):
 
 
 class CLIP_PIE_refine_pie(Menu):
-    # Settings for the individual markers
+    # Refinement Options
     bl_label = "Refine Intrinsics"
 
     def draw(self, context):
-
-        layout = self.layout
         clip = context.space_data.clip
         settings = clip.tracking.settings
 
-        
+        layout = self.layout
         pie = layout.menu_pie()
+
         pie.prop(settings, "refine_intrinsics", expand=True)
 
 
 
 class CLIP_PIE_geometry_reconstruction(Menu):
-    # Settings for the individual markers
+    # Geometry Reconstruction
     bl_label = "Reconstruction"
 
     def draw(self, context):
+        space = context.space_data
 
-        sc = context.space_data
         layout = self.layout
         pie = layout.menu_pie()
+
         pie.operator("clip.bundles_to_mesh", icon="MESH_DATA")
         pie.operator("clip.track_to_empty", icon="EMPTY_DATA")
 
 
 
 class CLIP_PIE_proxy_pie(Menu):
-    # Settings for the individual markers
+    # Proxy Controls
     bl_label = "Proxy Size"
 
     def draw(self, context):
-
-        sc = context.space_data
+        space = context.space_data
 
         layout = self.layout
         pie = layout.menu_pie()
-        if sc.clip.use_proxy:
-            pie.prop(sc.clip, "use_proxy", text="Use Proxy (On)", icon="CHECKBOX_HLT")
-        else:
-            pie.prop(sc.clip, "use_proxy", text="Use Proxy (Off)", icon="CHECKBOX_DEHLT")
 
-        pie.prop(sc.clip_user, "proxy_render_size", expand=True)      
+        if space.clip.use_proxy:
+            pie.prop(space.clip, "use_proxy", text="Use Proxy (On)", icon="CHECKBOX_HLT")
+        else:
+            pie.prop(space.clip, "use_proxy", text="Use Proxy (Off)", icon="CHECKBOX_DEHLT")
+        pie.prop(space.clip_user, "proxy_render_size", expand=True)      
 
 
 
 class CLIP_PIE_display_pie(Menu):
-    # Settings for the individual markers
+    # Display Options
     bl_label = "Marker Display"
 
     def draw(self, context):
+        space = context.space_data
 
         layout = self.layout
-        clip = context.space_data.clip
-        sc = context.space_data
-
         pie = layout.menu_pie()
-        pie.prop(sc, "show_names", text="Show Track Info", icon="WORDWRAP_ON")
-        
 
-        pie.prop(sc, "show_disabled", text="Show Disabled Tracks", icon="VISIBLE_IPO_ON")
-        pie.prop(sc, "show_marker_search", text="Display Search Area", icon="VIEWZOOM")
-        pie.prop(sc, "show_marker_pattern", text="Display Pattern Area", icon="BORDERMOVE")
+        pie.prop(space, "show_names", text="Show Track Info", icon="WORDWRAP_ON")
+        pie.prop(space, "show_disabled", text="Show Disabled Tracks", icon="VISIBLE_IPO_ON")
+        pie.prop(space, "show_marker_search", text="Display Search Area", icon="VIEWZOOM")
+        pie.prop(space, "show_marker_pattern", text="Display Pattern Area", icon="BORDERMOVE")
 
 
 
@@ -255,12 +259,11 @@ class CLIP_PIE_marker_pie(Menu):
     bl_idname = "clip.marker_pie"
 
     def draw(self, context):
-
-        layout = self.layout
         clip = context.space_data.clip
         settings = clip.tracking.settings
         active = clip.tracking.tracks.active
 
+        layout = self.layout
         pie = layout.menu_pie()
 
         op = pie.operator("wm.context_set_enum", text="Loc", icon="OUTLINER_DATA_EMPTY")
@@ -305,7 +308,6 @@ class CLIP_PIE_tracking_pie(Menu):
 
     def draw(self, context):
         layout = self.layout
-
         pie = layout.menu_pie()
 
         prop = pie.operator("clip.track_markers", icon="PLAY_REVERSE")
@@ -332,25 +334,23 @@ class CLIP_PIE_clipsetup_pie(Menu):
     bl_idname = "clip.clipsetup_pie"
 
     def draw(self, context):
-        layout = self.layout
+        space = context.space_data
         clip = context.space_data.clip
-        sc = context.space_data
 
+        layout = self.layout
         pie = layout.menu_pie()
 
         pie.operator("clip.reload", text="Reload Footage", icon="FILE_REFRESH")
         pie.operator("clip.prefetch", text="Prefetch Footage", icon="LOOP_FORWARDS")
 
-        pie.prop(sc, "use_mute_footage", text="Mute Footage", icon="MUTE_IPO_ON")
-        if sc.clip_user.use_render_undistorted:
-            pie.prop(sc.clip_user, "use_render_undistorted", text="Render Undistorted (ON)", icon="CHECKBOX_HLT")
+        pie.prop(space, "use_mute_footage", text="Mute Footage", icon="MUTE_IPO_ON")
+        if space.clip_user.use_render_undistorted:
+            pie.prop(space.clip_user, "use_render_undistorted", text="Render Undistorted (ON)", icon="CHECKBOX_HLT")
         else:
-            pie.prop(sc.clip_user, "use_render_undistorted", text="Render Undistorted (OFF)", icon="CHECKBOX_DEHLT")
+            pie.prop(space.clip_user, "use_render_undistorted", text="Render Undistorted (OFF)", icon="CHECKBOX_DEHLT")
 
-        pie.prop(sc, "lock_selection", text="Lock", icon="LOCKED")
+        pie.prop(space, "lock_selection", text="Lock", icon="LOCKED")
         pie.operator("wm.call_menu_pie", text="Marker Display", icon='PLUS').name = "CLIP_PIE_display_pie"
-        #color = pie.operator("wm.call_menu_pie", text="Marker asdf", icon="PLUS").name = "CLIP_PIE_color_pie"
-        #color.expand = True
         pie.operator("wm.call_menu_pie", text="Proxy", icon='PLUS').name = "CLIP_PIE_proxy_pie"
         pie.operator("clip.set_active_clip", icon="CLIP")
 
@@ -362,11 +362,11 @@ class CLIP_PIE_solver_pie(Menu):
     bl_idname = "clip.solver_pie"
 
     def draw(self, context):
-        layout = self.layout
-        sc = context.space_data
+        space = context.space_data
         clip = context.space_data.clip
         settings = clip.tracking.settings
 
+        layout = self.layout
         pie = layout.menu_pie()
 
         pie.operator("clip.create_plane_track", icon="MESH_PLANE")
@@ -378,11 +378,9 @@ class CLIP_PIE_solver_pie(Menu):
         else:
             pie.prop(settings, "use_tripod_solver", text="Tripod Solver (OFF)", icon="RESTRICT_RENDER_ON")
 
-
         pie.operator("clip.set_solver_keyframe", text="Set Keyframe A", icon="KEY_HLT").keyframe='KEYFRAME_A'
         pie.operator("clip.set_solver_keyframe", text="Set Keyframe B", icon="KEY_HLT").keyframe='KEYFRAME_B'
 
-       
         op= pie.operator("clip.clean_tracks", icon="STICKY_UVS_DISABLE")
         pie.operator("clip.filter_tracks", icon="FILTER")
         op.frames=15
@@ -391,16 +389,15 @@ class CLIP_PIE_solver_pie(Menu):
 
 
 class CLIP_PIE_reconstruction_pie(Menu):
-    # label is displayed at the center of the pie menu.
+    # Scene Reconstruction
     bl_label = "Reconstruction"
     bl_idname = "clip.reconstruction_pie"
 
     def draw(self, context):
-
         clip = context.space_data.clip
         settings = clip.tracking.settings
-        layout = self.layout
 
+        layout = self.layout
         pie = layout.menu_pie()
 
         pie.operator("clip.set_viewport_background", text="Set Viewport Background", icon="SCENE_DATA")
@@ -417,13 +414,12 @@ class CLIP_PIE_reconstruction_pie(Menu):
 
 
 class CLIP_PIE_timecontrol_pie(Menu):
-    # label is displayed at the center of the pie menu.
+    # Time Controls
     bl_label = "Time Control"
     bl_idname = "clip.timecontrol_pie"
 
     def draw(self, context):
         layout = self.layout
-
         pie = layout.menu_pie()
 
         pie.operator("screen.frame_jump", text="Jump to Startframe", icon="TRIA_LEFT").end=False
@@ -447,9 +443,8 @@ class CLIP_PT_filter_tracks(bpy.types.Panel):
     bl_category = "Track"
 
     def draw(self, context):
-        layout = self.layout
         scene = context.scene
-
+        layout = self.layout
         layout.operator("clip.filter_tracks")
         layout.prop(scene, "track_threshold")
 
@@ -474,7 +469,7 @@ def register():
     bpy.utils.register_class(CLIP_PIE_timecontrol_pie)
     bpy.utils.register_class(CLIP_PT_filter_tracks)
 
-    bpy.types.Scene.track_threshold = bpy.props.FloatProperty \
+    track_threshold = bpy.props.FloatProperty \
       (
         name = "Track Threshold",
         description = "Filter Threshold",
