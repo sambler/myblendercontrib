@@ -73,7 +73,7 @@ class NumberArray(bpy.types.Operator):
         return {'FINISHED'}
 
 def menu_func(self, context):
-    self.layout.operator(NumberArray.bl_idname, icon='MESH_CUBE')
+    self.layout.operator(NumberArray.bl_idname, icon='PLUGIN')
 
 def register():
     bpy.utils.register_class(NumberArray)
