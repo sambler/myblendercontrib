@@ -20,3 +20,6 @@ Desktop.ini
 /blender.bin
 /user-config.py
 
+# for isosurfer we don't want the binary file
+isosurfer/mciso.so
+
