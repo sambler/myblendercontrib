@@ -23,17 +23,24 @@ Utility modules by dairin0d
 
 if "_reload" in locals(): _reload(locals())
 
-from . import utils_python
-from . import utils_math
-from . import utils_text
-from . import utils_accumulation
-from . import utils_gl
-from . import utils_ui
-from . import bpy_inspect # uses utils_python, utils_text
-from . import utils_blender # uses bpy_inspect
-from . import utils_userinput # uses utils_python, bpy_inspect
-from . import utils_view3d # uses bpy_inspect, utils_math, utils_ui, utils_gl, utils_blender
-from . import utils_addon # uses utils_python, utils_text, utils_ui, utils_accumulation, bpy_inspect
+try:
+    from . import utils_python
+    from . import utils_math
+    from . import utils_text
+    from . import utils_accumulation
+    from . import utils_gl
+    from . import utils_ui
+    from . import bpy_inspect # uses utils_python, utils_text
+    from . import utils_blender # uses bpy_inspect
+    from . import utils_userinput # uses utils_python, bpy_inspect
+    from . import utils_view3d # uses bpy_inspect, utils_math, utils_ui, utils_gl, utils_blender
+    from . import utils_addon # uses utils_python, utils_text, utils_ui, bpy_inspect
+except Exception as exc:
+    # For some reason errors that happen during dairin0d importing aren't automatically printed
+    import traceback
+    print()
+    traceback.print_exc()
+    print()
 
 def _reload(module_locals):
     import imp

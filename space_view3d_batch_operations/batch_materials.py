@@ -36,7 +36,7 @@ from {0}dairin0d.utils_blender import Selection
 from {0}dairin0d.utils_userinput import KeyMapUtils
 from {0}dairin0d.utils_ui import NestedLayout, tag_redraw
 from {0}dairin0d.bpy_inspect import prop, BlRna, BlEnums, bpy_struct
-from {0}dairin0d.utils_accumulation import Aggregator, aggregated
+from {0}dairin0d.utils_accumulation import Aggregator
 from {0}dairin0d.utils_addon import AddonManager
 """.format(dairin0d_location))
 

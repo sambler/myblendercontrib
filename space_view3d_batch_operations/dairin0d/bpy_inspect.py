@@ -32,6 +32,8 @@ from .utils_text import compress_whitespace
 #============================================================================#
 
 class BlEnums:
+    extensible_classes = (bpy.types.PropertyGroup, bpy.types.ID, bpy.types.Bone, bpy.types.PoseBone) # see bpy_struct documentation
+    
     common_attrs = {'bl_idname', 'bl_label', 'bl_description', 'bl_options',
         'bl_context', 'bl_region_type', 'bl_space_type', 'bl_category',
         'bl_use_postprocess', 'bl_use_preview', 'bl_use_shading_nodes',
@@ -55,6 +57,7 @@ class BlEnums:
     object_types_editable = {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'ARMATURE', 'LATTICE'}
     object_types_geometry = {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT'}
     object_types_with_modifiers = {'MESH', 'CURVE', 'SURFACE', 'FONT', 'LATTICE'}
+    object_types_with_vertices = {'MESH', 'CURVE', 'SURFACE', 'LATTICE'}
     
     object_mode_support = {
         'MESH':{'OBJECT', 'EDIT', 'SCULPT', 'VERTEX_PAINT', 'WEIGHT_PAINT', 'TEXTURE_PAINT', 'PARTICLE_EDIT',
@@ -609,8 +612,7 @@ class BpyProp:
     @staticmethod
     def iterate(cls, only_type=False, exclude_hidden=False, names=None):
         """Iterate over bpy properties in a class"""
-        if not isinstance(cls, type):
-            cls = type(cls)
+        if not isinstance(cls, type): cls = type(cls)
         
         if names is None:
             names = dir(cls)
@@ -621,8 +623,7 @@ class BpyProp:
             if not name.startswith("_"): # bpy prop name cannot start with an underscore
                 value = getattr(cls, name)
                 if BpyProp.validate(value):
-                    if exclude_hidden and ('HIDDEN' in value[1].get("options", "")):
-                        continue
+                    if exclude_hidden and ('HIDDEN' in value[1].get("options", "")): continue
                     yield (name, value[0] if only_type else BpyProp(value, True))
     
     @staticmethod
@@ -1072,8 +1073,7 @@ class prop:
         elif issubclass_safe(value, bpy.types.PropertyGroup): # a = SomePG | prop()
             bpy_type = bpy.props.PointerProperty
             value_target = "type"
-            if hasattr(value, "_IDBlockSelector"):
-                value = value._IDBlockSelector
+            if hasattr(value, "_IDBlockSelector"): value = value._IDBlockSelector
         elif ("items" in kwargs) and isinstance(value, str): # a = 'A' | prop(items=['A', 'B', 'C'])
             bpy_type = bpy.props.EnumProperty
             value = self.complete_enum_items(kwargs, value)
@@ -1081,12 +1081,10 @@ class prop:
             bpy_type = self.types_primitive[vtype]
         elif vtype in self.types_float_vector_subtype: # a = Vector() | prop()
             bpy_type = bpy.props.FloatVectorProperty
-            if vtype is Matrix:
-                value = itertools.chain(*value)
+            if vtype is Matrix: value = itertools.chain(*value)
             value = tuple(value)
             kwargs["size"] = len(value)
-            if "subtype" not in kwargs:
-                kwargs["subtype"] = self.types_float_vector_subtype[vtype]
+            if "subtype" not in kwargs: kwargs["subtype"] = self.types_float_vector_subtype[vtype]
             if kwargs["subtype"] == 'COLOR': # need to set min-max to 0..1, otherwise glitches
                 kwargs.setdefault("min", 0.0)
                 kwargs.setdefault("max", 1.0)
@@ -1102,10 +1100,12 @@ class prop:
             value_target = "type"
             item = value[0]
             itype = type(item)
-            if itype in self.types_item_instance: # a = [Matrix()] | prop()
+            if isinstance(item, dict): # a = [dict(prop1=..., prop2=..., ...)] | prop()
+                value = type(kwargs.get("name", "<Auto PropertyGroup>"), (bpy.types.PropertyGroup,), item)
+                value.__name__ += ":AUTOREGISTER" # for AddonManager
+            elif itype in self.types_item_instance: # a = [Matrix()] | prop()
                 value = self.types_item_instance[itype]
-                if not isinstance(value, type):
-                    value = value[len(item)]
+                if not isinstance(value, type): value = value[len(item)]
             elif issubclass_safe(item, bpy.types.PropertyGroup): # a = [SomePG] | prop()
                 if hasattr(item, "_IDBlocks"):
                     bpy_type = bpy.props.PointerProperty
@@ -1119,9 +1119,17 @@ class prop:
         elif isinstance(value, set): # a = {'A', 'B'} | prop(items=['A', 'B', 'C'])
             bpy_type = bpy.props.EnumProperty
             value = self.complete_enum_items(kwargs, value, True)
-        elif isinstance(value, dict) and (not value): # a = {} | prop(items=['A', 'B', 'C'])
-            bpy_type = bpy.props.EnumProperty
-            value = self.complete_enum_items(kwargs, value, True)
+        elif isinstance(value, dict): # a = {...} | prop()
+            if "items" not in kwargs: # a = dict(prop1=..., prop2=..., ...) | prop()
+                bpy_type = bpy.props.PointerProperty
+                value_target = "type"
+                value = type(kwargs.get("name", "<Auto PropertyGroup>"), (bpy.types.PropertyGroup,), value)
+                value.__name__ += ":AUTOREGISTER" # for AddonManager
+            elif not value: # a = {} | prop(items=['A', 'B', 'C'])
+                bpy_type = bpy.props.EnumProperty
+                value = self.complete_enum_items(kwargs, value, True)
+            else:
+                raise TypeError(err_msg)
         else:
             raise TypeError(err_msg)
         
@@ -1163,10 +1171,14 @@ class prop:
         icon = cls.get_enum_icon_number(v, v_len, True, 'NONE')
         number = cls.get_enum_icon_number(v, v_len, False, id)
         
-        try:
-            kwargs["icons"][key] = icon
-        except KeyError:
-            kwargs["icons"] = {key:icon}
+        # This uses the "update() hijack" hack, and update()
+        # causes Blender to redraw on each modification.
+        # Such a side-effect is undesirable.
+        # Also, Blender supports enum icons already.
+        #try:
+        #    kwargs["icons"][key] = icon
+        #except KeyError:
+        #    kwargs["icons"] = {key:icon}
         
         return (key, label, tip, icon, number)
     

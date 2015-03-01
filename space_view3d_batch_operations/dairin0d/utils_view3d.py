@@ -30,7 +30,7 @@ from bpy_extras.view3d_utils import (
 import math
 
 from .bpy_inspect import BlEnums
-from .utils_math import matrix_LRS, angle_signed, snap_pixel_vector, lerp
+from .utils_math import matrix_LRS, matrix_compose, angle_signed, snap_pixel_vector, lerp
 from .utils_ui import calc_region_rect, convert_ui_coord, ui_context_under_coord
 from .utils_gl import cgl
 from .utils_blender import Selection, SelectionSnapshot
@@ -42,23 +42,19 @@ class SmartView3D:
         elif isinstance(context, (Vector, tuple)):
             context_override = ui_context_under_coord(context[0], context[1],
                 (context[2] if len(context) > 2 else 1))
-            if not context_override:
-                return None
+            if not context_override: return None
             context_override.update(kwargs)
             kwargs = context_override
             context = bpy.context
         
         area = kwargs.get("area") or context.area
-        if area.type != 'VIEW_3D':
-            return None
+        if (not area) or (area.type != 'VIEW_3D'): return None
         
         region = kwargs.get("region") or context.region
-        if region.type != 'WINDOW':
-            return None
+        if (not region) or (region.type != 'WINDOW'): return None
         
         region_data = kwargs.get("region_data") or context.region_data
-        if not region_data:
-            return None
+        if not region_data: return None
         
         window = kwargs.get("window") or context.window
         space_data = kwargs.get("space_data") or context.space_data
@@ -75,6 +71,12 @@ class SmartView3D:
         self.bypass_camera_lock = kwargs.get("bypass_camera_lock", False)
         
         return self
+    
+    def __bool__(self):
+        return bool(self.area.regions and (self.area.type == 'VIEW_3D'))
+    
+    screen = property(lambda self: self.window.screen)
+    scene = property(lambda self: self.window.screen.scene)
     
     def __get(self):
         return self.space_data.lock_cursor
@@ -373,8 +375,7 @@ class SmartView3D:
             obj = self.lock_object
             bone = self.lock_bone
             m = obj.matrix_world
-            if bone:
-                m = m * (bone.matrix if obj.mode == 'EDIT' else bone.matrix_local)
+            if bone: m = m * (bone.matrix if obj.mode == 'EDIT' else bone.matrix_local)
             return m.translation.copy()
         elif v3d.lock_cursor:
             return v3d.cursor_location.copy()
@@ -496,10 +497,19 @@ class SmartView3D:
         self.rotation = m.to_quaternion()
     matrix = property(__get, __set)
     
+    # TODO:
+    #matrix_view (origin at near plane)
+    #matrix_projection
+    #matrix_projview
+    #fov angles (x, y) ?
+    #aperture (x, y) at distance 1
+    # https://unspecified.wordpress.com/2012/06/21/calculating-the-gluperspective-matrix-and-other-opengl-matrix-maths/
+    # http://stackoverflow.com/questions/18404890/how-to-build-perspective-projection-matrix-no-api
+    # http://gamedev.stackexchange.com/questions/71265/why-are-there-different-ways-of-building-projection-matrices
+    
     def __get_axis(self, x, y, z):
         rot = self.rotation
-        if self.use_camera_axes:
-            rot = rot * Quaternion((1, 0, 0), -math.pi*0.5)
+        if self.use_camera_axes: rot = rot * Quaternion((1, 0, 0), -math.pi*0.5)
         return (rot * Vector((x, y, z))).normalized()
     forward = property(lambda self: self.__get_axis(0, 1, 0))
     back = property(lambda self: self.__get_axis(0, -1, 0))
@@ -508,6 +518,47 @@ class SmartView3D:
     left = property(lambda self: self.__get_axis(-1, 0, 0))
     right = property(lambda self: self.__get_axis(1, 0, 0))
     
+    def __get(self):
+        region = self.region
+        rv3d = self.region_data
+        
+        x, y, z, t = self.right, self.up, self.forward, self.viewpoint
+        m = matrix_compose(x, y, z, t)
+        m_inv = m.inverted()
+        refpos = t + z
+        def getpoint(px, py):
+            p = region_2d_to_location_3d(region, rv3d, Vector((px, py)), refpos).to_3d()
+            return (m_inv * p)
+        
+        w, h = region.width, region.height
+        p00 = getpoint(0, 0)
+        pW0 = getpoint(w, 0)
+        p0H = getpoint(0, h)
+        pWH = getpoint(w, h)
+        
+        persp = float(self.is_perspective)
+        sx = (pW0 - p00).magnitude
+        sy = (p0H - p00).magnitude
+        dx = (p00.x + pW0.x) * 0.5
+        dy = (p00.y + p0H.y) * 0.5
+        dz = p00.z
+        
+        return (Vector((sx, sy, persp)), Vector((dx, dy, dz)))
+    proj_params = property(__get)
+    
+    """
+    def view_frame(self, scene=None, local=True):
+        if self.is_camera and (self.camera.type == 'CAMERA'):
+            points = self.camera.data.view_frame(scene)
+        else:
+            region = self.region
+            rv3d = self.region_data
+            w, h = region.width, region.height
+            refpos = 
+            region_2d_to_location_3d(region, rv3d, Vector((w, h)), Vector(pos)).to_3d()
+            return self.region_data.is_perspective
+    """
+    
     def region_rect(self, overlap=True):
         return calc_region_rect(self.area, self.region, overlap)
     
@@ -515,22 +566,17 @@ class SmartView3D:
         return convert_ui_coord(self.window, self.area, self.region, xy, src, dst, vector)
     
     def z_distance(self, pos, clamp_near=None, clamp_far=None):
-        if clamp_far is None:
-            clamp_far = clamp_near
+        if clamp_far is None: clamp_far = clamp_near
         
         near, far, origin = self.zbuf_range
         dist = (pos - origin).dot(self.forward)
         
         if self.is_perspective:
-            if clamp_near is not None:
-                dist = max(dist, near * (1.0 + clamp_near))
-            if clamp_far is not None:
-                dist = min(dist, far * (1.0 - clamp_far))
+            if clamp_near is not None: dist = max(dist, near * (1.0 + clamp_near))
+            if clamp_far is not None: dist = min(dist, far * (1.0 - clamp_far))
         else:
-            if clamp_near is not None:
-                dist = max(dist, lerp(near, far, clamp_near))
-            if clamp_far is not None:
-                dist = min(dist, lerp(far, near, clamp_far))
+            if clamp_near is not None: dist = max(dist, lerp(near, far, clamp_near))
+            if clamp_far is not None: dist = min(dist, lerp(far, near, clamp_far))
         
         return dist
     
@@ -538,10 +584,9 @@ class SmartView3D:
         region = self.region
         rv3d = self.region_data
         
-        xy = location_3d_to_region_2d(region, rv3d, pos.copy())
+        xy = location_3d_to_region_2d(region, rv3d, Vector(pos))
         
-        if align:
-            xy = snap_pixel_vector(xy)
+        if align: xy = snap_pixel_vector(xy)
         
         return self.convert_ui_coord(xy, 'REGION', coords)
     
@@ -551,15 +596,14 @@ class SmartView3D:
         
         xy = self.convert_ui_coord(xy, coords, 'REGION')
         
-        if align:
-            xy = snap_pixel_vector(xy)
+        if align: xy = snap_pixel_vector(xy)
         
         if pos is None:
             pos = self.focus
         elif isinstance(pos, (int, float)):
             pos = self.zbuf_range[2] + self.forward * pos
         
-        return region_2d_to_location_3d(region, rv3d, xy.copy(), pos.copy()).to_3d()
+        return region_2d_to_location_3d(region, rv3d, Vector(xy), Vector(pos)).to_3d()
     
     def ray(self, xy, coords='REGION'):
         region = self.region
@@ -588,14 +632,57 @@ class SmartView3D:
     
     def zbuf_to_depth(self, zbuf):
         near, far, origin = self.zbuf_range
-        depth_linear = zbuf*far + (1.0 - zbuf)*near
         if self.is_perspective:
             return (far * near) / (zbuf*near + (1.0 - zbuf)*far)
         else:
             return zbuf*far + (1.0 - zbuf)*near
     
+    def depth_to_zbuf(self, depth):
+        near, far, origin = self.zbuf_range
+        if self.is_perspective:
+            zbuf = (((far * near) / depth) - far) / (near - far)
+        else:
+            zbuf = (depth - near) / (far - near)
+    
     def depth(self, xy, cached=True, coords='REGION'):
         return self.zbuf_to_depth(self.read_zbuffer(xy, cached=cached, coords=coords)[0])
+    
+    # NDC means "normalized device coordinates"
+    def to_ndc(self, pos, to_01=False):
+        region = self.region
+        rv3d = self.region_data
+        
+        near, far, origin = self.zbuf_range
+        xy = location_3d_to_region_2d(region, rv3d, Vector(pos))
+        z = self.z_distance(pos)
+        
+        nx = (xy[0] / region.width)
+        ny = (xy[1] / region.height)
+        nz = ((z - near) / (far - near))
+        if not to_01:
+            nx = nx * 2.0 - 1.0
+            ny = ny * 2.0 - 1.0
+            nz = nz * 2.0 - 1.0
+        
+        return Vector((nx, ny, nz))
+    
+    def from_ndc(self, pos, to_01=False):
+        region = self.region
+        rv3d = self.region_data
+        
+        nx = pos[0]
+        ny = pos[1]
+        nz = pos[2]
+        if not to_01:
+            nx = (nx + 1.0) * 0.5
+            ny = (ny + 1.0) * 0.5
+            nz = (nz + 1.0) * 0.5
+        
+        near, far, origin = self.zbuf_range
+        xy = Vector((nx * region.width, ny * region.height))
+        z = near + nz * (far - near)
+        pos = origin + self.forward * z
+        return region_2d_to_location_3d(region, rv3d, xy, pos).to_3d()
     
     # Extra arguments (all False by default):
     # extend: add the result to the selection or replace the selection with the result
@@ -726,17 +813,14 @@ class SmartView3D:
         for y in range(-r, r+1):
             for x in range(-r, r+1):
                 d2 = x*x + y*y
-                if d2 <= rr:
-                    points.append((x, y, d2))
+                if d2 <= rr: points.append((x, y, d2))
         points.sort(key=lambda item: item[2])
         return points
     __radial_search_pattern = __radial_search_pattern(64)
     
     # success, object, matrix, location, normal
     def ray_cast(self, xy, radius=0, scene=None, coords='REGION'):
-        if not scene:
-            scene = bpy.context.scene
-        
+        if not scene: scene = bpy.context.scene
         radius = int(radius)
         search = (radius > 0)
         if not search:
@@ -786,8 +870,7 @@ class SmartView3D:
         else:
             center = get_pos(0, 0)
         
-        if center is None:
-            return (False, None, Matrix(), Vector(), Vector())
+        if center is None: return (False, None, Matrix(), Vector(), Vector())
         
         normal_count = 0
         normal = Vector()
@@ -807,8 +890,7 @@ class SmartView3D:
             last_p = p
             last_i = i
         
-        if normal_count > 1:
-            normal.normalize()
+        if normal_count > 1: normal.normalize()
         
         return (True, None, Matrix(), center, normal)
     
@@ -826,13 +908,17 @@ class ZBufferRecorder:
     buffers = {}
     queue = []
     
+    users = 0
+    
     def draw_callback_px(self, context):
         context = bpy.context # we need most up-to-date context
         area = context.area
         region = context.region
-        xy = (region.x, region.y)
-        wh = (region.width, region.height)
-        zbuf = cgl.read_zbuffer(xy, wh)
+        
+        if ZBufferRecorder.users > 0:
+            xy = (region.x, region.y)
+            wh = (region.width, region.height)
+            zbuf = cgl.read_zbuffer(xy, wh)
         
         buffers = ZBufferRecorder.buffers
         queue = ZBufferRecorder.queue
@@ -846,7 +932,8 @@ class ZBufferRecorder:
             queue = queue[index+1:]
             ZBufferRecorder.queue = queue
         
-        buffers[region] = zbuf
-        queue.append(region)
+        if ZBufferRecorder.users > 0:
+            buffers[region] = zbuf
+            queue.append(region)
 
 ZBufferRecorder.handler = bpy.types.SpaceView3D.draw_handler_add(ZBufferRecorder.draw_callback_px, (None, None), 'WINDOW', 'POST_PIXEL')

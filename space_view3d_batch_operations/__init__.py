@@ -19,11 +19,11 @@ bl_info = {
     "name": "Batch Operations / Manager",
     "description": "Modifiers, Materials, Groups management / batch operations",
     "author": "dairin0d, moth3r",
-    "version": (0, 5, 2),
+    "version": (0, 5, 7),
     "blender": (2, 7, 0),
     "location": "View3D > Batch category in Tools panel",
     "warning": "",
-    "wiki_url": "",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/BatchOperations",
     "tracker_url": "",
     "category": "3D View"}
 #============================================================================#
@@ -35,7 +35,7 @@ if "dairin0d" in locals():
     imp.reload(batch_modifiers)
     imp.reload(batch_materials)
     imp.reload(batch_groups)
-    #imp.reload(batch_transform)
+    imp.reload(batch_transform)
 
 import bpy
 
@@ -58,19 +58,24 @@ from {0}dairin0d.bpy_inspect import prop, BlRna
 from {0}dairin0d.utils_addon import AddonManager
 """.format(dairin0d_location))
 
-from .batch_common import copyattrs, attrs_to_dict, dict_to_attrs, Pick_Base, LeftRightPanel, change_monitor, after_register_callbacks
+from .batch_common import copyattrs, attrs_to_dict, dict_to_attrs, Pick_Base, LeftRightPanel, change_monitor
 from . import batch_modifiers
 from . import batch_materials
 from . import batch_groups
-#from . import batch_transform
+from . import batch_transform
 
 addon = AddonManager()
 
 """
-// Temporary note:
-if item is property group instance and item["pi"] = 3.14,
-in UI it should be displayed like this: layout.prop(item, '["pi"]')
+Blender Bugs:
+* When several panels have menus/enums in their headers, moving the mouse over a menu item, behind which another menu is located, will immdeiately open that menu instead.
+* Quaternion() creates Quaternion((0,0,0,0)), which converts to Eluer((pi,0,0)), i.e. not a zero rotation. Is this intentional?
+* No API for directly getting the current manipulator position/rotation/matrix.
+* No API for getting/setting active element of curve/surface.
+* No API for getting/setting selected state metaball element.
+* No API for getting/setting active element of lattice.
 
+// Temporary note:
 TODO: make it possible to use separately different change-detecting mechanisms?
 
 Make sure copy/pasting doesn't crash Blender after Undo (seems like it doesn't crash, but pasted references to objects are invalid)
@@ -79,9 +84,6 @@ Make a general mechanism of serializing/deserializing links to ID blocks? (also 
 
 // add to addon "runtime" settings to hold python objects? (just for the convenience of accessing them from one place)
 
-investigate if it's possible to make a shortcut to jump to certain tab in tool shelf
-
-// seems like ANY menu/enum in panel header will have issues with background menus/enums (report a bug?)
 
 
 make Batch Materials work in edit mode?
@@ -93,23 +95,27 @@ preset system for modeling (sort of visual scripting/macro system)
 (able to change order and parameters and add/remove operations)
 apply to current selection or some vertex group(s)
 
+
+
+
+
 * Operators
     * Batch apply operator (search field)
     * operator's draw (if not defined, use automatic draw)
     * For: selection, visible, layer, scene, .blend
     * [DONE] Repeat last N actions
-* Object/Transform
+* Objects?
     * Batch rename with some sort of name pattern detection
     * Set layers
-    * Transform summary + ability to modify if possible
-    * Coordinate systems?
-    * Non-instant evaluation? Or, if determining the moment of change is possible, use instant evaluation?
     * single-click parenting: show a list of top-level objects? (i.e. without parents)
         * Actually there is a nice addon http://blenderaddonlist.blogspot.com/2014/06/addon-parent-to-empty.html
         * That could be shift+click or click operation for all selected objects depending on button.
+    * aggregate by object types?
+    * batch convert object type?
+    * replace a number of objects with some other object? (e.g. one type of screw with other type of screw)
     * moth3r suggested copy/pasting objects (in particular, so that pasting an object won't create duplicate materials)
     * copy/paste inside group? (in the selected batch groups)
-    * for transforms: see Apply menu (rot/pos/scale, visual transform, make duplicates real?)
+    * ? see Apply menu (rot/pos/scale, visual transform, make duplicates real?)
     * See also: https://github.com/sebastian-k/scripts/blob/master/power_snapping_pies.py (what of this is applicable to batch operations?)
 * Material slots?
     ...
@@ -133,10 +139,6 @@ apply to current selection or some vertex group(s)
     * replace/override some datas with another data (data type must be same)
     * some data-specific properties?
     * no add, no paste modes, no remove (? or remove the objects?), no "add"/"filter" assign actions
-* Objects?
-    * aggregate by object types?
-    * batch convert object type?
-    * replace a number of objects with some other object? (e.g. one type of screw with other type of screw)
 """
 
 #============================================================================#
@@ -259,123 +261,43 @@ class ThisAddonPreferences:
                     category = getattr(self, Category.category_name_plural)
                     layout.prop_menu_enum(category, "quick_access", text="Quick access")
 
-'''
-def something_was_drawn():
-    was_drawn = False
-    was_drawn |= addon.external.modifiers.was_drawn
-    was_drawn |= addon.external.materials.was_drawn
-    return was_drawn
-
+"""
 def on_change():
-    addon.external.modifiers.was_drawn = False
-    addon.external.modifiers.needs_refresh = True
-    addon.external.modifiers.refresh(bpy.context)
-    
-    addon.external.materials.was_drawn = False
-    addon.external.materials.needs_refresh = True
-    addon.external.materials.refresh(bpy.context)
+    pass
+    #addon.external.modifiers.needs_refresh = True
+    #addon.external.modifiers.refresh(bpy.context)
+    #addon.external.materials.needs_refresh = True
+    #addon.external.materials.refresh(bpy.context)
 
-@addon.Operator(idname="wm.batch_changes_monitor")
-class ChangeMonitoringOperator:
-    is_running = False
-    script_reload_kmis = []
-    last_reset_time = 0.0
-    
-    def invoke(self, context, event):
-        ChangeMonitoringOperator.is_running = True
-        ChangeMonitoringOperator.script_reload_kmis = list(KeyMapUtils.search('script.reload'))
-        
-        wm = context.window_manager
-        wm.modal_handler_add(self)
-        
-        # 'RUNNING_MODAL' MUST be present if modal_handler_add is used!
-        return {'PASS_THROUGH', 'RUNNING_MODAL'}
-    
-    def cancel(self, context):
-        ChangeMonitoringOperator.is_running = False
-    
-    def modal(self, context, event):
-        # This doesn't seem to ever happen, but just in case:
-        if addon.status != 'REGISTERED':
-            self.cancel(context)
-            return {'PASS_THROUGH', 'CANCELLED'}
-        
-        # Scripts cannot be reloaded while modal operators are running
-        # Intercept the corresponding event and shut down CursorMonitor
-        # (it would be relaunched automatically afterwards)
-        for kc, km, kmi in ChangeMonitoringOperator.script_reload_kmis:
-            if KeyMapUtils.equal(kmi, event):
-                self.cancel(context)
-                return {'PASS_THROUGH', 'CANCELLED'}
-        
-        mouse_context = ui_context_under_coord(event.mouse_x, event.mouse_y)
-        if mouse_context and (mouse_context.get("area").type == 'INFO'):
-            # let the user at least select info reports while the mouse is over the info area
-            return {'PASS_THROUGH'}
-        
-        # When possible, try to use existing info area, since otherwise
-        # temporary switching of area type will cause Blender to constantly update
-        info_context = find_ui_area('INFO')
-        
-        context_override = info_context or mouse_context
-        
-        if (event.type == 'MOUSEMOVE'):
-            if mouse_context:
-                x, y = event.mouse_x, event.mouse_y
-                r = mouse_context["region"]
-                dx = min((x - r.x), (r.x+r.width - x))
-                dy = min((y - r.y), (r.y+r.height - y))
-                if time.clock() > ChangeMonitoringOperator.last_reset_time + 0.1:
-                #if something_was_drawn():
-                    if (dx > 3) and (dy > 3): # not too close to region's border
-                        # The hope is that, if we call update only on mousemove events,
-                        # crashes would happen with lesser pribability
-                        if context_override and context_override.get("area"):
-                            change_monitor.update(**context_override)
-                            if change_monitor.something_changed:
-                                on_change()
-                            #elif time.clock() > ChangeMonitoringOperator.last_reset_time + 1:
-                            #    on_change()
-        elif 'MOUSEMOVE' in event.type:
-            pass
-        elif 'TIMER' in event.type:
-            pass
-        elif event.type == 'NONE':
-            pass
-        else:
-            ChangeMonitoringOperator.last_reset_time = time.clock()
-        
+@addon.ui_monitor
+def on_ui_monitor(context, event, ui_monitor):
+    mouse_context = ui_monitor.mouse_context
+    if mouse_context and (mouse_context.get("area").type == 'INFO'):
+        # let the user at least select info reports while the mouse is over the info area
         return {'PASS_THROUGH'}
-
-# We need to invoke batch_changes_monitor from somewhere other than
-# keymap event, since keymap event can lock the batch_changes_monitor
-# operator to the Preferences window. Scene update, on the other hand,
-# is always in the main window.
-# WARNING: if addon is saved as enabled in user preferences,
-# for some reason scene_update_post/scene_update_pre callbacks
-# won't be working until scripts are reloaded.
-# BUT: if we put bpy.app.handlers.persistent decorator, it will work.
-@bpy.app.handlers.persistent
-def scene_update_post(scene):
-    if not ChangeMonitoringOperator.is_running:
-        ChangeMonitoringOperator.is_running = True
-        bpy.ops.wm.batch_changes_monitor('INVOKE_DEFAULT')
-'''
-
-@bpy.app.handlers.persistent
-def scene_update_post(scene):
-    if after_register_callbacks:
-        callbacks = tuple(after_register_callbacks)
-        after_register_callbacks.clear()
-        for callback in callbacks:
-            callback()
+    
+    # When possible, try to use existing info area, since otherwise
+    # temporary switching of area type will cause Blender to constantly update
+    info_context = find_ui_area('INFO')
+    
+    context_override = info_context or mouse_context
+    
+    if (event.type == 'MOUSEMOVE'):
+        if mouse_context:
+            x, y = ui_monitor.mouse
+            r = mouse_context["region"]
+            dx = min((x - r.x), (r.x+r.width - x))
+            dy = min((y - r.y), (r.y+r.height - y))
+            if (dx > 3) and (dy > 3): # not too close to region's border
+                # The hope is that, if we call update only on mousemove events,
+                # crashes would happen with lesser probability
+                if context_override and context_override.get("area"):
+                    change_monitor.update(**context_override)
+                    #if change_monitor.something_changed:
+                    #    on_change()
+"""
 
 def register():
-    # I couldn't find a way to avoid the unpredictable crashes,
-    # and some actions (like changing a material in material slot)
-    # cannot be detected through the info log anyway.
-    addon.handler_append("scene_update_post", scene_update_post)
-    
     addon.register()
     
     kc = bpy.context.window_manager.keyconfigs.addon
@@ -392,6 +314,3 @@ def unregister():
     KeyMapUtils.remove("object.batch_properties_paste", place=kc)
     
     addon.unregister()
-    
-    # don't remove this, or on next addon enable the monitor will consider itself already running
-    #ChangeMonitoringOperator.is_running = False

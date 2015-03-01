@@ -17,6 +17,25 @@
 
 import traceback
 
+def compare_epsilon(a, b, epsilon):
+    if (epsilon is None) or (not isinstance(a, (int, float))): return (a == b)
+    return abs(a - b) <= epsilon
+
+def setattr_cmp(obj, name, value, epsilon=None):
+    "Utility function to avoid triggering updates when nothing changed"
+    if compare_epsilon(getattr(obj, name), value, epsilon): return False
+    setattr(obj, name, value)
+    return True
+
+def setitem_cmp(obj, key, value, epsilon=None):
+    "Utility function to avoid triggering updates when nothing changed"
+    try:
+        if compare_epsilon(obj[name], value, epsilon): return False
+    except KeyError:
+        pass
+    obj[name] = value
+    return True
+
 def reverse_enumerate(l):
     return zip(range(len(l)-1, -1, -1), reversed(l))
 
@@ -34,8 +53,7 @@ def send_catch(iterator, arg):
 
 def ensure_baseclass(cls, base):
     for _base in cls.__bases__:
-        if issubclass(_base, base):
-            return cls
+        if issubclass(_base, base): return cls
     
     # A declaration like SomeClass(object, object_descendant)
     # will result in an error (cannot create a consistent
@@ -70,8 +88,7 @@ class AttributeHolder:
     
     def __getattr__(self, key):
         # This is primarily to be able to have some default values
-        if self.__original:
-            return getattr(self.__original, key)
+        if self.__original: return getattr(self.__original, key)
         raise AttributeError("attribute '%s' is not defined" % key)
     
     def __getitem__(self, key):
@@ -122,8 +139,7 @@ class SilentError:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if not isinstance(exc_value, self.catch): return
         self.value = exc_value
-        print("".join(traceback.format_exception(
-            exc_type, exc_value, exc_traceback)))
+        print("".join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
         return True
 
 class PrimitiveLock(object):

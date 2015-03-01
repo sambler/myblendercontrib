@@ -22,19 +22,27 @@ import time
 import random
 import inspect
 import sys
+import traceback
 
 import bpy
 
 from mathutils import Vector, Matrix, Quaternion, Euler, Color
 
-from .utils_python import next_catch, send_catch, ensure_baseclass, issubclass_safe, PrimitiveLock, AttributeHolder
+from .utils_python import next_catch, send_catch, ensure_baseclass, issubclass_safe, PrimitiveLock, AttributeHolder, SilentError
 from .utils_text import compress_whitespace, indent
 from .utils_ui import messagebox, NestedLayout, ui_context_under_coord
 from .utils_userinput import KeyMapUtils
-from .utils_accumulation import NumberAccumulator, VectorAccumulator, AxisAngleAccumulator, NormalAccumulator
 from .bpy_inspect import BpyProp, prop, BlEnums
+from .utils_blender import ResumableSelection
+from .utils_view3d import ZBufferRecorder
 
 #============================================================================#
+
+# Some tips for [regression] testing:
+# * Enable -> disable -> enable
+# * Enabled by default, disabled by default
+# * Default scene, scene saved without addon, scene saved with addon
+# * Stable Blender, nightly build, GSOC/open-project branch
 
 # TODO: "load/save/import/export config" buttons in addon preferences (draw() method)
 
@@ -45,17 +53,7 @@ class AddonManager:
     _screen_name = "Default"
     _screen_mark = "\x02{addon-internal-storage}\x03"
     
-    _ID_counter_key = "\x02{UUID-counter}\x03"
-    
     _hack_classes_count = 0
-    
-    use_scene_update_pre = False
-    use_scene_update_post = False
-    use_background_jobs = False
-    
-    scene_update_pre = None
-    scene_update_post = None
-    background_jobs = []
     
     # ===== INITIALIZATION ===== #
     def __new__(cls, name=None, path=None, config=None):
@@ -77,9 +75,24 @@ class AddonManager:
         self.classes = []
         self.objects = {}
         self.attributes = {}
+        self.attributes_by_pointer = {}
         self.delayed_type_extensions = []
-        self.on_register = []
-        self.on_unregister = []
+        
+        self._preferences = None
+        
+        self._use_zbuffer = False
+        
+        self._on_register = []
+        self._on_unregister = []
+        self._after_register = []
+        
+        self._ui_monitor = []
+        self._scene_update_pre = []
+        self._scene_update_post = []
+        self._load_pre = []
+        self._load_post = []
+        self._background_job = []
+        self._selection_job = []
         
         self._init_config_storages()
         
@@ -91,7 +104,6 @@ class AddonManager:
         #self.storage_name = "<%s>" % self.module_name
         self.storage_name_external = "<%s-external-storage>" % self.module_name
         self.storage_name_internal = "<%s-internal-storage>" % self.module_name
-        self.UUID_key = "\x02{%s}{UUID}\x03" % self.module_name
         
         @classmethod
         def Include(cls, decor_cls):
@@ -103,11 +115,8 @@ class AddonManager:
         # Attention: AddonPreferences do not allow adding properties
         # after registration, so we need to register it as a special case
         self._Preferences = type("%s-preferences" % self.module_name, (bpy.types.AddonPreferences,), {"Include":Include, "bl_idname":self.module_name})
-        
         self._External = self.PropertyGroup(type("%s-external-storage" % self.module_name, (), {"Include":Include}))
-        
         self._Internal = self.PropertyGroup(type("%s-internal-storage" % self.module_name, (), {"Include":Include}))
-        setattr(self.Internal, self._ID_counter_key, 0 | prop())
     
     # If this is a textblock, its module will be topmost
     # and will have __name__ == "__main__".
@@ -187,11 +196,7 @@ class AddonManager:
     
     @property
     def preferences(self):
-        userprefs = bpy.context.user_preferences
-        try:
-            return userprefs.addons[self.module_name].preferences
-        except KeyError:
-            return None
+        return self._preferences
     
     @classmethod
     def external_attr(cls, name):
@@ -326,109 +331,91 @@ class AddonManager:
         management" by revoking the storage when an object is about
         to be deleted. And, as a last resort, we can also have a
         stop-the-world tracing garbage collector.
-        
-        BIG WARNING: I haven't tested it yet, but supposedly when Blender
-        imports something from other file, it imports addon-defined
-        properties as well. In this case, UUID conflicts are possible.
         """
         
         # obj is expected to have the corresponding property defined;
         # if not, then storage request is a mistake
-        ID = getattr(obj, self.UUID_key)
         
-        if ID in self.attributes:
-            return self.attributes[ID]
-        else:
-            if not ID:
-                ID = getattr(self.internal, self._ID_counter_key) + 1
-                setattr(self.internal, self._ID_counter_key, ID)
+        if isinstance(obj, BlEnums.extensible_classes):
+            ID = addons_registry.UUID_get(obj)
+            storage = self.attributes.get(ID)
+            
+            if storage is None:
+                # Note: ID might be != 0 if this item was saved
+                # in previous session. It should be reindexed anyway.
+                ID = addons_registry.UUID_counter + 1
+                addons_registry.UUID_counter = ID
+                addons_registry.UUID_set(obj, ID)
                 
-                setattr(obj, self.UUID_key, ID)
+                storage = AttributeHolder(type(obj))
+                self.attributes[ID] = storage
+                
+                # With this mechanism, __init__ methods in PropertyGroup
+                # objects can actually do something useful (perhaps do
+                # some complex initialization).
+                if hasattr(obj, "__init__"): obj.__init__()
+        else: # e.g. Area, Space, Region and the like
+            ID = obj.as_pointer()
+            storage = self.attributes_by_pointer.get(ID)
             
-            storage = AttributeHolder(type(obj))
-            self.attributes[ID] = storage
-            
-            # With this mechanism, __init__ methods in PropertyGroup
-            # objects can actually do something useful (perhaps do
-            # some complex initialization).
-            if hasattr(obj, "__init__"):
-                obj.__init__()
-            
-            return storage
-    
-    # Don't call this method before register() or after unregister()
-    def collect_garbage(self):
-        non_garbage = {}
+            if storage is None:
+                storage = AttributeHolder()
+                self.attributes_by_pointer[ID] = storage
         
-        pointer_prop = bpy.props.PointerProperty
-        collection_prop = bpy.props.CollectionProperty
-        
-        def trace(obj):
-            ID = getattr(obj, self.UUID_key, None)
-            if ID:
-                non_garbage[ID] = self.attributes[ID]
-            
-            for prop_name, prop_type in BpyProp.iterate(type(obj), True):
-                if prop_type == pointer_prop:
-                    trace(getattr(obj, prop_name))
-                elif prop_type == collection_prop:
-                    for pg in getattr(obj, prop_name):
-                        trace(pg)
-        
-        # Trace all type extensions registered by this addon
-        for type_name, prop_name in self.objects.keys():
-            bp = getattr(getattr(bpy.types, type_name), prop_name)
-            
-            if bp[0] == pointer_prop:
-                for obj in getattr(bpy.data, BlEnums.types_data[type_name]):
-                    trace(getattr(obj, prop_name))
-            elif bp[0] == collection_prop:
-                for obj in getattr(bpy.data, BlEnums.types_data[type_name]):
-                    for pg in getattr(obj, prop_name):
-                        trace(pg)
-            elif prop_name == self.UUID_key:
-                for obj in getattr(bpy.data, BlEnums.types_data[type_name]):
-                    ID = getattr(obj, self.UUID_key, None)
-                    if ID:
-                        non_garbage[ID] = self.attributes[ID]
-        
-        self.attributes = non_garbage
+        return storage
     #========================================================================#
     
     # ===== HANDLERS AND TYPE EXTENSIONS ===== #
-    def callback_add(self, struct, callback, args, event, owner=None): # !!!!!!! deprecated !!!!!!!
-        if isinstance(struct, str):
-            # We don't care to which exactly area/region this callback
-            # would be added, we simply need it to register for all
-            # areas/regions of such type
-            toks = struct.split(":")
-            area_type = toks[0]
-            region_type = (toks[1] if len(toks) > 1 else 'WINDOW')
-            
-            area = bpy.context.area
-            prev_area_type = area.type
-            area.type = area_type
-            
-            struct = next((r for r in area.regions if r.type == region_type), None)
-            handler = struct.callback_add(callback, args, event) # !!!!!!! deprecated !!!!!!!
-            
-            area.type = prev_area_type
-        else:
-            handler = struct.callback_add(callback, args, event) # !!!!!!! deprecated !!!!!!!
-        
-        self.objects[handler] = {
-            "object":handler,
-            "struct":struct,
-            "family":"callback",
-            "callback":callback,
-            "args":args,
-            "event":event,
-            "owner":owner,
-        }
-        
-        return handler
+    @property
+    def use_zbuffer(self):
+        return self._use_zbuffer
+    @use_zbuffer.setter
+    def use_zbuffer(self, value):
+        if self.status != 'INITIALIZATION': return
+        self._use_zbuffer = value
     
-    def timer_add(self, wm, time_step, window=None, owner=None):
+    def on_register(self, callback):
+        self._on_register.append(callback)
+        return callback
+    
+    def on_unregister(self, callback):
+        self._on_unregister.append(callback)
+        return callback
+    
+    def after_register(self, callback):
+        self._after_register.append(callback)
+        return callback
+    
+    def ui_monitor(self, callback):
+        self._ui_monitor.append(callback)
+        return callback
+    
+    def scene_update_pre(self, callback):
+        self._scene_update_pre.append(callback)
+        return callback
+    
+    def scene_update_post(self, callback):
+        self._scene_update_post.append(callback)
+        return callback
+    
+    def load_pre(self, callback):
+        self._load_pre.append(callback)
+        return callback
+    
+    def load_post(self, callback):
+        self._load_post.append(callback)
+        return callback
+    
+    def background_job(self, callback):
+        self._background_job.append(callback)
+        return callback
+    
+    def selection_job(self, callback):
+        self._selection_job.append(callback)
+        return callback
+    
+    def timer_add(self, time_step, window=None, owner=None):
+        wm = bpy.context.window_manager
         timer = wm.event_timer_add(time_step, window)
         
         self.objects[timer] = {
@@ -479,6 +466,15 @@ class AddonManager:
             # bpy types can be extended only after the corresponding PropertyGroups have been registered
             self.delayed_type_extensions.append((type_name, prop_name, prop_info, owner))
             return
+        elif self.status in ('UNREGISTRATION', 'UNREGISTRED'):
+            raise RuntimeError("Attempt to extend type during or after addon unregistration")
+        
+        prop_args = prop_info[1]
+        pg = prop_args.get("type")
+        if pg and pg.__name__.endswith(":AUTOREGISTER"):
+            addons_registry.UUID_add(pg)
+            self.classes.append(pg)
+            bpy.utils.register_class(pg)
         
         struct = getattr(bpy.types, type_name)
         setattr(struct, prop_name, prop_info)
@@ -522,15 +518,12 @@ class AddonManager:
     
     def remove(self, item):
         info = self.objects.get(item)
-        if not info:
-            return
+        if not info: return
         
         struct = info["struct"]
         item_type = info["family"]
         
-        if item_type == "callback":
-            struct.callback_remove(item)
-        elif item_type == "timer":
+        if item_type == "timer":
             struct.event_timer_remove(item)
         elif item_type == "ui":
             struct.remove(item)
@@ -546,16 +539,7 @@ class AddonManager:
     
     def remove_matches(self, **filters):
         for item, info in tuple(self.objects.items()):
-            match = False
-            
-            for k, v in filters.items():
-                if (k in info) and (info[k] == v):
-                    match = True
-                else:
-                    match = False
-                    break
-            
-            if match:
+            if all((k in info) and (info[k] == v) for k, v in filters.items()):
                 self.remove(item)
     
     def remove_all(self):
@@ -582,6 +566,13 @@ class AddonManager:
         
         extra_classes = set()
         
+        # This is syntactic sugar for the case when callbacks
+        # are defined later than the properties which use them.
+        def find_callback(cls, info, name):
+            callback = info.get(name)
+            if isinstance(callback, str):
+                info[name] = getattr(cls, callback)
+        
         # Extract dependent properties
         for cls in self.classes:
             for key, info in BpyProp.iterate(cls):
@@ -589,13 +580,11 @@ class AddonManager:
                 if "name" not in info:
                     info["name"] = bpy.path.display_name(key)
                 
-                if "update" in info:
-                    update = info["update"]
-                    if isinstance(update, str):
-                        # This is syntactic sugar for the case when
-                        # the update-callback is defined later than
-                        # the property which uses it.
-                        info["update"] = getattr(cls, update)
+                # This is syntactic sugar for the case when callbacks
+                # are defined later than the properties which use them.
+                find_callback(cls, info, "update")
+                find_callback(cls, info, "get")
+                find_callback(cls, info, "set")
                 
                 # Extract dependent properties
                 if info.type in refs:
@@ -604,6 +593,7 @@ class AddonManager:
                     is_foreign = (pg not in self.classes)
                     
                     if is_foreign and pg.__name__.endswith(":AUTOREGISTER"):
+                        addons_registry.UUID_add(pg)
                         extra_classes.add(pg)
                         is_foreign = False
                     
@@ -645,28 +635,42 @@ class AddonManager:
         if BpyProp.is_in(self.Internal):
             self.type_extend("Screen", self.storage_name_internal, self.Internal)
         
+        # Don't clear delayed_type_extensions! We need it if addon is disabled->enabled again.
         for delayed_type_extension in self.delayed_type_extensions:
             self.type_extend(*delayed_type_extension)
+        
+        userprefs = bpy.context.user_preferences
+        if self.module_name in userprefs.addons:
+            self._preferences = userprefs.addons[self.module_name].preferences
         
         if load_config:
             self.external_load()
         
-        for callback in self.on_register:
+        for callback in self._on_register:
             callback()
         
         addons_registry.add(self)
+        
+        if self.use_zbuffer:
+            ZBufferRecorder.users += 1
         
         self.status = 'REGISTERED'
     
     def unregister(self):
         self.status = 'UNREGISTRATION'
         
+        if self.use_zbuffer:
+            ZBufferRecorder.users -= 1
+        
         addons_registry.remove(self)
         
-        for callback in self.on_unregister:
+        for callback in self._on_unregister:
             callback()
         
         self.attributes.clear()
+        self.attributes_by_pointer.clear()
+        
+        self._preferences = None
         
         self.remove_all()
         
@@ -711,6 +715,7 @@ class AddonManager:
         # ADD METADATA TO PROPERTY
         prop_info["icons_menu"] = menu_idname
     
+    # is this still necessary?
     def _wrap_enum_contextual_title(self, prop_info, cls, prop_name):
         label = cls.bl_label
         description = cls.__doc__
@@ -755,35 +760,35 @@ class AddonManager:
         if not hasattr(cls, "_intermediate_storage"):
             cls._intermediate_storage = {}
             
-            _invoke = None
-            if hasattr(cls, "invoke"):
-                _invoke = getattr(cls, "invoke")
-            
-            _execute = None
-            if hasattr(cls, "execute"):
-                _execute = getattr(cls, "execute")
+            _invoke = getattr(cls, "invoke", None)
+            _execute = getattr(cls, "execute", None)
             
             def invoke(self, context, event):
                 for k, v in self._intermediate_storage.items():
-                    if k != prop_name:
-                        setattr(self, k, v)
-                if _invoke:
-                    return _invoke(self, context, event)
-                elif _execute:
-                    return _execute(self, context)
+                    if k != prop_name: setattr(self, k, v)
+                if _invoke: return _invoke(self, context, event)
+                if _execute: return _execute(self, context)
+            
             cls.invoke = invoke
         
         # ADD METADATA TO PROPERTY
         prop_info["op_invoke_menu"] = op_idname
     
-    def _add_class(self, cls):
+    def _add_class(self, cls, mixins=None):
+        if mixins:
+            if isinstance(mixins, type): mixins = (mixins,)
+            for mixin in mixins:
+                for attr_name in dir(mixin):
+                    if hasattr(cls, attr_name): continue
+                    setattr(cls, attr_name, getattr(mixin, attr_name))
+        
         # Register property-specific classes
         for key, info in BpyProp.iterate(cls):
             if info.type == bpy.props.EnumProperty:
-                if "on_item_invoke" in info:
+                if "on_item_invoke" in info: # Deprecated? Use get/set instead?
                     self._wrap_enum_on_item_invoke(info)
                 
-                if "contextual_title" in info:
+                if "contextual_title" in info: # Deprecated? How was it supposed to be used, anyway?
                     if issubclass(cls, bpy.types.Operator):
                         self._wrap_enum_contextual_title(info, cls, key)
         
@@ -1198,149 +1203,70 @@ def {0}({1}):
     #========================================================================#
     
     # ===== PROPERTY GROUP DECORATORS ===== #
-    def _gen_pg(self, cls, UUID=False):
-        # Make class a PropertyGroup, if it's not
+    def _gen_pg(self, cls, mixins=None):
         cls = ensure_baseclass(cls, bpy.types.PropertyGroup)
-        
-        if UUID:
-            setattr(cls, self.UUID_key, 0 | prop())
-        
-        self._add_class(cls)
-        
+        addons_registry.UUID_add(cls)
+        self._add_class(cls, mixins=mixins)
         return cls
     
     def PropertyGroup(self, cls=None, **kwargs):
-        if cls:
-            return self._gen_pg(cls, **kwargs)
-        else:
-            return (lambda cls: self._gen_pg(cls, **kwargs))
+        if cls: return self._gen_pg(cls, **kwargs)
+        return (lambda cls: self._gen_pg(cls, **kwargs))
     
-    # TODO: instead of addon.InlinePropertyGroup(), use
-    # some_prop = dict(subprop1=..., subprop2=..., ...) | prop() ?
-    def InlinePropertyGroup(self, *args, **kwargs):
-        name = (args[0] if len(args) > 0 else "")
-        cls = self._gen_pg(type(name, (), kwargs))
-        return cls | prop()
-    
-    @staticmethod
-    def _prop_accumulator(prop_decl):
-        prop_info = BpyProp(prop_decl)
-        if prop_info.type in (bpy.props.BoolProperty, bpy.props.IntProperty, bpy.props.FloatProperty):
-            return NumberAccumulator
-        elif prop_info.type in (bpy.props.BoolVectorProperty, bpy.props.IntVectorProperty, bpy.props.FloatVectorProperty):
-            if prop_info.type == bpy.props.FloatVectorProperty:
-                if prop_info.get("subtype") == 'AXISANGLE':
-                    return AxisAngleAccumulator
-                elif prop_info.get("subtype") == 'DIRECTION':
-                    return NormalAccumulator
-            size = prop_info.get("size") or len(prop_info["default"])
-            def vector_accumulator(mode):
-                return VectorAccumulator(mode, size)
-            return vector_accumulator
-        # TODO
-    
-    def AccumProp(self, *args, **kwargs):
-        addon = self
-        prop_accumulator = self._prop_accumulator
-        
-        class accum_prop(prop):
-            def accum_make(self, value):
-                prop_decl = self.make(value)
-                accumulator = prop_accumulator(prop_decl)
-                
-                # TODO: how to deal with properties that have
-                # update callback? (i.e. it should be possible
-                # to modify the accumulated properties)
-                
-                @addon.PropertyGroup
-                class accum_pg:
-                    prev = prop_decl
-                    curr = prop_decl
-                    converged = False | prop()
-                    accumulator = (lambda self, mode: accumulator(mode))
-                    def update(self, value):
-                        if value is None:
-                            return False # result hasn't been calculated
-                        self.prev = self.curr
-                        self.curr = value
-                        # value might be a tuple (in case of vector),
-                        # which might be not immediately comparable
-                        prev_converged = self.converged
-                        self.converged = (self.curr == self.prev)
-                        return (self.converged != prev_converged)
-                    def invalidate(self):
-                        if self.converged:
-                            self.converged = False
-                            return True
-                        return False
-                
-                return accum_pg | prop()
-            
-            __ror__ = accum_make
-            __rlshift__ = accum_make
-        
-        return accum_prop(*args, **kwargs)
-    
-    def _gen_idblock(self, cls, name=None, icon='DOT', sorted=False, show_empty=True):
+    def _gen_idblock(self, cls, name=None, icon='DOT', sorted=False, show_empty=True, mixins=None):
         name = name or bpy.path.display_name(cls.__name__)
         
-        # Make class a PropertyGroup, if it's not
+        # ===== Item ===== #
         cls = ensure_baseclass(cls, bpy.types.PropertyGroup)
+        addons_registry.UUID_add(cls)
         
-        setattr(cls, self.UUID_key, 0 | prop()) # make it HIDDEN ?
-        
-        addon = self
+        addon = self # used here:
         def update_name(self, context):
             selfx = addon[self]
-            if hasattr(selfx, "_idblocks"):
-                selfx._idblocks._on_rename(self)
+            if hasattr(selfx, "_idblocks"): selfx._idblocks._on_rename(self)
         cls.name = "" | prop(update=update_name)
         
-        # ===== IDBlocks ===== #
+        self._add_class(cls, mixins=mixins)
+        # ================ #
+        
+        # ===== Collection ===== #
         class _IDBlocks(IDBlocks, bpy.types.PropertyGroup):
             _addon = self
             _IDBlock_type = cls
-            
             _typename = name
             _sorted = sorted
             _icon = icon
-            
             collection = [cls] | prop() # make it HIDDEN ?
-        
-        setattr(_IDBlocks, self.UUID_key, 0 | prop()) # make it HIDDEN ?
+        addons_registry.UUID_add(_IDBlocks)
         
         cls._IDBlocks = _IDBlocks
+        self._add_class(_IDBlocks)
+        # ====================== #
         
-        # ===== IDBlockSelector ===== #
+        # ===== Renamer/selector ===== #
         class _IDBlockSelector(IDBlockSelector, bpy.types.PropertyGroup):
             _addon = self
             _IDBlock_type = cls
         _IDBlockSelector.show_empty = show_empty
+        addons_registry.UUID_add(_IDBlockSelector)
         
         def redescribe(attr_name, value):
             bp_type, bp_dict = getattr(_IDBlockSelector, attr_name)
             bp_dict = dict(bp_dict, description=(value % name))
             setattr(_IDBlockSelector, attr_name, (bp_type, bp_dict))
-        
         redescribe("selector", "Choose %s")
         redescribe("renamer", "Active %s ID name")
         
-        setattr(_IDBlockSelector, self.UUID_key, 0 | prop()) # make it HIDDEN ?
-        
         cls._IDBlockSelector = _IDBlockSelector
-        
-        self._add_class(cls)
-        self._add_class(_IDBlocks)
         self._add_class(_IDBlockSelector)
+        # ============================ #
         
         return cls
     
     # ID blocks are stored in collections which ensure unique name for each item
     def IDBlock(self, cls=None, **kwargs):
-        if cls:
-            return self._gen_idblock(cls, **kwargs)
-        else:
-            return (lambda cls: self._gen_idblock(cls, **kwargs))
+        if cls: return self._gen_idblock(cls, **kwargs)
+        return (lambda cls: self._gen_idblock(cls, **kwargs))
     #========================================================================#
 
 #============================================================================#
@@ -1616,21 +1542,16 @@ class IDBlocks:
         del self[i]
     
     def find(self, key_or_obj):
-        "Returns the index of a key in a collection or -1 when not found"
+        "Returns the index of the key in the collection, or -1 when not found"
         if isinstance(key_or_obj, str):
-            if self._sorted:
-                return self._search(key_or_obj)
-            else:
-                for i, obj in enumerate(self.collection):
-                    if obj.name == key_or_obj:
-                        return i
-                return -1
-        else:
-            UUID_key = self._addon.UUID_key
-            ID = getattr(key_or_obj, UUID_key)
+            if self._sorted: return self._search(key_or_obj)
             for i, obj in enumerate(self.collection):
-                if getattr(obj, UUID_key) == ID:
-                    return i
+                if obj.name == key_or_obj: return i
+            return -1
+        else:
+            ID = addons_registry.UUID_get(key_or_obj)
+            for i, obj in enumerate(self.collection):
+                if addons_registry.UUID_get(obj) == ID: return i
             return -1
     
     def foreach_get(self, attr, seq):
@@ -1730,12 +1651,14 @@ class IDBlocks:
 class IDBlockSelector:
     def _selector_update(self, context):
         selfx = self._addon[self] # "self extended"
+        if not selfx.idblocks: return
         if selfx.lock: return
         
         self._set_index(selfx, selfx.idblocks.find(self.selector))
     
     def _renamer_update(self, context):
         selfx = self._addon[self] # "self extended"
+        if not selfx.idblocks: return
         if selfx.lock: return
         
         obj = selfx.idblocks[selfx.index]
@@ -1870,6 +1793,7 @@ class IDBlockSelector:
         except IndexError: #KeyError:
             pass
     
+    @property
     def object(self):
         selfx = self._addon[self] # "self extended"
         
@@ -1930,7 +1854,10 @@ class IDBlockSelector:
         selfx = self._addon[self] # "self extended"
         
         idblocks = selfx.idblocks
-        if idblocks is None: return
+        if idblocks is None:
+            with layout.row()(alert=True):
+                layout.label("Selector not bound!")
+            return
         
         new = selfx.new
         open = selfx.open
@@ -1998,21 +1925,45 @@ if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
         _is_running = False
         _script_reload_kmis = []
         
+        event_count = 0
+        user_interaction = False
+        
         mouse = (0, 0)
         mouse_prev = (0, 0)
         mouse_region = (0, 0)
         mouse_context = None # can be None between areas, for example
+        last_mouse_context = None
+        last_rv3d_context = None
+        
+        alt = False
+        ctrl = False
+        shift = False
+        oskey = False
+        
+        @classmethod
+        def _assign_last_context(cls, name, curr_context):
+            if curr_context:
+                setattr(cls, name, curr_context)
+            else:
+                last_context = getattr(cls, name)
+                if last_context:
+                    area = last_context.get("area")
+                    if (not area) or (not area.regions):
+                        setattr(cls, name, None)
         
         @classmethod
         def activate(cls):
             if cls._is_running: return
-            cls._is_running = True
-            bpy.ops.background.ui_monitor('INVOKE_DEFAULT')
+            if addons_registry.ui_monitor or cls.user_interaction:
+                cls._is_running = True
+                bpy.ops.background.ui_monitor('INVOKE_DEFAULT')
         
         def invoke(self, context, event):
             cls = self.__class__
             cls._is_running = True
             cls._script_reload_kmis = list(KeyMapUtils.search('script.reload'))
+            
+            cls.event_count += 1
             
             wm = context.window_manager
             wm.modal_handler_add(self)
@@ -2027,54 +1978,154 @@ if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
         def modal(self, context, event):
             cls = self.__class__
             
+            cls.event_count += 1
+            cls.user_interaction = False
+            
+            #print((event.type, event.value, event.shift, event.alt, event.ctrl))
+            
             # Scripts cannot be reloaded while modal operators are running
             # Intercept the corresponding event and shut down the monitor
             # (it would be relaunched automatically afterwards)
-            for kc, km, kmi in cls._script_reload_kmis:
-                if KeyMapUtils.equal(kmi, event):
-                    self.cancel(context)
-                    return {'PASS_THROUGH', 'CANCELLED'}
+            shut_down = ((not cls._is_running) or (not addons_registry.ui_monitor) or
+                any(KeyMapUtils.equal(kmi, event) for kc, km, kmi in cls._script_reload_kmis))
+            
+            if shut_down:
+                self.cancel(context)
+                return {'PASS_THROUGH', 'CANCELLED'}
+            
+            cls.alt = event.alt
+            cls.ctrl = event.ctrl
+            cls.shift = event.shift
+            cls.oskey = event.oskey
             
             if 'MOUSEMOVE' in event.type: # MOUSEMOVE, INBETWEEN_MOUSEMOVE
                 cls.mouse = (event.mouse_x, event.mouse_y)
                 cls.mouse_prev = (event.mouse_prev_x, event.mouse_prev_y)
                 cls.mouse_region = (event.mouse_region_x, event.mouse_region_y)
                 cls.mouse_context = ui_context_under_coord(event.mouse_x, event.mouse_y)
+                
+                cls._assign_last_context("last_mouse_context", cls.mouse_context)
+                if cls.mouse_context and cls.mouse_context.get("region_data"):
+                    cls._assign_last_context("last_rv3d_context", cls.mouse_context)
+                else:
+                    cls._assign_last_context("last_rv3d_context", None)
+            
+            for addon in addons_registry.ui_monitor:
+                for callback in addon._ui_monitor:
+                    try:
+                        callback(context, event, cls)
+                    except Exception as exc:
+                        print("Error in {} ui_monitor {}:".format(addon.module_name, callback.__name__))
+                        traceback.print_exc()
             
             return {'PASS_THROUGH'}
     
     bpy.utils.register_class(BACKGROUND_OT_ui_monitor) # REGISTER
+
+UIMonitor = bpy.types.BACKGROUND_OT_ui_monitor
+
+UUID_container_PG_key = "\x02{UUID-container-PG}\x03"
+UUID_container_PG = getattr(bpy.types, UUID_container_PG_key, None)
+if UUID_container_PG is None:
+    UUID_container_PG = type(UUID_container_PG_key, (bpy.types.PropertyGroup,), {})
+    bpy.utils.register_class(UUID_container_PG)
 
 class AddonsRegistry:
     _scene_update_pre_key = "\x02{generic-addon-scene_update_pre}\x03"
     _scene_update_post_key = "\x02{generic-addon-scene_update_post}\x03"
     _addons_registry_key = "\x02{addons-registry}\x03"
     
+    _UUID_counter_key = "\x02{UUID-counter}\x03"
+    _UUID_container_key = "\x02{UUID-container}\x03"
+    #_UUID_key = "\x02{UUID}\x03"
+    #_UUID_key = "\x02{UUID: %s}\x03" % "{}; {}".format(time.ctime(), time.clock())
+    _UUID_key = "\x02{UUID:%s}\x03" % time.time()
+    
+    @property
+    def UUID_counter(self):
+        wm = bpy.context.window_manager
+        return getattr(wm, self._UUID_counter_key)
+    @UUID_counter.setter
+    def UUID_counter(self, value):
+        wm = bpy.context.window_manager
+        setattr(wm, self._UUID_counter_key, value)
+    
+    # ATTENTION!
+    # It seems that 'SKIP_SAVE' option doesn't work.
+    # Even if the property was defined with it, it will still be saved.
+    
+    # We need the main UUID property to have static name (because
+    # it's registered during the addon initialization, and cannot
+    # be changed on .blend load), but we also need the actual
+    # UUID storage to have a completely unique name in each session
+    # (to avoid UUID collisions). This requires us to have a
+    # "UUID container" which stores all UUIDs from all sessions
+    # (since Blender ignores the 'SKIP_SAVE' flag).
+    
+    # bpy prop is used instead of item access (obj[...])
+    # because we need the UUID to stay hidden from
+    # the user and not saved with .blend
+    def UUID_add(self, cls):
+        #if hasattr(cls, self._UUID_key): return
+        #setattr(cls, self._UUID_key, 0 | -prop()) # Important: UUID should be unsaveable
+        if hasattr(cls, self._UUID_container_key): return
+        setattr(cls, self._UUID_container_key, UUID_container_PG | -prop())
+    def UUID_get(self, obj):
+        # Note: auto-adding UUID property doesn't always work, e.g. in draw() callbacks
+        #return getattr(obj, self._UUID_key, None)
+        UUID_container = getattr(obj, self._UUID_container_key, None)
+        if UUID_container: return UUID_container.get(self._UUID_key)
+    def UUID_set(self, obj, value):
+        #setattr(obj, self._UUID_key, value)
+        UUID_container = getattr(obj, self._UUID_container_key, None)
+        if UUID_container: UUID_container[self._UUID_key] = value
+    
     # AddonsRegistry is a singleton anyway, it's ok to use class-level collections
     addons = {}
+    after_register = []
+    ui_monitor = []
     scene_update_pre = []
     scene_update_post = []
-    background_jobs = []
+    background_job = []
+    selection_job = []
     
     job_duration = 0.002
     job_interval = job_duration * 5
     job_next_update = 0.0
     
+    def __init__(self):
+        self._sel_iter = ResumableSelection()
+    
     def add(self, addon):
         addon_key = (addon.module_name, addon.path)
+        if addon_key in self.addons: return
         self.addons[addon_key] = addon
-        
-        if addon.use_scene_update_pre: self.scene_update_pre.append(addon)
-        if addon.use_scene_update_post: self.scene_update_post.append(addon)
-        if addon.use_background_jobs: self.background_jobs.append(addon)
+        self.after_register.extend((callback, addon) for callback in addon._after_register)
+        if addon._ui_monitor: self.ui_monitor.append(addon)
+        if addon._scene_update_pre: self.scene_update_pre.append(addon)
+        if addon._scene_update_post: self.scene_update_post.append(addon)
+        if addon._background_job: self.background_job.append(addon)
+        if addon._selection_job: self.selection_job.append(addon)
     
     def remove(self, addon):
         addon_key = (addon.module_name, addon.path)
-        self.addons.pop(addon_key, None)
-        
-        if addon.use_scene_update_pre: self.scene_update_pre.remove(addon)
-        if addon.use_scene_update_post: self.scene_update_post.remove(addon)
-        if addon.use_background_jobs: self.background_jobs.remove(addon)
+        if addon_key not in self.addons: return
+        del self.addons[addon_key]
+        if addon._ui_monitor: self.ui_monitor.remove(addon)
+        if addon._scene_update_pre: self.scene_update_pre.remove(addon)
+        if addon._scene_update_post: self.scene_update_post.remove(addon)
+        if addon._background_job: self.background_job.remove(addon)
+        if addon._selection_job: self.selection_job.remove(addon)
+    
+    def analyze_selection(self, duration=None):
+        for event, item in self._sel_iter(duration):
+            for addon in self.selection_job:
+                for callback in addon._selection_job:
+                    try:
+                        callback(event, item)
+                    except Exception as exc:
+                        print("Error in {} selection_job {}:".format(addon.module_name, callback.__name__))
+                        traceback.print_exc()
     
     def __new__(cls):
         scene_update_pre = None
@@ -2096,8 +2147,22 @@ class AddonsRegistry:
         if scene_update_pre is None:
             @bpy.app.handlers.persistent
             def scene_update_pre(scene):
+                for callback, addon in self.after_register:
+                    if addon.status != 'REGISTERED': continue
+                    try:
+                        callback()
+                    except Exception as exc:
+                        print("Error in {} after_register {}:".format(addon.module_name, callback.__name__))
+                        traceback.print_exc()
+                self.after_register.clear()
+                
                 for addon in self.scene_update_pre:
-                    addon.scene_update_pre(scene)
+                    for callback in addon._scene_update_pre:
+                        try:
+                            callback(scene)
+                        except Exception as exc:
+                            print("Error in {} scene_update_pre {}:".format(addon.module_name, callback.__name__))
+                            traceback.print_exc()
             
             scene_update_pre.__name__ = cls._scene_update_pre_key
             setattr(scene_update_pre, cls._addons_registry_key, self)
@@ -2111,20 +2176,36 @@ class AddonsRegistry:
                 # keymap event, since keymap event can lock the operator
                 # to the Preferences window. Scene update, on the other
                 # hand, is always in the main window.
-                bpy.types.BACKGROUND_OT_ui_monitor.activate()
+                UIMonitor.activate()
                 
                 for addon in self.scene_update_post:
-                    addon.scene_update_post(scene)
+                    for callback in addon._scene_update_post:
+                        try:
+                            callback(scene)
+                        except Exception as exc:
+                            print("Error in {} scene_update_post {}:".format(addon.module_name, callback.__name__))
+                            traceback.print_exc()
                 
                 curr_time = time.clock()
                 if curr_time > self.job_next_update:
-                    self.job_next_update = curr_time + self.job_interval
-                    job_count = sum(len(addon.background_jobs) for addon in self.background_jobs)
+                    job_count = sum(len(addon._background_job) for addon in self.background_job)
+                    loop_count = (int(job_count > 0) + int(bool(self.selection_job)))
+                    loop_duration = self.job_duration / max(loop_count, 1)
+                    
                     if job_count > 0:
-                        job_duration = self.job_duration / job_count
-                        for addon in self.background_jobs:
-                            for job in addon.background_jobs:
-                                job(job_duration)
+                        job_duration = loop_duration / job_count
+                        
+                        for addon in self.background_job:
+                            for callback in addon._background_job:
+                                try:
+                                    callback(job_duration)
+                                except Exception as exc:
+                                    print("Error in {} background job {}:".format(addon.module_name, callback.__name__))
+                                    traceback.print_exc()
+                    
+                    if self.selection_job: self.analyze_selection(loop_duration)
+                    
+                    self.job_next_update = time.clock() + self.job_interval
             
             scene_update_post.__name__ = cls._scene_update_post_key
             setattr(scene_update_post, cls._addons_registry_key, self)
@@ -2132,5 +2213,48 @@ class AddonsRegistry:
             bpy.app.handlers.scene_update_post.append(scene_update_post)
         
         return self
+    
+    load_count = 0 # 0 is when Blender has just opened (with the default/startup file)
+    
+    def load_pre(self):
+        for addon in self.addons.values():
+            for callback in addon._load_pre:
+                try:
+                    callback()
+                except Exception as exc:
+                    print("Error in {} load_pre {}:".format(addon.module_name, callback.__name__))
+                    traceback.print_exc()
+        
+        self.load_count += 1
+    
+    def load_post(self):
+        if self.load_count > 0:
+            #self._UUID_key = "\x02{UUID: %s}\x03" % "{}; {}".format(time.ctime(), time.clock())
+            self._UUID_key = "\x02{UUID:%s}\x03" % time.time()
+        
+        for addon in self.addons.values():
+            # clear storages left from the previous session
+            addon.attributes.clear()
+            addon.attributes_by_pointer.clear()
+            
+            for callback in addon._load_post:
+                try:
+                    callback()
+                except Exception as exc:
+                    print("Error in {} load_post {}:".format(addon.module_name, callback.__name__))
+                    traceback.print_exc()
+
+if not hasattr(bpy.types.WindowManager, AddonsRegistry._UUID_counter_key):
+    setattr(bpy.types.WindowManager, AddonsRegistry._UUID_counter_key, 0 | -prop())
+    
+    @bpy.app.handlers.persistent
+    def load_pre(*args, **kwargs):
+        addons_registry.load_pre()
+    bpy.app.handlers.load_pre.append(load_pre)
+    
+    @bpy.app.handlers.persistent
+    def load_post(*args, **kwargs):
+        addons_registry.load_post()
+    bpy.app.handlers.load_post.append(load_post)
 
 addons_registry = AddonsRegistry()

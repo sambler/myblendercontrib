@@ -43,8 +43,6 @@ from {0}dairin0d.utils_addon import AddonManager
 
 addon = AddonManager()
 
-after_register_callbacks = []
-
 idnames_separator = "\t"
 
 def round_to_bool(v):
@@ -188,6 +186,62 @@ def LeftRightPanel(cls=None, **kwargs):
     return (lambda cls: AddPanels(cls, kwargs))
 
 change_monitor = ChangeMonitor(update=False)
+
+def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
+    active_obj = scene.objects.active
+    
+    covert_to_mesh = ('CONVERT_TO_MESH' in options)
+    make_single_user = ('MAKE_SINGLE_USER' in options)
+    remove_disabled = ('REMOVE_DISABLED' in options)
+    delete_operands = ('DELETE_OPERANDS' in options)
+    
+    objects_to_delete = set()
+    
+    for obj in objects:
+        scene.objects.active = obj
+        
+        if not obj.modifiers: continue
+        
+        if (obj.type != 'MESH') and covert_to_mesh:
+            # "Error: Cannot apply constructive modifiers on curve"
+            if obj.data.users > 1: obj.data = obj.data.copy() # don't affect other objects
+            bpy.ops.object.convert(target='MESH')
+        elif make_single_user:
+            # "Error: Modifiers cannot be applied to multi-user data"
+            if obj.data.users > 1: obj.data = obj.data.copy() # don't affect other objects
+        
+        for md in tuple(obj.modifiers):
+            if (idnames is not None) and (md.type not in idnames): continue
+            
+            obj_to_delete = None
+            if delete_operands and (md.type == 'BOOLEAN'):
+                obj_to_delete = md.object
+            
+            successfully_applied = False
+            is_disabled = False
+            try:
+                bpy.ops.object.modifier_apply(modifier=md.name, apply_as=apply_as) # not type or idname!
+                successfully_applied = True
+            except RuntimeError as exc:
+                #print(repr(exc))
+                exc_msg = exc.args[0].lower()
+                # "Error: Modifier is disabled, skipping apply"
+                is_disabled = ("disab" in exc_msg) or ("skip" in exc_msg)
+            
+            if is_disabled and remove_disabled:
+                obj.modifiers.remove(md)
+            
+            if successfully_applied and obj_to_delete:
+                objects_to_delete.add(obj_to_delete)
+    
+    if active_obj in objects_to_delete: active_obj = None
+    
+    for obj in objects_to_delete:
+        scene.objects.unlink(obj)
+    
+    scene.objects.active = active_obj
+    
+    return objects_to_delete
 
 #============================================================================#
 
@@ -333,6 +387,12 @@ class Operator_batch_streamline_meshes:
     # see also MeshLint, PrintToolbox?
     # TODO (low priority): after operator is performed, show statistics of what modifications were actually done (e.g. removed N vertices, etc., etc.)
     
+    # Apply modifiers
+    apply_modifiers = False | prop("Apply all modifiers", "Apply modifiers")
+    apply_modifiers_make_single_user = True | prop("Make single user", "Make single user")
+    apply_modifiers_remove_disabled = True | prop("Remove disabled", "Remove disabled")
+    apply_modifiers_delete_operands = False | prop("Delete the remaining boolean operands", "Delete operands")
+    
     # Symmetry
     symmetry_snap = False | prop("Snap vertex pairs to their mirrored locations", "Snap to symmetry")
     symmetry_snap_direction = BlRna.to_bpy_prop(bpy.ops.mesh.symmetry_snap, "direction")
@@ -434,6 +494,16 @@ class Operator_batch_streamline_meshes:
             layout.prop(self, "convert_to_mesh")
         
         with layout.column():
+            layout.label("Modifiers")
+            with layout.split(0.25):
+                with layout.column(True):
+                    layout.prop(self, "apply_modifiers", toggle=True)
+                with layout.column(True):
+                    with layout.row()(alignment='LEFT'):
+                        layout.prop(self, "apply_modifiers_make_single_user")
+                        layout.prop(self, "apply_modifiers_remove_disabled")
+                        layout.prop(self, "apply_modifiers_delete_operands")
+            
             layout.label("Symmetry")
             with layout.split(0.25):
                 with layout.column(True):
@@ -704,6 +774,15 @@ class Operator_batch_streamline_meshes:
         else:
             scene = context.scene
             objects = (bpy.data.objects if self.globally else context.selected_objects)
+            
+            if self.apply_modifiers:
+                apply_modifiers_options = set()
+                if self.convert_to_mesh: apply_modifiers_options.add('CONVERT_TO_MESH')
+                if self.apply_modifiers_make_single_user: apply_modifiers_options.add('MAKE_SINGLE_USER')
+                if self.apply_modifiers_remove_disabled: apply_modifiers_options.add('REMOVE_DISABLED')
+                if self.apply_modifiers_delete_operands: apply_modifiers_options.add('DELETE_OPERANDS')
+                deleted_objects = apply_modifiers(objects, scene, None, apply_modifiers_options)
+                objects = set(objects).difference(deleted_objects)
             
             for obj in IndividuallyActiveSelected(objects):
                 if obj.type not in BlEnums.object_types_geometry: continue
@@ -1040,19 +1119,21 @@ def make_category(globalvars, idname_attr="name", **kwargs):
             return
         elif event.shift:
             category = get_category()
-            excluded_state = CategoryPG.is_excluded(category.items[index].idname)
+            toggled_idname = category.items[index].idname
+            excluded_state = CategoryPG.is_excluded(toggled_idname)
             toggled_state = not excluded_state
             
             if event.ctrl:
                 CategoryPG.set_excluded("", excluded_state)
-                CategoryPG.set_excluded(category.items[index].idname, toggled_state)
+                CategoryPG.set_excluded(toggled_idname, toggled_state)
             else:
-                CategoryPG.toggle_excluded(category.items[index].idname)
+                CategoryPG.toggle_excluded(toggled_idname)
             
             if options.synchronize_selection:
                 included_idnames = CategoryPG.prev_idnames.difference(CategoryPG.excluded)
                 bpy.ops.ed.undo_push(message="Batch Select {}".format(Category_Name_Plural))
-                BatchOperations.select(context, included_idnames, 'OR')
+                #BatchOperations.select(context, included_idnames, 'OR')
+                BatchOperations.select(context, toggled_idname, 'OR')
                 # if deselected, make sure objects are deselected too
                 if toggled_state: BatchOperations.select(context, idnames, 'AND!')
         elif event.ctrl:

@@ -85,7 +85,7 @@ def to_matrix4x4(orient, pos):
 def matrix_compose(*args):
     size = len(args)
     m = Matrix.Identity(size)
-    axes = m.col # m.row
+    axes = m.col
     
     if size == 2:
         for i in (0, 1):
@@ -118,18 +118,44 @@ def matrix_compose(*args):
 def matrix_decompose(m, res_size=None):
     size = len(m)
     axes = m.col # m.row
-    if res_size is None:
-        res_size = size
+    if res_size is None: res_size = size
     
-    if res_size == 2:
-        return (axes[0].to_2d(), axes[1].to_2d())
-    else:
-        x = axes[0].to_3d()
-        y = axes[1].to_3d()
-        z = (axes[2].to_3d() if size > 2 else Vector())
-        if res_size == 3:
-            return (x, y, z)
-        
-        t = (m.translation.to_3d() if size == 4 else Vector())
-        if res_size == 4:
-            return (x, y, z, t)
+    if res_size == 2: return (axes[0].to_2d(), axes[1].to_2d())
+    
+    x = axes[0].to_3d()
+    y = axes[1].to_3d()
+    z = (axes[2].to_3d() if size > 2 else Vector())
+    if res_size == 3: return (x, y, z)
+    
+    t = (m.translation.to_3d() if size == 4 else Vector())
+    if res_size == 4: return (x, y, z, t)
+
+# for compatibility with 2.70
+def matrix_invert_safe(m):
+    try:
+        m.invert()
+        return
+    except ValueError:
+        pass
+    m.col[0][0] += 1e-6
+    m.col[1][1] += 1e-6
+    m.col[2][2] += 1e-6
+    m.col[3][3] += 1e-6
+    try:
+        m.invert()
+    except ValueError:
+        pass
+def matrix_inverted_safe(m):
+    try:
+        return m.inverted()
+    except ValueError:
+        pass
+    m = Matrix()
+    m.col[0][0] += 1e-6
+    m.col[1][1] += 1e-6
+    m.col[2][2] += 1e-6
+    m.col[3][3] += 1e-6
+    try:
+        return m.inverted()
+    except ValueError:
+        return Matrix()

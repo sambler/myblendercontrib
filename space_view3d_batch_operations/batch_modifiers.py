@@ -36,13 +36,13 @@ from {0}dairin0d.utils_blender import Selection
 from {0}dairin0d.utils_userinput import KeyMapUtils
 from {0}dairin0d.utils_ui import NestedLayout, tag_redraw
 from {0}dairin0d.bpy_inspect import prop, BlRna, BlEnums
-from {0}dairin0d.utils_accumulation import Aggregator, aggregated
+from {0}dairin0d.utils_accumulation import Aggregator
 from {0}dairin0d.utils_addon import AddonManager
 """.format(dairin0d_location))
 
 from .batch_common import (
     copyattrs, attrs_to_dict, dict_to_attrs, PatternRenamer,
-    Pick_Base, LeftRightPanel, make_category,
+    Pick_Base, LeftRightPanel, make_category, apply_modifiers,
     round_to_bool, is_visible, has_common_layers, idnames_separator
 )
 
@@ -167,42 +167,7 @@ class BatchOperations:
     @classmethod
     def apply(cls, objects, scene, idnames, options=(), apply_as='DATA'):
         idnames = cls.split_idnames(idnames)
-        
-        active_obj = scene.objects.active
-        
-        covert_to_mesh = ('CONVERT_TO_MESH' in options)
-        make_single_user = ('MAKE_SINGLE_USER' in options)
-        remove_disabled = ('REMOVE_DISABLED' in options)
-        
-        for obj in objects:
-            scene.objects.active = obj
-            
-            if not obj.modifiers: continue
-            
-            if (obj.type != 'MESH') and covert_to_mesh:
-                # "Error: Cannot apply constructive modifiers on curve"
-                if obj.data.users > 1: obj.data = obj.data.copy() # don't affect other objects
-                bpy.ops.object.convert(target='MESH')
-            elif make_single_user:
-                # "Error: Modifiers cannot be applied to multi-user data"
-                if obj.data.users > 1: obj.data = obj.data.copy() # don't affect other objects
-            
-            for md in tuple(obj.modifiers):
-                if md.type not in idnames: continue
-                
-                is_disabled = False
-                try:
-                    bpy.ops.object.modifier_apply(modifier=md.name, apply_as=apply_as) # not type or idname!
-                except RuntimeError as exc:
-                    #print(repr(exc))
-                    exc_msg = exc.args[0].lower()
-                    # "Error: Modifier is disabled, skipping apply"
-                    is_disabled = ("disab" in exc_msg) or ("skip" in exc_msg)
-                
-                if is_disabled and remove_disabled:
-                    obj.modifiers.remove(md)
-        
-        scene.objects.active = active_obj
+        apply_modifiers(objects, scene, idnames, options, apply_as)
     
     @classmethod
     def remove(cls, objects, idnames, from_file=False):
@@ -334,6 +299,7 @@ class OptionsMixin:
         ('CONVERT_TO_MESH', "Convert to mesh", "Convert to mesh", 'OUTLINER_OB_MESH'),
         ('MAKE_SINGLE_USER', "Make single user", "Make single user", 'UNLINKED'),
         ('REMOVE_DISABLED', "Remove disabled", "Remove disabled", 'GHOST_DISABLED'),
+        ('DELETE_OPERANDS', "Delete operands", "Delete the remaining boolean operands", 'MOD_BOOLEAN'),
     ])
 
 @addon.Menu(idname="VIEW3D_MT_batch_{}_options_apply_options".format(category_name_plural), label="Apply Modifier")

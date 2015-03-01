@@ -191,6 +191,10 @@ def messagebox(text, icon='NONE', width=300, confirm=False, spacing=0.5):
     bpy.ops.info.messagebox('INVOKE_DEFAULT')
 #============================================================================#
 
+# Note:
+# if item is property group instance and item["pi"] = 3.14,
+# in UI it should be displayed like this: layout.prop(item, '["pi"]')
+
 # ===== NESTED LAYOUT ===== #
 class NestedLayout:
     """
@@ -520,8 +524,9 @@ def find_ui_area(area_type, region_type='WINDOW'):
     for area in screen.areas:
         if area.type == area_type:
             space_data = area.spaces.active
-            for region in area.regions:
-                if region.type == region_type: break
+            region = None
+            for _region in area.regions:
+                if _region.type == region_type: region = _region
             return dict(window=window, screen=screen,
                 area=area, space_data=space_data, region=region,
                 region_data=rv3d_from_region(area, region))
