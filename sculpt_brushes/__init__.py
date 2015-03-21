@@ -5,10 +5,10 @@
 
 
 bl_info = {
-    "name": "Sculpt Broshes",
+    "name": "Sculpt Brushes",
     "author": "IK3D",
     "version": (0, 7),
-    "location": "View 3D > Sculpt mod > Tool",
+    "location": "View 3D > Sculpt mode > Tool",
     "description": "UI Palette sculpt brush",
     "wiki_url": "http://blenderaddonlist.blogspot.com.au/2015/02/addon-sculpt-brushes.html",
     "category": "Sculpting"}

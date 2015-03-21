@@ -279,7 +279,7 @@ def setB(Bname):
 #operateur changer de brosse
 class OperatorRemplacer(bpy.types.Operator):
     bl_idname = "object.operator_remplacer"
-    bl_label = "Change broshes"
+    bl_label = "Change brushes"
     chemin = bpy.props.StringProperty()
     
     def execute(self, context):
