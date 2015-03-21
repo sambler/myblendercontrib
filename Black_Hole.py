@@ -22,7 +22,7 @@
 bl_info = {
     "name": "Black Hole",
     "author": "Crocadillian/Takanu @ Polarised Games",
-    "version": (1),
+    "version": (1,0),
     "blender": (2, 7, 3),
     "api": 39347,
     "location": "3D View > Object Mode > Tools > Black Hole",
