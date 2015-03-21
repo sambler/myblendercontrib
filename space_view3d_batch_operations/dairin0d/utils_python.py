@@ -17,6 +17,25 @@
 
 import traceback
 
+def copyattrs(src, dst, filter=""):
+    for attr in dir(src):
+        if attr.find(filter) > -1:
+            try:
+                setattr(dst, attr, getattr(src, attr))
+            except:
+                pass
+
+def attrs_to_dict(obj):
+    return {name:getattr(obj, name) for name in dir(obj) if not name.startswith("_")}
+
+def dict_to_attrs(obj, d):
+    for name, value in d.items():
+        if not name.startswith("_"):
+            try:
+                setattr(obj, name, value)
+            except:
+                pass
+
 def compare_epsilon(a, b, epsilon):
     if (epsilon is None) or (not isinstance(a, (int, float))): return (a == b)
     return abs(a - b) <= epsilon
@@ -35,6 +54,10 @@ def setitem_cmp(obj, key, value, epsilon=None):
         pass
     obj[name] = value
     return True
+
+def bools_to_int(bools):
+    # https://stackoverflow.com/questions/4065737/python-numpy-convert-list-of-bools-to-unsigned-int
+    return sum((1 << i) for i, b in enumerate(bools) if b)
 
 def reverse_enumerate(l):
     return zip(range(len(l)-1, -1, -1), reversed(l))

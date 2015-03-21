@@ -15,13 +15,11 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 bl_info = {
     "name": "Mouselook Navigation",
     "description": "Alternative 3D view navigation",
     "author": "dairin0d, moth3r",
-    "version": (1, 0, 4),
+    "version": (1, 0, 5),
     "blender": (2, 7, 0),
     "location": "View3D > orbit/pan/dolly/zoom/fly/walk",
     "warning": "",
@@ -30,21 +28,10 @@ bl_info = {
     "category": "3D View"}
 #============================================================================#
 
-"""
-# This doesn't seem to work at all
-if "bpy" in locals():
+if "dairin0d" in locals():
     import imp
-    if "dairin0d" in locals():
-        imp.reload(dairin0d)
-    if "bpy_inspect" in locals():
-        imp.reload(bpy_inspect)
-    if "utils_navigation" in locals():
-        imp.reload(utils_navigation)
-else:
-    import dairin0d
-    from dairin0d import bpy_inspect
-    from . import utils_navigation
-"""
+    imp.reload(dairin0d)
+    imp.reload(utils_navigation)
 
 import bpy
 import bgl
@@ -82,62 +69,63 @@ ISSUES:
 * correct & stable collision detection?
 * Blender's trackball
 * ortho-grid/quadview-clip/projection-name display is not updated (do the issues disappear in 2.73 / Gooseberry branch?)
-* Blender doesn't provide information about current selection center, last paint/sculpt stroke, what non-geometry objects are under the mouse
+* Blender doesn't provide information about current selection center (try to use snap-cursor for this?), last paint/sculpt stroke
+* zoom/rotate around last paint/sculpt stroke? (impossible: sculpt/paint is modal, and Blender provides mouse coordinates only for invoke/modal operator callbacks)
 
 In the wiki:
 * explain the rules for key setup (how the text is interpreted)
 * explain fly/walk modes (e.g. what the scrollwheel does)
 * other peculiarities of the algorithms I use?
 * put a warning that if "emulate 3 mouse button" is enabled, the Alt key pan won't work in ZBrush preset (in this case, Alt+LMB will emulate middle mouse button)
-
-System:
-* transparent preferences/external/internal get/set? (so that the user code doesn't need to know where exactly each setting is stored). BUT: will it work with layout code? (layout.prop(data, prop_name))
-* make it possible to use the same addon object in addon's imported submodules (use __new__ instead of __init__ ?)
-* "release/build" script (copy files to dest folder without __pycache__ and *.pyc, create zip)
+* put a warning that User Preferences make the addon slow
 
 Config/Presets:
 * Load/Save/Import/Export config (+move almost everything from preferences to config)
 * Load/Save/Import/Export presets
 
-Depth/Ray casting:
-* [DONE] make possible to select lattice vertices with LMB when ZBrush preset is used (use zbuffer); use up-to-date geometry in Sculpt mode
-* [DONE] full-screen grabbing of depth buffer on each redraw?
-* zoom/rotate around last paint/sculpt stroke? (record last depth and raycast result under mouse?)
-
 Keymaps:
-* remove default keymap behavior and use a default preset instead?
 * Generic solution for keymap registration
+* remove default keymap behavior and use a default preset instead?
+    * the default keymap behavior is actually a special case, since it takes the shortcut from the default navigation operator
+    * incorporate this feature into the generic key-registration mechanism?
+* implement key combinations in InputKeyMonitor? (e.g. Ctrl+Shift+LeftMouse and the like)
 
-* [DONE] don't remove->add add keymap items when the new one is added to the end
-* [DONE] in edit/paint/sculpt modes, when nothing is selected, rotate using the currently selected object's origin
-* [DONE] make mouselook temporary toggle saveable
-* [DONE] bug when rotating in lattice edit mode
-* [DONE] key presets (Blender, ZBrush)
-* [DONE] installing doesn't work (dairin0d couldn't be found)
-* [DONE] option to turn off second crosshair? (+put them in N panel)
-* [DONE] ZBrush zooming should be inverted compared to Blender
-* [DONE] in ZBrush, the position is reset to the starting position when zooming is enabled
-* [DONE] in Camera View, shift+drag changes view_camera_offset and mouse wheel changes view_camera_zoom (unless lock_camera is True); in Fly/FPS modes, Lock Camera To View should be ignored
-* [DONE] on exiting Fly/FPS modes, mouse should be set to focus projection
-* [DONE] stable sv.focus projection without actually projecting (use camera offset/zoom)
-* [DONE] always render zbrush border in all 3D views
-* [DONE] option to zoom to selection
-* [DONE] add key setups to addon preferences (so that it doesn't have to be set up in each mode manually)
-* [DONE] make mouselook navigation lower priority than 3D manipulator
-* [DONE] respect Invert Mouse/Wheel Zoom Direction
+* In Blender 2.73, Grease Pencil can be edited (and points can be selected)
 
-For some reason, when activating ZBrush preset, the following is printed to the console:
-RNA Warning: Current value "0" matches no enum in 'POSELIB_OT_pose_remove', '(null)', 'pose'
-RNA Warning: Current value "0" matches no enum in 'POSELIB_OT_pose_rename', '(null)', 'pose'
-RNA Warning: Current value "0" matches no enum in 'EnumProperty', 'pose', 'default'
-RNA Warning: Current value "0" matches no enum in 'EnumProperty', 'pose', 'default'
-RNA Warning: Current value "0" matches no enum in 'PAINT_OT_weight_sample_group', '(null)', 'group'
-RNA Warning: Current value "0" matches no enum in 'GROUP_OT_objects_remove', '(null)', 'group'
-RNA Warning: Current value "0" matches no enum in 'GROUP_OT_objects_add_active', '(null)', 'group'
-RNA Warning: Current value "0" matches no enum in 'GROUP_OT_objects_remove_active', '(null)', 'group'
-RNA Warning: Current value "0" matches no enum in 'EnumProperty', 'group', 'default'
-RNA Warning: Current value "0" matches no enum in 'EnumProperty', 'group', 'default'
-RNA Warning: Current value "0" matches no enum in 'EnumProperty', 'group', 'default'
+* Option to create an undo record when navigating from a camera?
+* Add optional shortcuts to move focus to certain locations? (current orbit point, active element, selection center, cursor, world origin)
+* Navigation history?
+* Create camera here?
+
+
+
+GENERIC KEYMAP REGISTRATION:
+* Addon may have several operators with auto-registrable shortcuts. For each of them, a separate list of keymaps must be displayed (or: use tabbed interface?)
+    * For a specific operator, there is a list of keymaps (generic mechanism), followed by invocation options UI (the draw function must be supplied by the implementation)
+    * List of keymap setups: each of the items is associated with (or includes?) its own operator invocation options, but it's also possible to use universal operator invocation options
+        * Keymaps (to which the shortcuts will be inserted): by default, all possible keymaps are available, but the implementation may specify some restricted set.
+            * Should be displayed as a list of toggles, but an enum property won't have enough bits for all keymaps. Use collection and custom-drawn menu with operators?
+        * Event value and event type (string): this form allows to specify several alternative shortcuts, though for convenience we may provide a special UI with full_event properties
+        * Modifiers: any/shift/ctrl/alt/oskey/other key
+        * Insert after, Insert before: the generic default is ("*", ""), which simply appends to the end. However, the implementation mught supply its own default.
+        * (not shown directly in the UI): is_current, index: index is the only thing that needs to be specified as an /actual/ operator invocation parameter; when the operator is invoked, it can easily find the appropriate configuration by index.
+        * Included operator invocation options (if implemented as an include and not as a reference by index)
+    * Invocation options are likely to include shortcuts/modes/transitions that work within the corresponding modal operator
+* As a general rule, addon should clean up its keymaps on disabling, but it shouldn't erase the keymaps manually added by the user (is this actually possible?)
+* When addon is enabled, there are 3 cases:
+    * Addon is enabled for the first time: should execute default keymap auto-registration behavior
+    * Addon is enabled on Blender startup: the autro-registration setup is verified by user and saved with user preferences, so default behavior shouldn't happen
+    * Addon is enabled after being disabled: all user changes from preferences are lost, BUT: if there is a config saved in a file, the addon might try to recover at least some user configuration
+    * Or maybe just always use config file and force user to manually save it?
+* Presets (in general case, addon may have independent lists of presets for each separate feature, and each feature might include 1 or more operators)
+    * in general case, presets can affect key setup, the properties with which the operator(s) will be invoked, and some global settings
+    * Save (to presets directory), Load (from presets directory), Delete (from presets directory), Import (from user-specified location), Export (to user-specified location)
+    * in some cases, the presets might want to use the same shortcuts as some built-in operators (the default shortcuts should still be provided in case the built-in operator was not found in keymaps)
+    * should presets contain the difference from some default control scheme, or there shouldn't be any default other than some specially-matked preset?
+    * Maybe it's better to make presets work for the whole addon, not just key setup? (this would make them a complete config setup)
+    * Is is possible to generalize preset/config loading, or it has to be an implementation-specific callback?
+    * Built-in presets may also be hard-coded (e.g. useful in case of single-file addons)
+
 """
 
 @addon.PropertyGroup
@@ -217,13 +205,8 @@ class MouselookNavigation_InputSettings:
                     layout.prop(self, "keys_fps_jump")
                     layout.prop(self, "keys_fps_teleport")
 
-@addon.Operator
+@addon.Operator(idname="view3d.mouselook_navigation", label="Mouselook navigation", description="Mouselook navigation", options={'GRAB_POINTER', 'BLOCKING'})
 class MouselookNavigation:
-    """Mouselook navigation"""
-    bl_idname = "view3d.mouselook_navigation"
-    bl_label = "Mouselook navigation"
-    bl_options = {'GRAB_POINTER', 'BLOCKING'} # GRAB_POINTER for Continuous Grab
-    
     input_settings_id = 0 | prop("Input Settings ID", "Input Settings ID", min=0)
     
     def copy_input_settings(self, inp_set):
@@ -265,8 +248,7 @@ class MouselookNavigation:
     
     @classmethod
     def poll(cls, context):
-        if not addon.preferences.is_enabled:
-            return False
+        if not addon.preferences.is_enabled: return False
         return (context.space_data.type == 'VIEW_3D')
     
     def modal(self, context, event):
@@ -1009,7 +991,7 @@ class MouselookNavigation:
     def register_handlers(self, context):
         wm = context.window_manager
         wm.modal_handler_add(self)
-        self._timer = addon.timer_add(wm, 0.01, context.window)
+        self._timer = addon.timer_add(0.01, context.window)
         self._handle_view = addon.draw_handler_add(bpy.types.SpaceView3D, draw_callback_view, (self, context), 'WINDOW', 'POST_VIEW')
     
     def unregister_handlers(self, context):
@@ -1091,10 +1073,8 @@ def draw_callback_px(self, context):
                 batch.vertex(x + border, y + h-border)
 
 
-@addon.Operator(idname="wm.mouselook_navigation_autoreg_keymaps_update", label="Update Autoreg Keymaps")
+@addon.Operator(idname="wm.mouselook_navigation_autoreg_keymaps_update", label="Update Autoreg Keymaps", description="Update auto-registered keymaps")
 def update_keymaps(activate=True):
-    """Update auto-registered keymaps"""
-    
     idname = MouselookNavigation.bl_idname
     
     KeyMapUtils.remove(idname)
@@ -1466,6 +1446,7 @@ class ThisAddonPreferences:
             inp_set.draw(layout)
 
 def register():
+    addon.use_zbuffer = True
     addon.register()
     
     addon.draw_handler_add(bpy.types.SpaceView3D, draw_callback_px, (None, None), 'WINDOW', 'POST_PIXEL')

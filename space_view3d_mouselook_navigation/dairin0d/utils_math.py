@@ -15,11 +15,22 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 from mathutils import Color, Vector, Matrix, Quaternion, Euler
 
 import math
+
+# Newton's binomial coefficients / Pascal's triangle coefficients / n choose k / nCk
+# https://stackoverflow.com/questions/26560726/python-binomial-coefficient
+# https://stackoverflow.com/questions/3025162/statistics-combinations-in-python
+def binomial(n, k): # A fast way to calculate binomial coefficients by Andrew Dalke
+    if not (0 <= k <= n): return 0
+    ntok = 1
+    ktok = 1
+    for t in range(1, min(k, n - k) + 1):
+        ntok *= n
+        ktok *= t
+        n -= 1
+    return ntok // ktok
 
 def lerp(v0, v1, t):
     return v0 * (1.0 - t) + v1 * t
@@ -64,10 +75,17 @@ def matrix_LRS(L, R, S):
     m.translation = L
     return m
 
+def to_matrix4x4(orient, pos):
+    if not isinstance(orient, Matrix):
+        orient = orient.to_matrix()
+    m = orient.to_4x4()
+    m.translation = pos.to_3d()
+    return m
+
 def matrix_compose(*args):
     size = len(args)
     m = Matrix.Identity(size)
-    axes = m.col # m.row
+    axes = m.col
     
     if size == 2:
         for i in (0, 1):
@@ -100,18 +118,44 @@ def matrix_compose(*args):
 def matrix_decompose(m, res_size=None):
     size = len(m)
     axes = m.col # m.row
-    if res_size is None:
-        res_size = size
+    if res_size is None: res_size = size
     
-    if res_size == 2:
-        return (axes[0].to_2d(), axes[1].to_2d())
-    else:
-        x = axes[0].to_3d()
-        y = axes[1].to_3d()
-        z = (axes[2].to_3d() if size > 2 else Vector())
-        if res_size == 3:
-            return (x, y, z)
-        
-        t = (m.translation.to_3d() if size == 4 else Vector())
-        if res_size == 4:
-            return (x, y, z, t)
+    if res_size == 2: return (axes[0].to_2d(), axes[1].to_2d())
+    
+    x = axes[0].to_3d()
+    y = axes[1].to_3d()
+    z = (axes[2].to_3d() if size > 2 else Vector())
+    if res_size == 3: return (x, y, z)
+    
+    t = (m.translation.to_3d() if size == 4 else Vector())
+    if res_size == 4: return (x, y, z, t)
+
+# for compatibility with 2.70
+def matrix_invert_safe(m):
+    try:
+        m.invert()
+        return
+    except ValueError:
+        pass
+    m.col[0][0] += 1e-6
+    m.col[1][1] += 1e-6
+    m.col[2][2] += 1e-6
+    m.col[3][3] += 1e-6
+    try:
+        m.invert()
+    except ValueError:
+        pass
+def matrix_inverted_safe(m):
+    try:
+        return m.inverted()
+    except ValueError:
+        pass
+    m = Matrix()
+    m.col[0][0] += 1e-6
+    m.col[1][1] += 1e-6
+    m.col[2][2] += 1e-6
+    m.col[3][3] += 1e-6
+    try:
+        return m.inverted()
+    except ValueError:
+        return Matrix()

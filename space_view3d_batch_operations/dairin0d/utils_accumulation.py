@@ -145,7 +145,7 @@ class Aggregator:
     sorted = property(lambda self: self._sorted)
     @property
     def median(self):
-        if self._sorted is None: return None
+        if not self._sorted: return None
         n = len(self._sorted)
         if (n % 2) == 1: return self._sorted[n // 2]
         i = n // 2
@@ -154,6 +154,7 @@ class Aggregator:
     freq_map = property(lambda self: self._freq_map)
     freq_max = property(lambda self: self._freq_max)
     modes = property(lambda self: self._modes)
+    mode = property(lambda self: self._modes[0] if self._modes else None)
     
     union = property(lambda self: self._union)
     intersection = property(lambda self: self._intersection)
@@ -162,6 +163,11 @@ class Aggregator:
     subseq = property(lambda self: self._subseq)
     subseq_starts = property(lambda self: self._subseq_starts)
     subseq_ends = property(lambda self: self._subseq_ends)
+    
+    def get(self, query, fallback):
+        value = getattr(self, query)
+        if value is None: return fallback
+        return ((value > 0.5) if isinstance(fallback, bool) else value)
     
     _numerical_queries = frozenset([
         'count', 'same', 'min', 'max', 'range', 'center',
@@ -427,6 +433,7 @@ class Aggregator:
 
 class VectorAggregator:
     def __init__(self, size, type, queries=None, covert=None):
+        self._type = type
         self.axes = tuple(Aggregator(type, queries, covert) for i in range(size))
     
     def reset(self):
@@ -438,9 +445,9 @@ class VectorAggregator:
     def add(self, value):
         for axis, item in zip(self.axes, value): axis.add(item)
     
-    type = property(lambda self: self.axes[0].type)
+    type = property(lambda self: self._type)
     
-    count = property(lambda self: self.axes[0].count) # same for all
+    count = property(lambda self: (self.axes[0].count if self.axes else 0)) # same for all
     same = property(lambda self: tuple(axis.same for axis in self.axes))
     
     min = property(lambda self: tuple(axis.min for axis in self.axes))
@@ -465,6 +472,7 @@ class VectorAggregator:
     freq_map = property(lambda self: tuple(axis.freq_map for axis in self.axes))
     freq_max = property(lambda self: tuple(axis.freq_max for axis in self.axes))
     modes = property(lambda self: tuple(axis.modes for axis in self.axes))
+    mode = property(lambda self: tuple(axis.mode for axis in self.axes))
     
     union = property(lambda self: tuple(axis.union for axis in self.axes))
     intersection = property(lambda self: tuple(axis.intersection for axis in self.axes))
@@ -473,3 +481,44 @@ class VectorAggregator:
     subseq = property(lambda self: tuple(axis.subseq for axis in self.axes))
     subseq_starts = property(lambda self: tuple(axis.subseq_starts for axis in self.axes))
     subseq_ends = property(lambda self: tuple(axis.subseq_ends for axis in self.axes))
+    
+    def get(self, query, fallback, vector=True):
+        if not vector: return tuple(axis.get(query, fallback) for axis in self.axes)
+        return tuple(axis.get(query, fb_item) for axis, fb_item in zip(self.axes, fallback))
+
+class PatternRenamer:
+    before = "\u2190"
+    after = "\u2192"
+    whole = "\u2194"
+    
+    @classmethod
+    def is_pattern(cls, value):
+        return (cls.before in value) or (cls.after in value) or (cls.whole in value)
+    
+    @classmethod
+    def make(cls, subseq, subseq_starts, subseq_ends):
+        pattern = subseq
+        if (not subseq_starts): pattern = cls.before + pattern
+        if (not subseq_ends): pattern = pattern + cls.after
+        if (pattern == cls.before+cls.after): pattern = cls.whole
+        return pattern
+    
+    @classmethod
+    def apply(cls, value, src_pattern, pattern):
+        middle = src_pattern.lstrip(cls.before).rstrip(cls.after).rstrip(cls.whole)
+        if middle not in value: return value # pattern not applicable
+        i_mid = value.index(middle)
+        
+        sL, sC, sR = "", value, ""
+        
+        if src_pattern.startswith(cls.before):
+            if middle: sL = value[:i_mid]
+        
+        if src_pattern.endswith(cls.after):
+            if middle: sR = value[i_mid+len(middle):]
+        
+        return pattern.replace(cls.before, sL).replace(cls.after, sR).replace(cls.whole, sC)
+    
+    @classmethod
+    def apply_to_attr(cls, obj, attr_name, pattern, src_pattern):
+        setattr(obj, attr_name, cls.apply(getattr(obj, attr_name), src_pattern, pattern))

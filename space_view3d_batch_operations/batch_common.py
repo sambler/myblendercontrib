@@ -31,13 +31,13 @@ except ImportError:
     dairin0d_location = "."
 
 exec("""
-from {0}dairin0d.utils_view3d import SmartView3D
+from {0}dairin0d.utils_view3d import SmartView3D, Pick_Base
 from {0}dairin0d.utils_userinput import KeyMapUtils
 from {0}dairin0d.utils_ui import NestedLayout, tag_redraw, find_ui_area, ui_context_under_coord
 from {0}dairin0d.bpy_inspect import prop, BlRna, BlEnums, BpyOp
-from {0}dairin0d.utils_accumulation import Aggregator, VectorAggregator
-from {0}dairin0d.utils_blender import ChangeMonitor, Selection, SelectionSnapshot, IndividuallyActiveSelected
-from {0}dairin0d.utils_addon import AddonManager
+from {0}dairin0d.utils_accumulation import Aggregator, VectorAggregator, PatternRenamer
+from {0}dairin0d.utils_blender import ChangeMonitor, Selection, SelectionSnapshot, IndividuallyActiveSelected, ObjectUtils
+from {0}dairin0d.utils_addon import AddonManager, UIMonitor
 
 """.format(dairin0d_location))
 
@@ -45,111 +45,7 @@ addon = AddonManager()
 
 idnames_separator = "\t"
 
-def round_to_bool(v):
-    return (False if v is None else (v > 0.5))
-
-def has_common_layers(obj, scene):
-    return any(l0 and l1 for l0, l1 in zip(obj.layers, scene.layers))
-
-def is_visible(obj, scene):
-    return (not obj.hide) and has_common_layers(obj, scene)
-
-# adapted from the Copy Attributes Menu addon
-def copyattrs(src, dst, filter=""):
-    for attr in dir(src):
-        if attr.find(filter) > -1:
-            try:
-                setattr(dst, attr, getattr(src, attr))
-            except:
-                pass
-
-def attrs_to_dict(obj):
-    d = {}
-    for name in dir(obj):
-        if not name.startswith("_"):
-            d[name] = getattr(obj, name)
-    return d
-
-def dict_to_attrs(obj, d):
-    for name, value in d.items():
-        if not name.startswith("_"):
-            try:
-                setattr(obj, name, value)
-            except:
-                pass
-
-class PatternRenamer:
-    before = "\u2190"
-    after = "\u2192"
-    whole = "\u2194"
-    
-    @classmethod
-    def is_pattern(cls, value):
-        return (cls.before in value) or (cls.after in value) or (cls.whole in value)
-    
-    @classmethod
-    def make(cls, subseq, subseq_starts, subseq_ends):
-        pattern = subseq
-        if (not subseq_starts): pattern = cls.before + pattern
-        if (not subseq_ends): pattern = pattern + cls.after
-        if (pattern == cls.before+cls.after): pattern = cls.whole
-        return pattern
-    
-    @classmethod
-    def apply(cls, value, src_pattern, pattern):
-        middle = src_pattern.lstrip(cls.before).rstrip(cls.after).rstrip(cls.whole)
-        if middle not in value: return value # pattern not applicable
-        i_mid = value.index(middle)
-        
-        sL, sC, sR = "", value, ""
-        
-        if src_pattern.startswith(cls.before):
-            if middle:
-                sL = value[:i_mid]
-        
-        if src_pattern.endswith(cls.after):
-            if middle:
-                sR = value[i_mid+len(middle):]
-        
-        return pattern.replace(cls.before, sL).replace(cls.after, sR).replace(cls.whole, sC)
-    
-    @classmethod
-    def apply_to_attr(cls, obj, attr_name, pattern, src_pattern):
-        setattr(obj, attr_name, cls.apply(getattr(obj, attr_name), src_pattern, pattern))
-
-class Pick_Base:
-    def invoke(self, context, event):
-        context.window.cursor_modal_set('EYEDROPPER')
-        context.window_manager.modal_handler_add(self)
-        return {'RUNNING_MODAL'}
-    
-    def modal(self, context, event):
-        cancel = (event.type in {'ESC', 'RIGHTMOUSE'})
-        confirm = (event.type == 'LEFTMOUSE') and (event.value == 'PRESS')
-        
-        mouse = Vector((event.mouse_x, event.mouse_y))
-        
-        raycast_result = None
-        sv = SmartView3D((mouse.x, mouse.y, 0))
-        if sv:
-            #raycast_result = sv.ray_cast(mouse, coords='WINDOW')
-            select_result = sv.select(mouse, coords='WINDOW')
-            raycast_result = (bool(select_result[0]), select_result[0])
-        
-        obj = None
-        if raycast_result and raycast_result[0]:
-            obj = raycast_result[1]
-        
-        txt = (self.obj_to_info(obj) if obj else "")
-        context.area.header_text_set(txt)
-        
-        if cancel or confirm:
-            if confirm:
-                self.on_confirm(context, obj)
-            context.area.header_text_set()
-            context.window.cursor_modal_restore()
-            return ({'FINISHED'} if confirm else {'CANCELLED'})
-        return {'RUNNING_MODAL'}
+change_monitor = ChangeMonitor(update=False) # used in batch_repeat_actions operator
 
 def LeftRightPanel(cls=None, **kwargs):
     def AddPanels(cls, kwargs):
@@ -184,8 +80,6 @@ def LeftRightPanel(cls=None, **kwargs):
     
     if cls: return AddPanels(cls, kwargs)
     return (lambda cls: AddPanels(cls, kwargs))
-
-change_monitor = ChangeMonitor(update=False)
 
 def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
     active_obj = scene.objects.active
@@ -250,6 +144,13 @@ class Operator_batch_repeat_actions:
     exclude_active = True | prop()
     operations = [False] | prop()
     max_shown_actions = 32
+    search_in = 'SELECTION' | prop("Filter", items=[
+        ('SELECTION', "Selection", "Apply to the selected objects", 'RESTRICT_SELECT_OFF'),
+        ('VISIBLE', "Visible", "Apply to the visible objects", 'RESTRICT_VIEW_OFF'),
+        ('LAYER', "Layer", "Apply to the objects in the visible layers", 'RENDERLAYERS'),
+        ('SCENE', "Scene", "Apply to the objects in the current scene", 'SCENE_DATA'),
+        #('FILE', "File", "Apply to all objects in this file", 'FILE_BLEND'), # not very applicable to batch-repeat-actions
+    ])
     
     @classmethod
     def poll(cls, context):
@@ -295,9 +196,9 @@ class Operator_batch_repeat_actions:
         
         if self.exclude_active:
             active_obj = context.active_object
-            selected_objs = tuple(obj for obj in context.selected_objects if obj != active_obj)
+            selected_objs = tuple(obj for obj in ObjectUtils.iterate(self.search_in, context) if obj != active_obj)
         else:
-            selected_objs = tuple(context.selected_objects)
+            selected_objs = tuple(ObjectUtils.iterate(self.search_in, context))
         
         bpy.ops.ed.undo_push(message="Batch Repeat")
         
@@ -319,6 +220,7 @@ class Operator_batch_repeat_actions:
     
     def draw(self, context):
         layout = NestedLayout(self.layout)
+        layout.prop(self, "search_in", text="Filter")
         layout.prop(self, "exclude_active", text="Exclude active object")
         with layout.column(True):
             for item in self.operations:
@@ -853,7 +755,7 @@ class Operator_Set_Layers:
         aggr = VectorAggregator(len(self.layers), 'BOOL', {"same", "mean"})
         for obj in context.scene.objects:
             if obj.name in idnames: aggr.add(obj.layers)
-        self.layers = tuple(round_to_bool(state) for state in aggr.mean)
+        self.layers = aggr.get("mean", False, False)
         self.layers_same = aggr.same
         wm = context.window_manager
         return wm.invoke_props_dialog(self, width=220)
@@ -1290,16 +1192,14 @@ def make_category(globalvars, idname_attr="name", **kwargs):
             item.count = self.count
             item.obj_names = idnames_separator.join(self.obj_names)
             for name, params in self.aggr_infos.items():
-                self.fill_aggr(item, name, False, query, params.get("convert"))
+                self.fill_aggr(item, name, False, query, params.get("fallback"))
             for name, params in self.aggr_infos_objs.items():
-                self.fill_aggr(item, name, True, query, params.get("convert"))
+                self.fill_aggr(item, name, True, query, params.get("fallback"))
             item.user_editable = True
         
-        def fill_aggr(self, item, name, from_obj, query, convert=None):
+        def fill_aggr(self, item, name, from_obj, query, fallback=None):
             aggr = (self.aggrs_obj[name] if from_obj else self.aggrs[name])
-            value = getattr(aggr, query)
-            if convert is not None: value = convert(value)
-            setattr(item, name, value)
+            setattr(item, name, aggr.get(query, fallback))
             item[name+":same"] = aggr.same
         
         @classmethod
@@ -1366,13 +1266,16 @@ def make_category(globalvars, idname_attr="name", **kwargs):
             value = getattr(self, name)
             if invert and isinstance(value, bool): value = not value
             bpy.ops.ed.undo_push(message=message)
+            globally = UIMonitor.ctrl
             if from_obj:
+                objects = bpy.data.objects
                 for idname in self.obj_names.split(idnames_separator):
-                    obj = context.scene.objects.get(idname)
+                    obj = objects.get(idname)
                     if obj: setattr(obj, name, value)
             else:
+                objects = options.iterate_objects(context, globally=globally)
                 idnames = self.idname or category.all_idnames
-                BatchOperations.set_attr(name, value, options.iterate_objects(context), idnames)
+                BatchOperations.set_attr(name, value, objects, idnames)
             category.tag_refresh()
         return update
     
@@ -1450,7 +1353,7 @@ def make_category(globalvars, idname_attr="name", **kwargs):
         setattr(CategoryItemPG, name, None | prop(**prop_kwargs))
         
         aggr = params.get("aggr")
-        if aggr is None: aggr = dict(init=('BOOL', {"same", "min", "max", "mean"}), convert=round_to_bool, invert=invert)
+        if aggr is None: aggr = dict(init=('BOOL', {"same", "min", "max", "mean"}), fallback=False, invert=invert)
         (AggregateInfo.aggr_infos_objs if from_obj else AggregateInfo.aggr_infos)[name] = aggr
     
     CategoryOptionsPG.quick_access = quick_access_default | prop("Quick access", "Quick access", items=quick_access_items)

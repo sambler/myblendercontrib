@@ -15,14 +15,16 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 import bpy
 
 import bmesh
 
+import time
+
 from .bpy_inspect import BlEnums
 
+# ========================== TOGGLE OBJECT MODE ============================ #
+#============================================================================#
 class ToggleObjectMode:
     def __init__(self, mode='OBJECT'):
         if not isinstance(mode, str):
@@ -51,11 +53,259 @@ class ToggleObjectMode:
                 bpy.ops.object.mode_set(mode=self.prev_mode)
                 edit_preferences.use_global_undo = self.global_undo
 
+# =============================== MESH CACHE =============================== #
+#============================================================================#
+class MeshCacheItem:
+    def __init__(self):
+        self.variants = {}
+    
+    def __getitem__(self, variant):
+        return self.variants[variant][0]
+    
+    def __setitem__(self, variant, conversion):
+        mesh = conversion[0].data
+        #mesh.update(calc_tessface=True)
+        #mesh.calc_tessface()
+        mesh.calc_normals()
+        
+        self.variants[variant] = conversion
+    
+    def __contains__(self, variant):
+        return variant in self.variants
+    
+    def dispose(self):
+        for obj, converted in self.variants.values():
+            if converted:
+                mesh = obj.data
+                bpy.data.objects.remove(obj)
+                bpy.data.meshes.remove(mesh)
+        self.variants = None
+
+class MeshCache:
+    """
+    Keeps a cache of mesh equivalents of requested objects.
+    It is assumed that object's data does not change while
+    the cache is in use.
+    """
+    
+    variants_enum = {'RAW', 'PREVIEW', 'RENDER'}
+    variants_normalization = {
+        'MESH':{},
+        'CURVE':{},
+        'SURFACE':{},
+        'FONT':{},
+        'META':{'RAW':'PREVIEW'},
+        'ARMATURE':{'RAW':'PREVIEW', 'RENDER':'PREVIEW'},
+        'LATTICE':{'RAW':'PREVIEW', 'RENDER':'PREVIEW'},
+        'EMPTY':{'RAW':'PREVIEW', 'RENDER':'PREVIEW'},
+        'CAMERA':{'RAW':'PREVIEW', 'RENDER':'PREVIEW'},
+        'LAMP':{'RAW':'PREVIEW', 'RENDER':'PREVIEW'},
+        'SPEAKER':{'RAW':'PREVIEW', 'RENDER':'PREVIEW'},
+    }
+    conversible_types = {'MESH', 'CURVE', 'SURFACE', 'FONT',
+                         'META', 'ARMATURE', 'LATTICE'}
+    convert_types = conversible_types
+    
+    def __init__(self, scene, convert_types=None):
+        self.scene = scene
+        if convert_types:
+            self.convert_types = convert_types
+        self.cached = {}
+    
+    def __del__(self):
+        self.clear()
+    
+    def clear(self, expect_zero_users=False):
+        for cache_item in self.cached.values():
+            if cache_item:
+                try:
+                    cache_item.dispose()
+                except RuntimeError:
+                    if expect_zero_users:
+                        raise
+        self.cached.clear()
+    
+    def __delitem__(self, obj):
+        cache_item = self.cached.pop(obj, None)
+        if cache_item:
+            cache_item.dispose()
+    
+    def __contains__(self, obj):
+        return obj in self.cached
+    
+    def __getitem__(self, obj):
+        if isinstance(obj, tuple):
+            return self.get(*obj)
+        return self.get(obj)
+    
+    def get(self, obj, variant='PREVIEW', reuse=True):
+        if variant not in self.variants_enum:
+            raise ValueError("Mesh variant must be one of %s" %
+                             self.variants_enum)
+        
+        # Make sure the variant is proper for this type of object
+        variant = (self.variants_normalization[obj.type].
+                   get(variant, variant))
+        
+        if obj in self.cached:
+            cache_item = self.cached[obj]
+            try:
+                # cache_item is None if object isn't conversible to mesh
+                return (None if (cache_item is None)
+                        else cache_item[variant])
+            except KeyError:
+                pass
+        else:
+            cache_item = None
+        
+        if obj.type not in self.conversible_types:
+            self.cached[obj] = None
+            return None
+        
+        if not cache_item:
+            cache_item = MeshCacheItem()
+            self.cached[obj] = cache_item
+        
+        conversion = self._convert(obj, variant, reuse)
+        cache_item[variant] = conversion
+        
+        return conversion[0]
+    
+    def _convert(self, obj, variant, reuse=True):
+        obj_type = obj.type
+        obj_mode = obj.mode
+        data = obj.data
+        
+        if obj_type == 'MESH':
+            if reuse and ((variant == 'RAW') or (len(obj.modifiers) == 0)):
+                return (obj, False)
+            else:
+                force_objectmode = (obj_mode in ('EDIT', 'SCULPT'))
+                return (self._to_mesh(obj, variant, force_objectmode), True)
+        elif obj_type in ('CURVE', 'SURFACE', 'FONT'):
+            if variant == 'RAW':
+                bm = bmesh.new()
+                for spline in data.splines:
+                    for point in spline.bezier_points:
+                        bm.verts.new(point.co)
+                        bm.verts.new(point.handle_left)
+                        bm.verts.new(point.handle_right)
+                    for point in spline.points:
+                        bm.verts.new(point.co[:3])
+                return (self._make_obj(bm, obj), True)
+            else:
+                if variant == 'RENDER':
+                    resolution_u = data.resolution_u
+                    resolution_v = data.resolution_v
+                    if data.render_resolution_u != 0:
+                        data.resolution_u = data.render_resolution_u
+                    if data.render_resolution_v != 0:
+                        data.resolution_v = data.render_resolution_v
+                
+                result = (self._to_mesh(obj, variant), True)
+                
+                if variant == 'RENDER':
+                    data.resolution_u = resolution_u
+                    data.resolution_v = resolution_v
+                
+                return result
+        elif obj_type == 'META':
+            if variant == 'RAW':
+                # To avoid the hassle of snapping metaelements
+                # to themselves, we just create an empty mesh
+                bm = bmesh.new()
+                return (self._make_obj(bm, obj), True)
+            else:
+                if variant == 'RENDER':
+                    resolution = data.resolution
+                    data.resolution = data.render_resolution
+                
+                result = (self._to_mesh(obj, variant), True)
+                
+                if variant == 'RENDER':
+                    data.resolution = resolution
+                
+                return result
+        elif obj_type == 'ARMATURE':
+            bm = bmesh.new()
+            if obj_mode == 'EDIT':
+                for bone in data.edit_bones:
+                    head = bm.verts.new(bone.head)
+                    tail = bm.verts.new(bone.tail)
+                    bm.edges.new((head, tail))
+            elif obj_mode == 'POSE':
+                for bone in obj.pose.bones:
+                    head = bm.verts.new(bone.head)
+                    tail = bm.verts.new(bone.tail)
+                    bm.edges.new((head, tail))
+            else:
+                for bone in data.bones:
+                    head = bm.verts.new(bone.head_local)
+                    tail = bm.verts.new(bone.tail_local)
+                    bm.edges.new((head, tail))
+            return (self._make_obj(bm, obj), True)
+        elif obj_type == 'LATTICE':
+            bm = bmesh.new()
+            for point in data.points:
+                bm.verts.new(point.co_deform)
+            return (self._make_obj(bm, obj), True)
+    
+    def _to_mesh(self, obj, variant, force_objectmode=False):
+        tmp_name = chr(0x10ffff) # maximal Unicode value
+        
+        with ToggleObjectMode(force_objectmode):
+            if variant == 'RAW':
+                mesh = obj.to_mesh(self.scene, False, 'PREVIEW')
+            else:
+                mesh = obj.to_mesh(self.scene, True, variant)
+            mesh.name = tmp_name
+        
+        return self._make_obj(mesh, obj)
+    
+    def _make_obj(self, mesh, src_obj):
+        tmp_name = chr(0x10ffff) # maximal Unicode value
+        
+        if isinstance(mesh, bmesh.types.BMesh):
+            bm = mesh
+            mesh = bpy.data.meshes.new(tmp_name)
+            bm.to_mesh(mesh)
+        
+        tmp_obj = bpy.data.objects.new(tmp_name, mesh)
+        
+        if src_obj:
+            tmp_obj.matrix_world = src_obj.matrix_world
+            
+            # This is necessary for correct bbox display # TODO
+            # (though it'd be better to change the logic in the raycasting)
+            tmp_obj.show_x_ray = src_obj.show_x_ray
+            
+            tmp_obj.dupli_faces_scale = src_obj.dupli_faces_scale
+            tmp_obj.dupli_frames_end = src_obj.dupli_frames_end
+            tmp_obj.dupli_frames_off = src_obj.dupli_frames_off
+            tmp_obj.dupli_frames_on = src_obj.dupli_frames_on
+            tmp_obj.dupli_frames_start = src_obj.dupli_frames_start
+            tmp_obj.dupli_group = src_obj.dupli_group
+            #tmp_obj.dupli_list = src_obj.dupli_list
+            tmp_obj.dupli_type = src_obj.dupli_type
+        
+        # Make Blender recognize object as having geometry
+        # (is there a simpler way to do this?)
+        self.scene.objects.link(tmp_obj)
+        self.scene.update()
+        # We don't need this object in scene
+        self.scene.objects.unlink(tmp_obj)
+        
+        return tmp_obj
+
+# =============================== SELECTION ================================ #
+#============================================================================#
 class Selection:
-    def __init__(self, context=None, mode=None, elem_types=None, container=set):
+    def __init__(self, context=None, mode=None, elem_types=None, container=set, brute_force_update=False, pose_bones=True):
         self.context = context
         self.mode = mode
         self.elem_types = elem_types
+        self.brute_force_update = brute_force_update
+        self.pose_bones = pose_bones
         # In some cases, user might want a hashable type (e.g. frozenset or tuple)
         self.container = container
         # We MUST keep reference to bmesh, or it will be garbage-collected
@@ -74,6 +324,12 @@ class Selection:
     @property
     def normalized_mode(self):
         return self.get_context()[-1]
+    
+    @property
+    def stateless_info(self):
+        history, active, total = next(self.walk(), (None,None,0))
+        active_id = active.name if hasattr(active, "name") else hash(active)
+        return (total, active_id)
     
     @property
     def active(self):
@@ -102,8 +358,7 @@ class Selection:
         walker = self.walk()
         next(walker, None) # skip active item
         for item in walker:
-            if item[1]:
-                yield item
+            if item[1]: yield item
     
     def __bool__(self):
         """Returns True if there is at least 1 element selected"""
@@ -215,9 +470,8 @@ class Selection:
                     for item in items:
                         yield (item, sel_map[item.select])
         elif mode in {'EDIT_CURVE', 'EDIT_SURFACE'}:
-            total = 0
-            for spline in active_obj.data.splines:
-                total += len(spline.bezier_points) + len(spline.points)
+            total = sum(len(spline.bezier_points) + len(spline.points)
+                for spline in active_obj.data.splines)
             yield ([], None, total)
             
             bezier_sel_map = {
@@ -272,10 +526,21 @@ class Selection:
         elif mode == 'POSE':
             total = len(active_obj.data.bones)
             item = active_obj.data.bones.active
-            yield ([], item, total)
             
-            for item in active_obj.data.bones:
-                yield (item, sel_map[item.select])
+            if self.pose_bones:
+                pose_bones = active_obj.pose.bones
+                
+                pb = (pose_bones.get(item.name) if item else None)
+                yield ([], pb, total)
+                
+                for item in active_obj.data.bones:
+                    pb = (pose_bones.get(item.name) if item else None)
+                    yield (pb, sel_map[item.select])
+            else:
+                yield ([], item, total)
+                
+                for item in active_obj.data.bones:
+                    yield (item, sel_map[item.select])
         elif mode == 'PARTICLE':
             # Theoretically, particle keys can be selected,
             # but there seems to be no API for working with this
@@ -306,6 +571,7 @@ class Selection:
         elif mode == 'EDIT_ARMATURE':
             active_obj.data.edit_bones.active = item
         elif mode == 'POSE':
+            if item: item = active_obj.data.bones.get(item.name)
             active_obj.data.bones.active = item
         elif mode == 'PARTICLE':
             # Theoretically, particle keys can be selected,
@@ -337,8 +603,7 @@ class Selection:
         # We use select_all(action) only when the context is right
         # and iterating over all objects can be avoided.
         select_all_action = None
-        if not is_actual_mode:
-            return select_all_action, data
+        if not is_actual_mode: return select_all_action, data
         
         operation, new_toggled, invert_new, old_toggled, invert_old = expr_info
         
@@ -454,14 +719,22 @@ class Selection:
         lines = []
         for i, build_info in enumerate(build_infos):
             use_kv = build_info.get("use_kv", False)
+            item_map = build_info.get("item_map", None)
             type_names = build_info["names"]
+            
+            expr_tab = tab*2
+            
+            if item_map: lines.append(tab + "item_map = {}".format(item_map))
             
             if use_kv:
                 lines.append(tab + "for item, value in args[{}].items():".format(i))
-                lines.append((tab*2) + "if not item: continue")
+                lines.append(expr_tab + "if not item: continue")
             else:
                 lines.append(tab + "for item in args[{}]:".format(i))
-            expr_tab = tab*2
+            
+            if item_map:
+                lines.append(expr_tab + "item = item_map.get(item.name)")
+                lines.append(expr_tab + "if not item: continue")
             
             if len(type_names) < 2:
                 item_type, names = type_names[0]
@@ -489,7 +762,7 @@ class Selection:
                     for name in names:
                         lines.append(expr_tab + expr_maker(name, use_kv, expr_info))
         
-        code = "def apply(*args, data=None):\n{}".format("\n".join(lines))
+        code = "def apply(*args, data=None, context=None):\n{}".format("\n".join(lines))
         #print(code.strip())
         
         exec(code, localvars, localvars)
@@ -519,7 +792,10 @@ class Selection:
         expr_info = (operation, new_toggled, invert_new, old_toggled, invert_old)
         
         is_actual_mode = (mode == actual_mode)
-        select_all_action, data = self.__update_strategy(is_actual_mode, data, expr_info)
+        if self.brute_force_update:
+            select_all_action = None
+        else:
+            select_all_action, data = self.__update_strategy(is_actual_mode, data, expr_info)
         #print("Strategy: action={}, data={}".format(repr(select_all_action), bool(data)))
         use_brute_force = select_all_action is None
         
@@ -610,11 +886,11 @@ class Selection:
                 bpy.ops.pose.select_all(action=select_all_action)
             
             if use_brute_force:
-                selector = make_selector({"names":[(None, ["select"])]})
-                selector(active_obj.data.bones, data=data)
+                selector = make_selector({"names":[(None, ["select"])], "item_map":"context.data.bones"})
+                selector(active_obj.data.bones, data=data, context=active_obj)
             else:
-                selector = make_selector({"names":[(None, ["select"])], "use_kv":True})
-                selector(data)
+                selector = make_selector({"names":[(None, ["select"])], "item_map":"context.data.bones", "use_kv":True})
+                selector(data, context=active_obj)
         elif mode == 'PARTICLE':
             if select_all_action:
                 bpy.ops.particle.select_all(action=select_all_action)
@@ -624,15 +900,17 @@ class Selection:
             pass # no selectable elements in other modes
 
 class SelectionSnapshot:
-    def __init__(self, context=None):
-        sel = Selection(context)
+    # The goal of SelectionSnapshot is to leave as little side-effects as possible,
+    # so brute_force_update=True (since select_all operators are recorded in the info log)
+    def __init__(self, context=None, brute_force_update=True):
+        sel = Selection(context, brute_force_update=brute_force_update)
         self.snapshot_curr = (sel, sel.active, sel.history, sel.selected)
         
         self.mode = sel.normalized_mode
         if self.mode == 'OBJECT':
             self.snapshot_obj = self.snapshot_curr
         else:
-            sel = Selection(context, 'OBJECT')
+            sel = Selection(context, 'OBJECT', brute_force_update=brute_force_update)
             self.snapshot_obj = (sel, sel.active, sel.history, sel.selected)
     
     # Attention: it is assumed that there was no Undo,
@@ -660,3 +938,384 @@ class SelectionSnapshot:
     
     def __exit__(self, type, value, traceback):
         self.restore()
+
+def IndividuallyActiveSelected(objects, context=None):
+    if context is None: context = bpy.context
+    
+    prev_selection = SelectionSnapshot(context)
+    sel, active, history, selected = prev_selection.snapshot_obj
+    
+    sel.selected = {}
+    
+    scene = context.scene
+    scene_objects = scene.objects
+    
+    for obj in objects:
+        try:
+            scene_objects.active = obj
+            obj.select = True
+        except Exception as exc:
+            continue # for some reason object doesn't exist anymore
+        
+        yield obj
+        
+        obj.select = False
+    
+    prev_selection.restore()
+
+class ResumableSelection:
+    def __init__(self, *args, **kwargs):
+        self.selection = Selection(*args, **kwargs)
+        self.selection_walker = None
+        self.selection_initialized = False
+        
+        # Screen change doesn't actually invalidate the selection,
+        # but it's a big enough change to justify the extra wait.
+        # I added it to make batch-transform a bit more efficient.
+        self.mode = ""
+        self.obj_hash = 0
+        self.screen_hash = 0
+        self.scene_hash = 0
+        self.undo_hash = 0
+        self.operators_len = 0
+    
+    def __call__(self, duration=0):
+        if duration is None: duration = float("inf")
+        context = bpy.context
+        wm = context.window_manager
+        active_obj = context.object
+        mode = context.mode
+        obj_hash = (active_obj.as_pointer() if active_obj else 0)
+        screen_hash = context.screen.as_pointer()
+        scene_hash = context.scene.as_pointer()
+        undo_hash = bpy.data.as_pointer()
+        operators_len = len(wm.operators)
+        
+        object_updated = False
+        if active_obj and ('EDIT' in active_obj.mode):
+            object_updated |= (active_obj.is_updated or active_obj.is_updated_data)
+            data = active_obj.data
+            if data: object_updated |= (data.is_updated or data.is_updated_data)
+        
+        reset = (self.mode != mode)
+        reset |= (self.obj_hash != obj_hash)
+        reset |= (self.screen_hash != screen_hash)
+        reset |= (self.scene_hash != scene_hash)
+        reset |= (self.undo_hash != undo_hash)
+        reset |= (self.operators_len != operators_len)
+        reset |= object_updated
+        if reset:
+            self.mode = mode
+            self.obj_hash = obj_hash
+            self.screen_hash = screen_hash
+            self.scene_hash = scene_hash
+            self.undo_hash = undo_hash
+            self.operators_len = operators_len
+            
+            self.selection.bmesh = None
+            self.selection_walker = None
+        
+        clock = time.clock
+        time_stop = clock() + duration
+        
+        if self.selection_walker is None:
+            self.selection.bmesh = None
+            self.selection_walker = self.selection.walk()
+            self.selection_initialized = False
+            yield (-2, None) # RESET
+            if clock() > time_stop: return
+        
+        if not self.selection_initialized:
+            item = next(self.selection_walker, None)
+            if item: # can be None if active mode does not support selections
+                history, active, total = item
+                if mode == 'EDIT_MESH': active = (history[-1] if history else None)
+                self.selection_initialized = True
+                yield (0, active) # ACTIVE
+                if clock() > time_stop: return
+        
+        for item in self.selection_walker:
+            if item[1]: yield (1, item[0]) # SELECTED
+            if clock() > time_stop: break
+        else: # the iterator is exhausted
+            self.selection.bmesh = None
+            self.selection_walker = None
+            yield (-1, None) # FINISHED
+    
+    RESET = -2
+    FINISHED = -1
+    ACTIVE = 0
+    SELECTED = 1
+
+# ============================ CHANGE MONITOR ============================== #
+#============================================================================#
+class ChangeMonitor:
+    reports_cleanup_trigger = 512
+    reports_cleanup_count = 128
+    max_evaluation_time = 0.002
+    
+    def __init__(self, context=None, update=True, **kwargs):
+        if not context: context = bpy.context
+        wm = context.window_manager
+        
+        self.selection = Selection(container=frozenset)
+        
+        self.mode = None
+        self.active_obj = None
+        self.selection_walker = None
+        self.selection_recorded = False
+        self.selection_recorder = []
+        self.selection_record_id = 0
+        self.scene_hash = 0
+        self.undo_hash = 0
+        self.operators_len = 0
+        self.reports = []
+        self.reports_len = 0
+        
+        if update: self.update(context, **kwargs)
+        
+        self.mode_changed = False
+        self.active_obj_changed = False
+        self.selection_changed = False
+        self.scene_changed = False
+        self.undo_performed = False
+        self.object_updated = False
+        self.operators_changed = 0
+        self.reports_changed = 0
+    
+    def get_reports(self, context=None, **kwargs):
+        if not context: context = bpy.context
+        wm = context.window_manager
+        
+        area = kwargs.get("area") or context.area
+        
+        try:
+            prev_clipboard = wm.clipboard
+        except UnicodeDecodeError as exc:
+            #print(exc)
+            prev_clipboard = ""
+        
+        prev_type = area.type
+        if prev_type != 'INFO':
+            area.type = 'INFO'
+        
+        try:
+            bpy.ops.info.report_copy(kwargs)
+            if wm.clipboard: # something was selected
+                bpy.ops.info.select_all_toggle(kwargs) # something is selected: deselect all
+                #bpy.ops.info.reports_display_update(kwargs)
+            bpy.ops.info.select_all_toggle(kwargs) # nothing is selected: select all
+            #bpy.ops.info.reports_display_update(kwargs)
+            
+            bpy.ops.info.report_copy(kwargs)
+            reports = wm.clipboard.splitlines()
+            
+            bpy.ops.info.select_all_toggle(kwargs) # deselect everything
+            #bpy.ops.info.reports_display_update(kwargs)
+            
+            if len(reports) >= self.reports_cleanup_trigger:
+                for i in range(self.reports_cleanup_count):
+                    bpy.ops.info.select_pick(kwargs, report_index=i)
+                    #bpy.ops.info.reports_display_update(kwargs)
+                bpy.ops.info.report_delete(kwargs)
+                #bpy.ops.info.reports_display_update(kwargs)
+        except Exception as exc:
+            #print(exc)
+            reports = []
+        
+        if prev_type != 'INFO':
+            area.type = prev_type
+        
+        wm.clipboard = prev_clipboard
+        
+        return reports
+    
+    something_changed = property(lambda self:
+        self.mode_changed or
+        self.active_obj_changed or
+        self.selection_changed or
+        self.scene_changed or
+        self.undo_performed or
+        self.object_updated or
+        bool(self.operators_changed) or
+        bool(self.reports_changed)
+    )
+    
+    def hash(self, obj):
+        if obj is None: return 0
+        if hasattr(obj, "as_pointer"): return obj.as_pointer()
+        return hash(obj)
+    
+    def update(self, context=None, **kwargs):
+        if not context: context = bpy.context
+        wm = context.window_manager
+        
+        self.mode_changed = False
+        self.active_obj_changed = False
+        self.selection_changed = False
+        self.scene_changed = False
+        self.undo_performed = False
+        self.object_updated = False
+        self.operators_changed = 0
+        self.reports_changed = 0
+        
+        mode = kwargs.get("mode") or context.mode
+        active_obj = kwargs.get("object") or context.object
+        scene = kwargs.get("scene") or context.scene
+        
+        if (self.mode != mode):
+            self.mode = mode
+            self.mode_changed = True
+        
+        if (self.active_obj != active_obj):
+            self.active_obj = active_obj
+            self.active_obj_changed = True
+        
+        scene_hash = self.hash(scene)
+        if (self.scene_hash != scene_hash):
+            self.scene_hash = scene_hash
+            self.scene_changed = True
+        
+        undo_hash = self.hash(bpy.data)
+        if (self.undo_hash != undo_hash):
+            self.undo_hash = undo_hash
+            self.undo_performed = True
+        
+        if active_obj and ('EDIT' in active_obj.mode):
+            if active_obj.is_updated or active_obj.is_updated_data:
+                self.object_updated = True
+            data = active_obj.data
+            if data and (data.is_updated or data.is_updated_data):
+                self.object_updated = True
+        
+        operators_len = len(wm.operators)
+        if (operators_len != self.operators_len):
+            self.operators_changed = operators_len - self.operators_len
+            self.operators_len = operators_len
+        else: # maybe this would be a bit safer?
+            reports = self.get_reports(context, **kwargs) # sometimes this causes Blender to crash
+            reports_len = len(reports)
+            if (reports_len != self.reports_len):
+                self.reports_changed = reports_len - self.reports_len
+                self.reports = reports
+                self.reports_len = reports_len
+        
+        self.analyze_selection()
+    
+    def reset_selection(self):
+        self.selection.bmesh = None
+        self.selection_walker = None
+        self.selection_recorded = False
+        self.selection_recorder = []
+        self.selection_record_id = 0
+    
+    def analyze_selection(self):
+        reset_selection = self.mode_changed
+        reset_selection |= self.active_obj_changed
+        reset_selection |= self.scene_changed
+        reset_selection |= self.undo_performed
+        reset_selection |= self.object_updated
+        reset_selection |= self.operators_changed
+        reset_selection |= self.reports_changed
+        if reset_selection:
+            #print("Selection reseted for external reasons")
+            self.reset_selection()
+            # At this point we have no idea if the selection
+            # has actually changed. This is more of a warning
+            # about a potential change of selection.
+            self.selection_changed = True
+        
+        if self.selection_walker is None:
+            self.selection.bmesh = None
+            self.selection_walker = self.selection.walk()
+        
+        clock = time.clock()
+        hash = self.hash
+        
+        if self.selection_recorded:
+            time_stop = clock() + self.max_evaluation_time
+            
+            if self.selection_record_id == 0:
+                item = next(self.selection_walker, None)
+                history, active, total = item
+                item = tuple(hash(h) for h in history), hash(active), total
+                self.selection_record_id = 1
+                if self.selection_recorder[0] != item:
+                    #print("Active/history/total changed")
+                    self.selection_changed = True
+                    self.reset_selection()
+                    return
+            
+            recorded_count = len(self.selection_recorder)
+            for item in self.selection_walker:
+                if item[1]:
+                    item = hash(item[0]), item[1]
+                    i = self.selection_record_id
+                    if (i >= recorded_count) or (self.selection_recorder[i] != item):
+                        #print("More than necessary or selection changed")
+                        self.selection_changed = True
+                        self.reset_selection()
+                        return
+                    self.selection_record_id = i + 1
+                if clock() > time_stop: break
+            else: # the iterator is exhausted
+                if self.selection_record_id < recorded_count:
+                    #print("Less than necessary")
+                    self.selection_changed = True
+                    self.reset_selection()
+                    return
+                self.selection.bmesh = None
+                self.selection_walker = None
+                self.selection_record_id = 0
+        else:
+            time_stop = clock() + self.max_evaluation_time
+            
+            if self.selection_record_id == 0:
+                item = next(self.selection_walker, None)
+                history, active, total = item
+                item = tuple(hash(h) for h in history), hash(active), total
+                self.selection_record_id = 1
+                self.selection_recorder.append(item) # first item is special
+            
+            for item in self.selection_walker:
+                if item[1]:
+                    item = hash(item[0]), item[1]
+                    self.selection_recorder.append(item)
+                if clock() > time_stop: break
+            else: # the iterator is exhausted
+                self.selection.bmesh = None
+                self.selection_walker = None
+                self.selection_recorded = True
+                self.selection_record_id = 0
+
+# ============================ ... ============================== #
+#============================================================================#
+class ObjectUtils:
+    @classmethod
+    def has_common_layers(cls, obj, scene):
+        return any(l0 and l1 for l0, l1 in zip(obj.layers, scene.layers))
+    
+    @classmethod
+    def iterate(cls, search_in, context=None, obj_types=None):
+        if context is None: context = bpy.context
+        scene = context.scene
+        if search_in == 'SELECTION':
+            for obj in context.selected_objects:
+                if ((obj_types is None) or (obj.type in obj_types)):
+                    yield obj
+        elif search_in == 'VISIBLE':
+            for obj in scene.objects:
+                if ((obj_types is None) or (obj.type in obj_types)) and obj.is_visible(scene):
+                    yield obj
+        elif search_in == 'LAYER':
+            for obj in scene.objects:
+                if ((obj_types is None) or (obj.type in obj_types)) and cls.has_common_layers(obj, scene):
+                    yield obj
+        elif search_in == 'SCENE':
+            for obj in scene.objects:
+                if ((obj_types is None) or (obj.type in obj_types)):
+                    yield obj
+        elif search_in == 'FILE':
+            for obj in bpy.data.objects:
+                if ((obj_types is None) or (obj.type in obj_types)):
+                    yield obj

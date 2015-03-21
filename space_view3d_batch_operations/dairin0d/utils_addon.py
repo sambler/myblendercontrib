@@ -117,6 +117,9 @@ class AddonManager:
         self._Preferences = type("%s-preferences" % self.module_name, (bpy.types.AddonPreferences,), {"Include":Include, "bl_idname":self.module_name})
         self._External = self.PropertyGroup(type("%s-external-storage" % self.module_name, (), {"Include":Include}))
         self._Internal = self.PropertyGroup(type("%s-internal-storage" % self.module_name, (), {"Include":Include}))
+        
+        self._Runtime = type("%s-runtime-settings" % self.module_name, (AttributeHolder,), {})
+        self._runtime = self._Runtime()
     
     # If this is a textblock, its module will be topmost
     # and will have __name__ == "__main__".
@@ -193,10 +196,12 @@ class AddonManager:
     Preferences = property(lambda self: self._Preferences)
     External = property(lambda self: self._External)
     Internal = property(lambda self: self._Internal)
+    Runtime = property(lambda self: self._Runtime)
     
-    @property
-    def preferences(self):
-        return self._preferences
+    preferences = property(lambda self: self._preferences)
+    external = property(lambda self: self.external_attr(self.storage_name_external))
+    internal = property(lambda self: self.internal_attr(self.storage_name_internal))
+    runtime = property(lambda self: self._runtime)
     
     @classmethod
     def external_attr(cls, name):
@@ -219,14 +224,6 @@ class AddonManager:
             # Make sure it is marked as "our"
             screen[cls._screen_mark] = True
         return getattr(screen, name, None)
-    
-    @property
-    def external(self):
-        return self.external_attr(self.storage_name_external)
-    
-    @property
-    def internal(self):
-        return self.internal_attr(self.storage_name_internal)
     
     def path_resolve(self, path, coerce=True):
         if path.startswith(self.storage_name_external):

@@ -1003,6 +1003,7 @@ class ResumableSelection:
         reset |= (self.scene_hash != scene_hash)
         reset |= (self.undo_hash != undo_hash)
         reset |= (self.operators_len != operators_len)
+        reset |= object_updated
         if reset:
             self.mode = mode
             self.obj_hash = obj_hash
@@ -1286,3 +1287,35 @@ class ChangeMonitor:
                 self.selection_walker = None
                 self.selection_recorded = True
                 self.selection_record_id = 0
+
+# ============================ ... ============================== #
+#============================================================================#
+class ObjectUtils:
+    @classmethod
+    def has_common_layers(cls, obj, scene):
+        return any(l0 and l1 for l0, l1 in zip(obj.layers, scene.layers))
+    
+    @classmethod
+    def iterate(cls, search_in, context=None, obj_types=None):
+        if context is None: context = bpy.context
+        scene = context.scene
+        if search_in == 'SELECTION':
+            for obj in context.selected_objects:
+                if ((obj_types is None) or (obj.type in obj_types)):
+                    yield obj
+        elif search_in == 'VISIBLE':
+            for obj in scene.objects:
+                if ((obj_types is None) or (obj.type in obj_types)) and obj.is_visible(scene):
+                    yield obj
+        elif search_in == 'LAYER':
+            for obj in scene.objects:
+                if ((obj_types is None) or (obj.type in obj_types)) and cls.has_common_layers(obj, scene):
+                    yield obj
+        elif search_in == 'SCENE':
+            for obj in scene.objects:
+                if ((obj_types is None) or (obj.type in obj_types)):
+                    yield obj
+        elif search_in == 'FILE':
+            for obj in bpy.data.objects:
+                if ((obj_types is None) or (obj.type in obj_types)):
+                    yield obj

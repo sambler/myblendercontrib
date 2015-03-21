@@ -15,8 +15,6 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 import bpy
 
 from .utils_python import reverse_enumerate
@@ -290,7 +288,7 @@ class KeyMapUtils:
                 shift=kmi.shift, ctrl=kmi.ctrl, alt=kmi.alt,
                 oskey=kmi.oskey, key_modifier=kmi.key_modifier,
                 active=kmi.active, show_expanded=kmi.show_expanded,
-                id=kmi.id, properties=BlRna.serialize(kmi.properties))
+                id=kmi.id, properties=BlRna.serialize(kmi.properties, ignore_default=True))
         elif isinstance(ko, bpy.types.KeyMap):
             km = ko
             return dict(name=km.name, space_type=km.space_type, region_type=km.region_type,
@@ -315,7 +313,7 @@ class KeyMapUtils:
                     oskey=data.get("oskey", False), key_modifier=data.get("key_modifier", 'NONE'), head=head)
             kmi.active = data.get("active", True)
             kmi.show_expanded = data.get("show_expanded", False)
-            BlRna.deserialize(kmi.properties, data.get("properties", {}), ignore_default=True, suppress_errors=True)
+            BlRna.deserialize(kmi.properties, data.get("properties", {}), suppress_errors=True)
         elif isinstance(ko, bpy.types.KeyConfig):
             # Note: for different modes, different space_type are required!
             # e.g. 'VIEW_3D' for "3D View", and 'EMPTY' for "Sculpt"

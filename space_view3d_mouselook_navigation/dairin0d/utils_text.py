@@ -15,8 +15,6 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 import re
 
 # Already implemented:
@@ -29,9 +27,11 @@ import re
 #        i += 1
 #    return name
 
-def compress_whitespace(s):
-    return " ".join(s.split())
+# keep_newlines is False by default because Blender doesn't support multi-line tooltips
+def compress_whitespace(s, keep_newlines=False):
     #return re.sub("\\s+", " ", s).strip()
+    if not keep_newlines: return " ".join(s.split())
+    return "\n".join(" ".join(l.split()) for l in s.splitlines())
 
 def indent(s, t):
     res = []
@@ -114,3 +114,23 @@ def vector_from_text(v, s, sep="\t", axes_names="xyzw"):
         v_i = math_eval(sa[i])
         if v_i is not None:
             v[i] = v_i
+
+# From http://www.bogotobogo.com/python/python_longest_common_substring_lcs_algorithm_generalized_suffix_tree.php
+# Actually applicable to any sequence with hashable elements
+def longest_common_substring(S, T):
+    m = len(S)
+    n = len(T)
+    counter = [[0]*(n+1) for x in range(m+1)]
+    longest = 0
+    lcs_set = set()
+    for i in range(m):
+        for j in range(n):
+            if S[i] == T[j]:
+                c = counter[i][j] + 1
+                counter[i+1][j+1] = c
+                if c > longest:
+                    longest = c
+                    lcs_set = {S[i-c+1:i+1]}
+                elif c == longest:
+                    lcs_set.add(S[i-c+1:i+1])
+    return lcs_set

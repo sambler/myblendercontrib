@@ -16,8 +16,6 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# <pep8 compliant>
-
 import sys
 import itertools
 
@@ -34,6 +32,8 @@ from .utils_text import compress_whitespace
 #============================================================================#
 
 class BlEnums:
+    extensible_classes = (bpy.types.PropertyGroup, bpy.types.ID, bpy.types.Bone, bpy.types.PoseBone) # see bpy_struct documentation
+    
     common_attrs = {'bl_idname', 'bl_label', 'bl_description', 'bl_options',
         'bl_context', 'bl_region_type', 'bl_space_type', 'bl_category',
         'bl_use_postprocess', 'bl_use_preview', 'bl_use_shading_nodes',
@@ -42,7 +42,8 @@ class BlEnums:
         'bl_height_default', 'bl_height_max', 'bl_height_min'}
     
     options = {tn:{item.identifier for item in getattr(bpy.types, tn).bl_rna.properties["bl_options"].enum_items}
-        for tn in ("KeyingSet", "KeyingSetInfo", "KeyingSetPath", "Macro", "Operator", "Panel")}
+        for tn in ("KeyingSet", "KeyingSetInfo", "KeyingSetPath", "Macro", "Operator", "Panel")
+        if "bl_options" in getattr(bpy.types, tn).bl_rna.properties} # Since 2.73a, KeyingSet and KeyingSetPath don't have bl_options
     
     space_types = {item.identifier for item in bpy.types.Space.bl_rna.properties["type"].enum_items}
     region_types = {item.identifier for item in bpy.types.Region.bl_rna.properties["type"].enum_items}
@@ -55,6 +56,8 @@ class BlEnums:
     object_types = {item.identifier for item in bpy.types.Object.bl_rna.properties["type"].enum_items}
     object_types_editable = {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'ARMATURE', 'LATTICE'}
     object_types_geometry = {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT'}
+    object_types_with_modifiers = {'MESH', 'CURVE', 'SURFACE', 'FONT', 'LATTICE'}
+    object_types_with_vertices = {'MESH', 'CURVE', 'SURFACE', 'LATTICE'}
     
     object_mode_support = {
         'MESH':{'OBJECT', 'EDIT', 'SCULPT', 'VERTEX_PAINT', 'WEIGHT_PAINT', 'TEXTURE_PAINT', 'PARTICLE_EDIT',
@@ -181,8 +184,62 @@ class BlEnums:
     types_data = {v:k for k, v in data_types.items()}
     
     icons = list(bpy.types.UILayout.bl_rna.functions['prop'].parameters['icon'].enum_items.keys())
+    
+    modifier_icons = {
+        'MESH_CACHE':'MOD_MESHDEFORM',
+        'UV_PROJECT':'MOD_UVPROJECT',
+        'UV_WARP':'MOD_UVPROJECT',
+        'VERTEX_WEIGHT_EDIT':'MOD_VERTEX_WEIGHT',
+        'VERTEX_WEIGHT_MIX':'MOD_VERTEX_WEIGHT',
+        'VERTEX_WEIGHT_PROXIMITY':'MOD_VERTEX_WEIGHT',
+        'ARRAY':'MOD_ARRAY',
+        'BEVEL':'MOD_BEVEL',
+        'BOOLEAN':'MOD_BOOLEAN',
+        'BUILD':'MOD_BUILD',
+        'DECIMATE':'MOD_DECIM',
+        'EDGE_SPLIT':'MOD_EDGESPLIT',
+        'MASK':'MOD_MASK',
+        'MIRROR':'MOD_MIRROR',
+        'MULTIRES':'MOD_MULTIRES',
+        'REMESH':'MOD_REMESH',
+        'SCREW':'MOD_SCREW',
+        'SKIN':'MOD_SKIN',
+        'SOLIDIFY':'MOD_SOLIDIFY',
+        'SUBSURF':'MOD_SUBSURF',
+        'TRIANGULATE':'MOD_TRIANGULATE',
+        'WIREFRAME':'MOD_WIREFRAME',
+        'ARMATURE':'MOD_ARMATURE',
+        'CAST':'MOD_CAST',
+        'CURVE':'MOD_CURVE',
+        'DISPLACE':'MOD_DISPLACE',
+        'HOOK':'HOOK',
+        'LAPLACIANSMOOTH':'MOD_SMOOTH',
+        'LAPLACIANDEFORM':'MOD_MESHDEFORM',
+        'LATTICE':'MOD_LATTICE',
+        'MESH_DEFORM':'MOD_MESHDEFORM',
+        'SHRINKWRAP':'MOD_SHRINKWRAP',
+        'SIMPLE_DEFORM':'MOD_SIMPLEDEFORM',
+        'SMOOTH':'MOD_SMOOTH',
+        'WARP':'MOD_WARP',
+        'WAVE':'MOD_WAVE',
+        'CLOTH':'MOD_CLOTH',
+        'COLLISION':'MOD_PHYSICS',
+        'DYNAMIC_PAINT':'MOD_DYNAMICPAINT',
+        'EXPLODE':'MOD_EXPLODE',
+        'FLUID_SIMULATION':'MOD_FLUIDSIM',
+        'OCEAN':'MOD_OCEAN',
+        'PARTICLE_INSTANCE':'MOD_PARTICLES',
+        'PARTICLE_SYSTEM':'MOD_PARTICLES',
+        'SMOKE':'MOD_SMOKE',
+        'SOFT_BODY':'MOD_SOFT',
+        'SURFACE':'MODIFIER',
+    }
 
 #============================================================================#
+
+# A lot of bpy.types inherit from bpy_struct,
+# but bpy_struct itself is not present there
+bpy_struct = bpy.types.AnyType.__base__
 
 class BlRna:
     rna_to_bpy = {
@@ -195,12 +252,24 @@ class BlRna:
         "CollectionProperty":bpy.props.CollectionProperty,
     }
     
+    def __new__(cls, obj):
+        try:
+            return obj.bl_rna
+        except AttributeError:
+            pass
+        
+        try:
+            return obj.get_rna().bl_rna
+        except (AttributeError, TypeError, KeyError):
+            return None
+    
     @staticmethod
-    def to_bpy_prop(rna_prop):
+    def to_bpy_prop(obj, name=None):
+        rna_prop = (obj if name is None else BlRna(obj).properties[name])
+        
         type_id = rna_prop.rna_type.identifier
         bpy_prop = BlRna.rna_to_bpy.get(type_id)
-        if not bpy_prop:
-            return None
+        if not bpy_prop: return None
         
         bpy_args = dict(name=rna_prop.name, description=rna_prop.description, options=set())
         def map_arg(rna_name, bpy_name, is_option=False):
@@ -247,13 +316,13 @@ class BlRna:
         
         return (bpy_prop, bpy_args)
     
-    # NOTE: we an't just compare value to the result of get_default(),
+    # NOTE: we can't just compare value to the result of get_default(),
     # because in some places Blender's return values not always correspond
     # to the subtype declared in rna (e.g. TRANSFORM_OT_translate.value
     # returns a Vector, but its subtype is 'NONE')
     @staticmethod
     def is_default(value, obj, name=None):
-        rna_prop = (obj if name is None else obj.bl_rna.properties[name])
+        rna_prop = (obj if name is None else BlRna(obj).properties[name])
         type_id = rna_prop.rna_type.identifier
         if hasattr(rna_prop, "array_length"):
             if rna_prop.array_length == 0:
@@ -271,7 +340,7 @@ class BlRna:
     
     @staticmethod
     def get_default(obj, name=None):
-        rna_prop = (obj if name is None else obj.bl_rna.properties[name])
+        rna_prop = (obj if name is None else BlRna(obj).properties[name])
         type_id = rna_prop.rna_type.identifier
         if hasattr(rna_prop, "array_length"):
             if rna_prop.array_length == 0:
@@ -324,33 +393,37 @@ class BlRna:
     
     @staticmethod
     def reset(obj, ignore_default=False):
-        for name, rna_prop in BlRna.properties(obj):
-            if (not ignore_default) or (not BlRna.is_default(getattr(obj, name), rna_prop)):
-                setattr(obj, name, BlRna.get_default(rna_prop))
+        if hasattr(obj, "property_unset"): # method of bpy_struct
+            for name, rna_prop in BlRna.properties(obj):
+                obj.property_unset(name)
+        else:
+            for name, rna_prop in BlRna.properties(obj):
+                if (not ignore_default) or (not BlRna.is_default(getattr(obj, name), rna_prop)):
+                    setattr(obj, name, BlRna.get_default(rna_prop))
     
     @staticmethod
     def properties(obj):
         # first rna property item is always rna_type (?)
-        return obj.bl_rna.properties.items()[1:]
+        return BlRna(obj).properties.items()[1:]
     
     @staticmethod
     def functions(obj):
-        return obj.bl_rna.functions[funcname].items()
+        return BlRna(obj).functions[funcname].items()
     
     @staticmethod
     def parameters(obj, funcname):
-        return obj.bl_rna.functions[funcname].parameters.items()
+        return BlRna(obj).functions[funcname].parameters.items()
     
     @staticmethod
     def deserialize(obj, data, ignore_default=False, suppress_errors=False):
         """Deserialize object's rna properties"""
-        if (not obj) or (not data):
-            return
+        if (not obj) or (not data): return
+        
         rna_props = obj.bl_rna.properties
         for name, value in data.items():
             rna_prop = rna_props.get(name)
-            if rna_prop is None:
-                continue
+            if rna_prop is None: continue
+            
             type_id = rna_prop.rna_type.identifier
             if type_id == "PointerProperty":
                 BlRna.deserialize(getattr(obj, name), value, ignore_default, suppress_errors)
@@ -364,25 +437,31 @@ class BlRna:
                     if (type_id == "EnumProperty") and rna_prop.is_enum_flag:
                         value = set(value) # might be other collection type when loaded from JSON
                     
-                    if not suppress_errors:
+                    try:
                         setattr(obj, name, value)
-                    else:
-                        try:
-                            setattr(obj, name, value)
-                        except:
-                            pass # sometimes Blender's rna is incomplete/incorrect
+                    except:
+                        # sometimes Blender's rna is incomplete/incorrect
+                        if not suppress_errors: raise
     
     @staticmethod
     def serialize(obj, ignore_default=False):
         """Serialize object's rna properties"""
-        if not obj:
-            return None
+        if not obj: return None
         data = {}
-        for name, rna_prop in BlRna.properties(obj):
-            value = getattr(obj, name)
-            value = BlRna.serialize_value(value) # need to serialize before comparison
-            if (not ignore_default) or (not BlRna.is_default(value, rna_prop)):
-                data[name] = value
+        if not ignore_default:
+            for name, rna_prop in BlRna.properties(obj):
+                value = getattr(obj, name)
+                data[name] = BlRna.serialize_value(value)
+        elif hasattr(obj, "is_property_set"): # method of bpy_struct
+            for name, rna_prop in BlRna.properties(obj):
+                if obj.is_property_set(name):
+                    value = getattr(obj, name)
+                    data[name] = BlRna.serialize_value(value)
+        else:
+            for name, rna_prop in BlRna.properties(obj):
+                value = getattr(obj, name)
+                if not BlRna.is_default(value, rna_prop):
+                    data[name] = BlRna.serialize_value(value)
         return data
     
     @staticmethod
@@ -408,6 +487,44 @@ class BlRna:
         elif class_name == "bpy_prop_collection_idprop":
             value = [BlRna.serialize_value(item, recursive) for item in value]
         return value
+    
+    @staticmethod
+    def compare_prop(rna_prop, valueA, valueB):
+        if rna_prop.type == 'POINTER':
+            ft = rna_prop.fixed_type
+            if isinstance(ft, bpy.types.ID):
+                # idblocks are used only by reference
+                return valueA == valueB
+            return BlRna.compare(valueA, valueB)
+        elif rna_prop.type == 'COLLECTION':
+            if len(valueA) != len(valueB): return False
+            return all(BlRna.compare(valueA[i], valueB[i])
+                for i in range(len(valueA)))
+        else: # primitive types or enum
+            if hasattr(rna_prop, "array_length"):
+                if rna_prop.array_length != 0:
+                    if not isinstance(valueA, Matrix):
+                        return tuple(valueA) == tuple(valueB)
+            return valueA == valueB
+    
+    @staticmethod
+    def compare(objA, objB, ignore=(), specials={}):
+        """Compare objects' rna properties"""
+        if (objA is None) and (objB is None): return True
+        if (objA is None) or (objB is None): return False
+        if objA == objB: return True
+        # objects are expected to be of the same type
+        for name, rna_prop in BlRna.properties(objA):
+            if name in ignore: continue
+            valueA = getattr(objA, name)
+            valueB = getattr(objB, name)
+            if name in specials:
+                if not specials[name](rna_prop, valueA, valueB):
+                    return False
+            elif not BlRna.compare_prop(rna_prop, valueA, valueB):
+                #print("Not same: {} in {}/{}".format(name, type(valueA), type(valueB)))
+                return False
+        return True
 
 #============================================================================#
 
@@ -495,8 +612,7 @@ class BpyProp:
     @staticmethod
     def iterate(cls, only_type=False, exclude_hidden=False, names=None):
         """Iterate over bpy properties in a class"""
-        if not isinstance(cls, type):
-            cls = type(cls)
+        if not isinstance(cls, type): cls = type(cls)
         
         if names is None:
             names = dir(cls)
@@ -507,8 +623,7 @@ class BpyProp:
             if not name.startswith("_"): # bpy prop name cannot start with an underscore
                 value = getattr(cls, name)
                 if BpyProp.validate(value):
-                    if exclude_hidden and ('HIDDEN' in value[1].get("options", "")):
-                        continue
+                    if exclude_hidden and ('HIDDEN' in value[1].get("options", "")): continue
                     yield (name, value[0] if only_type else BpyProp(value, True))
     
     @staticmethod
@@ -777,13 +892,23 @@ class BpyProp:
                     extra.extra_dict[k] = v
 
 class BpyOp:
-    def __init__(self, op):
+    def __new__(cls, op):
         if isinstance(op, str):
-            category_name, op_name = op.split(".")
-            category = getattr(bpy.ops, category_name)
-            op = getattr(category, op_name)
+            if "." not in op: op = op.replace("_OT_", ".")
+            op_parts = op.split(".")
+            category = getattr(bpy.ops, op_parts[-2].lower())
+            op = getattr(category, op_parts[-1].lower())
+        
+        rna = BlRna(op)
+        
+        # Another way to check if operator exists is hasattr(bpy.types, "(CATEGORY)_OT_(idname)")
+        if not rna: return None
+        
+        self = object.__new__(cls)
         
         self.op = op
+        self.poll = op.poll
+        self.rna = rna
         
         # For operators defined in Python, this is the class
         # that's declared in the corresponding addon module.
@@ -791,11 +916,7 @@ class BpyOp:
         # functions like draw().
         self.type = type(op.get_instance())
         
-        # Contains various information (investigate)
-        self.rna = op.get_rna()
-    
-    def prop_info(self, name):
-        return BpyProp(getattr(self.type, name))
+        return self
 
 # ===== PRIMITIVE ITEMS & PROP ===== #
 
@@ -804,7 +925,7 @@ PrimitiveItem = [
     ("Int", "Int", dict()),
     ("Float", "Float", dict()),
     ("String", "String", dict()),
-    ("Color", "FloatVector", dict(subtype='COLOR', size=3)),
+    ("Color", "FloatVector", dict(subtype='COLOR', size=3, min=0.0, max=1.0)),
     ("Euler", "FloatVector", dict(subtype='EULER', size=3)),
     ("Quaternion", "FloatVector", dict(subtype='QUATERNION', size=4)),
     ("Matrix3", "FloatVector", dict(subtype='MATRIX', size=9)),
@@ -940,6 +1061,8 @@ class prop:
     }
     
     def parse_arguments(self, value, kwargs):
+        if value is None: value = kwargs.get("default")
+        
         value_target = "default"
         vtype = type(value)
         
@@ -950,8 +1073,7 @@ class prop:
         elif issubclass_safe(value, bpy.types.PropertyGroup): # a = SomePG | prop()
             bpy_type = bpy.props.PointerProperty
             value_target = "type"
-            if hasattr(value, "_IDBlockSelector"):
-                value = value._IDBlockSelector
+            if hasattr(value, "_IDBlockSelector"): value = value._IDBlockSelector
         elif ("items" in kwargs) and isinstance(value, str): # a = 'A' | prop(items=['A', 'B', 'C'])
             bpy_type = bpy.props.EnumProperty
             value = self.complete_enum_items(kwargs, value)
@@ -959,12 +1081,10 @@ class prop:
             bpy_type = self.types_primitive[vtype]
         elif vtype in self.types_float_vector_subtype: # a = Vector() | prop()
             bpy_type = bpy.props.FloatVectorProperty
-            if vtype is Matrix:
-                value = itertools.chain(*value)
+            if vtype is Matrix: value = itertools.chain(*value)
             value = tuple(value)
             kwargs["size"] = len(value)
-            if "subtype" not in kwargs:
-                kwargs["subtype"] = self.types_float_vector_subtype[vtype]
+            if "subtype" not in kwargs: kwargs["subtype"] = self.types_float_vector_subtype[vtype]
             if kwargs["subtype"] == 'COLOR': # need to set min-max to 0..1, otherwise glitches
                 kwargs.setdefault("min", 0.0)
                 kwargs.setdefault("max", 1.0)
@@ -980,10 +1100,12 @@ class prop:
             value_target = "type"
             item = value[0]
             itype = type(item)
-            if itype in self.types_item_instance: # a = [Matrix()] | prop()
+            if isinstance(item, dict): # a = [dict(prop1=..., prop2=..., ...)] | prop()
+                value = type(kwargs.get("name", "<Auto PropertyGroup>"), (bpy.types.PropertyGroup,), item)
+                value.__name__ += ":AUTOREGISTER" # for AddonManager
+            elif itype in self.types_item_instance: # a = [Matrix()] | prop()
                 value = self.types_item_instance[itype]
-                if not isinstance(value, type):
-                    value = value[len(item)]
+                if not isinstance(value, type): value = value[len(item)]
             elif issubclass_safe(item, bpy.types.PropertyGroup): # a = [SomePG] | prop()
                 if hasattr(item, "_IDBlocks"):
                     bpy_type = bpy.props.PointerProperty
@@ -997,9 +1119,17 @@ class prop:
         elif isinstance(value, set): # a = {'A', 'B'} | prop(items=['A', 'B', 'C'])
             bpy_type = bpy.props.EnumProperty
             value = self.complete_enum_items(kwargs, value, True)
-        elif isinstance(value, dict) and (not value): # a = {} | prop(items=['A', 'B', 'C'])
-            bpy_type = bpy.props.EnumProperty
-            value = self.complete_enum_items(kwargs, value, True)
+        elif isinstance(value, dict): # a = {...} | prop()
+            if "items" not in kwargs: # a = dict(prop1=..., prop2=..., ...) | prop()
+                bpy_type = bpy.props.PointerProperty
+                value_target = "type"
+                value = type(kwargs.get("name", "<Auto PropertyGroup>"), (bpy.types.PropertyGroup,), value)
+                value.__name__ += ":AUTOREGISTER" # for AddonManager
+            elif not value: # a = {} | prop(items=['A', 'B', 'C'])
+                bpy_type = bpy.props.EnumProperty
+                value = self.complete_enum_items(kwargs, value, True)
+            else:
+                raise TypeError(err_msg)
         else:
             raise TypeError(err_msg)
         
@@ -1041,10 +1171,14 @@ class prop:
         icon = cls.get_enum_icon_number(v, v_len, True, 'NONE')
         number = cls.get_enum_icon_number(v, v_len, False, id)
         
-        try:
-            kwargs["icons"][key] = icon
-        except KeyError:
-            kwargs["icons"] = {key:icon}
+        # This uses the "update() hijack" hack, and update()
+        # causes Blender to redraw on each modification.
+        # Such a side-effect is undesirable.
+        # Also, Blender supports enum icons already.
+        #try:
+        #    kwargs["icons"][key] = icon
+        #except KeyError:
+        #    kwargs["icons"] = {key:icon}
         
         return (key, label, tip, icon, number)
     

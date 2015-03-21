@@ -322,10 +322,8 @@ class NestedLayout:
     # nested dictionaries, but currently layout.prop() does
     # not recognize ID-property dictionaries as a valid input.
     class FoldPG(bpy.types.PropertyGroup):
-        # indicates that the widget needs to be force-updated
-        changed = bpy.props.BoolProperty()
         def update(self, context):
-            self.changed = True
+            pass # just indicates that the widget needs to be force-updated
         value = bpy.props.BoolProperty(description="Fold/unfold", update=update, name="")
     bpy.utils.register_class(FoldPG) # REGISTER
     
@@ -366,8 +364,8 @@ class NestedLayout:
         
         # make the necessary container...
         if not container:
-            container = "column"
             container_args = ()
+            container = "column"
         elif isinstance(container, str):
             container_args = ()
         else:
@@ -376,23 +374,13 @@ class NestedLayout:
         res = getattr(self, container)(*container_args)
         
         with res.row(True)(alignment='LEFT'):
-            if not this_fold.changed:
-                res.prop(this_fold, "value", text=text, icon=icon, emboss=False, toggle=True)
-            else:
-                # Blender won't redraw active UI element
-                # until user moves mouse out of its bounding box.
-                # To force update, we have to actually "delete"
-                # and "recreate" the element (achieved by
-                # replacing it with label)
-                res.label(text=text, icon=icon)
-                this_fold.changed = False
+            res.prop(this_fold, "value", text=text, icon=icon, emboss=False, toggle=True)
         
         # make fold-status accessible to the calling code
         self.__dict__["folded"] = is_fold
         
-        if is_fold:
-            # If folded, return dummy layout
-            return NestedLayout(None, self._idname, self)
+        # If folded, return dummy layout
+        if is_fold: return NestedLayout(None, self._idname, self)
         
         return res
     

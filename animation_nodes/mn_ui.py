@@ -128,6 +128,7 @@ class KeyframePanel(bpy.types.Panel):
 		elif type == "Transforms":
 			setTransformsKeyframe = layout.operator("mn.set_transforms_keyframe", text = "Set From Current", icon = "PASTEDOWN")
 			setTransformsKeyframe.keyframeName = name
+			layout.operator("mn.reset_object_transformations", text = "Set Initial Transforms on Object", icon = "PASTEFLIPUP")
 		elif type == "Vector":
 			layout.label("Set Vector From:")
 			row = layout.row(align = True)
@@ -255,9 +256,6 @@ def getCustomNodesInCategory(category):
 		if getattr(nodeClass, "node_category", "None") == category:
 			nodeClassesInCategory.append(nodeClass)
 	return nodeClassesInCategory
-
-def getCustomNodes(self, context):
-	return [("mn_TimeInfoNode", "Time Info", "")]
 	
 bpy.types.Scene.customNodeCategory = bpy.props.EnumProperty(items = getCustomNodeCategoryItems, name = "Custom Categories")
 

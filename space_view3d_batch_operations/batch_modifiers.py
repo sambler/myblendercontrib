@@ -31,19 +31,18 @@ except ImportError:
     dairin0d_location = "."
 
 exec("""
+from {0}dairin0d.utils_python import copyattrs, attrs_to_dict, dict_to_attrs
 from {0}dairin0d.utils_view3d import SmartView3D
-from {0}dairin0d.utils_blender import Selection
+from {0}dairin0d.utils_blender import Selection, ObjectUtils
 from {0}dairin0d.utils_userinput import KeyMapUtils
 from {0}dairin0d.utils_ui import NestedLayout, tag_redraw
 from {0}dairin0d.bpy_inspect import prop, BlRna, BlEnums
-from {0}dairin0d.utils_accumulation import Aggregator
+from {0}dairin0d.utils_accumulation import Aggregator, PatternRenamer
 from {0}dairin0d.utils_addon import AddonManager
 """.format(dairin0d_location))
 
 from .batch_common import (
-    copyattrs, attrs_to_dict, dict_to_attrs, PatternRenamer,
-    Pick_Base, LeftRightPanel, make_category, apply_modifiers,
-    round_to_bool, is_visible, has_common_layers, idnames_separator
+    LeftRightPanel, make_category, idnames_separator, apply_modifiers
 )
 
 addon = AddonManager()
@@ -99,29 +98,7 @@ class BatchOperations:
     
     @classmethod
     def iterate_objects(cls, search_in, context=None):
-        if context is None: context = bpy.context
-        obj_types = BlEnums.object_types_with_modifiers
-        scene = context.scene
-        if search_in == 'SELECTION':
-            for obj in context.selected_objects:
-                if (obj.type in obj_types):
-                    yield obj
-        elif search_in == 'VISIBLE':
-            for obj in scene.objects:
-                if (obj.type in obj_types) and is_visible(obj, scene):
-                    yield obj
-        elif search_in == 'LAYER':
-            for obj in scene.objects:
-                if (obj.type in obj_types) and has_common_layers(obj, scene):
-                    yield obj
-        elif search_in == 'SCENE':
-            for obj in scene.objects:
-                if (obj.type in obj_types):
-                    yield obj
-        elif search_in == 'FILE':
-            for obj in bpy.data.objects:
-                if (obj.type in obj_types):
-                    yield obj
+        return ObjectUtils.iterate(search_in, context, BlEnums.object_types_with_modifiers)
     
     @classmethod
     def split_idnames(cls, idnames):

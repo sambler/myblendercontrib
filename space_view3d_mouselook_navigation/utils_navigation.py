@@ -15,8 +15,6 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 import bpy
 import bmesh
 

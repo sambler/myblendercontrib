@@ -16,21 +16,10 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# <pep8 compliant>
-
-__all__ = (
-    "wrap_text",
-    "messagebox",
-    "NestedLayout",
-    "tag_redraw",
-    )
-
 import bpy
 import blf
 
 from mathutils import Color, Vector, Matrix, Quaternion, Euler
-
-from .utils_python import AttributeHolder
 
 #============================================================================#
 
@@ -115,65 +104,69 @@ def wrap_text(text, width, fontid=0, indent=0):
     return lines, max_x
 #============================================================================#
 
-# ===== MESSAGEBOX ===== #
-class INFO_OT_messagebox(bpy.types.Operator):
-    bl_idname = "info.messagebox"
-    
-    # "Attention!" is quite generic caption that suits
-    # most of the situations when "OK" button is desirable.
-    # bl_label isn't really changeable at runtime
-    # (changing it causes some memory errors)
-    bl_label = "Attention!"
-    
-    # We can't pass arguments through normal means,
-    # since in this case a "Reset" button would appear
-    args = {}
-    
-    # If we don't define execute(), there would be
-    # an additional label "*Redo unsupported*"
-    def execute(self, context):
-        return {'FINISHED'}
-    
-    def invoke(self, context, event):
-        text = self.args.get("text", "")
-        self.icon = self.args.get("icon", 'NONE')
-        if (not text) and (self.icon == 'NONE'):
-            return {'CANCELLED'}
-        
-        border_w = 8*2
-        icon_w = (0 if (self.icon == 'NONE') else 16)
-        w_incr = border_w + icon_w
-        
-        width = self.args.get("width", 300) - border_w
-        
-        self.lines = []
-        max_x = split_text(width, icon_w, 0, text, self.lines)
-        width = max_x + border_w
-        
-        self.spacing = self.args.get("spacing", 0.5)
-        self.spacing = max(self.spacing, 0.0)
-        
-        wm = context.window_manager
-        
-        confirm = self.args.get("confirm", False)
-        
-        if confirm:
-            return wm.invoke_props_dialog(self, width)
-        else:
-            return wm.invoke_popup(self, width)
-    
-    def draw(self, context):
-        layout = self.layout
-        
-        col = layout.column()
-        col.scale_y = 0.5 * (1.0 + self.spacing * 0.5)
-        
-        icon = self.icon
-        for line in self.lines:
-            col.label(text=line, icon=icon)
-            icon = 'NONE'
+# Note: making a similar wrapper for Operator.report is impossible,
+# since Blender only shows the report from the currently executing operator.
 
-bpy.utils.register_class(INFO_OT_messagebox) # REGISTER
+# ===== MESSAGEBOX ===== #
+if not hasattr(bpy.types, "INFO_OT_messagebox"):
+    class INFO_OT_messagebox(bpy.types.Operator):
+        bl_idname = "info.messagebox"
+        
+        # "Attention!" is quite generic caption that suits
+        # most of the situations when "OK" button is desirable.
+        # bl_label isn't really changeable at runtime
+        # (changing it causes some memory errors)
+        bl_label = "Attention!"
+        
+        # We can't pass arguments through normal means,
+        # since in this case a "Reset" button would appear
+        args = {}
+        
+        # If we don't define execute(), there would be
+        # an additional label "*Redo unsupported*"
+        def execute(self, context):
+            return {'FINISHED'}
+        
+        def invoke(self, context, event):
+            text = self.args.get("text", "")
+            self.icon = self.args.get("icon", 'NONE')
+            if (not text) and (self.icon == 'NONE'):
+                return {'CANCELLED'}
+            
+            border_w = 8*2
+            icon_w = (0 if (self.icon == 'NONE') else 16)
+            w_incr = border_w + icon_w
+            
+            width = self.args.get("width", 300) - border_w
+            
+            self.lines = []
+            max_x = split_text(width, icon_w, 0, text, self.lines)
+            width = max_x + border_w
+            
+            self.spacing = self.args.get("spacing", 0.5)
+            self.spacing = max(self.spacing, 0.0)
+            
+            wm = context.window_manager
+            
+            confirm = self.args.get("confirm", False)
+            
+            if confirm:
+                return wm.invoke_props_dialog(self, width)
+            else:
+                return wm.invoke_popup(self, width)
+        
+        def draw(self, context):
+            layout = self.layout
+            
+            col = layout.column()
+            col.scale_y = 0.5 * (1.0 + self.spacing * 0.5)
+            
+            icon = self.icon
+            for line in self.lines:
+                col.label(text=line, icon=icon)
+                icon = 'NONE'
+    
+    bpy.utils.register_class(INFO_OT_messagebox) # REGISTER
 
 def messagebox(text, icon='NONE', width=300, confirm=False, spacing=0.5):
     """
@@ -189,6 +182,7 @@ def messagebox(text, icon='NONE', width=300, confirm=False, spacing=0.5):
     spacing -- relative distance between the lines
         Defaults to 0.5.
     """
+    INFO_OT_messagebox = bpy.types.INFO_OT_messagebox
     INFO_OT_messagebox.args["text"] = text
     INFO_OT_messagebox.args["icon"] = icon
     INFO_OT_messagebox.args["width"] = width
@@ -196,6 +190,10 @@ def messagebox(text, icon='NONE', width=300, confirm=False, spacing=0.5):
     INFO_OT_messagebox.args["confirm"] = confirm
     bpy.ops.info.messagebox('INVOKE_DEFAULT')
 #============================================================================#
+
+# Note:
+# if item is property group instance and item["pi"] = 3.14,
+# in UI it should be displayed like this: layout.prop(item, '["pi"]')
 
 # ===== NESTED LAYOUT ===== #
 class NestedLayout:
@@ -257,7 +255,8 @@ class NestedLayout:
         containers, supply panel's bl_idname as the idname.
         """
         if isinstance(layout, cls):
-            return layout
+            if layout._idname == idname:
+                return layout
         
         self = object.__new__(cls)
         self._idname = idname
@@ -323,15 +322,13 @@ class NestedLayout:
     # nested dictionaries, but currently layout.prop() does
     # not recognize ID-property dictionaries as a valid input.
     class FoldPG(bpy.types.PropertyGroup):
-        # indicates that the widget needs to be force-updated
-        changed = bpy.props.BoolProperty()
         def update(self, context):
-            self.changed = True
+            pass # just indicates that the widget needs to be force-updated
         value = bpy.props.BoolProperty(description="Fold/unfold", update=update, name="")
     bpy.utils.register_class(FoldPG) # REGISTER
     
     # make up some name that's unlikely to be used by normal addons
-    folds_keyname = "bpy_extras_ui_utils_NestedLayout_ui_folds"
+    folds_keyname = "dairin0d_ui_utils_NestedLayout_ui_folds"
     setattr(bpy.types.Screen, folds_keyname, bpy.props.CollectionProperty(type=FoldPG)) # REGISTER
     
     folded = False # stores folded status from the latest fold() call
@@ -367,8 +364,8 @@ class NestedLayout:
         
         # make the necessary container...
         if not container:
-            container = "column"
             container_args = ()
+            container = "column"
         elif isinstance(container, str):
             container_args = ()
         else:
@@ -377,24 +374,13 @@ class NestedLayout:
         res = getattr(self, container)(*container_args)
         
         with res.row(True)(alignment='LEFT'):
-            if not this_fold.changed:
-                res.prop(this_fold, "value", text=text, icon=icon,
-                    emboss=False, toggle=True)
-            else:
-                # Blender won't redraw active UI element
-                # until user moves mouse out of its bounding box.
-                # To force update, we have to actually "delete"
-                # and "recreate" the element (achieved by
-                # replacing it with label)
-                res.label(text=text, icon=icon)
-                this_fold.changed = False
+            res.prop(this_fold, "value", text=text, icon=icon, emboss=False, toggle=True)
         
         # make fold-status accessible to the calling code
         self.__dict__["folded"] = is_fold
         
-        if is_fold:
-            # If folded, return dummy layout
-            return NestedLayout(None, self._idname, self)
+        # If folded, return dummy layout
+        if is_fold: return NestedLayout(None, self._idname, self)
         
         return res
     
@@ -509,7 +495,7 @@ def ui_contexts_under_coord(x, y):
             for region in area.regions:
                 if point_in_rect(point, region):
                     yield dict(window=window, screen=screen,
-                        area=area, region=region, space_data=space_data,
+                        area=area, space_data=space_data, region=region,
                         region_data=rv3d_from_region(area, region))
             break
 
@@ -519,6 +505,19 @@ def ui_context_under_coord(x, y, index=0):
         if i == index:
             return ui_context
     return ui_context
+
+def find_ui_area(area_type, region_type='WINDOW'):
+    window = bpy.context.window
+    screen = window.screen
+    for area in screen.areas:
+        if area.type == area_type:
+            space_data = area.spaces.active
+            region = None
+            for _region in area.regions:
+                if _region.type == region_type: region = _region
+            return dict(window=window, screen=screen,
+                area=area, space_data=space_data, region=region,
+                region_data=rv3d_from_region(area, region))
 
 # TODO: relative coords?
 def convert_ui_coord(window, area, region, xy, src, dst, vector=True):

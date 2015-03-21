@@ -28,6 +28,7 @@ def getNodeNameDictionary():
 		("mn_StringListInputNode", "Text List"),
 		("mn_RandomStringNode", "Random Text"),
 		("mn_TextBlockReader", "Text Block Reader"),
+		("mn_TextBlockWriter", "Text Block Writer"),
 		("mn_SeparateTextObject", "Separate Text Object"),
 		("mn_CharactersNode", "Characters"),
 		("mn_CombineStringsNode", "Combine Texts"),
@@ -52,6 +53,12 @@ def getNodeNameDictionary():
 		("mn_ObjectMatrixOutputNode", "Object Matrix Output"),
 		("mn_ObjectTransformsOutput", "Transforms Output") ] ))
 		
+	nodes.append(("Boolean", [
+		("mn_BooleanInputNode", "Boolean"),
+		("mn_CompareNode", "Compare"),
+		("mn_InvertNode", "Invert"),
+		("mn_ConditionNode", "Condition")] ))
+		
 	nodes.append(("Matrix", [
 		("mn_ComposeMatrix", "Compose Matrix"),
 		("mn_DecomposeMatrix", "Decompose Matrix"),
@@ -69,6 +76,9 @@ def getNodeNameDictionary():
 		("mn_TransformVertex", "Transform Vertex"),
 		("mn_PolygonInfo", "Polygon Info"),
 		("mn_TransformPolygon", "Transform Polygon"),
+		("mn_CombineMeshData", "Recombine Mesh Data"),
+		("mn_AppendToMeshData", "Append Mesh Data"),
+		("mn_SeparateMeshData", "Separate Mesh Data"),
 		("mn_MeshRecalculateFaceNormals", "Recalculate Normals"),
 		("mn_MeshRemoveDoubles", "Remove Doubles"),
 		("mn_CreateMeshFromData", "Create Mesh from Data"),
@@ -80,7 +90,9 @@ def getNodeNameDictionary():
 		("mn_GetListLengthNode", "Get Length"),
 		("mn_CombineListsNode", "Combine Lists"),
 		("mn_ShuffleListNode", "Shuffle"),
-		("mn_SumListElementsNode", "Sum Elements") ] ))
+		("mn_SumListElementsNode", "Sum Elements"),
+		("mn_AppendListNode", "Append to List"),
+		("mn_ReverseListNode", "Reverse List") ] ))
 		
 	nodes.append(("Sound", [
 		("mn_SoundBakeNode", "Sound Bake"),
@@ -113,12 +125,11 @@ def getNodeNameDictionary():
 		
 	nodes.append(("Script", [
 		("mn_ExpressionNode", "Expression"),
-		("mn_ScriptNode", "Script") ] ))
+		("mn_ScriptNode", "Script"),
+		("mn_ScriptNode", "Script from Clipboard", {"makeFromClipboard" : repr(True) } )] ))
 		
 	nodes.append(("System", [
-		("mn_LoopCallerNode", "Loop Caller"),
-		("mn_LoopStartNode", "Generic Loop", {"preset" : repr("NONE")}),
-		("mn_LoopStartNode", "Object Loop", {"preset" : repr("OBJECT")}),
+		("mn_LoopCallerNode", "Loop"),
 		("mn_GroupCaller", "Group Caller"),
 		("mn_GroupInput", "Group Input"),
 		("mn_GroupOutput", "Group Output"),

@@ -71,9 +71,9 @@ def getKeyframe(object, name, type = None):
 			return object[propertyName]
 		elif type == "Transforms":
 			transforms = []
-			transforms.append(list(object[propertyName + " location"]))
-			transforms.append(list(object[propertyName + " rotation"]))
-			transforms.append(list(object[propertyName + " scale"]))
+			transforms.append(Vector(object[propertyName + " location"]))
+			transforms.append(Vector(object[propertyName + " rotation"]))
+			transforms.append(Vector(object[propertyName + " scale"]))
 			return transforms
 		elif type == "Vector":
 			return Vector(object[propertyName])
@@ -81,7 +81,7 @@ def getKeyframe(object, name, type = None):
 		if type == "Float":
 			return 0.0
 		elif type == "Transforms":
-			return ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
+			return (Vector((0.0, 0.0, 0.0)), Vector((0.0, 0.0, 0.0)), Vector((1.0, 1.0, 1.0)))
 		elif type == "Vector":
 			return Vector([0, 0, 0])
 
@@ -218,3 +218,16 @@ class NewKeyframe(bpy.types.Operator):
 		newKeyframe(self.keyframeName, self.keyframeType)
 		return {'FINISHED'}
 
+class ResetObjectTransformations(bpy.types.Operator):
+	bl_idname = "mn.reset_object_transformations"
+	bl_label = "Reset Object Transformations"
+	bl_description = "Set the Initial Transforms keyframe back on the selected objects"
+
+	def execute(self, context):
+		for object in context.selected_objects:
+			if hasKeyframe(object, "Initial Transforms"):
+				location, rotation, scale = getKeyframe(object, "Initial Transforms")
+				object.location = location
+				object.rotation_euler = rotation
+				object.scale = scale
+		return {'FINISHED'}		

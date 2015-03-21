@@ -19,7 +19,7 @@ bl_info = {
     "name": "Batch Operations / Manager",
     "description": "Modifiers, Materials, Groups management / batch operations",
     "author": "dairin0d, moth3r",
-    "version": (0, 5, 7),
+    "version": (0, 5, 9),
     "blender": (2, 7, 0),
     "location": "View3D > Batch category in Tools panel",
     "warning": "",
@@ -35,14 +35,11 @@ if "dairin0d" in locals():
     imp.reload(batch_modifiers)
     imp.reload(batch_materials)
     imp.reload(batch_groups)
-    imp.reload(batch_transform)
 
 import bpy
 
 import time
 import json
-
-from mathutils import Vector
 
 try:
     import dairin0d
@@ -58,11 +55,10 @@ from {0}dairin0d.bpy_inspect import prop, BlRna
 from {0}dairin0d.utils_addon import AddonManager
 """.format(dairin0d_location))
 
-from .batch_common import copyattrs, attrs_to_dict, dict_to_attrs, Pick_Base, LeftRightPanel, change_monitor
+from . import batch_common
 from . import batch_modifiers
 from . import batch_materials
 from . import batch_groups
-from . import batch_transform
 
 addon = AddonManager()
 
@@ -75,14 +71,14 @@ Blender Bugs:
 * No API for getting/setting selected state metaball element.
 * No API for getting/setting active element of lattice.
 
-// Temporary note:
-TODO: make it possible to use separately different change-detecting mechanisms?
 
 Make sure copy/pasting doesn't crash Blender after Undo (seems like it doesn't crash, but pasted references to objects are invalid)
 (TODO: clear clipbuffers on undo detection)
 Make a general mechanism of serializing/deserializing links to ID blocks? (also useful for cut/copy/paste addon)
 
-// add to addon "runtime" settings to hold python objects? (just for the convenience of accessing them from one place)
+
+
+when there is too much lag, the batch-toggles might behave glitchy
 
 
 
@@ -100,9 +96,9 @@ apply to current selection or some vertex group(s)
 
 
 * Operators
-    * Batch apply operator (search field)
-    * operator's draw (if not defined, use automatic draw)
-    * For: selection, visible, layer, scene, .blend
+    * Batch apply operator (search field) -- not possible, since dynamic dialog drawing is currently impossible in Blender
+        * operator's draw (if not defined, use automatic draw)
+        * For: selection, visible, layer, scene, .blend
     * [DONE] Repeat last N actions
 * Objects?
     * Batch rename with some sort of name pattern detection
@@ -260,42 +256,6 @@ class ThisAddonPreferences:
                 for Category in self.categories:
                     category = getattr(self, Category.category_name_plural)
                     layout.prop_menu_enum(category, "quick_access", text="Quick access")
-
-"""
-def on_change():
-    pass
-    #addon.external.modifiers.needs_refresh = True
-    #addon.external.modifiers.refresh(bpy.context)
-    #addon.external.materials.needs_refresh = True
-    #addon.external.materials.refresh(bpy.context)
-
-@addon.ui_monitor
-def on_ui_monitor(context, event, ui_monitor):
-    mouse_context = ui_monitor.mouse_context
-    if mouse_context and (mouse_context.get("area").type == 'INFO'):
-        # let the user at least select info reports while the mouse is over the info area
-        return {'PASS_THROUGH'}
-    
-    # When possible, try to use existing info area, since otherwise
-    # temporary switching of area type will cause Blender to constantly update
-    info_context = find_ui_area('INFO')
-    
-    context_override = info_context or mouse_context
-    
-    if (event.type == 'MOUSEMOVE'):
-        if mouse_context:
-            x, y = ui_monitor.mouse
-            r = mouse_context["region"]
-            dx = min((x - r.x), (r.x+r.width - x))
-            dy = min((y - r.y), (r.y+r.height - y))
-            if (dx > 3) and (dy > 3): # not too close to region's border
-                # The hope is that, if we call update only on mousemove events,
-                # crashes would happen with lesser probability
-                if context_override and context_override.get("area"):
-                    change_monitor.update(**context_override)
-                    #if change_monitor.something_changed:
-                    #    on_change()
-"""
 
 def register():
     addon.register()

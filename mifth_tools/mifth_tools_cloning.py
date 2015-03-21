@@ -397,7 +397,7 @@ def get_obj_axis(obj, axis):
     return axisResult
 
 
-def mft_pick_and_clone(self, context, event, ray_max=5000.0):
+def mft_pick_and_clone(self, context, event, ray_max=10000.0):
     """Run this function on left mouse, execute the ray cast"""
     # get the context arguments
     scene = context.scene
@@ -424,7 +424,8 @@ def mft_pick_and_clone(self, context, event, ray_max=5000.0):
             length_squared = (hit_world - ray_origin).length_squared
 
             if face_index != -1:
-                return normal.normalized(), hit_world, length_squared
+                normal_world = matrix.to_quaternion() * normal
+                return normal_world.normalized(), hit_world, length_squared
 
         return None, None, None
 

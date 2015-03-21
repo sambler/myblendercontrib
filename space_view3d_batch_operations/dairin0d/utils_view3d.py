@@ -546,19 +546,6 @@ class SmartView3D:
         return (Vector((sx, sy, persp)), Vector((dx, dy, dz)))
     proj_params = property(__get)
     
-    """
-    def view_frame(self, scene=None, local=True):
-        if self.is_camera and (self.camera.type == 'CAMERA'):
-            points = self.camera.data.view_frame(scene)
-        else:
-            region = self.region
-            rv3d = self.region_data
-            w, h = region.width, region.height
-            refpos = 
-            region_2d_to_location_3d(region, rv3d, Vector((w, h)), Vector(pos)).to_3d()
-            return self.region_data.is_perspective
-    """
-    
     def region_rect(self, overlap=True):
         return calc_region_rect(self.area, self.region, overlap)
     
@@ -896,6 +883,41 @@ class SmartView3D:
     
     del __get
     del __set
+
+#============================================================================#
+class Pick_Base:
+    def invoke(self, context, event):
+        context.window.cursor_modal_set('EYEDROPPER')
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+    
+    def modal(self, context, event):
+        cancel = (event.type in {'ESC', 'RIGHTMOUSE'})
+        confirm = (event.type == 'LEFTMOUSE') and (event.value == 'PRESS')
+        
+        mouse = Vector((event.mouse_x, event.mouse_y))
+        
+        raycast_result = None
+        sv = SmartView3D((mouse.x, mouse.y, 0))
+        if sv:
+            #raycast_result = sv.ray_cast(mouse, coords='WINDOW')
+            select_result = sv.select(mouse, coords='WINDOW')
+            raycast_result = (bool(select_result[0]), select_result[0])
+        
+        obj = None
+        if raycast_result and raycast_result[0]:
+            obj = raycast_result[1]
+        
+        txt = (self.obj_to_info(obj) if obj else "")
+        context.area.header_text_set(txt)
+        
+        if cancel or confirm:
+            if confirm:
+                self.on_confirm(context, obj)
+            context.area.header_text_set()
+            context.window.cursor_modal_restore()
+            return ({'FINISHED'} if confirm else {'CANCELLED'})
+        return {'RUNNING_MODAL'}
 
 #============================================================================#
 if "ZBufferRecorder" in locals():
