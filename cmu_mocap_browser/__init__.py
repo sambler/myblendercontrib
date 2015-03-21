@@ -25,7 +25,7 @@
 bl_info = {
     "name": "Carnegie Mellon University Mocap Library Browser",
     "author": "Daniel Monteiro Basso <daniel@basso.inf.br>",
-    "version": (2013, 5, 9),
+    "version": (2015, 3, 20),
     "blender": (2, 66, 6),
     "location": "View3D > Tools",
     "description": "Assistant for using CMU Motion Capture data",
@@ -35,15 +35,21 @@ bl_info = {
     "category": "Animation"}
 
 
+if 'bpy' in locals():
+    import importlib
+    library = importlib.reload(library)
+    download = importlib.reload(download)
+    makehuman = importlib.reload(makehuman)
+    initialize_subjects = importlib.reload(initialize_subjects)
+    update_motions = importlib.reload(update_motions)
+else:
+    from . import library
+    from . import download
+    from . import makehuman
+    from .data import initialize_subjects, update_motions
+
 import os
 import bpy
-import bgl
-import blf
-import math
-from . import library
-from . import download
-from . import makehuman
-from .data import initialize_subjects, update_motions
 
 
 class CMUMocapSubjectBrowser(bpy.types.Panel):
