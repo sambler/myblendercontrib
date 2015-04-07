@@ -59,6 +59,36 @@ def bools_to_int(bools):
     # https://stackoverflow.com/questions/4065737/python-numpy-convert-list-of-bools-to-unsigned-int
     return sum((1 << i) for i, b in enumerate(bools) if b)
 
+def binary_search(seq, t, key=None, cmp=None): # bisect module doesn't support key/compare callbacks
+    # http://code.activestate.com/recipes/81188-binary-search/
+    min = 0
+    max = len(seq) - 1
+    if not (cmp or key):
+        while True:
+            if max < min: return -1
+            m = (min + max) // 2
+            k = seq[m]
+            if k < t: min = m + 1
+            elif k > t: max = m - 1
+            else: return m
+    elif key:
+        t = key(t)
+        while True:
+            if max < min: return -1
+            m = (min + max) // 2
+            k = key(seq[m])
+            if k < t: min = m + 1
+            elif k > t: max = m - 1
+            else: return m
+    else:
+        while True:
+            if max < min: return -1
+            m = (min + max) // 2
+            s = cmp(seq[m], t)
+            if s < 0: min = m + 1
+            elif s > 0: max = m - 1
+            else: return m
+
 def reverse_enumerate(l):
     return zip(range(len(l)-1, -1, -1), reversed(l))
 
@@ -106,8 +136,10 @@ def sequence_endswith(a, b):
 # Primary function of such objects is to store
 # attributes and values assigned to an instance
 class AttributeHolder:
-    def __init__(self, original=None):
-        self.__original = original
+    def __init__(self, *args, **kwargs):
+        self.__original = (args[0] if args else None)
+        for k, v in kwargs.items():
+            setattr(self, k, v)
     
     def __getattr__(self, key):
         # This is primarily to be able to have some default values
@@ -131,6 +163,20 @@ class AttributeHolder:
             del self.__items[key]
         except AttributeError:
             raise KeyError(key)
+
+class DummyObject:
+    def __call__(self, *args, **kwargs):
+        return self
+    def __getattr__(self, name):
+        return self
+    def __setattr__(self, name, value):
+        pass
+    def __getitem__(self, key):
+        return self
+    def __setitem__(self, key, value):
+        pass
+    def __delitem__(self, key):
+        pass
 
 class SilentError:
     """

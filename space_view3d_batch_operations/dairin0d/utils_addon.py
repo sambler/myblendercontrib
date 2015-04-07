@@ -28,11 +28,13 @@ import bpy
 
 from mathutils import Vector, Matrix, Quaternion, Euler, Color
 
-from .utils_python import next_catch, send_catch, ensure_baseclass, issubclass_safe, PrimitiveLock, AttributeHolder, SilentError
-from .utils_text import compress_whitespace, indent
-from .utils_ui import messagebox, NestedLayout, ui_context_under_coord
+from .version import version
+from .utils_python import next_catch, send_catch, ensure_baseclass, issubclass_safe, PrimitiveLock, AttributeHolder, SilentError, attrs_to_dict, dict_to_attrs
+from .utils_text import compress_whitespace, indent, unindent
+from .utils_gl import cgl
+from .utils_ui import messagebox, NestedLayout, ButtonRegistrator, ui_context_under_coord
 from .utils_userinput import KeyMapUtils
-from .bpy_inspect import BpyProp, prop, BlEnums
+from .bpy_inspect import BlEnums, BlRna, BpyProp, BpyOp, prop
 from .utils_blender import ResumableSelection
 from .utils_view3d import ZBufferRecorder
 
@@ -76,7 +78,7 @@ class AddonManager:
         self.objects = {}
         self.attributes = {}
         self.attributes_by_pointer = {}
-        self.delayed_type_extensions = []
+        self.delayed_reg_info = []
         
         self._preferences = None
         
@@ -411,9 +413,21 @@ class AddonManager:
         self._selection_job.append(callback)
         return callback
     
+    def view3d_draw(self, event, args=(), region='WINDOW', owner=None):
+        def decorator(callback):
+            self.draw_handler_add(bpy.types.SpaceView3D, callback, args, region, event, owner)
+            return callback
+        return decorator
+    
     def timer_add(self, time_step, window=None, owner=None):
+        if self.status == 'INITIALIZATION':
+            self.delayed_reg_info.append(("timer_add", time_step, window, owner))
+            return
+        elif self.status in ('UNREGISTRATION', 'UNREGISTRED'):
+            raise RuntimeError("Attempt to add timer during or after addon unregistration")
+        
         wm = bpy.context.window_manager
-        timer = wm.event_timer_add(time_step, window)
+        timer = wm.event_timer_add(time_step, window or bpy.context.window)
         
         self.objects[timer] = {
             "object":timer,
@@ -426,33 +440,47 @@ class AddonManager:
         
         return timer
     
-    def ui_append(self, ui, draw_func, owner=None):
-        self.remove(draw_func) # is this necessary?
+    def ui_append(self, ui, draw_func, owner=None): # e.g. menus: bpy.types.*_MT_*.append()
+        if self.status == 'INITIALIZATION':
+            self.delayed_reg_info.append(("ui_append", ui, draw_func, owner))
+            return
+        elif self.status in ('UNREGISTRATION', 'UNREGISTRED'):
+            raise RuntimeError("Attempt to append to UI during or after addon unregistration")
         
+        if draw_func in self.objects: ui.remove(draw_func)
         ui.append(draw_func)
         
-        self.objects[draw_func] = {
-            "object":draw_func,
-            "struct":ui,
-            "family":"ui",
-            "owner":owner,
-        }
-        
-        return draw_func
+        if draw_func not in self.objects:
+            self.objects[draw_func] = {
+                "object":draw_func,
+                "struct":ui,
+                "family":"ui",
+                "mode":"append",
+                "owner":owner,
+            }
+        else:
+            self.objects[draw_func]["mode"] = "append"
     
-    def ui_prepend(self, ui, draw_func, owner=None):
-        self.remove(draw_func) # is this necessary?
+    def ui_prepend(self, ui, draw_func, owner=None): # e.g. menus: bpy.types.*_MT_*.prepend()
+        if self.status == 'INITIALIZATION':
+            self.delayed_reg_info.append(("ui_prepend", ui, draw_func, owner))
+            return
+        elif self.status in ('UNREGISTRATION', 'UNREGISTRED'):
+            raise RuntimeError("Attempt to prepend to UI during or after addon unregistration")
         
+        if draw_func in self.objects: ui.remove(draw_func)
         ui.prepend(draw_func)
         
-        self.objects[draw_func] = {
-            "object":draw_func,
-            "struct":ui,
-            "family":"ui",
-            "owner":owner,
-        }
-        
-        return draw_func
+        if draw_func not in self.objects:
+            self.objects[draw_func] = {
+                "object":draw_func,
+                "struct":ui,
+                "family":"ui",
+                "mode":"prepend",
+                "owner":owner,
+            }
+        else:
+            self.objects[draw_func]["mode"] = "prepend"
     
     # Normally, there shouldn't be any need to extend PropertyGroups declared in other addons
     def type_extend(self, type_name, prop_name, prop_info, owner=None):
@@ -461,7 +489,7 @@ class AddonManager:
         
         if self.status == 'INITIALIZATION':
             # bpy types can be extended only after the corresponding PropertyGroups have been registered
-            self.delayed_type_extensions.append((type_name, prop_name, prop_info, owner))
+            self.delayed_reg_info.append(("type_extend", type_name, prop_name, prop_info, owner))
             return
         elif self.status in ('UNREGISTRATION', 'UNREGISTRED'):
             raise RuntimeError("Attempt to extend type during or after addon unregistration")
@@ -469,35 +497,48 @@ class AddonManager:
         prop_args = prop_info[1]
         pg = prop_args.get("type")
         if pg and pg.__name__.endswith(":AUTOREGISTER"):
-            addons_registry.UUID_add(pg)
-            self.classes.append(pg)
-            bpy.utils.register_class(pg)
+            if pg not in self.classes:
+                addons_registry.UUID_add(pg)
+                self.classes.append(pg)
+                bpy.utils.register_class(pg)
         
         struct = getattr(bpy.types, type_name)
         setattr(struct, prop_name, prop_info)
         
-        self.objects[(type_name, prop_name)] = {
-            "object":prop_name,
-            "struct":struct,
-            "family":"bpy_type",
-            "owner":owner,
-        }
+        if (type_name, prop_name) not in self.objects:
+            self.objects[(type_name, prop_name)] = {
+                "object":prop_name,
+                "struct":struct,
+                "family":"bpy_type",
+                "owner":owner,
+            }
     
-    def handler_append(self, handler_name, callback, owner=None):
-        self.remove(callback) # is this necessary?
+    def handler_append(self, handler_name, callback, owner=None): # see bpy.app.handlers
+        if self.status == 'INITIALIZATION':
+            self.delayed_reg_info.append(("handler_append", handler_name, callback, owner))
+            return
+        elif self.status in ('UNREGISTRATION', 'UNREGISTRED'):
+            raise RuntimeError("Attempt to append handler during or after addon unregistration")
         
         handlers = getattr(bpy.app.handlers, handler_name)
-        
+        if callback in self.objects: handlers.remove(callback)
         handlers.append(callback)
         
-        self.objects[callback] = {
-            "object":callback,
-            "struct":handler_name,
-            "family":"handler",
-            "owner":owner,
-        }
+        if callback not in self.objects:
+            self.objects[callback] = {
+                "object":callback,
+                "struct":handler_name,
+                "family":"handler",
+                "owner":owner,
+            }
     
     def draw_handler_add(self, struct, callback, args, reg, event, owner=None):
+        if self.status == 'INITIALIZATION':
+            self.delayed_reg_info.append(("draw_handler_add", struct, callback, args, reg, event, owner))
+            return
+        elif self.status in ('UNREGISTRATION', 'UNREGISTRED'):
+            raise RuntimeError("Attempt to add draw callback during or after addon unregistration")
+        
         handler = struct.draw_handler_add(callback, args, reg, event)
         
         self.objects[handler] = {
@@ -522,6 +563,7 @@ class AddonManager:
         
         if item_type == "timer":
             struct.event_timer_remove(item)
+            info["object"] = None
         elif item_type == "ui":
             struct.remove(item)
         elif item_type == "bpy_type":
@@ -531,6 +573,7 @@ class AddonManager:
             struct.remove(item)
         elif item_type == "draw_handler":
             struct.draw_handler_remove(item, info["region_type"])
+            info["object"] = None
         
         del self.objects[item]
     
@@ -542,6 +585,7 @@ class AddonManager:
     def remove_all(self):
         for item in tuple(self.objects):
             self.remove(item)
+    
     #========================================================================#
     
     # ===== REGISTER / UNREGISTER ===== #
@@ -632,32 +676,29 @@ class AddonManager:
         if BpyProp.is_in(self.Internal):
             self.type_extend("Screen", self.storage_name_internal, self.Internal)
         
-        # Don't clear delayed_type_extensions! We need it if addon is disabled->enabled again.
-        for delayed_type_extension in self.delayed_type_extensions:
-            self.type_extend(*delayed_type_extension)
+        # Don't clear delayed_reg_info! We need it if addon is disabled->enabled again.
+        for reg_info in self.delayed_reg_info:
+            getattr(self, reg_info[0])(*reg_info[1:])
         
-        userprefs = bpy.context.user_preferences
-        if self.module_name in userprefs.addons:
-            self._preferences = userprefs.addons[self.module_name].preferences
+        self._refresh_preferences()
         
-        if load_config:
-            self.external_load()
+        if load_config: self.external_load()
         
         for callback in self._on_register:
             callback()
         
         addons_registry.add(self)
         
-        if self.use_zbuffer:
-            ZBufferRecorder.users += 1
+        if self.use_zbuffer: addons_registry.zbuf_users += 1
         
         self.status = 'REGISTERED'
     
     def unregister(self):
         self.status = 'UNREGISTRATION'
         
-        if self.use_zbuffer:
-            ZBufferRecorder.users -= 1
+        self._preferences = None
+        
+        if self.use_zbuffer: addons_registry.zbuf_users -= 1
         
         addons_registry.remove(self)
         
@@ -666,8 +707,6 @@ class AddonManager:
         
         self.attributes.clear()
         self.attributes_by_pointer.clear()
-        
-        self._preferences = None
         
         self.remove_all()
         
@@ -678,6 +717,15 @@ class AddonManager:
             bpy.utils.unregister_class(cls)
         
         self.status = 'UNREGISTERED'
+    
+    def _refresh_preferences(self):
+        # ATTENTION: trying to access preferences cached from previous session
+        # will crash Blender. We must ensure the cached value is up-to-date.
+        userprefs = bpy.context.user_preferences
+        if self.module_name in userprefs.addons:
+            self._preferences = userprefs.addons[self.module_name].preferences
+        else:
+            self._preferences = None
     #========================================================================#
     
     def _wrap_enum_on_item_invoke(self, prop_info):
@@ -942,14 +990,12 @@ class AddonManager:
             extra_code = wrapinfo.get("extra_code", "")
             stopped_code = wrapinfo.get("stopped_code", "")
             
-            if stopped_code:
-                stopped_code = "if not _yeilded[1]: %s" % stopped_code
+            if stopped_code: stopped_code = "if not _yeilded[1]: %s" % stopped_code
             
             extra_code = indent(extra_code, " "*4)
             stopped_code = indent(stopped_code, " "*4)
             
-            if (not func_init) and is_function:
-                continue
+            if (not func_init) and is_function: continue
             
             localvars = dict(resmap=resmap, func=func,
                 next_catch=next_catch, send_catch=send_catch)
@@ -960,66 +1006,65 @@ class AddonManager:
             if resmap is not None:
                 if is_generator:
                     if gen_init:
-                        code = """
-def {0}({1}):
-    self._generator = {2}
-    _yeilded = next_catch(self._generator)
-{4}
-    _result = resmap(_yeilded[0])
-{3}
-    return _result
-"""
+                        code = unindent("""
+                        def {0}({1}):
+                            self._generator = {2}
+                            _yeilded = next_catch(self._generator)
+                        {4}
+                            _result = resmap(_yeilded[0])
+                        {3}
+                            return _result
+                        """)
                     else:
-                        code = """
-def {0}({1}):
-    _yeilded = send_catch(self._generator, ({1}))
-{4}
-    _result = resmap(_yeilded[0])
-{3}
-    return _result
-"""
+                        code = unindent("""
+                        def {0}({1}):
+                            _yeilded = send_catch(self._generator, ({1}))
+                        {4}
+                            _result = resmap(_yeilded[0])
+                        {3}
+                            return _result
+                        """)
                 else:
-                    code = """
-def {0}({1}):
-    _result = resmap({2})
-{3}
-    return _result
-"""
+                    code = unindent("""
+                    def {0}({1}):
+                        _result = resmap({2})
+                    {3}
+                        return _result
+                    """)
             else:
                 if is_generator:
                     if gen_init:
-                        code = """
-def {0}({1}):
-    self._generator = {2}
-    _yeilded = next_catch(self._generator)
-{4}
-"""
+                        code = unindent("""
+                        def {0}({1}):
+                            self._generator = {2}
+                            _yeilded = next_catch(self._generator)
+                        {4}
+                        """)
                     else:
-                        code = """
-def {0}({1}):
-    _yeilded = send_catch(self._generator, ({1}))
-{4}
-"""
+                        code = unindent("""
+                        def {0}({1}):
+                            _yeilded = send_catch(self._generator, ({1}))
+                        {4}
+                        """)
                 else:
-                    code = """
-def {0}({1}):
-    {2}
-"""
+                    code = unindent("""
+                    def {0}({1}):
+                        {2}
+                    """)
             
-            code = code.format(wrapper_name, ", ".join(wrapper_args),
-                func_call, extra_code, stopped_code)
+            code = code.format(wrapper_name, ", ".join(wrapper_args), func_call, extra_code, stopped_code)
             #code = "\n".join([l for l in code.splitlines() if l.strip()])
             #print(code)
             exec(code, localvars, localvars)
             
             wrapper = localvars[wrapper_name]
-            if decorator:
-                wrapper = decorator(wrapper)
+            if decorator: wrapper = decorator(wrapper)
             
             setattr(cls, wrapper_name, wrapper)
         
         return cls
     
+    # Do some autocompletion on class info
     def _autocomplete(self, cls, base, modes):
         is_panel = (base is bpy.types.Panel)
         is_header = (base is bpy.types.Header)
@@ -1032,16 +1077,12 @@ def {0}({1}):
         regions = None
         spaces = None
         
-        # Do some autocompletion on class info
-        if not hasattr(cls, "bl_idname"):
-            if is_operator:
-                cls.bl_idname = ".".join(p.lower() for p in cls.__name__.split("_OT_"))
+        if (not hasattr(cls, "bl_idname")) and is_operator:
+            cls.bl_idname = ".".join(p.lower() for p in cls.__name__.split("_OT_"))
         
-        if not hasattr(cls, "bl_label"):
-            cls.bl_label = bpy.path.clean_name(cls.__name__)
+        if not hasattr(cls, "bl_label"): cls.bl_label = bpy.path.clean_name(cls.__name__)
         
-        if hasattr(cls, "bl_label"):
-            cls.bl_label = compress_whitespace(cls.bl_label)
+        if hasattr(cls, "bl_label"): cls.bl_label = compress_whitespace(cls.bl_label)
         
         if hasattr(cls, "bl_description"):
             cls.bl_description = compress_whitespace(cls.bl_description)
@@ -1051,25 +1092,19 @@ def {0}({1}):
         # Make sure enum-attributes have correct values
         if hasattr(cls, "bl_options"):
             cls.bl_options = self._normalize("bl_options", cls.bl_options, BlEnums.options.get(base.__name__, ()))
-            
-            if isinstance(cls.bl_options, str):
-                cls.bl_options = {cls.bl_options}
+            if isinstance(cls.bl_options, str): cls.bl_options = {cls.bl_options}
         
         if hasattr(cls, "bl_region_type") and has_poll:
             cls.bl_region_type = self._normalize("bl_region_type", cls.bl_region_type, BlEnums.region_types, single_enums)
-            
             regions = cls.bl_region_type
         
         if hasattr(cls, "bl_space_type") and (has_poll or is_header):
             cls.bl_space_type = self._normalize("bl_space_type", cls.bl_space_type, BlEnums.space_types, single_enums)
-            
             spaces = cls.bl_space_type
         
         if hasattr(cls, "bl_context") and is_panel:
             cls.bl_context = self._normalize("bl_context", cls.bl_context, BlEnums.panel_contexts.get(spaces, ()), True)
-            
-            if (not modes) and (spaces == 'VIEW_3D'):
-                modes = BlEnums.panel_contexts['VIEW_3D'][cls.bl_context]
+            if (not modes) and (spaces == 'VIEW_3D'): modes = BlEnums.panel_contexts['VIEW_3D'][cls.bl_context]
         
         # Auto-generate poll() method from context restrictions
         generate_poll = False
@@ -1913,14 +1948,35 @@ class IDBlockSelector:
 
 #============================================================================#
 
-if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
+# ===== UI MONITOR ===== #
+UIMonitor_typename = "BACKGROUND_OT_ui_monitor_%s" % version
+UIMonitor = getattr(bpy.types, UIMonitor_typename, None)
+if not UIMonitor:
     class BACKGROUND_OT_ui_monitor(bpy.types.Operator):
         bl_idname = "background.ui_monitor"
         bl_label = "Background UI Monitor"
         bl_options = {'INTERNAL'}
         
         _is_running = False
+        _undo_hash = None
         _script_reload_kmis = []
+        _op_overrides = {}
+        
+        @classmethod
+        def block_operator(cls, op_idname, callback=None):
+            for kc, km, kmi in KeyMapUtils.search(op_idname):
+                key = (kmi.type, kmi.value, kmi.alt, kmi.ctrl, kmi.shift, kmi.oskey)
+                op_override = cls._op_overrides.get(key)
+                if op_override is None:
+                    op_override = {}
+                    cls._op_overrides[key] = op_override
+                op_override[op_idname] = (BlRna.serialize(kmi.properties), callback)
+        
+        @classmethod
+        def unblock_operator(cls, op_idname):
+            for key, op_override in tuple(cls._op_overrides.items()):
+                op_override.pop(op_idname, None)
+                if not op_override: cls._op_overrides.pop(key, None)
         
         event_count = 0
         user_interaction = False
@@ -1937,6 +1993,21 @@ if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
         shift = False
         oskey = False
         
+        on_next_update = []
+        
+        @classmethod
+        def state_invalidated(cls):
+            undo_hash = bpy.data.as_pointer()
+            if cls._undo_hash != undo_hash:
+                old_undo_hash = cls._undo_hash
+                cls._undo_hash = undo_hash
+                if old_undo_hash is not None:
+                    cls.mouse_context = None
+                    cls.last_mouse_context = None
+                    cls.last_rv3d_context = None
+                    return True
+            return False
+        
         @classmethod
         def _assign_last_context(cls, name, curr_context):
             if curr_context:
@@ -1951,6 +2022,9 @@ if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
         @classmethod
         def activate(cls):
             if cls._is_running: return
+            
+            if cls.state_invalidated(): return
+            
             if addons_registry.ui_monitor or cls.user_interaction:
                 cls._is_running = True
                 bpy.ops.background.ui_monitor('INVOKE_DEFAULT')
@@ -1978,18 +2052,41 @@ if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
             cls.event_count += 1
             cls.user_interaction = False
             
-            #print((event.type, event.value, event.shift, event.alt, event.ctrl))
-            
             # Scripts cannot be reloaded while modal operators are running
             # Intercept the corresponding event and shut down the monitor
             # (it would be relaunched automatically afterwards)
-            shut_down = ((not cls._is_running) or (not addons_registry.ui_monitor) or
-                any(KeyMapUtils.equal(kmi, event) for kc, km, kmi in cls._script_reload_kmis))
+            reload_key = any(KeyMapUtils.equal(kmi, event) for kc, km, kmi in cls._script_reload_kmis)
+            shut_down = ((not cls._is_running) or (not addons_registry.ui_monitor) or reload_key)
+            shut_down |= cls.state_invalidated()
             
             if shut_down:
                 self.cancel(context)
                 return {'PASS_THROUGH', 'CANCELLED'}
             
+            cls.update(context, event)
+            
+            key = (event.type, event.value, event.alt, event.ctrl, event.shift, event.oskey)
+            op_override = cls._op_overrides.get(key)
+            if op_override:
+                context_override = attrs_to_dict(context)
+                context_override.update(cls.mouse_context)
+                for op_idname, op_data in op_override.items():
+                    op = BpyOp(op_idname)
+                    if op and op.poll(context_override):
+                        op_props, callback = op_data
+                        allow = False
+                        if callback:
+                            try:
+                                allow = callback((op_idname, op_props), context, event)
+                            except Exception as exc:
+                                print("Error in block_operator callback {}:".format(callback.__name__))
+                                traceback.print_exc()
+                        if not allow: return {'RUNNING_MODAL'}
+            
+            return {'PASS_THROUGH'}
+        
+        @classmethod
+        def update(cls, context, event):
             cls.alt = event.alt
             cls.ctrl = event.ctrl
             cls.shift = event.shift
@@ -2007,6 +2104,14 @@ if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
                 else:
                     cls._assign_last_context("last_rv3d_context", None)
             
+            for callback in cls.on_next_update:
+                try:
+                    callback(context, event, cls)
+                except Exception as exc:
+                    print("Error in on_next_update callback {}:".format(callback.__name__))
+                    traceback.print_exc()
+            cls.on_next_update.clear()
+            
             for addon in addons_registry.ui_monitor:
                 for callback in addon._ui_monitor:
                     try:
@@ -2014,24 +2119,19 @@ if not hasattr(bpy.types, "BACKGROUND_OT_ui_monitor"):
                     except Exception as exc:
                         print("Error in {} ui_monitor {}:".format(addon.module_name, callback.__name__))
                         traceback.print_exc()
-            
-            return {'PASS_THROUGH'}
+    
+    BACKGROUND_OT_ui_monitor.__name__ = UIMonitor_typename
+    UIMonitor = BACKGROUND_OT_ui_monitor
     
     bpy.utils.register_class(BACKGROUND_OT_ui_monitor) # REGISTER
 
-UIMonitor = bpy.types.BACKGROUND_OT_ui_monitor
-
-UUID_container_PG_key = "\x02{UUID-container-PG}\x03"
-UUID_container_PG = getattr(bpy.types, UUID_container_PG_key, None)
-if UUID_container_PG is None:
-    UUID_container_PG = type(UUID_container_PG_key, (bpy.types.PropertyGroup,), {})
-    bpy.utils.register_class(UUID_container_PG)
-
+# ===== ADDONS REGISTRY ===== #
 class AddonsRegistry:
-    _scene_update_pre_key = "\x02{generic-addon-scene_update_pre}\x03"
-    _scene_update_post_key = "\x02{generic-addon-scene_update_post}\x03"
-    _addons_registry_key = "\x02{addons-registry}\x03"
+    _scene_update_pre_key = "\x02{generic-addon-scene_update_pre-%s}\x03" % version
+    _scene_update_post_key = "\x02{generic-addon-scene_update_post-%s}\x03" % version
+    _addons_registry_key = "\x02{addons-registry-%s}\x03" % version
     
+    _UUID_container_PG_key = "\x02{UUID-container-PG}\x03"
     _UUID_counter_key = "\x02{UUID-counter}\x03"
     _UUID_container_key = "\x02{UUID-container}\x03"
     #_UUID_key = "\x02{UUID}\x03"
@@ -2090,8 +2190,9 @@ class AddonsRegistry:
     job_interval = job_duration * 5
     job_next_update = 0.0
     
-    def __init__(self):
-        self._sel_iter = ResumableSelection()
+    zbuf_users = 0
+    module_infos = {}
+    module_users = {}
     
     def add(self, addon):
         addon_key = (addon.module_name, addon.path)
@@ -2103,6 +2204,10 @@ class AddonsRegistry:
         if addon._scene_update_post: self.scene_update_post.append(addon)
         if addon._background_job: self.background_job.append(addon)
         if addon._selection_job: self.selection_job.append(addon)
+        
+        for module_path in self.module_infos:
+            if module_path.startswith(addon.path):
+                self.module_users[module_path] = self.module_users.get(module_path, 0) + 1
     
     def remove(self, addon):
         addon_key = (addon.module_name, addon.path)
@@ -2113,8 +2218,13 @@ class AddonsRegistry:
         if addon._scene_update_post: self.scene_update_post.remove(addon)
         if addon._background_job: self.background_job.remove(addon)
         if addon._selection_job: self.selection_job.remove(addon)
+        
+        for module_path in self.module_infos:
+            if module_path.startswith(addon.path):
+                self.module_users[module_path] = self.module_users.get(module_path, 0) - 1
     
     def analyze_selection(self, duration=None):
+        event = None # in case loop is skipped (no selected elements processed)
         for event, item in self._sel_iter(duration):
             for addon in self.selection_job:
                 for callback in addon._selection_job:
@@ -2123,8 +2233,9 @@ class AddonsRegistry:
                     except Exception as exc:
                         print("Error in {} selection_job {}:".format(addon.module_name, callback.__name__))
                         traceback.print_exc()
+        return event
     
-    def __new__(cls):
+    def __new__(cls, module_info):
         scene_update_pre = None
         for callback in bpy.app.handlers.scene_update_pre:
             if callback.__name__ == cls._scene_update_pre_key:
@@ -2139,27 +2250,60 @@ class AddonsRegistry:
         
         scene_update = scene_update_pre or scene_update_post
         self = getattr(scene_update, cls._addons_registry_key, None)
-        if self is None: self = object.__new__(cls)
+        
+        if self is None:
+            self = object.__new__(cls)
+            
+            self._sel_iter = ResumableSelection()
+            self.event_lock = PrimitiveLock()
+            
+            self._button_registrator = ButtonRegistrator()
+            
+            @bpy.app.handlers.persistent
+            def load_pre(*args, **kwargs):
+                addons_registry.load_pre()
+            bpy.app.handlers.load_pre.append(load_pre)
+            
+            @bpy.app.handlers.persistent
+            def load_post(*args, **kwargs):
+                addons_registry.load_post()
+            bpy.app.handlers.load_post.append(load_post)
+        
+        self.module_infos[module_info["key"]] = module_info
+        
+        #cls = self.__class__ # make sure we deal with the currently used class
+        
+        # When scripts are reloaded, draw handlers are removed! So we must make sure they're added each time.
+        if self.post_view_handler: bpy.types.SpaceView3D.draw_handler_remove(self.post_view_handler, 'WINDOW')
+        self.post_view_handler = bpy.types.SpaceView3D.draw_handler_add(cls.post_view_callback, (), 'WINDOW', 'POST_VIEW')
+        if self.post_pixel_handler: bpy.types.SpaceView3D.draw_handler_remove(self.post_pixel_handler, 'WINDOW')
+        self.post_pixel_handler = bpy.types.SpaceView3D.draw_handler_add(cls.post_pixel_callback, (), 'WINDOW', 'POST_PIXEL')
         
         if scene_update_pre is None:
             @bpy.app.handlers.persistent
             def scene_update_pre(scene):
-                for callback, addon in self.after_register:
-                    if addon.status != 'REGISTERED': continue
-                    try:
-                        callback()
-                    except Exception as exc:
-                        print("Error in {} after_register {}:".format(addon.module_name, callback.__name__))
-                        traceback.print_exc()
-                self.after_register.clear()
-                
-                for addon in self.scene_update_pre:
-                    for callback in addon._scene_update_pre:
+                if self.event_lock: return # prevent infinite recursion
+                with self.event_lock:
+                    self.detect_undo(True)
+                    
+                    self._button_registrator.update()
+                    
+                    for callback, addon in self.after_register:
+                        if addon.status != 'REGISTERED': continue
                         try:
-                            callback(scene)
+                            callback()
                         except Exception as exc:
-                            print("Error in {} scene_update_pre {}:".format(addon.module_name, callback.__name__))
+                            print("Error in {} after_register {}:".format(addon.module_name, callback.__name__))
                             traceback.print_exc()
+                    self.after_register.clear()
+                    
+                    for addon in self.scene_update_pre:
+                        for callback in addon._scene_update_pre:
+                            try:
+                                callback(scene)
+                            except Exception as exc:
+                                print("Error in {} scene_update_pre {}:".format(addon.module_name, callback.__name__))
+                                traceback.print_exc()
             
             scene_update_pre.__name__ = cls._scene_update_pre_key
             setattr(scene_update_pre, cls._addons_registry_key, self)
@@ -2169,40 +2313,44 @@ class AddonsRegistry:
         if scene_update_post is None:
             @bpy.app.handlers.persistent
             def scene_update_post(scene):
-                # We need to invoke the monitor from somewhere other than
-                # keymap event, since keymap event can lock the operator
-                # to the Preferences window. Scene update, on the other
-                # hand, is always in the main window.
-                UIMonitor.activate()
-                
-                for addon in self.scene_update_post:
-                    for callback in addon._scene_update_post:
-                        try:
-                            callback(scene)
-                        except Exception as exc:
-                            print("Error in {} scene_update_post {}:".format(addon.module_name, callback.__name__))
-                            traceback.print_exc()
-                
-                curr_time = time.clock()
-                if curr_time > self.job_next_update:
-                    job_count = sum(len(addon._background_job) for addon in self.background_job)
-                    loop_count = (int(job_count > 0) + int(bool(self.selection_job)))
-                    loop_duration = self.job_duration / max(loop_count, 1)
+                if self.event_lock: return # prevent infinite recursion
+                with self.event_lock:
+                    self.detect_undo(False)
                     
-                    if job_count > 0:
-                        job_duration = loop_duration / job_count
+                    # We need to invoke the monitor from somewhere other than
+                    # keymap event, since keymap event can lock the operator
+                    # to the Preferences window. Scene update, on the other
+                    # hand, is always in the main window.
+                    UIMonitor.activate()
+                    
+                    for addon in self.scene_update_post:
+                        for callback in addon._scene_update_post:
+                            try:
+                                callback(scene)
+                            except Exception as exc:
+                                print("Error in {} scene_update_post {}:".format(addon.module_name, callback.__name__))
+                                traceback.print_exc()
+                    
+                    curr_time = time.clock()
+                    if curr_time > self.job_next_update:
+                        job_count = sum(len(addon._background_job) for addon in self.background_job)
+                        loop_count = (int(job_count > 0) + int(bool(self.selection_job)))
+                        loop_duration = self.job_duration / max(loop_count, 1)
                         
-                        for addon in self.background_job:
-                            for callback in addon._background_job:
-                                try:
-                                    callback(job_duration)
-                                except Exception as exc:
-                                    print("Error in {} background job {}:".format(addon.module_name, callback.__name__))
-                                    traceback.print_exc()
-                    
-                    if self.selection_job: self.analyze_selection(loop_duration)
-                    
-                    self.job_next_update = time.clock() + self.job_interval
+                        if job_count > 0:
+                            job_duration = loop_duration / job_count
+                            
+                            for addon in self.background_job:
+                                for callback in addon._background_job:
+                                    try:
+                                        callback(job_duration)
+                                    except Exception as exc:
+                                        print("Error in {} background job {}:".format(addon.module_name, callback.__name__))
+                                        traceback.print_exc()
+                        
+                        if self.selection_job: self.analyze_selection(loop_duration)
+                        
+                        self.job_next_update = time.clock() + self.job_interval
             
             scene_update_post.__name__ = cls._scene_update_post_key
             setattr(scene_update_post, cls._addons_registry_key, self)
@@ -2211,47 +2359,137 @@ class AddonsRegistry:
         
         return self
     
+    undo_detected = False
+    _undo_hash = None
+    def detect_undo(self, reset):
+        if reset: self.undo_detected = False
+        undo_hash = bpy.data.as_pointer()
+        if self._undo_hash != undo_hash:
+            self._undo_hash = undo_hash
+            self.undo_detected = True
+    
     load_count = 0 # 0 is when Blender has just opened (with the default/startup file)
     
     def load_pre(self):
-        for addon in self.addons.values():
-            for callback in addon._load_pre:
-                try:
-                    callback()
-                except Exception as exc:
-                    print("Error in {} load_pre {}:".format(addon.module_name, callback.__name__))
-                    traceback.print_exc()
-        
-        self.load_count += 1
+        if self.event_lock: return # prevent infinite recursion
+        with self.event_lock:
+            for addon in self.addons.values():
+                for callback in addon._load_pre:
+                    try:
+                        callback()
+                    except Exception as exc:
+                        print("Error in {} load_pre {}:".format(addon.module_name, callback.__name__))
+                        traceback.print_exc()
+            
+            self.load_count += 1
     
     def load_post(self):
-        if self.load_count > 0:
-            #self._UUID_key = "\x02{UUID: %s}\x03" % "{}; {}".format(time.ctime(), time.clock())
-            self._UUID_key = "\x02{UUID:%s}\x03" % time.time()
-        
-        for addon in self.addons.values():
-            # clear storages left from the previous session
-            addon.attributes.clear()
-            addon.attributes_by_pointer.clear()
+        if self.event_lock: return # prevent infinite recursion
+        with self.event_lock:
+            if self.load_count > 0:
+                #self._UUID_key = "\x02{UUID: %s}\x03" % "{}; {}".format(time.ctime(), time.clock())
+                self._UUID_key = "\x02{UUID:%s}\x03" % time.time()
             
-            for callback in addon._load_post:
-                try:
-                    callback()
-                except Exception as exc:
-                    print("Error in {} load_post {}:".format(addon.module_name, callback.__name__))
-                    traceback.print_exc()
+            for addon in self.addons.values():
+                # clear storages left from the previous session
+                addon.attributes.clear()
+                addon.attributes_by_pointer.clear()
+                addon._refresh_preferences()
+                
+                for callback in addon._load_post:
+                    try:
+                        callback()
+                    except Exception as exc:
+                        print("Error in {} load_post {}:".format(addon.module_name, callback.__name__))
+                        traceback.print_exc()
+    
+    post_view_handler = None
+    @staticmethod
+    def post_view_callback():
+        self = addons_registry
+        i = 0
+        for module_info in self.module_infos.values():
+            # if module path is not present among users, it means a shared library is used
+            if self.module_users.get(module_info["key"], 1) == 0: continue
+            cgl = module_info["cgl"]
+            
+            if i == 0:
+                Matrix_ModelView = cgl.Matrix_ModelView
+                Matrix_Projection = cgl.Matrix_Projection
+            cgl.Matrix_ModelView_2D = None
+            cgl.Matrix_Projection_2D = None
+            cgl.Matrix_ModelView_3D = Matrix_ModelView
+            cgl.Matrix_Projection_3D = Matrix_Projection
+            
+            i += 1
+    
+    post_pixel_handler = None
+    @staticmethod
+    def post_pixel_callback():
+        self = addons_registry
+        i = 0
+        for module_info in self.module_infos.values():
+            # if module path is not present among users, it means a shared library is used
+            if self.module_users.get(module_info["key"], 1) == 0: continue
+            cgl = module_info["cgl"]
+            ZBufferRecorder = module_info["ZBufferRecorder"]
+            
+            if i == 0:
+                Matrix_ModelView = cgl.Matrix_ModelView
+                Matrix_Projection = cgl.Matrix_Projection
+            cgl.Matrix_ModelView_2D = Matrix_ModelView
+            cgl.Matrix_Projection_2D = Matrix_Projection
+            
+            if i == 0:
+                ZBufferRecorder.draw_pixel_callback(self.zbuf_users)
+                ZBufferRecorder0 = ZBufferRecorder
+            else:
+                ZBufferRecorder.copy(ZBufferRecorder0)
+            
+            i += 1
+
+UUID_container_PG = getattr(bpy.types, AddonsRegistry._UUID_container_PG_key, None)
+if UUID_container_PG is None:
+    UUID_container_PG = type(AddonsRegistry._UUID_container_PG_key, (bpy.types.PropertyGroup,), {})
+    bpy.utils.register_class(UUID_container_PG)
 
 if not hasattr(bpy.types.WindowManager, AddonsRegistry._UUID_counter_key):
     setattr(bpy.types.WindowManager, AddonsRegistry._UUID_counter_key, 0 | -prop())
-    
-    @bpy.app.handlers.persistent
-    def load_pre(*args, **kwargs):
-        addons_registry.load_pre()
-    bpy.app.handlers.load_pre.append(load_pre)
-    
-    @bpy.app.handlers.persistent
-    def load_post(*args, **kwargs):
-        addons_registry.load_post()
-    bpy.app.handlers.load_post.append(load_post)
 
-addons_registry = AddonsRegistry()
+addons_registry = AddonsRegistry(dict(key=__file__, cgl=cgl, ZBufferRecorder=ZBufferRecorder))
+
+NestedLayout._button_registrator = addons_registry._button_registrator
+
+# ===== FINISH SELECTION ANALYSIS ===== #
+class WM_OT_finish_selection_analysis(bpy.types.Operator):
+    bl_idname = "wm.finish_selection_analysis"
+    bl_label = "Refresh"
+    bl_description = "Refresh (finish current round of background calculations)"
+    bl_options = {'BLOCKING', 'REGISTER'}
+    
+    def execute(self, context):
+        addons_registry.analyze_selection()
+        return {'FINISHED'}
+    
+    def invoke(self, context, event):
+        wm = context.window_manager
+        self.sel_iter = addons_registry._sel_iter
+        self.total = self.sel_iter.selection_total
+        wm.progress_begin(0.0, 1.0)
+        self.timer = wm.event_timer_add(0.1, context.window)
+        wm.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+    
+    def modal(self, context, event):
+        wm = context.window_manager
+        result = addons_registry.analyze_selection(0.125)
+        count = self.sel_iter.selection_count
+        wm.progress_update((count/self.total if self.total else 1.0))
+        if result == self.sel_iter.FINISHED:
+            wm.progress_end()
+            wm.event_timer_remove(self.timer)
+            return {'FINISHED'}
+        return {'RUNNING_MODAL'}
+
+bpy.utils.register_class(WM_OT_finish_selection_analysis)
+

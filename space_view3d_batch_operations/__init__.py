@@ -19,7 +19,7 @@ bl_info = {
     "name": "Batch Operations / Manager",
     "description": "Modifiers, Materials, Groups management / batch operations",
     "author": "dairin0d, moth3r",
-    "version": (0, 5, 9),
+    "version": (0, 6, 1),
     "blender": (2, 7, 0),
     "location": "View3D > Batch category in Tools panel",
     "warning": "",
@@ -70,6 +70,8 @@ Blender Bugs:
 * No API for getting/setting active element of curve/surface.
 * No API for getting/setting selected state metaball element.
 * No API for getting/setting active element of lattice.
+* No API for directly creating/deleting transform orientations (the operators can be invoked only in certain contexts)
+
 
 
 Make sure copy/pasting doesn't crash Blender after Undo (seems like it doesn't crash, but pasted references to objects are invalid)
@@ -162,6 +164,8 @@ class ThisAddonPreferences:
     use_panel_right = False | prop("Show in N-panel", name="N (right panel)")
     default_select_state = True | prop("Default row selection state", name="Rows selected by default")
     use_rename_popup = True | prop("Use a separate dialog for batch renaming", name="Use popup dialog for renaming")
+    
+    show_operations_as_list = False | prop("Show all in one line or each in a separate row")
     
     sync_lock = False
     

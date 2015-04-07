@@ -32,7 +32,7 @@ except ImportError:
 
 exec("""
 from {0}dairin0d.utils_view3d import SmartView3D
-from {0}dairin0d.utils_blender import Selection, ObjectUtils
+from {0}dairin0d.utils_blender import Selection, BlUtil
 from {0}dairin0d.utils_userinput import KeyMapUtils
 from {0}dairin0d.utils_ui import NestedLayout, tag_redraw
 from {0}dairin0d.bpy_inspect import prop, BlRna, BlEnums, bpy_struct
@@ -118,7 +118,7 @@ class BatchOperations:
     
     @classmethod
     def iterate_objects(cls, search_in, context=None):
-        return ObjectUtils.iterate(search_in, context, None)
+        return BlUtil.Object.iterate(search_in, context, None)
     
     @classmethod
     def split_idnames(cls, idnames):

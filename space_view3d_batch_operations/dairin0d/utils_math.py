@@ -18,6 +18,7 @@
 from mathutils import Color, Vector, Matrix, Quaternion, Euler
 
 import math
+import itertools
 
 # Newton's binomial coefficients / Pascal's triangle coefficients / n choose k / nCk
 # https://stackoverflow.com/questions/26560726/python-binomial-coefficient
@@ -65,6 +66,103 @@ def angle_signed(n, v0, v1, fallback=None):
 
 def snap_pixel_vector(v, d=0.5): # to have 2d-stable 3d drawings
     return Vector((round(v.x)+d, round(v.y)+d))
+
+def nautical_euler_from_axes(forward, right):
+    x = Vector(right)
+    y = Vector(forward)
+    
+    world_x = Vector((1, 0, 0))
+    world_z = Vector((0, 0, 1))
+    
+    if abs(y.z) > (1 - 1e-12): # sufficiently close to vertical
+        roll = 0.0
+        xdir = x.copy()
+    else:
+        xdir = y.cross(world_z)
+        rollPos = angle_signed(-y, x, xdir, 0.0)
+        rollNeg = angle_signed(-y, x, -xdir, 0.0)
+        if abs(rollNeg) < abs(rollPos):
+            roll = rollNeg
+            xdir = -xdir
+        else:
+            roll = rollPos
+    xdir = Vector((xdir.x, xdir.y, 0)).normalized()
+    
+    yaw = angle_signed(-world_z, xdir, world_x, 0.0)
+    
+    zdir = xdir.cross(y).normalized()
+    pitch = angle_signed(-xdir, zdir, world_z, 0.0)
+    
+    return Euler((pitch, roll, yaw), 'YXZ')
+
+def nautical_euler_to_quaternion(ne):
+    rot_x = Quaternion((1, 0, 0), ne[0])
+    rot_y = Quaternion((0, 1, 0), ne[1])
+    rot_z = Quaternion((0, 0, 1), ne[2])
+    return rot_z * rot_x * rot_y
+
+def orthogonal(v): # Vector.orthogonal isn't present in 2.70
+    size = len(v)
+    v = (Vector((v[0], v[1], 0.0)) if size == 2 else Vector(v))
+    if v.length_squared < 1e-8: return Vector.Fill(size)
+    ort = Vector((0,0,1)).cross(v).normalized()
+    if ort.length_squared < 0.5:
+        ort = Vector((0,1,0)).cross(v).normalized()
+    return (ort.to_2d() if size == 2 else ort)
+
+def orthogonal_XYZ(x, y, z, main_axis=None, ort_XY=True):
+    n_missing = int(x is None) + int(y is None) + int(z is None)
+    
+    if n_missing == 2:
+        if x is not None:
+            y = (orthogonal_in_XY(x) if ort_XY else orthogonal(x))
+        elif y is not None:
+            z = (orthogonal_in_XY(y) if ort_XY else orthogonal(y))
+        elif z is not None:
+            x = (orthogonal_in_XY(z) if ort_XY else orthogonal(z))
+    
+    if x is None:
+        x = y.cross(z)
+        if main_axis:
+            if main_axis == "y": z = x.cross(y)
+            elif main_axis == "z": y = z.cross(x)
+    elif y is None:
+        y = z.cross(x)
+        if main_axis:
+            if main_axis == "x": z = x.cross(y)
+            elif main_axis == "z": x = y.cross(z)
+    elif z is None:
+        z = x.cross(y)
+        if main_axis:
+            if main_axis == "x": y = z.cross(x)
+            elif main_axis == "y": x = y.cross(z)
+    
+    return x, y, z
+
+def orthogonal_in_XY(v):
+    return (Vector((0,0,1)).cross(v) if (1.0 - abs(v.z)) > 1e-6 else Vector((1,0,0)))
+
+def matrix_flatten(m):
+    return tuple(itertools.chain(*m.col))
+
+def matrix_unflatten(array):
+    size = len(array)
+    if size == 16:
+        m = Matrix.Identity(4)
+        m.col[0] = array[0:4]
+        m.col[1] = array[4:8]
+        m.col[2] = array[8:12]
+        m.col[3] = array[12:16]
+    elif size == 9:
+        m = Matrix.Identity(3)
+        m.col[0] = array[0:3]
+        m.col[1] = array[3:6]
+        m.col[2] = array[6:9]
+    elif size == 4:
+        m = Matrix.Identity(2)
+        m.col[0] = array[0:2]
+        m.col[1] = array[2:4]
+    return m
 
 def matrix_LRS(L, R, S):
     m = R.to_matrix()

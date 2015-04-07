@@ -25,13 +25,16 @@
 bl_info = {
     'name': 'Silhouette',
     'author': 'Antonio Vazquez (antonioya)',
-    'version': (1, 0),
+    'version': (1, 1),
     "blender": (2, 7, 3),
     'location': 'View3D > Properties panel > Silhouette',
-    'description': 'Simple silhouette for animators',
+    'description': 'Simple silhouette for animators and backups',
     'category': 'Animation'}
 
 import bpy
+import os
+import datetime
+import time
 
 # ------------------------------------------------------
 # Button Action class
@@ -164,6 +167,37 @@ class RunActionSilhouetteOff(bpy.types.Operator):
 
         return {'FINISHED'}
 
+# ------------------------------------------------------
+# Button: Save a backup with time
+# ------------------------------------------------------
+
+
+class BackupAction(bpy.types.Operator):
+    bl_idname = "antonio_animation.backupfile"
+    bl_label = "Backup"
+    bl_description = "Create a backup copy of the file appending datetime to the name"
+
+    # ------------------------------
+    # Execute
+    # ------------------------------
+    # noinspection PyMethodMayBeStatic
+    def execute(self, context):
+        (filepath, filename) = os.path.split(bpy.data.filepath)
+        blendfile = os.path.splitext(filename)[0]
+
+        st = "_" + datetime.datetime.fromtimestamp(time.time()).strftime('%Y%m%d_%H%M%S')
+
+        outfile = os.path.join(filepath, blendfile + st + ".blend")
+        # noinspection PyBroadException
+        try:
+            bpy.ops.wm.save_as_mainfile(filepath=outfile, copy=True)
+            self.report({'INFO'}, outfile + " successfully saved")
+            return {'FINISHED'}
+        except:
+            print("Unexpected error:" + str(sys.exc_info()))
+            self.report({'ERROR'}, "Unable to save")
+            return {'FINISHED'}
+
 
 # ------------------------------------------------------
 # Defines UI panel
@@ -183,6 +217,9 @@ class UISilhouettePanel(bpy.types.Panel):
         row.operator("animation.silhouette_on", icon='GHOST_ENABLED')
         row.operator("animation.silhouette_half")
         row.operator("animation.silhouette_off")
+
+        row = box.row(align=True)
+        row.operator("antonio_animation.backupfile", icon='SAVE_COPY')
 
 # ------------------------------------------------------
 # Registration

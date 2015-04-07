@@ -24,6 +24,7 @@ Utility modules by dairin0d
 if "_reload" in locals(): _reload(locals())
 
 try:
+    from . import version
     from . import utils_python
     from . import utils_math
     from . import utils_text

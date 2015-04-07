@@ -20,6 +20,8 @@ import bgl
 
 from mathutils import Color, Vector, Matrix, Quaternion, Euler
 
+import mathutils
+
 from bpy_extras.view3d_utils import (
     region_2d_to_location_3d,
     location_3d_to_region_2d,
@@ -30,8 +32,8 @@ from bpy_extras.view3d_utils import (
 import math
 
 from .bpy_inspect import BlEnums
-from .utils_math import matrix_LRS, matrix_compose, angle_signed, snap_pixel_vector, lerp
-from .utils_ui import calc_region_rect, convert_ui_coord, ui_context_under_coord
+from .utils_math import matrix_LRS, matrix_compose, angle_signed, snap_pixel_vector, lerp, nautical_euler_from_axes, nautical_euler_to_quaternion
+from .utils_ui import calc_region_rect, convert_ui_coord, ui_context_under_coord, rv3d_from_region, ui_hierarchy
 from .utils_gl import cgl
 from .utils_blender import Selection, SelectionSnapshot
 
@@ -40,24 +42,38 @@ class SmartView3D:
         if context is None:
             context = bpy.context
         elif isinstance(context, (Vector, tuple)):
-            context_override = ui_context_under_coord(context[0], context[1],
-                (context[2] if len(context) > 2 else 1))
+            context_override = ui_context_under_coord(context[0], context[1], (context[2] if len(context) > 2 else 1))
             if not context_override: return None
             context_override.update(kwargs)
             kwargs = context_override
             context = bpy.context
         
-        area = kwargs.get("area") or context.area
-        if (not area) or (area.type != 'VIEW_3D'): return None
-        
-        region = kwargs.get("region") or context.region
-        if (not region) or (region.type != 'WINDOW'): return None
-        
-        region_data = kwargs.get("region_data") or context.region_data
-        if not region_data: return None
-        
-        window = kwargs.get("window") or context.window
-        space_data = kwargs.get("space_data") or context.space_data
+        region = kwargs.get("region")
+        if region:
+            if (region.type != 'WINDOW'): return None
+            
+            area = kwargs.get("area")
+            window = kwargs.get("window")
+            if not (area and window): window, area, region = ui_hierarchy(region)
+            if (area.type != 'VIEW_3D'): return None
+            
+            region_data = kwargs.get("region_data") or rv3d_from_region(area, region)
+            if not region_data: return None
+            
+            space_data = kwargs.get("space_data") or area.spaces.active
+        else:
+            region = getattr(context, "region", None)
+            if (not region) or (region.type != 'WINDOW'): return None
+            
+            area = getattr(context, "area", None)
+            window = getattr(context, "window", None)
+            if not (area and window): window, area, region = ui_hierarchy(region)
+            if (area.type != 'VIEW_3D'): return None
+            
+            region_data = getattr(context, "region_data", None) or rv3d_from_region(area, region)
+            if not region_data: return None
+            
+            space_data = getattr(context, "space_data", None) or area.spaces.active
         
         self = object.__new__(cls)
         self.userprefs = bpy.context.user_preferences
@@ -71,6 +87,35 @@ class SmartView3D:
         self.bypass_camera_lock = kwargs.get("bypass_camera_lock", False)
         
         return self
+    
+    @staticmethod
+    def find_in_ui(ui_obj):
+        if isinstance(ui_obj, bpy.types.Window):
+            window = ui_obj
+            for area in window.screen.areas:
+                if area.type != 'VIEW_3D': continue
+                space_data = area.spaces.active
+                if space_data.type != 'VIEW_3D': continue
+                for region in area.regions:
+                    if region.type != 'WINDOW': continue
+                    region_data = rv3d_from_region(area, region)
+                    sv = SmartView3D(window=window, area=area, space_data=space_data, region=region, region_data=region_data)
+                    if sv: yield sv
+        elif isinstance(ui_obj, bpy.types.Area):
+            wm = bpy.context.window_manager
+            for window in wm.windows:
+                for area in window.screen.areas:
+                    if area.type != 'VIEW_3D': continue
+                    space_data = area.spaces.active
+                    if space_data.type != 'VIEW_3D': continue
+                    for region in area.regions:
+                        if region.type != 'WINDOW': continue
+                        region_data = rv3d_from_region(area, region)
+                        sv = SmartView3D(window=window, area=area, space_data=space_data, region=region, region_data=region_data)
+                        if sv: yield sv
+        elif isinstance(ui_obj, bpy.types.Region):
+            sv = SmartView3D(region=ui_obj)
+            if sv: yield sv
     
     def __bool__(self):
         return bool(self.area.regions and (self.area.type == 'VIEW_3D'))
@@ -323,7 +368,7 @@ class SmartView3D:
     raw_location = property(__get, __set)
     
     def __get(self):
-        value = self.region_data.view_rotation.copy()
+        value = self.region_data.view_rotation.copy()#.normalized()
         if not self.use_camera_axes:
             value = value * Quaternion((1, 0, 0), -math.pi*0.5)
         return value
@@ -331,7 +376,7 @@ class SmartView3D:
         if not self.use_camera_axes:
             value = value * Quaternion((1, 0, 0), math.pi*0.5)
         if self.is_region_3d or (not self.quadview_lock):
-            self.region_data.view_rotation = value.copy()
+            self.region_data.view_rotation = value.copy()#.normalized()
             self.region_data.update()
     raw_rotation = property(__get, __set)
     
@@ -427,6 +472,7 @@ class SmartView3D:
     rotation = property(__get, __set)
     
     def __get(self): # in object axes
+        """
         world_x = Vector((1, 0, 0))
         world_z = Vector((0, 0, 1))
         
@@ -454,11 +500,16 @@ class SmartView3D:
         pitch = angle_signed(-xdir, zdir, world_z, 0.0)
         
         return Euler((pitch, roll, yaw), 'YXZ')
+        """
+        return nautical_euler_from_axes(self.forward, self.right)
     def __set(self, value): # in object axes
+        """
         rot_x = Quaternion((1, 0, 0), value.x)
         rot_y = Quaternion((0, 1, 0), value.y)
         rot_z = Quaternion((0, 0, 1), value.z)
         rot = rot_z * rot_x * rot_y
+        """
+        rot = nautical_euler_to_quaternion(value)
         if self.use_camera_axes:
             rot = rot * Quaternion((1, 0, 0), math.pi*0.5)
         self.rotation = rot
@@ -544,13 +595,13 @@ class SmartView3D:
         dz = p00.z
         
         return (Vector((sx, sy, persp)), Vector((dx, dy, dz)))
-    proj_params = property(__get)
+    projection_info = property(__get)
     
     def region_rect(self, overlap=True):
         return calc_region_rect(self.area, self.region, overlap)
     
     def convert_ui_coord(self, xy, src, dst, vector=True):
-        return convert_ui_coord(self.window, self.area, self.region, xy, src, dst, vector)
+        return convert_ui_coord(self.area, self.region, xy, src, dst, vector)
     
     def z_distance(self, pos, clamp_near=None, clamp_far=None):
         if clamp_far is None: clamp_far = clamp_near
@@ -572,6 +623,7 @@ class SmartView3D:
         rv3d = self.region_data
         
         xy = location_3d_to_region_2d(region, rv3d, Vector(pos))
+        if xy is None: return None
         
         if align: xy = snap_pixel_vector(xy)
         
@@ -591,6 +643,11 @@ class SmartView3D:
             pos = self.zbuf_range[2] + self.forward * pos
         
         return region_2d_to_location_3d(region, rv3d, Vector(xy), Vector(pos)).to_3d()
+    
+    def z_plane(self, z, normal_sign=1):
+        normal = self.forward
+        near, far, origin = self.zbuf_range
+        return (origin + normal * lerp(near, far, z), normal * normal_sign)
     
     def ray(self, xy, coords='REGION'):
         region = self.region
@@ -920,9 +977,6 @@ class Pick_Base:
         return {'RUNNING_MODAL'}
 
 #============================================================================#
-if "ZBufferRecorder" in locals():
-    bpy.types.SpaceView3D.draw_handler_remove(ZBufferRecorder.handler, 'WINDOW')
-
 # Blender has a tendency to clear the contents of Z-buffer during its default operation,
 # so user operators usually don't have ability to use depth buffer at their invocation.
 # This hack attempts to alleviate this problem, at the cost of likely stalling GL pipeline.
@@ -930,14 +984,13 @@ class ZBufferRecorder:
     buffers = {}
     queue = []
     
-    users = 0
-    
-    def draw_callback_px(self, context):
+    @staticmethod
+    def draw_pixel_callback(users):
         context = bpy.context # we need most up-to-date context
         area = context.area
         region = context.region
         
-        if ZBufferRecorder.users > 0:
+        if users > 0:
             xy = (region.x, region.y)
             wh = (region.width, region.height)
             zbuf = cgl.read_zbuffer(xy, wh)
@@ -954,8 +1007,11 @@ class ZBufferRecorder:
             queue = queue[index+1:]
             ZBufferRecorder.queue = queue
         
-        if ZBufferRecorder.users > 0:
+        if users > 0:
             buffers[region] = zbuf
             queue.append(region)
-
-ZBufferRecorder.handler = bpy.types.SpaceView3D.draw_handler_add(ZBufferRecorder.draw_callback_px, (None, None), 'WINDOW', 'POST_PIXEL')
+    
+    @classmethod
+    def copy(cls, other):
+        cls.buffers = other.buffers
+        cls.queue = other.queue

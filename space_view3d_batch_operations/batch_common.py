@@ -36,7 +36,7 @@ from {0}dairin0d.utils_userinput import KeyMapUtils
 from {0}dairin0d.utils_ui import NestedLayout, tag_redraw, find_ui_area, ui_context_under_coord
 from {0}dairin0d.bpy_inspect import prop, BlRna, BlEnums, BpyOp
 from {0}dairin0d.utils_accumulation import Aggregator, VectorAggregator, PatternRenamer
-from {0}dairin0d.utils_blender import ChangeMonitor, Selection, SelectionSnapshot, IndividuallyActiveSelected, ObjectUtils
+from {0}dairin0d.utils_blender import ChangeMonitor, Selection, SelectionSnapshot, ToggleObjectMode, IndividuallyActiveSelected, BlUtil
 from {0}dairin0d.utils_addon import AddonManager, UIMonitor
 
 """.format(dairin0d_location))
@@ -56,30 +56,44 @@ def LeftRightPanel(cls=None, **kwargs):
         if not isinstance(cls, type):
             cls = type(name, (), dict(__doc__=doc, draw=cls))
         
-        poll = getattr(cls, "poll", None)
-        if poll:
-            poll_left = classmethod(lambda cls, context: addon.preferences.use_panel_left and poll(cls, context))
-            poll_right = classmethod(lambda cls, context: addon.preferences.use_panel_right and poll(cls, context))
-        else:
-            poll_left = classmethod(lambda cls, context: addon.preferences.use_panel_left)
-            poll_right = classmethod(lambda cls, context: addon.preferences.use_panel_right)
+        def is_panel_left():
+            if not addon.preferences: return False
+            return addon.preferences.use_panel_left
+        def is_panel_right():
+            if not addon.preferences: return False
+            return addon.preferences.use_panel_right
         
         @addon.Panel(**kwargs)
         class LeftPanel(cls):
             bl_idname = name + "_left"
             bl_region_type = 'TOOLS'
-            poll = poll_left
         
         @addon.Panel(**kwargs)
         class RightPanel(cls):
             bl_idname = name + "_right"
             bl_region_type = 'UI'
-            poll = poll_right
+        
+        poll = getattr(cls, "poll", None)
+        if poll:
+            LeftPanel.poll = classmethod(lambda cls, context: is_panel_left() and poll(cls, context))
+            RightPanel.poll = classmethod(lambda cls, context: is_panel_right() and poll(cls, context))
+        else:
+            LeftPanel.poll = classmethod(lambda cls, context: is_panel_left())
+            RightPanel.poll = classmethod(lambda cls, context: is_panel_right())
         
         return cls
     
     if cls: return AddPanels(cls, kwargs)
     return (lambda cls: AddPanels(cls, kwargs))
+
+def convert_selection_to_mesh():
+    # Scene is expected to be in OBJECT mode
+    try:
+        bpy.ops.object.convert(target='MESH')
+    except Exception as exc:
+        active_obj = bpy.context.object
+        selected_objs = bpy.context.selected_objects
+        print((exc, active_obj, selected_objs))
 
 def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
     active_obj = scene.objects.active
@@ -99,7 +113,7 @@ def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
         if (obj.type != 'MESH') and covert_to_mesh:
             # "Error: Cannot apply constructive modifiers on curve"
             if obj.data.users > 1: obj.data = obj.data.copy() # don't affect other objects
-            bpy.ops.object.convert(target='MESH')
+            convert_selection_to_mesh()
         elif make_single_user:
             # "Error: Modifiers cannot be applied to multi-user data"
             if obj.data.users > 1: obj.data = obj.data.copy() # don't affect other objects
@@ -196,9 +210,9 @@ class Operator_batch_repeat_actions:
         
         if self.exclude_active:
             active_obj = context.active_object
-            selected_objs = tuple(obj for obj in ObjectUtils.iterate(self.search_in, context) if obj != active_obj)
+            selected_objs = tuple(obj for obj in BlUtil.Object.iterate(self.search_in, context) if obj != active_obj)
         else:
-            selected_objs = tuple(ObjectUtils.iterate(self.search_in, context))
+            selected_objs = tuple(BlUtil.Object.iterate(self.search_in, context))
         
         bpy.ops.ed.undo_push(message="Batch Repeat")
         
@@ -281,7 +295,7 @@ class Operator_batch_clear_slots_and_layers:
         layout.prop(self, "clear_uv_maps")
         layout.prop(self, "clear_vertex_colors")
 
-@addon.Operator(idname="object.batch_streamline_meshes", options={'REGISTER', 'UNDO'}, label="Streamline mesh(es)", description="Streamline mesh(es)")
+@addon.Operator(idname="object.batch_streamline_meshes", options={'REGISTER', 'UNDO'}, label="Streamline mesh(es)", description="Streamline mesh(es)", mode={'OBJECT', 'EDIT_MESH'})
 class Operator_batch_streamline_meshes:
     globally = False | prop("Apply to all objects (instead of just in the selection)", "Globally")
     convert_to_mesh = False | prop("Convert non-meshes to meshes", "Convert to mesh(es)")
@@ -686,14 +700,18 @@ class Operator_batch_streamline_meshes:
                 deleted_objects = apply_modifiers(objects, scene, None, apply_modifiers_options)
                 objects = set(objects).difference(deleted_objects)
             
-            for obj in IndividuallyActiveSelected(objects):
+            for obj in IndividuallyActiveSelected(objects, make_visble=True):
                 if obj.type not in BlEnums.object_types_geometry: continue
                 
                 if obj.type != 'MESH':
                     if not self.convert_to_mesh: continue
-                    bpy.ops.object.convert(target='MESH')
+                    convert_selection_to_mesh()
                 
+                if obj.type != 'MESH': continue
+                
+                # can fail if object not currently visible in the scene!
                 bpy.ops.object.mode_set(mode='EDIT')
+                
                 bpy.ops.mesh.select_all(action='SELECT')
                 
                 self.apply(context)
@@ -703,11 +721,26 @@ class Operator_batch_streamline_meshes:
         return {'FINISHED'}
 
 @LeftRightPanel(idname="VIEW3D_PT_batch_operations", space_type='VIEW_3D', category="Batch", label="Batch Operations")
-def Panel_Batch_Operations(self, context):
-    layout = NestedLayout(self.layout)
-    layout.operator("object.batch_repeat_actions")
-    layout.operator("object.batch_clear_slots_and_layers")
-    layout.operator("object.batch_streamline_meshes")
+class Panel_Batch_Operations:
+    def draw_header(self, context):
+        layout = NestedLayout(self.layout)
+        prefs = addon.preferences
+        with layout.row(True)(scale_x=0.9):
+            layout.prop(prefs, "show_operations_as_list", text="", icon='COLLAPSEMENU', emboss=False)
+    
+    def draw(self, context):
+        layout = NestedLayout(self.layout)
+        prefs = addon.preferences
+        if prefs.show_operations_as_list:
+            with layout.row(True):
+                layout.operator("object.batch_repeat_actions", text="Repeat", icon='PLAY')
+                layout.operator("object.batch_clear_slots_and_layers", text="Clear", icon='GROUP_VCOL')
+                layout.operator("object.batch_streamline_meshes", text="Streamline", icon='EDITMODE_HLT')
+        else:
+            with layout.column(True)(alignment='LEFT'):
+                layout.operator("object.batch_repeat_actions", icon='PLAY')
+                layout.operator("object.batch_clear_slots_and_layers", icon='GROUP_VCOL')
+                layout.operator("object.batch_streamline_meshes", icon='EDITMODE_HLT')
 
 #============================================================================#
 

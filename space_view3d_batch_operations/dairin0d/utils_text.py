@@ -39,13 +39,19 @@ def indent(s, t):
         res.append(t + l)
     return "\n".join(res)
 
-def unindent(s, t):
+def unindent(s, t=None):
+    lines = s.splitlines()
+    if t is None:
+        nt = len(s)
+        for l in lines:
+            nd = len(l) - len(l.lstrip())
+            # ignore whitespace-only lines
+            if nd > 0: nt = min(nt, nd)
+    else:
+        nt = len(t)
     res = []
-    nt = len(t)
-    for l in s.splitlines():
-        n1 = len(l)
-        n0 = len(l.lstrip())
-        nd = n1 - n0
+    for l in lines:
+        nd = len(l) - len(l.lstrip())
         res.append(l[min(nt, nd):])
     return "\n".join(res)
 
