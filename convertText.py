@@ -1,85 +1,110 @@
+
+# from http://blender.stackexchange.com/a/27926
+
 bl_info = {
-    "name": "Text from file",
-    "description": "Set the text object content from a text file.",
-    "author": "Chebhou",
-    "version": (1,0),
-    "blender": (2, 6, 3),
-    "location": "3D View > Object > convert text object",
-    #"warning": "",
-    "wiki_url": "http://blender.stackexchange.com/a/26722/935",
-    #"tracker_url": "",
-    "category": "3D View"}
+    "name" : "text objects to-from xml",
+    "author" : "chebhou",
+    "version" : (1, 0),
+    "blender" : (2, 7, 3),
+    "location" : "file->export->text to-from xml",
+    "discription" : "copys an text objectx from-to xml file",
+    "warning" : "this add-on is extremly unusefull",
+    "wiki_url" : "http://blender.stackexchange.com/a/27926",
+    "tracker_url" : "chebhou@gmail.com",
+    "category" : "Import-Export"
+    }
 
 import bpy
-from bpy.types import Operator  
-from bpy.props import *  
+from bpy.types import Operator
+from bpy_extras.io_utils import ExportHelper
+from bpy.props import EnumProperty, BoolProperty
+from xml.dom import minidom
+from xml.dom.minidom import Document
 
-def object_to_text():
-    obj = bpy.context.active_object
-    if obj.type == 'FONT':
-       if None == bpy.data.texts.get(obj.name):
-          bpy.data.texts.new(name = obj.name)
+def txt_sync(filepath):
+    dom = minidom.parse(filepath)
+    scenes =dom.getElementsByTagName('scene')
+    for scene in scenes:
+        scene_name=scene.getAttribute('name')
+        print("\n",scene_name)
+        bl_scene = bpy.data.scenes[scene_name]
+        txt_objs =scene.getElementsByTagName('object')
+        for obj in txt_objs:
+            obj_name = obj.getAttribute('name')
+            obj_body = obj.childNodes[0].nodeValue 
+            bl_obj = bl_scene.objects[obj_name].data.body = obj_body
+            print(obj_name,"  ",obj_body)
 
-       text_file = bpy.data.texts[obj.name]
-       text_file.clear()
-       text = obj.data.body
-       text_file.write(text)
+def txt_export(filepath):
 
+    doc = Document()
+    root = doc.createElement('data')
+    doc.appendChild(root)
 
-def object_from_text():
-    obj = bpy.context.active_object
-    if obj.type == 'FONT':
-       if None == bpy.data.texts.get(obj.name):
-          bpy.data.texts.new(name = obj.name)
+    for sce in bpy.data.scenes :
+        #create a scene
+        scene = doc.createElement('scene')
+        scene.setAttribute('name', sce.name)
+        root.appendChild(scene)
 
-       text_file = bpy.data.texts[obj.name]
-       #clear text_obj
-       obj.data.body = text_file.as_string()
+        for obj in sce.objects :
+            if obj.type == 'FONT':   
+                #add object element
+                object = doc.createElement('object')
+                object.setAttribute('name', obj.name)
+                txt_node = doc.createTextNode(obj.data.body)
+                object.appendChild(txt_node) 
+                scene.appendChild(object)
 
-class   text_object(Operator):  
+    #write to a file
+    file_handle = open(filepath,"wb")
 
-    """text file from&to text object"""        
-    bl_idname = "object.from_to_text"  
-    bl_label = "convert text object"     
-    bl_options = {'REGISTER', 'UNDO'}    
+    file_handle.write(bytes(doc.toprettyxml(indent='\t'), 'UTF-8'))
+    file_handle.close()
+
+class   text_export(Operator, ExportHelper):  
+
+    """write and read text objects to a file"""        
+    bl_idname = "export_scene.text_xml"  
+    bl_label = "text from-to xml"     
+    bl_options = {'REGISTER', 'UNDO'}    #should remove undo ? 
+
+    # ExportHelper mixin class uses this
+    filename_ext = ".xml"
 
     #parameters and variables
     convert = EnumProperty(
                 name="Convert",
                 description="Choose conversion",
-                items=(('T2F', "object to file ", "convert text object to text file"),
-                       ('F2T', "file  to object", "convert text file to text object")),
-                default='T2F',
+                items=(('W', "write objects", "write text objects to xml"),
+                       ('R', "read objects", "read text objects from xml")),
+                default='W',
                 )
 
+    #main function
     def execute(self, context): 
-        if self.convert == 'T2F':
-            object_to_text()
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+        if self.convert == 'W':
+            txt_export(self.filepath)
         else:
-            object_from_text()
+            txt_sync(self.filepath)
 
+        bpy.context.scene.update()
         self.report({'INFO'},"Conversion is Done")
         return {'FINISHED'}
 
-    #get inputs 
-    def invoke(self, context, event):
-            wm = context.window_manager
-            return wm.invoke_props_dialog(self)
-
-def addObject(self, context): 
-    self.layout.operator(
-    text_object.bl_idname,
-    text = text_object.bl_label,
-    icon = 'OUTLINER_DATA_FONT')
+def menu_func_export(self, context):
+    self.layout.operator(text_export.bl_idname, text="Text to-from xml")
 
 def register():
-    bpy.utils.register_class(text_object)      
-    bpy.types.VIEW3D_MT_object.append(addObject)
+    bpy.utils.register_class(text_export)
+    bpy.types.INFO_MT_file_export.append(menu_func_export)
 
-def unregister(): 
-    bpy.types.VIEW3D_MT_object.remove(addObject)
-    bpy.utils.unregister_class(text_object)
+def unregister():
+    bpy.utils.unregister_class(text_export)
+    bpy.types.INFO_MT_file_export.remove(menu_func_export)
 
 if __name__ == "__main__":  
     register()
+
 
