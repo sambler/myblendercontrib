@@ -25,7 +25,7 @@
 bl_info = {
     'name': 'Silhouette',
     'author': 'Antonio Vazquez (antonioya)',
-    'version': (1, 1),
+    'version': (1, 2),
     "blender": (2, 7, 3),
     'location': 'View3D > Properties panel > Silhouette',
     'description': 'Simple silhouette for animators and backups',
@@ -35,6 +35,78 @@ import bpy
 import os
 import datetime
 import time
+import sys
+# noinspection PyUnresolvedReferences
+from bpy.app.handlers import persistent
+
+# noinspection PyUnusedLocal
+# -------------------------------------
+# Handler init render
+# -------------------------------------
+
+
+@persistent
+def render_start_handler(dummy):
+    myscene = bpy.data.scenes[bpy.context.scene.name]
+    if myscene.render.use_stamp_note is True:
+        # Saves formula
+        scene = bpy.context.scene
+        scene.silhoutte_formula = myscene.render.stamp_note_text
+        # Set replacement text
+        txt = myscene.render.stamp_note_text
+        myscene.render.stamp_note_text = split_formula(txt)
+
+# noinspection PyUnusedLocal
+# -------------------------------------
+# Handler end render
+# -------------------------------------
+
+
+@persistent
+def render_end_handler(dummy):
+    myscene = bpy.data.scenes[bpy.context.scene.name]
+    if myscene.render.use_stamp_note is True:
+        myscene.render.stamp_note_text = bpy.context.scene.silhoutte_formula
+
+bpy.app.handlers.render_init.append(render_start_handler)
+bpy.app.handlers.render_post.append(render_end_handler)
+# -------------------------------------
+# Replace formulas of stamp notes
+# -------------------------------------
+
+
+def split_formula(txt):
+    # for example:
+    # Resolution #bpy.data.scenes[bpy.context.scene.name].render.resolution_x#
+    #  by #bpy.data.scenes[bpy.context.scene.name].render.resolution_y#
+    while txt.find("#") > -1:
+        idx = txt.index("#")
+        initial = txt[0:idx]
+        idx += 1
+        idx2 = txt.index("#", idx)
+        formula = txt[idx:idx2]
+        pending = txt[idx2 + 1:]
+
+        txt = initial + run_formula(formula) + pending
+
+    return txt
+
+# -------------------------------------
+# Execute formula parameter
+# -------------------------------------
+
+
+def run_formula(runcmd):
+    # noinspection PyBroadException
+    try:
+        cmd = "global buf; buf = " + runcmd
+        exec(cmd)
+        # noinspection PyUnresolvedReferences
+        res = buf
+
+        return str(res)
+    except:
+        return "*ERROR"
 
 # ------------------------------------------------------
 # Button Action class
@@ -180,7 +252,7 @@ class BackupAction(bpy.types.Operator):
     # ------------------------------
     # Execute
     # ------------------------------
-    # noinspection PyMethodMayBeStatic
+    # noinspection PyMethodMayBeStatic,PyUnusedLocal
     def execute(self, context):
         (filepath, filename) = os.path.split(bpy.data.filepath)
         blendfile = os.path.splitext(filename)[0]
@@ -228,7 +300,9 @@ class UISilhouettePanel(bpy.types.Panel):
 
 def register():
     bpy.utils.register_module(__name__)
+    bpy.types.Scene.silhoutte_formula = bpy.props.StringProperty(name="Formula", maxlen=512)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
+    del bpy.types.Scene.silhoutte_formula
