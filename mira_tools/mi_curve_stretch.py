@@ -35,14 +35,19 @@ from mathutils import Vector
 
 from . import mi_curve_main as cur_main
 from . import mi_utils_base as ut_base
+from . import mi_color_manager as col_man
 from . import mi_looptools as loop_t
 
 
 class MI_CurveStretchSettings(bpy.types.PropertyGroup):
-    # Curve Stretch Settings
-    #curve_resolution = IntProperty(default=13, min=1, max=128)
-
-    point_number = IntProperty(default=5, min=2, max=128)
+    points_number = IntProperty(default=5, min=2, max=128)
+    spread_mode = EnumProperty(
+        name = "Spread Mode",
+        items = (('ORIGINAL', 'ORIGINAL', ''),
+                ('UNIFORM', 'UNIFORM', '')
+                ),
+        default = 'ORIGINAL'
+    )
 
 
 class MI_CurveStretch(bpy.types.Operator):
@@ -54,8 +59,8 @@ class MI_CurveStretch(bpy.types.Operator):
 
     pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
-                 'NUMPAD_9', 'LEFTMOUSE', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE',
-                 'SELECTMOUSE', 'MOUSEMOVE']
+                 'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE',
+                 'MOUSEMOVE']
 
     # curve tool mode
     curve_tool_modes = ('IDLE', 'MOVE_POINT', 'SELECT_POINT')
@@ -67,6 +72,8 @@ class MI_CurveStretch(bpy.types.Operator):
 
     # loops code
     loops = None
+    manipulator = None
+    original_verts_data = None
 
     def invoke(self, context, event):
         reset_params(self)
@@ -88,28 +95,51 @@ class MI_CurveStretch(bpy.types.Operator):
             self.loops = loop_t.check_loops(self.loops, bm)
 
             if self.loops:
+                self.manipulator = context.space_data.show_manipulator
+                context.space_data.show_manipulator = False
+
+
                 for loop in self.loops:
                     loop_verts = [active_obj.matrix_world * bm.verts[i].co for i in loop[0]]
-                    loop_line = pass_line(loop_verts)
-                    new_curve = crete_curve_to_line(cur_stretch_settings.point_number, loop_line, self.all_curves)
+                    loop_line = pass_line(loop_verts, loop[1])
+                    new_curve = create_curve_to_line(cur_stretch_settings.points_number, loop_line, self.all_curves, loop[1])
+
+                    # set closed curve
+                    if loop[1] is True:
+                        new_curve.closed = True
+
                     self.all_curves.append(new_curve)
                     self.active_curve = new_curve
+
+                    cur_main.generate_bezier_points(self.active_curve, self.active_curve.display_bezier, curve_settings.curve_resolution)
+
+                    self.original_verts_data.append( pass_line([bm.verts[i].co for i in loop[0]] , loop[1]) )
+
+                    # move point to the curve
+                    update_curve_line(active_obj, self.active_curve, self.loops, self.all_curves, bm, cur_stretch_settings.spread_mode, self.original_verts_data[self.all_curves.index(self.active_curve)])
 
                 self.mi_deform_handle_3d = bpy.types.SpaceView3D.draw_handler_add(mi_curve_draw_3d, args, 'WINDOW', 'POST_VIEW')
                 self.mi_deform_handle_2d = bpy.types.SpaceView3D.draw_handler_add(mi_curve_draw_2d, args, 'WINDOW', 'POST_PIXEL')
                 context.window_manager.modal_handler_add(self)
+
+                bm.normal_update()
+                bmesh.update_edit_mesh(active_obj.data)
+
                 return {'RUNNING_MODAL'}
             else:
+                #finish_work(self, context)
                 self.report({'WARNING'}, "No loops found!")
-                return {'CANCELLED'}                
+                return {'CANCELLED'}
         else:
+            #finish_work(self, context)
             self.report({'WARNING'}, "View3D not found, cannot run operator!")
             return {'CANCELLED'}
 
 
     def modal(self, context, event):
-        #print(context.active_operator)
         context.area.tag_redraw()
+
+        context.area.header_text_set("Ctrl+Click: NewPoint, Shift+Click: SelectAdditive, Del: DeletePoint")
 
         curve_settings = context.scene.mi_curve_settings
         cur_stretch_settings = context.scene.mi_cur_stretch_settings
@@ -155,11 +185,20 @@ class MI_CurveStretch(bpy.types.Operator):
                         #the_act_point = cur_main.get_point_by_id(self.active_curve.curve_points, self.active_curve.active_point)
                         #the_act_point_index = self.active_curve.curve_points.index(point)
 
-                        cur_main.delete_point(point, self.active_curve, self.active_curve.display_bezier, curve_settings.curve_resolution)
+                        if len(self.active_curve.curve_points) > 2:
+                            cur_main.delete_point(point, self.active_curve, self.active_curve.display_bezier, curve_settings.curve_resolution)
+                        else:
+                            break
 
                     self.active_curve.display_bezier.clear()
                     cur_main.generate_bezier_points(self.active_curve, self.active_curve.display_bezier, curve_settings.curve_resolution)
                     self.active_curve.active_point = None
+
+                    # move point to the curve
+                    update_curve_line(active_obj, self.active_curve, self.loops, self.all_curves, bm, cur_stretch_settings.spread_mode, self.original_verts_data[self.all_curves.index(self.active_curve)])
+
+                    bm.normal_update()
+                    bmesh.update_edit_mesh(active_obj.data)
 
                 return {'RUNNING_MODAL'}
 
@@ -176,10 +215,10 @@ class MI_CurveStretch(bpy.types.Operator):
 
         elif self.curve_tool_mode == 'MOVE_POINT':
             if event.value == 'RELEASE':
-                curve_vecs = [active_obj.matrix_world.inverted() * point.position for point in self.active_curve.curve_points]
-                line = pass_line(curve_vecs)
-                loop_verts = [bm.verts[i] for i in self.loops[self.all_curves.index(self.active_curve)][0]]
-                verts_to_line(loop_verts, line)
+                # move point to the curve
+                update_curve_line(active_obj, self.active_curve, self.loops, self.all_curves, bm, cur_stretch_settings.spread_mode, self.original_verts_data[self.all_curves.index(self.active_curve)])
+
+                bm.normal_update()
                 bmesh.update_edit_mesh(active_obj.data)
 
                 self.curve_tool_mode = 'IDLE'
@@ -193,7 +232,7 @@ class MI_CurveStretch(bpy.types.Operator):
                 if new_point_pos and selected_points:
                     move_offset = new_point_pos - act_point.position
                     for point in selected_points:
-                            point.position += move_offset
+                        point.position += move_offset
 
                     if len(selected_points) == 1:
                         cur_main.curve_point_changed(self.active_curve, self.active_curve.curve_points.index(point), curve_settings.curve_resolution, self.active_curve.display_bezier)
@@ -216,9 +255,9 @@ class MI_CurveStretch(bpy.types.Operator):
         if event.type in {'RIGHTMOUSE', 'ESC'}:
             bpy.types.SpaceView3D.draw_handler_remove(self.mi_deform_handle_3d, 'WINDOW')
             bpy.types.SpaceView3D.draw_handler_remove(self.mi_deform_handle_2d, 'WINDOW')
+            finish_work(self, context)
 
-            # clear
-            #display_bezier = None
+            context.area.header_text_set()
 
             return {'FINISHED'}
 
@@ -238,42 +277,96 @@ def reset_params(self):
 
     # loops code
     self.loops = None
+    self.original_verts_data = []
+
+def finish_work(self, context):
+    context.space_data.show_manipulator = self.manipulator
 
 
-def pass_line(vecs):
+def update_curve_line(active_obj, curve_to_update, loops, all_curves, bm, spread_mode, original_verts_data):
+    curve_vecs = []
+
+    for point in curve_to_update.curve_points:
+        if curve_to_update.curve_points.index(point) == 0 and curve_to_update.closed is True:
+            continue  # only for closed curve
+
+        b_points = curve_to_update.display_bezier.get(point.point_id)
+        if b_points:
+            #b_points = b_points.copy()
+            for b_p in b_points:
+                curve_vecs.append(active_obj.matrix_world.inverted() * b_p)
+
+    # only for closed curve to apply last bezier points
+    if curve_to_update.closed is True:
+        b_points = curve_to_update.display_bezier.get(curve_to_update.curve_points[0].point_id)
+        if b_points:
+            #b_points = b_points.copy()
+            for b_p in b_points:
+                curve_vecs.append(active_obj.matrix_world.inverted() * b_p)
+
+    line = pass_line(curve_vecs, curve_to_update.closed)
+    loop_verts = [bm.verts[i] for i in loops[all_curves.index(curve_to_update)][0]]
+
+    if spread_mode == 'ORIGINAL':
+        verts_to_line(loop_verts, line, original_verts_data, curve_to_update.closed)
+    else:
+        verts_to_line(loop_verts, line, None, curve_to_update.closed)
+
+
+def pass_line(vecs, is_closed_line):
     line_length = 0.0
     line_data = []
+    vecs_len = len(vecs)
+
     for i, vec in enumerate(vecs):
-        if i == len(vecs) - 1:
+        if i == vecs_len - 1 and is_closed_line is False:
             line_data.append((vec, line_length, 0.0, None))
         else:
-            vec_area = vecs[i+1] - vec
+            vec_area = None
+            if i == vecs_len - 1:
+                vec_area = vecs[0] - vec
+            else:
+                vec_area = vecs[i+1] - vec
+
             area_length = vec_area.length
             vec_dir = vec_area.normalized()
             line_data.append((vec, line_length, area_length, vec_dir))
 
             line_length += area_length
 
+    # last point line of closed curve
+    if is_closed_line:
+        vec_area = vecs[0] - vecs[-1]
+        area_length = vec_area.length
+        vec_dir = vec_area.normalized()
+        line_data.append((vecs[0], line_length, 0.0, None))
+
     return line_data
 
 
-def crete_curve_to_line(points_number, line_data, all_curves):
+def create_curve_to_line(points_number, line_data, all_curves, is_closed_line):
     curve = cur_main.MI_CurveObject(all_curves)
     line_len = line_data[-1][1]
+
     point_passed = 0
     for i in range(points_number):
         if i == 0:
             curve_point = cur_main.MI_CurvePoint(curve.curve_points)
-            curve_point.position = line_data[0][0]
+            curve_point.position = line_data[0][0].copy()
             curve.curve_points.append(curve_point)
             continue
-        elif i == points_number - 1:
+        elif i == points_number - 1 and is_closed_line is False:
             curve_point = cur_main.MI_CurvePoint(curve.curve_points)
-            curve_point.position = line_data[-1][0]
+            curve_point.position = line_data[-1][0].copy()
             curve.curve_points.append(curve_point)
+            continue
             break
 
-        point_len = (line_len/ (points_number - 1)) * (i)
+        if is_closed_line:
+            point_len = ((line_len/ (points_number)) * (i))
+        else:
+            point_len = (line_len/ (points_number - 1)) * (i)
+
         for j, point_data in enumerate(line_data, start=point_passed):
             if line_data[j+1][1] >= point_len:
                 curve_point = cur_main.MI_CurvePoint(curve.curve_points)
@@ -285,19 +378,30 @@ def crete_curve_to_line(points_number, line_data, all_curves):
     return curve
 
 
-def verts_to_line(verts, line_data):
+def verts_to_line(verts, line_data, verts_data, is_closed_line):
     line_len = line_data[-1][1]
+
     verts_number = len(verts)
+    if is_closed_line:
+        verts_number += 1  # only for uniform interpolation
+
     point_passed = 0
     for i, vert in enumerate(verts):
         if i == 0:
-            vert.co = line_data[0][0]
+            vert.co = line_data[0][0].copy()
             continue
-        elif i == verts_number - 1:
-            vert.co = line_data[-1][0]
+        elif i == verts_number - 1 and is_closed_line is False:
+            vert.co = line_data[-1][0].copy()
             break
 
-        point_len = (line_len/ (verts_number - 1)) * (i)
+        point_len = None
+        if verts_data:
+            #if is_closed_line is False:
+            point_len = (verts_data[i][1]/ verts_data[-1][1] ) * line_len
+            #else:
+                #point_len = ((verts_data[i][1]/ (verts_data[-1][1] + verts_data[-2][2]) ) * (line_len) )
+        else:
+            point_len = (line_len/ (verts_number - 1)) * (i)
         for j, point_data in enumerate(line_data, start=point_passed):
             if line_data[j+1][1] >= point_len:
                 vert.co = line_data[j][0] + (line_data[j][3] * (point_len - line_data[j][1]))
@@ -320,7 +424,7 @@ def mi_curve_draw_3d(self, context):
         for curve in self.all_curves:
             for cur_point in curve.curve_points:
                 if cur_point.point_id in curve.display_bezier:
-                    mi_curve_draw_3d_polyline(curve.display_bezier[cur_point.point_id], 2, (0.5,0.8,0.9,1.0))
+                    mi_curve_draw_3d_polyline(curve.display_bezier[cur_point.point_id], 2, col_man.cur_line_base)
 
 
 # TODO MOVE TO UTILITIES
@@ -374,11 +478,17 @@ def draw_curve_2d(curves, context):
         for cu_point in curve.curve_points:
             point_pos_2d = view3d_utils.location_3d_to_region_2d(region, rv3d, cu_point.position)
 
-            p_col = (0.5,0.8,1.0,1.0)
+            p_col = col_man.cur_point_base
+            if curve.closed is True:
+                if curve.curve_points.index(cu_point) == 0:
+                    p_col = col_man.cur_point_closed_start
+                elif curve.curve_points.index(cu_point) == len(curve.curve_points) - 1:
+                    p_col = col_man.cur_point_closed_end
+
             if cu_point.select:
-                p_col = (0.9,0.5,0.1,1.0)
+                p_col = col_man.cur_point_selected
             if cu_point.point_id == curve.active_point:
-                p_col = (0.9,0.7,0.3,1.0)
+                p_col = col_man.cur_point_active
             mi_draw_2d_point(point_pos_2d.x, point_pos_2d.y, 6, p_col)
 
             # Handlers
@@ -386,89 +496,9 @@ def draw_curve_2d(curves, context):
             #if curve.curve_points.index(cu_point) < len(curve.curve_points)-1:
                 if cu_point.handle1:
                     point_pos_2d = view3d_utils.location_3d_to_region_2d(region, rv3d, cu_point.handle1)
-                    mi_draw_2d_point(point_pos_2d.x, point_pos_2d.y, 3, (0.0,0.5,1.0,0.7))
+                    mi_draw_2d_point(point_pos_2d.x, point_pos_2d.y, 3, col_man.cur_handle_1_base)
             #if curve.curve_points.index(cu_point) > 0:
                 if cu_point.handle2:
                     point_pos_2d = view3d_utils.location_3d_to_region_2d(region, rv3d, cu_point.handle2)
-                    mi_draw_2d_point(point_pos_2d.x, point_pos_2d.y, 3, (1.0,0.5,0.0,0.7))
+                    mi_draw_2d_point(point_pos_2d.x, point_pos_2d.y, 3, col_man.cur_handle_2_base)
 
-
-# --------------------------------------- OLD STUFF
-
-
-def draw_callback_px_3d(self, context):
-
-    # 50% alpha, 2 pixel width line
-    bgl.glEnable(bgl.GL_BLEND)
-    bgl.glColor4f(1.0, 1.0, 1.0, 0.5)
-    bgl.glLineWidth(2)
-
-   # bgl.glBegin(bgl.GL_LINE_STRIP)
-   # bgl.glVertex3f(*ob.matrix_world.translation)
-   # bgl.glVertex3f(*context.scene.cursor_location)
-   # bgl.glEnd()
-
-    bgl.glBegin(bgl.GL_POLYGON)
-    #bgl.glColor4f(0.0, 0.0, 0.0, 0.5)
-    bgl.glVertex3f(0.0, 0.0, 0.0)
-    bgl.glVertex3f(0.0, 1.0, 0.0)
-    bgl.glVertex3f(1.0, 1.0, 0.0)
-    bgl.glVertex3f(1.0, 0.0, 0.0)
-    bgl.glEnd()
-
-    ##bgl.glEnable(bgl.GL_BLEND)
-    ##bgl.glLineWidth(1.5)
-    #bgl.glPointSize(4)
-##    bgl.glBegin(bgl.GL_LINE_LOOP)
-    #bgl.glBegin(bgl.GL_POINTS)
- ##   bgl.glBegin(bgl.GL_POLYGON)
-    #bgl.glColor4f(0.5,1.1,1.0,0.5)
-    #bgl.glVertex2f(10, 20)
-    #bgl.glVertex2f(50,60)
-    #bgl.glVertex2f(700,80)
-    #bgl.glVertex2f(2,180)
-    #bgl.glEnd()
-
-    # restore opengl defaults
-    bgl.glLineWidth(1)
-    bgl.glDisable(bgl.GL_BLEND)
-    bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
-
-
-def draw_callback_px_2d(self, context):
-
-    # 50% alpha, 2 pixel width line
-    bgl.glEnable(bgl.GL_BLEND)
-    bgl.glColor4f(1.0, 1.0, 1.0, 0.5)
-    bgl.glLineWidth(2)
-
-   # bgl.glBegin(bgl.GL_LINE_STRIP)
-   # bgl.glVertex3f(*ob.matrix_world.translation)
-   # bgl.glVertex3f(*context.scene.cursor_location)
-   # bgl.glEnd()
-
-    #bgl.glBegin(bgl.GL_POLYGON)
-    ##bgl.glColor4f(0.0, 0.0, 0.0, 0.5)
-    #bgl.glVertex3f(0.0, 0.0, 0.0)
-    #bgl.glVertex3f(0.0, 1.0, 0.0)
-    #bgl.glVertex3f(1.0, 1.0, 0.0)
-    #bgl.glVertex3f(1.0, 0.0, 0.0)
-    #bgl.glEnd()
-
-    #bgl.glEnable(bgl.GL_BLEND)
-    #bgl.glLineWidth(1.5)
-    bgl.glPointSize(4)
-#    bgl.glBegin(bgl.GL_LINE_LOOP)
-    bgl.glBegin(bgl.GL_POINTS)
- #   bgl.glBegin(bgl.GL_POLYGON)
-    bgl.glColor4f(0.5,1.1,1.0,0.5)
-    bgl.glVertex2f(10, 20)
-    bgl.glVertex2f(50,60)
-    bgl.glVertex2f(700,80)
-    bgl.glVertex2f(2,180)
-    bgl.glEnd()
-
-    # restore opengl defaults
-    bgl.glLineWidth(1)
-    bgl.glDisable(bgl.GL_BLEND)
-    bgl.glColor4f(0.0, 0.0, 0.0, 1.0)

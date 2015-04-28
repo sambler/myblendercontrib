@@ -142,3 +142,164 @@ def generate_id(other_ids):
     return uniq_numb
 
 
+# CODE FOR SELECTED BMESH ---
+def get_selected_bmesh(bm):
+    sel_verts = get_selected_bmverts(bm)
+    sel_edges = [e for e in bm.edges if e.select]
+    sel_faces = [f for f in bm.faces if f.select]
+
+    return [sel_verts, sel_edges, sel_faces]
+
+
+def get_selected_bmverts(bm):
+    sel_verts = [v for v in bm.verts if v.select]
+    return sel_verts
+
+
+def get_selected_bmverts_ids(bm):
+    sel_verts = [v.index for v in bm.verts if v.select]
+    return sel_verts
+
+
+def get_bmverts_from_ids(bm, ids):
+    verts = []
+    bm.verts.ensure_lookup_table()
+    for v_id in ids:
+        verts.append(bm.verts[v_id])
+
+    return verts
+
+
+def get_vertices_center(verts, obj, local_space):
+
+    vert_world_first = verts[0].co
+    if not local_space:
+        vert_world_first = obj.matrix_world * verts[0].co
+
+    x_min = vert_world_first.x
+    x_max = vert_world_first.x
+    y_min = vert_world_first.y
+    y_max = vert_world_first.y
+    z_min = vert_world_first.z
+    z_max = vert_world_first.z
+
+    for vert in verts:
+        vert_world = vert.co
+        if not local_space:
+            vert_world = obj.matrix_world * vert.co
+
+        if vert_world.x > x_max:
+            x_max = vert_world.x
+        if vert_world.x < x_min:
+            x_min = vert_world.x
+        if vert_world.y > y_max:
+            y_max = vert_world.y
+        if vert_world.y < y_min:
+            y_min = vert_world.y
+        if vert_world.z > z_max:
+            z_max = vert_world.z
+        if vert_world.z < z_min:
+            z_min = vert_world.z
+
+    x_orig = ((x_max - x_min) / 2.0) + x_min
+    y_orig = ((y_max - y_min) / 2.0) + y_min
+    z_orig = ((z_max - z_min) / 2.0) + z_min
+
+    return Vector((x_orig, y_orig, z_orig))
+
+
+def get_verts_bounds(verts, obj, x_axis, y_axis, z_axis, local_space):
+
+    center = get_vertices_center(verts, obj, local_space)
+
+    x_min = 0.0
+    x_max = 0.0
+    y_min = 0.0
+    y_max = 0.0
+    z_min = 0.0
+    z_max = 0.0
+
+    for vert in verts:
+        vert_world = vert.co
+        if not local_space:
+            vert_world = obj.matrix_world * vert.co
+
+        if x_axis:
+            x_check = mathu.geometry.distance_point_to_plane(vert_world, center, x_axis)
+            if x_check > x_max:
+                x_max = x_check
+            elif x_check < x_min:
+                x_min = x_check
+
+        if y_axis:
+            y_check = mathu.geometry.distance_point_to_plane(vert_world, center, y_axis)
+            if y_check > y_max:
+                y_max = y_check
+            elif y_check < y_min:
+                y_min = y_check
+
+        if z_axis:
+            z_check = mathu.geometry.distance_point_to_plane(vert_world, center, z_axis)
+            if z_check > z_max:
+                z_max = z_check
+            elif z_check < z_min:
+                z_min = z_check
+
+    return ( x_max + abs(x_min), y_max + abs(y_min), z_max + abs(z_min), center )
+
+
+def get_vertices_size(verts, obj):
+    # if obj.mode == 'EDIT':
+        # bm.verts.ensure_lookup_table()
+    vert_world_first = obj.matrix_world * verts[0].co
+    # multiply_scale(vert_world_first, obj.scale)
+
+    x_min = vert_world_first.x
+    x_max = vert_world_first.x
+    y_min = vert_world_first.y
+    y_max = vert_world_first.y
+    z_min = vert_world_first.z
+    z_max = vert_world_first.z
+
+    for vert in verts:
+        vert_world = obj.matrix_world * vert.co
+        # multiply_scale(vert_world, obj.scale)
+
+        if vert_world.x > x_max:
+            x_max = vert_world.x
+        if vert_world.x < x_min:
+            x_min = vert_world.x
+        if vert_world.y > y_max:
+            y_max = vert_world.y
+        if vert_world.y < y_min:
+            y_min = vert_world.y
+        if vert_world.z > z_max:
+            z_max = vert_world.z
+        if vert_world.z < z_min:
+            z_min = vert_world.z
+
+    x_size = (x_max - x_min)
+    y_size = (y_max - y_min)
+    z_size = (z_max - z_min)
+
+    final_size = x_size
+    if final_size < y_size:
+        final_size = y_size
+    if final_size < z_size:
+        final_size = z_size
+
+    return final_size
+
+
+# VECTOR OPERATIONS
+def multiply_local_vecs(vec1, vec2):
+    vec1[0] *= vec2[0]
+    vec1[1] *= vec2[1]
+    vec1[2] *= vec2[2]
+
+def multiply_vecs(vec1, vec2):
+    vec3 = Vector( (0.0, 0.0, 0.0) )
+    vec3[0] = vec1[0] * vec2[0]
+    vec3[1] = vec1[1] * vec2[1]
+    vec3[2] = vec1[2] * vec2[2]
+    return vec3

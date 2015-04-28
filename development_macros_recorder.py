@@ -20,7 +20,7 @@
 bl_info = {
     "name": "Macros Recorder",
     "author": "dairin0d",
-    "version": (1, 4),
+    "version": (1, 4, 5),
     "blender": (2, 6, 0),
     "location": "Text Editor -> Text -> Record Macro",
     "description": "Record macros to text blocks",
@@ -35,6 +35,24 @@ bl_info = {
 import bpy
 
 from mathutils import Vector, Matrix, Quaternion, Euler, Color
+
+#============================================================================#
+
+"""
+TODO:
+* analyze info log too (some lines may contain invalid syntax, though)
+* add recording mode to write commands without wrapping them in an operator
+
+Parametric modeling:
+* see Sverchok? (node-based) http://nikitron.cc.ua/sverch/html/nodes.html
+* originally, I had a thought about something similar, though
+    with heavy emphasis on building the parametric operations list
+    from the user actions (using a separate scene to build object(s) from actual operators)
+
+Hmm, numpy is already included in Blender since some version
+
+moth3r suggests to take a look at the "pinning values in 3d view" addon
+"""
 
 bpy_props = {
     bpy.props.BoolProperty,
@@ -224,8 +242,21 @@ class SceneMacros(bpy.types.PropertyGroup):
         # to texts might crash Blender (at least this happens when
         # you try to change operator's arguments after its execution)
         textblock.clear()
-        code_template = \
-"""
+        
+        as_script = bpy.context.window_manager.record_macro_as_script
+        if as_script:
+            tabs = ""
+            code_template = """
+import bpy
+from mathutils import Vector, Matrix, Quaternion, Euler, Color
+
+context = bpy.context
+
+{2}
+""".strip()
+        else:
+            tabs = "        "
+            code_template = """
 import bpy
 from mathutils import Vector, Matrix, Quaternion, Euler, Color
 
@@ -246,9 +277,9 @@ def unregister():
 if __name__ == "__main__":
     register()
 """.strip()
+        
         op_name = textblock.name.replace(".", "_")
         op_label = bpy.path.display_name(textblock.name.replace(".", " "))
-        tabs = "        "
         lines = "\n".join((tabs + op.value) for op in self.ops)
         code = code_template.format(op_name, op_label, lines, "{'FINISHED'}")
         textblock.write(code)
@@ -653,6 +684,7 @@ def menu_func_draw(self, context):
     text = ("Recording... (Stop)" if is_macro_recording else "Record Macro")
     icon = ('CANCEL' if is_macro_recording else 'REC')
     self.layout.operator("wm.record_macro", text=text, icon=icon)
+    self.layout.prop(context.window_manager, "record_macro_as_script")
 
 #============================================================================#
 def register():
@@ -668,6 +700,9 @@ def register():
     setattr(bpy.types.WindowManager, procgen_attrname,
             bpy.props.PointerProperty(type=CurrentGeneratorProperties))
     
+    setattr(bpy.types.WindowManager, "record_macro_as_script",
+            bpy.props.BoolProperty(name="Record Macro as script"))
+    
     bpy.types.TEXT_MT_text.append(menu_func_draw)
     
     bpy.app.handlers.scene_update_post.append(process_diff)
@@ -676,6 +711,8 @@ def unregister():
     bpy.app.handlers.scene_update_post.remove(process_diff)
     
     bpy.types.TEXT_MT_text.remove(menu_func_draw)
+    
+    delattr(bpy.types.WindowManager, "record_macro_as_script")
     
     delattr(bpy.types.WindowManager, procgen_attrname)
     del bpy.types.Object.procedural_generator

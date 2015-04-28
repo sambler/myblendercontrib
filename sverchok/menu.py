@@ -216,7 +216,9 @@ def make_node_cats():
         ["SvGetPropNode",       "Get property",      'FORCE_VORTEX'],
         ["SvSetPropNode",       "Set property",      'FORCE_VORTEX'],
         ["SvVertexGroupNode",   "Vertext group"],
-        ["SvRayCastNode",       "Raycast"],
+        ["SvRayCastSceneNode",   "Scene Raycast"],
+        ["SvRayCastObjectNode",   "Object Raycast"],
+        ["SvVertexColorNode",   "Vertext color"],
     ]
 
 # violet
@@ -255,6 +257,12 @@ def make_node_cats():
         ["SvInsetSpecial",        "Inset Special"],
         ["SkinViewerNode",        "Skin Mesher"],
         ["SvCSGBooleanNode",      "CSG Boolean"],
+        ["SvGetDataObjectNode",    "Get ObjectID"],
+        ["SvSetDataObjectNode",    "Set ObjectID"],
+        ['SvSortObjsNode',     "Sort ObjectID"],
+        ["SvBMVertsNode",   "BMesh Props"],
+        ["SvPointOnMeshNode",   "Point on Mesh"],
+        ["SvFilterObjsNode",   "Filter ObjectID"],
     ]
 
     return node_cats

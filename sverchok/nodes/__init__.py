@@ -13,7 +13,11 @@ nodes_dict = {
         'kd_tree',
         'kd_tree_edges',
         'weights',
-        'raycast'
+        'object_raycast',
+        'scene_raycast',
+        'bmesh_props',
+        'closest_point_on_mesh',
+        'colors'
     ],
 
     'basic_view': [
@@ -37,7 +41,11 @@ nodes_dict = {
         'obj_remote',
         'group',
         'cache',
-        'getsetprop'
+        'getsetprop',
+        'get_blenddata',
+        'set_blenddata',
+        'sort_blenddata',
+        'filter_blenddata'
     ],
 
     'basic_debug': [
