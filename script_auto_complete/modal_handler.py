@@ -1,11 +1,11 @@
 import bpy, os
-from script_auto_complete.text_block import TextBlock
-from script_auto_complete.graphics import *
-from script_auto_complete.text_editor_utils import *
-from script_auto_complete.text_operators import *
-from script_auto_complete.operators.operator_hub import get_text_operators
-from script_auto_complete.operators.extend_word_operators import update_word_list
-from script_auto_complete.documentation import *
+from . text_block import TextBlock
+from . graphics import *
+from . text_editor_utils import *
+from . text_operators import *
+from . operators.operator_hub import get_text_operators
+from . operators.extend_word_operators import update_word_list
+from . documentation import *
 
 class BlockEvent(Exception):
     pass
@@ -27,7 +27,7 @@ class ModalHandler:
         region = get_region_under_mouse(event)
         if region is None: return
         
-        update_functions = [self.simplify_work_operators, self.auto_complete_box.update]
+        update_functions = [self.auto_complete_box.update]
         try:
             for update_function in update_functions:
                 update_function(event)
@@ -36,11 +36,6 @@ class ModalHandler:
         
     def draw(self):    
         self.auto_complete_box.draw()
-        
-    def simplify_work_operators(self, event):
-        if event.ctrl and event.type == "Y" and event.value == "PRESS":
-            get_active_text_block().select_current_string()
-            raise BlockEvent()
       
         
 class AutoCompleteTextBox:
@@ -90,17 +85,23 @@ class AutoCompleteTextBox:
             self.hide = True
         
     def update_operator_selection(self, event):
-       self.move_selection_with_arrow_keys(event)
+       self.move_selection_with_keys(event)
        self.move_selection_with_mouse_wheel(event)
        
-    def move_selection_with_arrow_keys(self, event):
+    selection_move_keys = {
+        "DOWN_ARROW" : 1,
+        "UP_ARROW" : -1,
+        "PAGE_DOWN" : 4,
+        "PAGE_UP" : -4,
+        "END" : 10000,
+        "HOME" : -10000}
+       
+    def move_selection_with_keys(self, event):
         if event.value == "PRESS":
-            if event.type == "DOWN_ARROW":
-                self.selected_index += 1
-                raise BlockEvent()
-            if event.type == "UP_ARROW":
-                self.selected_index -= 1
-                raise BlockEvent()
+            for key, move in self.selection_move_keys.items():
+                if event.type == key:
+                    self.selected_index += move
+                    raise BlockEvent()
                 
     def move_selection_with_mouse_wheel(self, event):
         if self.operator_box_rectangle.contains(event.mouse_region_x, event.mouse_region_y):
@@ -122,22 +123,19 @@ class AutoCompleteTextBox:
             raise BlockEvent()
             
     def execute_on_mouse_click(self, event):
-        if event.type in ["LEFTMOUSE", "MOUSEMOVE"] and event.value in ["PRESS", "RELEASE"]:
+        if event.type == "LEFTMOUSE" and event.value == "PRESS":
             for i, line_rectangle in enumerate(self.operator_line_rectangles):
                 if line_rectangle.contains(event.mouse_region_x, event.mouse_region_y):
-                    index = self.top_index + i
-                    if self.selected_index == index and event.type == "LEFTMOUSE" and event.value == "RELEASE":
-                        self.execute_selected_operator()
-                        self.hide = True
-                    else:
-                        if event.value == "PRESS":
-                            self.selected_index = index
+                    self.selected_index = self.top_index + i
+                    self.execute_selected_operator()
+                    self.hide = True
                     raise BlockEvent()
         
     def execute_selected_operator(self):
         try:
             operator = self.selected_operator
-            operator.execute(TextBlock(bpy.context.space_data.text))
+            if operator:
+                operator.execute(TextBlock(bpy.context.space_data.text))
         except Exception as e: print(e)
         
     @property
