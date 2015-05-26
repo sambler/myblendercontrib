@@ -17,182 +17,203 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-#----------------------------------------------------------
+# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+
+# ----------------------------------------------------------
 # File: books_maker.py
 # Automatic generation of books
 # Author: Antonio Vazquez (antonioya)
 #
-#----------------------------------------------------------
+# ----------------------------------------------------------
+# noinspection PyUnresolvedReferences
 import bpy
 import math
 import random
 import copy
 import colorsys
-from tools import *
+from arch_tools import *
 
-#------------------------------------------------------------------
+
+# ------------------------------------------------------------------
 # Define UI class
 # Books
-#------------------------------------------------------------------
+# ------------------------------------------------------------------
 class BOOKS(bpy.types.Operator):
     bl_idname = "mesh.archimesh_books"
     bl_label = "Books"
     bl_description = "Books Generator"
     bl_category = 'Archimesh'
     bl_options = {'REGISTER', 'UNDO'}
-    
-    width= bpy.props.FloatProperty(name='Width',min=0.001,max= 1, default= 0.045,precision=3, description='Bounding book width')
-    depth= bpy.props.FloatProperty(name='Depth',min=0.001,max= 1, default= 0.22,precision=3, description='Bounding book depth')
-    height= bpy.props.FloatProperty(name='Height',min=0.001,max= 1, default= 0.30,precision=3, description='Bounding book height')
-    num= bpy.props.IntProperty(name='Number of books',min=1,max= 100, default= 20, description='Number total of books')
 
-    rX= bpy.props.FloatProperty(name='X',min=0.000,max= 0.999, default= 0,precision=3, description='Randomness for X axis')
-    rY= bpy.props.FloatProperty(name='Y',min=0.000,max= 0.999, default= 0,precision=3, description='Randomness for Y axis')
-    rZ= bpy.props.FloatProperty(name='Z',min=0.000,max= 0.999, default= 0,precision=3, description='Randomness for Z axis')
+    width = bpy.props.FloatProperty(name='Width', min=0.001, max=1, default=0.045, precision=3,
+                                    description='Bounding book width')
+    depth = bpy.props.FloatProperty(name='Depth', min=0.001, max=1, default=0.22, precision=3,
+                                    description='Bounding book depth')
+    height = bpy.props.FloatProperty(name='Height', min=0.001, max=1, default=0.30, precision=3,
+                                     description='Bounding book height')
+    num = bpy.props.IntProperty(name='Number of books', min=1, max=100, default=20,
+                                description='Number total of books')
 
-    rot= bpy.props.FloatProperty(name='Rotation',min=0.000,max= 1, default= 0,precision=3, description='Randomness for vertical position (0-> All straight)')
-    afn= bpy.props.IntProperty(name='Affinity',min=0,max= 10, default= 5, description='Number of books with same rotation angle')
+    rX = bpy.props.FloatProperty(name='X', min=0.000, max=0.999, default=0, precision=3,
+                                 description='Randomness for X axis')
+    rY = bpy.props.FloatProperty(name='Y', min=0.000, max=0.999, default=0, precision=3,
+                                 description='Randomness for Y axis')
+    rZ = bpy.props.FloatProperty(name='Z', min=0.000, max=0.999, default=0, precision=3,
+                                 description='Randomness for Z axis')
+
+    rot = bpy.props.FloatProperty(name='Rotation', min=0.000, max=1, default=0, precision=3,
+                                  description='Randomness for vertical position '
+                                              '(0-> All straight)')
+    afn = bpy.props.IntProperty(name='Affinity', min=0, max=10, default=5,
+                                description='Number of books with same rotation angle')
 
     # Materials        
-    crt_mat = bpy.props.BoolProperty(name = "Create default Cycles materials",description="Create default materials for Cycles render.",default = True)
-    hue= bpy.props.FloatProperty(name='H',min=0,max= 1, default= 0,precision=3, description='Color Hue')
-    saturation= bpy.props.FloatProperty(name='S',min=0,max= 1, default= 0.4,precision=3, description='Color Saturation')
-    value= bpy.props.FloatProperty(name='V',min=0,max= 1, default= 0.4,precision=3, description='Color Value')
-    rC= bpy.props.FloatProperty(name='Randomness',min=0.000,max= 1, default= 0,precision=3, description='Randomness for color (only Hue)')
+    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
+                                     description="Create default materials for "
+                                                 "Cycles render.", default=True)
+    objcol = bpy.props.FloatVectorProperty(name="Color",
+                                           description="Color for material",
+                                           default=(1.0, 1.0, 1.0, 1.0),
+                                           min=0.1, max=1,
+                                           subtype='COLOR',
+                                           size=4)
+    rC = bpy.props.FloatProperty(name='Randomness', min=0.000, max=1, default=0, precision=3,
+                                 description='Randomness for color ')
 
-    #-----------------------------------------------------
+    # -----------------------------------------------------
     # Draw (create UI interface)
-    #-----------------------------------------------------
+    # -----------------------------------------------------
+    # noinspection PyUnusedLocal
     def draw(self, context):
         layout = self.layout
         space = bpy.context.space_data
-        if (not space.local_view):
+        if not space.local_view:
             # Imperial units warning
-            if (bpy.context.scene.unit_settings.system == "IMPERIAL"):
-                row=layout.row()
+            if bpy.context.scene.unit_settings.system == "IMPERIAL":
+                row = layout.row()
                 row.label("Warning: Imperial units not supported", icon='COLOR_RED')
-            
-            box=layout.box()
+
+            box = layout.box()
             box.label("Book size")
-            row=box.row()
-            row.prop(self,'width')
-            row.prop(self,'depth')
-            row.prop(self,'height')
-            row=box.row()
-            row.prop(self,'num',slider=True)
+            row = box.row()
+            row.prop(self, 'width')
+            row.prop(self, 'depth')
+            row.prop(self, 'height')
+            row = box.row()
+            row.prop(self, 'num', slider=True)
 
-            box=layout.box()
+            box = layout.box()
             box.label("Randomness")
-            row=box.row()
-            row.prop(self,'rX',slider=True)
-            row.prop(self,'rY',slider=True)
-            row.prop(self,'rZ',slider=True)
-            row=box.row()
-            row.prop(self,'rot',slider=True)
-            row.prop(self,'afn',slider=True)
+            row = box.row()
+            row.prop(self, 'rX', slider=True)
+            row.prop(self, 'rY', slider=True)
+            row.prop(self, 'rZ', slider=True)
+            row = box.row()
+            row.prop(self, 'rot', slider=True)
+            row.prop(self, 'afn', slider=True)
 
-
-            box=layout.box()
-            box.prop(self,'crt_mat')
-            if (self.crt_mat):
-                row=box.row()
-                row.prop(self,'hue',slider=True)
-                row=box.row()
-                row.prop(self,'saturation',slider=True)
-                row=box.row()
-                row.prop(self,'value',slider=True)
-                row=box.row()
-                row.prop(self,'rC',slider=True)
+            box = layout.box()
+            box.prop(self, 'crt_mat')
+            if self.crt_mat:
+                row = box.row()
+                row.prop(self, 'objcol')
+                row = box.row()
+                row.prop(self, 'rC', slider=True)
         else:
-            row=layout.row()
+            row = layout.row()
             row.label("Warning: Operator does not work in local view mode", icon='ERROR')
 
-    #-----------------------------------------------------
+    # -----------------------------------------------------
     # Execute
-    #-----------------------------------------------------
+    # -----------------------------------------------------
+    # noinspection PyUnusedLocal
     def execute(self, context):
-        if (bpy.context.mode == "OBJECT"):
+        if bpy.context.mode == "OBJECT":
             # Create shelves    
-            create_book_mesh(self,context)
+            create_book_mesh(self)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archimesh: Option only valid in Object mode")
             return {'CANCELLED'}
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 # Generate mesh data
 # All custom values are passed using self container (self.myvariable)
-#------------------------------------------------------------------------------
-def create_book_mesh(self,context):
+# ------------------------------------------------------------------------------
+def create_book_mesh(self):
     # deactivate others
     for o in bpy.data.objects:
-        if (o.select == True):
+        if o.select is True:
             o.select = False
     bpy.ops.object.select_all(False)
-    generate_books(self,context)
+    generate_books(self)
 
     return
-#------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
 # Generate books
 # All custom values are passed using self container (self.myvariable)
-#------------------------------------------------------------------------------
-def generate_books(self,context):
-
-    Boxes = []
+# ------------------------------------------------------------------------------
+def generate_books(self):
+    boxes = []
     location = bpy.context.scene.cursor_location
-    myLoc = copy.copy(location) # copy location to keep 3D cursor position
-    
+    myloc = copy.copy(location)  # copy location to keep 3D cursor position
+
     # Create 
-    lastX = myLoc.x
-    oX = 0
-    oY = 0
-    oZ = 0
-    oR = 0
+    lastx = myloc.x
+    ox = 0
+    oy = 0
+    oz = 0
+    ot = 0
     i = 0
     for x in range(self.num):
         # reset rotation
-        if (i >= self.afn):
+        if i >= self.afn:
             i = 0
-            oR = -1
-                   
-        myData = create_book("Book" + str(x)
-                           ,self.width,self.depth,self.height
-                           ,lastX,myLoc.y,myLoc.z
-                           ,self.crt_mat
-                           ,self.rX,self.rY,self.rZ,self.rot,oX,oY,oZ,oR
-                           ,self.hue,self.saturation,self.value,self.rC)
-        Boxes.extend([myData[0]])
-        bookData = myData[1]
-        
+            ot = -1
+
+        mydata = create_book("Book" + str(x),
+                             self.width, self.depth, self.height,
+                             lastx, myloc.y, myloc.z,
+                             self.crt_mat,
+                             self.rX, self.rY, self.rZ, self.rot, ox, oy, oz, ot,
+                             self.objcol, self.rC)
+        boxes.extend([mydata[0]])
+        bookdata = mydata[1]
+
         # calculate rotation using previous book
-        oR = bookData[3]
-        i = i + 1
-        oZ = 0
-        
+        ot = bookdata[3]
+        i += 1
+        oz = 0
+
         # calculate x size after rotation
-        if (i < self.afn):
-            size = 0.0002 
-        else:    
-            size = 0.0003 + math.cos(math.radians(90 - bookData[3])) * bookData[2] # the height is the radius
-            oZ = bookData[2]
-            
-        lastX = lastX + bookData[0] + size
-        
+        if i < self.afn:
+            size = 0.0002
+        else:
+            size = 0.0003 + math.cos(math.radians(90 - bookdata[3])) * bookdata[2]  # the height is the radius
+            oz = bookdata[2]
+
+        lastx = lastx + bookdata[0] + size
+
     # refine units
-    for box in Boxes:
+    for box in boxes:
         remove_doubles(box)
         set_normals(box)
-        
+
     # deactivate others
     for o in bpy.data.objects:
-        if (o.select == True):
+        if o.select is True:
             o.select = False
-    
-    Boxes[0].select = True        
-    bpy.context.scene.objects.active = Boxes[0]
-    
+
+    boxes[0].select = True
+    bpy.context.scene.objects.active = boxes[0]
+
     return
-#------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
 # Create books unit
 #
 # objName: Name for the new object
@@ -212,148 +233,146 @@ def generate_books(self,context):
 # oY: override y size
 # oZ: override z size
 # oR: override rotation
-# hue: color hue
-# saturation: color saturation
-# value: color value
-# frC: color randomness factor (only hue)
-#------------------------------------------------------------------------------
-def create_book(objName,sX,sY,sZ,pX,pY,pZ,mat,frX,frY,frZ,frR,oX,oY,oZ,oR,hue,saturation,value,frC):
+# objcol: color
+# frC: color randomness factor
+# ------------------------------------------------------------------------------
+def create_book(objname, sx, sy, sz, px, py, pz, mat, frx,
+                fry, frz, frr, ox, oy, oz, ot, objcol, frc):
     # gap Randomness
-    rI = random.randint(10,150)
-    gap = rI / 100000
+    ri = random.randint(10, 150)
+    gap = ri / 100000
     # Randomness X   
-    if (oX == 0):
-        rI = random.randint(0,int(frX * 1000))
-        factor = rI / 1000
-        sX = sX - (sX * factor)
-        if (sX < (gap * 3)):
-            sX = gap * 3
+    if ox == 0:
+        ri = random.randint(0, int(frx * 1000))
+        factor = ri / 1000
+        sx -= sx * factor
+        if sx < (gap * 3):
+            sx = gap * 3
     else:
-        sX = oX        
+        sx = ox
 
-    # Randomness Y   
-    if (oY == 0):
-        rI = random.randint(0,int(frY * 1000))
-        factor = rI / 1000
-        sY = sY - (sY * factor)
-        if (sY < (gap * 3)):
-            sY = gap * 3
+        # Randomness Y
+    if oy == 0:
+        ri = random.randint(0, int(fry * 1000))
+        factor = ri / 1000
+        sy -= sy * factor
+        if sy < (gap * 3):
+            sy = gap * 3
     else:
-        sY = oY        
+        sy = oy
 
-    # Randomness Z   
-    if (oZ == 0):
-        rI = random.randint(0,int(frZ * 1000))
-        factor = rI / 1000
-        sZ = sZ - (sZ * factor)
-        if (sZ < (gap * 3)):
-            sZ = gap * 3
+        # Randomness Z
+    if oz == 0:
+        ri = random.randint(0, int(frz * 1000))
+        factor = ri / 1000
+        sz -= sz * factor
+        if sz < (gap * 3):
+            sz = gap * 3
     else:
-        sZ = oZ        
+        sz = oz
 
-    # Randomness rotation   
+        # Randomness rotation
     rot = 0
-    if (frR > 0 and oR != -1):
-        if (oR == 0):
-            rI = random.randint(0,int(frR * 1000))
-            factor = rI / 1000
+    if frr > 0 and ot != -1:
+        if ot == 0:
+            ri = random.randint(0, int(frr * 1000))
+            factor = ri / 1000
             rot = 30 * factor
         else:
-            rot = oR    
+            rot = ot
 
-    # Randomness color (only hue)   
-    if (frC > 0):
-        rC1 = random.randint(0,int(hue * 1000)) # 0 to hue
-        rC2 = random.randint(int(hue * 1000),1000) # hue to maximum
-        rC3 = random.randint(0,1000) # sign
+    # Randomness color (only hue)
+    hsv = colorsys.rgb_to_hsv(objcol[0], objcol[1], objcol[2])
+    hue = hsv[0]
+    if frc > 0:
+        rc1 = random.randint(0, int(hue * 1000))  # 0 to hue
+        rc2 = random.randint(int(hue * 1000), 1000)  # hue to maximum
+        rc3 = random.randint(0, 1000)  # sign
 
-        if (rC3 >= hue * 1000):
-            hue = hue + ((rC2 * frC) / 1000)
+        if rc3 >= hue * 1000:
+            hue += (rc2 * frc) / 1000
         else:
-            hue = hue -  ((rC1 * frC) / 1000)
-                
+            hue -= (rc1 * frc) / 1000
+        # Convert random color
+        objcol = colorsys.hsv_to_rgb(hue, hsv[1], hsv[2])
 
-
-    myVertex = []
-    myFaces = []
+    myvertex = []
+    myfaces = []
     x = 0
     # Left side
-    myVertex.extend([(x,-sY,0),(0,0,0),(x,0,sZ),(x,-sY,sZ)])
-    myFaces.extend([(0,1,2,3)])
+    myvertex.extend([(x, -sy, 0), (0, 0, 0), (x, 0, sz), (x, -sy, sz)])
+    myfaces.extend([(0, 1, 2, 3)])
 
-    myVertex.extend([(x + gap,-sY + gap,0),(x + gap,0,0),(x + gap,0,sZ),(x + gap,-sY + gap,sZ)])
-    myFaces.extend([(4,5,6,7)])
-    
+    myvertex.extend([(x + gap, -sy + gap, 0), (x + gap, 0, 0), (x + gap, 0, sz),
+                     (x + gap, -sy + gap, sz)])
+    myfaces.extend([(4, 5, 6, 7)])
+
     # Right side
-    x = sX - gap
-    myVertex.extend([(x,-sY + gap,0),(x,0,0),(x,0,sZ),(x,-sY + gap,sZ)])
-    myFaces.extend([(8,9,10,11)])
-    
-    myVertex.extend([(x + gap,-sY,0),(x + gap,0,0),(x + gap,0,sZ),(x + gap,-sY,sZ)])
-    myFaces.extend([(12,13,14,15)])
-    
-    myFaces.extend([(0,12,15,3),(4,8,11,7),(3,15,11,7),(0,12,8,4),(0,1,5,4),(8,9,13,12),(3,2,6,7)
-                    ,(11,10,14,15),(1,2,6,5),(9,10,14,13)])
-    
-    # Top inside
-    myVertex.extend([(gap,-sY + gap,sZ-gap),(gap, -gap,sZ-gap),(sX-gap, -gap,sZ-gap),(sX-gap,-sY + gap,sZ-gap)])
-    myFaces.extend([(16,17,18,19)])
-     
-    # bottom inside and front face
-    myVertex.extend([(gap,-sY + gap,gap),(gap, -gap,gap),(sX-gap, -gap,gap),(sX-gap,-sY + gap,gap)])
-    myFaces.extend([(20,21,22,23),(17,18,22,21)])
+    x = sx - gap
+    myvertex.extend([(x, -sy + gap, 0), (x, 0, 0), (x, 0, sz), (x, -sy + gap, sz)])
+    myfaces.extend([(8, 9, 10, 11)])
 
-    mymesh = bpy.data.meshes.new(objName)
-    myBook = bpy.data.objects.new(objName, mymesh)
-    
-    myBook.location[0] = pX
-    myBook.location[1] = pY
-    myBook.location[2] = pZ + math.sin(math.radians(rot)) * sX 
-    bpy.context.scene.objects.link(myBook)
-    
-    mymesh.from_pydata(myVertex, [], myFaces)
+    myvertex.extend([(x + gap, -sy, 0), (x + gap, 0, 0), (x + gap, 0, sz), (x + gap, -sy, sz)])
+    myfaces.extend([(12, 13, 14, 15)])
+
+    myfaces.extend(
+        [(0, 12, 15, 3), (4, 8, 11, 7), (3, 15, 11, 7), (0, 12, 8, 4), (0, 1, 5, 4),
+         (8, 9, 13, 12), (3, 2, 6, 7),
+         (11, 10, 14, 15), (1, 2, 6, 5), (9, 10, 14, 13)])
+
+    # Top inside
+    myvertex.extend([(gap, -sy + gap, sz - gap), (gap, -gap, sz - gap), (sx - gap, -gap, sz - gap),
+                     (sx - gap, -sy + gap, sz - gap)])
+    myfaces.extend([(16, 17, 18, 19)])
+
+    # bottom inside and front face
+    myvertex.extend([(gap, -sy + gap, gap), (gap, -gap, gap), (sx - gap, -gap, gap), (sx - gap, -sy + gap, gap)])
+    myfaces.extend([(20, 21, 22, 23), (17, 18, 22, 21)])
+
+    mymesh = bpy.data.meshes.new(objname)
+    mybook = bpy.data.objects.new(objname, mymesh)
+
+    mybook.location[0] = px
+    mybook.location[1] = py
+    mybook.location[2] = pz + math.sin(math.radians(rot)) * sx
+    bpy.context.scene.objects.link(mybook)
+
+    mymesh.from_pydata(myvertex, [], myfaces)
     mymesh.update(calc_edges=True)
-    
-    #---------------------------------
+
+    # ---------------------------------
     # Materials and UV Maps
-    #---------------------------------
-    if (mat):
-        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+    # ---------------------------------
+    if mat:
+        rgb = objcol
         # External
-        mat = create_diffuse_material(objName + "_material", True, rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2], 0.05)
-        set_material(myBook, mat)
+        mat = create_diffuse_material(objname + "_material", True, rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2], 0.05)
+        set_material(mybook, mat)
         # UV unwrap external
-        select_faces(myBook, 0, True)
-        select_faces(myBook, 3, False)
-        select_faces(myBook, 4, False)
-        unwrap_mesh(myBook,False)
+        select_faces(mybook, 0, True)
+        select_faces(mybook, 3, False)
+        select_faces(mybook, 4, False)
+        unwrap_mesh(mybook, False)
         # Add Internal
-        mat = create_diffuse_material(objName + "_side_material", True, 0.5, 0.5, 0.5, 0.5, 0.5, 0.3, 0.03)
-        myBook.data.materials.append(mat)
-        select_faces(myBook, 14, True)
-        select_faces(myBook, 15, False)
-        select_faces(myBook, 16, False)
-        set_material_faces(myBook, 1)
+        mat = create_diffuse_material(objname + "_side_material", True, 0.5, 0.5, 0.5, 0.5, 0.5, 0.3, 0.03)
+        mybook.data.materials.append(mat)
+        select_faces(mybook, 14, True)
+        select_faces(mybook, 15, False)
+        select_faces(mybook, 16, False)
+        set_material_faces(mybook, 1)
         # UV unwrap
         bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-        bpy.ops.mesh.select_all(action = 'DESELECT')
-        bpy.ops.object.mode_set(mode = 'OBJECT')
-        select_faces(myBook, 14, True)
-        select_faces(myBook, 15, False)
-        select_faces(myBook, 16, False)
-        unwrap_mesh(myBook,False)
-        
-    #---------------------------------
-    # Rotation on Y axis
-    #---------------------------------
-    myBook.rotation_euler = (0.0, math.radians(rot), 0.0) # radians
-    
-    # add some gap to the size between books
-    return (myBook,(sX,sY,sZ,rot))
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        select_faces(mybook, 14, True)
+        select_faces(mybook, 15, False)
+        select_faces(mybook, 16, False)
+        unwrap_mesh(mybook, False)
 
-#----------------------------------------------
-# Code to run alone the script
-#----------------------------------------------
-if __name__ == "__main__":
-    create_mesh(0)
-    print("Executed")
+    # ---------------------------------
+    # Rotation on Y axis
+    # ---------------------------------
+    mybook.rotation_euler = (0.0, math.radians(rot), 0.0)  # radians
+
+    # add some gap to the size between books
+    return mybook, (sx, sy, sz, rot)

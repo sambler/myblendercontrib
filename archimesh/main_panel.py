@@ -17,287 +17,364 @@
 #
 # ***** END GPL LICENCE BLOCK *****
 
-#----------------------------------------------------------
+# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+
+# ----------------------------------------------------------
 # File: main_panel.py
 # Main panel for different Archimesh general actions
 # Author: Antonio Vazquez (antonioya)
 #
-#----------------------------------------------------------
+# ----------------------------------------------------------
+# noinspection PyUnresolvedReferences
 import bpy
-import math
-from tools import *
+# noinspection PyUnresolvedReferences
+import bgl
+from arch_tools import *
+from arch_gltools import *
 
-#-----------------------------------------------------
+
+# -----------------------------------------------------
 # Verify if boolean already exist
-#-----------------------------------------------------
-def isBoolean(myObject,childObject):
+# -----------------------------------------------------
+def isboolean(myobject, childobject):
     flag = False
-    for mod in myObject.modifiers:
+    for mod in myobject.modifiers:
             if mod.type == 'BOOLEAN':
-                if mod.object == childObject:
+                if mod.object == childobject:
                     flag = True
                     break
     return flag        
-#------------------------------------------------------
+
+
+# ------------------------------------------------------
 # Button: Action to link windows and doors
-#------------------------------------------------------
-class holeAction(bpy.types.Operator):
+# ------------------------------------------------------
+class HoleAction(bpy.types.Operator):
     bl_idname = "object.archimesh_cut_holes"
     bl_label = "Auto Holes"
-    bl_description = "Enable windows and doors holes for any selected object"
+    bl_description = "Enable windows and doors holes for any selected object (needs wall thickness)"
     bl_category = 'Archimesh'
 
-    #------------------------------
+    # ------------------------------
     # Execute
-    #------------------------------
+    # ------------------------------
+    # noinspection PyMethodMayBeStatic
     def execute(self, context):
         scene = context.scene
-        listObj = []
-        #---------------------------------------------------------------------
+        listobj = []
+        # ---------------------------------------------------------------------
         # Save the list of selected objects because the select flag is missed
         # only can be windows or doors
-        #---------------------------------------------------------------------
+        # ---------------------------------------------------------------------
         for obj in bpy.context.scene.objects:
+            # noinspection PyBroadException
             try:
-                if obj["archimesh.hole_enable"] == True:
-                    if obj.select == True or scene.archimesh_select_only == False:
-                        listObj.extend([obj])   
+                if obj["archimesh.hole_enable"]:
+                    if obj.select is True or scene.archimesh_select_only is False:
+                        listobj.extend([obj])
             except:
                 continue
-        #---------------------------
+        # ---------------------------
         # Get the baseboard object  
-        #---------------------------
-        myBaseBoard = None
+        # ---------------------------
+        mybaseboard = None
         for child in context.object.children:
+            # noinspection PyBroadException
             try:
-                if child["archimesh.room_baseboard"] == True:
-                    myBaseBoard = child 
+                if child["archimesh.room_baseboard"]:
+                    mybaseboard = child
             except:
                 continue                
-        #-----------------------------
+        # ---------------------------
+        # Get the shell object
+        # ---------------------------
+        myshell = None
+        for child in context.object.children:
+            # noinspection PyBroadException
+            try:
+                if child["archimesh.room_shell"]:
+                    myshell = child
+            except:
+                continue
+
+        # -----------------------------
+        # Remove all empty Boolean modifiers
+        # -----------------------------
+        for mod in context.object.modifiers:
+            if mod.type == 'BOOLEAN':
+                if mod.object is None:
+                    bpy.ops.object.modifier_remove(modifier=mod.name)
+
+        # if thickness is 0, must be > 0
+        myroom = context.object
+        if myroom.RoomGenerator[0].wall_width == 0:
+            self.report({'WARNING'}, "Walls must have thickness for using autohole function. Change it and run again")
+        # -----------------------------
         # Now apply Wall holes
-        #-----------------------------
-        for obj in listObj:
-            parentObj = context.object
+        # -----------------------------
+        for obj in listobj:
+            parentobj = context.object
             # Parent the empty to the room (the parent of frame)
-            if obj.parent != None:
+            if obj.parent is not None:
                 bpy.ops.object.select_all(action='DESELECT')
-                parentObj.select = True
-                obj.parent.select = True # parent of object
-                bpy.ops.object.parent_set(type='OBJECT', keep_transform=False)                    
-            #---------------------------------------
+                parentobj.select = True
+                obj.parent.select = True  # parent of object
+                bpy.ops.object.parent_set(type='OBJECT', keep_transform=False)
+            # ---------------------------------------
             # Add the modifier to controller
             # and the scale to use the same thickness
-            #---------------------------------------
+            # ---------------------------------------
             for child in obj.parent.children:
+                # noinspection PyBroadException
                 try:
-                    if child["archimesh.ctrl_hole"] == True:
+                    if child["archimesh.ctrl_hole"]:
                         # apply scale
-                        t = parentObj.RoomGenerator[0].wall_width
+                        t = parentobj.RoomGenerator[0].wall_width
                         if t > 0:
-                            child.scale.y = (t  + 0.35) / (child.dimensions.y/child.scale.y) # Add some gap
+                            child.scale.y = (t + 0.45) / (child.dimensions.y/child.scale.y)  # Add some gap
                         else:
                             child.scale.y = 1     
                         # add boolean modifier
-                        if isBoolean(context.object,child) == False:
-                            set_modifier_boolean(context.object,child)
+                        if isboolean(context.object, child) is False:
+                            set_modifier_boolean(context.object, child)
                 except:
-                    x = 1 # dummy            
-        #---------------------------------------
+                    # print("Unexpected error:" + str(sys.exc_info()))
+                    pass
+        # ---------------------------------------
         # Now add the modifiers to baseboard
-        #---------------------------------------
-        if myBaseBoard != None:
+        # ---------------------------------------
+        if mybaseboard is not None:
             for obj in bpy.context.scene.objects:
+                # noinspection PyBroadException
                 try:
-                    if obj["archimesh.ctrl_base"] == True:
-                        if obj.select == True or scene.archimesh_select_only == False:
+                    if obj["archimesh.ctrl_base"]:
+                        if obj.select is True or scene.archimesh_select_only is False:
                             # add boolean modifier
-                            if isBoolean(myBaseBoard,obj) == False:
-                                set_modifier_boolean(myBaseBoard,obj)
+                            if isboolean(mybaseboard, obj) is False:
+                                set_modifier_boolean(mybaseboard, obj)
                 except:
-                    x = 1 # dummy            
-                    
+                    pass
+            # Clear empty booleans
+            for mod in mybaseboard.modifiers:
+                if mod.type == 'BOOLEAN':
+                    if mod.object is None:
+                        bpy.ops.object.modifier_remove(modifier=mod.name)
+
+        # ---------------------------------------
+        # Now add the modifiers to shell
+        # ---------------------------------------
+        if myshell is not None:
+            # Remove all empty Boolean modifiers
+            for mod in myshell.modifiers:
+                if mod.type == 'BOOLEAN':
+                    if mod.object is None:
+                        bpy.ops.object.modifier_remove(modifier=mod.name)
+
+            for obj in bpy.context.scene.objects:
+                # noinspection PyBroadException
+                try:
+                    if obj["archimesh.ctrl_hole"]:
+                        if obj.select is True or scene.archimesh_select_only is False:
+                            # add boolean modifier
+                            if isboolean(myshell, obj) is False:
+                                set_modifier_boolean(myshell, obj)
+                except:
+                    pass
+            # Clear empty booleans
+            for mod in myshell.modifiers:
+                if mod.type == 'BOOLEAN':
+                    if mod.object is None:
+                        bpy.ops.object.modifier_remove(modifier=mod.name)
+
         return {'FINISHED'}
 
-#------------------------------------------------------
+
+# ------------------------------------------------------
 # Button: Action to create room from grease pencil 
-#------------------------------------------------------
-class pencilAction(bpy.types.Operator):
+# ------------------------------------------------------
+class PencilAction(bpy.types.Operator):
     bl_idname = "object.archimesh_pencil_room"
     bl_label = "Room from Draw"
     bl_description = "Create a room base on grease pencil strokes (draw from top view (7 key))"
     bl_category = 'Archimesh'
 
-    #------------------------------
+    # ------------------------------
     # Execute
-    #------------------------------
+    # ------------------------------
     def execute(self, context):
         # Enable for debugging code
-        debugMODE = False
+        debugmode = False
 
         scene = context.scene
+        mypoints = None
+        clearangles = None
 
         # define error margin 
-        xRange = 0.01
-        yRange = 0.01
+        xrange = 0.01
+        yrange = 0.01
         
-        if debugMODE == True:
+        if debugmode is True:
             print("======================================================================")
             print("==                                                                  ==")
             print("==  Grease pencil strokes analysis                                  ==")
             print("==                                                                  ==")
             print("======================================================================")
         
-        #-----------------------------------
+        # -----------------------------------
         # Get grease pencil points
-        #-----------------------------------
+        # -----------------------------------
+        # noinspection PyBroadException
         try:
             
+            # noinspection PyBroadException
             try:
                 pencil = bpy.context.object.grease_pencil.layers.active 
             except:    
                 pencil = bpy.context.scene.grease_pencil.layers.active
                 
-            if pencil.active_frame != None:
+            if pencil.active_frame is not None:
                 for i, stroke in enumerate(pencil.active_frame.strokes):
                     stroke_points = pencil.active_frame.strokes[i].points
-                    allPoints = [ (point.co.x, point.co.y) 
-                                    for point in stroke_points ]
+                    allpoints = [(point.co.x, point.co.y)
+                                 for point in stroke_points]
                     
-                    myPoints = []
+                    mypoints = []
                     idx = 0
                     x = 0
                     y = 0
                     orientation = None
                     old_orientation = None
                     
-                    for point in allPoints:
+                    for point in allpoints:
                         if idx == 0:
                             x = point[0]
                             y = point[1]
                         else:    
-                            if (x - xRange) <= point[0] <= (x + xRange):
+                            if (x - xrange) <= point[0] <= (x + xrange):
                                 orientation = "V"
                                 
-                            if (y - yRange) <= point[1] <= (y + yRange):
+                            if (y - yrange) <= point[1] <= (y + yrange):
                                 orientation = "H"
                                 
                             if old_orientation == orientation:
                                 x = point[0]
                                 y = point[1]
                             else:                                     
-                                myPoints.extend([(x,y)])
+                                mypoints.extend([(x, y)])
                                 x = point[0]
                                 y = point[1]
                                 old_orientation = orientation
             
                         idx += 1
                     # Last point
-                    myPoints.extend([(x,y)])
+                    mypoints.extend([(x, y)])
                     
-                    if debugMODE == True:
+                    if debugmode is True:
                         print("\nPoints\n====================")
                         i = 0 
-                        for p in myPoints:
+                        for p in mypoints:
                             print(str(i) + ":" + str(p))
                             i += 1
-                    #-----------------------------------
+                    # -----------------------------------
                     # Calculate distance between points
-                    #-----------------------------------
-                    if debugMODE == True:
+                    # -----------------------------------
+                    if debugmode is True:
                         print("\nDistance\n====================")
-                    i = len(myPoints)
-                    distList = []
-                    for e in range(1,i):
-                        d = math.sqrt(((myPoints[e][0] - myPoints[e-1][0]) ** 2) + ((myPoints[e][1] - myPoints[e-1][1]) ** 2))
-                        distList.extend([(d)])
+                    i = len(mypoints)
+                    distlist = []
+                    for e in range(1, i):
+                        d = math.sqrt(
+                            ((mypoints[e][0] - mypoints[e - 1][0]) ** 2) + ((mypoints[e][1] - mypoints[e - 1][1]) ** 2))
+                        distlist.extend([d])
                         
-                        if debugMODE == True:
+                        if debugmode is True:
                             print(str(e-1) + ":" + str(d))
-                    #-----------------------------------
+                    # -----------------------------------
                     # Calculate angle of walls
                     # clamped to right angles
-                    #-----------------------------------
-                    if debugMODE == True:
+                    # -----------------------------------
+                    if debugmode is True:
                         print("\nAngle\n====================")
                         
-                    i = len(myPoints)
-                    angleList = []
-                    for e in range(1,i):
-                        sinV = (myPoints[e][1] - myPoints[e-1][1]) / math.sqrt(((myPoints[e][0] - myPoints[e-1][0]) ** 2) + ((myPoints[e][1] - myPoints[e-1][1]) ** 2))
-                        a = math.asin(sinV)            
+                    i = len(mypoints)
+                    anglelist = []
+                    for e in range(1, i):
+                        sinv = (mypoints[e][1] - mypoints[e - 1][1]) / math.sqrt(
+                            ((mypoints[e][0] - mypoints[e - 1][0]) ** 2) + ((mypoints[e][1] - mypoints[e - 1][1]) ** 2))
+                        a = math.asin(sinv)
                         # Clamp to 90 or 0 degrees
                         if math.fabs(a) > math.pi / 4:
                             b = math.pi / 2
                         else:
                             b = 0    
                         
-                        angleList.extend([(b)])
+                        anglelist.extend([b])
                         # Reverse de distance using angles (inverse angle to axis) for Vertical lines
                         if a < 0.0 and b != 0:
-                            distList[e-1] = distList[e-1] * -1 # reverse distance
-                            
+                            distlist[e - 1] *= -1  # reverse distance
+
                         # Reverse de distance for horizontal lines
                         if b == 0:
-                            if myPoints[e-1][0] > myPoints[e][0]:
-                                distList[e-1] = distList[e-1] * -1 # reverse distance
-                        
-                        if debugMODE == True:
-                            print(str(e-1) + ":" + str((a * 180) / math.pi) + "...:" + str((b * 180) / math.pi) + "--->" + str(distList[e-1])) 
+                            if mypoints[e-1][0] > mypoints[e][0]:
+                                distlist[e - 1] *= -1  # reverse distance
 
-                    #---------------------------------------
+                        if debugmode is True:
+                            print(str(e - 1) + ":" + str((a * 180) / math.pi) + "...:" + str(
+                                (b * 180) / math.pi) + "--->" + str(distlist[e - 1]))
+
+                    # ---------------------------------------
                     # Verify duplications and reduce noise
-                    #---------------------------------------
-                    if len(angleList) >= 1:
-                        clearAngles = []
-                        clearDistan = []
-                        i = len(angleList)
-                        oldAngle = angleList[0]
-                        oldDist = 0
-                        for e in range(0,i):
-                            if oldAngle != angleList[e]:
-                                clearAngles.extend([(oldAngle)])
-                                clearDistan.extend([(oldDist)])    
-                                oldAngle = angleList[e]
-                                oldDist = distList[e]
+                    # ---------------------------------------
+                    if len(anglelist) >= 1:
+                        clearangles = []
+                        cleardistan = []
+                        i = len(anglelist)
+                        oldangle = anglelist[0]
+                        olddist = 0
+                        for e in range(0, i):
+                            if oldangle != anglelist[e]:
+                                clearangles.extend([oldangle])
+                                cleardistan.extend([olddist])
+                                oldangle = anglelist[e]
+                                olddist = distlist[e]
                             else:
-                                oldDist += distList[e]
+                                olddist += distlist[e]
                         # last 
-                        clearAngles.extend([(oldAngle)])
-                        clearDistan.extend([(oldDist)])    
+                        clearangles.extend([oldangle])
+                        cleardistan.extend([olddist])
 
-            #----------------------------
+            # ----------------------------
             # Create the room 
-            #----------------------------
-            if len(myPoints) > 1 and len(clearAngles) > 0:
+            # ----------------------------
+            if len(mypoints) > 1 and len(clearangles) > 0:
                 # Move cursor
-                bpy.context.scene.cursor_location.x = myPoints[0][0]
-                bpy.context.scene.cursor_location.y = myPoints[0][1]
-                bpy.context.scene.cursor_location.z = 0 # always on grid floor
+                bpy.context.scene.cursor_location.x = mypoints[0][0]
+                bpy.context.scene.cursor_location.y = mypoints[0][1]
+                bpy.context.scene.cursor_location.z = 0  # always on grid floor
                 
                 # Add room mesh
                 bpy.ops.mesh.archimesh_room()
-                myRoom = context.object
-                myData = myRoom.RoomGenerator[0]
+                myroom = context.object
+                mydata = myroom.RoomGenerator[0]
                 # Number of walls
-                myData.wall_num = len(myPoints) - 1
-                myData.ceiling = scene.archimesh_ceiling
-                myData.floor = scene.archimesh_floor
-                myData.merge = scene.archimesh_merge
+                mydata.wall_num = len(mypoints) - 1
+                mydata.ceiling = scene.archimesh_ceiling
+                mydata.floor = scene.archimesh_floor
+                mydata.merge = scene.archimesh_merge
                 
-                i = len(myPoints)
-                for e in range(0,i-1):
-                    if clearAngles[e] == math.pi / 2: 
-                        if clearDistan[e] > 0:
-                            myData.walls[e].w = round(math.fabs(clearDistan[e]),2)
-                            myData.walls[e].r = (math.fabs(clearAngles[e]) * 180) / math.pi # from radians
+                i = len(mypoints)
+                for e in range(0, i-1):
+                    if clearangles[e] == math.pi / 2:
+                        if cleardistan[e] > 0:
+                            mydata.walls[e].w = round(math.fabs(cleardistan[e]), 2)
+                            mydata.walls[e].r = (math.fabs(clearangles[e]) * 180) / math.pi  # from radians
                         else:
-                            myData.walls[e].w = round(math.fabs(clearDistan[e]),2)
-                            myData.walls[e].r = (math.fabs(clearAngles[e]) * 180 * -1) / math.pi # from radians
+                            mydata.walls[e].w = round(math.fabs(cleardistan[e]), 2)
+                            mydata.walls[e].r = (math.fabs(clearangles[e]) * 180 * -1) / math.pi  # from radians
                                 
                     else:
-                        myData.walls[e].w = round(clearDistan[e],2)
-                        myData.walls[e].r = (math.fabs(clearAngles[e]) * 180) / math.pi # from radians
+                        mydata.walls[e].w = round(cleardistan[e], 2)
+                        mydata.walls[e].r = (math.fabs(clearangles[e]) * 180) / math.pi  # from radians
                             
                 # Remove Grease pencil
                 if pencil is not None:
@@ -313,69 +390,63 @@ class pencilAction(bpy.types.Operator):
             self.report({'WARNING'}, "Archimesh: No grease pencil strokes. Do strokes in top view before creating room")
             return {'CANCELLED'}
 
-#------------------------------------------------------------------
+
+# ------------------------------------------------------------------
 # Define panel class for main functions.
-#------------------------------------------------------------------
+# ------------------------------------------------------------------
 class ArchimeshMainPanel(bpy.types.Panel):
-    bl_idname      ="archimesh_main_panel"
-    bl_label       ="Archimesh"
-    bl_space_type  ='VIEW_3D'
+    bl_idname = "archimesh_main_panel"
+    bl_label = "Archimesh"
+    bl_space_type = 'VIEW_3D'
     bl_region_type = "TOOLS"
     bl_category = 'Archimesh'
 
-    #------------------------------
+    # ------------------------------
     # Draw UI
-    #------------------------------
+    # ------------------------------
     def draw(self, context):
         layout = self.layout
         scene = context.scene
 
-        myObj = context.object
-        #-------------------------------------------------------------------------
+        myobj = context.object
+        # -------------------------------------------------------------------------
         # If the selected object didn't be created with the group 'RoomGenerator', 
         # this button is not created.
-        #-------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
+        # noinspection PyBroadException
         try:
-            if 'RoomGenerator' in myObj:
+            if 'RoomGenerator' in myobj:
                 box = layout.box()
-                box.label("Room Tools",icon='MODIFIER')
+                box.label("Room Tools", icon='MODIFIER')
                 row = box.row(align=False)
                 row.operator("object.archimesh_cut_holes", icon='GRID')
-                row.prop(scene,"archimesh_select_only")
+                row.prop(scene, "archimesh_select_only")
     
                 # Export/Import
                 row = box.row(align=False)
-                row.operator("io_import.roomdata", text="Import",icon='COPYDOWN')
-                row.operator("io_export.roomdata", text="Export",icon='PASTEDOWN')
+                row.operator("io_import.roomdata", text="Import", icon='COPYDOWN')
+                row.operator("io_export.roomdata", text="Export", icon='PASTEDOWN')
         except:
-            x = 1 # dummy line   
+            pass
         
-        # Grease pencil tools 
-        box = layout.box()
-        box.label("Pencil Tools",icon='MODIFIER')
-        row = box.row(align=False)
-        row.operator("object.archimesh_pencil_room", icon='GREASEPENCIL')
-        row = box.row(align=False)
-        row.prop(scene,"archimesh_ceiling")
-        row.prop(scene,"archimesh_floor")
-        row.prop(scene,"archimesh_merge")
-        #-------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
         # If the selected object isn't a kitchen 
         # this button is not created.
-        #-------------------------------------------------------------------------
+        # -------------------------------------------------------------------------
+        # noinspection PyBroadException
         try:
-            if myObj["archimesh.sku"] != None:
+            if myobj["archimesh.sku"] is not None:
                 box = layout.box()
-                box.label("Kitchen Tools",icon='MODIFIER')
+                box.label("Kitchen Tools", icon='MODIFIER')
                 # Export
                 row = box.row(align=False)
-                row.operator("io_export.kitchen_inventory", text="Export inventory",icon='PASTEDOWN')
+                row.operator("io_export.kitchen_inventory", text="Export inventory", icon='PASTEDOWN')
         except:
-            x = 1 # dummy line   
+            pass
             
-        #------------------------------
+        # ------------------------------
         # Elements Buttons
-        #------------------------------
+        # ------------------------------
         box = layout.box()
         box.label("Elements", icon='GROUP')
         row = box.row()
@@ -383,7 +454,9 @@ class ArchimeshMainPanel(bpy.types.Panel):
         row.operator("mesh.archimesh_column")
         row = box.row()
         row.operator("mesh.archimesh_door")
+        row = box.row()
         row.operator("mesh.archimesh_window")
+        row.operator("mesh.archimesh_winpanel")
         row = box.row()
         row.operator("mesh.archimesh_kitchen")
         row.operator("mesh.archimesh_shelves")
@@ -391,11 +464,11 @@ class ArchimeshMainPanel(bpy.types.Panel):
         row.operator("mesh.archimesh_stairs")
         row.operator("mesh.archimesh_roof")
         
-        #------------------------------
+        # ------------------------------
         # Prop Buttons
-        #------------------------------
+        # ------------------------------
         box = layout.box()
-        box.label("Props",icon='LAMP_DATA')
+        box.label("Props", icon='LAMP_DATA')
         row = box.row()
         row.operator("mesh.archimesh_books")
         row.operator("mesh.archimesh_lamp")
@@ -404,4 +477,102 @@ class ArchimeshMainPanel(bpy.types.Panel):
         row.operator("mesh.archimesh_roller")
         row = box.row()
         row.operator("mesh.archimesh_japan")
-            
+
+        # ------------------------------
+        # OpenGL Buttons
+        # ------------------------------
+        box = layout.box()
+        box.label("Display hints", icon='QUESTION')
+        row = box.row()
+        if context.window_manager.archimesh_run_opengl is False:
+            icon = 'PLAY'
+            txt = 'Show'
+        else:
+            icon = "PAUSE"
+            txt = 'Hide'
+        row.operator("archimesh.runopenglbutton", text=txt, icon=icon)
+        row = box.row()
+        row.prop(scene, "archimesh_gl_measure", toggle=True, icon="ALIGN")
+        row.prop(scene, "archimesh_gl_name", toggle=True, icon="OUTLINER_OB_FONT")
+        row.prop(scene, "archimesh_gl_ghost", icon='GHOST_ENABLED')
+        row = box.row()
+        row.prop(scene, "archimesh_text_color", text="")
+        row.prop(scene, "archimesh_walltext_color", text="")
+        row = box.row()
+        row.prop(scene, "archimesh_font_size")
+        row.prop(scene, "archimesh_wfont_size")
+        row = box.row()
+        row.prop(scene, "archimesh_hint_space")
+        # ------------------------------
+        # Grease pencil tools
+        # ------------------------------
+        box = layout.box()
+        box.label("Pencil Tools", icon='MODIFIER')
+        row = box.row(align=False)
+        row.operator("object.archimesh_pencil_room", icon='GREASEPENCIL')
+        row = box.row(align=False)
+        row.prop(scene, "archimesh_ceiling")
+        row.prop(scene, "archimesh_floor")
+        row.prop(scene, "archimesh_merge")
+
+
+# -------------------------------------------------------------
+# Defines button for enable/disable the tip display
+#
+# -------------------------------------------------------------
+class RunHintDisplayButton(bpy.types.Operator):
+    bl_idname = "archimesh.runopenglbutton"
+    bl_label = "Display hint data manager"
+    bl_description = "Display aditional information in the viewport"
+    bl_category = 'Archimesh'
+
+    _handle = None  # keep function handler
+
+    # ----------------------------------
+    # Enable gl drawing adding handler
+    # ----------------------------------
+    @staticmethod
+    def handle_add(self, context):
+        if RunHintDisplayButton._handle is None:
+            RunHintDisplayButton._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_px, (self, context),
+                                                                                  'WINDOW',
+                                                                                  'POST_PIXEL')
+            context.window_manager.archimesh_run_opengl = True
+
+    # ------------------------------------
+    # Disable gl drawing removing handler
+    # ------------------------------------
+    # noinspection PyUnusedLocal
+    @staticmethod
+    def handle_remove(self, context):
+        if RunHintDisplayButton._handle is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(RunHintDisplayButton._handle, 'WINDOW')
+        RunHintDisplayButton._handle = None
+        context.window_manager.archimesh_run_opengl = False
+
+    # ------------------------------
+    # Execute button action
+    # ------------------------------
+    def execute(self, context):
+        if context.area.type == 'VIEW_3D':
+            if context.window_manager.archimesh_run_opengl is False:
+                self.handle_add(self, context)
+                context.area.tag_redraw()
+            else:
+                self.handle_remove(self, context)
+                context.area.tag_redraw()
+
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'},
+                        "View3D not found, cannot run operator")
+
+        return {'CANCELLED'}
+
+
+# -------------------------------------------------------------
+# Handler for drawing OpenGl
+# -------------------------------------------------------------
+# noinspection PyUnusedLocal
+def draw_callback_px(self, context):
+    draw_main(context)
