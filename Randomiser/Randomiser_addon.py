@@ -580,7 +580,6 @@ class RandomiseTextData (bpy.types.Operator):
 
         # Get a new string for the text:
         if generate_method == 'grow':
-            print (i)
             if get_iter(data, 'update', 0, self.frame) != 0:
                 #Dont allow a negative index, end should be > 0.
                 end = 0

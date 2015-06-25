@@ -18,8 +18,11 @@
 import bgl
 import blf
 import mathutils
+from mathutils import Color, Vector, Matrix, Quaternion, Euler
 
 import math
+
+from .utils_math import clamp_angle
 
 #============================================================================#
 
@@ -116,37 +119,58 @@ def make_RenderBatch():
             for v in seq:
                 self.vertex(*v)
         
-        @staticmethod
-        def circle(center, extents, resolution=2.0,
-                   start=0.0, end=2.0*math.pi,
-                   skip_start=0, skip_end=0, align=False):
-            x0, y0 = center
+        @classmethod
+        def arc(cls, center, extents, resolution=2.0, start=0.0, end=2.0*math.pi, skip_start=0, skip_end=0):
+            sin = math.sin
+            cos = math.cos
             
+            x0 = center[0]
+            y0 = center[1]
             if isinstance(extents, (int, float)):
                 xs = extents
                 ys = extents
             else:
-                xs, ys = extents
+                xs = extents[0]
+                ys = extents[1]
             
             sector = end - start
-            
-            if isinstance(resolution, int):
-                n = resolution
-            else:
-                n = (abs(sector) * max(xs, ys)) / resolution
-            
-            modf = math.modf
-            
+            n = resolution
+            if isinstance(n, float): n = int(round((abs(sector) * max(xs, ys)) / n))
+            n = max(n, 2)
+            step = sector / n
             for i in range(skip_start, n - skip_end + 1):
-                angle = start + (sector * i / n)
-                nx = math.sin(angle)
-                ny = math.cos(angle)
-                x = x0 + nx * xs
-                y = y0 + ny * ys
-                if align:
-                    yield modf(x)[1], modf(y)[1]
-                else:
-                    yield x, y
+                angle = start + step * i
+                yield (x0 + sin(angle) * xs, y0 + cos(angle) * ys)
+        
+        circle = arc
+        oval = arc
+        
+        @classmethod
+        def rounded_primitive(cls, verts, radius, resolution=2.0):
+            if not verts: return
+            if len(verts) == 1:
+                yield from cls.arc(verts[0], radius, resolution, skip_end=1)
+            elif len(verts) == 2:
+                v0, v1 = verts
+                dv = v1 - v0
+                angle = Vector((0,1)).angle_signed(Vector((-dv.y, dv.x)), 0.0)
+                yield from cls.arc(v0, radius, resolution, angle-math.pi, angle)
+                yield from cls.arc(v1, radius, resolution, angle, angle+math.pi)
+            elif radius == 0:
+                yield from verts # exactly the same
+            else:
+                vref = Vector((0,1))
+                count = len(verts)
+                for i0 in range(count):
+                    v0 = verts[i0]
+                    v1 = verts[(i0 + 1) % count]
+                    v2 = verts[(i0 + 2) % count]
+                    dv10 = v1 - v0
+                    dv21 = v2 - v1
+                    angle10 = vref.angle_signed(Vector((-dv10.y, dv10.x)), 0.0)
+                    angle21 = vref.angle_signed(Vector((-dv21.y, dv21.x)), 0.0)
+                    angle21 = angle10 + clamp_angle(angle21 - angle10)
+                    yield from cls.arc(v1, radius, resolution, angle10, angle21)
     
     return RenderBatch
 
@@ -266,6 +290,60 @@ def fill_BLF():
     blf_dimensions = blf.dimensions
     blf_draw = blf.draw
     
+    class BatchedText:
+        def __init__(self, font, pieces, size):
+            self.font = font
+            self.pieces = pieces
+            self.size = size
+        
+        def draw(self, pos, origin=None, text=None, background=None, outline=None, radius=0, resolution=2.0):
+            font = self.font
+            
+            x = pos[0]
+            y = pos[1]
+            z = (pos[2] if len(pos) > 2 else 0)
+            
+            if origin:
+                x -= self.size[0] * origin[0]
+                y -= self.size[1] * origin[1]
+            
+            if background or outline:
+                v0 = Vector((x, y, z))
+                dx = Vector((self.size[0], 0, 0))
+                dy = Vector((0, self.size[1], 0))
+                verts = (v0, v0+dy, v0+dx+dy, v0+dx)
+                verts = tuple(RenderBatch.rounded_primitive(verts, radius, resolution))
+            
+            cgl.BLEND = True
+            
+            if background:
+                if len(background) == 3:
+                    cgl.Color3 = background
+                else:
+                    cgl.Color = background
+                with cgl.batch('POLYGON') as batch:
+                    batch.sequence(verts)
+            
+            if outline:
+                if len(outline) == 3:
+                    cgl.Color3 = outline
+                else:
+                    cgl.Color = outline
+                with cgl.batch('LINE_LOOP') as batch:
+                    batch.sequence(verts)
+            
+            if text:
+                if len(text) == 3:
+                    cgl.Color3 = text
+                else:
+                    cgl.Color = text
+            
+            if text or (not (background or outline)):
+                x0, y0 = round(x), round(y)
+                for txt, x, y in self.pieces:
+                    blf_position(font, x0+x, y0+y, z)
+                    blf_draw(font, txt)
+    
     class Text:
         font = 0 # 0 is the default font
         
@@ -305,6 +383,29 @@ def fill_BLF():
         def aspect(self, aspect):
             blf_aspect(self.font, aspect)
         
+        def compile(self, text, width=None, alignment=None):
+            font = self.font
+            
+            if width is None:
+                lines, size = [text], blf_dimensions(font, text)
+            else:
+                lines, size = self.wrap_text(text, width, font=font)
+            
+            if (alignment in (None, 'LEFT')): alignment = 0.0
+            elif (alignment == 'CENTER'): alignment = 0.5
+            elif (alignment == 'RIGHT'): alignment = 1.0
+            
+            pieces = []
+            x, y = 0, 0
+            w, h = size
+            for line in lines:
+                line_size = blf_dimensions(font, line)
+                x = (w - line_size[0]) * alignment
+                pieces.append((line, round(x), round(y)))
+                y += line_size[1]
+            
+            return BatchedText(font, pieces, size)
+        
         # drawing (WARNING: modifies BLEND state)
         def draw(self, text, pos=None, origin=None, width=None, alignment=None):
             font = self.font
@@ -331,8 +432,9 @@ def fill_BLF():
                 for line in lines:
                     line_size = blf_dimensions(font, line)
                     x = x0 + (w - line_size[0]) * alignment
-                    blf_position(font, x, y, z)
+                    blf_position(font, round(x), round(y), z)
                     blf_draw(font, line)
+                    y += line_size[1]
             else:
                 x = pos[0]
                 y = pos[1]
@@ -343,7 +445,7 @@ def fill_BLF():
                     x -= size[0] * origin[0]
                     y -= size[1] * origin[1]
                 
-                blf_position(font, x, y, z)
+                blf_position(font, round(x), round(y), z)
                 blf_draw(font, text)
         
         # dimensions & wrapping calculation

@@ -15,6 +15,7 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
+import mathutils
 from mathutils import Color, Vector, Matrix, Quaternion, Euler
 
 import math
@@ -44,13 +45,13 @@ def round_step(x, s=1.0):
     #return math.floor(x * s + 0.5) / s
     return math.floor(x / s + 0.5) * s
 
-twoPi = 2.0 * math.pi
-def clamp_angle(ang):
+def clamp_angle(ang, pi=math.pi):
     # Attention! In Python the behaviour is:
     # -359.0 % 180.0 == 1.0
     # -359.0 % -180.0 == -179.0
+    twoPi = 2.0*pi
     ang = (ang % twoPi)
-    return ((ang - twoPi) if (ang > math.pi) else ang)
+    return ((ang - twoPi) if (ang > pi) else ang)
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! TODO: check if Blender has a correct implementation now !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 def angle_axis_to_quat(angle, axis):
@@ -101,45 +102,186 @@ def nautical_euler_to_quaternion(ne):
     rot_z = Quaternion((0, 0, 1), ne[2])
     return rot_z * rot_x * rot_y
 
-def orthogonal(v): # Vector.orthogonal isn't present in 2.70
-    size = len(v)
-    v = (Vector((v[0], v[1], 0.0)) if size == 2 else Vector(v))
-    if v.length_squared < 1e-8: return Vector.Fill(size)
-    ort = Vector((0,0,1)).cross(v).normalized()
-    if ort.length_squared < 0.5:
-        ort = Vector((0,1,0)).cross(v).normalized()
-    return (ort.to_2d() if size == 2 else ort)
+def dist_to_segment(p, a, b):
+    l2 = (b - a).length_squared
+    if l2 == 0.0: return (p - a).magnitude
+    t = min(max((p - a).dot(b - a) / l2, 0.0), 1.0)
+    return (a.lerp(b, t) - p).magnitude
+
+def line_line_t(line, line1, fallback=None, normalized=True, clip0=None, clip1=None):
+    v00, v01 = line
+    res = mathutils.geometry.intersect_line_line(v00, v01, line1[0], line1[1])
+    if not res: return fallback
+    delta = v01 - v00
+    mag2 = delta.length_squared
+    delta *= 1.0/mag2
+    t = (res[0] - v00).dot(delta) # res is tuple of vectors
+    if clip0 is not None: t = max(t, clip0)
+    if clip1 is not None: t = min(t, clip1)
+    if not normalized: t *= math.sqrt(mag2)
+    return t
+
+def line_plane_t(line, plane, fallback=None, normalized=True, clip0=None, clip1=None):
+    v00, v01 = line
+    res = mathutils.geometry.intersect_line_plane(v00, v01, plane[0], plane[1])
+    if not res: return fallback
+    delta = v01 - v00
+    mag2 = delta.length_squared
+    delta *= 1.0/mag2
+    t = (res - v00).dot(delta) # res is vector
+    if clip0 is not None: t = max(t, clip0)
+    if clip1 is not None: t = min(t, clip1)
+    if not normalized: t *= math.sqrt(mag2)
+    return t
+
+def line_sphere_t(line, sphere, fallback=None, normalized=True, clip0=None, clip1=None):
+    v00, v01 = line
+    res = mathutils.geometry.intersect_line_sphere(v00, v01, sphere[0], sphere[1], False)
+    if not res: return fallback
+    pA, pB = res
+    if (not pA) or (not pB): return fallback
+    delta = v01 - v00
+    mag2 = delta.length_squared
+    delta *= 1.0/mag2
+    tA = (pA - v00).dot(delta)
+    tB = (pB - v00).dot(delta)
+    if clip0 is not None:
+        tA = max(tA, clip0)
+        tB = max(tB, clip0)
+    if clip1 is not None:
+        tA = min(tA, clip1)
+        tB = min(tB, clip1)
+    if not normalized:
+        tA *= math.sqrt(mag2)
+        tB *= math.sqrt(mag2)
+    return (tA, tB)
+
+def clip_primitive(primitive, plane): # expected to be a list of vertices
+    primitive_size = len(primitive)
+    if primitive_size == 0:
+        return primitive
+    elif primitive_size == 1:
+        dist = mathutils.geometry.distance_point_to_plane(primitive[0], plane[0], plane[1])
+        return ([] if dist < 0 else primitive)
+    elif primitive_size == 2:
+        dist0 = mathutils.geometry.distance_point_to_plane(primitive[0], plane[0], plane[1])
+        dist1 = mathutils.geometry.distance_point_to_plane(primitive[1], plane[0], plane[1])
+        if (dist0 >= 0) and (dist1 >= 0): return primitive
+        if (dist0 < 0) and (dist1 < 0): return []
+        t = line_plane_t(primitive, plane, clip0=0.0, clip1=1.0)
+        if t is None: return primitive
+        delta = primitive[1] - primitive[0]
+        if dist1 < dist0: return [primitive[0], primitive[0] + delta * t]
+        return [primitive[0] + delta * t, primitive[1]]
+    else: # should be convex and planar?
+        res = []
+        for i in range(primitive_size):
+            v0 = primitive[i]
+            v1 = primitive[(i+1) % primitive_size]
+            segment = clip_primitive([v0, v1], plane)
+            if not segment: continue
+            if (len(res) == 0) or (res[-1] != segment[0]): res.append(segment[0])
+            if (i < primitive_size-1): res.append(segment[1])
+        return res
+
+def transform_point_normal(m, t, n, as_plane=True):
+    if as_plane:
+        x, y, z = orthogonal_XYZ(None, None, n)
+        x, y, z, t = transform_plane(m, x, y, z, t)
+        return (t, z)
+    else:
+        t = m * t
+        n = (m.to_3x3() * n).normalized()
+        return (t, n)
+
+def transform_plane(m, x, y, z, t):
+    if (x is None) or (y is None): x, y, z = orthogonal_XYZ(x, y, z, "z")
+    
+    p0 = Vector(t)
+    px = p0 + Vector(x)
+    py = p0 + Vector(y)
+    pz = p0 + Vector(z)
+    
+    p0 = m * p0
+    px = m * px
+    py = m * py
+    pz = m * pz
+    
+    t = p0
+    y = (py - p0).normalized()
+    z = (px - p0).cross(y).normalized()
+    x = y.cross(z)
+    
+    return (x, y, z, t)
+
+def _orthogonal_rest(x, y, z, ort_XY):
+    _y = (Vector() if z is None else z.cross(x).normalized())
+    _z = (Vector() if y is None else x.cross(y).normalized())
+    if _y.length_squared > 0.5:
+        y = _y
+        z = x.cross(_y).normalized()
+    elif _z.length_squared > 0.5:
+        z = _z
+        y = _z.cross(x).normalized()
+    else:
+        y = orthogonal(x, ort_XY).normalized()
+        z = x.cross(y).normalized()
+    return y, z
 
 def orthogonal_XYZ(x, y, z, main_axis=None, ort_XY=True):
-    n_missing = int(x is None) + int(y is None) + int(z is None)
-    
-    if n_missing == 2:
-        if x is not None:
-            y = (orthogonal_in_XY(x) if ort_XY else orthogonal(x))
-        elif y is not None:
-            z = (orthogonal_in_XY(y) if ort_XY else orthogonal(y))
-        elif z is not None:
-            x = (orthogonal_in_XY(z) if ort_XY else orthogonal(z))
-    
-    if x is None:
-        x = y.cross(z)
-        if main_axis:
-            if main_axis == "y": z = x.cross(y)
-            elif main_axis == "z": y = z.cross(x)
-    elif y is None:
-        y = z.cross(x)
-        if main_axis:
-            if main_axis == "x": z = x.cross(y)
-            elif main_axis == "z": x = y.cross(z)
-    elif z is None:
-        z = x.cross(y)
-        if main_axis:
-            if main_axis == "x": y = z.cross(x)
-            elif main_axis == "y": x = y.cross(z)
+    if main_axis == "x":
+        # y = z.cross(x)
+        # z = x.cross(y)
+        y, z = _orthogonal_rest(x, y, z, ort_XY)
+    elif main_axis == "y":
+        # z = x.cross(y)
+        # x = y.cross(z)
+        z, x = _orthogonal_rest(y, z, x, ort_XY)
+    elif main_axis == "z":
+        # x = y.cross(z)
+        # y = z.cross(x)
+        x, y = _orthogonal_rest(z, x, y, ort_XY)
+    else:
+        n_missing = int(x is None) + int(y is None) + int(z is None)
+        
+        if n_missing == 2:
+            if x is not None:
+                y = (orthogonal_in_XY(x) if ort_XY else orthogonal(x))
+            elif y is not None:
+                z = (orthogonal_in_XY(y) if ort_XY else orthogonal(y))
+            elif z is not None:
+                x = (orthogonal_in_XY(z) if ort_XY else orthogonal(z))
+        
+        if x is None:
+            x = y.cross(z)
+            if main_axis:
+                if main_axis == "y": z = x.cross(y)
+                elif main_axis == "z": y = z.cross(x)
+        elif y is None:
+            y = z.cross(x)
+            if main_axis:
+                if main_axis == "x": z = x.cross(y)
+                elif main_axis == "z": x = y.cross(z)
+        elif z is None:
+            z = x.cross(y)
+            if main_axis:
+                if main_axis == "x": y = z.cross(x)
+                elif main_axis == "y": x = y.cross(z)
     
     return x, y, z
 
+def orthogonal(v, in_XY=False): # Vector.orthogonal isn't present in 2.70
+    size = len(v)
+    if size == 2: return Vector((-v[1], v[0]))
+    if in_XY: return orthogonal_in_XY(v)
+    if v.length_squared < 1e-8: return Vector.Fill(size)
+    v = (Vector((v[0], v[1], 0.0)) if size == 2 else Vector(v))
+    ort = Vector((0,0,1)).cross(v).normalized()
+    if ort.length_squared < 0.5: ort = Vector((0,1,0)).cross(v).normalized()
+    return (ort.to_2d() if size == 2 else ort)
+
 def orthogonal_in_XY(v):
+    v = v.normalized()
     return (Vector((0,0,1)).cross(v) if (1.0 - abs(v.z)) > 1e-6 else Vector((1,0,0)))
 
 def matrix_flatten(m):

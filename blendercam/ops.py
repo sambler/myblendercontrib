@@ -101,10 +101,10 @@ def timer_update(context):
 			o.outtext=tcom.lasttext#changes
 			#text=text+('# %s %s #' % (tcom.opname,tcom.lasttext))#CHANGES
 	#s.cam_text=text#changes
-		
-	for area in bpy.context.screen.areas:
-		if area.type == 'PROPERTIES':
-			area.tag_redraw()
+	if bpy.context.screen!=None:
+		for area in bpy.context.screen.areas:
+			if area.type == 'PROPERTIES':
+				area.tag_redraw()
 			
 class PathsBackground(bpy.types.Operator):
 	'''calculate CAM paths in background. File has to be saved before.'''
@@ -142,7 +142,37 @@ class PathsBackground(bpy.types.Operator):
 		bpy.ops.object.calculate_cam_paths_background.__class__.cam_processes.append([readthread,tcom])
 		return {'FINISHED'}
 		
+class KillPathsBackground(bpy.types.Operator):
+	'''calculate CAM paths in background. File has to be saved before.'''
+	bl_idname = "object.kill_calculate_cam_paths_background"
+	bl_label = "Kill background computation of an operation"
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	#processes=[]
+	
+	#@classmethod
+	#def poll(cls, context):
+	#	return context.active_object is not None
+	
+	def execute(self, context):
+		s=bpy.context.scene
+		o=s.cam_operations[s.cam_active_operation]
+		self.operation=o
 		
+		
+		if hasattr(bpy.ops.object.calculate_cam_paths_background.__class__,'cam_processes'):
+			processes=bpy.ops.object.calculate_cam_paths_background.__class__.cam_processes
+			for p in processes:
+				#proc=p[1].proc
+				#readthread=p[0]
+				tcom=p[1]
+				if tcom.opname==o.name:
+					processes.remove(p)
+					tcom.proc.kill()
+					o.computing=False
+				
+		return {'FINISHED'}
+				
 
 		
 class CalculatePath(bpy.types.Operator):
@@ -358,7 +388,6 @@ class CamChainAdd(bpy.types.Operator):
 		chain.index=s.cam_active_chain
 		
 		return {'FINISHED'}
-
 		
 class CamChainRemove(bpy.types.Operator):
 	'''Remove  CAM chain'''
@@ -396,6 +425,44 @@ class CamChainOperationAdd(bpy.types.Operator):
 		chain.active_operation+=1
 		chain.operations[-1].name=s.cam_operations[s.cam_active_operation].name
 		return {'FINISHED'}
+
+class CamChainOperationUp(bpy.types.Operator):
+	'''Add operation to chain'''
+	bl_idname = "scene.cam_chain_operation_up"
+	bl_label = "Add operation to chain"
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		return context.scene is not None
+
+	def execute(self, context):
+		s=bpy.context.scene
+		chain=s.cam_chains[s.cam_active_chain]
+		a=chain.active_operation
+		if a>0:
+			chain.operations.move(a,a-1)
+			chain.active_operation-=1
+		return {'FINISHED'}
+
+class CamChainOperationDown(bpy.types.Operator):
+	'''Add operation to chain'''
+	bl_idname = "scene.cam_chain_operation_down"
+	bl_label = "Add operation to chain"
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		return context.scene is not None
+
+	def execute(self, context):
+		s=bpy.context.scene
+		chain=s.cam_chains[s.cam_active_chain]
+		a=chain.active_operation
+		if a<len(chain.operations)-1:
+			chain.operations.move(a,a+1)
+			chain.active_operation+=1
+		return {'FINISHED'}		
 		
 class CamChainOperationRemove(bpy.types.Operator):
 	'''Remove operation from chain'''

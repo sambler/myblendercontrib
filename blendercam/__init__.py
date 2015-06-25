@@ -464,7 +464,7 @@ class camOperation(bpy.types.PropertyGroup):
 	
 	imgres_limit = bpy.props.IntProperty(name="Maximum resolution in megapixels", default=10, min=1, max=512,description="This property limits total memory usage and prevents crashes. Increase it if you know what are doing.", update = updateZbufferImage)
 	optimize = bpy.props.BoolProperty(name="Reduce path points",description="Reduce path points", default=True, update = updateRest)
-	optimize_threshold=bpy.props.FloatProperty(name="Reduction threshold", default=0.000001, min=0.00000001, max=1,precision=PRECISION, unit="LENGTH", update = updateRest)
+	optimize_threshold=bpy.props.FloatProperty(name="Reduction threshold in μm", default=1, min=0.000000001, max=1000,precision=20, update = updateRest)
 	
 	dont_merge = bpy.props.BoolProperty(name="Dont merge outlines when cutting",description="this is usefull when you want to cut around everything", default=False, update = updateRest)
 	
@@ -677,6 +677,7 @@ def get_panels():#convenience function for bot register and unregister functions
 	ui.VIEW3D_PT_tools_curvetools,
 	
 	ops.PathsBackground,
+	ops.KillPathsBackground,
 	ops.CalculatePath,
 	ops.PathsChain,
 	ops.PathsAll,
@@ -688,6 +689,9 @@ def get_panels():#convenience function for bot register and unregister functions
 	ops.CamChainRemove,
 	ops.CamChainOperationAdd,
 	ops.CamChainOperationRemove,
+	ops.CamChainOperationUp,
+	ops.CamChainOperationDown,
+	
 	ops.CamOperationAdd,
 	ops.CamOperationCopy,
 	ops.CamOperationRemove,

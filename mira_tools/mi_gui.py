@@ -29,6 +29,7 @@ class MI_ExtrudePanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         extrude_settings = context.scene.mi_extrude_settings
+        cur_surfs_settings = context.scene.mi_cur_surfs_settings
 
         layout.operator("mira.draw_extrude", text="Draw Extrude")
 
@@ -47,7 +48,8 @@ class MI_ExtrudePanel(bpy.types.Panel):
 
         layout.separator()
         #layout.label(text="CurveSurface:")
-        layout.operator("mira.curve_surfaces", text="CurveSurfacesTest")
+        layout.operator("mira.curve_surfaces", text="CurveSurfaces")
+        layout.prop(cur_surfs_settings, "spread_loops_type", text='Points')
 
 
 class MI_DeformPanel(bpy.types.Panel):
@@ -74,15 +76,14 @@ class MI_DeformPanel(bpy.types.Panel):
         layout.separator()
         #layout.label(text="CurveStretch:")
         layout.operator("mira.curve_stretch", text="CurveStretch")
-        row = layout.row()
-        row.prop(cur_stretch_settings, "points_number", text='Points')
-        row.prop(cur_stretch_settings, "spread_mode", text='')
+        #row = layout.row()
+        layout.prop(cur_stretch_settings, "points_number", text='Points')
 
         layout.separator()
         #layout.label(text="CurveGuide:")
         layout.operator("mira.curve_guide", text="CurveGuide")
         row = layout.row()
-        row.prop(curguide_settings, "points_number", text='Points')
+        row.prop(curguide_settings, "points_number", text='LoopSpread')
         row.prop(curguide_settings, "deform_type", text='')
 
 
@@ -99,6 +100,7 @@ class MI_CurveSettingsPanel(bpy.types.Panel):
         curve_settings = context.scene.mi_curve_settings
 
         layout.prop(curve_settings, "surface_snap", text='SurfaceSnapping')
+        layout.prop(curve_settings, "spread_mode", text='Spread')
         layout.prop(curve_settings, "curve_resolution", text='Resolution')
         layout.prop(curve_settings, "draw_handlers", text='Handlers')
         layout.operator("mira.curve_test", text="Curve Test")

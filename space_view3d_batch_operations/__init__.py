@@ -19,7 +19,7 @@ bl_info = {
     "name": "Batch Operations / Manager",
     "description": "Modifiers, Materials, Groups management / batch operations",
     "author": "dairin0d, moth3r",
-    "version": (0, 6, 1),
+    "version": (0, 6, 2),
     "blender": (2, 7, 0),
     "location": "View3D > Batch category in Tools panel",
     "warning": "",
@@ -71,6 +71,14 @@ Blender Bugs:
 * No API for getting/setting selected state metaball element.
 * No API for getting/setting active element of lattice.
 * No API for directly creating/deleting transform orientations (the operators can be invoked only in certain contexts)
+
+
+ask wazou how can we streamline my addons
+(note: moth3r asks to first discuss all ideas before implementing)
+
+Requests by Wazou:
+* when clicking on modifier/material/etc. in Batch Operations, switch the Buttons area(s) to display the corresponding modifier/material/etc.
+* Add remove option to remove material from object along with its slot (but not removing from the .blend completely)
 
 
 

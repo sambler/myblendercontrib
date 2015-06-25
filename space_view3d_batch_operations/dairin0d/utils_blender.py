@@ -26,8 +26,8 @@ from mathutils import Color, Vector, Euler, Quaternion, Matrix
 
 from .bpy_inspect import BlEnums
 
-from .utils_math import lerp, matrix_LRS, matrix_compose, matrix_decompose, matrix_inverted_safe, orthogonal_XYZ, orthogonal
-from .utils_python import setattr_cmp, setitem_cmp, AttributeHolder, attrs_to_dict, dict_to_attrs, bools_to_int
+from .utils_math import lerp, matrix_LRS, matrix_compose, matrix_decompose, matrix_inverted_safe, orthogonal_XYZ, orthogonal, transform_point_normal
+from .utils_python import setattr_cmp, setitem_cmp, AttributeHolder, attrs_to_dict, dict_to_attrs, bools_to_int, binary_search
 
 # ========================== TOGGLE OBJECT MODE ============================ #
 #============================================================================#
@@ -42,8 +42,9 @@ class ToggleObjectMode:
         if self.mode:
             edit_preferences = bpy.context.user_preferences.edit
             
+            active_obj = bpy.context.object
             self.global_undo = edit_preferences.use_global_undo
-            self.prev_mode = bpy.context.object.mode
+            self.prev_mode = (active_obj.mode if active_obj else 'OBJECT')
             
             if self.prev_mode != self.mode:
                 edit_preferences.use_global_undo = False
@@ -300,6 +301,412 @@ class MeshCache:
         self.scene.objects.unlink(tmp_obj)
         
         return tmp_obj
+
+# =============================== MESH BAKER =============================== #
+#============================================================================#
+class MeshBaker:
+    def __init__(self, scene, include=None, exclude=None, obj_types=None, edit=False, selection=True, geometry='DEFAULT', origins='DEFAULT', bbox='NONE', dupli=True, solid_only=False, matrix=None, auto_clear=False):
+        self.scene = scene
+        self.mode = BlEnums.mode_from_object(scene.objects.active)
+        self.edit = edit # whether to add object geometry in editmode
+        self.selection = selection # allow or exclude selection
+        self.geometry_mode = geometry # how to add geometry
+        self.origins_mode = origins # whether to add origins (None means "only when there is no geometry")
+        self.bbox_mode = bbox # whether to add bbox
+        self.dupli_mode = dupli # whether to add dupli objects
+        self.solid_only = solid_only # whether to ignore non-geometry objects and objects with wire/bounds draw type
+        self.matrix = matrix or Matrix()
+        self.matrix_inv = matrix_inverted_safe(self.matrix)
+        self.auto_clear = auto_clear
+        self.bm = bmesh.new()
+        self._mesh = None
+        self._obj = None
+        self._vert_to_obj = []
+        self._edge_to_obj = []
+        self._face_to_obj = []
+        
+        self.obj_types = obj_types
+        self.objects = set(include or (obj for obj in scene.objects if obj.is_visible(scene)))
+        if exclude: self.objects.difference_update(exclude)
+        if (self.mode == 'OBJECT') and (not self.selection):
+            self.objects = [obj for obj in self.objects if not obj.select]
+        else:
+            self.objects = list(self.objects)
+        self.counter = 0
+    
+    finished = property(lambda self: self.counter >= len(self.objects))
+    
+    def mesh(self):
+        if self._mesh: return self._mesh
+        if self.counter < len(self.objects): return None
+        self._mesh = bpy.data.meshes.new("BakedMesh")
+        self.bm.to_mesh(self._mesh)
+        #self._mesh.update(calc_tessface=True) # calc_tessface() # is this necessary?
+        return self._mesh
+    
+    def object(self, mode='UNLINK'):
+        if self._obj: return self._obj
+        if self.counter < len(self.objects): return None
+        self._obj = bpy.data.objects.new("BakedObject", self.mesh())
+        self._obj.matrix_world = self.matrix
+        # Make Blender recognize object as having geometry
+        self.scene.objects.link(self._obj)
+        self.scene.update()
+        if mode == 'UNLINK':
+            # We don't need this object in scene
+            self.scene.objects.unlink(self._obj)
+        elif mode == 'HIDE':
+            self._obj.hide = True
+        return self._obj
+    
+    @staticmethod
+    def _index_cmp(item, i):
+        if i < item[0]: return 1
+        if i > item[1]: return -1
+        return 0
+    
+    def _names_to_instances(self, result):
+        obj = bpy.data.objects.get(result[0])
+        bone = None
+        if obj and (obj.type == 'ARMATURE'):
+            if obj.mode == 'EDIT':
+                bone = obj.data.edit_bones.get(result[1])
+            else:
+                bone = obj.pose.bones.get(result[1])
+        return (obj, bone, result[2])
+    
+    _default_to_obj = ("", "", None)
+    
+    def vert_to_obj(self, i, instances=True):
+        result = self._default_to_obj
+        i = binary_search(self._vert_to_obj, i, cmp=self._index_cmp)
+        if (i >= 0) and (i < len(self._vert_to_obj)): result = self._vert_to_obj[i][-1]
+        if instances: result = self._names_to_instances(result)
+        return result
+    
+    def edge_to_obj(self, i, instances=True):
+        result = self._default_to_obj
+        i = binary_search(self._edge_to_obj, i, cmp=self._index_cmp)
+        if (i >= 0) and (i < len(self._edge_to_obj)): result = self._edge_to_obj[i][-1]
+        if instances: result = self._names_to_instances(result)
+        return result
+    
+    def face_to_obj(self, i, instances=True):
+        result = self._default_to_obj
+        i = binary_search(self._face_to_obj, i, cmp=self._index_cmp)
+        if (i >= 0) and (i < len(self._face_to_obj)): result = self._face_to_obj[i][-1]
+        if instances: result = self._names_to_instances(result)
+        return result
+    
+    def delete_results(self):
+        if self._obj and self._obj.name:
+            if self._obj.name in self.scene.objects:
+                self.scene.objects.unlink(self._obj)
+            bpy.data.objects.remove(self._obj)
+        self._obj = None
+        
+        if self._mesh and self._mesh.name:
+            bpy.data.meshes.remove(self._mesh)
+        self._mesh = None
+        
+        self._delete_bm()
+    
+    def update(self, dt=None):
+        use_dt = (dt is not None)
+        if use_dt: time_stop = time.clock() + dt
+        max_count = len(self.objects)
+        while self.counter < max_count:
+            obj = self.objects[self.counter]
+            self.counter += 1
+            self._add_obj(obj)
+            if self.counter == max_count: self._on_finish()
+            if use_dt and (time.clock() > time_stop): return
+    
+    def _on_finish(self):
+        self.bm.verts.index_update()
+        self.bm.edges.index_update()
+        self.bm.faces.index_update()
+    
+    def _delete_bm(self):
+        if self.bm and self.bm.is_valid:
+            self.bm.free()
+        self.bm = None
+    
+    def __del__(self):
+        if self.auto_clear: self.delete_results()
+    
+    def _merge(self, bm_copy):
+        verts_map = {}
+        for vS in bm_copy.verts:
+            vD = self.bm.verts.new(Vector(vS.co))
+            vD.normal = Vector(vS.normal)
+            verts_map[vS] = vD
+        for eS in bm_copy.edges:
+            eD = self.bm.edges.new(tuple(verts_map[vS] for vS in eS.verts))
+        for fS in bm_copy.faces:
+            fD = self.bm.faces.new(tuple(verts_map[vS] for vS in fS.verts))
+            fD.normal = Vector(fS.normal)
+    
+    def _to_mesh(self, obj, force_objectmode=False):
+        bm_copy = bmesh.new()
+        if obj.type == 'MESH':
+            with ToggleObjectMode(force_objectmode):
+                bm_copy.from_object(obj, self.scene, deform=True, render=False, cage=False, face_normals=True)
+        else:
+            with ToggleObjectMode(force_objectmode):
+                mesh = obj.to_mesh(self.scene, True, 'PREVIEW')
+            bm_copy.from_mesh(mesh)
+            bpy.data.meshes.remove(mesh)
+        return bm_copy
+    
+    def _add_sub_obj(self, obj, matrix_world, vert_offsets, edge_offsets):
+        if isinstance(obj, bpy.types.DupliObject):
+            if obj.hide: return
+            main_obj = obj.id_data
+            matrix_world = obj.matrix
+            obj = obj.object
+            
+            geometry_mode = self.geometry_mode
+            origins_mode = self.origins_mode
+            bbox_mode = self.bbox_mode
+            dupli_mode = self.dupli_mode
+            gather_bone_offsets = False
+        else:
+            main_obj = obj
+            
+            geometry_mode = self.geometry_mode
+            origins_mode = self.origins_mode
+            bbox_mode = self.bbox_mode
+            dupli_mode = self.dupli_mode
+            gather_bone_offsets = True
+        
+        bbox = BlUtil.Object.bounding_box(obj)
+        
+        add_obj = (self.obj_types is None) or (obj.type in self.obj_types)
+        add_dupli = bool(dupli_mode)
+        
+        if self.solid_only:
+            if main_obj.draw_type in ('WIRE', 'BOUNDS'):
+                add_obj = False
+                add_dupli = False
+            elif obj.draw_type in ('WIRE', 'BOUNDS'):
+                add_obj = False
+            elif obj.type not in BlEnums.object_types_geometry:
+                add_obj = False
+        
+        if add_obj:
+            obj_type = obj.type
+            obj_mode = obj.mode
+            data = obj.data
+            
+            no_selection = not self.selection
+            
+            bm_copy = None
+            
+            # WYSIWYG would require reimplementing all of the virtual geometry...
+            # It's easier (and probably more often useful) to have SOLID_ONLY mode.
+            
+            add_geometry = geometry_mode and (geometry_mode != 'NONE')
+            if add_geometry:
+                if obj_type == 'MESH':
+                    if obj_mode == 'EDIT':
+                        bm_edit = bmesh.from_edit_mesh(data)
+                        if no_selection:
+                            bm_copy = bm_edit.copy()
+                            for v in tuple(v for v in bm_copy.verts if v.select):
+                                bm_copy.verts.remove(v)
+                        else:
+                            bm_copy = bm_edit.copy()
+                    elif obj_mode == 'SCULPT':
+                        bm_copy = self._to_mesh(obj, True)
+                    else:
+                        bm_copy = self._to_mesh(obj, False)
+                elif obj_type in ('CURVE', 'SURFACE'):
+                    if obj_mode == 'EDIT':
+                        bm_copy = (self._to_mesh(obj, True) if self.edit else bmesh.new())
+                        for spline in data.splines:
+                            for point in spline.bezier_points:
+                                if no_selection and (point.select_control_point or
+                                    point.select_left_handle or point.select_right_handle): continue
+                                vc = bm_copy.verts.new(point.co)
+                                vl = bm_copy.verts.new(point.handle_left)
+                                vr = bm_copy.verts.new(point.handle_right)
+                                #bm_copy.edges.new((vc, vl))
+                                #bm_copy.edges.new((vc, vr))
+                            for point in spline.points:
+                                if no_selection and point.select: continue
+                                bm_copy.verts.new(point.co[:3])
+                                # TODO: edges between non-bezier points?
+                    else:
+                        bm_copy = self._to_mesh(obj, False)
+                elif obj_type == 'FONT':
+                    bm_copy = self._to_mesh(obj, True)
+                elif obj_type == 'META':
+                    if obj_mode == 'EDIT':
+                        # metaelements' geometry is one single whole, so we can't really exclude just some of them.
+                        bm_copy = (self._to_mesh(obj, True) if self.edit else bmesh.new())
+                        for elem in data.elements:
+                            # cannot know if it's selected
+                            bm_copy.verts.new(elem.co)
+                    else:
+                        bm_copy = self._to_mesh(obj, False)
+                elif obj_type == 'ARMATURE':
+                    bbox = [None, None] # Blender does not return valid bbox for armature
+                    bm_copy = bmesh.new()
+                    for bone, selected in BlUtil.Object.iter_bone_info(obj):
+                        self._bbox_add(bbox, bone.head)
+                        self._bbox_add(bbox, bone.tail)
+                        if no_selection and any(selected): continue
+                        if gather_bone_offsets:
+                            vert_offsets.append((len(bm_copy.verts), bone.name))
+                            edge_offsets.append((len(bm_copy.edges), bone.name))
+                        head = bm_copy.verts.new(bone.head)
+                        tail = bm_copy.verts.new(bone.tail)
+                        bm_copy.edges.new((head, tail))
+                    bbox = (bbox[0] or Vector(), bbox[1] or Vector())
+                elif obj_type == 'LATTICE':
+                    # is this considered "not real geometry"?
+                    bbox = [None, None] # Blender does not return valid bbox for lattice
+                    bm_copy = bmesh.new()
+                    for point in data.points:
+                        bm_copy.verts.new(point.co_deform)
+                        # TODO: edges between points?
+                        self._bbox_add(bbox, point.co_deform)
+                    bbox = (bbox[0] or Vector(), bbox[1] or Vector())
+                else:
+                    bm_copy = bmesh.new()
+            
+            if bm_copy is None: bm_copy = bmesh.new()
+            verts = bm_copy.verts
+            matrix = self.matrix_inv * matrix_world
+            
+            add_origin = (origins_mode == 'ALWAYS') or ((origins_mode == 'DEFAULT') and (len(verts) == 0))
+            if add_origin: self._add_origin(bm_copy, matrix)
+            
+            add_bbox = bbox_mode and (bbox_mode != 'NONE')
+            if add_bbox: self._add_bbox(bm_copy, bbox_mode, bbox, matrix)
+            
+            if len(verts) > 0:
+                bm_copy.transform(matrix)
+                self._merge(bm_copy)
+            
+            bm_copy.free()
+        
+        if add_dupli:
+            if obj.dupli_type != 'NONE':
+                if obj.dupli_list: obj.dupli_list_clear()
+                obj.dupli_list_create(self.scene, settings='VIEWPORT')
+                for dupli in obj.dupli_list:
+                    self._add_sub_obj(dupli, matrix_world, vert_offsets, edge_offsets)
+                obj.dupli_list_clear()
+        
+        return bbox
+    
+    def _add_origin(self, bm_copy, matrix):
+        verts = bm_copy.verts
+        v = verts.new(Vector())
+        n = Vector((0,0,1))
+        n = transform_point_normal(matrix, v.co, n)[1] # normals of loose vertices are not transformed by bmesh.transform
+        v.normal = n
+    
+    def _add_bbox(self, bm_copy, bbox_mode, bbox, matrix):
+        verts = bm_copy.verts
+        edges = bm_copy.edges
+        
+        bbox_center = (bbox[1] + bbox[0]) * 0.5
+        bbox_extents = (bbox[1] - bbox[0]) * 0.5
+        
+        def add_bbox_vert(x,y,z):
+            v = verts.new(bbox_center+Vector((x*bbox_extents[0], y*bbox_extents[1], z*bbox_extents[2])))
+            n = Vector((x,y,z)).normalized()
+            if n.length_squared < 0.5: n = Vector((0,0,1))
+            n = transform_point_normal(matrix, v.co, n)[1] # normals of loose vertices are not transformed by bmesh.transform
+            v.normal = n
+            return v
+        
+        if bbox_mode == 'FACES':
+            bbox_matrix = matrix_compose(bbox_extents.x, bbox_extents.y, bbox_extents.z, bbox_center)
+            bmesh.ops.create_cube(bm_copy, size=2.0, matrix=bbox_matrix)
+        else:
+            v000 = add_bbox_vert(-1,-1,-1)#verts.new(bbox_center-bbox_x-bbox_y-bbox_z)
+            v100 = add_bbox_vert(+1,-1,-1)#verts.new(bbox_center+bbox_x-bbox_y-bbox_z)
+            v010 = add_bbox_vert(-1,+1,-1)#verts.new(bbox_center-bbox_x+bbox_y-bbox_z)
+            v110 = add_bbox_vert(+1,+1,-1)#verts.new(bbox_center+bbox_x+bbox_y-bbox_z)
+            v001 = add_bbox_vert(-1,-1,+1)#verts.new(bbox_center-bbox_x-bbox_y+bbox_z)
+            v101 = add_bbox_vert(+1,-1,+1)#verts.new(bbox_center+bbox_x-bbox_y+bbox_z)
+            v011 = add_bbox_vert(-1,+1,+1)#verts.new(bbox_center-bbox_x+bbox_y+bbox_z)
+            v111 = add_bbox_vert(+1,+1,+1)#verts.new(bbox_center+bbox_x+bbox_y+bbox_z)
+            
+            if bbox_mode == 'EDGES':
+                edges.new((v000, v100))
+                edges.new((v000, v010))
+                edges.new((v000, v001))
+                edges.new((v111, v011))
+                edges.new((v111, v101))
+                edges.new((v111, v110))
+                edges.new((v100, v101))
+                edges.new((v010, v011))
+                edges.new((v001, v101))
+                edges.new((v001, v011))
+                edges.new((v100, v110))
+                edges.new((v010, v110))
+        
+        add_bbox_vert(0,0,0)#verts.new(bbox_center)
+        add_bbox_vert(+1,0,0)#verts.new(bbox_center+bbox_x)
+        add_bbox_vert(-1,0,0)#verts.new(bbox_center-bbox_x)
+        add_bbox_vert(0,+1,0)#verts.new(bbox_center+bbox_y)
+        add_bbox_vert(0,-1,0)#verts.new(bbox_center-bbox_y)
+        add_bbox_vert(0,0,+1)#verts.new(bbox_center+bbox_z)
+        add_bbox_vert(0,0,-1)#verts.new(bbox_center-bbox_z)
+        add_bbox_vert(-1,-1,0)#verts.new(bbox_center-bbox_x-bbox_y)
+        add_bbox_vert(-1,+1,0)#verts.new(bbox_center-bbox_x+bbox_y)
+        add_bbox_vert(+1,-1,0)#verts.new(bbox_center+bbox_x-bbox_y)
+        add_bbox_vert(+1,+1,0)#verts.new(bbox_center+bbox_x+bbox_y)
+        add_bbox_vert(-1,0,-1)#verts.new(bbox_center-bbox_x-bbox_z)
+        add_bbox_vert(-1,0,+1)#verts.new(bbox_center-bbox_x+bbox_z)
+        add_bbox_vert(+1,0,-1)#verts.new(bbox_center+bbox_x-bbox_z)
+        add_bbox_vert(+1,0,+1)#verts.new(bbox_center+bbox_x+bbox_z)
+        add_bbox_vert(0,-1,-1)#verts.new(bbox_center-bbox_y-bbox_z)
+        add_bbox_vert(0,-1,+1)#verts.new(bbox_center-bbox_y+bbox_z)
+        add_bbox_vert(0,+1,-1)#verts.new(bbox_center+bbox_y-bbox_z)
+        add_bbox_vert(0,+1,+1)#verts.new(bbox_center+bbox_y+bbox_z)
+    
+    def _add_obj(self, obj):
+        if not (obj and obj.name): return
+        
+        nv0 = len(self.bm.verts)
+        ne0 = len(self.bm.edges)
+        nf0 = len(self.bm.faces)
+        
+        vert_offsets = []
+        edge_offsets = []
+        bbox = self._add_sub_obj(obj, obj.matrix_world, vert_offsets, edge_offsets)
+        
+        nv1 = len(self.bm.verts)
+        ne1 = len(self.bm.edges)
+        nf1 = len(self.bm.faces)
+        
+        if nv1 == nv0: return
+        
+        obj_info = (obj.name, "", bbox)
+        if (obj.type == 'ARMATURE') and self.geometry:
+            i = nv0
+            for di, bone_name in vert_offsets:
+                i = nv0+di
+                self._vert_to_obj.append((i, i+1, (obj.name, bone_name, bbox)))
+                i += 2
+            if (i < nv1-1): self._vert_to_obj.append((i, nv1-1, obj_info))
+            
+            i = ne0
+            for di, bone_name in edge_offsets:
+                i = ne0+di
+                self._edge_to_obj.append((i, i, (obj.name, bone_name, bbox)))
+                i += 1
+            if (i < ne1-1): self._vert_to_obj.append((i, ne1-1, obj_info))
+        else:
+            self._vert_to_obj.append((nv0, nv1-1, obj_info))
+            self._edge_to_obj.append((ne0, ne1-1, obj_info))
+            self._face_to_obj.append((nf0, nf1-1, obj_info))
 
 # =============================== SELECTION ================================ #
 #============================================================================#
@@ -1357,8 +1764,8 @@ class ChangeMonitor:
 class BlUtil:
     class Object:
         @staticmethod
-        def layers_intersect(obj, scene):
-            return any(l0 and l1 for l0, l1 in zip(obj.layers, scene.layers))
+        def layers_intersect(a, b, name_a="layers", name_b=None):
+            return any(l0 and l1 for l0, l1 in zip(getattr(a, name_a), getattr(b, name_b or name_a)))
         
         @staticmethod
         def iterate(search_in, context=None, obj_types=None):
@@ -1533,17 +1940,68 @@ class BlUtil:
             while parent:
                 yield parent
                 parent = parent.parent
+        
+        @staticmethod
+        def iter_bone_info(obj):
+            data = obj.data
+            if obj.mode == 'EDIT':
+                for bone in data.edit_bones:
+                    yield (bone, (bone.select, bone.select_head, bone.select_tail))
+            else:
+                for bone in obj.pose.bones:
+                    _bone = bone.bone #data.bones[bone.name] # equivalent
+                    yield (bone, (_bone.select, _bone.select_head, _bone.select_tail))
+        
+        @staticmethod
+        def bounding_box(obj):
+            def bbox_add(bbox, p):
+                b0, b1 = bbox
+                if b0:
+                    b0.x = min(b0.x, p.x)
+                    b0.y = min(b0.y, p.y)
+                    b0.z = min(b0.z, p.z)
+                    b1.x = max(b1.x, p.x)
+                    b1.y = max(b1.y, p.y)
+                    b1.z = max(b1.z, p.z)
+                else:
+                    bbox[0] = Vector(p)
+                    bbox[1] = Vector(p)
+            
+            if obj.type == 'ARMATURE':
+                bbox = [None, None] # Blender does not return valid bbox for armature
+                for bone, selected in BlUtil.Object.iter_bone_info(obj):
+                    bbox_add(bbox, bone.head)
+                    bbox_add(bbox, bone.tail)
+                bbox = (bbox[0] or Vector(), bbox[1] or Vector())
+            elif obj.type == 'LATTICE':
+                bbox = [None, None] # Blender does not return valid bbox for lattice
+                for point in obj.data.points:
+                    bbox_add(bbox, point.co_deform)
+                bbox = (bbox[0] or Vector(), bbox[1] or Vector())
+            else:
+                bbox = (Vector(obj.bound_box[0]), Vector(obj.bound_box[-2]))
+            
+            return bbox
     
     class Scene:
         @staticmethod
         def cursor(context):
-            container = getattr(context, "space_data", None)
-            if (not container) or (container.type != 'VIEW_3D'): container = context.scene
+            if context:
+                container = getattr(context, "space_data", None)
+                if (not container) or (container.type != 'VIEW_3D'): container = context.scene
+            else: # make sure we deal with global cursor
+                container = bpy.context.scene
+            
             return Vector(container.cursor_location)
+        
         @staticmethod
         def cursor_set(context, value, force=True):
-            container = getattr(context, "space_data", None)
-            if (not container) or (container.type != 'VIEW_3D'): container = context.scene
+            if context:
+                container = getattr(context, "space_data", None)
+                if (not container) or (container.type != 'VIEW_3D'): container = context.scene
+            else: # make sure we deal with global cursor
+                container = bpy.context.scene
+            
             cursor_location = Vector(value)
             if force or (cursor_location != container.cursor_location):
                 container.cursor_location = cursor_location

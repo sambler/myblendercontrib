@@ -103,8 +103,7 @@ class BlEnums:
         'META':'EDIT_METABALL', 'FONT':'EDIT_TEXT', 'ARMATURE':'EDIT_ARMATURE', 'LATTICE':'EDIT_LATTICE'}
     @classmethod
     def mode_from_object(cls, obj):
-        if not obj:
-            return 'OBJECT'
+        if not obj: return 'OBJECT'
         return cls.__generic_mode_map.get(obj.mode) or cls.__edit_mode_map.get(obj.type)
     
     __mode_to_obj_map = {'EDIT_MESH':'EDIT', 'EDIT_CURVE':'EDIT', 'EDIT_SURFACE':'EDIT', 'EDIT_TEXT':'EDIT',
@@ -117,10 +116,8 @@ class BlEnums:
     
     @classmethod
     def normalize_mode(cls, mode, obj=None):
-        if mode in cls.modes:
-            return mode
-        if mode == 'EDIT':
-            return (cls.__edit_mode_map.get(obj.type) if obj else None)
+        if mode in cls.modes: return mode
+        if mode == 'EDIT': return (cls.__edit_mode_map.get(obj.type) if obj else None)
         return cls.__generic_mode_map.get(mode)
     
     @classmethod

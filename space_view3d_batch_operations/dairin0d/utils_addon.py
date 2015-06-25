@@ -1965,12 +1965,13 @@ if not UIMonitor:
         @classmethod
         def block_operator(cls, op_idname, callback=None):
             for kc, km, kmi in KeyMapUtils.search(op_idname):
-                key = (kmi.type, kmi.value, kmi.alt, kmi.ctrl, kmi.shift, kmi.oskey)
+                kmi_type = KeyMapUtils.normalize_event_type(kmi.type)
+                key = (kmi_type, kmi.value, kmi.alt, kmi.ctrl, kmi.shift, kmi.oskey)
                 op_override = cls._op_overrides.get(key)
                 if op_override is None:
                     op_override = {}
                     cls._op_overrides[key] = op_override
-                op_override[op_idname] = (BlRna.serialize(kmi.properties), callback)
+                op_override[op_idname] = (BlRna.serialize(kmi.properties), km.space_type, km.region_type, callback)
         
         @classmethod
         def unblock_operator(cls, op_idname):
@@ -2070,10 +2071,17 @@ if not UIMonitor:
             if op_override:
                 context_override = attrs_to_dict(context)
                 context_override.update(cls.mouse_context)
+                
                 for op_idname, op_data in op_override.items():
                     op = BpyOp(op_idname)
+                    
                     if op and op.poll(context_override):
-                        op_props, callback = op_data
+                        op_props, space_type, region_type, callback = op_data
+                        if space_type and (space_type != 'NONE'):
+                            if context_override["space_data"].type != space_type: continue
+                        if region_type and (region_type != 'NONE'): # never 'NONE', actually
+                            if context_override["region"].type != region_type: continue
+                        
                         allow = False
                         if callback:
                             try:
@@ -2081,6 +2089,7 @@ if not UIMonitor:
                             except Exception as exc:
                                 print("Error in block_operator callback {}:".format(callback.__name__))
                                 traceback.print_exc()
+                        
                         if not allow: return {'RUNNING_MODAL'}
             
             return {'PASS_THROUGH'}
@@ -2257,8 +2266,6 @@ class AddonsRegistry:
             self._sel_iter = ResumableSelection()
             self.event_lock = PrimitiveLock()
             
-            self._button_registrator = ButtonRegistrator()
-            
             @bpy.app.handlers.persistent
             def load_pre(*args, **kwargs):
                 addons_registry.load_pre()
@@ -2278,6 +2285,8 @@ class AddonsRegistry:
         self.post_view_handler = bpy.types.SpaceView3D.draw_handler_add(cls.post_view_callback, (), 'WINDOW', 'POST_VIEW')
         if self.post_pixel_handler: bpy.types.SpaceView3D.draw_handler_remove(self.post_pixel_handler, 'WINDOW')
         self.post_pixel_handler = bpy.types.SpaceView3D.draw_handler_add(cls.post_pixel_callback, (), 'WINDOW', 'POST_PIXEL')
+        
+        self._button_registrator = ButtonRegistrator()
         
         if scene_update_pre is None:
             @bpy.app.handlers.persistent

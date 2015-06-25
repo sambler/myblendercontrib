@@ -260,12 +260,26 @@ class KeyMapUtils:
         return -1
     
     @staticmethod
+    def normalize_event_type(event_type):
+        if event_type == 'ACTIONMOUSE':
+            userprefs = bpy.context.user_preferences
+            select_mouse = userprefs.inputs.select_mouse
+            return ('RIGHTMOUSE' if select_mouse == 'LEFT' else 'LEFTMOUSE')
+        elif event_type == 'SELECTMOUSE':
+            userprefs = bpy.context.user_preferences
+            select_mouse = userprefs.inputs.select_mouse
+            return ('LEFTMOUSE' if select_mouse == 'LEFT' else 'RIGHTMOUSE')
+        return event_type
+    
+    @staticmethod
     def equal(kmi, event, pressed_keys=[]):
         """Test if event corresponds to the given keymap item"""
         modifier_match = (kmi.key_modifier == 'NONE') or (kmi.key_modifier in pressed_keys)
         modifier_match &= kmi.any or ((kmi.alt == event.alt) and (kmi.ctrl == event.ctrl)
             and (kmi.shift == event.shift) and (kmi.oskey == event.oskey))
-        return ((kmi.type == event.type) and (kmi.value == event.value) and modifier_match)
+        kmi_type = KeyMapUtils.normalize_event_type(kmi.type)
+        event_type = KeyMapUtils.normalize_event_type(event.type)
+        return ((kmi_type == event_type) and (kmi.value == event.value) and modifier_match)
     
     @staticmethod
     def clear(ko):

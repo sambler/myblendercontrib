@@ -50,7 +50,7 @@ from . import mi_utils_base as ut_base
     #active_point = StringProperty(default="")
 
 
-class MI_CurveObject():
+class MI_CurveObject(object):
 
     # class constructor
     def __init__(self, other_curves):
@@ -243,9 +243,10 @@ def pick_curve_point(curve, context, mouse_coords):
 
     picked_point = None
     picked_point_length = None
+    mouse_vec = Vector(mouse_coords)
     for cu_point in curve.curve_points:
         point_pos_2d = view3d_utils.location_3d_to_region_2d(region, rv3d, cu_point.position)
-        the_length = (point_pos_2d - Vector(mouse_coords)).length
+        the_length = (point_pos_2d - mouse_vec).length
         if the_length <= 9.0:
             if picked_point is None:
                 picked_point = cu_point
@@ -351,6 +352,13 @@ def get_selected_points(points):
             sel_points.append(point)
 
     return sel_points
+
+
+def deselect_all_curves(all_curves, reset_acive_point):
+    for curve in all_curves:
+        select_all_points(curve.curve_points, False)  # deselect points
+        if reset_acive_point is True:
+            curve.active_point = None
 
 
 # CODE FOR LOOPS
@@ -501,3 +509,20 @@ def verts_to_line(verts, line_data, verts_data, is_closed_line):
                 vert.co = line_data[j][0] + (line_data[j][3] * (point_len - line_data[j][1]))
                 point_passed = j
                 break
+
+
+# SURFACE SNAP FOR CURVE POINTS
+def snap_to_surface(context, selected_points, picked_meshes, region, rv3d, move_offset):
+    for point in selected_points:
+        # get the ray from the viewport and mouse
+        final_pos = point.position
+        if move_offset:
+            final_pos = point.position + move_offset
+        
+        point_pos_2d = view3d_utils.location_3d_to_region_2d(region, rv3d, final_pos)
+
+        if point_pos_2d:
+            best_obj, hit_normal, hit_position = ut_base.get_mouse_raycast(context, picked_meshes, point_pos_2d, 10000.0)
+            #best_obj, hit_normal, hit_position = ut_base.get_3dpoint_raycast(context, self.picked_meshes, final_pos, camera_dir, 10000.0)
+        if hit_position:
+            point.position = hit_position

@@ -452,7 +452,7 @@ class ButtonRegistrator:
             if not tooltip: return None
             btn_info = (None, None, tooltip)
         else:
-            if tooltip is None: tooltip = callback.__doc__
+            if tooltip is None: tooltip = (callback.__doc__ or "") # __doc__ can be None
             
             callback_self = getattr(callback, "__self__", None)
             if isinstance(callback_self, bpy.types.PropertyGroup):

@@ -383,9 +383,16 @@ class Operator_batch_streamline_meshes:
     quads_convert_to_tris_ngon_method = BlRna.to_bpy_prop(bpy.ops.mesh.quads_convert_to_tris, "ngon_method")
     
     tris_convert_to_quads = False | prop("Join triangles into quads", "Tris to quads")
-    tris_convert_to_quads_limit = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "limit")
+    if "limit" in BlRna(bpy.ops.mesh.tris_convert_to_quads).properties: # removed in 2.74
+        tris_convert_to_quads_limit = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "limit")
+    if "face_threshold" in BlRna(bpy.ops.mesh.tris_convert_to_quads).properties: # added in 2.74
+        tris_convert_to_quads_face_threshold = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "face_threshold")
+    if "shape_threshold" in BlRna(bpy.ops.mesh.tris_convert_to_quads).properties: # added in 2.74
+        tris_convert_to_quads_shape_threshold = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "shape_threshold")
     tris_convert_to_quads_uvs = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "uvs")
     tris_convert_to_quads_vcols = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "vcols")
+    if "seam" in BlRna(bpy.ops.mesh.tris_convert_to_quads).properties: # added in 2.74
+        tris_convert_to_quads_seam = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "seam")
     tris_convert_to_quads_sharp = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "sharp")
     tris_convert_to_quads_materials = BlRna.to_bpy_prop(bpy.ops.mesh.tris_convert_to_quads, "materials")
     
@@ -504,9 +511,16 @@ class Operator_batch_streamline_meshes:
                         layout.prop(self, "quads_convert_to_tris_quad_method", text="Quad")
                         layout.prop(self, "quads_convert_to_tris_ngon_method", text="Ngon")
                     with layout.row()(alignment='LEFT'):
-                        layout.prop(self, "tris_convert_to_quads_limit")
+                        if hasattr(self, "tris_convert_to_quads_limit"):
+                            layout.prop(self, "tris_convert_to_quads_limit")
+                        if hasattr(self, "tris_convert_to_quads_face_threshold"):
+                            layout.prop(self, "tris_convert_to_quads_face_threshold")
+                        if hasattr(self, "tris_convert_to_quads_shape_threshold"):
+                            layout.prop(self, "tris_convert_to_quads_shape_threshold")
                         layout.prop(self, "tris_convert_to_quads_uvs", text="UVs")
                         layout.prop(self, "tris_convert_to_quads_vcols", text="VCols")
+                        if hasattr(self, "tris_convert_to_quads_seam"):
+                            layout.prop(self, "tris_convert_to_quads_seam")
                         layout.prop(self, "tris_convert_to_quads_sharp", text="Sharp")
                         layout.prop(self, "tris_convert_to_quads_materials", text="Materials")
                     with layout.row()(alignment='EXPAND'):
@@ -633,13 +647,21 @@ class Operator_batch_streamline_meshes:
             if select_all: bpy.ops.mesh.select_all(action='SELECT')
         
         if self.tris_convert_to_quads:
-            bpy.ops.mesh.tris_convert_to_quads(
-                limit=self.tris_convert_to_quads_limit,
+            kwargs = dict(
                 uvs=self.tris_convert_to_quads_uvs,
                 vcols=self.tris_convert_to_quads_vcols,
                 sharp=self.tris_convert_to_quads_sharp,
                 materials=self.tris_convert_to_quads_materials,
             )
+            if hasattr(self, "tris_convert_to_quads_limit"):
+                kwargs["tris_convert_to_quads_limit"] = self.tris_convert_to_quads_limit
+            if hasattr(self, "tris_convert_to_quads_face_threshold"):
+                kwargs["tris_convert_to_quads_face_threshold"] = self.tris_convert_to_quads_face_threshold
+            if hasattr(self, "tris_convert_to_quads_shape_threshold"):
+                kwargs["tris_convert_to_quads_shape_threshold"] = self.tris_convert_to_quads_shape_threshold
+            if hasattr(self, "tris_convert_to_quads_seam"):
+                kwargs["tris_convert_to_quads_seam"] = self.tris_convert_to_quads_seam
+            bpy.ops.mesh.tris_convert_to_quads(**kwargs)
             if select_all: bpy.ops.mesh.select_all(action='SELECT')
         
         if self.poke:

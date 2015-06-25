@@ -214,6 +214,9 @@ class CAM_CHAINS_Panel(CAMButtonsPanel, bpy.types.Panel):
 				col = row.column(align=True)
 				col.operator("scene.cam_chain_operation_add", icon='ZOOMIN', text="")
 				col.operator("scene.cam_chain_operation_remove",icon='ZOOMOUT', text="")
+				if len(chain.operations)>0:
+					col.operator("scene.cam_chain_operation_up",icon='TRIA_UP', text="")
+					col.operator("scene.cam_chain_operation_down",icon='TRIA_DOWN', text="")
 
 				if not chain.computing:
 					if chain.valid:
@@ -278,11 +281,17 @@ class CAM_OPERATIONS_Panel(CAMButtonsPanel, bpy.types.Panel):
 					else:
 						layout.label("operation invalid, can't compute")
 				else:
-					layout.label('operation is currently computing')
+					row=layout.row(align=True)
+					row.label('computing')
+					row.operator('object.kill_calculate_cam_paths_background', text="", icon='CANCEL')
 					#layout.prop(ao,'computing')
 				
-				layout.prop(ao,'name')
-				layout.prop(ao,'filename')
+				sub = layout.column()
+				sub.active = not ao.computing
+				
+				sub.prop(ao,'name')
+				sub.prop(ao,'filename')
+				
 				layout.prop(ao,'auto_export')
 				layout.prop(ao,'geometry_source')
 				if not ao.strategy=='CURVE':

@@ -20,7 +20,7 @@
 bl_info = {
     "name": "Export Selected",
     "author": "dairin0d, rking",
-    "version": (1, 5, 2),
+    "version": (1, 5, 3),
     "blender": (2, 6, 9),
     "location": "File > Export > Selected",
     "description": "Export selected objects to a chosen format",
@@ -35,6 +35,8 @@ bl_info = {
 import bpy
 
 from bpy_extras.io_utils import ExportHelper
+
+from mathutils import Vector, Matrix, Quaternion, Euler
 
 import os
 
@@ -298,6 +300,21 @@ class ExportSelected(bpy.types.Operator, ExportHelper):
         options={'ENUM_FLAG'},
         )
     
+    centering_mode = bpy.props.EnumProperty(
+        name="Centering",
+        description="Type of centering operation",
+        default='NONE',
+        items=[
+            ('NONE', "Centering: none", "No centering"),
+            ('ACTIVE_ELEMENT', "Centering: active", "Center at active object"),
+            ('MEDIAN_POINT', "Centering: average", "Center at the average position of exported objects"),
+            ('BOUNDING_BOX_CENTER', "Centering: bounding box", "Center at the bounding box center of exported objects"),
+            ('CURSOR', "Centering: cursor", "Center at the 3D cursor"),
+            ('INDIVIDUAL_ORIGINS', "Centering: individual", "Center each exported object"),
+            #('PIVOT', "Centering: pivot", "Center at the pivot point"), # getting SpaceView3D.pivot_point while in export space is complicated
+        ],
+        )
+    
     visible_name = bpy.props.StringProperty(
         name="Visible name",
         description="Visible name",
@@ -392,6 +409,40 @@ class ExportSelected(bpy.types.Operator, ExportHelper):
             elif (self.selection_mode == 'ALL'):
                 obj.hide_select = False
                 add_obj(obj)
+        
+        centering_mode = self.centering_mode
+        if (centering_mode != 'NONE') and objs:
+            if centering_mode == 'INDIVIDUAL_ORIGINS':
+                center_pos = None
+            elif centering_mode == 'CURSOR':
+                center_pos = Vector(context.scene.cursor_location)
+            elif centering_mode == 'ACTIVE_ELEMENT':
+                obj = context.scene.objects.active
+                center_pos = (Vector(obj.matrix_world.translation) if obj else None)
+            elif centering_mode == 'MEDIAN_POINT':
+                center_pos = Vector()
+                for obj in objs:
+                    center_pos += obj.matrix_world.translation
+                center_pos *= (1.0 / len(objs))
+            elif centering_mode == 'BOUNDING_BOX_CENTER':
+                v_min, v_max = None, None
+                for obj in objs:
+                    p = obj.matrix_world.translation
+                    if v_min is None:
+                        v_min = (p[0], p[1], p[2])
+                        v_max = (p[0], p[1], p[2])
+                    else:
+                        v_min = (min(p[0], v_min[0]), min(p[1], v_min[1]), min(p[2], v_min[2]))
+                        v_max = (max(p[0], v_max[0]), max(p[1], v_max[1]), max(p[2], v_max[2]))
+                center_pos = (Vector(v_min) + Vector(v_max)) * 0.5
+            
+            for obj in objs:
+                if center_pos is None:
+                    obj.matrix_world.translation = Vector()
+                else:
+                    obj.matrix_world.translation -= center_pos
+            
+            context.scene.cursor_location = Vector() # just to tidy up
         
         for obj in scene.objects:
             if obj in objs:
@@ -507,6 +558,7 @@ class ExportSelected(bpy.types.Operator, ExportHelper):
         layout.prop(self, "selection_mode", text="")
         layout.prop(self, "include_children")
         layout.prop_menu_enum(self, "object_types")
+        layout.prop(self, "centering_mode", text="")
         
         layout.box()
         
