@@ -15,6 +15,16 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
+"""
+# !!! This is the new correct way (the imp module is considered obsolete)
+if "bpy" in locals():
+    import importlib
+    if "import_obj" in locals():
+        importlib.reload(import_obj)
+    if "export_obj" in locals():
+        importlib.reload(export_obj)
+"""
+
 import os
 import itertools
 import json

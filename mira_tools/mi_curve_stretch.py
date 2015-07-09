@@ -19,7 +19,6 @@
 
 import bpy
 import bgl
-import blf
 import string
 import bmesh
 
@@ -37,6 +36,7 @@ from . import mi_curve_main as cur_main
 from . import mi_utils_base as ut_base
 from . import mi_color_manager as col_man
 from . import mi_looptools as loop_t
+from . import mi_inputs
 
 
 class MI_CurveStretchSettings(bpy.types.PropertyGroup):
@@ -49,11 +49,6 @@ class MI_CurveStretch(bpy.types.Operator):
     bl_label = "StartDraw"
     bl_description = "Draw Test"
     bl_options = {'REGISTER', 'UNDO'}
-
-    pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
-                 'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
-                 'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE',
-                 'MOUSEMOVE']
 
     # curve tool mode
     curve_tool_modes = ('IDLE', 'MOVE_POINT', 'SELECT_POINT')
@@ -80,7 +75,7 @@ class MI_CurveStretch(bpy.types.Operator):
             # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
 
             cur_stretch_settings = context.scene.mi_cur_stretch_settings
-            curve_settings = context.scene.mi_curve_settings
+            curve_settings = context.scene.mi_settings
 
             active_obj = context.scene.objects.active
             bm = bmesh.from_edit_mesh(active_obj.data)
@@ -116,11 +111,9 @@ class MI_CurveStretch(bpy.types.Operator):
 
                     # get meshes for snapping
                     if curve_settings.surface_snap is True:
-                        sel_objects = [
-                            obj for obj in context.selected_objects if obj != active_obj]
-                        if sel_objects:
-                            self.picked_meshes = ut_base.get_obj_dup_meshes(
-                                sel_objects, context)
+                        meshes_array = ut_base.get_obj_dup_meshes(curve_settings.snap_objects, curve_settings.convert_instances, context)
+                        if meshes_array:
+                            self.picked_meshes = meshes_array
 
                 self.mi_deform_handle_3d = bpy.types.SpaceView3D.draw_handler_add(mi_curve_draw_3d, args, 'WINDOW', 'POST_VIEW')
                 self.mi_deform_handle_2d = bpy.types.SpaceView3D.draw_handler_add(mi_curve_draw_2d, args, 'WINDOW', 'POST_PIXEL')
@@ -145,8 +138,11 @@ class MI_CurveStretch(bpy.types.Operator):
 
         context.area.header_text_set("NewPoint: Ctrl+Click, SelectAdditive: Shift+Click, DeletePoint: Del, SurfaceSnap: Shift+Tab, SelectLinked: L/Shift+L, SpreadMode: M")
 
-        curve_settings = context.scene.mi_curve_settings
+        user_preferences = context.user_preferences
+        addon_prefs = user_preferences.addons[__package__].preferences
+        curve_settings = context.scene.mi_settings
         cur_stretch_settings = context.scene.mi_cur_stretch_settings
+
         active_obj = context.scene.objects.active
         bm = bmesh.from_edit_mesh(active_obj.data)
 
@@ -154,8 +150,10 @@ class MI_CurveStretch(bpy.types.Operator):
         rv3d = context.region_data
         m_coords = event.mouse_region_x, event.mouse_region_y
 
+        keys_pass = mi_inputs.get_input_pass(mi_inputs.pass_keys, addon_prefs.key_inputs, event)
+
         # make picking
-        if self.curve_tool_mode == 'IDLE' and event.value == 'PRESS':
+        if self.curve_tool_mode == 'IDLE' and event.value == 'PRESS' and keys_pass is False:
             if event.type in {'LEFTMOUSE', 'SELECTMOUSE'}:
                 # pick point test
                 picked_point, picked_length, picked_curve = cur_main.pick_all_curves_point(self.all_curves, context, m_coords)
@@ -226,11 +224,9 @@ class MI_CurveStretch(bpy.types.Operator):
                     curve_settings.surface_snap = True
                     if not self.picked_meshes:
                         # get meshes for snapping
-                        sel_objects = [
-                            obj for obj in context.selected_objects if obj != active_obj]
-                        if sel_objects:
-                            self.picked_meshes = ut_base.get_obj_dup_meshes(
-                                sel_objects, context)
+                        meshes_array = ut_base.get_obj_dup_meshes(curve_settings.snap_objects, curve_settings.convert_instances, context)
+                        if meshes_array:
+                            self.picked_meshes = meshes_array
 
             # Select Linked
             elif event.type == 'L':
@@ -327,8 +323,12 @@ class MI_CurveStretch(bpy.types.Operator):
                 return {'RUNNING_MODAL'}
 
 
-        # main stuff
-        if event.type in {'RIGHTMOUSE', 'ESC'}:
+        # get keys
+        if keys_pass is True:
+            # allow navigation
+            return {'PASS_THROUGH'}
+
+        elif event.type in {'RIGHTMOUSE', 'ESC'}:
             bpy.types.SpaceView3D.draw_handler_remove(self.mi_deform_handle_3d, 'WINDOW')
             bpy.types.SpaceView3D.draw_handler_remove(self.mi_deform_handle_2d, 'WINDOW')
             finish_work(self, context)
@@ -336,10 +336,6 @@ class MI_CurveStretch(bpy.types.Operator):
             context.area.header_text_set()
 
             return {'FINISHED'}
-
-        elif event.type in self.pass_keys:
-            # allow navigation
-            return {'PASS_THROUGH'}
 
         return {'RUNNING_MODAL'}
 
@@ -394,7 +390,7 @@ def mi_curve_draw_3d(self, context):
 def draw_curve_2d(curves, active_cur, context):
     region = context.region
     rv3d = context.region_data
-    curve_settings = context.scene.mi_curve_settings
+    curve_settings = context.scene.mi_settings
     # coord = event.mouse_region_x, event.mouse_region_y
     for curve in curves:
         for cu_point in curve.curve_points:

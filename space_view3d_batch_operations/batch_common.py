@@ -95,6 +95,35 @@ def convert_selection_to_mesh():
         selected_objs = bpy.context.selected_objects
         print((exc, active_obj, selected_objs))
 
+def bake_location_rotation_scale(location=False, rotation=False, scale=False):
+    if not (location or rotation or scale): return
+    try:
+        bpy.ops.object.transform_apply(location=location, rotation=rotation, scale=scale)
+    except Exception as exc:
+        active_obj = bpy.context.object
+        selected_objs = bpy.context.selected_objects
+        print((exc, active_obj, selected_objs))
+
+# see http://www.elysiun.com/forum/showthread.php?304199-Apply-Shape-Keys-in-2-68
+def apply_shapekeys(obj):
+    if not hasattr(obj.data, "shape_keys"): return
+    if not obj.data.shape_keys: return
+    if len(obj.data.shape_keys.key_blocks) == 0: return
+    
+    if obj.data.users > 1: obj.data = obj.data.copy() # don't affect other objects
+    
+    # bake current shape in a new key (and remove it last)
+    shape_key = obj.shape_key_add(name="Key", from_mix=True)
+    shape_key.value = 1.0 # important
+    
+    # DON'T use "all=True" option, it removes in the wrong order
+    n_keys = len(obj.data.shape_keys.key_blocks)
+    for i in range(n_keys):
+        # remove base key, then next one will become base, an so on
+        obj.active_shape_key_index = 0
+        # This seems to be the only way to remove a shape key
+        bpy.ops.object.shape_key_remove(all=False)
+
 def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
     active_obj = scene.objects.active
     
@@ -102,11 +131,15 @@ def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
     make_single_user = ('MAKE_SINGLE_USER' in options)
     remove_disabled = ('REMOVE_DISABLED' in options)
     delete_operands = ('DELETE_OPERANDS' in options)
+    apply_shape_keys = ('APPLY_SHAPE_KEYS' in options)
     
     objects_to_delete = set()
     
     for obj in objects:
         scene.objects.active = obj
+        
+        # Users will probably want shape keys to be applied regardless of whether there are modifiers
+        if apply_shape_keys: apply_shapekeys(obj) # also makes single-user
         
         if not obj.modifiers: continue
         
@@ -299,6 +332,10 @@ class Operator_batch_clear_slots_and_layers:
 class Operator_batch_streamline_meshes:
     globally = False | prop("Apply to all objects (instead of just in the selection)", "Globally")
     convert_to_mesh = False | prop("Convert non-meshes to meshes", "Convert to mesh(es)")
+    clear_animation = False | prop("Clear animation", "Clear animation")
+    bake_location = False | prop("Bake location", "Apply location")
+    bake_rotation = False | prop("Bake rotation", "Apply rotation")
+    bake_scale = False | prop("Bake scale", "Apply scale")
     
     # see also MeshLint, PrintToolbox?
     # TODO (low priority): after operator is performed, show statistics of what modifications were actually done (e.g. removed N vertices, etc., etc.)
@@ -308,6 +345,7 @@ class Operator_batch_streamline_meshes:
     apply_modifiers_make_single_user = True | prop("Make single user", "Make single user")
     apply_modifiers_remove_disabled = True | prop("Remove disabled", "Remove disabled")
     apply_modifiers_delete_operands = False | prop("Delete the remaining boolean operands", "Delete operands")
+    apply_modifiers_shape_keys = True | prop("Apply shape keys before applying the modifiers", "Apply shape keys")
     
     # Symmetry
     symmetry_snap = False | prop("Snap vertex pairs to their mirrored locations", "Snap to symmetry")
@@ -415,6 +453,10 @@ class Operator_batch_streamline_meshes:
         with layout.row()(alignment='LEFT'):
             layout.prop(self, "globally")
             layout.prop(self, "convert_to_mesh")
+            layout.prop(self, "clear_animation")
+            layout.prop(self, "bake_location")
+            layout.prop(self, "bake_rotation")
+            layout.prop(self, "bake_scale")
         
         with layout.column():
             layout.label("Modifiers")
@@ -426,6 +468,7 @@ class Operator_batch_streamline_meshes:
                         layout.prop(self, "apply_modifiers_make_single_user")
                         layout.prop(self, "apply_modifiers_remove_disabled")
                         layout.prop(self, "apply_modifiers_delete_operands")
+                        layout.prop(self, "apply_modifiers_shape_keys")
             
             layout.label("Symmetry")
             with layout.split(0.25):
@@ -692,7 +735,7 @@ class Operator_batch_streamline_meshes:
     def invoke(self, context, event):
         # Note: changing operator parameters here will have no effect on the popup
         wm = context.window_manager
-        return wm.invoke_props_dialog(self, width=600)
+        return wm.invoke_props_dialog(self, width=700)
     
     def execute(self, context):
         bpy.ops.ed.undo_push(message="Batch streamline meshes")
@@ -719,6 +762,7 @@ class Operator_batch_streamline_meshes:
                 if self.apply_modifiers_make_single_user: apply_modifiers_options.add('MAKE_SINGLE_USER')
                 if self.apply_modifiers_remove_disabled: apply_modifiers_options.add('REMOVE_DISABLED')
                 if self.apply_modifiers_delete_operands: apply_modifiers_options.add('DELETE_OPERANDS')
+                if self.apply_modifiers_shape_keys: apply_modifiers_options.add('APPLY_SHAPE_KEYS')
                 deleted_objects = apply_modifiers(objects, scene, None, apply_modifiers_options)
                 objects = set(objects).difference(deleted_objects)
             
@@ -726,8 +770,13 @@ class Operator_batch_streamline_meshes:
                 if obj.type not in BlEnums.object_types_geometry: continue
                 
                 if obj.type != 'MESH':
-                    if not self.convert_to_mesh: continue
-                    convert_selection_to_mesh()
+                    if self.convert_to_mesh: convert_selection_to_mesh()
+                
+                if self.clear_animation:
+                    obj.animation_data_clear()
+                    if obj.data: obj.data.animation_data_clear()
+                
+                bake_location_rotation_scale(self.bake_location, self.bake_rotation, self.bake_scale)
                 
                 if obj.type != 'MESH': continue
                 
@@ -1266,6 +1315,7 @@ def make_category(globalvars, idname_attr="name", **kwargs):
                 cls.extract_info(infos, item, count_users=count_users)
             
             for obj, idname in BatchOperations.iter_scene_objs_idnames(bpy.context.scene):
+                if idname not in infos: continue # ignore object not in Filter
                 cls.extract_info_obj(infos, obj, "")
                 cls.extract_info_obj(infos, obj, idname)
             

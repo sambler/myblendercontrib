@@ -34,24 +34,26 @@ if "bpy" in locals():
     imp.reload(mi_curve_test)
     imp.reload(mi_curve_stretch)
     imp.reload(mi_curve_surfaces)
-    imp.reload(mi_curve_settings)
+    imp.reload(mi_settings)
     imp.reload(mi_gui)
     imp.reload(mi_noise)
     imp.reload(mi_deform)
     imp.reload(mi_linear_deformer)
     imp.reload(mi_curve_guide)
-    imp.reload(mi_extrude)
+    imp.reload(mi_draw_extrude)
+    imp.reload(mi_poly_loop)
 else:
     from . import mi_curve_test
     from . import mi_curve_stretch
     from . import mi_curve_surfaces
-    from . import mi_curve_settings
+    from . import mi_settings
     from . import mi_linear_deformer
     from . import mi_curve_guide
     from . import mi_deform
     from . import mi_gui
     from . import mi_noise
-    from . import mi_extrude
+    from . import mi_draw_extrude
+    from . import mi_poly_loop
 
 
 import bpy
@@ -74,10 +76,10 @@ def register():
         #description="Mira Curve"
     #)
 
-    bpy.types.Scene.mi_curve_settings = PointerProperty(
-        name="Global Curve Settings",
-        type=mi_curve_settings.MI_CurveSettings,
-        description="Global Curve Settings."
+    bpy.types.Scene.mi_settings = PointerProperty(
+        name="Global Settings",
+        type=mi_settings.MI_Settings,
+        description="Global Settings."
     )
 
     bpy.types.Scene.mi_cur_stretch_settings = PointerProperty(
@@ -94,7 +96,7 @@ def register():
 
     bpy.types.Scene.mi_extrude_settings = PointerProperty(
         name="Extrude Variables",
-        type=mi_extrude.MI_ExtrudeSettings,
+        type=mi_draw_extrude.MI_ExtrudeSettings,
         description="Extrude Settings"
     )
 
@@ -115,7 +117,7 @@ def unregister():
 
     #del bpy.types.Scene.miraTool
     #del bpy.types.Object.mi_curves  # need to investigate if i need to delete it
-    del bpy.types.Scene.mi_curve_settings
+    del bpy.types.Scene.mi_settings
     del bpy.types.Scene.mi_cur_stretch_settings
     del bpy.types.Scene.mi_cur_surfs_settings
     del bpy.types.Scene.mi_extrude_settings

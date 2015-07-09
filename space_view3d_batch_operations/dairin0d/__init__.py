@@ -21,6 +21,16 @@ Utility modules by dairin0d
 
 #__all__ = ("module1", "module2", etc.) # in case we want to not export something
 
+"""
+# !!! This is the new correct way (the imp module is considered obsolete)
+if "bpy" in locals():
+    import importlib
+    if "import_obj" in locals():
+        importlib.reload(import_obj)
+    if "export_obj" in locals():
+        importlib.reload(export_obj)
+"""
+
 if "_reload" in locals(): _reload(locals())
 
 try:

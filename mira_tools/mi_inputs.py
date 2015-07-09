@@ -1,3 +1,4 @@
+ 
 # ***** BEGIN GPL LICENSE BLOCK *****
 #
 #
@@ -18,32 +19,20 @@
 # ***** END GPL LICENCE BLOCK *****
 
 import bpy
-import bgl
-import blf
-
-from bpy.props import *
-import math
-import mathutils as mathu
-import random
-from mathutils import Vector
 
 
-# Curve Colors
-cur_point_base = (0.5, 0.8, 1.0, 1.0)
-cur_point_selected = (0.9, 0.5, 0.1, 1.0)
-cur_point_active = (0.9, 0.7, 0.3, 1.0)
-
-cur_point_closed_start = (0.7, 0.4, 0.9, 1.0)
-cur_point_closed_end = (0.3, 0.4, 0.9, 1.0)
-
-cur_line_base = (0.5, 0.8, 0.9, 1.0)
-
-cur_handle_1_base = (0.0, 0.5, 1.0, 1.0)
-cur_handle_2_base = (1.0, 0.5, 0.0, 1.0)
+pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
+                'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
+                'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE',
+                'MOUSEMOVE']
 
 
-# Draw Extrude Colors
-dre_point_base = (0.5, 0.8, 1.0, 1.0)
+def get_input_pass(pass_keys, key_inputs, event):
+    if event.type in pass_keys:
+        return True
 
-# PolyLoop colors
-pl_point_col = (0.95, 0.7, 1.0, 1.0)
+    if key_inputs == 'Maya':
+        if event.type in {'RIGHTMOUSE', 'LEFTMOUSE'} and event.alt:
+            return True
+
+    return False

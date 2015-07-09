@@ -272,11 +272,12 @@ def Operator_Apply(self, context, event, idnames="", index=0, title=""):
 
 class OptionsMixin:
     # This property uses the update function defined in the final/descendant class. Luckily, AddonManager has a mechanism for that.
-    apply_options = {'CONVERT_TO_MESH', 'MAKE_SINGLE_USER', 'REMOVE_DISABLED'} | prop("Apply Modifier options", update="update", items=[
+    apply_options = {'CONVERT_TO_MESH', 'MAKE_SINGLE_USER', 'REMOVE_DISABLED', 'APPLY_SHAPE_KEYS'} | prop("Apply Modifier options", update="update", items=[
         ('CONVERT_TO_MESH', "Convert to mesh", "Convert to mesh", 'OUTLINER_OB_MESH'),
         ('MAKE_SINGLE_USER', "Make single user", "Make single user", 'UNLINKED'),
         ('REMOVE_DISABLED', "Remove disabled", "Remove disabled", 'GHOST_DISABLED'),
         ('DELETE_OPERANDS', "Delete operands", "Delete the remaining boolean operands", 'MOD_BOOLEAN'),
+        ('APPLY_SHAPE_KEYS', "Apply shape keys", "Apply shape keys before applying the modifiers", 'SHAPEKEY_DATA'),
     ])
 
 @addon.Menu(idname="VIEW3D_MT_batch_{}_options_apply_options".format(category_name_plural), label="Apply Modifier")

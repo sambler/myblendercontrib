@@ -19,7 +19,7 @@
 import bpy
 
 
-class MI_ExtrudePanel(bpy.types.Panel):
+class MI_ModifyPanel(bpy.types.Panel):
     bl_label = "Modify"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
@@ -28,27 +28,30 @@ class MI_ExtrudePanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+
+        mi_settings = context.scene.mi_settings
         extrude_settings = context.scene.mi_extrude_settings
         cur_surfs_settings = context.scene.mi_cur_surfs_settings
 
         layout.operator("mira.draw_extrude", text="Draw Extrude")
-
-        layout.prop(extrude_settings, "extrude_mode", text='Mode')
-
+        #layout.prop(extrude_settings, "extrude_mode", text='Mode')
         layout.prop(extrude_settings, "extrude_step_type", text='Step')
+
         if extrude_settings.extrude_step_type == 'Asolute':
             layout.prop(extrude_settings, "absolute_extrude_step", text='')
         else:
             layout.prop(extrude_settings, "relative_extrude_step", text='')
 
-        if extrude_settings.extrude_mode == 'Screen':
+        if mi_settings.surface_snap is False:
             layout.prop(extrude_settings, "do_symmetry", text='Symmetry')
             if extrude_settings.do_symmetry:
                 layout.prop(extrude_settings, "symmetry_axys", text='Axys')
 
         layout.separator()
-        #layout.label(text="CurveSurface:")
-        layout.operator("mira.curve_surfaces", text="CurveSurfaces")
+        layout.operator("mira.poly_loop", text="Poly Loop")
+
+        layout.separator()
+        layout.operator("mira.curve_surfaces", text="Curve Surfaces")
         layout.prop(cur_surfs_settings, "spread_loops_type", text='Points')
 
 
@@ -70,25 +73,25 @@ class MI_DeformPanel(bpy.types.Panel):
         layout.operator("mira.deformer", text="Deformer")
 
         layout.separator()
-        layout.operator("mira.linear_deformer", text="LinearDeformer")
+        layout.operator("mira.linear_deformer", text="Linear Deformer")
         layout.prop(lin_def_settings, "manual_update", text='ManualUpdate')
 
         layout.separator()
         #layout.label(text="CurveStretch:")
-        layout.operator("mira.curve_stretch", text="CurveStretch")
+        layout.operator("mira.curve_stretch", text="Curve Stretch")
         #row = layout.row()
         layout.prop(cur_stretch_settings, "points_number", text='Points')
 
         layout.separator()
         #layout.label(text="CurveGuide:")
-        layout.operator("mira.curve_guide", text="CurveGuide")
+        layout.operator("mira.curve_guide", text="Curve Guide")
         row = layout.row()
         row.prop(curguide_settings, "points_number", text='LoopSpread')
         row.prop(curguide_settings, "deform_type", text='')
 
 
-class MI_CurveSettingsPanel(bpy.types.Panel):
-    bl_label = "CurveSettings"
+class MI_SettingsPanel(bpy.types.Panel):
+    bl_label = "Settings"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     bl_context = "mesh_edit"
@@ -97,10 +100,15 @@ class MI_CurveSettingsPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        curve_settings = context.scene.mi_curve_settings
+        mi_settings = context.scene.mi_settings
 
-        layout.prop(curve_settings, "surface_snap", text='SurfaceSnapping')
-        layout.prop(curve_settings, "spread_mode", text='Spread')
-        layout.prop(curve_settings, "curve_resolution", text='Resolution')
-        layout.prop(curve_settings, "draw_handlers", text='Handlers')
+        layout.prop(mi_settings, "surface_snap", text='SurfaceSnapping')
+        layout.prop(mi_settings, "convert_instances", text='ConvertInstances')
+        layout.prop(mi_settings, "snap_objects", text='SnapObjects')
+        layout.separator()
+
+        layout.label(text="Curve Settings:")
+        layout.prop(mi_settings, "spread_mode", text='Spread')
+        layout.prop(mi_settings, "curve_resolution", text='Resolution')
+        layout.prop(mi_settings, "draw_handlers", text='Handlers')
         layout.operator("mira.curve_test", text="Curve Test")

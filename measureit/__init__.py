@@ -31,7 +31,7 @@ bl_info = {
     "name": "MeasureIt",
     "author": "Antonio Vazquez (antonioya)",
     "location": "View3D > Tools Panel /Properties panel",
-    "version": (1, 4, 1),
+    "version": (1, 5, 0),
     "blender": (2, 7, 4),
     "description": "Tools for measuring objects.",
     "category": "3D View"}
@@ -76,14 +76,20 @@ from bpy.props import *
 def register():
     bpy.utils.register_class(measureit_main.RunHintDisplayButton)
     bpy.utils.register_class(measureit_main.AddSegmentButton)
+    bpy.utils.register_class(measureit_main.AddAreaButton)
+    bpy.utils.register_class(measureit_main.AddSegmentOrtoButton)
     bpy.utils.register_class(measureit_main.AddAngleButton)
+    bpy.utils.register_class(measureit_main.AddArcButton)
     bpy.utils.register_class(measureit_main.AddLabelButton)
+    bpy.utils.register_class(measureit_main.AddNoteButton)
     bpy.utils.register_class(measureit_main.AddLinkButton)
     bpy.utils.register_class(measureit_main.AddOriginButton)
     bpy.utils.register_class(measureit_main.DeleteSegmentButton)
     bpy.utils.register_class(measureit_main.DeleteAllSegmentButton)
+    bpy.utils.register_class(measureit_main.DeleteAllSumButton)
     bpy.utils.register_class(measureit_main.MeasureitEditPanel)
     bpy.utils.register_class(measureit_main.MeasureitMainPanel)
+    bpy.utils.register_class(measureit_main.RenderSegmentButton)
 
     # Define properties
     bpy.types.Scene.measureit_default_color = bpy.props.FloatVectorProperty(
@@ -99,21 +105,21 @@ def register():
                                                                 default=14, min=10, max=150)
     bpy.types.Scene.measureit_hint_space = bpy.props.FloatProperty(name='Separation', min=0, max=5, default=0.1,
                                                                    precision=3,
-                                                                   description="Default distance")
+                                                                   description="Default distance to display measure")
     bpy.types.Scene.measureit_gl_ghost = bpy.props.BoolProperty(name="All",
                                                                 description="Display measures for all objects,"
                                                                             " not only selected",
                                                                 default=True)
-    bpy.types.Scene.measureit_gl_txt = bpy.props.StringProperty(name="Text", maxlen=48,
-                                                                description="Short description")
+    bpy.types.Scene.measureit_gl_txt = bpy.props.StringProperty(name="Text", maxlen=256,
+                                                                description="Short description (use | for line break)")
 
     bpy.types.Scene.measureit_gl_precision = bpy.props.IntProperty(name='Precision', min=0, max=5, default=2,
                                                                    description="Number of decimal precision")
     bpy.types.Scene.measureit_gl_show_d = bpy.props.BoolProperty(name="ShowDist",
-                                                                 description="Display measures",
+                                                                 description="Display distances",
                                                                  default=True)
     bpy.types.Scene.measureit_gl_show_n = bpy.props.BoolProperty(name="ShowName",
-                                                                 description="Display text",
+                                                                 description="Display texts",
                                                                  default=False)
     bpy.types.Scene.measureit_scale = bpy.props.BoolProperty(name="Scale",
                                                              description="Use scale factor",
@@ -171,7 +177,85 @@ def register():
                                                                     ('5', "Feet", ""),
                                                                     ('6', "Inches", "")),
                                                              name="Units",
+                                                             default="2",
                                                              description="Units")
+    bpy.types.Scene.measureit_render = bpy.props.BoolProperty(name="Render",
+                                                              description="Save an image with measures over"
+                                                                          " render image",
+                                                              default=False)
+    bpy.types.Scene.measureit_render_type = bpy.props.EnumProperty(items=(('1', "*Current", "Use current render"),
+                                                                          ('2', "OpenGL", ""),
+                                                                          ('3', "Animation OpenGL", ""),
+                                                                          ('4', "Image", ""),
+                                                                          ('5', "Animation", "")),
+                                                                   name="Render type",
+                                                                   description="Type of render image")
+    bpy.types.Scene.measureit_sum = bpy.props.EnumProperty(items=(('99', "-", "Select a group for sum"),
+                                                                  ('0', "A", ""),
+                                                                  ('1', "B", ""),
+                                                                  ('2', "C", ""),
+                                                                  ('3', "D", ""),
+                                                                  ('4', "E", ""),
+                                                                  ('5', "F", ""),
+                                                                  ('6', "G", ""),
+                                                                  ('7', "H", ""),
+                                                                  ('8', "I", ""),
+                                                                  ('9', "J", ""),
+                                                                  ('10', "K", ""),
+                                                                  ('11', "L", ""),
+                                                                  ('12', "M", ""),
+                                                                  ('13', "N", ""),
+                                                                  ('14', "O", ""),
+                                                                  ('15', "P", ""),
+                                                                  ('16', "Q", ""),
+                                                                  ('17', "R", ""),
+                                                                  ('18', "S", ""),
+                                                                  ('19', "T", ""),
+                                                                  ('20', "U", ""),
+                                                                  ('21', "V", ""),
+                                                                  ('22', "W", ""),
+                                                                  ('23', "X", ""),
+                                                                  ('24', "Y", ""),
+                                                                  ('25', "Z", "")),
+                                                           name="Sum in Group",
+                                                           description="Add segment length in selected group")
+
+    bpy.types.Scene.measureit_rf = bpy.props.BoolProperty(name="render_frame",
+                                                          description="Add a frame in render output",
+                                                          default=False)
+    bpy.types.Scene.measureit_rf_color = bpy.props.FloatVectorProperty(name="Fcolor",
+                                                                       description="Frame Color",
+                                                                       default=(0.9, 0.9, 0.9, 1.0),
+                                                                       min=0.1,
+                                                                       max=1,
+                                                                       subtype='COLOR',
+                                                                       size=4)
+    bpy.types.Scene.measureit_rf_border = bpy.props.IntProperty(name='fborder ', min=1, max=1000, default=10,
+                                                                description='Frame space from border')
+    bpy.types.Scene.measureit_rf_line = bpy.props.IntProperty(name='fline', min=1, max=10, default=1,
+                                                              description='Line width for border')
+
+    bpy.types.Scene.measureit_glarrow_a = bpy.props.EnumProperty(items=(('99', "--", "No arrow"),
+                                                                        ('1', "Line",
+                                                                         "The point of the arrow are lines"),
+                                                                        ('2', "Triangle",
+                                                                         "The point of the arrow is triangle"),
+                                                                        ('3', "TShape",
+                                                                         "The point of the arrow is a T")),
+                                                                 name="A end",
+                                                                 description="Add arrows to point A")
+    bpy.types.Scene.measureit_glarrow_b = bpy.props.EnumProperty(items=(('99', "--", "No arrow"),
+                                                                        ('1', "Line",
+                                                                         "The point of the arrow are lines"),
+                                                                        ('2', "Triangle",
+                                                                         "The point of the arrow is triangle"),
+                                                                        ('3', "TShape",
+                                                                         "The point of the arrow is a T")),
+                                                                 name="B end",
+                                                                 description="Add arrows to point B")
+    bpy.types.Scene.measureit_glarrow_s = bpy.props.IntProperty(name="Size",
+                                                                description="Arrow size",
+                                                                default=15, min=6, max=500)
 
     # OpenGL flag
     wm = bpy.types.WindowManager
@@ -182,14 +266,20 @@ def register():
 def unregister():
     bpy.utils.unregister_class(measureit_main.RunHintDisplayButton)
     bpy.utils.unregister_class(measureit_main.AddSegmentButton)
+    bpy.utils.unregister_class(measureit_main.AddAreaButton)
+    bpy.utils.unregister_class(measureit_main.AddSegmentOrtoButton)
     bpy.utils.unregister_class(measureit_main.AddAngleButton)
+    bpy.utils.unregister_class(measureit_main.AddArcButton)
     bpy.utils.unregister_class(measureit_main.AddLabelButton)
+    bpy.utils.unregister_class(measureit_main.AddNoteButton)
     bpy.utils.unregister_class(measureit_main.AddLinkButton)
     bpy.utils.unregister_class(measureit_main.AddOriginButton)
     bpy.utils.unregister_class(measureit_main.DeleteSegmentButton)
     bpy.utils.unregister_class(measureit_main.DeleteAllSegmentButton)
+    bpy.utils.unregister_class(measureit_main.DeleteAllSumButton)
     bpy.utils.unregister_class(measureit_main.MeasureitEditPanel)
     bpy.utils.unregister_class(measureit_main.MeasureitMainPanel)
+    bpy.utils.unregister_class(measureit_main.RenderSegmentButton)
 
     # Remove properties
     del bpy.types.Scene.measureit_default_color
@@ -213,6 +303,16 @@ def unregister():
     del bpy.types.Scene.measureit_ovr_color
     del bpy.types.Scene.measureit_ovr_width
     del bpy.types.Scene.measureit_units
+    del bpy.types.Scene.measureit_render
+    del bpy.types.Scene.measureit_render_type
+    del bpy.types.Scene.measureit_sum
+    del bpy.types.Scene.measureit_rf
+    del bpy.types.Scene.measureit_rf_color
+    del bpy.types.Scene.measureit_rf_border
+    del bpy.types.Scene.measureit_rf_line
+    del bpy.types.Scene.measureit_glarrow_a
+    del bpy.types.Scene.measureit_glarrow_b
+    del bpy.types.Scene.measureit_glarrow_s
 
     # remove OpenGL data
     measureit_main.RunHintDisplayButton.handle_remove(measureit_main.RunHintDisplayButton, bpy.context)
