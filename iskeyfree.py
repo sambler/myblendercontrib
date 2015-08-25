@@ -204,6 +204,7 @@ class UIControlPanel(bpy.types.Panel):
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     # bl_context = "object"  # Remove comment to put in object panel only
+    bl_context = "scene"
     bl_category = 'IsKeyFree'
     bl_label = "Is shorcut free"
 
