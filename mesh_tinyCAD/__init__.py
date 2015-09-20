@@ -21,46 +21,73 @@ END GPL LICENCE BLOCK
 bl_info = {
     "name": "tinyCAD Mesh tools",
     "author": "zeffii (aka Dealga McArdle)",
-    "version": (1, 0, 7),
-    "blender": (2, 7, 3),
+    "version": (1, 2, 0),
+    "blender": (2, 7, 4),
     "category": "Mesh",
     "location": "View3D > EditMode > (w) Specials",
     "wiki_url": "",
     "tracker_url": ""
 }
 
-## implemented lookup table for bmesh changes in 2.73
 
 if "bpy" in locals():
-    import imp
+    if 'VTX' in locals():
+        import imp
+        print('tinyCAD: detected reload event.')
+        try:
+            modules = "VTX V2X XALL BIX PERP CCEN EXM".split()
+            for m in modules:
+                exec('imp.reload({0})'.format(m))
+            print("tinyCAD: reloaded modules, all systems operational")
 
+        except Exception as E:
+            print('reload failed with error:')
+            print(E)
+
+
+import os
 import bpy
-from mesh_tinyCAD.VTX import AutoVTX
-from mesh_tinyCAD.V2X import Vert2Intersection
-# from mesh_tinyCAD.EXM import ExtendEdgesMulti
-from mesh_tinyCAD.XALL import IntersectAllEdges
-from mesh_tinyCAD.BIX import LineOnBisection
-from mesh_tinyCAD.PERP import CutOnPerpendicular
-from mesh_tinyCAD.CCEN import CircleCenter
+from .VTX import AutoVTX
+from .V2X import Vert2Intersection
+from .XALL import IntersectAllEdges
+from .BIX import LineOnBisection
+from .PERP import CutOnPerpendicular
+from .CCEN import CircleCenter
+from .CCEN import CircleMake
+from .EXM import ExtendEdgesMulti
 
+Scene = bpy.types.Scene
 
 vtx_classes = (
-    [AutoVTX, "tinyCAD autoVTX"],
-    [Vert2Intersection, "tinyCAD V2X"],
-    [IntersectAllEdges, "tinyCAD XALL"],
-    # [ExtendEdgesMulti, "tinyCAD EXM"],      # this is buggy
-    [LineOnBisection, "tinyCAD BIX"],
-    [CutOnPerpendicular, "tinyCAD PERP CUT"],
-    [CircleCenter, "tC Circle Center"]
+    # class, shortname ui, icon
+    [AutoVTX, 'auto VTX', 'VTX.png'],
+    [Vert2Intersection, 'V2X | Vertex at intersection', 'V2X.png'],
+    [IntersectAllEdges, 'XALL | Intersect selected edges', 'XALL.png'],
+    [LineOnBisection, 'BIX |  Bisector of 2 planar edges', 'BIX.png'],
+    [CutOnPerpendicular, 'PERP | Cut face perpendicular', 'PERP.png'],
+    [CircleCenter, 'CCEN | Resurrect circle center', 'CCEN.png'],
+    [ExtendEdgesMulti, 'EXM | Extend Multiple edges (experimenal)', 'EXM.png']
 )
+
+preview_collections = {}
 
 
 class VIEW3D_MT_edit_mesh_tinycad(bpy.types.Menu):
     bl_label = "TinyCAD"
 
+    @classmethod
+    def poll(cls, context):
+        return (context.object is not None)
+
     def draw(self, context):
-        for i, text in vtx_classes:
-            self.layout.operator(i.bl_idname, text=text)
+        try:
+            pcoll = preview_collections["main"]
+            for i, text, ico_info in vtx_classes:
+                icon_name = ico_info[:-4]
+                my_icon = pcoll[icon_name]
+                self.layout.operator(i.bl_idname, icon_value=my_icon.icon_id, text=text)
+        except:
+            print('blender not ready.. try again')
 
 
 def menu_func(self, context):
@@ -69,14 +96,47 @@ def menu_func(self, context):
 
 
 def register():
-    for i, _ in vtx_classes:
+    # icons!
+    import bpy.utils.previews
+    pcoll = bpy.utils.previews.new()
+    my_icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+
+    for classinfo in vtx_classes:
+        icon_file = classinfo[2]
+        icon_name = icon_file[:-4]
+        pcoll.load(icon_name, os.path.join(my_icons_dir, icon_file), 'IMAGE')
+
+    preview_collections["main"] = pcoll
+
+    # register scene properties first.
+    ugly_green = (0.2, 0.90, .2)
+    Scene.tc_gp_color = bpy.props.FloatVectorProperty(
+        default=ugly_green,
+        subtype='COLOR',
+        min=0.0, max=1.0)
+    Scene.tc_num_verts = bpy.props.IntProperty(
+        min=3, max=60, default=12)
+
+    # my classes
+    for i, _, _ in vtx_classes:
         bpy.utils.register_class(i)
+
+    # miscl registration not order dependant
     bpy.utils.register_class(VIEW3D_MT_edit_mesh_tinycad)
     bpy.types.VIEW3D_MT_edit_mesh_specials.prepend(menu_func)
+    bpy.utils.register_class(CircleMake)
 
 
 def unregister():
-    for i, _ in vtx_classes:
+    for i, _, _ in vtx_classes:
         bpy.utils.unregister_class(i)
+
+    bpy.utils.unregister_class(CircleMake)
     bpy.utils.unregister_class(VIEW3D_MT_edit_mesh_tinycad)
     bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
+    del Scene.tc_num_verts
+    del Scene.tc_gp_color
+
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()
