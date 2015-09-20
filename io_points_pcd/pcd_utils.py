@@ -53,3 +53,23 @@ def import_pcd(filepath, name="new_pointcloud"):
     create_and_link_mesh(name, blender_points)
   
 
+def export_pcd(filepath):
+    obj = bpy.context.active_object
+
+    # apply object transformation and modifiers
+    mesh = obj.to_mesh(bpy.context.scene, True, "PREVIEW")
+    objmat = obj.matrix_world
+    
+    points = []
+    for vert in mesh.vertices:
+        co = objmat * vert.co
+        point = pcdparser.PointXYZ()
+        point.x = co.x
+        point.y = co.y
+        point.z = co.z
+        points.append(point)
+
+    writer = pcdparser.PCDWriter(points)
+    writer.write(filepath)
+
+
