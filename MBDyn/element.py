@@ -29,16 +29,13 @@ if "bpy" in locals():
     imp.reload(Entity)
 else:
     from .common import (safe_name, Type, aerodynamic_types, beam_types, force_types, genel_types, joint_types, environment_types, node_types,
-        structural_static_types, structural_dynamic_types, Ellipsoid, RhombicPyramid, Teardrop, Cylinder, Sphere, RectangularCuboid)
+        structural_static_types, structural_dynamic_types, Ellipsoid, RhombicPyramid, Teardrop, Cylinder, Sphere, RectangularCuboid, write_vector, write_matrix)
     from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, SelectedObjects, SegmentList
-    from .base import update_element
     from mathutils import Vector
     from copy import copy
     import os
     import subprocess
     from tempfile import TemporaryFile
-    from pickle import Pickler
-    from io import StringIO
 
 types = aerodynamic_types + beam_types + ["Body"] + force_types + genel_types + joint_types + environment_types + ["Driven"] + node_types
 
@@ -73,6 +70,8 @@ class Base(Operator):
             objects.insert(0, context.active_object)
             if 1 < len(objects):
                 objects[0].location = objects[1].location
+            exec("bpy.ops." + root_dot + "object_specifications('INVOKE_DEFAULT')")
+        elif hasattr(self.entity, "objects") and False in [self.entity.objects[i] == ob for i, ob in enumerate(objects)]:
             exec("bpy.ops." + root_dot + "object_specifications('INVOKE_DEFAULT')")
         return objects
     def store(self, context):
@@ -173,8 +172,8 @@ class StructuralForce(Entity):
         f.write(string+
         ",\n\t\t" + safe_name(Node_0.name) +
         ",\n\t\t\tposition, ")
-        self.write_vector(f, relative_arm_0, ",\n\t\t\t")
-        self.write_vector(f, relative_dir, ",\n\t\t")
+        write_vector(f, relative_arm_0, ",\n\t\t\t")
+        write_vector(f, relative_dir, ",\n\t\t")
         f.write("reference, " + self.drive.safe_name() + ";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
@@ -219,10 +218,10 @@ class StructuralInternalForce(Entity):
             relative_dir = rotT_0*Vector((0., 0., 1.))
         f.write(string+
         ",\n\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
-        self.write_vector(f, relative_dir, ",\n\t\t\t")
-        self.write_vector(f, relative_arm_0, ",\n\t\t")
+        write_vector(f, relative_dir, ",\n\t\t\t")
+        write_vector(f, relative_arm_0, ",\n\t\t")
         f.write(safe_name(Node_1.name) + ",\n\t\t\t")
-        self.write_vector(f, relative_arm_1, ",\n\t\t")
+        write_vector(f, relative_arm_1, ",\n\t\t")
         f.write("reference, " + self.drive.safe_name() + ";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
@@ -250,7 +249,7 @@ class StructuralCouple(Entity):
             relative_dir = rotT_0*Vector((0., 0., 1.))
         f.write(string+
         ",\n\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
-        self.write_vector(f, relative_dir, ",\n\t\t")
+        write_vector(f, relative_dir, ",\n\t\t")
         f.write("reference, " + self.drive.safe_name() + ";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
@@ -280,7 +279,7 @@ class StructuralInternalCouple(Entity):
             relative_dir = rotT_0*Vector((0., 0., 1.))
         f.write(string+
         ",\n\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
-        self.write_vector(f, relative_dir, ",\n\t\t")
+        write_vector(f, relative_dir, ",\n\t\t")
         f.write(safe_name(Node_1.name) + ",\n\t\treference, " + self.drive.safe_name() + ";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
@@ -309,17 +308,17 @@ class Hinge(Joint):
         "\t\t" + safe_name(Node_0.name))
         if V1:
             f.write(", ")
-            self.write_vector(f, localV_0)
+            write_vector(f, localV_0)
         if M1:
             f.write(",\n\t\t\thinge, matr,\n")
-            self.write_matrix(f, rot_0*rotT, "\t\t\t\t")
+            write_matrix(f, rot_0*rotT, "\t\t\t\t")
         f.write(", \n\t\t" + safe_name(Node_1.name))
         if V2:
             f.write(", ")
-            self.write_vector(f, to_hinge)
+            write_vector(f, to_hinge)
         if M2:
             f.write(",\n\t\t\thinge, matr,\n")
-            self.write_matrix(f, rot_1*rotT, "\t\t\t\t")
+            write_matrix(f, rot_1*rotT, "\t\t\t\t")
 
 class AxialRotation(Hinge):
     def write(self, f):
@@ -422,16 +421,12 @@ klasses[DistanceOperator.bl_label] = DistanceOperator
 
 class InLine(Joint):
     def write(self, f):
-        rot0, globalV0, iNode0 = self.rigid_offset(0)
-        localV0 = rot0*globalV0
         rot_1, globalV_1, Node_1 = self.rigid_offset(1)
-        to_point = rot_1*(globalV_1 + self.objects[0].matrix_world.translation - self.objects[1].matrix_world.translation)
-        rot = self.objects[0].matrix_world.to_quaternion().to_matrix()
+        localV_1 = rot_1*globalV_1
         f.write("\tjoint: " + self.safe_name() + ", inline,\n")
         self.write_node(f, 0, node=True, position=True, orientation=True)
-        f.write(",\n\t\t" + safe_name(Node_1.name))
-        f.write(",\n\t\t\toffset, ")
-        self.write_vector(f, to_point, ";\n")
+        f.write(",\n\t\t" + safe_name(Node_1.name) + ",\n\t\t\toffset, ")
+        write_vector(f, localV_1, ";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
 
@@ -444,18 +439,20 @@ klasses[InLineOperator.bl_label] = InLineOperator
 
 class InPlane(Joint):
     def write(self, f):
-        rot0, globalV0, iNode0 = self.rigid_offset(0)
-        localV0 = rot0*globalV0
-        rot1, globalV1, iNode1 = self.rigid_offset(1)
-        to_point = rot1*(globalV1 + self.objects[0].matrix_world.translation - self.objects[1].matrix_world.translation)
+        rot_0, globalV_0, Node_0 = self.rigid_offset(0)
+        localV_0 = rot_0*globalV_0
+        rot_1, globalV_1, Node_1 = self.rigid_offset(1)
+        localV_1 = rot_1*globalV_1
+
         rot = self.objects[0].matrix_world.to_quaternion().to_matrix()
-        normal = rot*rot0*Vector((0., 0., 1.))
+        normal = rot*rot_0*Vector((0., 0., 1.))
         f.write(
         "\tjoint: " + self.safe_name() + ", inplane,\n" +
-        "\t\t" + safe_name(iNode0.name) + ",\n\t\t\t")
-        self.write_vector(f, localV0, ",\n\t\t\t")
-        self.write_vector(f, normal, ",\n\t\t")
-        f.write(safe_name(iNode1.name) + ",\n\t\t\toffset, " + ", ".join([BPY.FORMAT(x) for x in to_point]) + ";\n")
+        "\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
+        write_vector(f, localV_0, ",\n\t\t\t")
+        write_vector(f, normal, ",\n\t\t")
+        f.write(safe_name(Node_1.name) + ",\n\t\t\toffset, ")
+        write_vector(f, localV_1, ";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
 
@@ -557,21 +554,21 @@ class TotalJoint(Joint):
         f.write("\tjoint: " + self.safe_name() + ", total joint")
         if self.first == "rotate":
             f.write(",\n\t\t" + safe_name(Node_0.name) + ", position, ")
-            self.write_vector(f, localV_0, ",\n\t\t\tposition orientation, matr,\n")
-            self.write_matrix(f, rot_0*rot_position, "\t\t\t\t")
+            write_vector(f, localV_0, ",\n\t\t\tposition orientation, matr,\n")
+            write_matrix(f, rot_0*rot_position, "\t\t\t\t")
             f.write(",\n\t\t\trotation orientation, matr,\n")
-            self.write_matrix(f, rot_0*rot, "\t\t\t\t")
+            write_matrix(f, rot_0*rot, "\t\t\t\t")
         f.write(",\n\t\t" + safe_name(Node_1.name) + ", position, ")
-        self.write_vector(f, to_joint, ",\n\t\t\tposition orientation, matr,\n")
-        self.write_matrix(f, rot_1*rot_position, "\t\t\t\t")
+        write_vector(f, to_joint, ",\n\t\t\tposition orientation, matr,\n")
+        write_matrix(f, rot_1*rot_position, "\t\t\t\t")
         f.write(",\n\t\t\trotation orientation, matr,\n")
-        self.write_matrix(f, rot_1*rot, "\t\t\t\t")
+        write_matrix(f, rot_1*rot, "\t\t\t\t")
         if self.first == "displace":
             f.write(",\n\t\t" + safe_name(Node_0.name) + ", position, ")
-            self.write_vector(f, localV_0, ",\n\t\t\tposition orientation, matr,\n")
-            self.write_matrix(f, rot_0*rot_position, "\t\t\t\t")
+            write_vector(f, localV_0, ",\n\t\t\tposition orientation, matr,\n")
+            write_matrix(f, rot_0*rot_position, "\t\t\t\t")
             f.write(",\n\t\t\trotation orientation, matr,\n")
-            self.write_matrix(f, rot_0*rot, "\t\t\t\t")
+            write_matrix(f, rot_0*rot, "\t\t\t\t")
         f.write(",\n\t\t\tposition constraint")
         for d in self.drives[:3]: 
             if d:
@@ -579,7 +576,6 @@ class TotalJoint(Joint):
             else:
                 f.write(", inactive")
         f.write(", component")
-        database.drive_indenture += 2
         for d in self.drives[:3]:
             if d:
                 f.write(",\n\t\treference, " + d.safe_name())
@@ -597,7 +593,6 @@ class TotalJoint(Joint):
                 f.write(",\n\t\treference, " + d.safe_name())
             else:
                 f.write(",\n\t\t\t\tinactive")
-        database.drive_indenture -= 2
         f.write(";\n")
     def remesh(self):
         Sphere(self.objects[0])
@@ -875,9 +870,8 @@ klasses[GravityOperator.bl_label] = GravityOperator
 class Driven(Entity):
     elem_type = "driven"
     def write(self, f):
-        f.write("\tdriven: " + self.safe_name() + ",\n" +
-        self.drive.safe_name() + ",\n" +
-        "\t\texisting: " + self.element.elem_type + ", " + self.element.safe_name() + ";\n")
+        f.write("\tdriven: " + self.element.safe_name() + ",\n\t\treference, " +
+        self.drive.safe_name() + ",\n\t\texisting: " + self.element.elem_type + ", " + self.element.safe_name() + ";\n")
 
 class DrivenOperator(Drive):
     bl_label = "Driven"
@@ -1185,4 +1179,4 @@ for t in types:
     if Tester.bl_label not in klasses:
         klasses[Tester.bl_label] = Tester
 
-bundle = Bundle(tree, Base, klasses, database.element, "element")
+bundle = Bundle(tree, Base, klasses, database.element)

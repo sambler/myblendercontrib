@@ -28,16 +28,12 @@ if "bpy" in locals():
     imp.reload(Operator)
     imp.reload(Entity)
 else:
-    from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, enum_general_data, enum_method, enum_nonlinear_solver, enum_eigenanalysis, enum_abort_after, enum_linear_solver, enum_dummy_steps, enum_output_data, enum_real_time, enum_assembly, enum_job_control, enum_default_output, enum_default_aerodynamic_output, enum_default_beam_output
-    from .base import update_definition
-    from .common import FORMAT
-    from bpy_extras.io_utils import ExportHelper
+    from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle
+    from .common import FORMAT, aerodynamic_types, beam_types, force_types, genel_types, joint_types, environment_types, node_types, rigid_body_types, structural_static_types, structural_dynamic_types, safe_name, write_vector, write_matrix
     from mathutils import Matrix
     import subprocess
     from tempfile import TemporaryFile
-    from time import sleep, clock
     import os
-    #import gc
 
 
 types = ["Initial value"]
@@ -89,256 +85,357 @@ for t in types:
 
 class InitialValue(Entity):
     def write_input_file(self, context, directory):
+        def write_structural_node(f, structural_type, node, frame):
+            f.write("\tstructural: " + ", ".join([safe_name(node.name), structural_type]) + ",\n")
+            frame_label = frame.safe_name() if frame else "global"
+            location, orientation = node.matrix_world.translation, node.matrix_world.to_quaternion().to_matrix()
+            if frame:
+                location = location - frame.objects[0].matrix_world.translation
+                orientation = frame.objects[0].matrix_world.to_quaternion().to_matrix().transposed()*orientation
+            f.write("\t\treference, " + frame_label + ", ")
+            write_vector(f, location, ",\n")
+            f.write("\t\treference, " + frame_label + ", matr,\n")
+            write_matrix(f, orientation, "\t"*3)
+            f.write(",\n" +
+                "\t\treference, " + frame_label + ", null,\n" +
+                "\t\treference, " + frame_label + ", null;\n")
         with open(os.path.join(directory, context.scene.name + ".mbd"), "w") as f:
-            database.write_indexes(f)
+            f.write("# MBDyn v1.6 input file generated using BlenderAndMBDyn v2.0\n\n")
+            frame_for, frames, parent_of = dict(), list(), dict()
+            reference_frames = database.input_card.filter("Reference frame")
+            for frame in reference_frames:
+                frame_for.update({ob : frame for ob in frame.objects[1:]})
+                frames.append(frame)
+                parent_of.update({frame : parent for parent in reference_frames if frame.objects[0] in parent.objects[1:]})
+            frames_to_write = list()
+            while frames:
+                frame = frames.pop()
+                if frame in parent_of and parent_of[frame] in frames:
+                    frames.appendleft(frame)
+                else:
+                    frames_to_write.append(frame)
+            if frames_to_write:
+                f.write("# Frame names:\n")
+                for i, frame in enumerate(sorted(frames_to_write, key=lambda x: x.name)):
+                    f.write("set: const integer " + safe_name(frame.name) + " = " + str(i) + ";\n")
+                f.write("\n")
+            else:
+                f.write("# Frame names: None\n")
+            nodes = set()
+            dummy_dict = dict()
+            structural_dynamic_nodes = set()
+            structural_static_nodes = set()
+            structural_dummy_nodes = set()
+            database.rigid_dict = {e.objects[0] : e.objects[1] for e in database.element.filter("Rigid offset")}
+            names = [e.name for e in database.all_entities()]
+            for e in (e for e in database.element + database.drive if hasattr(e, "objects")):
+                ob = database.rigid_dict[e.objects[0]] if e.objects[0] in database.rigid_dict else e.objects[0]
+                if ob.name in names:
+                    ob.name = "Node"
+                nodes |= set([ob])
+                if e.type in structural_dynamic_types:
+                    structural_dynamic_nodes |= set([ob])
+                elif e.type in structural_static_types:
+                    structural_static_nodes |= set([ob])
+                elif e.type == "Dummy":
+                    structural_dummy_nodes |= set([ob])
+                    dummy_dict[ob] = e.objects[1]
+            structural_static_nodes -= structural_dynamic_nodes | structural_dummy_nodes
+            database.node.clear()
+            database.node.extend(sorted(nodes, key=lambda x: x.name))
+            if database.node:
+                f.write("# Node names:\n")
+                for i, node in enumerate(database.node):
+                    f.write("set: const integer " + safe_name(node.name) + " = " + str(i) + ";\n")
+                f.write("\n")
+            else:
+                f.write("# Node names: None\n\n")
+            if database.element:
+                f.write("# Element names:\n")
+                for i, element in enumerate(sorted(database.element, key=lambda x: x.name)):
+                    f.write("set: const integer " + element.safe_name() + " = " + str(i) + ";\n")
+                f.write("\n")
+            else:
+                f.write("# Element names: None\n\n")
+            if database.drive:
+                f.write("# Drive names:\n")
+                for i, drive in enumerate(sorted(database.drive, key=lambda x: x.name)):
+                    f.write("set: const integer " + drive.safe_name() + " = " + str(i) + ";\n")
+                f.write("\n")
+            else:
+                f.write("# Drive names: None\n\n")
+            if database.constitutive:
+                f.write("# Constitutive names:\n")
+                for i, constitutive in enumerate(sorted(database.constitutive, key=lambda x: x.name)):
+                    f.write("set: const integer " + constitutive.safe_name() + " = " + str(i) + ";\n")
+                f.write("\n")
+            else:
+                f.write("# Constitutive names: None\n\n")
+            set_cards = database.input_card.filter("Set")
+            if set_cards:
+                f.write("# Parameters:\n")
+                for set_card in set_cards:
+                    set_card.write(f)
+                f.write("\n")
+            else:
+                f.write("# Parameters: None\n\n")
+            structural_node_count = len(structural_static_nodes | structural_dynamic_nodes | structural_dummy_nodes)
+            joint_count = len([e for e in database.element if e.type in joint_types])
+            force_count = len([e for e in database.element if e.type in force_types])
+            rigid_body_count = len([e for e in database.element if e.type in rigid_body_types])
+            aerodynamic_element_count = len([e for e in database.element if e.type in aerodynamic_types])
+            rotor_count = len([e for e in database.element if e.type in ["Rotor"]])
+            genel_count = len([e for e in database.element if e.type in genel_types])
+            beam_count = len([e for e in database.element if e.type in beam_types and not hasattr(e, "consumer")])
+            air_properties = bool([e for e in database.element if e.type in ["Air properties"]])
+            gravity = bool([e for e in database.element if e.type in ["Gravity"]])
+            file_driver_count = 0
+            bailout_upper = False
+            upper_bailout_time = 0.0
+            for driver in database.driver:
+                driver.columns = list()
+            """
+            for drive in database.drive:
+                if drive.type == "File drive":
+                    drive.links[0].columns.append(drive)
+            """
+            for driver in database.driver:
+                if driver.columns:
+                    file_driver_count += 1
+                    if driver.bailout_upper:
+                        if driver.filename:
+                            name = driver.filename.replace(" ", "")
+                        else:
+                            name = driver.name.replace(" ", "")
+                        command = "tail -n 1 " + os.path.splitext(context.blend_data.filepath)[0] + ".echo_" + name + " | awk '{print $1}'"
+                        f1 = TemporaryFile()
+                        call(command, shell=True, stdout=f1)
+                        try:
+                            f1.seek(0)
+                            upper_bailout_time = min(upper_bailout_time, float(f1.read()) - 1e-3)
+                        except:
+                            pass
+                        f1.close()
+#            electric_node_count = len([e for e in database.ns_node if e.type in ["Electric"]])
+#            abstract_node_count = len([e for e in database.ns_node if e.type in ["Abstract"]])
+#            hydraulic_node_count = len([e for e in database.ns_node if e.type in ["Hydraulic"]])
+#            parameter_node_count = len([e for e in database.ns_node if e.type in ["Parameter"]])
             f.write(
                 "begin: data" +
                 ";\n\tproblem: initial value" +
                 ";\nend: data" +
                 ";\n\nbegin: initial value" +
-                ";\n\tinitial time: " + FORMAT(self.initial_time) +
-                ";\n\tfinal time: " + ("forever" if self.forever else FORMAT(self.final_time)) +
+                ";\n\tinitial time: " + (BPY.FORMAT(self.initial_time) if self.initial_time is not None else "0") +
+                ";\n\tfinal time: " + (BPY.FORMAT(self.final_time) if self.final_time is not None else "forever") +
                 ";\n")
-            problem_count = len([v for v in [True, self.set_method, self.set_nonlinear_solver,
-                self.set_eigenanalysis, self.set_abort_after, self.set_linear_solver,
-                self.set_dummy_steps, True, self.set_real_time] if v])
-            for link in self.links[:problem_count]:
-                link.write(f)
+            for a in [self.general_data, self.method, self.nonlinear_solver, self.eigenanalysis, self.abort_after, self.linear_solver, self.dummy_steps, self.output_data, self.real_time]:
+                if a is not None:
+                    a.write(f)
             f.write("end: initial value;\n" +
                 "\nbegin: control data;\n")
-            for link in self.links[problem_count:]:
-                link.write(f)
-            database.write_control(f, context)
+            for a in [self.assembly, self.job_control, self.default_output, self.default_aerodynamic_output, self.default_beam_output]:
+                if a is not None:
+                    a.write(f)
+            if structural_node_count:
+                f.write("\tstructural nodes: " + str(structural_node_count) + ";\n")
+            """
+            if electric_node_count:
+                f.write("\telectric nodes: " + str(electric_node_count) + ";\n")
+            if abstract_node_count:
+                f.write("\tabstract nodes: " + str(abstract_node_count) + ";\n")
+            if hydraulic_node_count:
+                f.write("\thydraulic nodes: " + str(hydraulic_node_count) + ";\n")
+            """
+            if joint_count:
+                f.write("\tjoints: " + str(joint_count) + ";\n")
+            if force_count:
+                f.write("\tforces: " + str(force_count) + ";\n")
+            if genel_count:
+                f.write("\tgenels: " + str(genel_count) + ";\n")
+            if beam_count:
+                f.write("\tbeams: " + str(beam_count) + ";\n")
+            if rigid_body_count:
+                f.write("\trigid bodies: " + str(rigid_body_count) + ";\n")
+            if air_properties:
+                f.write("\tair properties;\n")
+            if gravity:
+                f.write("\tgravity;\n")
+            if aerodynamic_element_count:
+                f.write("\taerodynamic elements: " + str(aerodynamic_element_count) + ";\n")
+            if rotor_count:
+                f.write("\trotors: " + str(rotor_count) + ";\n")
+            if file_driver_count:
+                f.write("\tfile drivers: " + str(file_driver_count) + ";\n")
             f.write("end: control data;\n")
-            database.write(f)
-
-"""
-method_types = [
-    "Crank Nicolson",
-    "ms",
-    "Hope",
-    "Third order",
-    "bdf",
-    "Implicit Euler"]
-
-nonlinear_solver_types = [
-    "Newton Raphston",
-    "Line search",
-    "Matrix free"]
-
-problem_types = ["General data"] + method_types + nonlinear_solver_types + ["Eigenanalysis", "Abort after", "Linear solver", "Dummy steps", "Output data", "Real time"]
-
-control_types = ["Assembly", "Job control", "Default output", "Default aerodynamic output", "Default beam output", "Default scale", "Rigid body kinematics"]
-
-problem_tree = ["Problem",
-    ["General data",
-    "Method", method_types,
-    "Nonlinear solver", nonlinear_solver_types,
-    "Eigenanalysis",
-    "Abort after",
-    "Linear solver",
-    "Dummy steps",
-    "Output data",
-     "Real time"
-    ]]
-
-control_tree = ["Control", control_types]
-"""
+            if frames_to_write:
+                f.write("\n")
+                for frame in frames_to_write:
+                    frame.write(f, parent_of[frame] if frame in parent_of else None)
+            if database.node:
+                f.write("\nbegin: nodes;\n")
+                for node in structural_static_nodes:
+                    write_structural_node(f, "static", node, frame_for[node] if node in frame_for else None)
+                for node in structural_dynamic_nodes:
+                    write_structural_node(f, "dynamic", node, frame_for[node] if node in frame_for else None)
+                for node in structural_dummy_nodes:
+                    base_node = dummy_dict[node]
+                    rot = base_node.matrix_world.to_quaternion().to_matrix()
+                    globalV = node.matrix_world.translation - base_node.matrix_world.translation
+                    localV = rot*globalV
+                    rotT = node.matrix_world.to_quaternion().to_matrix()
+                    f.write("\tstructural: " + str(database.node.index(node)) + ", dummy,\n\t\t" +
+                        str(database.node.index(base_node)) + ", offset,\n\t\t\t")
+                    write_vector(f, localV, ",\n\t\t\tmatr,\n")
+                    write_matrix(f, rot*rotT, "\t\t\t\t")
+                    f.write(";\n")
+                """
+                for i, ns_node in enumerate(self.ns_node):
+                    if ns_node.type == "Electric":
+                        f.write("\telectric: " + str(i) + ", value, " + str(ns_node._args[0]))
+                        if ns_node._args[1]: f.write(", derivative, " + str(ns_node._args[2]))
+                        f.write(";\n")
+                    if ns_node.type == "Abstract":
+                        f.write("\tabstract: " + str(i) + ", value, " + str(ns_node._args[0]))
+                        if ns_node._args[1]: f.write(", differential, " + str(ns_node._args[2]))
+                        f.write(";\n")
+                    if ns_node.type == "Hydraulic":
+                        f.write("\thydraulic: " + str(i) + ", value, " + str(ns_node._args[0]) + ";\n")
+                """
+                f.write("end: nodes;\n")
+            if file_driver_count:
+                f.write("\nbegin: drivers;\n")
+                for driver in sorted(database.driver, key=lambda x: x.name):
+                    driver.write(f)
+                f.write("end: drivers;\n")
+            if database.function:
+                f.write("\n# Functions:\n")
+                for function in sorted(database.function, key=lambda x: x.name):
+                    function.write(f)
+            if database.drive:
+                f.write("\n# Drives:\n")
+                for drive in database.drive:
+                    f.write("drive caller: " + ", ".join([drive.safe_name(), drive.string()]) + ";\n")
+            if database.constitutive:
+                f.write("\n# Constitutives:\n")
+                for constitutive in database.constitutive:
+                    f.write("constitutive law: " + ", ".join([constitutive.safe_name(), constitutive.dimension[0], constitutive.string()]) + ";\n")
+            if database.element:
+                f.write("\nbegin: elements;\n")
+                try:
+                    for element_type in aerodynamic_types + beam_types + ["Body"] + force_types + genel_types + joint_types + ["Rotor"] + environment_types + ["Driven"]:
+                        for element in database.element:
+                            if element.type == element_type:
+                                element.write(f)
+                except Exception as e:
+                    print(e)
+                    f.write(str(e) + "\n")
+                f.write("end: elements;\n")
+            del database.rigid_dict
+            del dummy_dict
 
 class InitialValueOperator(Base):
     bl_label = "Initial value"
-    executable_path = bpy.props.StringProperty(name="MBDyn path", description="Path to the MBDyn executable")
-    initial_time = bpy.props.FloatProperty(name="Initial time", description="When to start simulation (s)", default=0.0, min=0.0, precision=6)
-    forever = bpy.props.BoolProperty(name="Forever")
-    final_time = bpy.props.FloatProperty(name="Final time", description="When to end simulation (s)", default=10.0, min=0.0, precision=6)
-    general_data_name = bpy.props.EnumProperty(items=enum_general_data, name="General data",
-        update=lambda self, context: update_definition(self, context, self.general_data_name, "General data"))
-    set_method = bpy.props.BoolProperty(name="Set method")
-    method_name = bpy.props.EnumProperty(items=enum_method, name="Method",
-        update=lambda self, context: update_definition(self, context, self.method_name, "Method"))
-    set_nonlinear_solver = bpy.props.BoolProperty(name="Set nonlinear solver")
-    nonlinear_solver_name = bpy.props.EnumProperty(items=enum_nonlinear_solver, name="Nonlinear solver",
-        update=lambda self, context: update_definition(self, context, self.nonlinear_solver_name, "Nonlinear solver"))
-    set_eigenanalysis = bpy.props.BoolProperty(name="Set eigenanalysis")
-    eigenanalysis_name = bpy.props.EnumProperty(items=enum_eigenanalysis, name="Eigenanalysis",
-        update=lambda self, context: update_definition(self, context, self.eigenanalysis_name, "Eigenanalysis"))
-    set_abort_after = bpy.props.BoolProperty(name="Set abort after")
-    abort_after_name = bpy.props.EnumProperty(items=enum_abort_after, name="Abort after",
-        update=lambda self, context: update_definition(self, context, self.abort_after_name, "Abort after"))
-    set_linear_solver = bpy.props.BoolProperty(name="Set linear solver")
-    linear_solver_name = bpy.props.EnumProperty(items=enum_linear_solver, name="Linear solver",
-        update=lambda self, context: update_definition(self, context, self.linear_solver_name, "Linear solver"))
-    set_dummy_steps = bpy.props.BoolProperty(name="Set dummy steps")
-    dummy_steps_name = bpy.props.EnumProperty(items=enum_dummy_steps, name="Dummy steps",
-        update=lambda self, context: update_definition(self, context, self.dummy_steps_name, "Dummy steps"))
-    output_data_name = bpy.props.EnumProperty(items=enum_output_data, name="Output data",
-        update=lambda self, context: update_definition(self, context, self.output_data_name, "Output data"))
-    set_real_time = bpy.props.BoolProperty(name="Set real time")
-    real_time_name = bpy.props.EnumProperty(items=enum_real_time, name="Real time",
-        update=lambda self, context: update_definition(self, context, self.real_time_name, "Real time"))
-    set_assembly = bpy.props.BoolProperty(name="Set assembly")
-    assembly_name = bpy.props.EnumProperty(items=enum_assembly, name="Assembly",
-        update=lambda self, context: update_definition(self, context, self.assembly_name, "Assembly"))
-    job_control_name = bpy.props.EnumProperty(items=enum_job_control, name="Job control",
-        update=lambda self, context: update_definition(self, context, self.job_control_name, "Job control"))
-    set_default_output = bpy.props.BoolProperty(name="Set default output", default=True)
-    default_output_name = bpy.props.EnumProperty(items=enum_default_output, name="Default output",
-        update=lambda self, context: update_definition(self, context, self.default_output_name, "Default output"))
-    set_default_aerodynamic_output = bpy.props.BoolProperty(name="Set default aerodynamic output")
-    default_aerodynamic_output_name = bpy.props.EnumProperty(items=enum_default_aerodynamic_output, name="Default aerodynamic output",
-        update=lambda self, context: update_definition(self, context, self.default_aerodynamic_output_name, "Default aerodynamic output"))
-    set_default_beam_output = bpy.props.BoolProperty(name="Set beam default output")
-    default_beam_output_name = bpy.props.EnumProperty(items=enum_default_beam_output, name="Default beam output",
-        update=lambda self, context: update_definition(self, context, self.default_beam_output_name, "Default beam output"))
+    mbdyn_path = bpy.props.PointerProperty(type=BPY.Str)
+    initial_time = bpy.props.PointerProperty(type=BPY.Float)
+    final_time = bpy.props.PointerProperty(type=BPY.Float)
+    general_data = bpy.props.PointerProperty(type=BPY.Definition)
+    method = bpy.props.PointerProperty(type=BPY.Definition)
+    nonlinear_solver = bpy.props.PointerProperty(type=BPY.Definition)
+    eigenanalysis = bpy.props.PointerProperty(type=BPY.Definition)
+    abort_after = bpy.props.PointerProperty(type=BPY.Definition)
+    linear_solver = bpy.props.PointerProperty(type=BPY.Definition)
+    dummy_steps = bpy.props.PointerProperty(type=BPY.Definition)
+    output_data = bpy.props.PointerProperty(type=BPY.Definition)
+    real_time = bpy.props.PointerProperty(type=BPY.Definition)
+    assembly = bpy.props.PointerProperty(type=BPY.Definition)
+    job_control = bpy.props.PointerProperty(type=BPY.Definition)
+    default_output = bpy.props.PointerProperty(type=BPY.Definition)
+    default_aerodynamic_output = bpy.props.PointerProperty(type=BPY.Definition)
+    default_beam_output = bpy.props.PointerProperty(type=BPY.Definition)
     def prereqs(self, context):
-        self.executable_path = BPY.executable_path
+        self.mbdyn_path.assign(BPY.mbdyn_path)
+        self.final_time.select, self.final_time.value = True, 10.0
+        self.general_data.type = "General data"
+        self.general_data.mandatory = True
         self.general_data_exists(context)
+        self.method.type = "Method"
+        self.nonlinear_solver.type = "Nonlinear solver"
+        self.eigenanalysis.type = "Eigenanalysis"
+        self.abort_after.type = "Abort after"
+        self.linear_solver.type = "Linear solver"
+        self.dummy_steps.type = "Dummy steps"
+        self.output_data.type = "Output data"
+        self.output_data.mandatory = True
         self.output_data_exists(context)
+        self.real_time.type = "Real time"
+        self.assembly.type = "Assembly"
+        self.job_control.type = "Job control"
+        self.job_control.mandatory = True
         self.job_control_exists(context)
+        self.default_output.type = "Default output"
+        self.default_output.mandatory = True
         self.default_output_exists(context)
+        self.default_aerodynamic_output.type = "Default aerodynamic output"
+        self.default_beam_output.type = "Default beam output"
     def assign(self, context):
-        self.executable_path = BPY.executable_path
-        self.initial_time = self.entity.initial_time
-        self.forever = self.entity.forever
-        self.final_time = self.entity.final_time
-        link = iter(self.entity.links)
-        self.general_data_name = next(link).name
-        self.set_method = self.entity.set_method
-        if self.set_method:
-            self.method_name = next(link).name
-        self.set_nonlinear_solver = self.entity.set_nonlinear_solver
-        if self.set_nonlinear_solver:
-            self.nonlinear_solver_name = next(link).name
-        self.set_eigenanalysis = self.entity.set_eigenanalysis
-        if self.set_eigenanalysis:
-            self.eigenanalysis_name = next(link).name
-        self.set_abort_after = self.entity.set_abort_after
-        if self.set_abort_after:
-            self.abort_after_name = next(link).name
-        self.set_linear_solver = self.entity.set_linear_solver
-        if self.set_linear_solver:
-            self.linear_solver_name = next(link).name
-        self.set_dummy_steps = self.entity.set_dummy_steps
-        if self.set_dummy_steps:
-            self.dummy_steps_name = next(link).name
-        self.output_data_name = next(link).name
-        self.set_real_time = self.entity.set_real_time
-        if self.set_real_time:
-            self.real_time_name = next(link).name
-        self.set_assembly = self.entity.set_assembly
-        if self.set_assembly:
-            self.assembly_name = next(link).name
-        self.job_control_name = next(link).name
-        self.set_default_output = self.entity.set_default_output
-        if self.set_default_output:
-            self.default_output_name = next(link).name
-        self.set_default_aerodynamic_output = self.entity.set_default_aerodynamic_output
-        if self.set_default_aerodynamic_output:
-            self.default_aerodynamic_output_name = next(link).name
-        self.set_default_beam_output = self.entity.set_default_beam_output
-        if self.set_default_beam_output:
-            self.default_beam_output_name = next(link).name
+        self.mbdyn_path.assign(self.entity.mbdyn_path)
+        self.initial_time.assign(self.entity.initial_time)
+        self.final_time.assign(self.entity.final_time)
+        self.general_data.assign(self.entity.general_data)
+        self.method.assign(self.entity.method)
+        self.nonlinear_solver.assign(self.entity.nonlinear_solver)
+        self.eigenanalysis.assign(self.entity.eigenanalysis)
+        self.abort_after.assign(self.entity.abort_after)
+        self.linear_solver.assign(self.entity.linear_solver)
+        self.dummy_steps.assign(self.entity.dummy_steps)
+        self.output_data.assign(self.entity.output_data)
+        self.real_time.assign(self.entity.real_time)
+        self.assembly.assign(self.entity.assembly)
+        self.job_control.assign(self.entity.job_control)
+        self.default_output.assign(self.entity.default_output)
+        self.default_aerodynamic_output.assign(self.entity.default_aerodynamic_output)
+        self.default_beam_output.assign(self.entity.default_beam_output)
     def store(self, context):
-        BPY.executable_path = self.executable_path
-        self.entity.executable_path = self.executable_path
-        self.entity.initial_time = self.initial_time
-        self.entity.forever = self.forever
-        self.entity.final_time = self.final_time
-        self.entity.set_method = self.set_method
-        self.entity.set_nonlinear_solver = self.set_nonlinear_solver
-        self.entity.set_eigenanalysis = self.set_eigenanalysis
-        self.entity.set_abort_after = self.set_abort_after
-        self.entity.set_linear_solver = self.set_linear_solver
-        self.entity.set_dummy_steps = self.set_dummy_steps
-        self.entity.set_real_time = self.set_real_time
-        self.entity.set_assembly = self.set_assembly
-        self.entity.set_default_output = self.set_default_output
-        self.entity.set_default_aerodynamic_output = self.set_default_aerodynamic_output
-        self.entity.set_default_beam_output = self.set_default_beam_output
-        self.entity.links.append(database.definition.get_by_name(self.general_data_name))
-        if self.set_method:
-            self.entity.links.append(database.definition.get_by_name(self.method_name))
-        if self.set_nonlinear_solver:
-            self.entity.links.append(database.definition.get_by_name(self.nonlinear_solver_name))
-        if self.set_eigenanalysis:
-            self.entity.links.append(database.definition.get_by_name(self.eigenanalysis_name))
-        if self.set_abort_after:
-            self.entity.links.append(database.definition.get_by_name(self.abort_after_name))
-        if self.set_linear_solver:
-            self.entity.links.append(database.definition.get_by_name(self.linear_solver_name))
-        if self.set_dummy_steps:
-            self.entity.links.append(database.definition.get_by_name(self.dummy_steps_name))
-        self.entity.links.append(database.definition.get_by_name(self.output_data_name))
-        if self.set_real_time:
-            self.entity.links.append(database.definition.get_by_name(self.real_time_name))
-        if self.set_assembly:
-            self.entity.links.append(database.definition.get_by_name(self.assembly_name))
-        self.entity.links.append(database.definition.get_by_name(self.job_control_name))
-        if self.set_default_output:
-            self.entity.links.append(database.definition.get_by_name(self.default_output_name))
-        if self.set_default_aerodynamic_output:
-            self.entity.links.append(database.definition.get_by_name(self.default_aerodynamic_output_name))
-        if self.set_default_beam_output:
-            self.entity.links.append(database.definition.get_by_name(self.default_beam_output_name))
+        self.entity.mbdyn_path = BPY.mbdyn_path = self.mbdyn_path.store()
+        self.entity.initial_time = self.initial_time.store()
+        self.entity.final_time = self.final_time.store()
+        self.entity.general_data = self.general_data.store()
+        self.entity.method = self.method.store()
+        self.entity.nonlinear_solver = self.nonlinear_solver.store()
+        self.entity.eigenanalysis = self.eigenanalysis.store()
+        self.entity.abort_after = self.abort_after.store()
+        self.entity.linear_solver = self.linear_solver.store()
+        self.entity.dummy_steps = self.dummy_steps.store()
+        self.entity.output_data = self.output_data.store()
+        self.entity.real_time = self.real_time.store()
+        self.entity.assembly = self.assembly.store()
+        self.entity.job_control = self.job_control.store()
+        self.entity.default_output = self.default_output.store()
+        self.entity.default_aerodynamic_output = self.default_aerodynamic_output.store()
+        self.entity.default_beam_output = self.default_beam_output.store()
+    def pre_finished(self, context):
         exec("bpy.ops." + root_dot + "save('INVOKE_DEFAULT')")
     def draw(self, context):
-        self.basis = (self.forever, self.set_method, self.set_nonlinear_solver, self.set_eigenanalysis, self.set_abort_after, self.set_linear_solver, self.set_dummy_steps, self.set_real_time, self.set_assembly, self.set_default_output, self.set_default_aerodynamic_output, self.set_default_beam_output)
         layout = self.layout
-        layout.prop(self, "executable_path")
-        layout.prop(self, "initial_time")
-        row = layout.row()
-        row.prop(self, "forever")
-        if not self.forever:
-            row.prop(self, "final_time")
-        layout.prop(self, "general_data_name")
-        row = layout.row()
-        row.prop(self, "set_method")
-        if self.set_method:
-            row.prop(self, "method_name")
-        row = layout.row()
-        row.prop(self, "set_nonlinear_solver")
-        if self.set_nonlinear_solver:
-            row.prop(self, "nonlinear_solver_name")
-        row = layout.row()
-        row.prop(self, "set_eigenanalysis")
-        if self.set_eigenanalysis:
-            row.prop(self, "eigenanalysis_name")
-        row = layout.row()
-        row.prop(self, "set_abort_after")
-        if self.set_abort_after:
-            row.prop(self, "abort_after_name")
-        row = layout.row()
-        row.prop(self, "set_linear_solver")
-        if self.set_linear_solver:
-            row.prop(self, "linear_solver_name")
-        row = layout.row()
-        row.prop(self, "set_dummy_steps")
-        if self.set_dummy_steps:
-            row.prop(self, "dummy_steps_name")
-        layout.prop(self, "output_data_name")
-        row = layout.row()
-        row.prop(self, "set_real_time")
-        if self.set_real_time:
-            row.prop(self, "real_time_name")
-        row = layout.row()
-        row.prop(self, "set_assembly")
-        if self.set_assembly:
-            row.prop(self, "assembly_name")
-        layout.prop(self, "job_control_name")
-        row = layout.row()
-        row.prop(self, "set_default_output")
-        if self.set_default_output:
-            row.prop(self, "default_output_name")
-        row = layout.row()
-        row.prop(self, "set_default_aerodynamic_output")
-        if self.set_default_aerodynamic_output:
-            row.prop(self, "default_aerodynamic_output_name")
-        row = layout.row()
-        row.prop(self, "set_default_beam_output")
-        if self.set_default_beam_output:
-            row.prop(self, "default_beam_output_name")
+        self.mbdyn_path.draw(layout, "MBDyn path", "Set")
+        self.initial_time.draw(layout, "Initial time")
+        self.final_time.draw(layout, "Final time")
+        self.general_data.draw(layout, "General data")
+        self.method.draw(layout, "Method", "Set")
+        self.nonlinear_solver.draw(layout, "Nonlinear solver", "Set")
+        self.eigenanalysis.draw(layout, "Eigenanalysis", "Set")
+        self.abort_after.draw(layout, "Abort after", "Set")
+        self.linear_solver.draw(layout, "Linear solver", "Set")
+        self.dummy_steps.draw(layout, "Dummy steps", "Set")
+        self.output_data.draw(layout, "Output data", "Set")
+        self.real_time.draw(layout, "Real time", "Set")
+        self.assembly.draw(layout, "Assembly", "Set")
+        self.job_control.draw(layout, "Job control", "Set")
+        self.default_output.draw(layout, "Default output", "Set")
+        self.default_aerodynamic_output.draw(layout, "Default aerodynamic output", "Set")
+        self.default_beam_output.draw(layout, "Default beam output", "Set")
     def check(self, context):
-        return self.basis != (self.forever, self.set_method, self.set_nonlinear_solver, self.set_eigenanalysis, self.set_abort_after, self.set_linear_solver, self.set_dummy_steps, self.set_real_time, self.set_assembly, self.set_default_output, self.set_default_aerodynamic_output, self.set_default_beam_output)
+        return (True in [x.check(context) for x in [self.mbdyn_path, self.initial_time, self.final_time, self.general_data, self.method, self.nonlinear_solver, self.eigenanalysis, self.abort_after, self.linear_solver, self.dummy_steps, self.output_data, self.real_time, self.assembly, self.default_output, self.default_aerodynamic_output, self.default_beam_output]])
     def create_entity(self):
         return InitialValue(self.name)
 
@@ -353,23 +450,19 @@ class Save(bpy.types.Operator, Base):
             options={'HIDDEN'},
             )
     filepath = bpy.props.StringProperty()
-    first_pass = bpy.props.BoolProperty(default=True)
     def invoke(self, context, event):
-        if self.first_pass or not context.blend_data.filepath:
-            self.first_pass = False
+        if not context.blend_data.filepath:
             self.filepath = "untitled.blend"
             context.window_manager.fileselect_add(self)
             return {'RUNNING_MODAL'}
         self.filepath = context.blend_data.filepath
         return self.execute(context)
     def execute(self, context):
-        self.first_pass = True
         directory = os.path.splitext(self.filepath)[0]
         if not os.path.exists(directory):
             os.mkdir(directory)
         database.simulator[context.scene.simulator_index].write_input_file(context, directory)
         bpy.ops.wm.save_mainfile(filepath=self.filepath)
-        #gc.collect()
         context.scene.dirty_simulator = False
         context.scene.clean_log = False
         return{'FINISHED'}
@@ -405,13 +498,13 @@ class Simulate(bpy.types.Operator, Base):
     def execute(self, context):
         sim = database.simulator[context.scene.simulator_index]
         directory = os.path.splitext(context.blend_data.filepath)[0]
-        command = [sim.executable_path, "-s", "-f", os.path.join(directory, context.scene.name + ".mbd")]
+        command = [sim.mbdyn_path if sim.mbdyn_path is not None else "mbdyn", "-s", "-f", os.path.join(directory, context.scene.name + ".mbd")]
         print(" ".join(command))
         self.f = TemporaryFile()
         self.process = subprocess.Popen(command, stdout=self.f, stderr=self.f)
         self.out_file = os.path.join(directory, context.scene.name + ".out")
-        self.t_final = sim.final_time if not sim.forever else float("inf")
-        self.t_range = self.t_final - sim.initial_time
+        self.t_final = sim.final_time if sim.final_time is not None else float("inf")
+        self.t_range = self.t_final - (sim.initial_time if sim.initial_time is not None else 0.0)
         subprocess.call(("touch", self.out_file))
         wm = context.window_manager
         wm.progress_begin(0., 100.)
@@ -424,8 +517,8 @@ class Animate(bpy.types.Operator, Base):
     bl_idname = root_dot + "animate"
     bl_options = {'REGISTER', 'INTERNAL'}
     bl_label = "Animate objects"
-    bl_description = "Import results into Blender animation starting at the next frame"
-    steps = bpy.props.IntProperty(name="Steps between animation", default=1, min=1)
+    bl_description = "Import each node's position and orientation into Blender keyframes starting at the next frame"
+    steps = bpy.props.IntProperty(name="MBDyn steps between Blender keyframes", default=1, min=1)
     def invoke(self, context, event):
         scene = context.scene
         directory = os.path.splitext(context.blend_data.filepath)[0]
@@ -470,4 +563,4 @@ class Animate(bpy.types.Operator, Base):
         layout.prop(self, "steps")
 BPY.klasses.append(Animate)
 
-bundle = Bundle(tree, Base, klasses, database.simulator, "simulator")
+bundle = Bundle(tree, Base, klasses, database.simulator)

@@ -182,6 +182,19 @@ def render_main(self, context, animation=False):
                                         draw_segments(context, myobj, op, None, None)
                                     break
 
+                # -----------------------------
+                # Loop to draw all debug
+                # -----------------------------
+                if scene.measureit_debug is True:
+                    selobj = bpy.context.selected_objects
+                    for myobj in selobj:
+                        if scene.measureit_debug_vertices is True:
+                            draw_vertices(context, myobj, None, None)
+                        if scene.measureit_debug_faces is True or scene.measureit_debug_normals is True:
+                            draw_faces(context, myobj, None, None)
+
+
+
                 if scene.measureit_rf is True:
                     bgl.glColor3f(1.0, 1.0, 1.0)
                     rfcolor = scene.measureit_rf_color

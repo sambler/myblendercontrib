@@ -66,4 +66,4 @@ for t in types:
             return Entity(self.name)
     klasses[t] = Tester
 
-bundle = Bundle(tree, Base, klasses, database.driver, "driver")
+bundle = Bundle(tree, Base, klasses, database.driver)

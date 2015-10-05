@@ -26,7 +26,7 @@ bl_info = {
     "name": "MBDyn Modeling and Simulation",
     "author": "G Douglas Baldwin",
     "version": (2, 0),
-    "blender": (2, 6, 0),
+    "blender": (2, 7, 2),
     "location": "View3D",
     "description": "Provides an MBDyn multibody dynamic model design and presentation environment.",
     "warning": "",
@@ -42,7 +42,7 @@ if "BPY" in locals():
     imp.reload(friction)
     imp.reload(shape)
     imp.reload(function)
-    imp.reload(ns_node)
+#    imp.reload(ns_node)
     imp.reload(constitutive)
     imp.reload(matrix)
     imp.reload(input_card)
@@ -54,14 +54,16 @@ else:
     from . import friction
     from . import shape
     from . import function
-    from . import ns_node
+#    from . import ns_node
     from . import constitutive
     from . import matrix
     from . import input_card
     from . import definition
     from . import simulator
 
-modules = [element, constitutive, drive, driver, input_card, friction, function, matrix, ns_node, shape, definition, simulator]
+modules = [element, constitutive, drive, driver, input_card, friction, function, matrix, 
+#    ns_node, 
+    shape, definition, simulator]
 
 def register():
     BPY.register()

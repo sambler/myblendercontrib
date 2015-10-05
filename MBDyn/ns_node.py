@@ -70,4 +70,4 @@ for t in types:
             return Entity(self.name)
     klasses[t] = Tester
 
-bundle = Bundle(tree, Base, klasses, database.ns_node, "ns_node")
+bundle = Bundle(tree, Base, klasses, database.ns_node)

@@ -51,10 +51,10 @@ from .VTX import AutoVTX
 from .V2X import Vert2Intersection
 from .XALL import IntersectAllEdges
 from .BIX import LineOnBisection
-from .PERP import CutOnPerpendicular
+# from .PERP import CutOnPerpendicular
 from .CCEN import CircleCenter
 from .CCEN import CircleMake
-from .EXM import ExtendEdgesMulti
+# from .EXM import ExtendEdgesMulti
 
 Scene = bpy.types.Scene
 
@@ -64,9 +64,9 @@ vtx_classes = (
     [Vert2Intersection, 'V2X | Vertex at intersection', 'V2X.png'],
     [IntersectAllEdges, 'XALL | Intersect selected edges', 'XALL.png'],
     [LineOnBisection, 'BIX |  Bisector of 2 planar edges', 'BIX.png'],
-    [CutOnPerpendicular, 'PERP | Cut face perpendicular', 'PERP.png'],
+    # [CutOnPerpendicular, 'PERP | Cut face perpendicular', 'PERP.png'],
     [CircleCenter, 'CCEN | Resurrect circle center', 'CCEN.png'],
-    [ExtendEdgesMulti, 'EXM | Extend Multiple edges (experimenal)', 'EXM.png']
+    # [ExtendEdgesMulti, 'EXM | Extend Multiple edges (experimenal)', 'EXM.png']
 )
 
 preview_collections = {}
@@ -75,9 +75,9 @@ preview_collections = {}
 class VIEW3D_MT_edit_mesh_tinycad(bpy.types.Menu):
     bl_label = "TinyCAD"
 
-    @classmethod
-    def poll(cls, context):
-        return (context.object is not None)
+    # @classmethod
+    # def poll(cls, context):
+    #     return (context.object is not None)
 
     def draw(self, context):
         try:

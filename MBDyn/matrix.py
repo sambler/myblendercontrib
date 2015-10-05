@@ -286,4 +286,4 @@ class Matrix6xNOperator(MatrixBase):
 
 klasses[Matrix6xNOperator.bl_label] = Matrix6xNOperator
 
-bundle = Bundle(tree, Base, klasses, database.matrix, "matrix")
+bundle = Bundle(tree, Base, klasses, database.matrix)

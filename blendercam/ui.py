@@ -45,13 +45,19 @@ class CAM_CUTTER_Panel(CAMButtonsPanel, bpy.types.Panel):
 				row.operator("render.cam_preset_cutter_add", text="", icon='ZOOMOUT').remove_active = True
 				layout.prop(ao,'cutter_id')
 				layout.prop(ao,'cutter_type')
-				layout.prop(ao,'cutter_diameter')
-				#layout.prop(ao,'cutter_length')
-				layout.prop(ao,'cutter_flutes')
 				if ao.cutter_type=='VCARVE':
 					layout.prop(ao,'cutter_tip_angle')
 				if ao.cutter_type=='CUSTOM':
+					if ao.use_exact:
+						layout.label(text='Warning - only convex shapes are supported. ', icon='COLOR_RED')
+						layout.label(text='If your custom cutter is concave,')
+						layout.label(text='switch exact mode off.')
+						
 					layout.prop_search(ao, "cutter_object_name", bpy.data, "objects")
+				
+				layout.prop(ao,'cutter_diameter')
+				#layout.prop(ao,'cutter_length')
+				layout.prop(ao,'cutter_flutes')
 				layout.prop(ao, 'cutter_description')
 
    
@@ -73,7 +79,7 @@ class CAM_MACHINE_Panel(CAMButtonsPanel, bpy.types.Panel):
 		ao=s.cam_machine
 	
 		if ao:
-			#cutter preset
+			#machine preset
 			row = layout.row(align=True)
 			row.menu("CAM_MACHINE_presets", text=bpy.types.CAM_MACHINE_presets.bl_label)
 			row.operator("render.cam_preset_machine_add", text="", icon='ZOOMIN')
@@ -331,16 +337,12 @@ class CAM_INFO_Panel(CAMButtonsPanel, bpy.types.Panel):
 			if ao.warnings!='':
 				lines=ao.warnings.split('\n')
 				for l in lines:
-					layout.label(l)
+					layout.label(text=l, icon='COLOR_RED')
 			if ao.valid:
-				#ob=bpy.data.objects[ao.object_name]
-				#layout.separator()
 				if ao.duration>0:
 					layout.label('operation time: '+str(int(ao.duration*100)/100.0)+' min')	   
-				#layout.prop(ao,'chipload')
-				layout.label(  'chipload: '+ strInUnits(ao.chipload,8) + ' / tooth')
-				#layout.label(str(ob.dimensions.x))
-				#row=layout.row()
+				layout.label(  'chipload: '+ strInUnits(ao.chipload,4) + ' / tooth')
+				
 		
 class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 	"""CAM operation properties panel"""
@@ -405,10 +407,12 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 					layout.prop(ao,'dont_merge')
 					layout.prop(ao,'use_bridges')
 					if ao.use_bridges:
+						layout.prop(ao,'bridges_placement')
 						layout.prop(ao,'bridges_width')
 						layout.prop(ao,'bridges_height')
-						layout.prop(ao,'bridges_per_curve')
-						layout.prop(ao,'bridges_max_distance')
+						if ao.bridges_placement == 'AUTO':
+							layout.prop(ao,'bridges_per_curve')
+							layout.prop(ao,'bridges_max_distance')
 					
 				elif ao.strategy=='WATERLINE':
 					layout.prop(ao,'slice_detail')	
@@ -442,8 +446,7 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 					layout.prop(ao,'dist_along_paths')
 					if ao.strategy=='PARALLEL' or ao.strategy=='CROSS':
 						layout.prop(ao,'parallel_angle')
-						if not ao.ramp:
-							layout.prop(ao,'parallel_step_back')
+						
 						
 					layout.prop(ao,'skin')
 					layout.prop(ao,'inverse')
@@ -485,11 +488,15 @@ class CAM_MOVEMENT_Panel(CAMButtonsPanel, bpy.types.Panel):
 			ao=scene.cam_operations[scene.cam_active_operation]
 			if ao.valid:
 				layout.prop(ao,'movement_type')
+				
 				if ao.movement_type=='BLOCK' or ao.movement_type=='SPIRAL' or ao.movement_type=='CIRCLES':
 					layout.prop(ao,'movement_insideout')
 				   
 				layout.prop(ao,'spindle_rotation_direction')
 				layout.prop(ao,'free_movement_height')
+				if ao.strategy=='PARALLEL' or ao.strategy=='CROSS':
+					if not ao.ramp:
+						layout.prop(ao,'parallel_step_back')
 				if ao.strategy=='CUTOUT':
 					layout.prop(ao,'first_down')
 					#if ao.first_down:
@@ -513,6 +520,8 @@ class CAM_MOVEMENT_Panel(CAMButtonsPanel, bpy.types.Panel):
 						layout.prop(ao,'ramp_out_angle')
 					
 				layout.prop(ao,'stay_low')
+				if ao.stay_low:
+					layout.prop(ao,'merge_dist')
 				layout.prop(ao,'protect_vertical')
 				if ao.protect_vertical:
 					layout.prop(ao,'protect_vertical_limit')

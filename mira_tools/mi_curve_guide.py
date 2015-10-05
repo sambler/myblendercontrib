@@ -213,9 +213,9 @@ class MI_Curve_Guide(bpy.types.Operator):
                                 curve_picked = True
                                 self.tool_mode = 'MOVE_CUR_POINT'
 
-                # pick linear widget point
+                # pick linear widget point but only before the curve is created
                 if curve_picked is False:
-                    if (curguide_settings.deform_type != 'Deform' and self.curve_tool) or not self.curve_tool:
+                    if not self.curve_tool:
                         picked_point = l_widget.pick_lw_point(context, m_coords, self.lw_tool)
                         if picked_point:
                             self.deform_mouse_pos = Vector(m_coords)
@@ -518,13 +518,13 @@ def update_mesh_to_curve(self, bm, deform_type, obj):
 
             #check_angle = b_point_dir.angle(self.tool_up_vec)
 
-            ## upVec approach by me
-            # calculate using cross vec
-            b_point_up = b_point_dir.cross(self.tool_up_vec).normalized()                
+            ### upVec approach by me
+            ## calculate using cross vec
+            #b_point_up = b_point_dir.cross(self.tool_up_vec).normalized()
 
-            ## upVec approach by mano-wii version 1
-            #pzv = self.tool_up_vec.project(b_point_dir)  # here we project the direction to get upVec
-            #b_point_up = (self.tool_up_vec - pzv).normalized()
+            # upVec approach by mano-wii version 1
+            pzv = self.tool_up_vec.project(b_point_dir)  # here we project the direction to get upVec
+            b_point_up = (self.tool_up_vec - pzv).normalized()
 
             ## upVec approach by mano-wii version 2
             #dot = self.tool_up_vec.dot(b_point_dir)
@@ -580,11 +580,25 @@ def update_mesh_to_curve(self, bm, deform_type, obj):
                                         best_pos = b_point_data[0]
                                     else:
                                         previous_pos_len = deform_lines[j-1][1] / line_len
-                                        best_pos = deform_lines[j-1][0] + (( (vert_len - previous_pos_len) * line_len) * b_point_dirs[0])
+
+                                        interp_pos = (vert_len - previous_pos_len) * line_len
+
+                                        # fix for interpolation between lines
+                                        if j > 1 and j < len(deform_lines) - 1:
+                                            prev_b_point_dirs = b_dirs[deform_lines.index(b_point_data)]
+                                            b_point_dirs_temp = b_dirs[deform_lines.index(b_point_data)+1]
+                                            b_point_dirs = b_point_dirs.copy()
+
+                                            new_side_vec = prev_b_point_dirs[1].lerp(b_point_dirs_temp[1], interp_pos).normalized()
+                                            b_point_dirs[1] = new_side_vec
+                                            new_side_vec = prev_b_point_dirs[2].lerp(b_point_dirs_temp[2], interp_pos).normalized()
+                                            b_point_dirs[2] = new_side_vec
+
+                                        best_pos = deform_lines[j-1][0] + (( interp_pos) * b_point_dirs[0])
 
                                     break
 
-                        vert.co = obj.matrix_world.inverted() * ( best_pos - (b_point_dirs[2] * vert_data[3]) - (b_point_dirs[1] * vert_data[2]) )
+                        vert.co = obj.matrix_world.inverted() * ( best_pos + (b_point_dirs[1] * vert_data[3]) - (b_point_dirs[2] * vert_data[2]) )
                         break
 
     else:  # ALL OTHER TYPES
@@ -632,7 +646,7 @@ def update_mesh_to_curve(self, bm, deform_type, obj):
                             best_bezier_len = (final_pos - vert_front_pos).length  # the length!
 
                             if deform_type in {'Shear', 'Twist'}:
-                                if (final_pos - vert_front_pos).normalized().angle(self.tool_side_vec) > math.radians(90):
+                                if self.tool_side_vec_len != 0.0 and (final_pos - vert_front_pos).normalized().angle(self.tool_side_vec) > math.radians(90):
                                     best_bezier_len = -best_bezier_len
                             break
 
@@ -641,12 +655,21 @@ def update_mesh_to_curve(self, bm, deform_type, obj):
                     # multiplier for the vert
                     dir_multilpier = None
                     if deform_type == 'Stretch':
-                        dir_multilpier = (vert_data[2] * (best_bezier_len / self.tool_side_vec_len)) - vert_data[2]
+                        if self.tool_side_vec_len != 0.0:
+                            dir_multilpier = (vert_data[2] * (best_bezier_len / self.tool_side_vec_len)) - vert_data[2]
+                        else:
+                            dir_multilpier = (vert_data[2] * 0.0) - vert_data[2]
+
                     elif deform_type in {'Shear', 'Twist'}:
                         dir_multilpier = best_bezier_len - self.tool_side_vec_len
+
                     else:
                         vert_dist_scale = (vert_data[0] - vert_front_pos).length
-                        dir_multilpier = abs(vert_dist_scale * (best_bezier_len / self.tool_side_vec_len)) - vert_dist_scale
+
+                        if self.tool_side_vec_len != 0.0:
+                            dir_multilpier = abs(vert_dist_scale * (best_bezier_len / self.tool_side_vec_len)) - vert_dist_scale
+                        else:
+                            dir_multilpier = abs(vert_dist_scale * 0.0) - vert_dist_scale
 
                     # modify vert position
                     if deform_type == 'Twist':

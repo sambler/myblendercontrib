@@ -28,8 +28,7 @@ if "bpy" in locals():
     imp.reload(Operator)
     imp.reload(Entity)
 else:
-    from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, enum_drive, enum_meter_drive, enum_method
-    from .base import update_definition, update_drive
+    from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle
     from .common import FORMAT, method_types, nonlinear_solver_types
 
 problem_types = ["General data"] + method_types + nonlinear_solver_types + ["Eigenanalysis", "Abort after", "Linear solver", "Dummy steps", "Output data", "Real time"]
@@ -90,11 +89,11 @@ class GeneralProblem(Entity):
     def write(self, f):
         f.write("\tstrategy: " + self.strategy)
         if self.strategy == "factor":
-            f.write(", " + ", ".join([FORMAT(v) for v in (self.reducion_factor, self.steps_before_reduction,
+            f.write(", " + ", ".join([BPY.FORMAT(v) for v in (self.reduction_factor, self.steps_before_reduction,
                 self.raise_factor, self.steps_before_raise, self.factor_min_iterations)])
                 + (", " + FORMAT(self.factor_max_iterations) if self.set_factor_max_iterations else ""))
         elif self.strategy == "change":
-            f.write(", " + self.links[0].string())
+            f.write(", " + self.time_step_pattern_drive.string())
         if self.strategy != "no change":
             f.write(";\n\tmin time step: " + FORMAT(self.min_time_step) +
             ";\n\tmax time step: " + ("unlimited" if self.unlimited else FORMAT(self.max_time_step)))
@@ -123,15 +122,14 @@ class GeneralProblemOperator(Base):
         ("factor", "Factor", ""),
         ("change", "Change", ""),
         ], name="Strategy", default="no change")
-    reducion_factor = bpy.props.FloatProperty(name="Reduction factor", default=0.0, min=0.0, precision=6)
+    reduction_factor = bpy.props.PointerProperty(type = BPY.Float)
     steps_before_reduction = bpy.props.IntProperty(name="Steps before reduction", default=0, min=0)
     raise_factor = bpy.props.FloatProperty(name="Raise factor", default=0.0, min=0.0, precision=6)
     steps_before_raise = bpy.props.IntProperty(name="Steps before raise", default=0, min=0)
     factor_min_iterations = bpy.props.IntProperty(name="Min iterations", default=0, min=0)
     set_factor_max_iterations = bpy.props.BoolProperty(name="Set max iterations")
     factor_max_iterations = bpy.props.IntProperty(name="Max iterations", min=0)
-    time_step_pattern_name = bpy.props.EnumProperty(items=enum_drive, name="Time step pattern",
-        update=lambda self, context: update_drive(self, context, self.time_step_pattern_name))
+    time_step_pattern_drive = bpy.props.PointerProperty(type=BPY.Drive)
     min_time_step = bpy.props.FloatProperty(name="Min time step", default=0.0, min=0.0, precision=6)
     unlimited = bpy.props.BoolProperty(name="Unlimited")
     max_time_step = bpy.props.FloatProperty(name="Max time step", default=0.0, min=0.0, precision=6)
@@ -170,9 +168,11 @@ class GeneralProblemOperator(Base):
     derivatives_tolerance = bpy.props.FloatProperty(name="Derivatives tolerance", default=2.0, min=0.0, precision=6)
     derivatives_max_iterations = bpy.props.IntProperty(name="Derivatives max iterations", default=1, min=0)
     derivatives_coefficient = bpy.props.FloatProperty(name="Derivatives coefficient", default=1e-3, min=0.0, precision=6)
+    def prereqs(self, context):
+        self.reduction_factor.mandatory = True
     def assign(self, context):
         self.strategy = self.entity.strategy
-        self.reducion_factor = self.entity.reducion_factor
+        self.reduction_factor.assign(self.entity.reduction_factor)
         self.steps_before_reduction = self.entity.steps_before_reduction
         self.raise_factor = self.entity.raise_factor
         self.steps_before_raise = self.entity.steps_before_raise
@@ -203,11 +203,10 @@ class GeneralProblemOperator(Base):
         self.derivatives_tolerance = self.entity.derivatives_tolerance
         self.derivatives_max_iterations = self.entity.derivatives_max_iterations
         self.derivatives_coefficient = self.entity.derivatives_coefficient
-        if self.strategy == "change":
-            self.time_step_pattern_name = self.entity.links[0].name
+        self.time_step_pattern_drive.assign(self.entity.time_step_pattern_drive)
     def store(self, context):
         self.entity.strategy = self.strategy
-        self.entity.reducion_factor = self.reducion_factor
+        self.entity.reduction_factor = self.reduction_factor.store()
         self.entity.steps_before_reduction = self.steps_before_reduction
         self.entity.raise_factor = self.raise_factor
         self.entity.steps_before_raise = self.steps_before_raise
@@ -238,24 +237,23 @@ class GeneralProblemOperator(Base):
         self.entity.derivatives_tolerance = self.derivatives_tolerance
         self.entity.derivatives_max_iterations = self.derivatives_max_iterations
         self.entity.derivatives_coefficient = self.derivatives_coefficient
-        if self.strategy == "change":
-            self.entity.links.append(database.drive.get_by_name(self.time_step_pattern_name))
+        self.entity.time_step_pattern_drive = self.time_step_pattern_drive.store()
     def draw(self, context):
         self.basis = (self.strategy, self.set_factor_max_iterations, self.unlimited, self.set_residual_tolerance, self.set_residual_test, self.set_solution_tolerance, self.set_solution_test, self.set_threads, self.set_assembly_solver)
         layout = self.layout
         layout.prop(self, "strategy")
         if self.strategy == "factor":
-            layout.prop(self, "reducion_factor")
+            self.reduction_factor.draw(layout, "Reduction factor")
             layout.prop(self, "steps_before_reduction")
             layout.prop(self, "raise_factor")
             layout.prop(self, "steps_before_raise")
-            layout.prop(self, "tolerance_min_iterations")
+            layout.prop(self, "factor_min_iterations")
             row = layout.row()
             row.prop(self, "set_factor_max_iterations")
             if self.set_factor_max_iterations:
                 row.prop(self, "factor_max_iterations")
         elif self.strategy == "change":
-            layout.prop(self, "time_step_pattern_name")
+            self.time_step_pattern_drive.draw(layout, "Time step pattern")
         if self.strategy != "no change":
             layout.prop(self, "min_time_step")
             row = layout.row()
@@ -297,7 +295,8 @@ class GeneralProblemOperator(Base):
         layout.prop(self, "derivatives_max_iterations")
         layout.prop(self, "derivatives_coefficient")
     def check(self, context):
-        return self.basis != (self.strategy, self.set_factor_max_iterations, self.unlimited, self.set_residual_tolerance, self.set_residual_test, self.set_solution_tolerance, self.set_solution_test, self.set_threads, self.set_assembly_solver)
+        self.time_step_pattern_drive.mandatory = self.strategy == "change"
+        return (True in [x.check(context) for x in [self.reduction_factor]]) or self.time_step_pattern_drive.check(context) or (self.basis != (self.strategy, self.set_factor_max_iterations, self.unlimited, self.set_residual_tolerance, self.set_residual_test, self.set_solution_tolerance, self.set_solution_test, self.set_threads, self.set_assembly_solver))
     def create_entity(self):
         return GeneralProblem(self.name)
 
@@ -316,34 +315,24 @@ klasses[CrankNicolsonOperator.bl_label] = CrankNicolsonOperator
 
 class MS(Entity):
     def write(self, f, tab=True):
-        f.write(("\t" if tab else "") + "method: ms, " + ", ".join([link.string() for link in self.links]) + ";\n")
+        f.write(("\t" if tab else "") + "method: ms, " + ", ".join([drive.string() for drive in [self.differential_radius_drive, self.algebraic_radius_drive] if link is not None]) + ";\n")
 
 class MSHopeOperator(Base):
-    differential_radius_drive_name = bpy.props.EnumProperty(items=enum_drive, name="Differential radius drive",
-        update=lambda self, context: update_drive(self, context, self.differential_radius_drive_name))
-    set_algebraic_radius = bpy.props.BoolProperty(name="Set algebraic radius")
-    algebraic_radius_drive_name = bpy.props.EnumProperty(items=enum_drive, name="Algebraic radius drive",
-        update=lambda self, context: update_drive(self, context, self.algebraic_radius_drive_name))
+    differential_radius_drive = bpy.props.PointerProperty(type = BPY.Drive)
+    algebraic_radius_drive = bpy.props.PointerProperty(type = BPY.Drive)
+    def prereqs(self, context):
+        self.differential_radius_drive.mandatory = True
     def assign(self, context):
-        self.set_algebraic_radius = self.entity.set_algebraic_radius
-        self.differential_radius_drive_name = self.entity.links[0].name
-        if self.set_algebraic_radius:
-            self.algebraic_radius_drive_name = self.entity.links[1].name
+        self.differential_radius_drive.assign(self.entity.differential_radius_drive)
+        self.algebraic_radius_drive.assign(self.entity.algebraic_radius_drive)
     def store(self, context):
-        self.entity.set_algebraic_radius = self.set_algebraic_radius
-        self.entity.links.append(database.drive.get_by_name(self.differential_radius_drive_name))
-        if self.set_algebraic_radius:
-            self.entity.links.append(database.drive.get_by_name(self.algebraic_radius_drive_name))
+        self.entity.differential_radius_drive = self.differential_radius_drive.store()
+        self.entity.algebraic_radius_drive = self.algebraic_radius_drive.store()
     def draw(self, context):
-        self.basis = self.set_algebraic_radius
-        layout = self.layout
-        layout.prop(self, "differential_radius_drive_name")
-        row = layout.row()
-        row.prop(self, "set_algebraic_radius")
-        if self.set_algebraic_radius:
-            row.prop(self, "algebraic_radius_drive_name")
+        self.differential_radius_drive.draw(self.layout, "Differential radius drive")
+        self.algebraic_radius_drive.draw(self.layout, "Algebraic radius drive")
     def check(self, context):
-        return self.basis != self.set_algebraic_radius
+        return self.differential_radius_drive.check(context) or self.algebraic_radius_drive.check(context)
 
 class MSOperator(MSHopeOperator):
     bl_label = "ms"
@@ -354,7 +343,7 @@ klasses[MSOperator.bl_label] = MSOperator
 
 class Hope(Entity):
     def write(self, f, tab=True):
-        f.write(("\t" if tab else "") + "method: hope, " + ", ".join([link.string() for link in self.links]) + ";\n")
+        f.write(("\t" if tab else "") + "method: hope, " + ", ".join([drive.string() for drive in [self.differential_radius_drive, self.algebraic_radius_drive] if link is not None]) + ";\n")
 
 class HopeOperator(MSHopeOperator):
     bl_label = "Hope"
@@ -365,28 +354,19 @@ klasses[HopeOperator.bl_label] = HopeOperator
 
 class ThirdOrder(Entity):
     def write(self, f, tab=True):
-        f.write(("\t" if tab else "") + "method: third order, " + ("ad hoc" if self.ad_hoc else self.links[0].string()) + ";\n")
+        f.write(("\t" if tab else "") + "method: third order, " + (self.differential_radius_drive.string() if self.differential_radius_drive else "ad hoc") + ";\n")
 
 class ThirdOrderOperator(Base):
     bl_label = "Third order"
-    ad_hoc = bpy.props.BoolProperty(name="Ad hoc")
-    differential_radius_drive_name = bpy.props.EnumProperty(items=enum_drive, name="Differential radius drive",
-        update=lambda self, context: update_drive(self, context, self.differential_radius_drive_name))
+    differential_radius_drive = bpy.props.PointerProperty(type = BPY.Drive)
     def assign(self, context):
-        self.ad_hoc = self.entity.ad_hoc
-        self.differential_radius_drive_name = self.entity.links[0].name
+        self.differential_radius_drive.assign(self.entity.differential_radius_drive)
     def store(self, context):
-        self.entity.ad_hoc = self.ad_hoc
-        self.entity.links.append(database.drive.get_by_name(self.differential_radius_drive_name))
+        self.entity.differential_radius_drive = self.differential_radius_drive.store()
     def draw(self, context):
-        self.basis = self.ad_hoc
-        layout = self.layout
-        row = layout.row()
-        row.prop(self, "ad_hoc")
-        if not self.ad_hoc:
-            row.prop(self, "differential_radius_drive_name")
+        self.differential_radius_drive.draw(self.layout, "Differential radius drive")
     def check(self, context):
-        return self.basis != self.ad_hoc
+        return self.differential_radius_drive.check(context)
     def create_entity(self):
         return ThirdOrder(self.name)
 
@@ -1072,7 +1052,7 @@ class DummySteps(Entity):
         ";\n\tdummy_steps_number: " + FORMAT(self.dummy_steps_number) +
         ";\n\tdummy_steps_ratio: " + FORMAT(self.dummy_steps_ratio) +
         ";\n\tdummy steps ")
-        self.links[0].write(f, tab=False) 
+        self.dummy_steps_method.write(f, tab=False) 
         
 class DummyStepsOperator(Base):
     bl_label = "Dummy steps"
@@ -1080,27 +1060,31 @@ class DummyStepsOperator(Base):
     dummy_steps_max_iterations = bpy.props.IntProperty(name="Dummy steps max iterations", default=0, min=0)
     dummy_steps_number = bpy.props.IntProperty(name="Dummy steps number", default=0, min=0)
     dummy_steps_ratio = bpy.props.FloatProperty(name="Dummy steps ratio", default=1.0, min=0.0, precision=6)
-    dummy_steps_method_name = bpy.props.EnumProperty(items=enum_method, name="Method",
-        update=lambda self, context: update_definition(self, context, self.dummy_steps_method_name, "Method"))
+    dummy_steps_method = bpy.props.PointerProperty(type = BPY.Definition)
+    def prereqs(self, context):
+        self.dummy_steps_method.type = "Method"
+        self.dummy_steps_method.mandatory = True
     def assign(self, context):
         self.dummy_steps_tolerance = self.entity.dummy_steps_tolerance
         self.dummy_steps_max_iterations = self.entity.dummy_steps_max_iterations
         self.dummy_steps_number = self.entity.dummy_steps_number
         self.dummy_steps_ratio = self.entity.dummy_steps_ratio
-        self.dummy_steps_method_name = self.entity.links[0].name
+        self.dummy_steps_method.assign(self.entity.dummy_steps_method)
     def store(self, context):
         self.entity.dummy_steps_tolerance = self.dummy_steps_tolerance
         self.entity.dummy_steps_max_iterations = self.dummy_steps_max_iterations
         self.entity.dummy_steps_number = self.dummy_steps_number
         self.entity.dummy_steps_ratio = self.dummy_steps_ratio
-        self.entity.links.append(database.definition.get_by_name(self.dummy_steps_method_name))
+        self.entity.dummy_steps_method = self.dummy_steps_method.store()
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "dummy_steps_tolerance")
         layout.prop(self, "dummy_steps_max_iterations")
         layout.prop(self, "dummy_steps_number")
         layout.prop(self, "dummy_steps_ratio")
-        layout.prop(self, "dummy_steps_method_name")
+        self.dummy_steps_method.draw(self.layout, "Dummy steps method")
+    def check(self, context):
+        return self.dummy_steps_method.check(context)
     def create_entity(self):
         return DummySteps(self.name)
 
@@ -1383,7 +1367,7 @@ klasses[AssemblyOperator.bl_label] = AssemblyOperator
 
 class JobControl(Entity):
     def write(self, f):
-        if self.set_simulation_title:
+        if self.simulation_title is not None:
             f.write("\ttitle: " + self.simulation_title + ";\n")
         if (self.dof_stats or self.dof_description or self.equation_description or 
             self.element_connection or self.node_connection):
@@ -1394,29 +1378,25 @@ class JobControl(Entity):
                 ("element connection, " if self.element_connection else "") +
                 ("node connection, " if self.node_connection else ""))
             f.write(s[:-2] + ";\n")
-        if self.set_select_timeout:
-            f.write("\tselect timeout, " + ("forever" if self.forever else FORMAT(self.timeout)) + ";\n")
+        if self.select_timeout is not None:
+            f.write("\tselect timeout: " + BPY.FORMAT(self.select_timeout) + ";\n")
+        else:
+            f.write("\tselect timeout: forever;\n")
         f.write("\tdefault orientation: " + self.default_orientation + ";\n")
-        f.write("\toutput meter: " + self.links[0].string() +
+        f.write("\toutput meter: " + self.meter_drive.string() +
             ";\n\toutput precision: " + FORMAT(self.output_precision) + ";\n" +
-            #";\n\tdefault output: accelerations;\n" +
             ("\tmodel: static;\n" if self.static_model else ""))
 
 class JobControlOperator(Base):
     bl_label = "Job control"
-    set_simulation_title = bpy.props.BoolProperty(name="Set simulation title")
-    simulation_title = bpy.props.StringProperty(name="Simulation title")
-    dof_stats = bpy.props.BoolProperty(name="Print dof stats")
-    dof_description = bpy.props.BoolProperty(name="Print dof description")
-    equation_description = bpy.props.BoolProperty(name="Print equation description")
-    element_connection = bpy.props.BoolProperty(name="Print element connection")
-    node_connection = bpy.props.BoolProperty(name="Print node connection")
-    set_select_timeout = bpy.props.BoolProperty(name="Set select timeout")
-    forever = bpy.props.BoolProperty(name="Forever")
-    timeout = bpy.props.FloatProperty(name="Timeout", default=0.0, min=0.0, precision=6)
-    meter_drive_name = bpy.props.EnumProperty(items=enum_meter_drive, name="Meter drive",
-        update=lambda self, context: update_drive(self, context, self.meter_drive_name, "Meter drive"))
-    output_precision = bpy.props.IntProperty(name="Output precision", default=6, min=1)
+    simulation_title = bpy.props.PointerProperty(type=BPY.Str)
+    dof_stats = bpy.props.BoolProperty(name="Dof stats")
+    dof_description = bpy.props.BoolProperty(name="Dof description")
+    equation_description = bpy.props.BoolProperty(name="Equation description")
+    element_connection = bpy.props.BoolProperty(name="Element connection")
+    node_connection = bpy.props.BoolProperty(name="Node connection")
+    select_timeout = bpy.props.PointerProperty(type=BPY.Float)
+    meter_drive = bpy.props.PointerProperty(type = BPY.Drive)
     default_orientation = bpy.props.EnumProperty(items=[
         ("euler123", "Euler123", ""),
         ("euler313", "Euler313", ""),
@@ -1424,67 +1404,52 @@ class JobControlOperator(Base):
         ("orientation vector", "Orientation vector", ""),
         ("orientation matrix", "Orientation matrix", ""),
         ], name="Default orientation", default="orientation matrix")
-    static_model = bpy.props.BoolProperty(name="Static model")
+    output_precision = bpy.props.IntProperty(name="Output precision", default=6, min=1)
+    static_model = bpy.props.BoolProperty(name="Static model", description="Set model type to static")
     def prereqs(self, context):
+        self.meter_drive.type = "Meter drive"
+        self.meter_drive.mandatory = True
         self.meter_drive_exists(context)
     def assign(self, context):
-        self.set_simulation_title = self.entity.set_simulation_title
-        self.simulation_title = self.entity.simulation_title
+        self.simulation_title.assign(self.entity.simulation_title)
         self.dof_stats = self.entity.dof_stats
         self.dof_description = self.entity.dof_description
         self.equation_description = self.entity.equation_description
         self.element_connection = self.entity.element_connection
         self.node_connection = self.entity.node_connection
-        self.set_select_timeout = self.entity.set_select_timeout
-        self.forever = self.entity.forever
-        self.timeout = self.entity.timeout
-        self.meter_drive_name = self.entity.meter_drive_name
-        self.output_precision = self.entity.output_precision
+        self.select_timeout.assign(self.entity.select_timeout)
+        self.meter_drive.assign(self.entity.meter_drive)
         self.default_orientation = self.entity.default_orientation
         self.output_precision = self.entity.output_precision
-        self.meter_drive_name = self.entity.links[0].name
         self.static_model = self.entity.static_model
     def store(self, context):
-        self.entity.set_simulation_title = self.set_simulation_title
-        self.entity.simulation_title = self.simulation_title
+        self.entity.simulation_title = self.simulation_title.store()
         self.entity.dof_stats = self.dof_stats
         self.entity.dof_description = self.dof_description
         self.entity.equation_description = self.equation_description
         self.entity.element_connection = self.element_connection
         self.entity.node_connection = self.node_connection
-        self.entity.set_select_timeout = self.set_select_timeout
-        self.entity.forever = self.forever
-        self.entity.timeout = self.timeout
-        self.entity.meter_drive_name = self.meter_drive_name
+        self.entity.select_timeout = self.select_timeout.store()
+        self.entity.meter_drive = self.meter_drive.store()
         self.entity.output_precision = self.output_precision
         self.entity.default_orientation = self.default_orientation
         self.entity.output_precision = self.output_precision
         self.entity.static_model = self.static_model
-        self.entity.links.append(database.drive.get_by_name(self.meter_drive_name))
     def draw(self, context):
-        self.basis = (self.set_simulation_title, self.set_select_timeout, self.forever)
         layout = self.layout
-        row = layout.row()
-        row.prop(self, "set_simulation_title")
-        if self.set_simulation_title:
-            row.prop(self, "simulation_title")
-        layout.prop(self, "dof_stats")
-        layout.prop(self, "dof_description")
-        layout.prop(self, "equation_description")
-        layout.prop(self, "element_connection")
-        layout.prop(self, "node_connection")
-        row = layout.row()
-        row.prop(self, "set_select_timeout")
-        if self.set_select_timeout:
-            row.prop(self, "forever")
-            if not self.forever:
-                row.prop(self, "timeout")
+        self.simulation_title.draw(layout, "Simulation title", "Set")
+        layout.label("Print:")
+        for attribute in ["dof_stats", "dof_description", "equation_description", "element_connection", "node_connection"]:
+            row = layout.split(.1)
+            row.label()
+            row.prop(self, attribute)
+        self.select_timeout.draw(layout, "Select timeout", "Set")
+        self.meter_drive.draw(self.layout, "Output meter drive", "Set")
         layout.prop(self, "default_orientation")
-        layout.prop(self, "meter_drive_name")
         layout.prop(self, "output_precision")
         layout.prop(self, "static_model")
     def check(self, context):
-        return self.basis != (self.set_simulation_title, self.set_select_timeout, self.forever)
+        return True in [x.check(context) for x in [self.simulation_title, self.select_timeout, self.meter_drive]]
     def create_entity(self):
         return JobControl(self.name)
 
@@ -1739,4 +1704,4 @@ class DefaultBeamOutputOperator(Base):
 
 klasses[DefaultBeamOutputOperator.bl_label] = DefaultBeamOutputOperator
 
-bundle = Bundle(tree, Base, klasses, database.definition, "definition")
+bundle = Bundle(tree, Base, klasses, database.definition)

@@ -17,7 +17,10 @@ nodes_dict = {
         'scene_raycast',
         'bmesh_props',
         'closest_point_on_mesh',
-        'colors'
+        'colors',
+       # 'bvh_raycast',
+       # 'bvh_overlap',
+       # 'bvh_nearest'
     ],
 
     'basic_view': [
@@ -47,7 +50,11 @@ nodes_dict = {
         'sort_blenddata',
         'filter_blenddata',
         'blenddata_to_svdata',
-        'BMOperators'
+        'BMOperators',
+        'bmesh_in',
+        'bmesh_out',
+       # 'create_bvh_tree',
+        'bmesh_to_element'
     ],
 
     'basic_debug': [
@@ -181,12 +188,14 @@ nodes_dict = {
         'range_int',
         'fibonacci',
         'exponential',
+        'easing',
         'logic'
     ],
 
     'vector': [
         'drop',
         'interpolation',
+        'interpolation_mk2',
         'line_evaluate',
         'math',
         'move',
@@ -199,6 +208,10 @@ nodes_dict = {
         'vertices_delete_doubles',
         'vertices_sort',
         'axis_input'
+    ],
+
+    'network': [
+        'udp_client'
     ]
 
 }

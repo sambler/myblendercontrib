@@ -861,6 +861,7 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
         elif light_type == 'AREA':
             try:
                 lamp.size = 1.0
+                lamp.size_y = 1.0
             except:
                 pass
 

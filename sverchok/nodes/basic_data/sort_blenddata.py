@@ -25,7 +25,7 @@ from sverchok.data_structure import (updateNode)
 class SvSortObjsNode(bpy.types.Node, SverchCustomTreeNode):
     ''' Sort Objects '''
     bl_idname = 'SvSortObjsNode'
-    bl_label = 'sort_dataobject'
+    bl_label = 'Object ID Sort'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     Modes = StringProperty(name='formula', default='location.x', update=updateNode)
@@ -40,17 +40,19 @@ class SvSortObjsNode(bpy.types.Node, SverchCustomTreeNode):
             layout.prop(self, "Modes", text="")
 
     def process(self):
-        if self.outputs['Objects'].is_linked:
-            X = self.inputs['Objects'].sv_get()
+        Io, Cv = self.inputs
+        Oo = self.outputs[0]
+        if Oo.is_linked:
+            X = Io.sv_get()
             if isinstance(X[0], list):
                 X = X[0]
-            if self.inputs['CustomValue'].is_linked:
-                CV = self.inputs['CustomValue'].sv_get()
+            if Cv.is_linked:
+                CV = Cv.sv_get()
                 Y = CV[0] if isinstance(CV[0],list) else CV
             else:
                 Y = eval("[i."+self.Modes+" for i in X]")
             X.sort(key=dict(zip(X, Y)).get)
-            self.outputs['Objects'].sv_set(X)
+            Oo.sv_set(X)
 
     def update_socket(self, context):
         self.update()

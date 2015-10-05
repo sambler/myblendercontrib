@@ -31,7 +31,7 @@ bl_info = {
     "name": "MeasureIt",
     "author": "Antonio Vazquez (antonioya)",
     "location": "View3D > Tools Panel /Properties panel",
-    "version": (1, 5, 0),
+    "version": (1, 6, 1),
     "blender": (2, 7, 4),
     "description": "Tools for measuring objects.",
     "category": "3D View"}
@@ -257,6 +257,65 @@ def register():
                                                                 description="Arrow size",
                                                                 default=15, min=6, max=500)
 
+    bpy.types.Scene.measureit_debug = bpy.props.BoolProperty(name="Debug",
+                                                             description="Display information for debuging"
+                                                                         " (expand/collapse for enabling or disabling)"
+                                                                         " this information is only renderered for "
+                                                                         "selected objects",
+                                                             default=False)
+    bpy.types.Scene.measureit_debug_select = bpy.props.BoolProperty(name="Selected",
+                                                                    description="Display information "
+                                                                                "for selected vertices/faces",
+                                                                    default=False)
+    bpy.types.Scene.measureit_debug_vertices = bpy.props.BoolProperty(name="Vertices",
+                                                                      description="Display vertex number",
+                                                                      default=True)
+    bpy.types.Scene.measureit_debug_location = bpy.props.BoolProperty(name="Location",
+                                                                      description="Display vertex location",
+                                                                      default=False)
+    bpy.types.Scene.measureit_debug_faces = bpy.props.BoolProperty(name="Faces",
+                                                                   description="Display face number",
+                                                                   default=False)
+    bpy.types.Scene.measureit_debug_normals = bpy.props.BoolProperty(name="Normals",
+                                                                     description="Display face normal "
+                                                                                 "vector and creation order",
+                                                                     default=False)
+    bpy.types.Scene.measureit_debug_normal_details = bpy.props.BoolProperty(name="Details",
+                                                                            description="Display face normal details",
+                                                                            default=True)
+    bpy.types.Scene.measureit_debug_font = bpy.props.IntProperty(name="Font",
+                                                                 description="Debug text size",
+                                                                 default=14, min=10, max=150)
+    bpy.types.Scene.measureit_debug_color = bpy.props.FloatVectorProperty(name="Debug color",
+                                                                          description="Debug Color",
+                                                                          default=(1, 0, 0, 1.0),
+                                                                          min=0.1,
+                                                                          max=1,
+                                                                          subtype='COLOR',
+                                                                          size=4)
+    bpy.types.Scene.measureit_debug_color2 = bpy.props.FloatVectorProperty(name="Debug face color",
+                                                                           description="Debug face Color",
+                                                                           default=(0, 1, 0, 1.0),
+                                                                           min=0.1,
+                                                                           max=1,
+                                                                           subtype='COLOR',
+                                                                           size=4)
+    bpy.types.Scene.measureit_debug_color3 = bpy.props.FloatVectorProperty(name="Debug vector color",
+                                                                           description="Debug vector Color",
+                                                                           default=(1.0, 1.0, 0.1, 1.0),
+                                                                           min=0.1,
+                                                                           max=1,
+                                                                           subtype='COLOR',
+                                                                           size=4)
+    bpy.types.Scene.measureit_debug_normal_size = bpy.props.FloatProperty(name='Len', min=0.001, max=9,
+                                                                          default=0.5,
+                                                                          precision=2,
+                                                                          description="Normal arrow size")
+    bpy.types.Scene.measureit_debug_width = bpy.props.IntProperty(name='Debug width', min=1, max=10, default=2,
+                                                                  description='Vector line thickness')
+    bpy.types.Scene.measureit_debug_precision = bpy.props.IntProperty(name='Precision', min=0, max=5, default=1,
+                                                                      description="Number of decimal precision")
+
     # OpenGL flag
     wm = bpy.types.WindowManager
     # register internal property
@@ -313,6 +372,20 @@ def unregister():
     del bpy.types.Scene.measureit_glarrow_a
     del bpy.types.Scene.measureit_glarrow_b
     del bpy.types.Scene.measureit_glarrow_s
+    del bpy.types.Scene.measureit_debug
+    del bpy.types.Scene.measureit_debug_select
+    del bpy.types.Scene.measureit_debug_vertices
+    del bpy.types.Scene.measureit_debug_faces
+    del bpy.types.Scene.measureit_debug_normals
+    del bpy.types.Scene.measureit_debug_normal_details
+    del bpy.types.Scene.measureit_debug_font
+    del bpy.types.Scene.measureit_debug_color
+    del bpy.types.Scene.measureit_debug_color2
+    del bpy.types.Scene.measureit_debug_color3
+    del bpy.types.Scene.measureit_debug_normal_size
+    del bpy.types.Scene.measureit_debug_width
+    del bpy.types.Scene.measureit_debug_precision
+    del bpy.types.Scene.measureit_debug_location
 
     # remove OpenGL data
     measureit_main.RunHintDisplayButton.handle_remove(measureit_main.RunHintDisplayButton, bpy.context)

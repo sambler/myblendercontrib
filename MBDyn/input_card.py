@@ -30,7 +30,7 @@ if "bpy" in locals():
     imp.reload(subsurf)
 else:
     from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, SelectedObjects, update_matrix
-    from .common import RhombicPyramid
+    from .common import RhombicPyramid, write_vector, write_matrix
     from mathutils import Vector
     from copy import copy
 
@@ -82,30 +82,27 @@ class ReferenceFrame(Entity):
     def write(self, f, parent):
         parent_label = parent.safe_name() if parent else "global"
         vectors = list()
-        for v in [self.linear_velocity, self.angular_velocity]:
-            if v.subtype in "null default".split():
-                vectors.append(Vector([0., 0., 0.]))
-            else:
-                vectors.append(Vector(v.floats) * (v.scale if v.scale is not None else 1))
+        for r in [self.linear_rate, self.angular_rate]:
+            vectors.append(Vector([0., 0., r if r is not None else 0.]))
         location = self.objects[0].matrix_world.translation - (parent.objects[0].matrix_world.translation if parent else Vector([0., 0., 0.]))
         rot = self.objects[0].matrix_world.to_quaternion().to_matrix()
         rot_parent = parent.objects[0].matrix_world.to_quaternion().to_matrix() if parent else rot
         orientation = rot_parent.transposed()*rot if parent else rot
         f.write("reference: " + self.safe_name() + ",\n" + "\treference, " + parent_label + ", ")
-        self.write_vector(f, rot_parent.transposed()*location if parent else location, ",\n")
+        write_vector(f, rot_parent.transposed()*location if parent else location, ",\n")
         f.write("\treference, " + parent_label + ", matr,\n")
-        self.write_matrix(f, orientation, "\t\t")
+        write_matrix(f, orientation, "\t\t")
         f.write(",\n\treference, " + parent_label + ", ")
-        self.write_vector(f, orientation*vectors[0], ",\n")
+        write_vector(f, orientation*vectors[0], ",\n")
         f.write("\treference, " + parent_label + ", ")
-        self.write_vector(f, orientation*vectors[1], ";\n")
+        write_vector(f, orientation*vectors[1], ";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
 
 class ReferenceFrameOperator(Base):
     bl_label = "Reference frame"
-    linear_velocity = bpy.props.PointerProperty(type = BPY.Matrix)
-    angular_velocity = bpy.props.PointerProperty(type = BPY.Matrix)
+    linear_rate = bpy.props.PointerProperty(type = BPY.Float)
+    angular_rate = bpy.props.PointerProperty(type = BPY.Float)
     @classmethod
     def poll(self, context):
         frames = copy(database.input_card.filter("Reference frame"))
@@ -125,22 +122,19 @@ class ReferenceFrameOperator(Base):
                     head = objects[0]
                     frame_objects.remove(objects)
         return head not in selected[1:]
-    def prereqs(self, context):
-        self.linear_velocity.mandatory = True
-        self.angular_velocity.mandatory = True
-        self.linear_velocity.type = "3x1"
-        self.angular_velocity.type = "3x1"
     def assign(self, context):
-        self.linear_velocity.assign(self.entity.linear_velocity)
-        self.angular_velocity.assign(self.entity.angular_velocity)
+        self.linear_rate.assign(self.entity.linear_rate)
+        self.angular_rate.assign(self.entity.angular_rate)
     def store(self, context):
-        self.entity.linear_velocity = self.linear_velocity.store()
-        self.entity.angular_velocity = self.angular_velocity.store()
+        self.entity.linear_rate = self.linear_rate.store()
+        self.entity.angular_rate = self.angular_rate.store()
         self.entity.objects = SelectedObjects(context)
     def draw(self, context):
         layout = self.layout
-        self.linear_velocity.draw(layout, "Linear velocity")
-        self.angular_velocity.draw(layout, "Angular velocity")
+        self.linear_rate.draw(layout, "Linear rate", "Set")
+        self.angular_rate.draw(layout, "Angular rate", "Set")
+    def check(self, context):
+        return True in [v.check(context) for v in [self.linear_rate, self.angular_rate]]
     def create_entity(self):
         return ReferenceFrame(self.name)
 
@@ -187,4 +181,4 @@ class SetOperator(Base):
 
 klasses[SetOperator.bl_label] = SetOperator
 
-bundle = Bundle(tree, Base, klasses, database.input_card, "input_card")
+bundle = Bundle(tree, Base, klasses, database.input_card)

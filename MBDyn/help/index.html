@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<style type="text/css">
+.title
+    {
+        font-weight: bold;
+    }
+.elaborateHidden {border:1px solid black; display: none;}
+.elaborateShown {border:1px solid black; display: block;}
+</style>
+<script type="text/javascript">
+  function showhide(divID) {
+    var item = document.getElementById(divID);
+    if (item) {
+      item.className=(item.className=='elaborateHidden')?'elaborateShown':'elaborateHidden';
+    }
+  }
+</script> 
+</head>
+
+<body>
+
+<i>Index</i>
+<a href="#element">Element</a>
+<a href="#constitutive">Constitutive</a>
+<p></p>
+<a class="title" name="element">Element</a>:
+<p></p>
+<i>Index</i>
+<a href="#body">Body</a>
+<a href="#structural_force">Structural force</a>:
+<p></p>
+<p>
+The elements section is the basis of the BAM software. You may create an element by clicking on the <img src="createElem.png" alt="+" height="22" /> button and choosing from the list. If you currently have a Blender mesh object selected, it will become that element. Usually, one will start by creating a <a href="#body">Body</a>. Another common element which needs to be inserted is the <a href="#gravity">Gravity</a> element. The <img src="showFiltering.png" alt="+"  height="22" /> button will expand the menu to also show filtering options of the element list. The <img src="editElem.png" alt="inverse triangle"  height="22" /> button will allow one to edit an element or see a list of its users. Double clicking on a name in the list allows to change the said name. In case of a name conflict when creating a new element, a number will be added to the end of the chosen name.
+<br><br>
+
+</p>
+
+<a class="title" name="body">Body</a>:
+<p>
+A body represents a mass in the multibody model. It requires a mass value, which can be set as a variable name by ticking the checkbox. It also requires a <a href="#3x3">3x3</a> matrix of inertia.
+<br><br>
+If no Blender mesh object is selected when creating a body, a new one will be created at the location of the cursor. Upon accepting the body creation dialog, the user is invited by the "Object specifications" dialog to modify numerically the position and orientation of the body. This is optional and, in any case, any modifications brough by the user to the associated Blender mesh object will be also applied to the body.
+<br><br>
+<a href="javascript:showhide('constitutiveDetails');">Click to show/hide elaborate explanation</a>
+<div class="elaborateHidden" id="constitutiveDetails">
+The body element describes a lumped rigid body connected to a  6 degree of freedom
+structural node. The inertia matrix is always referred to the center of mass of the mass that is being added.
+</div>
+</p>
+
+<a class="title" name="structural_force">Structural force</a>:
+<p>
+The structural force element allows to apply a force to the selected element. It can be ither absolute or follower. And absolute force will always have the same position and orientation while the follower force will follow the object to which it is applied. The force value is defined by a <a href="#driver">driver</a>.
+</p>
+
+<a class="title" name="set">Set (XXX verif-name)</a>
+<p>
+This panel allows to create new variables by name. These may then be used throughout the model.
+<br><br>
+<a href="javascript:showhide('constitutiveDetails');">Click to show/hide elaborate explanation</a>
+<div class="elaborateHidden" id="constitutiveDetails">
+The user is encouraged to use such variables to simplify the creation of the model. A typical example would be to define variables of mass, length, height, and depth of a body to then be able to easily change later on the properties of that body. The values can be changed without having to manually edit all the matrices associated to that body. It becomes even more useful when one would want to scale a complete model by a factor. Mathematical operations can be done to create new variables from previously defined ones.
+</div>
+</p>
+
+
+<a class="title" name="gravity">Gravity</a>:
+<p>
+The Gravity element is used to add a gravity force to the simulation. Many times one will want to define it as a constant drive with a value of 9.81 m/s^2. The gravity element does not get linked with any Blender object. Any type of gravity may be defined by combining the required vector input with a chosen driver.
+</p>
+
+<a class="title" name="3x1">3x1 Matrix</a>:
+<p>
+	
+</p>
+	
+<a class="title" name="3x3">3x3 Matrix</a>:
+<p>
+	
+</p>
+
+<a class="title" name="simulator">Simulator</a>:
+<p>
+	This tab allows to create a new simulator/simulation. Only one simulation needs to be created. It can be ran multiple times. After having updated the multibody model, one can simply select the desired simulator and click the <i>Run simulation</i> button followed by the <i>Animated objects</i> button to see the new updated results.
+	
+TODO: add image: https://openclipart.org/download/3836/Selanit-info-lightbulb.svg	It is recommended to initially chose a high value of <i>steps between objects</i> when importing the animated results because MBDyn typically has a large number of timesteps and importing all of them in Blender may take a long time.
+	<br><br>
+<a href="javascript:showhide('simulatorDetails');">Click to show/hide elaborate explanation</a>
+<div class="elaborateHidden" id="simulatorDetails">
+In the panel which ...
+</div>
+</p>
+
+<a class="title" name="initial_value">Initial Value</a>:
+<p>
+	This panel allows to set the core preferences of MBDyn and the multibody simulation. By ticking the <i>MBDyn path</i> box, one will be able to give the path to the MBDyn executable to be used. 
+	
+	The <i>General_data</i>, <i>Output_data</i>, and <i>job_control</i> allow to impose settings in a similar fashion as explained in the MBDyn manual. <b>TODO: insert link to manual ?</b>
+	
+	The <i>default_output</i> drop-down menu selector allows to create a set of output values that ought to be printed to the output files when the simulation is ran.
+	<br><br>
+<a href="javascript:showhide('initial_valueDetails');">Click to show/hide elaborate explanation</a>
+<div class="elaborateHidden" id="initial_valueDetails">
+...
+</div>
+</p>
+
+
+
+
+<a class="title" name="constitutive">Constitutive law</a>:
+<p>
+This panel allows to define the laws used by the deformable joints.
+<br><br>
+<a href="javascript:showhide('constitutiveDetails');">Click to show/hide elaborate explanation</a>
+<div class="elaborateHidden" id="constitutiveDetails">
+Every time a &quot;deformable&quot;
+entity requires a constitutive law, a template constitutive law is read.
+The &quot;deformable&quot; elements at present are:<br>
+- rod and genel spring and related elements (1D);<br>
+- deformable hinge and deformable displacement joint elements (3D);<br>
+- deformable joint and beam elements (6D).<br>
+Constitutive laws are also used in non-structural components, to allow some degree of generality in
+defining input/output relationships. Some constitutive laws are meaningful only when related to some
+precise dimensionality. In some special cases, general purpose (genel) elements use 1D constitutive laws
+to express an arbitrary dependence of some value on a scalar state of the system. Table 2.7 shows the
+availability of each constitutive law.<br>
+The meaning of the input and output parameters of a constitutive law is dictated by the entity that
+uses it. In general, the user should refer to the element the constitutive law is being instantiated for in
+order to understand what the input and the output parameters are supposed to be.
+</div>
+</p>
+<a class="title" name="constitutive">Constitutive</a>
+<p>
+Brief explanation
+<br><br>
+<a href="javascript:showhide('constitutiveDetails');">Click to show/hide elaborate explanation</a>
+<div class="elaborateHidden" id="constitutiveDetails">
+elaborating...
+</div>
+</p>
+
+</body>
+</html>
+

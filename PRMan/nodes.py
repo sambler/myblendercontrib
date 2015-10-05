@@ -29,6 +29,7 @@ import xml.etree.ElementTree as ET
 
 import tempfile
 import nodeitems_utils
+import shutil
 
 from bpy.props import *
 from nodeitems_utils import NodeCategory, NodeItem
@@ -281,7 +282,12 @@ class RendermanShadingNode(bpy.types.Node):
             FileNameOSO += ".oso"
             export_path = os.path.join(
                 user_path(prefs.env_vars.out), "shaders", FileNameOSO)
-            ok = node.compile_osl(osl_path, compile_path)
+            if os.path.splitext(FileName)[1] == ".oso":
+                shutil.copy(osl_path, os.path.join(user_path(prefs.env_vars.out), "shaders"))
+                # Assume that the user knows what they were doing when they compiled the osl file.
+                ok = True
+            else:
+                ok = node.compile_osl(osl_path, compile_path)
         elif getattr(node, "codetypeswitch") == "INT" and node.internalSearch:
             script = bpy.data.texts[node.internalSearch]
             osl_path = bpy.path.abspath(

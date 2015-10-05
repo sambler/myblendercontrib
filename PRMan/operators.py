@@ -94,8 +94,11 @@ class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
                 light_shader = 'PxrStdEnvDayLightLightNode'
             elif light_type == 'HEMI':
                 light_shader = 'PxrStdEnvMapLightLightNode'
-            elif light_type == 'AREA':
+            elif light_type == 'AREA' or light_type == 'POINT':
+                idblock.type = "AREA"
                 context.lamp.size = 1.0
+                context.lamp.size_y = 1.0
+                
             else:
                 idblock.type = "AREA"
 
@@ -111,7 +114,7 @@ class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
 class refresh_osl_shader(bpy.types.Operator):
     bl_idname = "node.refresh_osl_shader"
     bl_label = "Refresh OSL Node"
-    bl_description = "Refreshes the OSL node !!! This takes a few seconds!!!"
+    bl_description = "Refreshes the OSL node This takes a few seconds!!!"
 
     def invoke(self, context, event):
         context.node.RefreshNodes(context)

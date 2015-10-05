@@ -27,15 +27,14 @@ from sverchok.data_structure import (updateNode, match_long_repeat)
 class SvRayCastNode(bpy.types.Node, SverchCustomTreeNode):
     ''' RayCast Object '''
     bl_idname = 'SvRayCastObjectNode'
-    bl_label = 'object_raycast'
+    bl_label = 'Object ID Raycast'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     mode = BoolProperty(name='input mode', default=False, update=updateNode)
     mode2 = BoolProperty(name='output mode', default=False, update=updateNode)
 
     def sv_init(self, context):
-        si = self.inputs.new
-        so = self.outputs.new
+        si,so = self.inputs.new,self.outputs.new
         si('StringsSocket', 'Objects')
         si('VerticesSocket', 'start').use_prop = True
         si('VerticesSocket', 'end').use_prop = True
@@ -49,42 +48,29 @@ class SvRayCastNode(bpy.types.Node, SverchCustomTreeNode):
         row.prop(self,    "mode2",   text="Out Mode")
 
     def process(self):
-        outfin = []
-        OutLoc = []
-        OutNorm = []
-        IND = []
-        st = self.inputs['start'].sv_get()[0]
-        en = self.inputs['end'].sv_get()[0]
-        st, en = match_long_repeat([st, en])
-        obj = self.inputs['Objects'].sv_get()
+        o,s,e = self.inputs
+        P,N,I = self.outputs
+        outfin,OutLoc,obj,sm1,sm2 = [],[],o.sv_get(),self.mode,self.mode2
+        st, en = match_long_repeat([s.sv_get()[0], e.sv_get()[0]])
         for OB in obj:
-            out = []
-            if self.mode:
-                i = 0
-                obmat = OB.matrix_local.inverted()
-                while i < len(en):
-                    out.append(OB.ray_cast(obmat*Vector(st[i]), obmat*Vector(en[i])))
-                    i = i+1
+            if sm1:
+                obm = OB.matrix_local.inverted()
+                outfin.append([OB.ray_cast(obm*Vector(i), obm*Vector(i2)) for i,i2 in zip(st,en)])
             else:
-                i = 0
-                while i < len(en):
-                    out.append(OB.ray_cast(st[i], en[i]))
-                    i = i+1
-            outfin.append(out)
-
-        g = 0
-        while g < len(obj):
-            omw = obj[g].matrix_world
-            for i in outfin[g]:
-                OutNorm.append(i[1][:])
-                IND.append(i[2])
-                OutLoc.append((omw*i[0])[:] if self.mode2 else i[0][:])
-            g = g+1
-
-        so = self.outputs
-        so['HitP'].sv_set([OutLoc])
-        so['HitNorm'].sv_set([OutNorm])
-        so['FaceINDEX'].sv_set([IND])
+                outfin.append([OB.ray_cast(i,i2) for i,i2 in zip(st,en)])
+        if sm2:
+            if P.is_linked:
+                for i,i2 in zip(obj,outfin):
+                    omw = i.matrix_world
+                    OutLoc.append([(omw*i[0])[:] for i in i2])
+                P.sv_set(OutLoc)
+        else:
+            if P.is_linked:
+                P.sv_set([[i[0][:] for i in i2] for i2 in outfin])
+        if N.is_linked:
+            N.sv_set([[i[1][:] for i in i2] for i2 in outfin])
+        if I.is_linked:
+            I.sv_set([[i[2] for i in i2] for i2 in outfin])
 
     def update_socket(self, context):
         self.update()

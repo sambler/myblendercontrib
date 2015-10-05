@@ -123,4 +123,4 @@ class ModlugreOperator(Base):
 
 klasses[ModlugreOperator.bl_label] = ModlugreOperator
 
-bundle = Bundle(tree, Base, klasses, database.friction, "friction")
+bundle = Bundle(tree, Base, klasses, database.friction)

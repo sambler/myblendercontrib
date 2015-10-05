@@ -236,6 +236,11 @@ def class_generate_properties(node, parent_name, shaderparameters):
                     prop_names.append(name)
                     prop_meta[name] = meta
                     setattr(node, name, prop)
+                #else:
+                 #   getLocation = bpy.context.scene.OSLProps
+                #    mataterial = 
+                #    for 
+                #    setattr(node, name, prop)
             else:
                 name, meta, prop = generate_property(sp)
                 prop_names.append(name)

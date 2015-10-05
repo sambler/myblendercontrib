@@ -19,13 +19,11 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# <pep8 compliant>
-
 
 bl_info = {
     "name": "Blendermada Client",
     "author": "Sergey Ozerov, <ozzyrov@gmail.com>",
-    "version": (0, 9, 1),
+    "version": (0, 9, 0),
     "blender": (2, 70, 0),
     "location": "Properties > Material > Blendermada Client",
     "description": "Browse and download materials from online CC0 database.",
@@ -55,44 +53,36 @@ ENGINE_MAPPING = {
     'CYCLES': 'cyc',
 }
 
-
-###############################################
-###############################################
+########################################################################
+########################################################################
 
 
 def get_cache_path():
-    path = os.path.join('~', '.blendermada')
-    path = os.path.expanduser(path)
+    path = bpy.context.user_preferences.addons[__name__].preferences.cache_path
     if not os.path.exists(path):
         os.mkdir(path)
-    path = os.path.join(path, 'cache')
+    path = os.path.join(path, 'bmd_cache')
     if not os.path.exists(path):
         os.mkdir(path)
     return path
 
-
 def dump_data(data, filepath):
     with open(filepath, 'wb+') as f:
         pickle.dump(data, f)
-
 
 def load_data(filepath):
     with open(filepath, 'rb+') as f:
         data = pickle.load(f)
     return data
 
-
 def file_expired(filepath, seconds_to_live):
     if os.path.exists(filepath):
-        now = time.mktime(datetime.now().timetuple())
-        filetime = os.path.getmtime(filepath)
-        if now - filetime < seconds_to_live:
+        if time.mktime(datetime.now().timetuple()) - os.path.getmtime(filepath) < seconds_to_live:
             return False
     return True
 
-
-###############################################
-###############################################
+########################################################################
+########################################################################
 
 
 def get_engine():
@@ -102,12 +92,39 @@ def get_engine():
     except:
         return ''
 
-
 def bmd_urlopen(url, **kwargs):
     full_url = parse.urljoin('http://blendermada.com/', url)
     params = parse.urlencode(kwargs)
     return request.urlopen('%s?%s' % (full_url, params))
 
+def get_materials(category):
+    engine = get_engine()
+    filepath = os.path.join(get_cache_path(), '%s-cat-%s' % (engine, category))
+    if file_expired(filepath, 300):
+        r = bmd_urlopen(
+            '/api/materials/materials.json',
+            engine=engine,
+            category=category,
+        )
+        ans = json.loads(str(r.read(), 'UTF-8'))
+        dump_data(ans, filepath)
+    return load_data(filepath)
+
+def get_categories():
+    filepath = os.path.join(get_cache_path(), 'categories')
+    if file_expired(filepath, 300):
+        r = bmd_urlopen('/api/materials/categories.json')
+        ans = json.loads(str(r.read(), 'UTF-8'))
+        dump_data(ans, filepath)
+    return load_data(filepath)
+
+def get_material_detail(id):
+    filepath = os.path.join(get_cache_path(), 'mat-%s' % (id,))
+    if file_expired(filepath, 300):
+        r = bmd_urlopen('/api/materials/material.json', id=id)
+        ans = json.loads(str(r.read(), 'UTF-8'))
+        dump_data(ans, filepath)
+    return load_data(filepath)
 
 def get_image(url):
     filepath = os.path.join(get_cache_path(), 'images')
@@ -120,7 +137,6 @@ def get_image(url):
             f.write(r.read())
     return filepath
 
-
 def get_library(url):
     filepath = os.path.join(get_cache_path(), 'files')
     if not os.path.exists(filepath):
@@ -132,61 +148,34 @@ def get_library(url):
             f.write(r.read())
     return filepath
 
-
-###############################################
-###############################################
-
-
-class BlendermadaClient(object):
-
-    def __init__(self):
-        self.materials = list()
-        self.categories = [{'id': 0, 'slug': 'all', 'name': 'All'}]
-
-    def update(self):
-        engine = get_engine()
-        r = bmd_urlopen('/api/materials/full.json', engine=engine)
-        data = json.loads(str(r.read(), 'UTF-8'))
-        self.materials = data['materials']
-        self.materials.sort(key=lambda x: x['name'])
-        self.categories = data['categories']
-        self.categories.sort(key=lambda x: x['id'])
-        self.categories.insert(0, {'id': 0, 'slug': 'all', 'name': 'All'})
-        bpy.context.scene.bmd_category_active = 'All'
-
-    def get_categories(self):
-        return self.categories.copy()
-
-    def get_materials(self, category='All'):
-        if category == 'All':
-            return self.materials.copy()
-        else:
-            return [
-                mat for mat in self.materials if mat['category'] == category
-            ]
-
-    def get_material_detail(self, id):
-        return [mat for mat in self.materials if mat['id'] == id][0]
-
-
-bmd_client = BlendermadaClient()
-
-
-###############################################
-###############################################
+########################################################################
+########################################################################
 
 
 class Preview(object):
 
     def __init__(self):
+
         self.activated = False
+
         self.x = 10
         self.y = 10
-        self.width = 256
-        self.height = 256
+        try:
+            addon_prefs = bpy.context.user_preferences.addons[__name__]
+        except KeyError:
+            self.set_preview_size(False)
+        else:
+            self.set_preview_size(addon_prefs.preferences.use_big_preview)
+
         self.move = False
         self.glImage = None
         self.bindcode = None
+
+    def set_preview_size(self, big_preview):
+        if big_preview:
+            self.width, self.height = 256, 256
+        else:
+            self.width, self.height = 128, 128
 
     def load_image(self, image_url):
         self.glImage = bpy.data.images.load(get_image(image_url))
@@ -194,7 +183,7 @@ class Preview(object):
         self.bindcode = self.glImage.bindcode
 
     def unload_image(self):
-        if self.glImage is not None:
+        if not self.glImage == None:
             self.glImage.gl_free()
             self.glImage.user_clear()
             bpy.data.images.remove(self.glImage)
@@ -202,21 +191,19 @@ class Preview(object):
         self.bindcode = None
 
     def activate(self, context):
-        self.load_image(context.scene.bmd_material_active.image_url)
         self.handler = bpy.types.SpaceProperties.draw_handler_add(
                                    render_callback,
                                    (self, context), 'WINDOW', 'POST_PIXEL')
-        bpy.context.scene.cursor_location.x += 0.0  # refresh display
+        bpy.context.scene.cursor_location.x += 0.0 # refresh display
         self.activated = True
 
     def deactivate(self, context):
-        self.unload_image()
         bpy.types.SpaceProperties.draw_handler_remove(self.handler, 'WINDOW')
-        bpy.context.scene.cursor_location.x += 0.0  # refresh display
+        bpy.context.scene.cursor_location.x += 0.0 # refresh display
         self.activated = False
 
     def event_callback(self, context, event):
-        if not self.activated:
+        if self.activated == False:
             return {'FINISHED'}
         if event.type == 'MIDDLEMOUSE':
             if event.value == 'PRESS':
@@ -225,23 +212,23 @@ class Preview(object):
             elif event.value == 'RELEASE':
                 self.move = False
                 return {'RUNNING_MODAL'}
-        if event.type in ('LEFTMOUSE', 'RIGHTMOUSE'):
-            self.deactivate(context)
-            return {'FINISHED'}
         if self.move and event.type == 'MOUSEMOVE':
             self.x += event.mouse_x - event.mouse_prev_x
             self.y += event.mouse_y - event.mouse_prev_y
-            bpy.context.scene.cursor_location.x += 0.0  # refresh display
+            bpy.context.scene.cursor_location.x += 0.0 # refresh display
             return {'RUNNING_MODAL'}
         else:
             return {'PASS_THROUGH'}
 
 
-preview = Preview()
-
+def image_changed(self, value):
+    bmd_preview.unload_image()
+    if value:
+        bmd_preview.load_image(value)
+    
 
 def render_callback(self, context):
-    if self.bindcode is not None:
+    if self.bindcode != None:
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D,
                             bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_LINEAR)
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D,
@@ -262,47 +249,62 @@ def render_callback(self, context):
         bgl.glEnd()
         bgl.glDisable(bgl.GL_TEXTURE_2D)
 
+########################################################################
+########################################################################
 
-###############################################
-###############################################
 
+def update_categories(context):
+    context.scene.bmd_category_list.clear()
+    for i in get_categories():
+        a = context.scene.bmd_category_list.add()
+        a.id   = i['id']
+        a.slug = i['slug']
+        a.name = i['name']
+    update_materials(None, context)
 
 def update_materials(self, context):
-    print(self)
-    print(dir(self))
     context.scene.bmd_material_list.clear()
-    for i in bmd_client.get_materials(category=bpy.context.scene.bmd_category_active):
+    for i in get_materials(context.scene.bmd_category_list[context.scene.bmd_category_list_idx].id):
         a = context.scene.bmd_material_list.add()
         a.id = i['id']
         a.slug = i['slug']
         a.name = i['name']
     if len(context.scene.bmd_material_list) > 0:
         context.scene.bmd_material_list_idx = 0
-        update_active_material(None, context)
-
+        update_active_material(self, context)
 
 def update_active_material(self, context):
-    mat = bmd_client.get_material_detail(
+    mat = get_material_detail(
         context.scene.bmd_material_list[context.scene.bmd_material_list_idx].id,
     )
     context.scene.bmd_material_active.id = mat['id']
     context.scene.bmd_material_active.slug = mat['slug']
     context.scene.bmd_material_active.name = mat['name']
     context.scene.bmd_material_active.description = mat['description']
+    context.scene.bmd_material_active.downloads = mat['downloads']
+    context.scene.bmd_material_active.rating = mat['rating']
+    context.scene.bmd_material_active.votes = mat['votes']
     context.scene.bmd_material_active.storage_name = mat['storage_name']
     context.scene.bmd_material_active.image_url = mat['image']
     context.scene.bmd_material_active.library_url = mat['storage']
 
+########################################################################
+########################################################################
 
-###############################################
-###############################################
 
+class BMDCategoryPG(bpy.types.PropertyGroup):
+    id   = IntProperty()
+    slug = StringProperty()
+    name = StringProperty()
 
-bpy.types.Scene.bmd_category_active = StringProperty(update=update_materials)
+bpy.utils.register_class(BMDCategoryPG)
+bpy.types.Scene.bmd_category_list = CollectionProperty(type=BMDCategoryPG)
+bpy.types.Scene.bmd_category_list_idx = IntProperty(update=update_materials)
+bpy.types.Scene.bmd_category_active = PointerProperty(type=BMDCategoryPG)
 
 
 class BMDMaterialListPG(bpy.types.PropertyGroup):
-    id = IntProperty()
+    id   = IntProperty()
     slug = StringProperty()
     name = StringProperty()
 
@@ -312,20 +314,23 @@ bpy.types.Scene.bmd_material_list_idx = IntProperty(update=update_active_materia
 
 
 class BMDMaterialDetailPG(bpy.types.PropertyGroup):
-    id = IntProperty()
+    id   = IntProperty()
     slug = StringProperty()
     name = StringProperty()
     description = StringProperty()
+    downloads = IntProperty()
+    rating = FloatProperty()
+    votes = IntProperty()
+    description = StringProperty()
     storage_name = StringProperty()
-    image_url = StringProperty()
+    image_url = StringProperty(set=image_changed)
     library_url = StringProperty()
 
 bpy.utils.register_class(BMDMaterialDetailPG)
 bpy.types.Scene.bmd_material_active = PointerProperty(type=BMDMaterialDetailPG)
 
-
-###############################################
-###############################################
+########################################################################
+########################################################################
 
 
 def material_imported(context):
@@ -334,9 +339,8 @@ def material_imported(context):
         return True
     return False
 
-
-###############################################
-###############################################
+########################################################################
+########################################################################
 
 
 class BMDPanel(bpy.types.Panel):
@@ -349,20 +353,30 @@ class BMDPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        row = layout.row()
-        row.menu('bmd.category_menu', text=context.scene.bmd_category_active)
+        row = layout.row(align=True)
+        row.operator('bmd.update', icon="FILE_REFRESH")
+        row.operator('bmd.preview', icon="MATERIAL")
+        row.operator('bmd.import', icon="IMPORT")
+        row.separator()
+        row.operator('bmd.help', icon="HELP", text="")
+        row.operator('bmd.support', icon="SOLO_ON", text="")
         row = layout.row()
         col = row.column()
+        col.label('Category')
+        col.template_list('BMDCategoryList', '', context.scene, 'bmd_category_list', context.scene, 'bmd_category_list_idx', rows=6)
+        col = row.column()
+        col.label('Material')
         col.template_list('BMDMaterialList', '', context.scene, 'bmd_material_list', context.scene, 'bmd_material_list_idx', rows=6)
-        col = row.column(align=True)
-        col.operator('bmd.update', icon="FILE_REFRESH", text="")
-        col.separator()
-        col.operator('bmd.preview', icon="MATERIAL", text="")
-        col.operator('bmd.description', icon="FILE_TEXT", text="")
-        col.operator('bmd.import', icon="IMPORT", text="")
-        col.separator()
-        col.operator('bmd.help', icon="HELP", text="")
-        col.operator('bmd.support', icon="SOLO_ON", text="")
+        layout.label('Material Detail')
+        box = layout.box()
+        row = box.row()
+        col = row.column()
+        col.label(context.scene.bmd_material_active.name)
+        col = row.column()
+        col.label(': {}'.format(context.scene.bmd_material_active.downloads), icon="IMPORT")
+        col.label(': {:1.2f} ({} votes)'.format(context.scene.bmd_material_active.rating, context.scene.bmd_material_active.votes), icon="SOLO_ON")
+        for row in context.scene.bmd_material_active.description.split('\n'):
+            box.label(row)
 
 
 class BMDMaterialList(bpy.types.UIList):
@@ -370,33 +384,14 @@ class BMDMaterialList(bpy.types.UIList):
         layout.label(item.name)
 
 
-class BMDCategoryMenu(bpy.types.Menu):
-    bl_idname = "bmd.category_menu"
-    bl_label = "Categories Menu"
-    bl_description = "Choose category"
-
-    def draw(self, context):
-        for cat in bmd_client.get_categories():
-            self.layout.operator('bmd.category_select', text=cat['name']).id = cat['name']
-
-
-class BMDCategorySelect(bpy.types.Operator):
-    bl_idname = "bmd.category_select"
-    bl_label = "Category Changed"
-
-    id = bpy.props.StringProperty()
-
-    def execute(self, context):
-        # update_materials(context, self.id)
-        context.scene.bmd_category_active = self.id
-        return {'FINISHED'}
+class BMDCategoryList(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        layout.label(item.name)
 
 
 class BMDImport(bpy.types.Operator):
     bl_idname = "bmd.import"
     bl_label = "Import"
-    bl_description = "Import selected material"
-
     def execute(self, context):
         if material_imported(context):
             self.report(
@@ -408,7 +403,7 @@ class BMDImport(bpy.types.Operator):
             return {'CANCELLED'}
         else:
             storage = get_library(context.scene.bmd_material_active.library_url)
-            directory = '%s/Material/' % (storage,)
+            directory = os.path.join(storage, 'Material', '')
             filename = context.scene.bmd_material_active.storage_name
             if bpy.app.version < (2, 72):
                 bpy.ops.wm.link_append(
@@ -424,7 +419,7 @@ class BMDImport(bpy.types.Operator):
                     directory=directory,
                     filename=filename,
                 )
-            if not material_imported(context):  # some error while importing
+            if not material_imported(context): # some error while importing
                 self.report(
                     {'WARNING'},
                     'Material cannot be imported. Maybe library has been damaged. Please, report about it to Blendermada administrator.',
@@ -432,46 +427,39 @@ class BMDImport(bpy.types.Operator):
                 return {'CANCELLED'}
             else:
                 ao = bpy.context.active_object
-                ao.material_slots[ao.active_material_index].material = bpy.data.materials[context.scene.bmd_material_active.storage_name]
+                if hasattr(ao.data, 'materials'): # object isn't lamp or camera
+                    if len(ao.data.materials) == 0: # there is no material slot in object
+                        ao.data.materials.append(bpy.data.materials[context.scene.bmd_material_active.storage_name])
+                    else:
+                        ao.material_slots[ao.active_material_index].material = bpy.data.materials[context.scene.bmd_material_active.storage_name]
                 self.report({'INFO'}, 'Material was imported succesfully.')
                 return {'FINISHED'}
 
 
 class BMDUpdate(bpy.types.Operator):
     bl_idname = 'bmd.update'
-    bl_label = "Update"
-    bl_description = "Update material database"
+    bl_label = 'Update'
 
     def execute(self, context):
-        bmd_client.update()
+        update_categories(context)
         return {'FINISHED'}
 
 
 class BMDPreview(bpy.types.Operator):
     bl_idname = 'bmd.preview'
-    bl_label = "Preview"
-    bl_description = "Preview selected material"
-
+    bl_label = 'Preview'
+    def __init__(self):
+        super(BMDPreview, self).__init__()
     def modal(self, context, event):
-        return preview.event_callback(context, event)
-
+        return bmd_preview.event_callback(context, event)
     def invoke(self, context, event):
-        if not preview.activated:
-            preview.activate(context)
+        if not bmd_preview.activated:
+            bmd_preview.activate(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
-            preview.deactivate(context)
+            bmd_preview.deactivate(context)
             return {'FINISHED'}
-
-
-class BMDDescription(bpy.types.Operator):
-    bl_idname = 'bmd.description'
-    bl_label = "Description"
-    bl_description = "Show description of selected material"
-
-    def execute(self, context):
-        return {'FINISHED'}
 
 
 class BMDHelp(bpy.types.Operator):
@@ -480,7 +468,7 @@ class BMDHelp(bpy.types.Operator):
     bl_description = "View online help"
 
     def execute(self, context):
-        bpy.ops.wm.url_open(url="http://blendermada.com/addon.html")
+        bpy.ops.wm.url_open(url="http://blendermada.com/addon/")
         return {'FINISHED'}
 
 
@@ -490,34 +478,59 @@ class BMDSupport(bpy.types.Operator):
     bl_description = "Support Blendermada"
 
     def execute(self, context):
-        bpy.ops.wm.url_open(url="http://blendermada.com/support.html")
+        bpy.ops.wm.url_open(url="http://blendermada.com/about/")
         return {'FINISHED'}
+
+
+def preview_size_update(self, context):
+    addon_prefs = context.user_preferences.addons[__name__].preferences
+    bmd_preview.set_preview_size(addon_prefs.use_big_preview)
+
+
+class BMDAddonPreferences(bpy.types.AddonPreferences):
+    bl_idname = __name__
+    cache_path = StringProperty(
+        name="Specific cache directory",
+        subtype='DIR_PATH',
+        description="Change this path if you have some problems with cache saving",
+        default=os.path.expanduser(os.path.join('~', '.blendermada')),
+    )
+    use_big_preview = BoolProperty(
+        name="Use big previews",
+        description="Use 256x256 previews instead of 128x128",
+        update=preview_size_update,
+    )
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "cache_path")
+        layout.prop(self, "use_big_preview")
 
 
 def register():
     bpy.utils.register_class(BMDPanel)
     bpy.utils.register_class(BMDImport)
     bpy.utils.register_class(BMDMaterialList)
-    bpy.utils.register_class(BMDCategoryMenu)
-    bpy.utils.register_class(BMDCategorySelect)
+    bpy.utils.register_class(BMDCategoryList)
     bpy.utils.register_class(BMDUpdate)
     bpy.utils.register_class(BMDPreview)
-    bpy.utils.register_class(BMDDescription)
     bpy.utils.register_class(BMDHelp)
     bpy.utils.register_class(BMDSupport)
+    bpy.utils.register_class(BMDAddonPreferences)
+
+    global bmd_preview
+    bmd_preview = Preview()
 
 
 def unregister():
     bpy.utils.unregister_class(BMDPanel)
     bpy.utils.unregister_class(BMDImport)
     bpy.utils.unregister_class(BMDMaterialList)
-    bpy.utils.unregister_class(BMDCategoryMenu)
-    bpy.utils.unregister_class(BMDCategorySelect)
+    bpy.utils.unregister_class(BMDCategoryList)
     bpy.utils.unregister_class(BMDUpdate)
     bpy.utils.unregister_class(BMDPreview)
-    bpy.utils.unregister_class(BMDDescription)
     bpy.utils.unregister_class(BMDHelp)
     bpy.utils.unregister_class(BMDSupport)
+    bpy.utils.unregister_class(BMDAddonPreferences)
 
 
 if __name__ == '__main__':

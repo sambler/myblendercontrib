@@ -98,7 +98,7 @@ class machineSettings(bpy.types.PropertyGroup):
 	working_area=bpy.props.FloatVectorProperty(name = 'Work Area', default=(0.500,0.500,0.100), unit='LENGTH', precision=PRECISION,subtype="XYZ",update = updateMachine)
 	feedrate_min=bpy.props.FloatProperty(name="Feedrate minimum /min", default=0.0, min=0.00001, max=320000,precision=PRECISION, unit='LENGTH')
 	feedrate_max=bpy.props.FloatProperty(name="Feedrate maximum /min", default=2, min=0.00001, max=320000,precision=PRECISION, unit='LENGTH')
-	feedrate_default=bpy.props.FloatProperty(name="Feedrate default /min", default=1.5, min=0.00001, max=320000,precision=PRECISION)
+	feedrate_default=bpy.props.FloatProperty(name="Feedrate default /min", default=1.5, min=0.00001, max=320000,precision=PRECISION, unit='LENGTH')
 	#UNSUPPORTED:
 	spindle_min=bpy.props.FloatProperty(name="#Spindlespeed minimum /min", default=5000, min=0.00001, max=320000,precision=1)
 	spindle_max=bpy.props.FloatProperty(name="#Spindlespeed maximum /min", default=30000, min=0.00001, max=320000,precision=1)
@@ -175,9 +175,9 @@ def updateChipload(self,context):
 	'''this is very simple computation of chip size, could be very much improved'''
 	print('update chipload ')
 	o=self;
-	self.changed=True
+	#self.changed=True
 	#Old chipload
-	self.chipload = ((o.feedrate/(o.spindle_rpm*o.cutter_flutes)))
+	o.chipload = ((o.feedrate/(o.spindle_rpm*o.cutter_flutes)))
 	###New chipload with chip thining compensation.
 	# I have tried to combine these 2 formulas to compinsate for the phenomenon of chip thinning when cutting at less than 50% cutter engagement with cylindrical end mills.
 	# formula 1 Nominal Chipload is " feedrate mm/minute = spindle rpm x chipload x cutter diameter mm x cutter_flutes "
@@ -186,17 +186,16 @@ def updateChipload(self,context):
 	# I am sure there is a better way to do this. I dont get consistent result and I am not sure if there is something wrong with the units going into the formula, my math or my lack of underestanding of python or programming in genereal. Hopefuly some one can have a look at this and with any luck we will be one tiny step on the way to a slightly better chipload calculating function.
 
 	#self.chipload = ((0.5*(o.cutter_diameter/o.dist_between_paths))/(math.sqrt((o.feedrate*1000)/(o.spindle_rpm*o.cutter_diameter*o.cutter_flutes)*(o.cutter_diameter/o.dist_between_paths)-1)))
-	print (self.chipload)
+	print (o.chipload)
 	
 	
 	
 	
 def updateOffsetImage(self,context):
 	'''refresh offset image tag for rerendering'''
-	
+	updateChipload(self,context)
 	print('update offset')
 	self.changed=True
-
 	self.update_offsetimage_tag=True
 
 def updateZbufferImage(self,context):
@@ -294,7 +293,7 @@ class camOperation(bpy.types.PropertyGroup):
 			('CUSTOM', 'Custom-EXPERIMENTAL', 'modelled cutter - not well tested yet.')),
 		description='Type of cutter used',
 		default='END', update = updateZbufferImage)
-	cutter_object_name = bpy.props.StringProperty(name='Object', description='object used as custom cutter for this operation', update=updateZbufferImage)
+	cutter_object_name = bpy.props.StringProperty(name='Cutter object', description='object used as custom cutter for this operation', update=updateZbufferImage)
 
 	machine_axes = EnumProperty(name='Number of axes',
 		items=(
@@ -453,6 +452,7 @@ class camOperation(bpy.types.PropertyGroup):
 	movement_insideout = EnumProperty(name='Direction', items=(('INSIDEOUT','Inside out', 'a'),('OUTSIDEIN', 'Outside in', 'a')),description='approach to the piece',default='INSIDEOUT', update = updateRest)
 	parallel_step_back =  bpy.props.BoolProperty(name="Parallel step back", description='For roughing and finishing in one pass: mills material in climb mode, then steps back and goes between 2 last chunks back', default=False, update = updateRest)
 	stay_low = bpy.props.BoolProperty(name="Stay low if possible", default=True, update = updateRest)
+	merge_dist = bpy.props.FloatProperty(name="Merge distance - EXPERIMENTAL", default=0.0, min=0.0000, max=0.1,precision=PRECISION, unit="LENGTH", update = updateRest)
 	#optimization and performance
 	circle_detail = bpy.props.IntProperty(name="Detail of circles used for curve offsets", default=64, min=12, max=512, update = updateRest)
 	use_exact = bpy.props.BoolProperty(name="Use exact mode",description="Exact mode allows greater precision, but is slower with complex meshes", default=True, update = updateExact)
@@ -481,6 +481,15 @@ class camOperation(bpy.types.PropertyGroup):
 	use_bridges =  bpy.props.BoolProperty(name="Use bridges",description="use bridges in cutout", default=False, update = updateBridges)
 	bridges_width = bpy.props.FloatProperty(name = 'width of bridges', default=0.002, unit='LENGTH', precision=PRECISION, update = updateBridges)
 	bridges_height = bpy.props.FloatProperty(name = 'height of bridges', description="Height from the bottom of the cutting operation", default=0.0005, unit='LENGTH', precision=PRECISION, update = updateBridges)
+	bridges_placement = bpy.props.EnumProperty(name='Bridge placement',
+		items=(
+			('AUTO','Automatic', 'Automatic bridges with a set distance'),
+			('MANUAL','Manual', 'Manual placement of bridges'),
+			),
+		description='Bridge placement',
+		default='AUTO',
+		update = updateStrategy)
+	
 	bridges_per_curve = bpy.props.IntProperty(name="minimum bridges per curve", description="", default=4, min=1, max=512, update = updateBridges)
 	bridges_max_distance = bpy.props.FloatProperty(name = 'Maximum distance between bridges', default=0.08, unit='LENGTH', precision=PRECISION, update = updateBridges)
 	#optimisation panel
@@ -493,7 +502,7 @@ class camOperation(bpy.types.PropertyGroup):
 	min = bpy.props.FloatVectorProperty(name = 'Operation minimum', default=(0,0,0), unit='LENGTH', precision=PRECISION,subtype="XYZ")
 	max = bpy.props.FloatVectorProperty(name = 'Operation maximum', default=(0,0,0), unit='LENGTH', precision=PRECISION,subtype="XYZ")
 	warnings = bpy.props.StringProperty(name='warnings', description='warnings', default='', update = updateRest)
-	chipload = bpy.props.FloatProperty(name="chipload",description="Calculated chipload", default=0.0, unit='LENGTH', precision=PRECISION, update = updateRest)
+	chipload = bpy.props.FloatProperty(name="chipload",description="Calculated chipload", default=0.0, unit='LENGTH', precision=10)
 	#internal properties
 	###########################################
 	#testing = bpy.props.IntProperty(name="developer testing ", description="This is just for script authors for help in coding, keep 0", default=0, min=0, max=512)
@@ -627,7 +636,7 @@ class AddPresetCamMachine(bl_operators.presets.AddPresetBase, Operator):
 	preset_values = [
 		"d.post_processor",
 		"s.system",
-		"s.use_position_definitions",
+		"d.use_position_definitions",
 		"d.starting_position",
 		"d.mtc_position",
 		"d.ending_position",
@@ -696,6 +705,8 @@ def get_panels():#convenience function for bot register and unregister functions
 	ops.CamOperationCopy,
 	ops.CamOperationRemove,
 	ops.CamOperationMove,
+	#bridges related
+	ops.CamBridgeAdd,
 	#5 axis ops
 	ops.CamOrientationAdd,
 	#shape packing
@@ -880,4 +891,3 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
-	

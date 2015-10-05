@@ -82,8 +82,6 @@ for t in types:
 
 class Const(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", const, " + BPY.FORMAT(self.constant) + ";\n")
 
 class ConstOperator(Base):
@@ -106,8 +104,6 @@ klasses[ConstOperator.bl_label] = ConstOperator
 
 class Exp(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", exp")
         if self.base is not None:
             f.write(", base, " + BPY.FORMAT(self.base))
@@ -145,8 +141,6 @@ klasses[ExpOperator.bl_label] = ExpOperator
 
 class Log(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", log")
         if self.base is not None:
             f.write(", base, " + BPY.FORMAT(self.base))
@@ -163,8 +157,6 @@ klasses[LogOperator.bl_label] = LogOperator
 
 class Pow(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", pow, " + BPY.FORMAT(self.power) + ";\n")
 
 class PowOperator(Base):
@@ -187,8 +179,6 @@ klasses[PowOperator.bl_label] = PowOperator
 
 class Linear(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", linear")
         f.write(",\n\t" + ", ".join([BPY.FORMAT(x) for x in self.X]))
         f.write(", " + ", ".join([BPY.FORMAT(x) for x in self.X]) + ";\n")
@@ -231,8 +221,6 @@ klasses[LinearOperator.bl_label] = LinearOperator
 
 class CubicNaturalSpline(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", cubicspline")
         if not self.extrapolate:
             f.write(", do not extrapolate")
@@ -285,12 +273,10 @@ class CubicNaturalSplineOperator(Multiple):
     def create_entity(self):
         return CubicNaturalSpline(self.name)
 
-klasses[CubicNaturalSplineOperator.bl_label] = CubicNaturalSplineOperator
+#klasses[CubicNaturalSplineOperator.bl_label] = CubicNaturalSplineOperator
 
 class Multilinear(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", multilinear")
         if not self.extrapolate:
             f.write(", do not extrapolate")
@@ -307,8 +293,6 @@ klasses[MultilinearOperator.bl_label] = MultilinearOperator
 
 class Chebychev(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", chebychev")
         f.write(",\n\t" + BPY.FORMAT(self.lower_bound) + ", " + BPY.FORMAT(self.upper_bound))
         if not self.extrapolate:
@@ -367,8 +351,6 @@ klasses[ChebychevOperator.bl_label] = ChebychevOperator
 
 class Sum(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", sum")
         f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
@@ -400,8 +382,6 @@ klasses[SumOperator.bl_label] = SumOperator
 
 class Sub(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", sub")
         f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
@@ -414,8 +394,6 @@ klasses[SubOperator.bl_label] = SubOperator
 
 class Mul(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", mul")
         f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
@@ -428,8 +406,6 @@ klasses[MulOperator.bl_label] = MulOperator
 
 class Div(Entity):
     def write(self, f):
-        if self.written:
-            return
         f.write("scalar function: \"" + self.name + "\", div")
         f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
@@ -440,4 +416,4 @@ class DivOperator(Binary):
 
 klasses[DivOperator.bl_label] = DivOperator
 
-bundle = Bundle(tree, Base, klasses, database.function, "function")
+bundle = Bundle(tree, Base, klasses, database.function)

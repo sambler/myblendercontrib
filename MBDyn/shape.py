@@ -219,4 +219,4 @@ class ParabolicShapeOperator(Base):
 
 klasses[ParabolicShapeOperator.bl_label] = ParabolicShapeOperator
 
-bundle = Bundle(tree, Base, klasses, database.shape, "shape")
+bundle = Bundle(tree, Base, klasses, database.shape)

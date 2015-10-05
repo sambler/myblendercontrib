@@ -22,7 +22,7 @@
 bl_info = {
 	"name": "Floor Generator",
 	"author": "Michel Anders (varkenvarken) with contributions from Alain, Floric and Lell. The idea to add patterns is based on Cedric Brandin's (clarkx) parquet addon",
-	"version": (0, 0, 20150404),
+	"version": (0, 0, 201508301001),
 	"blender": (2, 74, 0),
 	"location": "View3D > Add > Mesh",
 	"description": "Adds a mesh representing floor boards (planks)",
@@ -45,7 +45,7 @@ from mathutils import Vector, Euler
 # docs are now fixed (https://projects.blender.org/tracker/index.php?func=detail&aid=36518&group_id=9&atid=498)
 # but unfortunately no rotated() function was added
 def rotate(v, r):
-	v2 = v.copy()
+	v2 = deepcopy(v)
 	v2.rotate(r)
 	return v2
 
@@ -156,7 +156,7 @@ def planks(n, m,
 			pverts = plank(s, e, ws, we, longgap, shortgap, rot)
 			verts.extend(pverts)
 			uvs[-1].append(deepcopy(pverts))
-			faces.append((ll, ll + 1, ll + 2, ll + 3))
+			faces.append((ll, ll + 3, ll + 2, ll + 1))
 			s = e
 			e += length + randuni(0, lengthvar)
 		ll = len(verts)
@@ -164,7 +164,7 @@ def planks(n, m,
 		pverts = plank(s, m, ws, we, longgap, shortgap, rot)
 		verts.extend(pverts)
 		uvs[-1].append(deepcopy(pverts))
-		faces.append((ll, ll + 1, ll + 2, ll + 3))
+		faces.append((ll, ll + 3, ll + 2, ll + 1))
 		s = 0
 		#e = e - m
 		if c <= (length):
@@ -380,20 +380,36 @@ def updateMesh(self, context):
 	bpy.ops.object.shade_smooth()
 
 	# add uv-coords and per face random vertex colors
+	rot = Euler((0,0,o.uvrotation))
 	mesh.uv_textures.new()
 	uv_layer = mesh.uv_layers.active.data
 	vertex_colors = mesh.vertex_colors.new().data
 	offset = Vector()
+	# note that the uvs that are returned are shuffled
 	for poly in mesh.polygons:
 		color = [rand(), rand(), rand()]
-		if o.randomuv == 'Random': offset = Vector((rand(), rand(), 0))
+		if o.randomuv == 'Random':
+			offset = Vector((rand(), rand(), 0))
+		elif o.randomuv == 'Packed':
+			x = []
+			y = []
+			for loop_index in range(poly.loop_start, poly.loop_start + poly.loop_total):
+				x.append(uvs[mesh.loops[loop_index].vertex_index].x)
+				y.append(uvs[mesh.loops[loop_index].vertex_index].y)
+			offset = Vector((-min(x), -min(y), 0))
 		for loop_index in range(poly.loop_start, poly.loop_start + poly.loop_total):
 			if o.randomuv == 'Shuffle':
 				coords = uvs[mesh.loops[loop_index].vertex_index]
 			elif o.randomuv == 'Random':
 				coords = mesh.vertices[mesh.loops[loop_index].vertex_index].co + offset
+			elif o.randomuv == 'Packed':
+				coords = uvs[mesh.loops[loop_index].vertex_index] + offset
 			else:
 				coords = mesh.vertices[mesh.loops[loop_index].vertex_index].co
+			coords = Vector(coords) # copy
+			coords.x *= o.uvscalex
+			coords.y *= o.uvscaley
+			coords.rotate(rot)
 			uv_layer[loop_index].uv = coords.xy
 			vertex_colors[loop_index].color = color
 
@@ -724,7 +740,8 @@ bpy.types.Object.randomuv = EnumProperty(name="UV randomization",
 										description="Randomization mode for the uv-offset of individual planks",
 										items = [('None','None','Plain mapping from top view'),
 									         ('Random','Random','Add random offset to plain map of individual planks'),
-											 ('Shuffle','Shuffle','Exchange uvmaps of simlilar planks')],
+											 ('Shuffle','Shuffle','Exchange uvmaps of simlilar planks'),
+											 ('Packed','Packed','Overlap all uvs of individual planks while maintaining their proportions')],
 										update=updateMesh)
 
 bpy.types.Object.modify = BoolProperty(name="Add modifiers",
@@ -796,6 +813,29 @@ bpy.types.Object.twist = FloatProperty(name="Twist along plank",
 									step=0.01,
 									precision=4,
 									update=updateMesh)
+
+bpy.types.Object.uvrotation = FloatProperty(name="UV Rotation",
+										description="Rotation of the generated UV-map",
+										default=0,
+										step=(1.0 / 180) * PI,
+										precision=2,
+										subtype='ANGLE',
+										unit='ROTATION',
+										update=updateMesh)
+
+bpy.types.Object.uvscalex = FloatProperty(name="UV X Scale ",
+											description="Scale UV coordinates in the X direction",
+											default=1.0,
+											step=0.01,
+											precision=4,
+											update=updateMesh)
+
+bpy.types.Object.uvscaley = FloatProperty(name="UV Y Scale ",
+											description="Scale UV coordinates in the Y direction",
+											default=1.0,
+											step=0.01,
+											precision=4,
+											update=updateMesh)
 
 bpy.types.Object.floorplan = EnumProperty(name="Floorplan",
 									description="Mesh to use as a floorplan",
@@ -889,9 +929,17 @@ class FloorBoards(bpy.types.Panel):
 						box.prop(o, 'floorplan')
 					row = box.row()
 					row.prop(o, 'randomuv')
+					row = box.row()
+					row.prop(o, 'uvrotation')
+					row = box.row()
+					row.prop(o, 'uvscalex')
+					row.prop(o, 'uvscaley')
+					row = box.row()
 					row.prop(o, 'modify')
 					if o.modify:
 						row.prop(o, 'bevel')
+					row = box.row()
+					row.prop(o,'preservemats')
 				else:
 					layout.operator('mesh.floor_boards_convert')
 			else:

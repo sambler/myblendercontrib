@@ -103,7 +103,7 @@ def is_visible_layer(scene, ob):
 
 
 def is_renderable(scene, ob):
-    return (is_visible_layer(scene, ob) and not ob.hide_render) and not \
+    return (is_visible_layer(scene, ob) and not ob.hide_render) or \
     (ob.type in ['ARMATURE', 'LATTICE', 'EMPTY'] and ob.dupli_type not in SUPPORTED_DUPLI_TYPES)
     # and not ob.type in ('CAMERA', 'ARMATURE', 'LATTICE'))
 
@@ -117,13 +117,7 @@ def is_renderable_or_parent(scene, ob):
     return False
 
 def is_data_renderable(scene, ob):
-    if not is_renderable(scene, ob) and ob.users_group:
-        for group in ob.users_group:
-            if is_visible_layer(scene, group):
-                return True
-        return False
-    else:
-        return True
+    return (is_visible_layer(scene, ob) and not ob.hide_render and not ob.type in ('EMPTY', 'ARMATURE', 'LATTICE'))
 
 def renderable_objects(scene):
     return [ob for ob in scene.objects if (is_renderable(scene, ob) or is_data_renderable(scene, ob))]
@@ -1442,8 +1436,8 @@ def export_geometry_data(ri, scene, ob, data=None):
     elif prim == 'POINTS':
         export_points(ri, ob, data)
 
-def is_transforming(ob):
-    return (ob.animation_data is not None)
+def is_transforming(ob, do_mb):
+    return (do_mb and ob.animation_data is not None)
 
 
 # Instance holds all the data needed for making an instance of data_block
@@ -1455,24 +1449,22 @@ class Instance:
     archive_filename = ''
     ob = None
     material = None
-
-    def __init__(self, name, type, archive_filename, ob=None, 
-                 transforming=False, material=None):
+    
+    def __init__(self, name, type, ob=None, 
+                 transforming=False):
         self.name = name
         self.type = type
-        self.archive_filename = archive_filename
         self.transforming = transforming
         self.ob = ob
-        self.material = material
         self.motion_data = []
         self.children = []
+        self.data_block_names = []
         self.parent = None
-        if ob and type in ['OBJECT', 'EMPTY']:
-            if hasattr(ob, 'parent') and ob.parent:
-                self.parent = ob.parent
-            if hasattr(ob, 'children') and ob.children:
-                for child in ob.children:
-                    self.children.append(child.name)
+        if hasattr(ob, 'parent') and ob.parent:
+            self.parent = ob.parent.name
+        if hasattr(ob, 'children') and ob.children:
+            for child in ob.children:
+                self.children.append(child.name)
 
 
 # Data block holds the info for exporting the archive of a data_block
@@ -1482,88 +1474,152 @@ class DataBlock:
     deforming = False
     type = ''
     data = None
+    name = ''
+    material = None
+    do_export = False
+    dupli_data = False
 
-    def __init__(self, type, archive_filename, data, deforming=False):
+    def __init__(self, name, type, archive_filename, data, deforming=False, material=None, do_export=True, dupli_data=False):
+        self.name = name
         self.type = type
         self.archive_filename = archive_filename
         self.deforming = deforming
         self.data = data
         self.motion_data = []
+        self.material = material
+        self.do_export = do_export
+        self.dupli_data = dupli_data
 
 
 # return if a psys should be animated
-def is_psys_animating(ob, psys):
-    return psys.settings.animation_data is not None or is_transforming(ob)
+def is_psys_animating(ob, psys, do_mb):
+    return (do_mb and psys.settings.animation_data is not None) or is_transforming(ob, do_mb)
 
-# constructs a list of instances based on objects in a scene
+
+
+# constructs a list of instances and data blocks based on objects in a scene
+# only the needed for rendering data blocks and instances are cached
+# also save a data structure of the set of motion segments with 
+# instances/datablocks that have the number of motion segments
 def get_instances_and_blocks(obs, rpass):
     instances = {}
     data_blocks = {}
-    for ob in obs:
-        if ob.type in ['CAMERA', 'LAMP']:
-            instances[ob.name] = Instance(ob.name, ob.type, '', ob, is_transforming(ob))
-            continue
-        #if the object is renderable 
+    motion_segs = {}
+    scene = rpass.scene
+    mb_on = scene.renderman.motion_blur
+    mb_segs = scene.renderman.motion_segments
 
-        # if this is a particle emitter make that instance first
-        emit_ob = True
-        dupli_emitted = False
-        ob_visible = is_renderable(rpass.scene, ob)
-        if len(ob.particle_systems) and ob_visible:
-            emit_ob = False
-            for psys in ob.particle_systems:
-                # if this is an objct emitter use dupli
-                if psys.settings.use_render_emitter:
-                    emit_ob = True
-                if psys.settings.render_type not in ['OBJECT', 'GROUP']:
-                    name = psys_name(ob, psys)
-                    type = 'PSYS'
-                    data = (ob,psys)
-                    archive_filename = get_archive_filename(name, rpass,
-                        is_psys_animating(ob, psys))
+    for ob in obs:
+        inst = get_instance(ob, rpass.scene, mb_on)
+        if inst:
+            ob_mb_segs = ob.renderman.motion_segments if ob.renderman.motion_segments_override else mb_segs
+
+            # add the instance to the motion segs list if transforming
+            if inst.transforming:
+                if ob_mb_segs not in motion_segs:
+                    motion_segs[ob_mb_segs] = ([], [])
+                motion_segs[ob_mb_segs][0].append(inst.name)
+             
+            # now get the data_blocks for the instance
+            inst_data_blocks = get_data_blocks_needed(ob, rpass, mb_on)
+            for db in inst_data_blocks:
+                if not db.dupli_data:
+                    inst.data_block_names.append(db.name)
+                
+                # if this data_block is already in the list to export... 
+                if db.name in data_blocks:
+                    continue
+                
+                # add data_block to mb list
+                if db.deforming:
+                    if ob_mb_segs not in motion_segs:
+                        motion_segs[ob_mb_segs] = ([], [])
+                    motion_segs[ob_mb_segs][1].append(db.name)
+
+                data_blocks[db.name] = db
+
+            instances[inst.name] = inst
+
+    return instances, data_blocks, motion_segs
+
+# get the instance type for this object.  
+# If no instance needs exporting, return None
+def get_instance(ob, scene, do_mb):
+    if is_renderable_or_parent(scene, ob):
+        return Instance(ob.name, ob.type, ob, is_transforming(ob, do_mb))
+    else:
+        return None
+
+
+# get the data_block needed for a dupli
+def get_dupli_block(ob, rpass, do_mb):
+    name = data_name(ob, rpass.scene)
+    deforming = is_deforming(ob)
+    archive_filename = get_archive_filename(data_name(ob, rpass.scene), 
+                                            rpass, deforming)
+    return DataBlock(name, "MESH", archive_filename, ob, 
+                     deforming, material=ob.active_material,
+                     do_export=file_is_dirty(rpass.scene, ob, archive_filename),
+                     dupli_data=True)
+
+# get the data blocks needed for an object
+def get_data_blocks_needed(ob, rpass, do_mb):
+    if not is_renderable(rpass.scene, ob):
+        return []
+    data_blocks = []
+    emit_ob = True
+    dupli_emitted = False
+    # get any particle systems, or if a particle sys is duplis
+    if len(ob.particle_systems):
+        emit_ob = False
+        for psys in ob.particle_systems:
+            # if this is an objct emitter use dupli
+            if psys.settings.use_render_emitter:
+                emit_ob = True
+            if psys.settings.render_type not in ['OBJECT', 'GROUP']:
+                name = psys_name(ob, psys)
+                type = 'PSYS'
+                data = (ob,psys)
+                archive_filename = get_archive_filename(name, rpass,
+                    is_psys_animating(ob, psys, do_mb))
+            else:
+                name = ob.name + '-DUPLI'
+                type = 'DUPLI'
+                archive_filename = get_archive_filename(name, rpass,
+                    is_psys_animating(ob, psys, do_mb))
+                dupli_emitted = True
+                data = ob
+                if psys.settings.render_type == 'OBJECT':
+                    data_blocks.append(get_dupli_block(psys.settings.dupli_object, rpass, mb_on))
                 else:
-                    name = ob.name + '-DUPLI'
-                    type = 'DUPLI'
-                    archive_filename = get_archive_filename(name, rpass,
-                        is_psys_animating(ob, psys))
-                    dupli_emitted = True
-                    data = ob
-                inst = Instance(name, type, relpath_archive(archive_filename, rpass), ob)
-                if psys.settings.material:
-                    inst.material = ob.material_slots[psys.settings.material-1]
-                instances[name] = inst
-                if name not in data_blocks and file_is_dirty(rpass.scene, ob,
-                                                             archive_filename):
-                    data_blocks[name] = DataBlock(type, archive_filename, data, is_psys_animating(ob, psys))
-        if hasattr(ob, 'dupli_type') and ob_visible and \
-                ob.dupli_type in SUPPORTED_DUPLI_TYPES and not dupli_emitted:
-            name = ob.name + '-DUPLI'
-            #duplis aren't animated
-            archive_filename = get_archive_filename(name, rpass, False)
-            data = ob
-            instances[name] = Instance(name, "DUPLI", relpath_archive(archive_filename, rpass), ob)
-            if name not in data_blocks and file_is_dirty(rpass.scene, ob, archive_filename):
-                data_blocks[name] = DataBlock("DUPLI", archive_filename, ob)
-        if emit_ob:
-            ob_visible = ob_visible and ob.type not in ["ARMATURE", 'LATTICE', 'EMPTY']
-            data_visible = is_data_renderable(rpass.scene, ob) and ob.type not in ["ARMATURE", 'LATTICE', 'EMPTY']
-            name = ob.name
-            ob_data_name = data_name(ob, rpass.scene) if ob.data else ''
-            deforming = is_deforming(ob)
-            archive_filename = get_archive_filename(ob_data_name, rpass,
-                                                    deforming) if data_visible or ob_visible else ''
-            # for meta balls skip the ones that aren't the family master:
-            if not (ob.type == 'META' and ob_data_name != ob.name) and is_renderable_or_parent(rpass.scene, ob):
-                inst_type = "OBJECT" if ob_visible else "EMPTY"
-                instances[name] = Instance(name, inst_type, relpath_archive(archive_filename, rpass), ob,
-                                          is_transforming(ob), ob.active_material)
+                    for dupli_ob in psys.settings.dupli_group.objects:
+                        data_blocks.append(get_dupli_block(dupli_ob, rpass, do_mb))
+            mat = ob.material_slots[psys.settings.material-1].material if psys.settings.material else None
+            data_blocks.append(DataBlock(name, type, archive_filename, data, 
+                                         is_psys_animating(ob, psys, do_mb), material = mat,
+                                         do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
+                
+    if hasattr(ob, 'dupli_type') and ob.dupli_type in SUPPORTED_DUPLI_TYPES and not dupli_emitted:
+        name = ob.name + '-DUPLI'
+        #duplis aren't animated
+        archive_filename = get_archive_filename(name, rpass, False)
+        data_blocks.append(DataBlock(name, "DUPLI", archive_filename, ob,
+                                     do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
+        if ob.dupli_type == 'GROUP':
+            for dupli_ob in ob.dupli_group.objects:
+                data_blocks.append(get_dupli_block(dupli_ob, rpass, do_mb))
             
-            if archive_filename != '' and data_visible \
-                and ob_data_name not in data_blocks and file_is_dirty(rpass.scene, ob, archive_filename):
-                data_blocks[ob_data_name] = DataBlock("MESH", archive_filename, 
-                                              ob, deforming)
-    
-    return instances, data_blocks
+    # now the objects data
+    if is_data_renderable(rpass.scene, ob):
+        name = data_name(ob, rpass.scene)
+        deforming = is_deforming(ob)
+        archive_filename = get_archive_filename(data_name(ob, rpass.scene), 
+                                                rpass, deforming)
+        data_blocks.append(DataBlock(name, "MESH", archive_filename, ob, 
+                                     deforming, material=ob.active_material,
+                                     do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
+
+    return data_blocks
 
 
 def relpath_archive(archive_filename, rpass):
@@ -1580,80 +1636,60 @@ def file_is_dirty(scene, ob, archive_filename):
         return True
     
 def get_transform(instance, subframe):
-    if instance.type not in ["OBJECT", "CAMERA", "LAMP", 'EMPTY'] or not instance.transforming:
+    if not instance.transforming:
         return
     else:
         ob = instance.ob
         if ob.parent:
-            mat = ob.parent.matrix_world * ob.matrix_local
+            mat = ob.matrix_local
         else:
             mat = ob.matrix_world
         instance.motion_data.append((subframe, mat.copy())) 
 
 def get_deformation(data_block, subframe, scene):
-    if not data_block.deforming:
+    if not data_block.deforming or not data_block.do_export:
         return
     else:
         if data_block.type == "MESH":
-            mesh = create_mesh(ob, scene)
+            mesh = create_mesh(data_block.data, scene)
             data_block.motion_data.append((subframe, mesh))
         elif data_block.type == "PSYS":
             ob,psys = data_block.data
             if psys.settings.type == "EMITTER":
-                points = get_particles(scene, ob, psys)
+                points = get_particles(scene, data_block.data, psys)
                 data_block.motion_data.append((subframe, points))
             else:
                 # this is hair
-                hairs = get_strands(scene, ob, psys)
+                hairs = get_strands(scene, data_block.data, psys)
                 data_block.motion_data.append((subframe, hairs))
 
 # Create two lists, one of data blocks to export and one of instances to export
 # Collect and store motion blur transformation data in a pre-process.
 # More efficient, and avoids too many frame updates in blender.
 def cache_motion(scene, rpass):
-    data_blocks = {}
-    instances = {}
     origframe = scene.frame_current
-    segs = {}
-    if not scene.renderman.motion_blur:
-        segs[0] = scene.objects
-    else:
-        # get a de-duplicated set of all possible numbers of motion segments
-        # from renderable objects in the scene, and global scene settings
-        segs[scene.renderman.motion_segments] = []
-        for ob in scene.objects:
-            if ob.renderman.motion_segments_override:
-                if ob.renderman.motion_segments in segs:
-                    segs[ob.renderman.motion_segments].append(ob)
-                else:
-                    segs[ob.renderman.motion_segments] = [ob]
-            else:
-                segs[scene.renderman.motion_segments].append(ob)
+    
+    instances, data_blocks, motion_segs = \
+        get_instances_and_blocks(scene.objects, rpass)
 
+    
     # the aim here is to do only a minimal number of scene updates,
     # so we process objects in batches of equal numbers of segments
     # and update the scene only once for each of those unique fractional
     # frames per segment set
-    for num_segs, obs in segs.items():
+    for num_segs, (instance_names, data_names) in motion_segs.items():
         # prepare list of frames/sub-frames in advance,
         # ordered from future to present,
         # to prevent too many scene updates
         # (since loop ends on current frame/subframe)
-        _instances, _data_blocks = get_instances_and_blocks(obs, rpass)
-        
         for sub in get_subframes(num_segs):
             scene.frame_set(origframe, sub)
-            for name, instance in _instances.items():
-                get_transform(instance, sub)
+            for name in instance_names:
+                get_transform(instances[name], sub)
 
-            for name,data_block in _data_blocks.items():
-                get_deformation(data_block, sub, scene)
+            for name in data_names:
+                get_deformation(data_blocks[name], sub, scene)
         
-        data_blocks.update(_data_blocks)
-        instances.update(_instances)
-        _instances = None
-        _data_blocks = None
-
     scene.frame_set(origframe, 0)
 
     return data_blocks, instances
@@ -1662,6 +1698,8 @@ def cache_motion(scene, rpass):
 # export data_blocks
 def export_data_archives(ri, scene, rpass, data_blocks):
     for name, db in data_blocks.items():
+        if not db.do_export:
+            continue
         ri.Begin(db.archive_filename)
         if db.type == "MESH":
             export_mesh_archive(ri, scene, db)
@@ -1673,32 +1711,43 @@ def export_data_archives(ri, scene, rpass, data_blocks):
 
 
 # export each data read archive
-def export_instance_read_archive(ri, instance, instances, is_child=False):
+def export_instance_read_archive(ri, instance, instances, data_blocks, rpass, is_child=False):
     ri.AttributeBegin()
     ri.Attribute("identifier", {"name": instance.name})
     if instance.ob:
         export_object_attributes(ri, instance.ob)
     # now the matrix, if we're transforming do the motion here
-    if instance.type in ['OBJECT', 'EMPTY']:
-        export_transform(ri, instance, concat=is_child)
+    export_transform(ri, instance, concat=is_child)
     
-    # now the material
-    if instance.material:
-        export_material_archive(ri, instance.material)
-
-    # we want these relative paths of the archive
-    if not instance.type == 'EMPTY' and instance.archive_filename != '':
-        if instance.type == 'OBJECT':
-            bounds = get_bounding_box(instance.ob)
-            params = {"string filename": instance.archive_filename,
-                      "float[6] bound": bounds}
-            ri.Procedural2(ri.Proc2DelayedReadArchive, ri.SimpleBound, params)
-        else:
-            ri.ReadArchive(instance.archive_filename)
-
+    for db_name in instance.data_block_names:
+        if db_name in data_blocks:
+            export_data_read_archive(ri, data_blocks[db_name], rpass)
+    
     # now the children
     for child_name in instance.children:
-        export_instance_read_archive(ri, instances[child_name], instances, is_child=True)
+        if child_name in instances:
+            export_instance_read_archive(ri, instances[child_name], instances, data_blocks, rpass, is_child=True)
+    ri.AttributeEnd()
+
+def export_data_read_archive(ri, data_block, rpass):
+    ri.AttributeBegin()
+    
+    if data_block.material:
+        export_material_archive(ri, data_block.material)
+
+    archive_filename = relpath_archive(data_block.archive_filename, rpass)
+
+    # we want these relative paths of the archive
+    if data_block.type == 'MESH':
+        bounds = get_bounding_box(data_block.data)
+        params = {"string filename": archive_filename,
+                  "float[6] bound": bounds}
+        ri.Procedural2(ri.Proc2DelayedReadArchive, ri.SimpleBound, params)
+    else:
+        if data_block.type != 'DUPLI':
+            ri.Transform([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+        ri.ReadArchive(archive_filename)
+
     ri.AttributeEnd()
 
 
@@ -1813,6 +1862,23 @@ def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
     ob = data_block.data
     ob.dupli_list_create(scene, "RENDER")
     
+    if ob.dupli_type == 'GROUP':
+        for dupob in ob.dupli_list:
+            ri.AttributeBegin()
+            dupli_name = "%s.DUPLI.%s.%d" % (ob.name, dupob.object.name,
+                                             dupob.index)
+            ri.Attribute('identifier', {'string name': dupli_name})
+            mat = dupob.object.active_material
+            if mat:
+                export_material_archive(ri, mat)
+            source_data_name = data_name(dupob.object, scene)
+            deforming = is_deforming(dupob.object)
+            ri.ReadArchive(get_archive_filename(source_data_name, rpass,
+                                                deforming, True))
+            ri.AttributeEnd()
+        ob.dupli_list_clear()
+        return     
+
     # gather list of object masters
     object_masters = {}
     for dupob in ob.dupli_list:
@@ -2349,8 +2415,7 @@ def write_rib(rpass, scene, ri):
     
     # export rib archives of objects
     export_data_archives(ri, scene, rpass, data_blocks)
-    data_blocks = None
-
+    
     export_header(ri)
     export_searchpaths(ri, rpass.paths)
 
@@ -2378,7 +2443,7 @@ def write_rib(rpass, scene, ri):
     # now output the object archives
     for name, instance in instances.items():
         if instance.type not in ['CAMERA', 'LAMP'] and not instance.parent:
-            export_instance_read_archive(ri, instance, instances)
+            export_instance_read_archive(ri, instance, instances, data_blocks, rpass)
     instances = None
     ri.WorldEnd()
 

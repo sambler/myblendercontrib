@@ -101,11 +101,11 @@ nonlinear_solver_types = [
     "Line search",
     "Matrix free"]
 
-class Common:
-    def write_vector(self, f, v, end=""):
-        f.write(", ".join([FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in v]) + end)
-    def write_matrix(self, f, m, pad=""):
-        f.write(",\n".join([pad + ", ".join(FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in r) for r in m]))
+def write_vector(f, v, end=""):
+    f.write(", ".join([FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in v]) + end)
+
+def write_matrix(f, m, pad=""):
+    f.write(",\n".join([pad + ", ".join(FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in r) for r in m]))
 
 def subsurf(obj):
     subsurf = [m for m in obj.modifiers if m.type == 'SUBSURF']
@@ -171,6 +171,8 @@ def Teardrop(obj):
     for q in [(2,3,1,0),(0,1,4),(1,3,4),(3,2,4),(2,0,4)]:
         bm.faces.new([bm.verts[i] for i in q])
     crease = bm.edges.layers.crease.new()
+    if hasattr(bm.edges, "ensure_lookup_table"):
+        bm.edges.ensure_lookup_table()
     for i in range(4,8):
         bm.edges[i][crease] = 1.0
     bm.to_mesh(obj.data)

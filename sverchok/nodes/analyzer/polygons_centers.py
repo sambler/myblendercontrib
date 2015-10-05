@@ -23,9 +23,9 @@ from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import (SvSetSocketAnyType, SvGetSocketAnyType,
                         Vector_generate, Vector_degenerate, updateNode)
 
-class CentersPolsNode(bpy.types.Node, SverchCustomTreeNode):
+class CentersPolsNodeMK2(bpy.types.Node, SverchCustomTreeNode):
     ''' Centers of polygons of mesh (not including matrixes, so apply scale-rot-loc ctrl+A) '''
-    bl_idname = 'CentersPolsNode'
+    bl_idname = 'CentersPolsNodeMK2'
     bl_label = 'Centers polygons'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
@@ -135,11 +135,11 @@ class CentersPolsNode(bpy.types.Node, SverchCustomTreeNode):
 
 
 def register():
-    bpy.utils.register_class(CentersPolsNode)
+    bpy.utils.register_class(CentersPolsNodeMK2)
 
 
 def unregister():
-    bpy.utils.unregister_class(CentersPolsNode)
+    bpy.utils.unregister_class(CentersPolsNodeMK2)
     
 if __name__ == '__main__':
     register()

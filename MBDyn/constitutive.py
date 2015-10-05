@@ -199,7 +199,7 @@ class StiffnessViscosity(Base):
         return (self.basis != self.dimension) or self.stiffness.check(context) or self.proportional.check(context) or self.viscosity.check(context)
 
 class LinearElastic(Entity):
-    def string(self, indent="\t"):
+    def string(self):
         if self.dimension == "1D":
             return "linear elastic, " + BPY.FORMAT(self.stiffness)
         else:
@@ -260,7 +260,7 @@ class LinearElasticGenericAxialTorsionCouplingOperator(Stiffness):
     def create_entity(self):
         return LinearElasticGenericAxialTorsionCoupling(self.name)
 
-klasses[LinearElasticGenericAxialTorsionCouplingOperator.bl_label] = LinearElasticGenericAxialTorsionCouplingOperator
+#klasses[LinearElasticGenericAxialTorsionCouplingOperator.bl_label] = LinearElasticGenericAxialTorsionCouplingOperator
 
 class CubicElasticGeneric(Entity):
     def string(self):
@@ -305,7 +305,7 @@ class InverseSquareElasticOperator(Stiffness):
     def draw(self, context):
         self.stiffness.type = {"1D": "float"}[self.dimension]
         super().draw(context)
-        self.reference_length.draw(layout, "Reference lendth")
+        self.reference_length.draw(self.layout, "Reference lendth")
     def check(self, context):
         return self.reference_length.check(context) or super().check(context)
     def create_entity(self):
@@ -338,7 +338,7 @@ class LinearElasticBistop(Entity):
             ret += ", " + self.stiffness.string()
         ret += ",\n\t\t\tinitial status, " + self.initial_status
         for drive in [self.activating_condition, self.activating_condition]:
-            ret += ",\n\t\t\treference, " + drive.safe_name()
+            ret += ",\n\t\t\t" + drive.string()
         return ret
 
 class LinearElasticBistopOperator(Stiffness):
@@ -372,7 +372,7 @@ class LinearElasticBistopOperator(Stiffness):
     def create_entity(self):
         return LinearElasticBistop(self.name)
 
-klasses[LinearElasticBistopOperator.bl_label] = LinearElasticBistopOperator
+#klasses[LinearElasticBistopOperator.bl_label] = LinearElasticBistopOperator
 
 class DoubleLinearElastic(Entity):
     def string(self):
@@ -418,7 +418,7 @@ class DoubleLinearElasticOperator(StiffnessN):
     def create_entity(self):
         return DoubleLinearElastic(self.name)
 
-klasses[DoubleLinearElasticOperator.bl_label] = DoubleLinearElasticOperator
+#klasses[DoubleLinearElasticOperator.bl_label] = DoubleLinearElasticOperator
 
 class IsotropicHardeningElastic(Entity):
     def string(self):
@@ -523,14 +523,14 @@ class ScalarFunctionElasticOrthotropicOperator(Base):
         for i in range(int(self.dimension[0])):
             self.function[i].draw(layout, "Function " + str(i+1))
     def check(self, context):
-        return (self.basis != self.dimension) or True in [s.check(context) for s in self.function]
+        return (self.basis != self.dimension) or True in [f.check(context) for f in self.function]
     def create_entity(self):
         return ScalarFunctionElasticOrthotropic(self.name)
 
 klasses[ScalarFunctionElasticOrthotropicOperator.bl_label] = ScalarFunctionElasticOrthotropicOperator
 
 class LinearViscous(Entity):
-    def string(self, indent="\t"):
+    def string(self):
         if self.dimension == "1D":
             return "linear viscous, " + BPY.FORMAT(self.viscosity)
         else:
@@ -621,7 +621,7 @@ class LinearTimeVariantViscoelasticGeneric(Entity):
             ret += ", " + BPY.FORMAT(self.stiffness)
         else:
             ret += ", " + self.stiffness.string()
-        ret += ", " + self.stiffness_scale.safe_name()
+        ret += ", " + self.stiffness_scale.string()
         if self.proportional is not None:
             ret += ", proportional, " + BPY.FORMAT(self.proportional)
         else:
@@ -629,7 +629,7 @@ class LinearTimeVariantViscoelasticGeneric(Entity):
                 ret += ", " + BPY.FORMAT(self.viscosity)
             else:
                 ret += ", " + self.viscosity.string()
-        ret += ", " + self.viscosity_scale.safe_name()
+        ret += ", " + self.viscosity_scale.string()
         return ret
 
 class LinearTimeVariantViscoelasticGenericOperator(StiffnessViscosity):
@@ -703,7 +703,7 @@ class LinearViscoelasticGenericAxialTorsionCouplingOperator(StiffnessViscosity):
     def create_entity(self):
         return LinearViscoelasticGenericAxialTorsionCoupling(self.name)
 
-klasses[LinearViscoelasticGenericAxialTorsionCouplingOperator.bl_label] = LinearViscoelasticGenericAxialTorsionCouplingOperator
+#klasses[LinearViscoelasticGenericAxialTorsionCouplingOperator.bl_label] = LinearViscoelasticGenericAxialTorsionCouplingOperator
 
 class CubicViscoelasticGeneric(Entity):
     def string(self):
@@ -743,7 +743,7 @@ class CubicViscoelasticGenericOperator(StiffnessN):
     def create_entity(self):
         return CubicViscoelasticGeneric(self.name)
 
-klasses[CubicViscoelasticGenericOperator.bl_label] = CubicViscoelasticGenericOperator
+#klasses[CubicViscoelasticGenericOperator.bl_label] = CubicViscoelasticGenericOperator
 
 class DoubleLinearViscoelastic(Entity):
     def string(self):
@@ -806,7 +806,7 @@ class DoubleLinearViscoelasticOperator(StiffnessN):
     def create_entity(self):
         return DoubleLinearViscoelastic(self.name)
 
-klasses[DoubleLinearViscoelasticOperator.bl_label] = DoubleLinearViscoelasticOperator
+#klasses[DoubleLinearViscoelasticOperator.bl_label] = DoubleLinearViscoelasticOperator
 
 class TurbulentViscoelastic(Entity):
     def string(self):
@@ -866,7 +866,7 @@ class LinearViscoelasticBistop(Entity):
             ret += ", " + self.stiffness.string() + ", " + self.viscosity.string()
         ret += ",\n\t\t\tinitial status, " + self.initial_status
         for drive in [self.activating_condition, self.deactivating_condition]:
-            ret += ",\n\t\t\t" + drive.safe_name()
+            ret += ",\n\t\t\t" + drive.string()
         return ret
 
 class LinearViscoelasticBistopOperator(Base):
@@ -928,4 +928,4 @@ for dimension in "1D 3D 6D".split():
                     op.dimension = self.dimension
     BPY.klasses.append(Menu)
 
-bundle = Bundle(tree, Base, klasses, database.constitutive, "constitutive")
+bundle = Bundle(tree, Base, klasses, database.constitutive)

@@ -72,6 +72,136 @@ def load_handler(dummy):
     bpy.context.scene.GafferIsShowingRadius = False
     bpy.context.scene.GafferIsShowingLabel = False
 
+def refresh_light_list(scene):
+    m = []
+
+    if not hasattr(bpy.types.Object, "GafferFalloff"):
+        bpy.types.Object.GafferFalloff = bpy.props.EnumProperty(
+            name="Light Falloff",
+            items=(("constant","Constant","No light falloff"),
+                   ("linear","Linear","Fade light strength linearly over the distance it travels"),
+                   ("quadratic","Quadratic","(Realisic) Light strength is inversely proportional to the square of the distance it travels")),
+            default="quadratic",
+            description="The rate at which the light loses intensity over distance",
+            update=_update_falloff)
+
+    light_dict = dictOfLights()
+
+    objects = sorted(scene.objects, key=lambda x: x.name)
+
+    if scene.render.engine == 'BLENDER_RENDER':
+        for obj in objects:
+            if obj.type == 'LAMP':
+                m.append([obj.name, None, None])  # only use first element of list to keep usage consistent with cycles mode
+    elif scene.render.engine == 'CYCLES':
+        for obj in objects:
+            light_mats = []
+            if obj.type == 'LAMP':
+                if obj.data.use_nodes:
+                    invalid_node = False
+                    if obj.name in light_dict:
+                        if light_dict[obj.name] == "None":  # A light that previously did not use nodes (like default light)
+                            invalid_node = True
+                        elif light_dict[obj.name] not in obj.data.node_tree.nodes:
+                            invalid_node = True
+                    if obj.name not in light_dict or invalid_node:
+                        for node in obj.data.node_tree.nodes:
+                            if node.name != "Emission Viewer":
+                                if node.type == 'EMISSION':
+                                    if node.outputs[0].is_linked:
+                                        if node.inputs[1].is_linked:
+                                            socket_index = 0
+                                            subnode = node.inputs[1].links[0].from_node
+                                            if subnode.inputs:
+                                                for inpt in subnode.inputs:
+                                                    if inpt.type == 'VALUE':  # use first Value socket as strength
+                                                        m.append([obj.name, None, subnode.name, 'i'+str(socket_index)])
+                                                        break
+                                        else:
+                                            m.append([obj.name, None, node.name, 1])
+                                        break
+                    else:
+                        node = obj.data.node_tree.nodes[light_dict[obj.name]]
+                        socket_index = 0
+                        if node.inputs:
+                            for inpt in node.inputs:
+                                if inpt.type == 'VALUE':  # use first Value socket as strength
+                                    m.append([obj.name, None, node.name, 'i'+str(socket_index)])
+                                    break
+                                socket_index += 1
+                        elif node.outputs:
+                            for oupt in node.outputs:
+                                if oupt.type == 'VALUE':  # use first Value socket as strength
+                                    m.append([obj.name, None, node.name, 'o'+str(socket_index)])
+                                    break
+                                socket_index += 1
+                else:
+                    m.append([obj.name, None, None])
+            elif obj.type == 'MESH' and len(obj.material_slots) > 0:
+                slot_break = False
+                for slot in obj.material_slots:
+                    if slot_break:
+                        break  # only use first emission material in slots
+                    if slot.material:
+                        if slot.material not in light_mats:
+                            if slot.material.use_nodes:
+                                invalid_node = False
+                                if obj.name in light_dict:
+                                    if light_dict[obj.name] == "None":  # A light that previously did not use nodes (like default light)
+                                        invalid_node = True
+                                    elif light_dict[obj.name] not in slot.material.node_tree.nodes:
+                                        invalid_node = True
+                                if obj.name not in light_dict or invalid_node:
+                                    for node in slot.material.node_tree.nodes:
+                                        if node.name != "Emission Viewer":
+                                            if node.type == 'EMISSION':
+                                                if node.outputs[0].is_linked:
+                                                    if node.inputs[1].is_linked:
+                                                        socket_index = 0
+                                                        subnode = node.inputs[1].links[0].from_node
+                                                        if subnode.inputs:
+                                                            for inpt in subnode.inputs:
+                                                                if inpt.type == 'VALUE':  # use first Value socket as strength
+                                                                    m.append([obj.name, slot.material.name, subnode.name, 'i'+str(socket_index)])
+                                                                    light_mats.append(slot.material)
+                                                                    slot_break = True
+                                                                    break
+                                                    else:
+                                                        m.append([obj.name, slot.material.name, node.name, 1])
+                                                        light_mats.append(slot.material)  # skip this material next time it's checked
+                                                        slot_break = True
+                                                        break
+                                else:
+                                    node = slot.material.node_tree.nodes[light_dict[obj.name]]
+                                    socket_index = 0
+                                    if node.inputs:
+                                        for inpt in node.inputs:
+                                            if inpt.type == 'VALUE':  # use first Value socket as strength
+                                                m.append([obj.name, slot.material.name, node.name, 'i'+str(socket_index)])
+                                                break
+                                            socket_index += 1
+                                    elif node.outputs:
+                                        for oupt in node.outputs:
+                                            if oupt.type == 'VALUE':  # use first Value socket as strength
+                                                m.append([obj.name, slot.material.name, node.name, 'o'+str(socket_index)])
+                                                break
+                                            socket_index += 1
+
+    for light in m:
+        obj = bpy.data.objects[light[0]]
+        nodes = None
+        if obj.type == 'LAMP':
+            if obj.data.use_nodes:
+                nodes = obj.data.node_tree.nodes
+        else:
+            if bpy.data.materials[light[1]].use_nodes:
+                nodes = bpy.data.materials[light[1]].node_tree.nodes
+        if nodes:
+            if light[2]:
+                if nodes[light[2]].type != 'LIGHT_FALLOFF' and bpy.data.objects[light[0]].GafferFalloff != 'quadratic':
+                    bpy.data.objects[light[0]].GafferFalloff = 'quadratic'
+    scene.GafferLights = str(m)
+
 def hack_force_update(context, nodes):
     node = nodes.new('ShaderNodeMath')
     node.inputs[0].default_value = 0.0
@@ -400,6 +530,25 @@ def draw_rounded_rect(x1, y1, x2, y2, r):
 '''
     OPERATORS
 '''
+class GafRename(bpy.types.Operator):
+
+    'Rename this light'
+    bl_idname = 'gaffer.rename'
+    bl_label = 'Rename This Light'
+    bl_options = {'REGISTER', 'UNDO'}
+    light = bpy.props.StringProperty(name="New name:")
+    oldname = ""
+
+    def invoke(self, context, event):
+        self.oldname = self.light
+        return context.window_manager.invoke_props_popup(self, event)
+
+    def execute(self, context):
+        context.scene.objects[self.oldname].name = self.light
+        refresh_light_list(context.scene)
+        return {'FINISHED'}
+
+
 class GafSetTemp(bpy.types.Operator):
 
     'Set the color temperature to a preset'
@@ -677,135 +826,9 @@ class GafRefreshLightList(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        m = []
 
-        if not hasattr(bpy.types.Object, "GafferFalloff"):
-            bpy.types.Object.GafferFalloff = bpy.props.EnumProperty(
-                name="Light Falloff",
-                items=(("constant","Constant","No light falloff"),
-                       ("linear","Linear","Fade light strength linearly over the distance it travels"),
-                       ("quadratic","Quadratic","(Realisic) Light strength is inversely proportional to the square of the distance it travels")),
-                default="quadratic",
-                description="The rate at which the light loses intensity over distance",
-                update=_update_falloff)
-            print ("Created GafferFalloff property")
-
-        light_dict = dictOfLights()
-
-        objects = sorted(scene.objects, key=lambda x: x.name)
-
-        if scene.render.engine == 'BLENDER_RENDER':
-            for obj in objects:
-                if obj.type == 'LAMP':
-                    m.append([obj.name, None, None])  # only use first element of list to keep usage consistent with cycles mode
-        elif scene.render.engine == 'CYCLES':
-            for obj in objects:
-                light_mats = []
-                if obj.type == 'LAMP':
-                    if obj.data.use_nodes:
-                        invalid_node = False
-                        if obj.name in light_dict:
-                            if light_dict[obj.name] == "None":  # A light that previously did not use nodes (like default light)
-                                invalid_node = True
-                            elif light_dict[obj.name] not in obj.data.node_tree.nodes:
-                                invalid_node = True
-                        if obj.name not in light_dict or invalid_node:
-                            for node in obj.data.node_tree.nodes:
-                                if node.name != "Emission Viewer":
-                                    if node.type == 'EMISSION':
-                                        if node.outputs[0].is_linked:
-                                            if node.inputs[1].is_linked:
-                                                socket_index = 0
-                                                subnode = node.inputs[1].links[0].from_node
-                                                if subnode.inputs:
-                                                    for inpt in subnode.inputs:
-                                                        if inpt.type == 'VALUE':  # use first Value socket as strength
-                                                            m.append([obj.name, None, subnode.name, 'i'+str(socket_index)])
-                                                            break
-                                            else:
-                                                m.append([obj.name, None, node.name, 1])
-                                            break
-                        else:
-                            node = obj.data.node_tree.nodes[light_dict[obj.name]]
-                            socket_index = 0
-                            if node.inputs:
-                                for inpt in node.inputs:
-                                    if inpt.type == 'VALUE':  # use first Value socket as strength
-                                        m.append([obj.name, None, node.name, 'i'+str(socket_index)])
-                                        break
-                                    socket_index += 1
-                            elif node.outputs:
-                                for oupt in node.outputs:
-                                    if oupt.type == 'VALUE':  # use first Value socket as strength
-                                        m.append([obj.name, None, node.name, 'o'+str(socket_index)])
-                                        break
-                                    socket_index += 1
-                    else:
-                        m.append([obj.name, None, None])
-                elif obj.type == 'MESH' and len(obj.material_slots) > 0:
-                    slot_break = False
-                    for slot in obj.material_slots:
-                        if slot_break:
-                            break  # only use first emission material in slots
-                        if slot.material:
-                            if slot.material not in light_mats:
-                                if slot.material.use_nodes:
-                                    invalid_node = False
-                                    if obj.name in light_dict:
-                                        if light_dict[obj.name] == "None":  # A light that previously did not use nodes (like default light)
-                                            invalid_node = True
-                                        elif light_dict[obj.name] not in slot.material.node_tree.nodes:
-                                            invalid_node = True
-                                    if obj.name not in light_dict or invalid_node:
-                                        for node in slot.material.node_tree.nodes:
-                                            if node.name != "Emission Viewer":
-                                                if node.type == 'EMISSION':
-                                                    if node.outputs[0].is_linked:
-                                                        if node.inputs[1].is_linked:
-                                                            socket_index = 0
-                                                            subnode = node.inputs[1].links[0].from_node
-                                                            if subnode.inputs:
-                                                                for inpt in subnode.inputs:
-                                                                    if inpt.type == 'VALUE':  # use first Value socket as strength
-                                                                        m.append([obj.name, slot.material.name, subnode.name, 'i'+str(socket_index)])
-                                                                        light_mats.append(slot.material)
-                                                                        slot_break = True
-                                                                        break
-                                                        else:
-                                                            m.append([obj.name, slot.material.name, node.name, 1])
-                                                            light_mats.append(slot.material)  # skip this material next time it's checked
-                                                            slot_break = True
-                                                            break
-                                    else:
-                                        node = slot.material.node_tree.nodes[light_dict[obj.name]]
-                                        socket_index = 0
-                                        if node.inputs:
-                                            for inpt in node.inputs:
-                                                if inpt.type == 'VALUE':  # use first Value socket as strength
-                                                    m.append([obj.name, slot.material.name, node.name, 'i'+str(socket_index)])
-                                                    break
-                                                socket_index += 1
-                                        elif node.outputs:
-                                            for oupt in node.outputs:
-                                                if oupt.type == 'VALUE':  # use first Value socket as strength
-                                                    m.append([obj.name, slot.material.name, node.name, 'o'+str(socket_index)])
-                                                    break
-                                                socket_index += 1
-
-        for light in m:
-            obj = bpy.data.objects[light[0]]
-            nodes = None
-            if obj.type == 'LAMP':
-                if obj.data.use_nodes:
-                    nodes = obj.data.node_tree.nodes
-            else:
-                if bpy.data.materials[light[1]].use_nodes:
-                    nodes = bpy.data.materials[light[1]].node_tree.nodes
-            if nodes:
-                if light[2]:
-                    if nodes[light[2]].type != 'LIGHT_FALLOFF' and bpy.data.objects[light[0]].GafferFalloff != 'quadratic':
-                        bpy.data.objects[light[0]].GafferFalloff = 'quadratic'
-        scene.GafferLights = str(m)
+        refresh_light_list(scene)
+        
         self.report({'INFO'}, "Light list refreshed")
         if scene.GafferSoloActive == '':
             getHiddenStatus(scene, stringToNestedList(scene.GafferLights, True))
@@ -1462,7 +1485,7 @@ def draw_renderer_independant(scene, row, light, users=[None, 1]):  # UI stuff t
 
     if scene.GafferSoloActive == '':
         # Don't allow names to be edited during solo, will break the record of what was originally hidden
-        row.prop(light, 'name', text='')
+        row.operator('gaffer.rename', text=light.name).light = light.name
     else:
         row.label(text=light.name)
 
@@ -1737,12 +1760,16 @@ def draw_cycles_UI(context, layout, lights):
     for item in lights_to_show:
         light = scene.objects[item[0][1:-1]]  # drop the apostrophies
         doesnt_use_nodes = False
+        is_portal = False
         if light.type == 'LAMP':
             material = None
             if light.data.use_nodes:
                 node_strength = light.data.node_tree.nodes[item[2][1:-1]]
             else:
                 doesnt_use_nodes = True
+
+            if light.data.type == 'AREA' and light.data.cycles.is_portal:
+                is_portal = True
         else:
             material = bpy.data.materials[item[1][1:-1]]
             if material.use_nodes:
@@ -1785,75 +1812,77 @@ def draw_cycles_UI(context, layout, lights):
             draw_renderer_independant(scene, row, light, users)
 
             # strength
-            row = col.row(align=True)
-            strength_sockets = node_strength.inputs
-            if socket_strength_type == 'o':
-                strength_sockets = node_strength.outputs
-            if light.type == 'LAMP':
-                row.prop(light.data, "type", text='', icon='LAMP_%s' % light.data.type, icon_only=True, emboss=False)
-            else:
-                row.label(text='', icon='MESH_GRID')
-            row.separator()
-            try:
-                if ((socket_strength_type == 'i' and not strength_sockets[socket_strength].is_linked) \
-                or (socket_strength_type == 'o' and strength_sockets[socket_strength].is_linked)) \
-                and hasattr(strength_sockets[socket_strength], "default_value"):
-                    row.prop(strength_sockets[socket_strength], 'default_value', text='Strength')
+            if not is_portal:
+                row = col.row(align=True)
+                strength_sockets = node_strength.inputs
+                if socket_strength_type == 'o':
+                    strength_sockets = node_strength.outputs
+                if light.type == 'LAMP':
+                    row.prop(light.data, "type", text='', icon='LAMP_%s' % light.data.type, icon_only=True, emboss=False)
                 else:
+                    row.label(text='', icon='MESH_GRID')
+
+                row.separator()
+                try:
+                    if ((socket_strength_type == 'i' and not strength_sockets[socket_strength].is_linked) \
+                    or (socket_strength_type == 'o' and strength_sockets[socket_strength].is_linked)) \
+                    and hasattr(strength_sockets[socket_strength], "default_value"):
+                        row.prop(strength_sockets[socket_strength], 'default_value', text='Strength')
+                    else:
+                        row.label("  Node Invalid")
+                except:
                     row.label("  Node Invalid")
-            except:
-                row.label("  Node Invalid")
 
-            # color
-            if light.type == 'LAMP':
-                nodes = light.data.node_tree.nodes
-            else:
-                nodes = material.node_tree.nodes
-            socket_color = 0
-            node_color = None
-            emissions = []  # make a list of all linked Emission shaders, use the right-most one
-            for node in nodes:
-                if node.type == 'EMISSION':
-                    if node.outputs[0].is_linked:
-                        emissions.append(node)
-            if emissions:
-                node_color = sorted(emissions, key=lambda x: x.location.x, reverse=True)[0]
-
-                if not node_color.inputs[socket_color].is_linked:
-                    subcol = row.column(align=True)
-                    subrow = subcol.row(align=True)
-                    subrow.scale_x = 0.3
-                    subrow.prop(node_color.inputs[socket_color], 'default_value', text='')
+                # color
+                if light.type == 'LAMP':
+                    nodes = light.data.node_tree.nodes
                 else:
-                    from_node = node_color.inputs[socket_color].links[0].from_node
-                    if from_node.type == 'RGB':
+                    nodes = material.node_tree.nodes
+                socket_color = 0
+                node_color = None
+                emissions = []  # make a list of all linked Emission shaders, use the right-most one
+                for node in nodes:
+                    if node.type == 'EMISSION':
+                        if node.outputs[0].is_linked:
+                            emissions.append(node)
+                if emissions:
+                    node_color = sorted(emissions, key=lambda x: x.location.x, reverse=True)[0]
+
+                    if not node_color.inputs[socket_color].is_linked:
                         subcol = row.column(align=True)
                         subrow = subcol.row(align=True)
                         subrow.scale_x = 0.3
-                        subrow.prop(from_node.outputs[0], 'default_value', text='')
-                    elif from_node.type == 'TEX_IMAGE' or from_node.type == 'TEX_ENVIRONMENT':
-                        row.prop(from_node, 'image', text='')
-                    elif from_node.type == 'BLACKBODY':
-                        row.prop(from_node.inputs[0], 'default_value', text='Temperature')
-                        if scene.GafferColTempExpand and scene.GafferLightUIIndex == i:
-                            row.operator('gaffer.col_temp_hide', text='', icon='MOVE_UP_VEC')
-                            col = col.column(align=True)
-                            col.separator()
-                            col.label("Color Temperature Presets:")
-                            ordered_col_temps = OrderedDict(sorted(col_temp.items()))
-                            for temp in ordered_col_temps:
-                                op = col.operator('gaffer.col_temp_preset', text=temp[3:], icon='COLOR')  # temp[3:] removes number used for ordering
-                                op.temperature = temp
-                                op.light = light.name
-                                if material:
-                                    op.material = material.name
-                                if node_color:
-                                    op.node = node_color.name
-                            col.separator()
-                        else:
-                            row.operator('gaffer.col_temp_show', text='', icon='COLOR').l_index = i
-                    elif from_node.type == 'WAVELENGTH':
-                        row.prop(from_node.inputs[0], 'default_value', text='Wavelength')
+                        subrow.prop(node_color.inputs[socket_color], 'default_value', text='')
+                    else:
+                        from_node = node_color.inputs[socket_color].links[0].from_node
+                        if from_node.type == 'RGB':
+                            subcol = row.column(align=True)
+                            subrow = subcol.row(align=True)
+                            subrow.scale_x = 0.3
+                            subrow.prop(from_node.outputs[0], 'default_value', text='')
+                        elif from_node.type == 'TEX_IMAGE' or from_node.type == 'TEX_ENVIRONMENT':
+                            row.prop(from_node, 'image', text='')
+                        elif from_node.type == 'BLACKBODY':
+                            row.prop(from_node.inputs[0], 'default_value', text='Temperature')
+                            if scene.GafferColTempExpand and scene.GafferLightUIIndex == i:
+                                row.operator('gaffer.col_temp_hide', text='', icon='MOVE_UP_VEC')
+                                col = col.column(align=True)
+                                col.separator()
+                                col.label("Color Temperature Presets:")
+                                ordered_col_temps = OrderedDict(sorted(col_temp.items()))
+                                for temp in ordered_col_temps:
+                                    op = col.operator('gaffer.col_temp_preset', text=temp[3:], icon='COLOR')  # temp[3:] removes number used for ordering
+                                    op.temperature = temp
+                                    op.light = light.name
+                                    if material:
+                                        op.material = material.name
+                                    if node_color:
+                                        op.node = node_color.name
+                                col.separator()
+                            else:
+                                row.operator('gaffer.col_temp_show', text='', icon='COLOR').l_index = i
+                        elif from_node.type == 'WAVELENGTH':
+                            row.prop(from_node.inputs[0], 'default_value', text='Wavelength')
 
             # More Options
             if "_Light:_(" + light.name + ")_" in scene.GafferMoreExpand or scene.GafferMoreExpandAll:
@@ -1873,17 +1902,19 @@ def draw_cycles_UI(context, layout, lights):
                     if scene.cycles.progressive == 'BRANCHED_PATH':
                         row.prop(light.data.cycles, "samples")
 
-                    row = col.row(align=True)
-                    row.prop(light.data.cycles, "use_multiple_importance_sampling", text='MIS', toggle=True)
-                    row.prop(light.data.cycles, "cast_shadow", text='Shadows', toggle=True)
-                    row.separator()
-                    row.prop(light.cycles_visibility, "diffuse", text='Diff', toggle=True)
-                    row.prop(light.cycles_visibility, "glossy", text='Spec', toggle=True)
+                    if not is_portal:
+                        row = col.row(align=True)
+                        row.prop(light.data.cycles, "use_multiple_importance_sampling", text='MIS', toggle=True)
+                        row.prop(light.data.cycles, "cast_shadow", text='Shadows', toggle=True)
+                        row.separator()
+                        row.prop(light.cycles_visibility, "diffuse", text='Diff', toggle=True)
+                        row.prop(light.cycles_visibility, "glossy", text='Spec', toggle=True)
 
                     if light.data.type == 'SPOT':
                         row = col.row(align=True)
                         row.prop(light.data, "spot_size", text='Spot Size')
                         row.prop(light.data, "spot_blend", text='Blend')
+
                 else:  # MESH light
                     row.prop(material.cycles, "sample_as_light", text='MIS', toggle=True)
                     row.separator()
@@ -1893,12 +1924,15 @@ def draw_cycles_UI(context, layout, lights):
                 if hasattr(light, "GafferFalloff"):
                     drawfalloff = True
                     if light.type == 'LAMP':
-                        if light.data.type == 'SUN' or light.data.type == 'HEMI':
+                        if light.data.type == 'SUN' or light.data.type == 'HEMI' or (light.data.type == 'AREA' and light.data.cycles.is_portal):
                             drawfalloff = False
                     if drawfalloff:
                         col.prop(light, "GafferFalloff", text="Falloff")
                         if node_strength.type != 'LIGHT_FALLOFF' and light.GafferFalloff != 'quadratic':
                             col.label("Light Falloff node is missing", icon="ERROR")
+                if light.type == 'LAMP':
+                    if light.data.type == 'AREA':
+                        col.prop(light.data.cycles, 'is_portal', "Portal")
             i += 1
 
     if len(lights_to_show) == 0:
