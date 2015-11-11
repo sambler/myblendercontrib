@@ -341,7 +341,7 @@ def generate_property(sp):
 
             else:
                 param_min = parse_float(sp.attrib['min']) if 'min' \
-                    in sp.attrib else sys.float_info.min
+                    in sp.attrib else (-1.0 * sys.float_info.max)
                 param_max = parse_float(sp.attrib['max']) if 'max' \
                     in sp.attrib else sys.float_info.max
                 param_min = parse_float(sp.attrib['slidermin']) if 'slidermin' \
@@ -513,7 +513,7 @@ def node_add_inputs(node, node_name, shaderparameters):
     for sp in shaderparameters:
         # if this is a page recursively add inputs
         if sp.tag == 'page':
-            node_add_inputs(node, node_name, sp.findall('param'))
+            node_add_inputs(node, node_name, sp.findall('param') + sp.findall('page'))
             continue
         # if this is not connectable don't add socket
         tags = sp.find('tags')

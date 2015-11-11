@@ -28,7 +28,7 @@ import sys
 bl_info = {
     "name": "PRMan Render Engine",
     "author": "Brian Savery",
-    "version": (0, 5, 0),
+    "version": (0, 7, 0),
     "blender": (2, 74, 0),
     "location": "Info Header, render engine menu",
     "description": "RenderMan 20.0 integration",

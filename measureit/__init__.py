@@ -31,7 +31,7 @@ bl_info = {
     "name": "MeasureIt",
     "author": "Antonio Vazquez (antonioya)",
     "location": "View3D > Tools Panel /Properties panel",
-    "version": (1, 6, 1),
+    "version": (1, 6, 2),
     "blender": (2, 7, 4),
     "description": "Tools for measuring objects.",
     "category": "3D View"}
@@ -103,7 +103,7 @@ def register():
     bpy.types.Scene.measureit_font_size = bpy.props.IntProperty(name="Text Size",
                                                                 description="Default text size",
                                                                 default=14, min=10, max=150)
-    bpy.types.Scene.measureit_hint_space = bpy.props.FloatProperty(name='Separation', min=0, max=5, default=0.1,
+    bpy.types.Scene.measureit_hint_space = bpy.props.FloatProperty(name='Separation', min=0, max=100, default=0.1,
                                                                    precision=3,
                                                                    description="Default distance to display measure")
     bpy.types.Scene.measureit_gl_ghost = bpy.props.BoolProperty(name="All",

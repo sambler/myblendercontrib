@@ -31,7 +31,7 @@ bl_info = {
     "name": "Create html documentation",
     "author": "Antonio Vazquez (antonioya)",
     "location": "File > Import-Export / Tool Panel",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (2, 7, 3),
     "description": "Create html documentation for blend files, including storyboards, images and linked assets.",
     "category": "Import-Export"}
@@ -82,18 +82,18 @@ def menu_func_export(self, context):
 
 
 def register():
-    bpy.utils.register_class(main_panel.MainPanel)
     bpy.utils.register_class(main_panel.RunActionOn)
     bpy.utils.register_class(main_panel.RunActionOff)
+    bpy.utils.register_class(main_panel.MainPanel)
     bpy.utils.register_class(main_panel.ExportHtmlDoc)
 
     bpy.types.INFO_MT_file_export.append(menu_func_export)
 
 
 def unregister():
-    bpy.utils.unregister_class(main_panel.MainPanel)
     bpy.utils.unregister_class(main_panel.RunActionOn)
     bpy.utils.unregister_class(main_panel.RunActionOff)
+    bpy.utils.unregister_class(main_panel.MainPanel)
     bpy.utils.unregister_class(main_panel.ExportHtmlDoc)
 
     bpy.types.INFO_MT_file_export.remove(menu_func_export)

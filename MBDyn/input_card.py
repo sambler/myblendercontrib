@@ -24,21 +24,18 @@
 
 if "bpy" in locals():
     import imp
-    imp.reload(bpy)
-    imp.reload(Operator)
-    imp.reload(Entity)
-    imp.reload(subsurf)
+    for x in [base, menu, common]:
+        imp.reload(x)
 else:
-    from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, SelectedObjects, update_matrix
-    from .common import RhombicPyramid, write_vector, write_matrix
-    from mathutils import Vector
-    from copy import copy
-
-types = ["c81 data", "Hydraulic fluid", "Include", "Module load", "Print symbol table", "Reference frame", "Remark", "Set", "Setenv"]
-
-tree = ["Input Card", types]
-
-klasses = dict()
+    from . import base
+    from . import menu
+    from . import common
+from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, SelectedObjects
+from .menu import default_klasses, input_card_tree
+from .common import RhombicPyramid, write_vector, write_orientation
+from mathutils import Vector
+from copy import copy
+import os, shutil
 
 class Base(Operator):
     bl_label = "Input Cards"
@@ -68,15 +65,7 @@ class Base(Operator):
     def set_index(self, context, value):
         context.scene.input_card_index = value
 
-for t in types:
-    class Tester(Base):
-        bl_label = t
-        @classmethod
-        def poll(cls, context):
-            return False
-        def create_entity(self):
-            return Entity(self.name)
-    klasses[t] = Tester
+klasses = default_klasses(input_card_tree, Base)
 
 class ReferenceFrame(Entity):
     def write(self, f, parent):
@@ -88,14 +77,15 @@ class ReferenceFrame(Entity):
         rot = self.objects[0].matrix_world.to_quaternion().to_matrix()
         rot_parent = parent.objects[0].matrix_world.to_quaternion().to_matrix() if parent else rot
         orientation = rot_parent.transposed()*rot if parent else rot
-        f.write("reference: " + self.safe_name() + ",\n" + "\treference, " + parent_label + ", ")
-        write_vector(f, rot_parent.transposed()*location if parent else location, ",\n")
-        f.write("\treference, " + parent_label + ", matr,\n")
-        write_matrix(f, orientation, "\t\t")
-        f.write(",\n\treference, " + parent_label + ", ")
-        write_vector(f, orientation*vectors[0], ",\n")
-        f.write("\treference, " + parent_label + ", ")
-        write_vector(f, orientation*vectors[1], ";\n")
+        f.write("\treference: " + self.safe_name() + ",\n\t\treference, " + parent_label)
+        write_vector(f, rot_parent.transposed()*location if parent else location)
+        f.write(",\n\t\treference, " + parent_label)
+        write_orientation(f, orientation, "\t\t")
+        f.write(",\n\t\treference, " + parent_label)
+        write_vector(f, orientation*vectors[0])
+        f.write(",\n\t\treference, " + parent_label)
+        write_vector(f, orientation*vectors[1])
+        f.write(";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
 
@@ -107,7 +97,7 @@ class ReferenceFrameOperator(Base):
     def poll(self, context):
         frames = copy(database.input_card.filter("Reference frame"))
         if self.bl_idname.startswith(root_dot + "e_"):
-            frames.pop(context.scene.input_card_index)
+            frames.remove(database.input_card[context.scene.input_card_index])
         selected = SelectedObjects(context)
         overlapped = False in [set(selected[1:]).isdisjoint(set(f.objects[1:])) for f in frames]
         duplicate = True in [selected[0] == f.objects[0] for f in frames if hasattr(f, "objects")]
@@ -142,16 +132,11 @@ klasses[ReferenceFrameOperator.bl_label] = ReferenceFrameOperator
 
 class Set(Entity):
     def write(self, f):
-        modifiers = list()
-        if self.ifndef:
-            modifiers.append("ifndef")
-        if self.const:
-            modifiers.append("const")
-        modifiers.append
-        f.write("set: " +
+        value = ("\"" + self.value + "\"") if self.value_type == "string" else self.value
+        f.write("\tset: " +
             ("ifndef " if self.ifndef else "") +
             ("const " if self.const else "") +
-            self.value_type + " " + self.safe_name() + ((" = " + self.value) if self.value else "") + ";\n")
+            self.value_type + " " + self.safe_name() + ((" = " + value) if self.value else "") + ";\n")
 
 class SetOperator(Base):
     bl_label = "Set"
@@ -181,4 +166,49 @@ class SetOperator(Base):
 
 klasses[SetOperator.bl_label] = SetOperator
 
-bundle = Bundle(tree, Base, klasses, database.input_card)
+class ModuleLoad(Entity):
+    def write(self, f):
+        f.write("\tmodule load: " + BPY.FORMAT(self.value_type))
+        if self.args:
+            f.write(",\n\t\t" + self.args)
+        f.write(";\n")
+
+def enum_loadable_module(self, context):
+    sim = database.simulator[context.scene.simulator_index] if database.simulator else None
+    head, tail = os.path.split(os.path.realpath(shutil.which(sim.mbdyn_path if sim is not None and sim.mbdyn_path is not None else "mbdyn")))
+    head = os.path.split(head)[0] if head else None
+    if head and os.path.exists(os.path.join(head, "libexec")):
+        return [(base, base, "") for base, ext in [os.path.splitext(fn) for fn in os.listdir(os.path.join(head, "libexec"))] if ext == ".la" and
+            base not in [x.value_type for x in database.input_card.filter("Module load")]]
+    else:
+        return list()
+
+class ModuleLoadOperator(Base):
+    bl_label = "Module load"
+    loadable_module = bpy.props.EnumProperty(items=enum_loadable_module, name="File name", description="Select from the list of available loadable modules")
+    args = bpy.props.StringProperty()
+    @classmethod
+    def poll(cls, context):
+        return enum_loadable_module(cls, context) or cls.bl_idname.endswith("e_module_load")
+    def prereqs(self, context):
+        if self.bl_idname.endswith("c_module_load"):
+            self.loadable_module = enum_loadable_module(self, context)[0][0]
+    def assign(self, context):
+        self.args = self.entity.args
+    def store(self, context):
+        if self.bl_idname.endswith("c_module_load"):
+            self.entity.value_type = self.loadable_module
+        self.entity.args = self.args
+    def draw(self, context):
+        layout = self.layout
+        if self.bl_idname.endswith("c_module_load"):
+            layout.prop(self, "loadable_module")
+        else:
+            layout.label("Module: " + self.entity.value_type)
+        layout.prop(self, "args")
+    def create_entity(self):
+        return ModuleLoad(self.name)
+    
+klasses[ModuleLoadOperator.bl_label] = ModuleLoadOperator
+
+bundle = Bundle(input_card_tree, Base, klasses, database.input_card)

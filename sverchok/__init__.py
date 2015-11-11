@@ -45,7 +45,7 @@ bl_info = {
         "AgustinJB, Zeffii, Kosvor, "
         "Portnov, Elfnor"
     ),
-    "version": (0, 5, 2, 9),
+    "version": (0, 5, 3, 8),
     "blender": (2, 7, 2),
     "location": "Nodes > CustomNodesTree > Add user nodes",
     "description": "Parametric node-based geometry programming",
@@ -84,7 +84,7 @@ utils_modules = [
     "sv_panels_tools", "sv_IO_panel_tools", "group_tools",
 ]
 ui_modules = [
-    "color_def", "sv_IO_panel", "sv_panels", "nodeview_space_menu",
+    "color_def", "sv_IO_panel", "sv_templates_menu", "sv_panels", "nodeview_space_menu",
     # bgl modules
     "viewer_draw", "viewer_draw_mk2", "nodeview_bgl_viewer_draw",
     "index_viewer_draw"
@@ -147,6 +147,7 @@ def register():
     # this is used to access preferences, should/could be hidden
     # in an interface
     data_structure.SVERCHOK_NAME = __name__
+    print("** version: ", bl_info['version']," **")
     print("** Have a nice day with sverchok  **\n")
     ascii_print.logo()
 

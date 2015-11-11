@@ -692,6 +692,16 @@ class DATA_PT_renderman_lamp(ShaderPanel, Panel):
             return
         else:
             layout.prop(lamp.renderman, "renderman_type", expand=True)
+            if lamp.renderman.renderman_type == "AREA":
+                layout.prop(lamp.renderman, "area_shape", expand=True)
+                row = layout.row()
+                if lamp.renderman.area_shape == "rect":
+                    row.prop(lamp, 'size', text="Size X")
+                    row.prop(lamp, 'size_y')
+                else:
+                    row.prop(lamp, 'size', text="Radius")
+                    if lamp.renderman.area_shape == "cylinder":
+                        row.prop(lamp, 'size_y', text="Length")
             layout.prop(lamp.renderman, "shadingrate")
 
         layout.prop_search(lamp.renderman, "nodetree", bpy.data, "node_groups")

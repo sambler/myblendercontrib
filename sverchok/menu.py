@@ -126,12 +126,14 @@ def make_node_cats():
         ["ListLevelsNode",      "List Del Levels"],
         ["ListLengthNode",      "List Length"],
         ["ListSumNode",         "List Sum"],
+        ["ListSumNodeMK2",         "List Sum MK2"],
         ["ListMatchNode",       "List Match"],
         ["ListFuncNode",        "List Math"],
     ]
 
     node_cats["List struct"] = [
         ["ShiftNode",           "List Shift"],
+        ["ShiftNodeMK2",        "List Shift MK2"],
         ["ListRepeaterNode",    "List Repeater"],
         ["ListSliceNode",       "List Slice"],
         ["SvListSplitNode",     "List Split"],
@@ -140,6 +142,7 @@ def make_node_cats():
         ["ListReverseNode",     "List Reverse"],
         ["ListShuffleNode",     "List Shuffle"],
         ["ListSortNode",        "List Sort"],
+        ["ListSortNodeMK2",        "List Sort MK2"],
         ["ListFlipNode",        "List Flip"],
     ]
 

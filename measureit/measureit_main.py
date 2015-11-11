@@ -128,7 +128,7 @@ class MeasureitProperties(bpy.types.PropertyGroup):
     glview = bpy.props.BoolProperty(name="glview",
                                     description="Measure visible/hide",
                                     default=True)
-    glspace = bpy.props.FloatProperty(name='glspace', min=-10, max=10, default=0.1,
+    glspace = bpy.props.FloatProperty(name='glspace', min=-100, max=100, default=0.1,
                                       precision=3,
                                       description='Distance to display measure')
     glwidth = bpy.props.IntProperty(name='glwidth', min=1, max=10, default=1,

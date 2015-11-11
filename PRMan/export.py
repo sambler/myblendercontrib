@@ -636,6 +636,10 @@ def export_transform(ri, instance, flip_x=False, concat=False):
         if flip_x:
             m = m.copy()
             m[0] *= -1.0
+        if instance.type == 'LAMP' and instance.ob.data.renderman.renderman_type == "SKY":
+            m = m.copy()
+            m2 = Matrix.Rotation(math.radians(180), 4, 'X')
+            m = m2 * m 
         if concat:
             ri.ConcatTransform(rib(m))
         else:
@@ -648,36 +652,57 @@ def export_object_transform(ri, ob, flip_x=False):
     if flip_x:
         m = m.copy()
         m[0] *= -1.0
+    if ob.type == 'LAMP' and ob.data.renderman.renderman_type == "SKY":
+        m = m.copy()
+        m2 = Matrix.Rotation(math.radians(180), 4, 'X')
+        m = m2 * m 
     ri.Transform(rib(m))
 
 def export_light_source(ri, lamp, shape):
-    name = "PxrAreaLight"
+    name = "PxrStdAreaLight"
     params = {ri.HANDLEID: lamp.name, "float exposure": [
         lamp.energy], "__instanceid": lamp.name}
     if lamp.type == "HEMI":
-        name = "PxrEnvMapLight"
+        name = "PxrStdEnvMapLight"
         params["color envtint"] = rib(lamp.color)
     else:
-        params["color lightcolor"] = rib(lamp.color)
-        params["string shape"] = shape
+        params["color lightColor"] = rib(lamp.color)
+        params["string rman__Shape"] = shape
     ri.AreaLightSource(name, params)
 
 
 def export_light_shaders(ri, lamp, do_geometry=True):
     def point():
-        ri.Sphere(.1, -.1, .1, 360)
+        ri.Scale(.01, .01, .01)
+        ri.Geometry('spherelight', {})
 
     def geometry(type):
-        ri.Geometry(type)
+        if lamp.renderman.renderman_type == 'AREA' and lamp.type == 'AREA':
+            if lamp.renderman.area_shape == 'rect':
+                ri.Scale(lamp.size, lamp.size_y, 1.0)
+                ri.Geometry('rectlight', {})
+            elif lamp.renderman.area_shape == 'disk':
+                ri.Disk(0, lamp.size, 360.0)
+            elif lamp.renderman.area_shape == 'sphere':
+                ri.Scale(lamp.size, lamp.size, lamp.size)
+                ri.Geometry('spherelight', {})
+            elif lamp.renderman.area_shape == 'cylinder':
+                ri.Rotate(90.0, 0.0, 1.0, 0.0)
+                ri.Cylinder(lamp.size, -.5*lamp.size_y, .5*lamp.size_y, 360)
+        else:
+            params = {}
+            if lamp.renderman.renderman_type == 'SKY':
+                params['constant float[2] resolution'] = [1024,512]
+            ri.Geometry(type, params)
 
     def spot():
         ri.Disk(0, 0.5, 360)
 
     shapes = {
         "POINT": ("sphere", point),
-        "SUN": ("disk", lambda: geometry('distantlight')),
+        "SUN": ("distant", lambda: geometry('distantlight')),
         "SPOT": ("spot", spot),
-        "AREA": ("rect", lambda: geometry('rectlight')),
+        "AREA": ("rect", lambda: geometry('area')),
         "HEMI": ("env", lambda: geometry('envsphere'))
     }
 
@@ -687,6 +712,25 @@ def export_light_shaders(ri, lamp, do_geometry=True):
     ri.Attribute('identifier', {'string name': handle})
     # do the shader
     if rm.nodetree != '':
+        #make sure the shape is set on PxrStdAreaLightShape
+        if lamp.type != "HEMI":
+            nt = bpy.data.node_groups[rm.nodetree]
+            output = None
+            for node in nt.nodes:
+                if node.renderman_node_type == 'output':
+                    output = node
+                    break
+            if output and output.inputs['Light'].is_linked:
+                light_shader = output.inputs['Light'].links[0].from_node
+                if hasattr(light_shader, 'rman__Shape'):
+                    if lamp.type == 'AREA':
+                        light_shader.rman__Shape = rm.area_shape
+                    else:
+                        light_shader.rman__Shape = shapes[lamp.type][0]
+                    if lamp.type == 'SPOT':
+                        light_shader.coneAngle = .5*math.degrees(lamp.spot_size)
+                        light_shader.penumbraAngle = math.degrees(lamp.spot_blend)
+
         export_shader_nodetree(ri, lamp, handle)
     else:
         export_light_source(ri, lamp, shapes[lamp.type][0])
@@ -703,7 +747,7 @@ def export_light(ri, instance):
     params = []
 
     ri.AttributeBegin()
-    export_transform(ri, instance, lamp.type == 'HEMI' or lamp.type == 'SUN')
+    export_transform(ri, instance, lamp.type == 'HEMI' and lamp.renderman.renderman_type != "SKY")
     ri.ShadingRate(rm.shadingrate)
 
     export_light_shaders(ri, lamp)
@@ -817,14 +861,14 @@ def export_blobby_particles(ri, scene, psys, ob, points):
         ri.MotionEnd()
 
 
-def export_particle_instances(ri, scene, psys, ob, points, type='OBJECT'):
+def export_particle_instances(ri, scene, rpass, psys, ob, points, type='OBJECT'):
     rm = psys.settings.renderman
 
     if type == 'OBJECT':
         master_ob = bpy.data.objects[rm.particle_instance_object]
         # first call object Begin and read in archive of the master
-        master_archive = get_archive_filename(scene, None, data_name(
-            scene.objects[rm.particle_instance_object], scene),
+        deforming = is_deforming(master_ob)
+        master_archive = get_archive_filename(data_name(master_ob, scene), rpass, deforming,
             relative=True)
 
     instance_handle = ri.ObjectBegin()
@@ -886,7 +930,7 @@ def export_particle_points(ri, scene, psys, ob, points):
 # only for emitter types for now
 
 
-def export_particles(ri, scene, ob, psys, data=None):
+def export_particles(ri, scene, rpass, ob, psys, data=None):
 
     rm = psys.settings.renderman
     points = data if data else [get_particles(scene, ob, psys)]
@@ -897,7 +941,7 @@ def export_particles(ri, scene, ob, psys, data=None):
         export_blobby_particles(ri, scene, psys, ob, points)
     else:
         export_particle_instances(
-            ri, scene, psys, ob, points, type=rm.particle_type)
+            ri, scene, rpass, psys, ob, points, type=rm.particle_type)
 
 
 def export_comment(ri, comment):
@@ -1306,10 +1350,10 @@ def export_torus(ri, ob):
              rm.primitive_phimin, rm.primitive_phimax, rm.primitive_sweepangle)
 
 
-def export_particle_system(ri, scene, ob, psys, data=None):
+def export_particle_system(ri, scene, rpass, ob, psys, data=None):
     if psys.settings.type == 'EMITTER':
         # particles are always deformation
-        export_particles(ri, scene, ob, psys, data)
+        export_particles(ri, scene, rpass, ob, psys, data)
     else:
         ri.Basis("CatmullRomBasis", 1, "CatmullRomBasis", 1)
         ri.Attribute("dice", {"int roundcurve": 1, "int hair": 1})
@@ -1436,8 +1480,11 @@ def export_geometry_data(ri, scene, ob, data=None):
     elif prim == 'POINTS':
         export_points(ri, ob, data)
 
-def is_transforming(ob, do_mb):
-    return (do_mb and ob.animation_data is not None)
+def is_transforming(ob, do_mb, recurse=False):
+    transforming = (do_mb and ob.animation_data is not None)
+    if not transforming and ob.parent:
+        transforming = is_transforming(ob.parent, do_mb, recurse=True)
+    return transforming
 
 
 # Instance holds all the data needed for making an instance of data_block
@@ -1493,7 +1540,7 @@ class DataBlock:
 
 # return if a psys should be animated
 def is_psys_animating(ob, psys, do_mb):
-    return (do_mb and psys.settings.animation_data is not None) or is_transforming(ob, do_mb)
+    return (do_mb and psys.settings.animation_data is not None) or is_transforming(ob, do_mb, recurse=True)
 
 
 
@@ -1704,7 +1751,7 @@ def export_data_archives(ri, scene, rpass, data_blocks):
         if db.type == "MESH":
             export_mesh_archive(ri, scene, db)
         elif db.type == "PSYS":
-            export_particle_archive(ri, scene, db)
+            export_particle_archive(ri, scene, rpass, db)
         elif db.type == "DUPLI":
             export_dupli_archive(ri, scene, rpass, db, data_blocks)
         ri.End()
@@ -1851,10 +1898,10 @@ def export_mesh_archive(ri, scene, data_block):
 
 # export the archives for an mesh. If this is a
 # deforming mesh the particle export will handle it
-def export_particle_archive(ri, scene, data_block):
+def export_particle_archive(ri, scene, rpass, data_block):
     ob,psys = data_block.data
     data = data_block.motion_data if data_block.deforming else None
-    export_particle_system(ri, scene, ob, psys, data=data)
+    export_particle_system(ri, scene, rpass, ob, psys, data=data)
 
 # export the archives for an mesh. If this is a
 # deforming mesh the particle export will handle it
@@ -2528,7 +2575,7 @@ def issue_light_transform_edit(ri, obj):
     lamp = obj.data
     ri.EditBegin('attribute', {'string scopename': obj.data.name})
     export_object_transform(ri, obj, obj.type == 'LAMP' and (
-        lamp.type == 'HEMI' or lamp.type == 'SUN'))
+        lamp.type == 'HEMI' and lamp.renderman.renderman_type != "SKY"))
     ri.EditEnd()
 
 
@@ -2572,7 +2619,7 @@ def add_light(rpass, ri, active, prman):
     lamp = ob.data
     rm = lamp.renderman
     ri.AttributeBegin()
-    export_object_transform(ri, ob, (lamp.type == 'HEMI' or lamp.type == 'SUN'))
+    export_object_transform(ri, ob, (lamp.type == 'HEMI' and lamp.renderman.renderman_type != "SKY"))
     ri.ShadingRate(rm.shadingrate)
 
     export_light_shaders(ri, lamp)

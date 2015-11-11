@@ -24,11 +24,11 @@
 
 if "bpy" in locals():
     import imp
-    imp.reload(bpy)
-    imp.reload(Operator)
-    imp.reload(Entity)
+    for x in [base]:
+        imp.reload(x)
 else:
-    from .base import bpy, database, Operator, Entity, Bundle
+    from . import base
+from .base import bpy, database, Operator, Entity, Bundle
 
 types = [
 	"Electric",

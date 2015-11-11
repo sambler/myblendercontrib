@@ -51,6 +51,7 @@ if 'bpy' in globals():
         imp.reload(bc_command_dispatch)
         imp.reload(sub_util)
         imp.reload(fast_ops.curve_handle_equalizer)
+        imp.reload(fast_ops.curve_nurbs_to_polyline)
         imp.reload(keymaps.console_keymaps)
         print('{0}: reloaded.'.format(__package__))
 
@@ -59,6 +60,7 @@ else:
     from . import bc_panels
     from . import bc_TEXT_utils
     from .fast_ops import curve_handle_equalizer
+    from .fast_ops import curve_nurbs_to_polyline
     from .keymaps import console_keymaps
 
 import bpy
@@ -66,6 +68,7 @@ import bpy
 
 def menu_func(self, context):
     self.layout.operator("curve.curve_handle_eq")
+    self.layout.operator("curve.nurbs_to_polyline")
 
 
 def register():

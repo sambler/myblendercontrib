@@ -24,36 +24,15 @@
 
 if "bpy" in locals():
     import imp
-    imp.reload(bpy)
-    imp.reload(Operator)
-    imp.reload(Entity)
+    for x in [base, menu, common]:
+        imp.reload(x)
 else:
-    from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle
-    from .common import FORMAT, method_types, nonlinear_solver_types
-
-problem_types = ["General data"] + method_types + nonlinear_solver_types + ["Eigenanalysis", "Abort after", "Linear solver", "Dummy steps", "Output data", "Real time"]
-
-control_types = ["Assembly", "Job control", "Default output", "Default aerodynamic output", "Default beam output", "Default scale", "Rigid body kinematics"]
-
-problem_tree = ["Problem",
-    ["General data",
-    "Method", method_types,
-    "Nonlinear solver", nonlinear_solver_types,
-    "Eigenanalysis",
-    "Abort after",
-    "Linear solver",
-    "Dummy steps",
-    "Output data",
-     "Real time"
-    ]]
-
-control_tree = ["Control", control_types]
-
-types = problem_types + control_types
-
-tree = ["Definition", problem_tree + control_tree]
-
-klasses = dict()
+    from . import base
+    from . import menu
+    from . import common
+from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle
+from .common import FORMAT
+from .menu import default_klasses, definition_tree
 
 class Base(Operator):
     bl_label = "Definitions"
@@ -75,45 +54,37 @@ class Base(Operator):
     def set_index(self, context, value):
         context.scene.definition_index = value
 
-for t in types:
-    class Tester(Base):
-        bl_label = t
-        @classmethod
-        def poll(cls, context):
-            return False
-        def create_entity(self):
-            return Entity(self.name)
-    klasses[t] = Tester
+klasses = default_klasses(definition_tree, Base)
 
 class GeneralProblem(Entity):
     def write(self, f):
         f.write("\tstrategy: " + self.strategy)
         if self.strategy == "factor":
-            f.write(", " + ", ".join([BPY.FORMAT(v) for v in (self.reduction_factor, self.steps_before_reduction,
+            f.write(", " + ", ".join([BPY.FORMAT(x) for x in (self.reduction_factor, self.steps_before_reduction,
                 self.raise_factor, self.steps_before_raise, self.factor_min_iterations)])
-                + (", " + FORMAT(self.factor_max_iterations) if self.set_factor_max_iterations else ""))
+                + (", " + BPY.FORMAT(self.factor_max_iterations) if self.factor_max_iterations is not None else ""))
         elif self.strategy == "change":
             f.write(", " + self.time_step_pattern_drive.string())
         if self.strategy != "no change":
-            f.write(";\n\tmin time step: " + FORMAT(self.min_time_step) +
-            ";\n\tmax time step: " + ("unlimited" if self.unlimited else FORMAT(self.max_time_step)))
-        f.write(";\n\ttime step: " + FORMAT(self.time_step))
-        if self.set_residual_tolerance:
-            f.write(";\n\ttolerance: " + FORMAT(self.residual_tolerance))
+            f.write(";\n\tmin time step: " + BPY.FORMAT(self.min_time_step) +
+            ";\n\tmax time step: " + ("unlimited" if self.max_time_step is None else BPY.FORMAT(self.max_time_step)))
+        f.write(";\n\ttime step: " + BPY.FORMAT(self.time_step))
+        if self.residual_tolerance is not None:
+            f.write(";\n\ttolerance: " + BPY.FORMAT(self.residual_tolerance))
             if self.set_residual_test:
                 f.write(", test, " + self.residual_test + (", scale" if self.scale_residual_test else ""))
-            if self.set_solution_tolerance:
-                f.write(", " + FORMAT(self.solution_tolerance) +
+            if self.solution_tolerance is not None:
+                f.write(", " + BPY.FORMAT(self.solution_tolerance) +
                     (", test, " + self.solution_test if self.set_solution_test else ""))
-        f.write(";\n\tmax iterations: " + (FORMAT(self.max_iterations) if self.max_iterations else "null") +
+        f.write(";\n\tmax iterations: " + (BPY.FORMAT(self.max_iterations) if self.max_iterations else "null") +
             (", at most" if self.at_most else "") +
             (";\n\tmodify residual test" if self.modify_residual_test else ""))
         if self.set_threads:
-            f.write(";\n\tthreads: " + self.auto_disable +
-                (", " + self.assembly_solver if self.set_assembly_solver else "") + ", " + FORMAT(self.threads))
-        f.write(";\n\tderivatives tolerance: " + FORMAT(self.derivatives_tolerance) +
-            ";\n\tderivatives max iterations: " + FORMAT(self.derivatives_max_iterations) +
-            ";\n\tderivatives coefficient: " + FORMAT(self.derivatives_coefficient) + ";\n")
+            f.write(";\n\tthreads: " + self.thread_mode +
+                (", " + BPY.FORMAT(self.threads) if self.thread_mode in "assembly solver".split() else ""))
+        f.write(";\n\tderivatives tolerance: " + BPY.FORMAT(self.derivatives_tolerance) +
+            ";\n\tderivatives max iterations: " + BPY.FORMAT(self.derivatives_max_iterations) +
+            ";\n\tderivatives coefficient: " + BPY.FORMAT(self.derivatives_coefficient) + ";\n")
 
 class GeneralProblemOperator(Base):
     bl_label = "General data"
@@ -123,19 +94,16 @@ class GeneralProblemOperator(Base):
         ("change", "Change", ""),
         ], name="Strategy", default="no change")
     reduction_factor = bpy.props.PointerProperty(type = BPY.Float)
-    steps_before_reduction = bpy.props.IntProperty(name="Steps before reduction", default=0, min=0)
-    raise_factor = bpy.props.FloatProperty(name="Raise factor", default=0.0, min=0.0, precision=6)
-    steps_before_raise = bpy.props.IntProperty(name="Steps before raise", default=0, min=0)
-    factor_min_iterations = bpy.props.IntProperty(name="Min iterations", default=0, min=0)
-    set_factor_max_iterations = bpy.props.BoolProperty(name="Set max iterations")
-    factor_max_iterations = bpy.props.IntProperty(name="Max iterations", min=0)
+    steps_before_reduction = bpy.props.PointerProperty(type = BPY.Int)
+    raise_factor = bpy.props.PointerProperty(type = BPY.Float)
+    steps_before_raise = bpy.props.PointerProperty(type = BPY.Int)
+    factor_min_iterations = bpy.props.PointerProperty(type = BPY.Int)
+    factor_max_iterations = bpy.props.PointerProperty(type = BPY.Int)
     time_step_pattern_drive = bpy.props.PointerProperty(type=BPY.Drive)
-    min_time_step = bpy.props.FloatProperty(name="Min time step", default=0.0, min=0.0, precision=6)
-    unlimited = bpy.props.BoolProperty(name="Unlimited")
-    max_time_step = bpy.props.FloatProperty(name="Max time step", default=0.0, min=0.0, precision=6)
-    time_step = bpy.props.FloatProperty(name="Initial time step", default=1e-3, min=0.0, precision=6)
-    set_residual_tolerance = bpy.props.BoolProperty(name="Set residual tolerance", default=True)
-    residual_tolerance = bpy.props.FloatProperty(name="Residual tolerance", default=1e-6, min=0.0, precision=6)
+    min_time_step = bpy.props.PointerProperty(type = BPY.Float)
+    max_time_step = bpy.props.PointerProperty(type = BPY.Float)
+    time_step = bpy.props.PointerProperty(type = BPY.Float)
+    residual_tolerance = bpy.props.PointerProperty(type = BPY.Float)
     set_residual_test = bpy.props.BoolProperty(name="Set residual test")
     residual_test = bpy.props.EnumProperty(items=[
         ("none", "None", ""),
@@ -143,160 +111,136 @@ class GeneralProblemOperator(Base):
         ("minmax", "Min max", ""),
         ], name="Residual test", default="norm")
     scale_residual_test = bpy.props.BoolProperty(name="Scale residual test")
-    set_solution_tolerance = bpy.props.BoolProperty(name="Set solution tolerance")
-    solution_tolerance = bpy.props.FloatProperty(name="Solution tolerance", default=0.0, min=0.0, precision=6)
+    solution_tolerance = bpy.props.PointerProperty(type = BPY.Float)
     set_solution_test = bpy.props.BoolProperty(name="Set solution test")
     solution_test = bpy.props.EnumProperty(items=[
         ("none", "None", ""),
         ("norm", "Norm", ""),
         ("minmax", "Min max", ""),
         ], name="Residual test", default="norm")
-    max_iterations = bpy.props.IntProperty(name="Max iterations", default=10, min=0)
+    max_iterations = bpy.props.PointerProperty(type = BPY.Int)
     at_most = bpy.props.BoolProperty(name="At most")
     modify_residual_test = bpy.props.BoolProperty(name="Modify residual test")
-    set_threads = bpy.props.BoolProperty(name="Set auto or disable")
-    auto_disable = bpy.props.EnumProperty(items=[
+    set_threads = bpy.props.BoolProperty(name="Set thread mode")
+    thread_mode = bpy.props.EnumProperty(items=[
         ("auto", "Auto", ""),
         ("disable", "Disable", ""),
-        ], name="Auto or disable", default="auto")
-    set_assembly_solver = bpy.props.BoolProperty(name="Only assembly or solver")
-    assembly_solver = bpy.props.EnumProperty(items=[
         ("assembly", "Assembly", ""),
         ("solver", "Solver", ""),
-        ], name="Assembly or solver", default="solver")
+        ], name="Thread mode", default="auto")
     threads = bpy.props.IntProperty(name="Threads", default=1, min=1)
-    derivatives_tolerance = bpy.props.FloatProperty(name="Derivatives tolerance", default=2.0, min=0.0, precision=6)
-    derivatives_max_iterations = bpy.props.IntProperty(name="Derivatives max iterations", default=1, min=0)
-    derivatives_coefficient = bpy.props.FloatProperty(name="Derivatives coefficient", default=1e-3, min=0.0, precision=6)
+    derivatives_tolerance = bpy.props.PointerProperty(type = BPY.Float)
+    derivatives_max_iterations = bpy.props.PointerProperty(type = BPY.Int)
+    derivatives_coefficient = bpy.props.PointerProperty(type = BPY.Float)
     def prereqs(self, context):
-        self.reduction_factor.mandatory = True
+        for x in (self.reduction_factor, self.steps_before_reduction, self.raise_factor, self.steps_before_raise, self.factor_min_iterations, self.time_step_pattern_drive, self.min_time_step, self.time_step, self.max_iterations, self.derivatives_tolerance, self.derivatives_max_iterations, self.derivatives_coefficient):
+            x.mandatory = True
+        self.time_step.value = 1e-3
+        self.max_iterations.value = 10
+        self.derivatives_tolerance.value = 2
+        self.derivatives_max_iterations.value = 1
+        self.derivatives_coefficient.value = 1e-3
     def assign(self, context):
         self.strategy = self.entity.strategy
         self.reduction_factor.assign(self.entity.reduction_factor)
-        self.steps_before_reduction = self.entity.steps_before_reduction
-        self.raise_factor = self.entity.raise_factor
-        self.steps_before_raise = self.entity.steps_before_raise
-        self.factor_min_iterations = self.entity.factor_min_iterations
-        self.set_factor_max_iterations = self.entity.set_factor_max_iterations
-        self.factor_max_iterations = self.entity.factor_max_iterations
-        self.min_time_step = self.entity.min_time_step
-        self.unlimited = self.entity.unlimited
-        self.max_time_step = self.entity.max_time_step
-        self.time_step = self.entity.time_step
-        self.set_residual_tolerance = self.entity.set_residual_tolerance
-        self.residual_tolerance = self.entity.residual_tolerance
+        self.steps_before_reduction.assign(self.entity.steps_before_reduction)
+        self.raise_factor.assign(self.entity.raise_factor)
+        self.steps_before_raise.assign(self.entity.steps_before_raise)
+        self.factor_min_iterations.assign(self.entity.factor_min_iterations)
+        self.factor_max_iterations.assign(self.entity.factor_max_iterations)
+        self.time_step_pattern_drive.assign(self.entity.time_step_pattern_drive)
+        self.min_time_step.assign(self.entity.min_time_step)
+        self.max_time_step.assign(self.entity.max_time_step)
+        self.time_step.assign(self.entity.time_step)
+        self.residual_tolerance.assign(self.entity.residual_tolerance)
         self.set_residual_test = self.entity.set_residual_test
         self.residual_test = self.entity.residual_test
         self.scale_residual_test = self.entity.scale_residual_test
-        self.set_solution_tolerance = self.entity.set_solution_tolerance
-        self.solution_tolerance = self.entity.solution_tolerance
+        self.solution_tolerance.assign(self.entity.solution_tolerance)
         self.set_solution_test = self.entity.set_solution_test
         self.solution_test = self.entity.solution_test
-        self.max_iterations = self.entity.max_iterations
+        self.max_iterations.assign(self.entity.max_iterations)
         self.at_most = self.entity.at_most
         self.modify_residual_test = self.entity.modify_residual_test
         self.set_threads = self.entity.set_threads
-        self.auto_disable = self.entity.auto_disable
-        self.set_assembly_solver = self.entity.set_assembly_solver
-        self.assembly_solver = self.entity.assembly_solver
+        self.thread_mode = self.entity.thread_mode
         self.threads = self.entity.threads
-        self.derivatives_tolerance = self.entity.derivatives_tolerance
-        self.derivatives_max_iterations = self.entity.derivatives_max_iterations
-        self.derivatives_coefficient = self.entity.derivatives_coefficient
-        self.time_step_pattern_drive.assign(self.entity.time_step_pattern_drive)
+        self.derivatives_tolerance.assign(self.entity.derivatives_tolerance)
+        self.derivatives_max_iterations.assign(self.entity.derivatives_max_iterations)
+        self.derivatives_coefficient.assign(self.entity.derivatives_coefficient)
     def store(self, context):
         self.entity.strategy = self.strategy
-        self.entity.reduction_factor = self.reduction_factor.store()
-        self.entity.steps_before_reduction = self.steps_before_reduction
-        self.entity.raise_factor = self.raise_factor
-        self.entity.steps_before_raise = self.steps_before_raise
-        self.entity.factor_min_iterations = self.factor_min_iterations
-        self.entity.set_factor_max_iterations = self.set_factor_max_iterations
-        self.entity.factor_max_iterations = self.factor_max_iterations
-        self.entity.min_time_step = self.min_time_step
-        self.entity.unlimited = self.unlimited
-        self.entity.max_time_step = self.max_time_step
-        self.entity.time_step = self.time_step
-        self.entity.set_residual_tolerance = self.set_residual_tolerance
-        self.entity.residual_tolerance = self.residual_tolerance
+        self.entity.reduction_factor = self.reduction_factor.store() if self.strategy == "factor" else None
+        self.entity.steps_before_reduction = self.steps_before_reduction.store() if self.strategy == "factor" else None
+        self.entity.raise_factor = self.raise_factor.store() if self.strategy == "factor" else None
+        self.entity.steps_before_raise = self.steps_before_raise.store() if self.strategy == "factor" else None
+        self.entity.factor_min_iterations = self.factor_min_iterations.store() if self.strategy == "factor" else None
+        self.entity.factor_max_iterations = self.factor_max_iterations.store() if self.strategy == "factor" else None
+        self.entity.time_step_pattern_drive = self.time_step_pattern_drive.store() if self.strategy == "change" else None
+        self.entity.min_time_step = self.min_time_step.store() if self.strategy != "no change" else None
+        self.entity.max_time_step = self.max_time_step.store() if self.strategy != "no change" else None
+        self.entity.time_step = self.time_step.store()
+        self.entity.residual_tolerance = self.residual_tolerance.store()
         self.entity.set_residual_test = self.set_residual_test
         self.entity.residual_test = self.residual_test
         self.entity.scale_residual_test = self.scale_residual_test
-        self.entity.set_solution_tolerance = self.set_solution_tolerance
-        self.entity.solution_tolerance = self.solution_tolerance
+        self.entity.solution_tolerance = self.solution_tolerance.store() if self.entity.residual_tolerance is not None else None
         self.entity.set_solution_test = self.set_solution_test
         self.entity.solution_test = self.solution_test
-        self.entity.max_iterations = self.max_iterations
+        self.entity.max_iterations = self.max_iterations.store()
         self.entity.at_most = self.at_most
         self.entity.modify_residual_test = self.modify_residual_test
         self.entity.set_threads = self.set_threads
-        self.entity.auto_disable = self.auto_disable
-        self.entity.set_assembly_solver = self.set_assembly_solver
-        self.entity.assembly_solver = self.assembly_solver
+        self.entity.thread_mode = self.thread_mode
         self.entity.threads = self.threads
-        self.entity.derivatives_tolerance = self.derivatives_tolerance
-        self.entity.derivatives_max_iterations = self.derivatives_max_iterations
-        self.entity.derivatives_coefficient = self.derivatives_coefficient
-        self.entity.time_step_pattern_drive = self.time_step_pattern_drive.store()
+        self.entity.derivatives_tolerance = self.derivatives_tolerance.store()
+        self.entity.derivatives_max_iterations = self.derivatives_max_iterations.store()
+        self.entity.derivatives_coefficient = self.derivatives_coefficient.store()
     def draw(self, context):
-        self.basis = (self.strategy, self.set_factor_max_iterations, self.unlimited, self.set_residual_tolerance, self.set_residual_test, self.set_solution_tolerance, self.set_solution_test, self.set_threads, self.set_assembly_solver)
+        self.basis = (self.strategy, self.set_residual_test, self.set_solution_test, self.set_threads, self.thread_mode)
         layout = self.layout
         layout.prop(self, "strategy")
         if self.strategy == "factor":
             self.reduction_factor.draw(layout, "Reduction factor")
-            layout.prop(self, "steps_before_reduction")
-            layout.prop(self, "raise_factor")
-            layout.prop(self, "steps_before_raise")
-            layout.prop(self, "factor_min_iterations")
-            row = layout.row()
-            row.prop(self, "set_factor_max_iterations")
-            if self.set_factor_max_iterations:
-                row.prop(self, "factor_max_iterations")
+            self.steps_before_reduction.draw(layout, "Steps before reduction")
+            self.raise_factor.draw(layout, "Raise factor")
+            self.steps_before_raise.draw(layout, "Steps before raise")
+            self.factor_min_iterations.draw(layout, "Factor min iterations")
+            self.factor_max_iterations.draw(layout, "Factor max iterations")
         elif self.strategy == "change":
             self.time_step_pattern_drive.draw(layout, "Time step pattern")
         if self.strategy != "no change":
-            layout.prop(self, "min_time_step")
-            row = layout.row()
-            row.prop(self, "unlimited")
-            if not self.unlimited:
-                row.prop(self, "max_time_step")
-        layout.prop(self, "time_step")
-        row = layout.row()
-        row.prop(self, "set_residual_tolerance")
-        if self.set_residual_tolerance:
-            row.prop(self, "residual_tolerance")
+            self.min_time_step.draw(layout, "Min time step")
+            self.max_time_step.draw(layout, "Max time step")
+        self.time_step.draw(layout, "Initial time step")
+        self.residual_tolerance.draw(layout, "Residual tolerance")
+        if self.residual_tolerance.select:
             row = layout.row()
             row.prop(self, "set_residual_test")
             if self.set_residual_test:
                 row.prop(self, "residual_test")
                 row.prop(self, "scale_residual_test")
-            row = layout.row()
-            row.prop(self, "set_solution_tolerance")
-            if self.set_solution_tolerance:
-                row.prop(self, "solution_tolerance")
+            self.solution_tolerance.draw(layout, "Solution tolerance")
+            if self.solution_tolerance.select:
                 row = layout.row()
                 row.prop(self, "set_solution_test")
                 if self.set_solution_test:
                     row.prop(self, "solution_test")
+        self.max_iterations.draw(layout, "Max iterations")
         row = layout.row()
-        row.prop(self, "max_iterations")
         row.prop(self, "at_most")
-        layout.prop(self, "modify_residual_test")
+        row.prop(self, "modify_residual_test")
         row = layout.row()
         row.prop(self, "set_threads")
         if self.set_threads:
-            row.prop(self, "auto_disable")
-            row.prop(self, "threads")
-        row = layout.row()
-        row.prop(self, "set_assembly_solver")
-        if self.set_assembly_solver:
-            row.prop(self, "assembly_solver")
-        layout.prop(self, "derivatives_tolerance")
-        layout.prop(self, "derivatives_max_iterations")
-        layout.prop(self, "derivatives_coefficient")
+            row.prop(self, "thread_mode")
+            if self.thread_mode in "assembly solver".split():
+                layout.prop(self, "threads")
+        self.derivatives_tolerance.draw(layout, "Derivatives tolerance")
+        self.derivatives_max_iterations.draw(layout, "Derivatives max iterations")
+        self.derivatives_coefficient.draw(layout, "Derivatives coefficient")
     def check(self, context):
-        self.time_step_pattern_drive.mandatory = self.strategy == "change"
-        return (True in [x.check(context) for x in [self.reduction_factor]]) or self.time_step_pattern_drive.check(context) or (self.basis != (self.strategy, self.set_factor_max_iterations, self.unlimited, self.set_residual_tolerance, self.set_residual_test, self.set_solution_tolerance, self.set_solution_test, self.set_threads, self.set_assembly_solver))
+        return (True in [x.check(context) for x in (self.reduction_factor, self.steps_before_reduction, self.raise_factor, self.steps_before_raise, self.factor_min_iterations, self.factor_max_iterations, self.time_step_pattern_drive, self.min_time_step, self.max_time_step, self.time_step, self.residual_tolerance, self.solution_tolerance, self.max_iterations, self.derivatives_tolerance, self.derivatives_max_iterations, self.derivatives_coefficient)]) or (self.basis != (self.strategy, self.set_residual_test, self.set_solution_test, self.set_threads, self.thread_mode))
     def create_entity(self):
         return GeneralProblem(self.name)
 
@@ -458,29 +402,29 @@ klasses[NewtonRaphstonOperator.bl_label] = NewtonRaphstonOperator
 
 class LineSearch(Entity):
     def write(self, f):
-        f.write("\tnonlinear solver: line search, " + self.true_or_modified)
+        f.write("\tnonlinear solver: line search,\n\t\t" + self.true_or_modified)
         if self.true_or_modified == "modified":
-            f.write(", " + FORMAT(self.iterations) +
-                (", keep jacobian matrix" if self.keep_jacobian_matrix else "") +
-                (", honor element requests" if self.honor_element_requests else ""))
+            f.write(", " + BPY.FORMAT(self.iterations) +
+                (",\n\t\tkeep jacobian matrix" if self.keep_jacobian_matrix else "") +
+                (",\n\t\thonor element requests" if self.honor_element_requests else ""))
         f.write(
-            (",\n\t\ttolerance x, " + FORMAT(self.tolerance_x) if self.set_tolerance_x else "") +
-            (",\n\t\ttolerance min, " + FORMAT(self.tolerance_min) if self.set_tolerance_min else "") +
-            (",\n\t\tmax iterations, " + FORMAT(self.max_line_search_iterations) if self.set_max_line_search_iterations else "") +
-            (",\n\t\talpha, " + FORMAT(self.alpha) if self.set_alpha else ""))
-        if self.set_lambda_min:
-            f.write(",\n\t\tlambda min, " + FORMAT(self.lambda_min) +
+            (",\n\t\ttolerance x, " + BPY.FORMAT(self.tolerance_x) if self.tolerance_x is not None else "") +
+            (",\n\t\ttolerance min, " + BPY.FORMAT(self.tolerance_min) if self.tolerance_min is not None else "") +
+            (",\n\t\tmax iterations, " + BPY.FORMAT(self.max_line_search_iterations) if self.max_line_search_iterations is not None else "") +
+            (",\n\t\talpha, " + BPY.FORMAT(self.alpha) if self.alpha is not None else ""))
+        if self.lambda_min is not None:
+            f.write(",\n\t\tlambda min, " + BPY.FORMAT(self.lambda_min) +
                 ", relative, " + ("yes" if self.relative else "no"))
-        f.write((",\n\t\tlambda factor min, " + FORMAT(self.lambda_factor_min) if self.set_lambda_factor_min else "") +
-            (",\n\t\tmax step, " + FORMAT(self.max_step) if self.set_max_step else "") +
+        f.write((",\n\t\tlambda factor min, " + BPY.FORMAT(self.lambda_factor_min) if self.lambda_factor_min is not None else "") +
+            (",\n\t\tmax step, " + BPY.FORMAT(self.max_step) if self.max_step is not None else "") +
             (",\n\t\tzero gradient, continue, yes" if self.zero_gradient_continue else ""))
         if self.divergence_check:
             f.write(",\n\t\tdivergence check, yes" +
-                (", factor, " + FORMAT(self.divergence_check_factor) if self.set_divergence_check_factor else ""))
+                (", factor, " + BPY.FORMAT(self.divergence_check_factor) if self.divergence_check_factor is not None else ""))
         f.write(",\n\t\talgorithm, " + self.cubic_or_factor)
         if self.scale_newton_step:
             f.write(",\n\t\tscale newton step, yes" +
-                (", min scale, " + FORMAT(self.min_scale_newton_step) if self.set_min_scale_newton_step else ""))
+                (", min scale, " + BPY.FORMAT(self.min_scale_newton_step) if self.min_scale_newton_step is not None else ""))
         f.write(",\n\t\tprint convergence info, " + ("yes" if self.print_convergence_info else "no") +
             ", verbose, " + ("yes" if self.verbose else "no") +
             ", abort at lambda min, " + ("yes" if self.abort_at_lambda_min else "no") +
@@ -491,156 +435,105 @@ class LineSearchOperator(Base):
         ("true", "True", ""),
         ("modified", "Modified", ""),
         ], name="True or modified", default="true")
-    iterations = bpy.props.IntProperty(name="Iterations", default=0, min=0)
+    iterations = bpy.props.PointerProperty(type = BPY.Int)
     keep_jacobian_matrix = bpy.props.BoolProperty(name="Keep jacobian matrix")
     honor_element_requests = bpy.props.BoolProperty(name="Honor element requests")
-    set_tolerance_x = bpy.props.BoolProperty(name="Set tolerance x")
-    tolerance_x = bpy.props.FloatProperty(name="Tolerance x", default=0.0, min=0.0, precision=6)
-    set_tolerance_min = bpy.props.BoolProperty(name="Set tolerance min")
-    tolerance_min = bpy.props.FloatProperty(name="Tolerance min", default=0.0, min=0.0, precision=6)
-    set_max_line_search_iterations = bpy.props.BoolProperty(name="Set max iterations")
-    max_line_search_iterations = bpy.props.IntProperty(name="Max iterations", default=0, min=0)
-    set_alpha = bpy.props.BoolProperty(name="Set alpha")
-    alpha = bpy.props.FloatProperty(name="Alpha", default=0.0, min=0.0, precision=6)
-    set_lambda_min = bpy.props.BoolProperty(name="Set lambda min")
-    lambda_min = bpy.props.FloatProperty(name="Lambda min", default=0.0, min=0.0, precision=6)
+    tolerance_x = bpy.props.PointerProperty(type = BPY.Float)
+    tolerance_min = bpy.props.PointerProperty(type = BPY.Float)
+    max_line_search_iterations = bpy.props.PointerProperty(type = BPY.Int)
+    alpha = bpy.props.PointerProperty(type = BPY.Float)
+    lambda_min = bpy.props.PointerProperty(type = BPY.Float)
     relative = bpy.props.BoolProperty(name="Relative")
-    set_lambda_factor_min = bpy.props.BoolProperty(name="Set lambda factor min")
-    lambda_factor_min = bpy.props.FloatProperty(name="Lambda factor min", default=0.0, min=0.0, precision=6)
-    set_max_step = bpy.props.BoolProperty(name="Set max step")
-    max_step = bpy.props.IntProperty(name="Max step", default=0, min=0)
+    lambda_factor_min = bpy.props.PointerProperty(type = BPY.Float)
+    max_step = bpy.props.PointerProperty(type = BPY.Int)
     zero_gradient_continue = bpy.props.BoolProperty(name="Zero gradient continue")
     divergence_check = bpy.props.BoolProperty(name="Divergence check")
-    set_divergence_check_factor = bpy.props.BoolProperty(name="Set divergence check factor")
-    divergence_check_factor = bpy.props.FloatProperty(name="Divergence check factor", default=0.0, min=0.0, precision=6)
+    divergence_check_factor = bpy.props.PointerProperty(type = BPY.Float)
     cubic_or_factor = bpy.props.EnumProperty(items=[
         ("cubic", "Cubic", ""),
         ("factor", "Factor", ""),
         ], name="Cubic or factor", default="cubic")
     scale_newton_step = bpy.props.BoolProperty(name="Scale Newton step")
-    set_min_scale_newton_step = bpy.props.BoolProperty(name="Set min scale Newton step")
-    min_scale_newton_step = bpy.props.FloatProperty(name="Min scale Newton step", default=0.0, min=0.0, precision=6)
+    min_scale_newton_step = bpy.props.PointerProperty(type = BPY.Float)
     print_convergence_info = bpy.props.BoolProperty(name="Print convergence info")
     verbose = bpy.props.BoolProperty(name="Verbose")
     abort_at_lambda_min = bpy.props.BoolProperty(name="Abort at lambda min")
+    def prereqs(self, context):
+        self.iterations.mandatory = True
     def assign(self, context):
         self.true_or_modified = self.entity.true_or_modified
-        self.iterations = self.entity.iterations
+        self.iterations.assign(self.entity.iterations)
         self.keep_jacobian_matrix = self.entity.keep_jacobian_matrix
         self.honor_element_requests = self.entity.honor_element_requests
-        self.set_tolerance_x = self.entity.set_tolerance_x
-        self.tolerance_x = self.entity.tolerance_x
-        self.set_tolerance_min = self.entity.set_tolerance_min
-        self.tolerance_min = self.entity.tolerance_min
-        self.set_max_line_search_iterations = self.entity.set_max_line_search_iterations
-        self.max_line_search_iterations = self.entity.max_line_search_iterations
-        self.set_alpha = self.entity.set_alpha
-        self.alpha = self.entity.alpha
-        self.set_lambda_min = self.entity.set_lambda_min
-        self.lambda_min = self.entity.lambda_min
+        self.tolerance_x.assign(self.entity.tolerance_x)
+        self.tolerance_min.assign(self.entity.tolerance_min)
+        self.max_line_search_iterations.assign(self.entity.max_line_search_iterations)
+        self.alpha.assign(self.entity.alpha)
+        self.lambda_min.assign(self.entity.lambda_min)
         self.relative = self.entity.relative
-        self.set_lambda_factor_min = self.entity.set_lambda_factor_min
-        self.lambda_factor_min = self.entity.lambda_factor_min
-        self.set_max_step = self.entity.set_max_step
-        self.max_step = self.entity.max_step
+        self.lambda_factor_min.assign(self.entity.lambda_factor_min)
+        self.max_step.assign(self.entity.max_step)
         self.zero_gradient_continue = self.entity.zero_gradient_continue
         self.divergence_check = self.entity.divergence_check
-        self.set_divergence_check_factor = self.entity.set_divergence_check_factor
-        self.divergence_check_factor = self.entity.divergence_check_factor
+        self.divergence_check_factor.assign(self.entity.divergence_check_factor)
         self.cubic_or_factor = self.entity.cubic_or_factor
         self.scale_newton_step = self.entity.scale_newton_step
-        self.set_min_scale_newton_step = self.entity.set_min_scale_newton_step
-        self.min_scale_newton_step = self.entity.min_scale_newton_step
+        self.min_scale_newton_step.assign(self.entity.min_scale_newton_step)
         self.print_convergence_info = self.entity.print_convergence_info
         self.verbose = self.entity.verbose
         self.abort_at_lambda_min = self.entity.abort_at_lambda_min
     def store(self, context):
         self.entity.true_or_modified = self.true_or_modified
-        self.entity.iterations = self.iterations
+        self.entity.iterations = self.iterations.store() if self.true_or_modified == "modified" else None
         self.entity.keep_jacobian_matrix = self.keep_jacobian_matrix
         self.entity.honor_element_requests = self.honor_element_requests
-        self.entity.set_tolerance_x = self.set_tolerance_x
-        self.entity.tolerance_x = self.tolerance_x
-        self.entity.set_tolerance_min = self.set_tolerance_min
-        self.entity.tolerance_min = self.tolerance_min
-        self.entity.set_max_line_search_iterations = self.set_max_line_search_iterations
-        self.entity.max_line_search_iterations = self.max_line_search_iterations
-        self.entity.set_alpha = self.set_alpha
-        self.entity.alpha = self.alpha
-        self.entity.set_lambda_min = self.set_lambda_min
-        self.entity.lambda_min = self.lambda_min
+        self.entity.tolerance_x = self.tolerance_x.store()
+        self.entity.tolerance_min = self.tolerance_min.store()
+        self.entity.max_line_search_iterations = self.max_line_search_iterations.store()
+        self.entity.alpha = self.alpha.store()
+        self.entity.lambda_min = self.lambda_min.store()
         self.entity.relative = self.relative
-        self.entity.set_lambda_factor_min = self.set_lambda_factor_min
-        self.entity.lambda_factor_min = self.lambda_factor_min
-        self.entity.set_max_step = self.set_max_step
-        self.entity.max_step = self.max_step
+        self.entity.lambda_factor_min = self.lambda_factor_min.store()
+        self.entity.max_step = self.max_step.store()
         self.entity.zero_gradient_continue = self.zero_gradient_continue
         self.entity.divergence_check = self.divergence_check
-        self.entity.set_divergence_check_factor = self.set_divergence_check_factor
-        self.entity.divergence_check_factor = self.divergence_check_factor
+        self.entity.divergence_check_factor = self.divergence_check_factor.store() if self.divergence_check else None
         self.entity.cubic_or_factor = self.cubic_or_factor
         self.entity.scale_newton_step = self.scale_newton_step
-        self.entity.set_min_scale_newton_step = self.set_min_scale_newton_step
-        self.entity.min_scale_newton_step = self.min_scale_newton_step
+        self.entity.min_scale_newton_step = self.min_scale_newton_step.store() if self.scale_newton_step else None
         self.entity.print_convergence_info = self.print_convergence_info
         self.entity.verbose = self.verbose
         self.entity.abort_at_lambda_min = self.abort_at_lambda_min
     def draw(self, context):
-        self.basis = (self.true_or_modified, self.set_tolerance_x, self.set_tolerance_min, self.set_max_line_search_iterations, self.set_alpha, self.set_lambda_min, self.set_lambda_factor_min, self.set_max_step, self.divergence_check, self.set_divergence_check_factor, self.scale_newton_step, self.set_min_scale_newton_step)
+        self.basis = (self.true_or_modified, self.scale_newton_step, self.divergence_check)
         layout = self.layout
-        row = layout.row()
-        row.prop(self, "true_or_modified")
+        layout.prop(self, "true_or_modified")
         if self.true_or_modified == "modified":
-            row.prop(self, "iterations")
-            row.prop(self, "keep_jacobian_matrix")
-            row.prop(self, "honor_element_requests")
-        row = layout.row()
-        row.prop(self, "set_tolerance_x")
-        if self.set_tolerance_x:
-            row.prop(self, "tolerance_x")
-        row = layout.row()
-        row.prop(self, "set_tolerance_min")
-        if self.set_tolerance_min:
-            row.prop(self, "tolerance_min")
-        row = layout.row()
-        row.prop(self, "set_max_line_search_iterations")
-        if self.set_max_line_search_iterations:
-            row.prop(self, "max_line_search_iterations")
-        row = layout.row()
-        row.prop(self, "set_alpha")
-        if self.set_alpha:
-            row.prop(self, "alpha")
-        row = layout.row()
-        row.prop(self, "set_lambda_min")
-        if self.set_lambda_min:
-            row.prop(self, "lambda_min")
-            row.prop(self, "relative")
-        row = layout.row()
-        row.prop(self, "set_lambda_factor_min")
-        if self.set_lambda_factor_min:
-            row.prop(self, "lambda_factor_min")
-        row = layout.row()
-        row.prop(self, "set_max_step")
-        if self.set_max_step:
-            row.prop(self, "max_step")
+            self.iterations.draw(layout, "Iterations")
+            layout.prop(self, "keep_jacobian_matrix")
+            layout.prop(self, "honor_element_requests")
+        self.tolerance_x.draw(layout, "Tolerance x")
+        self.tolerance_min.draw(layout, "Tolerance min")
+        self.max_line_search_iterations.draw(layout, "Max line search iterations")
+        self.alpha.draw(layout, "Alpha")
+        self.lambda_min.draw(layout, "Lambda min")
+        if self.lambda_min.select:
+            layout.prop(self, "relative")
+        self.lambda_factor_min.draw(layout, "Lambda factor min")
+        self.max_step.draw(layout, "Max step")
         layout.prop(self, "zero_gradient_continue")
         row = layout.row()
         row.prop(self, "divergence_check")
         if self.divergence_check:
-            row.prop(self, "set_divergence_check_factor")
-            if self.set_divergence_check_factor:
-                row.prop(self, "divergence_check_factor")
+            self.divergence_check_factor.draw(layout, "Divergence check factor")
         layout.prop(self, "cubic_or_factor")
-        row = layout.row()
-        row.prop(self, "scale_newton_step")
+        layout.prop(self, "scale_newton_step")
         if self.scale_newton_step:
-            row.prop(self, "set_min_scale_newton_step")
-            if self.set_min_scale_newton_step:
-                row.prop(self, "min_scale_newton_step")
+            self.min_scale_newton_step.draw(layout, "Min scale newton step")
         for s in "print_convergence_info verbose abort_at_lambda_min".split():
             layout.prop(self, s)
     def check(self, context):
-        return self.basis != (self.true_or_modified, self.set_tolerance_x, self.set_tolerance_min, self.set_max_line_search_iterations, self.set_alpha, self.set_lambda_min, self.set_lambda_factor_min, self.set_max_step, self.divergence_check, self.set_divergence_check_factor, self.scale_newton_step, self.set_min_scale_newton_step)
+        return True in [x.check(context) for x in (self.tolerance_x, self.tolerance_min, self.max_line_search_iterations, self.alpha, self.lambda_min, self.lambda_factor_min, self.max_step, self.divergence_check_factor, self.min_scale_newton_step)] or self.basis != (self.true_or_modified, self.divergence_check, self.scale_newton_step)
     def create_entity(self):
         return LineSearch(self.name)
 
@@ -649,93 +542,61 @@ klasses[LineSearchOperator.bl_label] = LineSearchOperator
 class MatrixFree(Entity):
     def write(self, f):
         f.write("\tmatrix free: " + self.bicgstab_or_gmres +
-            (",\n\t\ttolerance, " + FORMAT(self.tolerance) if self.set_tolerance else "") +
-            (",\n\t\tsteps, " + FORMAT(self.steps) if self.set_steps else "") +
-            (",\n\t\ttau, " + FORMAT(self.tau) if self.set_tau else "") +
-            (",\n\t\teta, " + FORMAT(self.eta) if self.set_eta else ""))
+            (",\n\t\ttolerance, " + BPY.FORMAT(self.tolerance) if self.tolerance is not None else "") +
+            (",\n\t\tsteps, " + BPY.FORMAT(self.steps) if self.steps is not None else "") +
+            (",\n\t\ttau, " + BPY.FORMAT(self.tau) if self.tau is not None else "") +
+            (",\n\t\teta, " + BPY.FORMAT(self.eta) if self.eta is not None else ""))
         if self.preconditioner:
             f.write(",\n\t\tpreconditioner, full jacobian matrix" +
-                (", steps, " + FORMAT(self.preconditioner_steps) if self.set_preconditioner_steps else "") +
-                (", honor element requests" if self.honor_element_requests else ""))
+                (",\n\t\tsteps, " + BPY.FORMAT(self.preconditioner_steps) if self.preconditioner_steps is not None else "") +
+                (",\n\t\thonor element requests" if self.honor_element_requests else ""))
         f.write(";\n")
 
 class MatrixFreeOperator(Base):
     bl_label = "Matrix free"
-    set_nonlinear_solver_data = bpy.props.BoolProperty(name="Set nonlinear solver data")
     bicgstab_or_gmres = bpy.props.EnumProperty(items=[
         ("bicgstab", "bicgstab", ""),
         ("gmres", "gmres", ""),
         ], name="bicgstab or gmres", default="bicgstab")
-    set_tolerance = bpy.props.BoolProperty(name="Set tolerance")
-    tolerance = bpy.props.FloatProperty(name="Tolerance", default=0.0, min=0.0, precision=6)
-    set_steps = bpy.props.BoolProperty(name="Set steps")
-    steps = bpy.props.IntProperty(name="Steps", default=0, min=0)
-    set_tau = bpy.props.BoolProperty(name="Set tau")
-    tau = bpy.props.FloatProperty(name="Tau", default=0.0, min=0.0, precision=6)
-    set_eta = bpy.props.BoolProperty(name="Set eta")
-    eta = bpy.props.FloatProperty(name="Eta", default=0.0, min=0.0, precision=6)
+    tolerance = bpy.props.PointerProperty(type = BPY.Float)
+    steps = bpy.props.PointerProperty(type = BPY.Int)
+    tau = bpy.props.PointerProperty(type = BPY.Float)
+    eta = bpy.props.PointerProperty(type = BPY.Float)
     preconditioner = bpy.props.BoolProperty(name="Preconditioner")
-    set_preconditioner_steps = bpy.props.BoolProperty(name="Set preconditioner steps")
-    preconditioner_steps = bpy.props.IntProperty(name="Preconditioner", default=0, min=0)
+    preconditioner_steps = bpy.props.PointerProperty(type = BPY.Int)
     honor_element_requests = bpy.props.BoolProperty(name="Honor element requests")
     def assign(self, context):
         self.bicgstab_or_gmres = self.entity.bicgstab_or_gmres
-        self.set_tolerance = self.entity.set_tolerance
-        self.tolerance = self.entity.tolerance
-        self.set_steps = self.entity.set_steps
-        self.steps = self.entity.steps
-        self.set_tau = self.entity.set_tau
-        self.tau = self.entity.tau
-        self.set_eta = self.entity.set_eta
-        self.eta = self.entity.eta
+        self.tolerance.assign(self.entity.tolerance)
+        self.steps.assign(self.entity.steps)
+        self.tau.assign(self.entity.tau)
+        self.eta.assign(self.entity.eta)
         self.preconditioner = self.entity.preconditioner
-        self.set_preconditioner_steps = self.entity.set_preconditioner_steps
-        self.preconditioner_steps = self.entity.preconditioner_steps
+        self.preconditioner_steps.assign(self.entity.preconditioner_steps)
         self.honor_element_requests = self.entity.honor_element_requests
     def store(self, context):
         self.entity.bicgstab_or_gmres = self.bicgstab_or_gmres
-        self.entity.set_tolerance = self.set_tolerance
-        self.entity.tolerance = self.tolerance
-        self.entity.set_steps = self.set_steps
-        self.entity.steps = self.steps
-        self.entity.set_tau = self.set_tau
-        self.entity.tau = self.tau
-        self.entity.set_eta = self.set_eta
-        self.entity.eta = self.eta
+        self.entity.tolerance = self.tolerance.store()
+        self.entity.steps = self.steps.store()
+        self.entity.tau = self.tau.store()
+        self.entity.eta = self.eta.store()
         self.entity.preconditioner = self.preconditioner
-        self.entity.set_preconditioner_steps = self.set_preconditioner_steps
-        self.entity.preconditioner_steps = self.preconditioner_steps
+        self.entity.preconditioner_steps = self.preconditioner_steps.store() if self.preconditioner else None
         self.entity.honor_element_requests = self.honor_element_requests
     def draw(self, context):
-        self.basis = (self.set_tolerance, self.set_steps, self.set_tau, self.set_eta, self.preconditioner, self.set_preconditioner_steps)
+        self.basis = self.preconditioner
         layout = self.layout
         layout.prop(self, "bicgstab_or_gmres")
-        row = layout.row()
-        row.prop(self, "set_tolerance")
-        if self.set_tolerance:
-            row.prop(self, "tolerance")
-        row = layout.row()
-        row.prop(self, "set_steps")
-        if self.set_steps:
-            row.prop(self, "steps")
-        row = layout.row()
-        row.prop(self, "set_tau")
-        if self.set_tau:
-            row.prop(self, "tau")
-        row = layout.row()
-        row.prop(self, "set_eta")
-        if self.set_eta:
-            row.prop(self, "eta")
-        row = layout.row()
-        row.prop(self, "preconditioner")
+        self.tolerance.draw(layout, "Tolerance")
+        self.steps.draw(layout, "Steps")
+        self.tau.draw(layout, "Tau")
+        self.eta.draw(layout, "Eta")
+        layout.prop(self, "preconditioner")
         if self.preconditioner:
-            row = layout.row()
-            row.prop(self, "set_preconditioner_steps")
-            if self.set_preconditioner_steps:
-                row.prop(self, "preconditioner_steps")
+            self.preconditioner_steps.draw(layout, "Preconditioner steps")
             layout.prop(self, "honor_element_requests")
     def check(self, context):
-        return self.basis != (self.set_tolerance, self.set_steps, self.set_tau, self.set_eta, self.preconditioner, self.set_preconditioner_steps)
+        return True in [x.check(context) for x in (self.tolerance, self.steps, self.tau, self.eta, self.preconditioner_steps)] or self.basis != self.preconditioner
     def create_entity(self):
         return MatrixFree(self.name)
 
@@ -748,9 +609,9 @@ class Eigenanalysis(Entity):
             (",\n\t\toutput sparce matrices" if self.output_sparce_matrices else "") +
             (",\n\t\toutput eigenvectors" if self.output_eigenvectors else "") +
             (",\n\t\toutput geometry" if self.output_geometry else "") +
-            (",\n\t\tparameter, " + FORMAT(self.parameter) if self.set_parameter else "") +
-            (",\n\t\tlower frequency limit, " + FORMAT(self.lower_frequency_limit) if self.set_lower_frequency_limit else "") +
-            (",\n\t\tupper frequency limit, " + FORMAT(self.upper_frequency_limit) if self.set_upper_frequency_limit else ""))
+            (",\n\t\tparameter, " + BPY.FORMAT(self.parameter) if self.parameter is not None else "") +
+            (",\n\t\tlower frequency limit, " + BPY.FORMAT(self.lower_frequency_limit) if self.lower_frequency_limit is not None else "") +
+            (",\n\t\tupper frequency limit, " + BPY.FORMAT(self.upper_frequency_limit) if self.upper_frequency_limit is not None else ""))
         if self.method == "use lapack":
             f.write(",\n\t\tuse lapack" + (", balance, " + self.balance if self.set_balance else ""))
         else:
@@ -765,12 +626,9 @@ class EigenanalysisOperator(Base):
     output_sparce_matrices = bpy.props.BoolProperty(name="Output sparce matrices")
     output_eigenvectors = bpy.props.BoolProperty(name="Output eigenvectors")
     output_geometry = bpy.props.BoolProperty(name="Output geometry")
-    set_parameter = bpy.props.BoolProperty(name="Set parameter")
-    parameter = bpy.props.FloatProperty(name="Parameter", default=1.0, min=0.0, precision=6)
-    set_lower_frequency_limit = bpy.props.BoolProperty(name="Set lower frequency limit")
-    lower_frequency_limit = bpy.props.FloatProperty(name="Lower frequency limit", default=0.0, min=0.0, precision=6)
-    set_upper_frequency_limit = bpy.props.BoolProperty(name="Set upper frequency limit")
-    upper_frequency_limit = bpy.props.FloatProperty(name="Upper frequency limit", default=0.0, min=0.0, precision=6)
+    parameter = bpy.props.PointerProperty(type = BPY.Float)
+    lower_frequency_limit = bpy.props.PointerProperty(type = BPY.Float)
+    upper_frequency_limit = bpy.props.PointerProperty(type = BPY.Float)
     method = bpy.props.EnumProperty(items=[
         ("use lapack", "lapack", ""),
         ("use arpack", "arpack", ""),
@@ -798,12 +656,9 @@ class EigenanalysisOperator(Base):
         self.output_sparce_matrices = self.entity.output_sparce_matrices
         self.output_eigenvectors = self.entity.output_eigenvectors
         self.output_geometry = self.entity.output_geometry
-        self.set_parameter = self.entity.set_parameter
-        self.parameter = self.entity.parameter
-        self.set_lower_frequency_limit = self.entity.set_lower_frequency_limit
-        self.lower_frequency_limit = self.entity.lower_frequency_limit
-        self.set_upper_frequency_limit = self.entity.set_upper_frequency_limit
-        self.upper_frequency_limit = self.entity.upper_frequency_limit
+        self.parameter.assign(self.entity.parameter)
+        self.lower_frequency_limit.assign(self.entity.lower_frequency_limit)
+        self.upper_frequency_limit.assign(self.entity.upper_frequency_limit)
         self.method = self.entity.method
         self.set_balance = self.entity.set_balance
         self.balance = self.entity.balance
@@ -817,12 +672,9 @@ class EigenanalysisOperator(Base):
         self.entity.output_sparce_matrices = self.output_sparce_matrices
         self.entity.output_eigenvectors = self.output_eigenvectors
         self.entity.output_geometry = self.output_geometry
-        self.entity.set_parameter = self.set_parameter
-        self.entity.parameter = self.parameter
-        self.entity.set_lower_frequency_limit = self.set_lower_frequency_limit
-        self.entity.lower_frequency_limit = self.lower_frequency_limit
-        self.entity.set_upper_frequency_limit = self.set_upper_frequency_limit
-        self.entity.upper_frequency_limit = self.upper_frequency_limit
+        self.entity.parameter = self.parameter.store()
+        self.entity.lower_frequency_limit = self.lower_frequency_limit.store()
+        self.entity.upper_frequency_limit = self.upper_frequency_limit.store()
         self.entity.method = self.method
         self.entity.set_balance = self.set_balance
         self.entity.balance = self.balance
@@ -830,7 +682,7 @@ class EigenanalysisOperator(Base):
         self.entity.ncv = self.ncv
         self.entity.tol = self.tol
     def draw(self, context):
-        self.basis = (self.num_times, self.set_parameter, self.set_lower_frequency_limit, self.set_upper_frequency_limit, self.method, self.set_balance)
+        self.basis = (self.num_times, self.method, self.set_balance)
         layout = self.layout
         layout.prop(self, "num_times")
         for i in range(self.num_times):
@@ -839,18 +691,9 @@ class EigenanalysisOperator(Base):
         layout.prop(self, "output_sparce_matrices")
         layout.prop(self, "output_eigenvectors")
         layout.prop(self, "output_geometry")
-        row = layout.row()
-        row.prop(self, "set_parameter")
-        if self.set_parameter:
-            row.prop(self, "parameter")
-        row = layout.row()
-        row.prop(self, "set_lower_frequency_limit")
-        if self.set_lower_frequency_limit:
-            row.prop(self, "lower_frequency_limit")
-        row = layout.row()
-        row.prop(self, "set_upper_frequency_limit")
-        if self.set_upper_frequency_limit:
-            row.prop(self, "upper_frequency_limit")
+        self.parameter.draw(layout, "Parameter")
+        self.lower_frequency_limit.draw(layout, "Lower frequency limit")
+        self.upper_frequency_limit.draw(layout, "Upper frequency limit")
         layout.prop(self, "method")
         if self.method == "use lapack":
             row = layout.row()
@@ -862,7 +705,7 @@ class EigenanalysisOperator(Base):
             layout.prop(self, "ncv")
             layout.prop(self, "tol")
     def check(self, context):
-        return self.basis != (self.num_times, self.set_parameter, self.set_lower_frequency_limit, self.set_upper_frequency_limit, self.method, self.set_balance)
+        return True in [x.check(context) for x in (self.parameter, self.lower_frequency_limit, self.upper_frequency_limit)] or self.basis != (self.num_times, self.method, self.set_balance)
     def create_entity(self):
         return Eigenanalysis(self.name)
 
@@ -901,14 +744,14 @@ class LinearSolver(Entity):
         elif self.linear_solver == "superlu":
             f.write(",\n\t\tmmdata" if self.set_mmdata else "")
         if self.linear_solver in "naive taucs watson".split():
-            f.write(",\n\t\tmultithread, " + FORMAT(self.threads) if self.set_multithread else "")
+            f.write(",\n\t\tmultithread, " + BPY.FORMAT(self.multithread) if self.multithread is not None else "")
         if self.linear_solver == "y12":
-            f.write(",\n\t\tworkspace size, " + FORMAT(self.workspace_size) if self.set_workspace_size else "")
+            f.write(",\n\t\tworkspace size, " + BPY.FORMAT(self.workspace_size) if self.workspace_size is not None else "")
         if self.linear_solver in "naive umfpack klu y12 lapack superlu watson".split():
-            f.write(",\n\t\tpivot factor, " + FORMAT(self.pivot_factor) if self.set_pivot_factor else "")
+            f.write(",\n\t\tpivot factor, " +BPY. FORMAT(self.pivot_factor) if self.pivot_factor is not None else "")
         if self.linear_solver == "umfpack":
-            f.write(",\n\t\tdrop tolerance, " + FORMAT(self.drop_tolerance) if self.set_drop_tolerance else "" +
-                (",\n\t\tblock size, " + FORMAT(self.block_size) if self.set_block_size else ""))
+            f.write(",\n\t\tdrop tolerance, " + BPY.FORMAT(self.drop_tolerance) if self.drop_tolerance is not None else "" +
+                (",\n\t\tblock size, " + BPY.FORMAT(self.block_size) if self.block_size is not None else ""))
         if self.linear_solver == "umfpack":
             f.write(",\n\t\tscale, " + FORMAT(self.scale) if self.set_scale else "")
         f.write(";\n")
@@ -937,16 +780,11 @@ class LinearSolverOperator(Base):
         ("mmdata", "mmdata", ""),
         ], name="colamd mmdata", default="colamd")
     mmdata = bpy.props.BoolProperty(name="mmdata")
-    set_multithread = bpy.props.BoolProperty(name="Set multithread")
-    multithread = bpy.props.IntProperty(name="Multithread", default=1, min=1)
-    set_workspace_size = bpy.props.BoolProperty(name="Set workspace size")
-    workspace_size = bpy.props.IntProperty(name="Workspace size", default=0, min=0)
-    set_pivot_factor = bpy.props.BoolProperty(name="Set pivot factor")
-    pivot_factor = bpy.props.FloatProperty(name="Pivot factor", default=1.0, min=0.0, precision=6)
-    set_drop_tolerance = bpy.props.BoolProperty(name="Set drop tolerance")
-    drop_tolerance = bpy.props.FloatProperty(name="Drop tolerance", default=1.0, min=0.0, precision=6)
-    set_block_size = bpy.props.BoolProperty(name="Set block size")
-    block_size = bpy.props.IntProperty(name="Block size", default=32, min=0)
+    multithread = bpy.props.PointerProperty(type = BPY.Int)
+    workspace_size = bpy.props.PointerProperty(type = BPY.Int)
+    pivot_factor = bpy.props.PointerProperty(type = BPY.Float)
+    drop_tolerance = bpy.props.PointerProperty(type = BPY.Float)
+    block_size = bpy.props.PointerProperty(type = BPY.Int)
     set_scale = bpy.props.BoolProperty(name="Set scale")
     scale = bpy.props.EnumProperty(items=[
         ("no", "no", ""),
@@ -955,6 +793,8 @@ class LinearSolverOperator(Base):
         ("max", "max", ""),
         ("sum", "sum", ""),
         ], name="Scale", default="no")
+    def prereqs(self, context):
+        self.block_size.value = 32
     def assign(self, context):
         self.linear_solver = self.entity.linear_solver
         self.set_map_cc_dir = self.entity.set_map_cc_dir
@@ -962,16 +802,11 @@ class LinearSolverOperator(Base):
         self.set_colamd_mmdata = self.entity.set_colamd_mmdata
         self.colamd_mmdata = self.entity.colamd_mmdata
         self.mmdata = self.entity.mmdata
-        self.set_multithread = self.entity.set_multithread
-        self.multithread = self.entity.multithread
-        self.set_workspace_size = self.entity.set_workspace_size
-        self.workspace_size = self.entity.workspace_size
-        self.set_pivot_factor = self.entity.set_pivot_factor
-        self.pivot_factor = self.entity.pivot_factor
-        self.set_drop_tolerance = self.entity.set_drop_tolerance
-        self.drop_tolerance = self.entity.drop_tolerance
-        self.set_block_size = self.entity.set_block_size
-        self.block_size = self.entity.block_size
+        self.multithread.assign(self.entity.multithread)
+        self.workspace_size.assign(self.entity.workspace_size)
+        self.pivot_factor.assign(self.entity.pivot_factor)
+        self.drop_tolerance.assign(self.entity.drop_tolerance)
+        self.block_size.assign(self.entity.block_size)
         self.set_scale = self.entity.set_scale
         self.scale = self.entity.scale
     def store(self, context):
@@ -981,20 +816,15 @@ class LinearSolverOperator(Base):
         self.entity.set_colamd_mmdata = self.set_colamd_mmdata
         self.entity.colamd_mmdata = self.colamd_mmdata
         self.entity.mmdata = self.mmdata
-        self.entity.set_multithread = self.set_multithread
-        self.entity.multithread = self.multithread
-        self.entity.set_workspace_size = self.set_workspace_size
-        self.entity.workspace_size = self.workspace_size
-        self.entity.set_pivot_factor = self.set_pivot_factor
-        self.entity.pivot_factor = self.pivot_factor
-        self.entity.set_drop_tolerance = self.set_drop_tolerance
-        self.entity.drop_tolerance = self.drop_tolerance
-        self.entity.set_block_size = self.set_block_size
-        self.entity.block_size = self.block_size
+        self.entity.multithread = self.multithread.store() if self.linear_solver in "naive taucs watson".split() else None
+        self.entity.workspace_size = self.workspace_size.store() if self.linear_solver == "y12" else None
+        self.entity.pivot_factor = self.pivot_factor.store() if self.linear_solver in "naive umfpack klu y12 lapack superlu watson".split() else None
+        self.entity.drop_tolerance = self.drop_tolerance.store() if self.linear_solver == "umfpack" else None
+        self.entity.block_size = self.block_size.store() if self.linear_solver == "umfpack" else None
         self.entity.set_scale = self.set_scale
         self.entity.scale = self.scale
     def draw(self, context):
-        self.basis = (self.linear_solver, self.set_map_cc_dir, self.set_colamd_mmdata, self.set_multithread, self.set_workspace_size, self.set_pivot_factor, self.set_drop_tolerance, self.set_block_size, self.set_scale)
+        self.basis = (self.linear_solver, self.set_map_cc_dir, self.set_colamd_mmdata, self.set_scale)
         layout = self.layout
         layout.prop(self, "linear_solver")
         if self.linear_solver in "umfpack klu y12 superlu watson".split():
@@ -1010,36 +840,21 @@ class LinearSolverOperator(Base):
         elif self.linear_solver == "superlu":
             row.prop(self, "mmdata")
         if self.linear_solver in "naive taucs watson".split():
-            row = layout.row()
-            row.prop(self, "set_multithread")
-            if self.set_multithread:
-                row.prop(self, "multithread")
+            self.multithread.draw(layout, "Multithread")
         if self.linear_solver == "y12":
-            row = layout.row()
-            row.prop(self, "set_workspace_size")
-            if self.set_workspace_size:
-                row.prop(self, "workspace_size")
+            self.workspace_size.draw(layout, "Workspace size")
         if self.linear_solver in "naive umfpack klu y12 lapack superlu watson".split():
-            row = layout.row()
-            row.prop(self, "set_pivot_factor")
-            if self.set_pivot_factor:
-                row.prop(self, "pivot_factor")
+            self.pivot_factor.draw(layout, "Pivot factor")
         if self.linear_solver == "umfpack":
-            row = layout.row()
-            row.prop(self, "set_drop_tolerance")
-            if self.set_drop_tolerance:
-                row.prop(self, "drop_tolerance")
-            row = layout.row()
-            row.prop(self, "set_block_size")
-            if self.set_block_size:
-                row.prop(self, "block_size")
+            self.drop_tolerance.draw(layout, "Drop tolerance")
+            self.block_size.draw(layout, "Block size")
         if self.linear_solver == "umfpack":
             row = layout.row()
             row.prop(self, "set_scale")
             if self.set_scale:
                 row.prop(self, "scale")
     def check(self, context):
-        return self.basis != (self.linear_solver, self.set_map_cc_dir, self.set_colamd_mmdata, self.set_multithread, self.set_workspace_size, self.set_pivot_factor, self.set_drop_tolerance, self.set_block_size, self.set_scale)
+        return True in [x.check(context) for x in (self.multithread, self.workspace_size, self.pivot_factor, self.drop_tolerance, self.block_size)] or self.basis != (self.linear_solver, self.set_map_cc_dir, self.set_colamd_mmdata, self.set_scale)
     def create_entity(self):
         return LinearSolver(self.name)
 
@@ -1097,7 +912,7 @@ class OutputData(Entity):
             (self.iterations, "iterations"),
             (self.residual, "residual"),
             (self.solution, "solution"),
-            (self.jacobian_matrix, "jacobian_matrix"),
+            (self.jacobian_matrix, "jacobian matrix"),
             (self.messages, "messages"),
             (self.counter, "counter"),
             (self.bailout, "bailout"),
@@ -1162,17 +977,17 @@ class RealTime(Entity):
     def write(self, f):
         f.write("\treal time: " + self.rtai_posix)
         if self.mode == "period":
-            f.write(", mode, period, time step, " + FORMAT(self.time_step))
+            f.write(", mode, period, time step, " + BPY.FORMAT(self.time_step))
         elif self.mode == "semaphore":
-            f.write(", mode, semaphore, " + FORMAT(self.semaphore))
+            f.write(", mode, semaphore, (semaphore is not implemented yet)")
         else:
             f.write(", mode, " + self.mode)
-        f.write((",\n\t\treserve stack, " + FORMAT(self.stack_size) if self.set_reserve_stack else "") +
+        f.write((",\n\t\treserve stack, " + BPY.FORMAT(self.stack_size) if self.stack_size is not None else "") +
             (",\n\t\tallow nonroot" if self.allow_nonroot else "") +
-            (",\n\t\tcpu map, " + FORMAT(self.cpu_map) if self.set_cpu_map else "") +
+            (",\n\t\tcpu map, " + BPY.FORMAT(self.cpu_map) if self.cpu_map is not None else "") +
             (",\n\t\toutput, no" if self.disable_output else "") +
             (",\n\t\thard real time" if self.hard_real_time else "") +
-            (",\n\t\treal time log" + (", file name, " + self.command_name if self.set_command_name else "") if self.real_time_log else "") +
+            (",\n\t\treal time log" + (", file name, " + BPY.FORMAT(self.command_name) if self.command_name is not None else "") if self.real_time_log else "") +
             ";\n")
 
 class RealTimeOperator(Base):
@@ -1186,72 +1001,55 @@ class RealTimeOperator(Base):
         ("semaphore", "Semaphore", ""),
         ("io", "IO", ""),
         ], name="Mode", default="period")
-    time_step = bpy.props.FloatProperty(name="Time step", default=0.0, min=0.0, precision=6)
-    set_reserve_stack = bpy.props.BoolProperty(name="Set reserve stack")
-    stack_size = bpy.props.IntProperty(name="Stack size", default=1024, min=1024)
+    time_step = bpy.props.PointerProperty(type = BPY.Float)
+    stack_size = bpy.props.PointerProperty(type = BPY.Int)
     allow_nonroot = bpy.props.BoolProperty(name="Allow nonroot")
-    set_cpu_map = bpy.props.BoolProperty(name="Set cpu map")
-    cpu_map = bpy.props.IntProperty(name="Cpu map", default=0, min=0)
+    cpu_map = bpy.props.PointerProperty(type = BPY.Int)
     disable_output = bpy.props.BoolProperty(name="Disable output")
     hard_real_time = bpy.props.BoolProperty(name="Hard real time")
     real_time_log = bpy.props.BoolProperty(name="Real time log")
-    set_command_name = bpy.props.BoolProperty(name="Set command name")
-    command_name = bpy.props.StringProperty(name="Command name")
+    command_name = bpy.props.PointerProperty(type = BPY.Str)
+    def prereqs(self, context):
+        self.stack_size.value = 1024
     def assign(self, context):
         self.rtai_posix = self.entity.rtai_posix
         self.mode = self.entity.mode
-        self.time_step = self.entity.time_step
-        self.set_reserve_stack = self.entity.set_reserve_stack
-        self.stack_size = self.entity.stack_size
+        self.time_step.assign(self.entity.time_step)
+        self.stack_size.assign(self.entity.stack_size)
         self.allow_nonroot = self.entity.allow_nonroot
-        self.set_cpu_map = self.entity.set_cpu_map
-        self.cpu_map = self.entity.cpu_map
+        self.cpu_map.assign(self.entity.cpu_map)
         self.disable_output = self.entity.disable_output
         self.hard_real_time = self.entity.hard_real_time
         self.real_time_log = self.entity.real_time_log
-        self.set_command_name = self.entity.set_command_name
-        self.command_name = self.entity.command_name
+        self.command_name.assign(self.entity.command_name)
     def store(self, context):
         self.entity.rtai_posix = self.rtai_posix
         self.entity.mode = self.mode
-        self.entity.time_step = self.time_step
-        self.entity.set_reserve_stack = self.set_reserve_stack
-        self.entity.stack_size = self.stack_size
+        self.entity.time_step = self.time_step.store() if self.mode == "period" else None
+        self.entity.stack_size = self.stack_size.store()
         self.entity.allow_nonroot = self.allow_nonroot
-        self.entity.set_cpu_map = self.set_cpu_map
-        self.entity.cpu_map = self.cpu_map
+        self.entity.cpu_map = self.cpu_map.store()
         self.entity.disable_output = self.disable_output
         self.entity.hard_real_time = self.hard_real_time
         self.entity.real_time_log = self.real_time_log
-        self.entity.set_command_name = self.set_command_name
-        self.entity.command_name = self.command_name
+        self.entity.command_name = self.command_name.store() if self.real_time_log else None
     def draw(self, context):
-        self.basis = (self.mode, self.set_reserve_stack, self.set_cpu_map, self.real_time_log, self.set_command_name)
+        self.basis = (self.mode, self.real_time_log)
         layout = self.layout
         layout.prop(self, "rtai_posix")
-        row = layout.row()
-        row.prop(self, "mode")
+        layout.prop(self, "mode")
         if self.mode == "period":
-            row.prop(self, "time_step")
-        row = layout.row()
-        row.prop(self, "set_reserve_stack")
-        if self.set_reserve_stack:
-            row.prop(self, "stack_size")
+            self.time_step.draw(layout, "Time step")
+        self.stack_size.draw(layout, "Stack size")
         layout.prop(self, "allow_nonroot")
-        row = layout.row()
-        row.prop(self, "set_cpu_map")
-        if self.set_cpu_map:
-            row.prop(self, "cpu_map")
+        self.cpu_map.draw(layout, "CPU map")
         layout.prop(self, "disable_output")
         layout.prop(self, "hard_real_time")
         layout.prop(self, "real_time_log")
         if self.real_time_log:
-            row = layout.row()
-            row.prop(self, "set_command_name")
-            if self.set_command_name:
-                row.prop(self, "command_name")
+            self.command_name.draw(layout, "Command name")
     def check(self, context):
-        return self.basis != (self.mode, self.set_reserve_stack, self.set_cpu_map, self.real_time_log, self.set_command_name)
+        return True in [x.check(context) for x in (self.time_step, self.stack_size, self.cpu_map, self.command_name)] or self.basis != (self.mode, self.real_time_log)
     def create_entity(self):
         return RealTime(self.name)
 
@@ -1270,14 +1068,14 @@ class Assembly(Entity):
                 ("beams, " if self.beams else "") +
                 ("aerodynamic elements, " if self.aerodynamic_elements else "") +
                 ("loadable elements, " if self.loadable_elements else "") +
-                " in assembly;\n")
-        if self.set_initial_position_stiffness:
-            f.write("\tinitial stiffness: " + FORMAT(self.initial_position_stiffness) +
-                (", " + FORMAT(self.initial_velocity_stiffness) if self.set_initial_velocity_stiffness else "") +
+                "in assembly;\n")
+        if self.initial_position_stiffness is not None:
+            f.write("\tinitial stiffness: " + BPY.FORMAT(self.initial_position_stiffness) +
+                (", " + BPY.FORMAT(self.initial_velocity_stiffness) if self.initial_velocity_stiffness is not None else "") +
                 ";\n")
-        f.write("\tomega rotates: " + ("yes;\n") if self.omega_rotates else "no;\n" +
-            ("\ttolerance: " + FORMAT(self.tolerance) + ";\n" if self.set_tolerance else "") +
-            ("\tmax iterations: " + FORMAT(self.max_iterations) + ";\n" if self.set_max_iterations else ""))
+        f.write("\tomega rotates: " + ("yes;\n" if self.omega_rotates else "no;\n") +
+            ("\ttolerance: " + BPY.FORMAT(self.tolerance) + ";\n" if self.tolerance is not None else "") +
+            ("\tmax iterations: " + BPY.FORMAT(self.max_iterations) + ";\n" if self.max_iterations is not None else ""))
 
 class AssemblyOperator(Base):
     bl_label = "Assembly"
@@ -1288,15 +1086,11 @@ class AssemblyOperator(Base):
     beams = bpy.props.BoolProperty(name="Beams")
     aerodynamic_elements = bpy.props.BoolProperty(name="Aerodynamic elements")
     loadable_elements = bpy.props.BoolProperty(name="Loadable elements")
-    set_initial_position_stiffness = bpy.props.BoolProperty(name="Set initial position stiffness")
-    initial_position_stiffness = bpy.props.FloatProperty(name="Initial position stiffness", default=1.0, min=0.0, precision=6)
-    set_initial_velocity_stiffness = bpy.props.BoolProperty(name="Set initial velocity stiffness")
-    initial_velocity_stiffness = bpy.props.FloatProperty(name="Initial velocity stiffness", default=1.0, min=0.0, precision=6)
+    initial_position_stiffness = bpy.props.PointerProperty(type = BPY.Float)
+    initial_velocity_stiffness = bpy.props.PointerProperty(type = BPY.Float)
     omega_rotates = bpy.props.BoolProperty(name="Omega rotates")
-    set_tolerance = bpy.props.BoolProperty(name="Set tolerance")
-    tolerance = bpy.props.FloatProperty(name="Tolerance", default=0.0, min=0.0, precision=6)
-    set_max_iterations = bpy.props.BoolProperty(name="Set max iterations")
-    max_iterations = bpy.props.IntProperty(name="Max iterations", default=0, min=0)
+    tolerance = bpy.props.PointerProperty(type = BPY.Float)
+    max_iterations = bpy.props.PointerProperty(type = BPY.Int)
     def assign(self, context):
         self.skip_initial_joint_assembly = self.entity.skip_initial_joint_assembly
         self.rigid_bodies = self.entity.rigid_bodies
@@ -1305,15 +1099,11 @@ class AssemblyOperator(Base):
         self.beams = self.entity.beams
         self.aerodynamic_elements = self.entity.aerodynamic_elements
         self.loadable_elements = self.entity.loadable_elements
-        self.set_initial_position_stiffness = self.entity.set_initial_position_stiffness
-        self.initial_position_stiffness = self.entity.initial_position_stiffness
-        self.set_initial_velocity_stiffness = self.entity.set_initial_velocity_stiffness
-        self.initial_velocity_stiffness = self.entity.initial_velocity_stiffness
+        self.initial_position_stiffness.assign(self.entity.initial_position_stiffness)
+        self.initial_velocity_stiffness.assign(self.entity.initial_velocity_stiffness)
         self.omega_rotates = self.entity.omega_rotates
-        self.set_tolerance = self.entity.set_tolerance
-        self.tolerance = self.entity.tolerance
-        self.set_max_iterations = self.entity.set_max_iterations
-        self.max_iterations = self.entity.max_iterations
+        self.tolerance.assign(self.entity.tolerance)
+        self.max_iterations.assign(self.entity.max_iterations)
     def store(self, context):
         self.entity.skip_initial_joint_assembly = self.skip_initial_joint_assembly
         self.entity.rigid_bodies = self.rigid_bodies
@@ -1322,17 +1112,12 @@ class AssemblyOperator(Base):
         self.entity.beams = self.beams
         self.entity.aerodynamic_elements = self.aerodynamic_elements
         self.entity.loadable_elements = self.loadable_elements
-        self.entity.set_initial_position_stiffness = self.set_initial_position_stiffness
-        self.entity.initial_position_stiffness = self.initial_position_stiffness
-        self.entity.set_initial_velocity_stiffness = self.set_initial_velocity_stiffness
-        self.entity.initial_velocity_stiffness = self.initial_velocity_stiffness
+        self.entity.initial_position_stiffness = self.initial_position_stiffness.store()
+        self.entity.initial_velocity_stiffness = self.initial_velocity_stiffness.store() if self.initial_position_stiffness.select else None
         self.entity.omega_rotates = self.omega_rotates
-        self.entity.set_tolerance = self.set_tolerance
-        self.entity.tolerance = self.tolerance
-        self.entity.set_max_iterations = self.set_max_iterations
-        self.entity.max_iterations = self.max_iterations
+        self.entity.tolerance = self.tolerance.store()
+        self.entity.max_iterations = self.max_iterations.store()
     def draw(self, context):
-        self.basis = (self.set_initial_position_stiffness, self.set_initial_velocity_stiffness, self.set_tolerance, self.set_max_iterations)
         layout = self.layout
         layout.prop(self, "skip_initial_joint_assembly")
         layout.prop(self, "rigid_bodies")
@@ -1341,25 +1126,14 @@ class AssemblyOperator(Base):
         layout.prop(self, "beams")
         layout.prop(self, "aerodynamic_elements")
         layout.prop(self, "loadable_elements")
-        row = layout.row()
-        row.prop(self, "set_initial_position_stiffness")
-        if self.set_initial_position_stiffness:
-            row.prop(self, "initial_position_stiffness")
-            row = layout.row()
-            row.prop(self, "set_initial_velocity_stiffness")
-            if self.set_initial_velocity_stiffness:
-                row.prop(self, "initial_velocity_stiffness")
+        self.initial_position_stiffness.draw(layout, "Initial position stiffness")
+        if self.initial_position_stiffness.select:
+            self.initial_velocity_stiffness.draw(layout, "Initial velocity stiffness")
         layout.prop(self, "omega_rotates")
-        row = layout.row()
-        row.prop(self, "set_tolerance")
-        if self.set_tolerance:
-            row.prop(self, "tolerance")
-        row = layout.row()
-        row.prop(self, "set_max_iterations")
-        if self.set_max_iterations:
-            row.prop(self, "max_iterations")
+        self.tolerance.draw(layout, "Tolerance")
+        self.max_iterations.draw(layout, "Max iterations")
     def check(self, context):
-        return self.basis != (self.set_initial_position_stiffness, self.set_initial_velocity_stiffness, self.set_tolerance, self.set_max_iterations)
+        return True in [x.check(context) for x in (self.initial_position_stiffness, self.initial_velocity_stiffness, self.tolerance, self.max_iterations)]
     def create_entity(self):
         return Assembly(self.name)
 
@@ -1490,7 +1264,7 @@ class DefaultOutputOperator(Base):
     accelerations = bpy.props.BoolProperty(name="Accelerations", default=True)
     aerodynamic_elements = bpy.props.BoolProperty(name="Aerodynamic elements", default=True)
     air_properties = bpy.props.BoolProperty(name="Air properties", default=True)
-    beams = bpy.props.BoolProperty(name="beams", default=True)
+    beams = bpy.props.BoolProperty(name="Beams", default=True)
     electric_elements = bpy.props.BoolProperty(name="Electric elements", default=True)
     forces = bpy.props.BoolProperty(name="Forces", default=True)
     genels = bpy.props.BoolProperty(name="Genels", default=True)
@@ -1704,4 +1478,4 @@ class DefaultBeamOutputOperator(Base):
 
 klasses[DefaultBeamOutputOperator.bl_label] = DefaultBeamOutputOperator
 
-bundle = Bundle(tree, Base, klasses, database.definition)
+bundle = Bundle(definition_tree, Base, klasses, database.definition)

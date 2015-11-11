@@ -18,14 +18,14 @@
 
 bl_info = {
     "name": "Mira Tools",
-    "author": "Paul Geraskin",
+    "author": "Paul Geraskin, Marvin K. Breuer",
     "version": (0, 3, 0),
     "blender": (2, 74, 0),
     "location": "3D Viewport",
-    "description": "Mira Tool",
+    "description": "Mira Tools",
     "warning": "",
-    "wiki_url": "",
-    "tracker_url": "",
+    "wiki_url": "https://github.com/mifth/mifthtools/wiki/Mira-Tools",
+    "tracker_url": "https://github.com/mifth/mifthtools/issues",
     "category": "Tools"}
 
 

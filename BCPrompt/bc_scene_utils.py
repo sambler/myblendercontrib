@@ -1,6 +1,7 @@
 # bc_scene_utils.py
 import bpy
 import bmesh
+import os
 
 
 def enumerate_objects_starting_with(find_term):
@@ -70,3 +71,18 @@ def parent_selected_to_new_empty():
         o.parent = mt
 
     return mt
+
+
+def add_mesh_2_json(kind):
+    temp_root = os.path.dirname(__file__)
+
+    file_by_name = {
+        'zup': 'mesh2json.py',
+        'yup': 'mesh2json2.py'
+    }.get(kind)
+
+    fp = os.path.join(temp_root, 'fast_ops', file_by_name)
+    with open(fp) as ofile:
+        fullstr = ''.join(ofile)
+        nf = bpy.data.texts.new(file_by_name)
+        nf.from_string(fullstr)

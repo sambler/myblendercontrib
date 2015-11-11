@@ -39,7 +39,8 @@ from .bc_scene_utils import (
     select_starting2,
     distance_check,
     align_view_to_3dcursor,
-    parent_selected_to_new_empty
+    parent_selected_to_new_empty,
+    add_mesh_2_json
 )
 
 from .bc_update_utils import (
@@ -137,6 +138,14 @@ def in_scene_commands(context, m):
         set_keymap()
         add_scrollback('enabled: 1=VERT_SEL, 2=EDGE_SEL, 3=FACE_SEL', 'OUTPUT')
 
+    elif m == 'mesh2json':
+        add_mesh_2_json('zup')
+        add_scrollback('added mesh 2 json script to text editor! remember to triangulate first', 'OUTPUT')
+
+    elif m == 'mesh2json2':
+        add_mesh_2_json('yup')
+        add_scrollback('added mesh 2 json (y up) script to text editor! remember to triangulate first', 'OUTPUT')
+
     elif m.startswith('v2rdim'):
         SCN = bpy.context.scene
         SE = SCN.sequence_editor
@@ -162,6 +171,13 @@ def in_scene_commands(context, m):
         SCN.render.resolution_x = x
         SCN.render.resolution_y = y
         SCN.render.resolution_percentage = 100
+
+    elif m in {'crop to active', 'cta'}:
+        se = bpy.context.scene.sequence_editor
+        start = se.active_strip.frame_start
+        duration = se.active_strip.frame_duration
+        bpy.context.scene.frame_start = start
+        bpy.context.scene.frame_end = start + duration
 
     elif m.startswith("gif ") and (len(m) > 5):
         make_animated_gif(m[4:])
@@ -392,6 +408,13 @@ def in_modeling_tools(context, m):
         test_dl_run(packaged)
 
     elif m == '-debug':  # formerly -debug_mesh
+
+        if 'index_visualiser' in dir(bpy.ops.view3d):
+            # bpy.ops.wm.addon_enable(module='view3d_idx_view')
+            # msg = 'enabled modified debugger in N panel'
+            # add_scrollback(msg, 'OUTPUT')
+            return True
+
         registers_operator = [bpy.ops.view3d, 'index_visualiser']
         module_to_enable = 'view3d_idx_view'
         url_prefix = 'https://gist.githubusercontent.com/zeffii/9451340/raw'
@@ -499,7 +522,8 @@ def in_upgrade_commands(context, m):
 def in_fast_ops_commands(context, m):
     if m.startswith('--plex'):
         run_operator_register("fast_ops", "node_plex.py")
-
+    elif m.startswith('--sort'):
+        run_operator_register("fast_ops", "mesh_plex.py")
     else:
         return False
 

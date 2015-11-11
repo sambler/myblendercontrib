@@ -24,31 +24,15 @@
 
 if "bpy" in locals():
     import imp
-    imp.reload(bpy)
-    imp.reload(Operator)
-    imp.reload(Entity)
+    for x in [base, common, menu]:
+        imp.reload(x)
 else:
-    from .base import bpy, database, Operator, Entity, Bundle, BPY, enum_function
-    from .base import update_function
-    from .common import FORMAT
-
-types = [
-    "Const",
-    "Exp",
-    "Log",
-    "Pow",
-    "Linear",
-    "Cubic natural spline",
-    "Multilinear",
-    "Chebychev",
-    "Sum",
-    "Sub",
-    "Mul",
-    "Div"]
-
-tree = ["Function", types]
-
-klasses = dict()
+    from . import base
+    from . import common
+    from . import menu
+from .base import bpy, database, Operator, Entity, Bundle, BPY
+from .common import FORMAT
+from .menu import default_klasses, function_tree
 
 class Base(Operator):
     bl_label = "Functions"
@@ -70,15 +54,7 @@ class Base(Operator):
     def set_index(self, context, value):
         context.scene.function_index = value
 
-for t in types:
-    class Tester(Base):
-        bl_label = t
-        @classmethod
-        def poll(cls, context):
-            return False
-        def create_entity(self):
-            return Entity(self.name)
-    klasses[t] = Tester
+klasses = default_klasses(function_tree, Base)
 
 class Const(Entity):
     def write(self, f):
@@ -180,7 +156,7 @@ klasses[PowOperator.bl_label] = PowOperator
 class Linear(Entity):
     def write(self, f):
         f.write("scalar function: \"" + self.name + "\", linear")
-        f.write(",\n\t" + ", ".join([BPY.FORMAT(x) for x in self.X]))
+        f.write(",\n\t\t" + ", ".join([BPY.FORMAT(x) for x in self.X]))
         f.write(", " + ", ".join([BPY.FORMAT(x) for x in self.X]) + ";\n")
 
 class LinearOperator(Base):
@@ -225,7 +201,7 @@ class CubicNaturalSpline(Entity):
         if not self.extrapolate:
             f.write(", do not extrapolate")
         for i in range(self.N):
-            f.write(",\n\t" + BPY.FORMAT(self.X[i]) + ", " + BPY.FORMAT(self.Y[i]))
+            f.write(",\n\t\t" + BPY.FORMAT(self.X[i]) + ", " + BPY.FORMAT(self.Y[i]))
         f.write(";\n")
 
 class Multiple(Base):
@@ -281,7 +257,7 @@ class Multilinear(Entity):
         if not self.extrapolate:
             f.write(", do not extrapolate")
         for i in range(self.N):
-            f.write(",\n\t" + BPY.FORMAT(self.X[i]) + ", " + BPY.FORMAT(self.Y[i]))
+            f.write(",\n\t\t" + BPY.FORMAT(self.X[i]) + ", " + BPY.FORMAT(self.Y[i]))
         f.write(";\n")
 
 class MultilinearOperator(Multiple):
@@ -294,16 +270,16 @@ klasses[MultilinearOperator.bl_label] = MultilinearOperator
 class Chebychev(Entity):
     def write(self, f):
         f.write("scalar function: \"" + self.name + "\", chebychev")
-        f.write(",\n\t" + BPY.FORMAT(self.lower_bound) + ", " + BPY.FORMAT(self.upper_bound))
+        f.write(",\n\t\t" + BPY.FORMAT(self.lower_bound) + ", " + BPY.FORMAT(self.upper_bound))
         if not self.extrapolate:
             f.write(", do not extrapolate")
         N = int(self.N/4)
         for i in range(N):
-            f.write(",\n\t" + ", ".join([BPY.FORMAT(c) for c in self.C[4*i:4*(i+1)]]))
+            f.write(",\n\t\t" + ", ".join([BPY.FORMAT(c) for c in self.C[4*i:4*(i+1)]]))
         if 4*N == self.N:
             f.write(";\n")
         else:
-            f.write(",\n\t" + ", ".join([BPY.FORMAT(c) for c in self.C[4*N:self.N]]) + ";\n")
+            f.write(",\n\t\t" + ", ".join([BPY.FORMAT(c) for c in self.C[4*N:self.N]]) + ";\n")
 
 class ChebychevOperator(Base):
     bl_label = "Chebychev"
@@ -323,15 +299,14 @@ class ChebychevOperator(Base):
         self.lower_bound.assign(self.entity.lower_bound)
         self.upper_bound.assign(self.entity.upper_bound)
         self.extrapolate = self.entity.extrapolate
-        self.N = self.entity.N
+        self.N = len(self.entity.C)
         for i, value in enumerate(self.entity.C):
             self.C[i].assign(value)
     def store(self, context):
         self.entity.lower_bound = self.lower_bound.store()
         self.entity.upper_bound = self.upper_bound.store()
         self.entity.extrapolate = self.extrapolate
-        self.entity.N = self.N
-        self.entity.C = [c.store() for c in self.C][:self.entity.N]
+        self.entity.C = [c.store() for c in self.C][:self.N]
     def draw(self, context):
         self.basis = self.N
         layout = self.layout
@@ -352,7 +327,7 @@ klasses[ChebychevOperator.bl_label] = ChebychevOperator
 class Sum(Entity):
     def write(self, f):
         f.write("scalar function: \"" + self.name + "\", sum")
-        f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
+        f.write(",\n\t\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
 class Binary(Base):
     functions = bpy.props.CollectionProperty(type = BPY.Function)
@@ -383,7 +358,7 @@ klasses[SumOperator.bl_label] = SumOperator
 class Sub(Entity):
     def write(self, f):
         f.write("scalar function: \"" + self.name + "\", sub")
-        f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
+        f.write(",\n\t\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
 class SubOperator(Binary):
     bl_label = "Sub"
@@ -395,7 +370,7 @@ klasses[SubOperator.bl_label] = SubOperator
 class Mul(Entity):
     def write(self, f):
         f.write("scalar function: \"" + self.name + "\", mul")
-        f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
+        f.write(",\n\t\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
 class MulOperator(Binary):
     bl_label = "Mul"
@@ -407,7 +382,7 @@ klasses[MulOperator.bl_label] = MulOperator
 class Div(Entity):
     def write(self, f):
         f.write("scalar function: \"" + self.name + "\", div")
-        f.write(",\n\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
+        f.write(",\n\t\t\"" + self.functions[0].name + "\", \"" + self.functions[1].name + "\";\n")
 
 class DivOperator(Binary):
     bl_label = "Div"
@@ -416,4 +391,4 @@ class DivOperator(Binary):
 
 klasses[DivOperator.bl_label] = DivOperator
 
-bundle = Bundle(tree, Base, klasses, database.function)
+bundle = Bundle(function_tree, Base, klasses, database.function)

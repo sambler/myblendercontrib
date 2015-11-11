@@ -24,18 +24,22 @@
 
 if "bpy" in locals():
     import imp
-    imp.reload(bpy)
-    imp.reload(Database)
+    for x in [database_module, common, menu]:
+        imp.reload(x)
 else:
-    import bpy
-    import addon_utils
-    from .database import Database, EntityLookupError
-    from .common import FORMAT, safe_name, method_types, nonlinear_solver_types, write_vector, write_matrix
-    from collections import OrderedDict
-    from copy import copy
-    from sys import getrefcount
-    import webbrowser, os
-    from collections import defaultdict
+    from . import database_module
+    from . import common
+    from . import menu
+from .database_module import Database, EntityLookupError
+from .common import FORMAT, safe_name, write_vector, write_orientation, Cube
+from .menu import method, nonlinear_solver, Tree
+import bpy
+import addon_utils
+from collections import OrderedDict
+from copy import copy
+from sys import getrefcount
+import webbrowser, os
+from collections import defaultdict
 
 category = "MBDyn"
 root_dot = "_".join(category.lower().split()) + "."
@@ -60,23 +64,43 @@ def update_definition(self, context, name, definition_type):
             entity = database.definition.get_by_name(name)
             context.scene.definition_index = database.definition.index(entity)
             entity.edit()
-def update_drive(self, context, name, drive_type=None):
+def update_drive(self, context, name, drive_dimension, drive_type=None):
     if context.scene.popups_enabled:
         if name == "New":
             if drive_type:
                 exec("bpy.ops." + root_dot + "c_" + "_".join(drive_type.lower().split()) + "('INVOKE_DEFAULT')")
             else:
-                bpy.ops.wm.call_menu(name=root_dot+"drive")
+                if drive_dimension == "1D":
+                    bpy.ops.wm.call_menu(name=root_dot+"scalar_drive")
+                else:
+                    bpy.ops.wm.call_menu(name=root_dot+drive_dimension.lower()+"_drive")
         else:
             entity = database.drive.get_by_name(name)
             context.scene.drive_index = database.drive.index(entity)
             entity.edit()
-def update_element(self, context, name):
+def update_driver(self, context, name, driver_type=None):
     if context.scene.popups_enabled:
-        entity = database.element.get_by_name(name)
-        context.scene.element_index = database.element.index(entity)
-        entity.edit()
-        del entity
+        if name == "New":
+            if driver_type:
+                exec("bpy.ops." + root_dot + "c_" + "_".join(driver_type.lower().split()) + "('INVOKE_DEFAULT')")
+            else:
+                bpy.ops.wm.call_menu(name=root_dot+"driver")
+        else:
+            entity = database.driver.get_by_name(name)
+            context.scene.driver_index = database.driver.index(entity)
+            entity.edit()
+def update_element(self, context, name, element_type):
+    if context.scene.popups_enabled:
+        if name == "New":
+            if element_type:
+                exec("bpy.ops." + root_dot + "c_" + "_".join(element_type.lower().split()) + "('INVOKE_DEFAULT')")
+            else:
+                bpy.ops.wm.call_menu(name=root_dot+"element")
+        else:
+            entity = database.element.get_by_name(name)
+            context.scene.element_index = database.element.index(entity)
+            entity.edit()
+            del entity
 def update_friction(self, context, name):
     if context.scene.popups_enabled:
         if name == "New":
@@ -112,7 +136,7 @@ def update_matrix(self, context, name, matrix_type):
 def update_input_card(self, context, name, input_card_type, value_type=None):
     if context.scene.popups_enabled:
         if name == "New":
-            kwargs = ("value_type='" + value_type + "'") if value_type else ""
+            kwargs = ("value_type='" + value_type + "'") if input_card_type == "Set" and value_type else ""
             exec("bpy.ops." + root_dot + "c_" + "_".join(input_card_type.lower().split()) + "('INVOKE_DEFAULT', " + kwargs + ")")
         else:
             entity = database.input_card.get_by_name(name)
@@ -135,14 +159,25 @@ def enum_constitutive(self, context, dimension):
 def enum_definition(self, context, definition_type):
     return [(d.name, d.name, "") for i, d in enumerate(context.scene.definition_uilist)
         if (database.definition[i].type == definition_type)
-            or (definition_type == "Method" and database.definition[i].type in method_types)
-            or (definition_type == "Nonlinear solver" and database.definition[i].type in nonlinear_solver_types)] + [("New", "New", "")]
-def enum_drive(self, context, drive_type):
+            or (definition_type == "Method" and database.definition[i].type in method)
+            or (definition_type == "Nonlinear solver" and database.definition[i].type in nonlinear_solver)] + [("New", "New", "")]
+def enum_drive(self, context, drive_type, drive_dimension="1D"):
     return [(d.name, d.name, "") for i, d in enumerate(context.scene.drive_uilist)
-        if not drive_type
-        or (database.drive[i].type == drive_type)] + [("New", "New", "")]
-def enum_element(self, context):
-    return [(e.name, e.name, "") for i, e in enumerate(context.scene.element_uilist)] # if not hasattr(database.element[i], "consumer")]
+        if (database.drive[i].dimension == drive_dimension)
+        and (not drive_type or (database.drive[i].type == drive_type))] + [("New", "New", "")]
+def enum_driver(self, context, driver_type):
+    ret = [(d.name, d.name, "") for i, d in enumerate(context.scene.driver_uilist)
+        if not driver_type
+        or (database.driver[i].type == driver_type)]
+    if driver_type == "Event stream" and ret:
+        return ret
+    else:
+        return ret + [("New", "New", "")]
+def enum_element(self, context, element_type, group):
+    return [(e.name, e.name, "") for i, e in enumerate(context.scene.element_uilist) if
+        (not group and not element_type) or 
+        (group and hasattr(database.element[i], "group") and database.element[i].group == group) or
+        (element_type and database.element[i].type == element_type)] # if not hasattr(database.element[i], "consumer")]
 def enum_function(self, context):
     return [(f.name, f.name, "") for f in context.scene.function_uilist] + [("New", "New", "")]
 def enum_friction(self, context):
@@ -158,6 +193,9 @@ def load_post(*args, **kwargs):
     database.unpickle()
     for scene in bpy.data.scenes:
         scene.dirty_simulator = True
+        scene.hash = repr(hash(scene))
+        for ob in scene.objects:
+            ob.hash = repr(hash(ob))
 
 entity_obs = defaultdict(list)
 
@@ -195,7 +233,7 @@ def save_pre(*args, **kwargs):
 class BPY:
     @classmethod
     def FORMAT(cls, prop):
-        return prop.safe_name() if isinstance(prop, Entity) else (prop if isinstance(prop, str) else FORMAT(prop))
+        return prop.safe_name() if isinstance(prop, Entity) else (("\"" + prop + "\"") if isinstance(prop, str) else FORMAT(prop))
     class Mode:
         mandatory = bpy.props.BoolProperty(default=False)
         select = bpy.props.BoolProperty(default=False, update=lambda self, context: self.set_check_select())
@@ -206,7 +244,7 @@ class BPY:
             return self.mandatory or self.select
         def to_be_assigned(self, arg):
             self.select = False if self.mandatory else arg is not None 
-            return self.select or self.mandatory
+            return arg is not None and (self.select or self.mandatory)
         def draw(self, layout, text="", prefix="Use"):
             row = layout.row()
             if not self.mandatory:
@@ -223,14 +261,13 @@ class BPY:
             ret = self.check_select_value
             self.check_select_value = False
             return ret
-    class InputCardPrototype:
-        name = bpy.props.EnumProperty(items=lambda self, context: enum_input_card(self, context, self.type, {bool: "bool", float: "real", int: "integer", str: "string"}[type(self.value)]),
+    class ValueMode(Mode):
+        name = bpy.props.EnumProperty(items=lambda self, context: enum_input_card(self, context, self.input_card_type, self.value_type),
             name="Name", description="Select a card, or New to create one",
-            update=lambda self, context: update_input_card(self, context, self.name, self.type, {bool: "bool", float: "real", int: "integer", str: "string"}[type(self.value)]))
-        type = bpy.props.StringProperty(default="Set")
-    class ValueMode(InputCardPrototype, Mode):
+            update=lambda self, context: update_input_card(self, context, self.name, self.input_card_type, self.value_type))
         is_card = bpy.props.BoolProperty(update=lambda self, context: self.set_check_is_card(), description="Toggle for variable name instead of value")
         check_is_card_value = bpy.props.BoolProperty(default=False)
+        input_card_type = bpy.props.StringProperty(default="Set")
         value_type = bpy.props.StringProperty()
         def set_check_is_card(self):
             self.check_is_card_value = True
@@ -239,6 +276,7 @@ class BPY:
                 if isinstance(arg, (bool, int, float, str)):
                     self.is_card = False
                     self.value = arg
+                    self.value_type = {bool: "bool", int: "integer", float: "real", str: "string"}[type(arg)]
                 else:
                     self.is_card = True
                     self.name = arg.name
@@ -270,25 +308,27 @@ class BPY:
         def check(self, context):
             ret = self.check_is_card_value
             self.check_is_card_value = False
-            self.value_type = {bool: "bool", float: "real", int: "integer", str: "string"}[type(self.value)]
             return ret or super().check(context)
-    class InputCard(bpy.types.PropertyGroup, InputCardPrototype, Mode):
+    class InputCard(bpy.types.PropertyGroup, Mode):
+        name = bpy.props.EnumProperty(items=lambda self, context: enum_input_card(self, context, self.input_card_type, self.value_type),
+            name="Name", description="Select a card, or New to create one",
+            update=lambda self, context: update_input_card(self, context, self.name, self.input_card_type, self.value_type))
+        input_card_type = bpy.props.StringProperty(default="Module load")
+        value_type = bpy.props.StringProperty()
         def assign(self, arg):
             if self.to_be_assigned(arg):
+                self.value_type = arg.value_type
                 self.name = arg.name
-                self.type = arg.type
         def store(self):
             return database.input_card.get_by_name(self.name) if self.to_be_stored() else None
-        def draw(self, layout, text=""):
-            layout.prop(self, "name", text=text)
     class Constitutive(bpy.types.PropertyGroup, Mode):
         name = bpy.props.EnumProperty(items=lambda self, context: enum_constitutive(self, context, self.dimension), name="Name", description="Select a constitutive, or New to create one",
             update=lambda self, context: update_constitutive(self, context, self.name, self.dimension))
         dimension = bpy.props.StringProperty()
         def assign(self, arg):
             if self.to_be_assigned(arg):
-                self.name = arg.name
                 self.dimension = arg.dimension
+                self.name = arg.name
         def store(self):
             return database.constitutive.get_by_name(self.name) if self.to_be_stored() else None
     class Definition(bpy.types.PropertyGroup, Mode):
@@ -302,17 +342,30 @@ class BPY:
         def store(self):
             return database.definition.get_by_name(self.name) if self.to_be_stored() else None
     class Drive(bpy.types.PropertyGroup, Mode):
-        name = bpy.props.EnumProperty(items=lambda self, context: enum_drive(self, context, self.type), name="Name", description="Select a drive, or New to create one",
-            update=lambda self, context: update_drive(self, context, self.name, self.type))
+        name = bpy.props.EnumProperty(items=lambda self, context: enum_drive(self, context, self.type, self.dimension), name="Name", description="Select a drive, or New to create one",
+            update=lambda self, context: update_drive(self, context, self.name, self.dimension, self.type))
+        dimension = bpy.props.StringProperty(default="1D")
+        type = bpy.props.StringProperty()
+        def assign(self, arg):
+            if self.to_be_assigned(arg):
+                self.dimension = arg.dimension
+                self.name = arg.name
+        def store(self):
+            return database.drive.get_by_name(self.name) if self.to_be_stored() else None
+    class Driver(bpy.types.PropertyGroup, Mode):
+        name = bpy.props.EnumProperty(items=lambda self, context: enum_driver(self, context, self.type), name="Name", description="Select a driver, or New to create one",
+            update=lambda self, context: update_driver(self, context, self.name, self.type))
         type = bpy.props.StringProperty()
         def assign(self, arg):
             if self.to_be_assigned(arg):
                 self.name = arg.name
         def store(self):
-            return database.drive.get_by_name(self.name) if self.to_be_stored() else None
+            return database.driver.get_by_name(self.name) if self.to_be_stored() else None
     class Element(bpy.types.PropertyGroup, Mode):
-        name = bpy.props.EnumProperty(items=enum_element, name="Name", description="Select an element, or New to create one",
-            update=lambda self, context: update_element(self, context, self.name))
+        name = bpy.props.EnumProperty(items=lambda self, context: enum_element(self, context, self.type, self.group), name="Name", description="Select an element, or New to create one",
+            update=lambda self, context: update_element(self, context, self.name, self.type))
+        type = bpy.props.StringProperty()
+        group = bpy.props.StringProperty()
         def assign(self, arg):
             if self.to_be_assigned(arg):
                 self.name = arg.name
@@ -402,7 +455,7 @@ class BPY:
             ret = self.check_is_matrix_value
             self.check_is_matrix_value = False
             return ret or self.float.check(context) or self.matrix.check(context)
-    klasses = [InputCard, Constitutive, Definition, Drive, Element, Segment, Friction, Function, Matrix, Shape, Scene, Bool, Int, Float, Str, MatrixFloat]
+    klasses = [InputCard, Constitutive, Definition, Drive, Driver, Element, Segment, Friction, Function, Matrix, Shape, Scene, Bool, Int, Float, Str, MatrixFloat]
     mbdyn_path = None
     plot_data = dict()
     @classmethod
@@ -419,6 +472,7 @@ class BPY:
         bpy.types.Scene.dirty_simulator = bpy.props.BoolProperty(default=True)
         bpy.types.Scene.hash = bpy.props.StringProperty()
         bpy.types.Scene.clean_log = bpy.props.BoolProperty(default=False)
+        bpy.types.Scene.mbdyn_default_orientation = bpy.props.StringProperty()
         bpy.types.Scene.mbdyn_name = bpy.props.StringProperty()
         bpy.types.Scene.popups_enabled = bpy.props.BoolProperty(default=False)
         bpy.types.Object.mbdyn_name = bpy.props.StringProperty()
@@ -435,6 +489,7 @@ class BPY:
         del bpy.types.Scene.dirty_simulator
         del bpy.types.Scene.hash
         del bpy.types.Scene.clean_log
+        del bpy.types.Scene.mbdyn_default_orientation
         del bpy.types.Scene.mbdyn_name
         del bpy.types.Scene.popups_enabled
         del bpy.types.Object.mbdyn_name
@@ -477,18 +532,16 @@ class Entity:
         localV_i = rot_i*globalV_i
         rot = self.objects[i].matrix_world.to_quaternion().to_matrix()
         if node:
-            f.write("\t\t" + safe_name(Node_i.name) + ",\n")
+            f.write(",\n\t\t" + safe_name(Node_i.name))
         if position:
-            f.write("\t\t\t")
+            f.write(",\n\t\t\t")
             if p_label:
                 f.write(p_label + ", ")
-            write_vector(f, localV_i)
+            write_vector(f, localV_i, prepend=False)
         if orientation:
-            f.write(",\n\t\t\t")
             if o_label:
-                f.write(o_label + ", ")
-            f.write("matr,\n")
-            write_matrix(f, rot_i*rot, "\t\t\t\t")
+                f.write(",\n\t\t\t" + o_label)
+            write_orientation(f, rot_i*rot, "\t\t\t")
 
 class SegmentList(list):
     def __init__(self, l=list()):
@@ -513,6 +566,7 @@ class SelectedObjects(list):
             self.clear()
 
 class Operator:
+    basis = None
     def general_data_exists(self, context):
         if enum_definition(self, context, "General data") == [("New", "New", "")]:
             exec("bpy.ops." + root_dot + "c_general_data()")
@@ -545,29 +599,28 @@ class Operator:
 
 class TreeMenu(list):
     def __init__(self, tree):
-        self.leaf_maker(tree[0], tree[1])
-    def leaf_maker(self, base, branch):
-        is_a_leaf = OrderedDict()
-        for i in range(len(branch)):
-            if isinstance(branch[i], list):
-                is_a_leaf[branch[i-1]] = False
-                self.leaf_maker(branch[i-1], branch[i])
-            else:
-                is_a_leaf[branch[i]] = True
-        class Menu(bpy.types.Menu):
-            bl_label = base
-            bl_description = " ".join(["New", base, "Menu"])
-            bl_idname = root_dot + "_".join(base.lower().split())
-            def draw(self, context):
-                layout = self.layout
-                layout.operator_context = 'INVOKE_DEFAULT'
-                for item, leaf in is_a_leaf.items():
-                    name, N = item, item.N if hasattr(item, "N") else None
-                    if leaf:
-                        layout.operator(root_dot + "c_" + "_".join(name.lower().split()), icon='OUTLINER_OB_MESH' if N == len(SelectedObjects(context)) + 1 else 'NONE')
-                    else:
-                        layout.menu(root_dot + "_".join(name.lower().split()))
-        self.append(Menu)
+        self.branches = OrderedDict()
+        self.menu_maker(tree)
+    def menu_maker(self, tree):
+        for key, value in tree.items():
+            if isinstance(value, OrderedDict):
+                self.menu_maker(value)
+                self.branches[key] = value
+                branches = self.branches
+                class Menu(bpy.types.Menu):
+                    bl_label = key
+                    bl_description = " ".join(["New", key, "Menu"])
+                    bl_idname = root_dot + "_".join(key.lower().split())
+                    def draw(self, context):
+                        layout = self.layout
+                        layout.operator_context = 'INVOKE_DEFAULT'
+                        for k, v in branches[self.bl_label].items():
+                            if isinstance(v, OrderedDict):
+                                layout.menu(root_dot + "_".join(k.lower().split()))
+                            else:
+                                layout.operator(root_dot + "c_" + "_".join(k.lower().split()), icon='OUTLINER_OB_MESH' if v == (len(SelectedObjects(context)) + 1) else 'NONE')
+                self.append(Menu)
+            
     def register(self):
         for klass in self:
             bpy.utils.register_class(klass)
@@ -768,7 +821,7 @@ class Operators(list):
 class UI(list):
     def __init__(self, entity_tree, klass, entity_list):
         module = klass.__module__.split(".")[1]
-        menu = root_dot + "_".join(entity_tree[0].lower().split())
+        menu = root_dot + "_".join(list(entity_tree.keys())[0].lower().split())
         self.make_list = klass.make_list
         self.delete_list = klass.delete_list
         def segments_maker(base, branch):
@@ -783,7 +836,15 @@ class UI(list):
                     segments[item] = [item]
             return segments
         klass.types_dict = OrderedDict()
-        klass.types_dict.update(segments_maker(entity_tree[0], entity_tree[1]))
+        for key, value in [v for v in entity_tree.values()][0].items():
+            if isinstance(value, Tree):
+                leaves = value.get_leaves()
+                klass.types_dict[key] = leaves
+                for leaf in leaves:
+                    klass.types_dict[leaf] = [leaf]
+            else:
+                klass.types_dict[key] = [key]
+        #klass.types_dict.update(segments_maker(entity_tree[0], entity_tree[1]))
         enum_types = [("All", "All", "All types", 'NONE', 0)] + [(key, key, ", ".join(value), ('RIGHTARROW_THIN' if 1 < len(value) else 'NONE'), i+1) for i, (key, value) in enumerate(klass.types_dict.items())]
         klass.types_dict["All"] = None
         class ListItem(bpy.types.PropertyGroup, klass):
@@ -813,7 +874,6 @@ class UI(list):
         class UIList(bpy.types.UIList, klass):
             bl_idname = module
             types = bpy.props.EnumProperty(items=enum_types, name="", description="Show only items of this type")
-            test = enum_types
             use_filter_consumed = bpy.props.BoolProperty(name="", description="Show consumed items", default=False)
             filter_name = bpy.props.StringProperty(name="", description="Only show items containing this string")
             def draw_item(self, context, layout, data, item, icon, active_data, active_property, index, flt_flag):
@@ -873,11 +933,14 @@ class UI(list):
                 index, uilist = self.get_uilist(context)
                 uilist.remove(index)
                 entity = entity_list.pop(index)
-                if entity.type == "Rigid offset":
-                    entity.objects[0].parent = None
                 for attr in vars(entity).values():
                     if isinstance(attr, SegmentList):
                         attr.clear()
+                if hasattr(entity, "objects"):
+                    Cube(entity.objects[0])
+                    for ob in entity.objects:
+                        if ob.parent in entity.objects:
+                            ob.parent = None
                 context.scene.dirty_simulator = True
                 self.set_index(context, 0 if index == 0 and 0 < len(uilist) else index-1)
                 index, uilist = self.get_uilist(context)

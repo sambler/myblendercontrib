@@ -40,11 +40,10 @@ global pathStyle
 # noinspection PyGlobalUndefined
 global pathStyleHtml
 
+
 # ------------------------------------------------------------------------------
 # Generate HTML file
 # ------------------------------------------------------------------------------
-
-
 def write_html(outpath, include_render, only_render, include_header, include_story, threshold, include_images,
                include_links, typecolor, webserver, include_borders, grease):
     # -------------------------------
@@ -389,11 +388,11 @@ def html_render(rootpath, fhandle, filehtm, only_render):
                           current_scene.render.resolution_y,
                           960, 600)
                 fhandle.write("    <tr>\n")
-                fhandle.write("     <td align=\"center\">"
-                              + "<a href=\"" + pathImagesHtml + "/" + filesave + "\" target=\"_blank\">"
-                              + "<img src=\"" + pathImagesHtml + "/"
-                              + filesave
-                              + "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
+                fhandle.write("     <td align=\"center\">" +
+                              "<a href=\"" + pathImagesHtml + "/" + filesave + "\" target=\"_blank\">" +
+                              "<img src=\"" + pathImagesHtml + "/" +
+                              filesave +
+                              "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
                 fhandle.write("    </tr>\n")
                 flagrender = True
         except:
@@ -429,10 +428,10 @@ def html_render(rootpath, fhandle, filehtm, only_render):
                       960, 600)
             fhandle.write("    <tr>\n")
             fhandle.write("     <td align=\"center\">"
-                          + "<a href=\"" + pathImagesHtml + "/" + filesave + "\" target=\"_blank\">"
-                          + "<img src=\"" + pathImagesHtml + "/"
-                          + filesave
-                          + "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
+                          "<a href=\"" + pathImagesHtml + "/" + filesave + "\" target=\"_blank\">" +
+                          "<img src=\"" + pathImagesHtml + "/" +
+                          filesave +
+                          "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
             fhandle.write("    </tr>\n")
             flagrender = True
         except:
@@ -447,10 +446,10 @@ def html_render(rootpath, fhandle, filehtm, only_render):
     if flagrender is False:
         z = ratio(960, 600, 960, 600)
         fhandle.write("    <tr>\n")
-        fhandle.write("     <td align=\"center\">"
-                      + "<a href=\"" + pathStyleHtml + "/whitenoise.png\" target=\"_blank\">"
-                      + "<img src=\"" + pathStyleHtml + "/whitenoise.png"
-                      + "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
+        fhandle.write("     <td align=\"center\">" +
+                      "<a href=\"" + pathStyleHtml + "/whitenoise.png\" target=\"_blank\">" +
+                      "<img src=\"" + pathStyleHtml + "/whitenoise.png" +
+                      "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
         fhandle.write("    </tr>\n")
     # -------------------
     # Table foot
@@ -526,13 +525,20 @@ def html_storyboard(rootpath, fhandle, filehtm, only_render, include_story, thre
                 k = frame.frame_number
                 if f <= k <= t:
                     klist.append(k)
-
+ 
     klist.sort()
     if len(klist) == 0:
         return
+
+    if current_scene.camera is not None:
+        camname = current_scene.camera.name
+    else:
+        camname = "*None"
+
     if include_header is True:
-        fhandle.write("<tr><td class=\"header\">&nbsp;&nbsp;Storyboard<span class=\"smalltitle\">(Camera: "
-                      + current_scene.camera.name + ")</span></td></tr>\n")
+        fhandle.write("<tr><td class=\"header\">&nbsp;&nbsp;Storyboard<span class=\"smalltitle\">(Camera: " +
+                      camname + ")</span></td></tr>\n")
+
     else:
         # blend name
         (filepath, filename) = os.path.split(bpy.data.filepath)
@@ -541,7 +547,7 @@ def html_storyboard(rootpath, fhandle, filehtm, only_render, include_story, thre
                       "<span class=\"smalltitle\">&nbsp;&nbsp;&nbsp;File: " + filename + "</span>" +
                       "<span class=\"smalltitle\">&nbsp;&nbsp;&nbsp;Scene: " + current_scene.name + "</span>" +
                       "<span class=\"smalltitle\">&nbsp;&nbsp;&nbsp;Fps: " + str(current_scene.render.fps) + "</span>" +
-                      "<span class=\"smalltitle\">&nbsp;&nbsp;&nbsp;Camera: " + current_scene.camera.name + "</span>" +
+                      "<span class=\"smalltitle\">&nbsp;&nbsp;&nbsp;Camera: " + camname + "</span>" +
                       "</td></tr>\n")
     # -------------------
     # Table header
@@ -603,22 +609,22 @@ def html_storyboard(rootpath, fhandle, filehtm, only_render, include_story, thre
 
                     sec = (e / current_scene.render.fps)
                     sectxt = "%0.03f" % sec
-                    fhandle.write("     <td align=\"center\">"
-                                  + "<a href=\"" + pathImagesHtml + "/" + filesave + "\" target=\"_blank\">"
-                                  + "<img src=\"" + pathImagesHtml + "/"
-                                  + filesave
-                                  + "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\">"
-                                  + "<br /><span class=\"smalltitle\">Keyframe: </span>" + str(e)
-                                  + " (" + sectxt + " sec.)"
-                                  + "</td>\n")
+                    fhandle.write("     <td align=\"center\">" +
+                                  "<a href=\"" + pathImagesHtml + "/" + filesave + "\" target=\"_blank\">" +
+                                  "<img src=\"" + pathImagesHtml + "/" +
+                                  filesave +
+                                  "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\">" +
+                                  "<br /><span class=\"smalltitle\">Keyframe: </span>" + str(e) +
+                                  " (" + sectxt + " sec.)" +
+                                  "</td>\n")
                     # 1 by row
                     if int(include_story) == 1:
                         x += 1
                     # Notes Box
                     if int(include_story) == 3:
-                        fhandle.write("     <td class=\"box\" width=\"" + str(z[0] - 20) + "\">"
-                                      + "<span class=\"smalltitle\">Notes:</span><br />"
-                                      + "</td>\n")
+                        fhandle.write("     <td class=\"box\" width=\"" + str(z[0] - 20) + "\">" +
+                                      "<span class=\"smalltitle\">Notes:</span><br />" +
+                                      "</td>\n")
                         x += 1
 
                     if x % 2 != 0:
@@ -637,11 +643,12 @@ def html_storyboard(rootpath, fhandle, filehtm, only_render, include_story, thre
         fhandle.write("    </tr>\n")
 
     # back to old configuration
-    # noinspection PyBroadException
-    try:
-        bpy.data.images['Render Result'].render_slots.active_index = oldslot
-    except:
-        bpy.data.images['Render Result'].render_slots.active_index = 1
+    if 'Render Result' in bpy.data.images:
+        # noinspection PyBroadException
+        try:
+            bpy.data.images['Render Result'].render_slots.active_index = oldslot
+        except:
+            bpy.data.images['Render Result'].render_slots.active_index = 1
 
     current_scene.frame_set(oldframe)
 
@@ -701,10 +708,10 @@ def html_images(fhandle, include_borders):
             fhandle.write("    <tr>\n")
             z = ratio(myimage.size[0], myimage.size[1])
             myfilesave = os.path.splitext(filename)[0] + ".png"
-            fhandle.write("     <td>"
-                          + "<a href=\"" + pathImagesHtml + "/" + myfilesave + "\" target=\"_blank\">"
-                          + "<img src=\"" + pathImagesHtml + "/" + myfilesave
-                          + "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
+            fhandle.write("     <td>" +
+                          "<a href=\"" + pathImagesHtml + "/" + myfilesave + "\" target=\"_blank\">" +
+                          "<img src=\"" + pathImagesHtml + "/" + myfilesave +
+                          "\" width=\"" + str(z[0]) + "\" height=\"" + str(z[1]) + "\"></td>\n")
             fhandle.write("     <td>" + myimage.name + "</td>\n")
             fhandle.write("     <td>" + myimage.file_format + "</td>\n")
             fhandle.write("     <td>" + str(myimage.size[0]) + "*" + str(myimage.size[1]) + "</td>\n")

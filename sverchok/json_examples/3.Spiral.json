@@ -1,127 +1,5 @@
 {
-  "connections": {
-    "0": [
-      "Matrix Generator",
-      "Matrix",
-      "Viewer Node",
-      "matrix"
-    ],
-    "1": [
-      "Gen Vectors.001",
-      "Vectors",
-      "Matrix Generator",
-      "Scale"
-    ],
-    "2": [
-      "Float.004",
-      "Float",
-      "Gen Vectors.001",
-      "X"
-    ],
-    "3": [
-      "Float.005",
-      "Float",
-      "Gen Vectors.001",
-      "Y"
-    ],
-    "4": [
-      "Float",
-      "Float",
-      "Matrix Generator",
-      "Angle"
-    ],
-    "5": [
-      "Formula2",
-      "Result",
-      "Gen Vectors",
-      "X"
-    ],
-    "6": [
-      "Formula2.001",
-      "Result",
-      "Gen Vectors",
-      "Y"
-    ],
-    "7": [
-      "Float.006",
-      "Float",
-      "Gen Vectors.001",
-      "Z"
-    ],
-    "8": [
-      "Float.006",
-      "Float",
-      "Gen Vectors.002",
-      "Z"
-    ],
-    "9": [
-      "Gen Vectors.002",
-      "Vectors",
-      "Matrix Generator",
-      "Rotation"
-    ],
-    "10": [
-      "List Zip",
-      "data",
-      "Viewer Node",
-      "edg_pol"
-    ],
-    "11": [
-      "Gen Vectors",
-      "Vectors",
-      "Viewer Node",
-      "vertices"
-    ],
-    "12": [
-      "Float Series",
-      "Range",
-      "Formula2",
-      "n[0]"
-    ],
-    "13": [
-      "Float Series",
-      "Range",
-      "Formula2",
-      "n[1]"
-    ],
-    "14": [
-      "Float Series",
-      "Range",
-      "Formula2.001",
-      "n[0]"
-    ],
-    "15": [
-      "Float Series",
-      "Range",
-      "Gen Vectors",
-      "Z"
-    ],
-    "16": [
-      "List Range Int",
-      "Range",
-      "Formula2",
-      "X"
-    ],
-    "17": [
-      "List Range Int",
-      "Range",
-      "Formula2.001",
-      "X"
-    ],
-    "18": [
-      "List Range Int.001",
-      "Range",
-      "List Zip",
-      "data"
-    ],
-    "19": [
-      "List Range Int.002",
-      "Range",
-      "List Zip",
-      "data 1"
-    ]
-  },
-  "export_version": "0.04 pre alpha",
+  "export_version": "0.055",
   "framed_nodes": {
     "Float": "Frame",
     "Float Series": "Frame.002",
@@ -137,8 +15,9 @@
     "List Range Int.001": "Frame.001",
     "List Range Int.002": "Frame.001",
     "List Zip": "Frame.001",
-    "Matrix Generator": "Frame"
+    "Matrix in": "Frame"
   },
+  "groups": {},
   "nodes": {
     "Float": {
       "bl_idname": "FloatNode",
@@ -290,7 +169,7 @@
         60.0
       ],
       "params": {},
-      "width": 709.6409301757812
+      "width": 767.4811401367188
     },
     "Frame.001": {
       "bl_idname": "NodeFrame",
@@ -454,7 +333,7 @@
       "params": {},
       "width": 140.0
     },
-    "Matrix Generator": {
+    "Matrix in": {
       "bl_idname": "MatrixGenNode",
       "color": [
         0.6079999804496765,
@@ -465,14 +344,14 @@
       "hide": false,
       "label": "",
       "location": [
-        301.307373046875,
-        -6.44989013671875
+        359.1475524902344,
+        6.253173828125
       ],
       "params": {},
       "width": 140.0
     },
-    "Viewer Node": {
-      "bl_idname": "ViewerNode",
+    "Viewer Draw2": {
+      "bl_idname": "ViewerNode2",
       "color": [
         1.0,
         0.30000001192092896,
@@ -482,17 +361,12 @@
       "hide": false,
       "label": "",
       "location": [
-        934.2279052734375,
-        499.53009033203125
+        1182.704345703125,
+        596.02783203125
       ],
       "params": {
-        "Vertex_show": 1,
-        "activate": 1,
-        "color_view": [
-          0.09988093376159668,
-          1.0,
-          0.0
-        ]
+        "display_verts": 1,
+        "shading": 1
       },
       "width": 140.0
     }
@@ -527,42 +401,6 @@
       "Float",
       "Gen Vectors.001",
       "Z"
-    ],
-    [
-      "List Range Int.001",
-      "Range",
-      "List Zip",
-      "data"
-    ],
-    [
-      "List Range Int.002",
-      "Range",
-      "List Zip",
-      "data 1"
-    ],
-    [
-      "Float.006",
-      "Float",
-      "Gen Vectors.002",
-      "Z"
-    ],
-    [
-      "Gen Vectors.001",
-      "Vectors",
-      "Matrix Generator",
-      "Scale"
-    ],
-    [
-      "Gen Vectors.002",
-      "Vectors",
-      "Matrix Generator",
-      "Rotation"
-    ],
-    [
-      "Float",
-      "Float",
-      "Matrix Generator",
-      "Angle"
     ],
     [
       "List Range Int",
@@ -601,21 +439,57 @@
       "Z"
     ],
     [
+      "List Range Int.001",
+      "Range",
+      "List Zip",
+      "data"
+    ],
+    [
+      "List Range Int.002",
+      "Range",
+      "List Zip",
+      "data 1"
+    ],
+    [
+      "Float.006",
+      "Float",
+      "Gen Vectors.002",
+      "Z"
+    ],
+    [
+      "Gen Vectors.001",
+      "Vectors",
+      "Matrix in",
+      "Scale"
+    ],
+    [
+      "Gen Vectors.002",
+      "Vectors",
+      "Matrix in",
+      "Rotation"
+    ],
+    [
+      "Float",
+      "Float",
+      "Matrix in",
+      "Angle"
+    ],
+    [
       "Gen Vectors",
       "Vectors",
-      "Viewer Node",
+      "Viewer Draw2",
       "vertices"
     ],
     [
       "List Zip",
       "data",
-      "Viewer Node",
+      "Viewer Draw2",
       "edg_pol"
     ],
     [
-      "Matrix Generator",
+      "Matrix in",
       "Matrix",
-      "Viewer Node",
+      "Viewer Draw2",
       "matrix"
     ]
   ]

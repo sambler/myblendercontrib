@@ -23,33 +23,22 @@
 
 if "bpy" in locals():
     import imp
-    imp.reload(bpy)
-    imp.reload(root_dot)
-    imp.reload(Operator)
-    imp.reload(Entity)
+    for x in [user_defined_element, common, base, menu]:
+        imp.reload(x)
 else:
-    from .common import (safe_name, Type, aerodynamic_types, beam_types, force_types, genel_types, joint_types, environment_types, node_types,
-        structural_static_types, structural_dynamic_types, Ellipsoid, RhombicPyramid, Teardrop, Cylinder, Sphere, RectangularCuboid, write_vector, write_matrix)
-    from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, SelectedObjects, SegmentList
-    from mathutils import Vector
-    from copy import copy
-    import os
-    import subprocess
-    from tempfile import TemporaryFile
-
-types = aerodynamic_types + beam_types + ["Body"] + force_types + genel_types + joint_types + environment_types + ["Driven"] + node_types
-
-tree = ["Element",
-    ["Aerodynamic", aerodynamic_types,
-    "Beam", beam_types,
-    Type("Body", 1),
-    "Force", force_types,
-    "GENEL", genel_types,
-    "Joint", joint_types,
-    "Environment", environment_types,
-    "Driven",
-    "Node", node_types,
-    ]]
+    from . import user_defined_element
+    from . import common
+    from . import base
+    from . import menu
+from .user_defined_element import klass_list
+from .common import (safe_name, Ellipsoid, RhombicPyramid, TriPyramid, Octahedron, Teardrop, Cylinder, Sphere, RectangularCuboid, write_vector, write_orientation)
+from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle, SelectedObjects, SegmentList
+from .menu import default_klasses, element_tree
+from mathutils import Vector
+from copy import copy
+import os
+import subprocess
+from tempfile import TemporaryFile
 
 class Base(Operator):
     bl_label = "Elements"
@@ -57,10 +46,12 @@ class Base(Operator):
     N_objects = 2
     @classmethod
     def poll(cls, context):
-        obs = SelectedObjects(context)
-        return ((cls.N_objects == 0 and not (cls.exclusive and database.element.filter(cls.bl_label)))
-            or len(obs) == cls.N_objects - 1
-            or (len(obs) == cls.N_objects and not (cls.exclusive and database.element.filter(cls.bl_label, obs[0]))))
+        if cls.N_objects == 0:
+            return not cls.exclusive or not database.element.filter(cls.bl_label)
+        else:
+            obs = SelectedObjects(context)
+            return (len(obs) == cls.N_objects - 1
+                or (len(obs) == cls.N_objects and not (cls.exclusive and database.element.filter(cls.bl_label, obs[0] if obs else None))))
     def sufficient_objects(self, context):
         objects = SelectedObjects(context)
         if len(objects) == self.N_objects - 1:
@@ -112,6 +103,12 @@ class Base(Operator):
                 layout.operator_context = 'EXEC_DEFAULT'
                 layout.operator("object.delete")
 
+klasses = default_klasses(element_tree, Base)
+for e, o in klass_list:
+    class O(o, Base):
+        pass
+    klasses[O.bl_label] = O
+
 class Constitutive(Base):
     constitutive = bpy.props.PointerProperty(type = BPY.Constitutive)
     def prereqs(self, context):
@@ -153,138 +150,102 @@ class Friction(Base):
     def check(self, context):
         return self.friction.check(context)
 
-klasses = dict()
-
 class StructuralForce(Entity):
     elem_type = "force"
     file_ext = "frc"
     labels = "node Fx Fy Fz X Y Z".split()
     def write(self, f):
         rot_0, globalV_0, Node_0 = self.rigid_offset(0)
-        rotT_0 = self.objects[0].matrix_world.to_quaternion().to_matrix()
-        relative_dir = rot_0*rotT_0*Vector((0., 0., 1.))
-        relative_arm_0 = rot_0*globalV_0
-        string = "\tforce: " + self.safe_name() + ", " + self.orientation
-        if self.orientation == "follower":
-            relative_dir = rot_0*rotT_0*Vector((0., 0., 1.))
-        else:
-            relative_dir = rotT_0*Vector((0., 0., 1.))
-        f.write(string+
-        ",\n\t\t" + safe_name(Node_0.name) +
-        ",\n\t\t\tposition, ")
-        write_vector(f, relative_arm_0, ",\n\t\t\t")
-        write_vector(f, relative_dir, ",\n\t\t")
-        f.write("reference, " + self.drive.safe_name() + ";\n")
+        localV_0 = rot_0*globalV_0
+        rotT = self.objects[0].matrix_world.to_quaternion().to_matrix()
+        f.write("\t" + self.elem_type + ": " + self.safe_name() + ", " + self.force_type +
+            ",\n\t\t" + safe_name(Node_0.name) + ", position")
+        write_vector(f, localV_0)
+        if self.force_type == "follower" and self.orientation:
+            f.write(",\n\t\torientation")
+            write_orientation(f, rot_0*rotT, "\t\t")
+        f.write(",\n\t\t" + self.drive.string() + ";\n")
     def remesh(self):
-        RhombicPyramid(self.objects[0])
+        if self.force_type == "absolute":
+            Octahedron(self.objects[0])
+        else:
+            TriPyramid(self.objects[0])
 
-class Force(Drive):
-    orientation = bpy.props.EnumProperty(items=[("follower", "Follower", ""), ("absolute", "Absolute", "")], name="Orientation", default="follower")
+class StructuralForceOperator(Drive):
+    bl_label = "Structural force"
+    N_objects = 1
+    force_type = bpy.props.EnumProperty(items=[("follower", "Follower", ""), ("absolute", "Absolute", "")], name="Force type", default="follower")
+    orientation = bpy.props.BoolProperty(name="Has orientation patch")
+    def prereqs(self, context):
+        self.drive.mandatory = True
+        self.drive.dimension = "3D"
     def assign(self, context):
+        self.force_type = self.entity.force_type
         self.orientation = self.entity.orientation
         super().assign(context)
     def store(self, context):
+        self.entity.force_type = self.force_type
         self.entity.orientation = self.orientation
         super().store(context)
     def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "orientation")
-        self.drive.draw(layout, "Drive")
-
-class StructuralForceOperator(Force):
-    bl_label = "Structural force"
-    N_objects = 1
+        self.layout.prop(self, "force_type")
+        if self.force_type == "follower":
+            self.layout.prop(self, "orientation")
+        super().draw(context)
     def create_entity(self):
         return StructuralForce(self.name)
 
 klasses[StructuralForceOperator.bl_label] = StructuralForceOperator
 
-class StructuralInternalForce(Entity):
-    elem_type = "force"
-    file_ext = "frc"
-    labels = "node1 F1x F1y F1z X1 Y1 Z1 node2 F2x F2y F2z X2 Y2 Z2".split()
-    def write(self, f):
-        rot_0, globalV_0, Node_0 = self.rigid_offset(0)
-        rotT_0 = self.objects[0].matrix_world.to_quaternion().to_matrix()
-        relative_arm_0 = rot_0*globalV_0
-        rot_1, globalV_1, Node_1 = self.rigid_offset(1)
-        relative_arm_1 = rot_1*globalV_1
-        string = "\tforce: " + self.safe_name() + ", "
-        if self.orientation == "follower":
-            string += "follower internal"
-            relative_dir = rot_0*rotT_0*Vector((0., 0., 1.))
-        else:
-            string += "absolute internal"
-            relative_dir = rotT_0*Vector((0., 0., 1.))
-        f.write(string+
-        ",\n\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
-        write_vector(f, relative_dir, ",\n\t\t\t")
-        write_vector(f, relative_arm_0, ",\n\t\t")
-        f.write(safe_name(Node_1.name) + ",\n\t\t\t")
-        write_vector(f, relative_arm_1, ",\n\t\t")
-        f.write("reference, " + self.drive.safe_name() + ";\n")
-    def remesh(self):
-        RhombicPyramid(self.objects[0])
-
-class StructuralInternalForceOperator(Force):
-    bl_label = "Structural internal force"
-    def create_entity(self):
-        return StructuralInternalForce(self.name)
-
-klasses[StructuralInternalForceOperator.bl_label] = StructuralInternalForceOperator
-
-class StructuralCouple(Entity):
+class StructuralCouple(StructuralForce):
     elem_type = "couple"
-    file_ext = "frc"
     labels = "node Mx My Mz".split()
-    def write(self, f):
-        rot_0, globalV_0, Node_0 = self.rigid_offset(0)
-        rotT_0 = self.objects[0].matrix_world.to_quaternion().to_matrix()
-        string = "\tcouple: " + self.safe_name() + ", "
-        if self.orientation == "follower":
-            string += "follower"
-            relative_dir = rot_0*rotT_0*Vector((0., 0., 1.))
-        else:
-            string += "absolute"
-            relative_dir = rotT_0*Vector((0., 0., 1.))
-        f.write(string+
-        ",\n\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
-        write_vector(f, relative_dir, ",\n\t\t")
-        f.write("reference, " + self.drive.safe_name() + ";\n")
-    def remesh(self):
-        RhombicPyramid(self.objects[0])
 
-class StructuralCoupleOperator(Force):
+class StructuralCoupleOperator(StructuralForceOperator):
     bl_label = "Structural couple"
-    N_objects = 1
     def create_entity(self):
         return StructuralCouple(self.name)
 
 klasses[StructuralCoupleOperator.bl_label] = StructuralCoupleOperator
 
-class StructuralInternalCouple(Entity):
-    elem_type = "couple"
+class StructuralInternalForce(Entity):
+    elem_type = "force"
     file_ext = "frc"
-    labels = "node1 M1x M1y M1z node2 M2x M2y M2z".split()
+    labels = "node Fx Fy Fz X Y Z".split()
     def write(self, f):
         rot_0, globalV_0, Node_0 = self.rigid_offset(0)
-        rotT_0 = self.objects[0].matrix_world.to_quaternion().to_matrix()
+        localV_0 = rot_0*globalV_0
+        rotT = self.objects[0].matrix_world.to_quaternion().to_matrix()
         rot_1, globalV_1, Node_1 = self.rigid_offset(1)
-        string = "\tcouple: " + self.safe_name() + ", "
-        if self.orientation == "follower":
-            string += "follower internal"
-            relative_dir = rot_0*rotT_0*Vector((0., 0., 1.))
-        else:
-            string += "absolute internal"
-            relative_dir = rotT_0*Vector((0., 0., 1.))
-        f.write(string+
-        ",\n\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
-        write_vector(f, relative_dir, ",\n\t\t")
-        f.write(safe_name(Node_1.name) + ",\n\t\treference, " + self.drive.safe_name() + ";\n")
+        localV_1 = rot_1*globalV_1
+        f.write("\t" + self.elem_type + ": " + self.safe_name() + ", " + self.force_type + " internal" +
+            ",\n\t\t" + safe_name(Node_0.name) + ", position")
+        write_vector(f, localV_0)
+        if self.force_type == "follower" and self.orientation:
+            f.write(",\n\t\torientation")
+            write_orientation(f, rot_0*rotT, "\t\t")
+        f.write(",\n\t\t" + safe_name(Node_1.name) + ", position")
+        write_vector(f, localV_1)
+        f.write(",\n\t\t" + self.drive.string() + ";\n")
     def remesh(self):
-        RhombicPyramid(self.objects[0])
+        if self.force_type == "absolute":
+            Octahedron(self.objects[0])
+        else:
+            TriPyramid(self.objects[0])
 
-class StructuralInternalCoupleOperator(Force):
+class StructuralInternalForceOperator(StructuralForceOperator):
+    bl_label = "Structural internal force"
+    N_objects = 2
+    def create_entity(self):
+        return StructuralInternalForce(self.name)
+
+klasses[StructuralInternalForceOperator.bl_label] = StructuralInternalForceOperator
+
+class StructuralInternalCouple(StructuralInternalForce):
+    elem_type = "couple"
+    labels = "node1 M1x M1y M1z node2 M2x M2y M2z".split()
+
+class StructuralInternalCoupleOperator(StructuralInternalForceOperator):
     bl_label = "Structural internal couple"
     def create_entity(self):
         return StructuralInternalCouple(self.name)
@@ -303,22 +264,18 @@ class Hinge(Joint):
         rot_1, globalV_1, Node_1 = self.rigid_offset(1)
         to_hinge = rot_1*(globalV_1 + self.objects[0].matrix_world.translation - self.objects[1].matrix_world.translation)
         rotT = self.objects[0].matrix_world.to_quaternion().to_matrix()
-        f.write(
-        "\tjoint: " + self.safe_name() + ", " + name + ",\n" +
-        "\t\t" + safe_name(Node_0.name))
+        f.write("\tjoint: " + self.safe_name() + ", " + name + ",\n\t\t" + safe_name(Node_0.name))
         if V1:
-            f.write(", ")
             write_vector(f, localV_0)
         if M1:
-            f.write(",\n\t\t\thinge, matr,\n")
-            write_matrix(f, rot_0*rotT, "\t\t\t\t")
+            f.write(",\n\t\t\thinge")
+            write_orientation(f, rot_0*rotT, "\t\t\t")
         f.write(", \n\t\t" + safe_name(Node_1.name))
         if V2:
-            f.write(", ")
             write_vector(f, to_hinge)
         if M2:
-            f.write(",\n\t\t\thinge, matr,\n")
-            write_matrix(f, rot_1*rotT, "\t\t\t\t")
+            f.write(",\n\t\t\thinge")
+            write_orientation(f, rot_1*rotT, "\t\t\t")
 
 class AxialRotation(Hinge):
     def write(self, f):
@@ -400,14 +357,13 @@ klasses[DeformableJointOperator.bl_label] = DeformableJointOperator
 
 class Distance(Joint):
     def write(self, f):
-        f.write("\tjoint: " + self.safe_name() + ", distance,\n")
+        f.write("\tjoint: " + self.safe_name() + ", distance")
         for i in range(2):
             self.write_node(f, i, node=True, position=True, p_label="position")
-            f.write(",\n")
         if self.drive is None:
-            f.write("\t\tfrom nodes;\n")
+            f.write(",\n\t\tfrom nodes;\n")
         else:
-            f.write("\t\treference, " + self.drive.safe_name() + ";\n")
+            f.write(",\n\t\treference, " + self.drive.safe_name() + ";\n")
 
 class DistanceOperator(Drive):
     bl_label = "Distance"
@@ -423,19 +379,21 @@ class InLine(Joint):
     def write(self, f):
         rot_1, globalV_1, Node_1 = self.rigid_offset(1)
         localV_1 = rot_1*globalV_1
-        f.write("\tjoint: " + self.safe_name() + ", inline,\n")
+        f.write("\tjoint: " + self.safe_name() + ", in line")
         self.write_node(f, 0, node=True, position=True, orientation=True)
-        f.write(",\n\t\t" + safe_name(Node_1.name) + ",\n\t\t\toffset, ")
-        write_vector(f, localV_1, ";\n")
+        f.write(",\n\t\t" + safe_name(Node_1.name) + ",\n\t\t\toffset")
+        write_vector(f, localV_1)
+        f.write(";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
 
 class InLineOperator(Base):
-    bl_label = "Inline"
+    bl_label = "In line"
     def create_entity(self):
         return InLine(self.name)
 
-klasses[InLineOperator.bl_label] = InLineOperator
+# MBDyn's In line joint is unstable
+#klasses[InLineOperator.bl_label] = InLineOperator
 
 class InPlane(Joint):
     def write(self, f):
@@ -447,17 +405,19 @@ class InPlane(Joint):
         rot = self.objects[0].matrix_world.to_quaternion().to_matrix()
         normal = rot*rot_0*Vector((0., 0., 1.))
         f.write(
-        "\tjoint: " + self.safe_name() + ", inplane,\n" +
-        "\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
-        write_vector(f, localV_0, ",\n\t\t\t")
-        write_vector(f, normal, ",\n\t\t")
-        f.write(safe_name(Node_1.name) + ",\n\t\t\toffset, ")
-        write_vector(f, localV_1, ";\n")
+        "\tjoint: " + self.safe_name() + ", in plane" +
+        ",\n\t\t" + safe_name(Node_0.name) + ",\n\t\t\t")
+        write_vector(f, localV_0, prepend=False)
+        f.write(",\n\t\t\t")
+        write_vector(f, normal, prepend=False)
+        f.write(",\n\t\t" + safe_name(Node_1.name) + ",\n\t\t\toffset")
+        write_vector(f, localV_1)
+        f.write(";\n")
     def remesh(self):
         RhombicPyramid(self.objects[0])
 
 class InPlaneOperator(Base):
-    bl_label = "Inplane"
+    bl_label = "In plane"
     def create_entity(self):
         return InPlane(self.name)
 
@@ -509,17 +469,32 @@ klasses[RevoluteHingeOperator.bl_label] = RevoluteHingeOperator
 class Rod(Joint):
     labels = "Fx Fy Fz Mx My Mz FX FY FZ MX MY MZ l ux uy uz l_dot".split()
     def write(self, f):
-        f.write("\tjoint: " + self.safe_name() + ", rod,\n")
+        f.write("\tjoint: " + self.safe_name() + ", rod")
         for i in range(2):
             self.write_node(f, i, node=True, position=True, p_label="position")
-            f.write(",\n")
-        f.write("\t\tfrom nodes,\n\t\treference, " + self.constitutive.safe_name() + ";\n")
+        if self.length is not None:
+            f.write(",\n\t\t" + BPY.FORMAT(self.length))
+        else:
+            f.write(",\n\t\tfrom nodes")
+        f.write(",\n\t\treference, " + self.constitutive.safe_name() + ";\n")
 
 class RodOperator(Constitutive):
     bl_label = "Rod"
+    length = bpy.props.PointerProperty(type = BPY.Float)
     def prereqs(self, context):
         self.constitutive.mandatory = True
         self.constitutive.dimension = "1D"
+    def assign(self, context):
+        self.length.assign(self.entity.length)
+        super().assign(context)
+    def store(self, context):
+        self.entity.length = self.length.store()
+        super().store(context)
+    def draw(self, context):
+        super().draw(context)
+        self.length.draw(self.layout, text="Length")
+    def check(self, context):
+        return self.length.check(context) or super().check(context)
     def create_entity(self):
         return Rod(self.name)
 
@@ -553,22 +528,25 @@ class TotalJoint(Joint):
             rot_position = self.objects[1].matrix_world.to_quaternion().to_matrix()
         f.write("\tjoint: " + self.safe_name() + ", total joint")
         if self.first == "rotate":
-            f.write(",\n\t\t" + safe_name(Node_0.name) + ", position, ")
-            write_vector(f, localV_0, ",\n\t\t\tposition orientation, matr,\n")
-            write_matrix(f, rot_0*rot_position, "\t\t\t\t")
-            f.write(",\n\t\t\trotation orientation, matr,\n")
-            write_matrix(f, rot_0*rot, "\t\t\t\t")
-        f.write(",\n\t\t" + safe_name(Node_1.name) + ", position, ")
-        write_vector(f, to_joint, ",\n\t\t\tposition orientation, matr,\n")
-        write_matrix(f, rot_1*rot_position, "\t\t\t\t")
-        f.write(",\n\t\t\trotation orientation, matr,\n")
-        write_matrix(f, rot_1*rot, "\t\t\t\t")
+            f.write(",\n\t\t" + safe_name(Node_0.name) + ", position")
+            write_vector(f, localV_0)
+            f.write(",\n\t\t\tposition orientation")
+            write_orientation(f, rot_0*rot_position, "\t\t\t")
+            f.write(",\n\t\t\trotation orientation")
+            write_orientation(f, rot_0*rot, "\t\t\t")
+        f.write(",\n\t\t" + safe_name(Node_1.name) + ", position")
+        write_vector(f, to_joint)
+        f.write(",\n\t\t\tposition orientation")
+        write_orientation(f, rot_1*rot_position, "\t\t\t")
+        f.write(",\n\t\t\trotation orientation")
+        write_orientation(f, rot_1*rot, "\t\t\t")
         if self.first == "displace":
-            f.write(",\n\t\t" + safe_name(Node_0.name) + ", position, ")
-            write_vector(f, localV_0, ",\n\t\t\tposition orientation, matr,\n")
-            write_matrix(f, rot_0*rot_position, "\t\t\t\t")
-            f.write(",\n\t\t\trotation orientation, matr,\n")
-            write_matrix(f, rot_0*rot, "\t\t\t\t")
+            f.write(",\n\t\t" + safe_name(Node_0.name) + ", position")
+            write_vector(f, localV_0)
+            f.write(",\n\t\t\tposition orientation")
+            write_orientation(f, rot_0*rot_position, "\t\t\t")
+            f.write(",\n\t\t\trotation orientation")
+            write_orientation(f, rot_0*rot, "\t\t\t")
         f.write(",\n\t\t\tposition constraint")
         for d in self.drives[:3]: 
             if d:
@@ -610,7 +588,7 @@ class TotalJointOperator(Base):
                 self.titles.append(t1 + t2)
     def assign(self, context):
         self.first = self.entity.first
-        for i, d in enumerate(self.entity.drive):
+        for i, d in enumerate(self.entity.drives):
             self.drives[i].assign(d)
     def store(self, context):
         self.entity.first = self.first
@@ -649,13 +627,215 @@ class ViscousBodyOperator(Constitutive):
 
 klasses[ViscousBodyOperator.bl_label] = ViscousBodyOperator
 
+class StreamOutput(Entity):
+    elem_type = "stream output"
+    def write(self, f):
+        f.write("\tstream output: " + self.safe_name() +
+            ",\n\t\tstream name, " + BPY.FORMAT(self.stream_name) +
+            ",\n\t\tcreate, " + ("yes" if self.create else "no"))
+        if self.socket_name is not None:
+            f.write(",\n\t\tlocal, ", BPY.FORMAT(self.socket_name))
+        else:
+            f.write((",\n\t\tport, " + BPY.FORMAT(self.port_number) if self.port_number is not None else "") +
+                (",\n\t\thost, " + BPY.FORMAT(self.host_name) if self.host_name is not None else ""))
+        f.write(",\n\t\t" + ("" if self.signal else "no ") + "signal"
+            + ",\n\t\t" + ("" if self.blocking else "non ") + "blocking"
+            + ",\n\t\t" + ("" if self.send_first else "no ") + "send first"
+            + ",\n\t\t" + ("" if self.abort_if_broken else "do not ") + "abort if broken")
+        f.write(",\n\t\toutput every, " + BPY.FORMAT(self.steps) if self.steps is not None else "")
+        if self.file_name is not None:
+            f.write(",\n\t\techo, " + BPY.FORMAT(self.file_name) +
+                (",\n\t\tprecision, " + BPY.FORMAT(self.precision) if self.precision is not None else "") +
+                (",\n\t\tshift, " + BPY.FORMAT(self.shift) if self.shift is not None else ""))
+        if self.values_motion == "values":
+            f.write(",\n\t\tvalues, " + str(len(self.nodedofs) + len(self.drives)))
+            for nodedof in self.nodedofs:
+                f.write(",\n\t\t\tnodedof, " + BPY.FORMAT(nodedof))
+            for drive in self.drives:
+                f.write(",\n\t\t\tdrive, reference, " + drive.safe_name())
+        else:
+            f.write(",\n\t\tmotion")
+            if self.position or self.orientation_matrix or self.orientation_matrix_transpose or self.velocity or self.angular_velocity:
+                f.write(", output flags")
+                f.write((", position" if self.position else "") +
+                    (", orientation matrix" if self.orientation_matrix else "") +
+                    (", orientation matrix transpose" if self.orientation_matrix_transpose else "") +
+                    (", velocity" if self.velocity else "") +
+                    (", angular velocity" if self.angular_velocity else ""))
+                if hasattr(self, "objects"):
+                    for ob in self.objects:
+                        assert ob in database.node, repr(ob) + "is not a node"
+                        f.write(",\n\t\t\t" + safe_name(ob.name))
+                else:
+                    for ob in database.node:
+                        f.write(",\n\t\t\t" + safe_name(ob.name))
+        f.write(";\n")
+
+class StreamOutputOperator(Base):
+    bl_label = "Stream output"
+    N_objects = 0
+    stream_name = bpy.props.PointerProperty(type = BPY.Str)
+    create = bpy.props.BoolProperty(name="Create")
+    socket_name = bpy.props.PointerProperty(type = BPY.Str)
+    port_number = bpy.props.PointerProperty(type = BPY.Int)
+    host_name = bpy.props.PointerProperty(type = BPY.Str)
+    signal = bpy.props.BoolProperty(name="Signal")
+    blocking = bpy.props.BoolProperty(name="Blocking")
+    send_first = bpy.props.BoolProperty(name="Send first")
+    abort_if_broken = bpy.props.BoolProperty(name="Abort if broken")
+    steps = bpy.props.PointerProperty(type = BPY.Int)
+    file_name = bpy.props.PointerProperty(type = BPY.Str)
+    precision = bpy.props.PointerProperty(type = BPY.Int)
+    shift = bpy.props.PointerProperty(type = BPY.Float)
+    values_motion = bpy.props.EnumProperty(items=[("values", "Values", ""), ("motion", "Motion", "")], default="motion")
+    N_nodedofs = bpy.props.IntProperty(name="Number of nodedofs", min=0)
+    nodedofs = bpy.props.CollectionProperty(type=BPY.Str)
+    N_drives = bpy.props.IntProperty(name="Number of drives", min=0)
+    drives = bpy.props.CollectionProperty(type=BPY.Drive)
+    position = bpy.props.BoolProperty(name="Position", default=True)
+    orientation_matrix = bpy.props.BoolProperty(name="Orientation matrix")
+    orientation_matrix_transpose = bpy.props.BoolProperty(name="Orientation matrix transpose")
+    velocity = bpy.props.BoolProperty(name="Velocity")
+    angular_velocity = bpy.props.BoolProperty(name="Angular velocity")
+    def prereqs(self, context):
+        self.stream_name.mandatory = True
+        self.stream_name.value = "MAILBX"
+        self.port_number.value = 9011
+        self.port_number.select = True
+        self.host_name.value = "127.0.0.1"
+        self.host_name.select = True
+        self.signal = True
+        self.blocking = True
+        self.send_first = True
+        self.abort_if_broken = False
+        self.steps.value = 1
+        for i in range(20):
+            n = self.nodedofs.add()
+            n.mandatory = True
+            d = self.drives.add()
+            d.mandatory = True
+    def assign(self, context):
+        self.stream_name.assign(self.entity.stream_name)
+        self.create = self.entity.create
+        self.socket_name.assign(self.entity.socket_name)
+        self.port_number.assign(self.entity.port_number)
+        self.host_name.assign(self.entity.host_name)
+        self.signal = self.entity.signal
+        self.blocking = self.entity.blocking
+        self.send_first = self.entity.send_first
+        self.abort_if_broken = self.entity.abort_if_broken
+        self.steps.assign(self.entity.steps)
+        self.file_name.assign(self.entity.file_name)
+        self.precision.assign(self.entity.precision)
+        self.shift.assign(self.entity.shift)
+        self.values_motion = self.entity.values_motion
+        self.N_nodedofs = self.entity.N_nodedofs
+        for i, v in enumerate(self.entity.nodedofs):
+            self.nodedofs[i].assign(v)
+        self.N_drives = self.entity.N_drives
+        for i, d in enumerate(self.entity.drives):
+            self.drives[i].assign(d)
+        self.position = self.entity.position
+        self.orientation_matrix = self.entity.orientation_matrix
+        self.orientation_matrix_transpose = self.entity.orientation_matrix_transpose
+        self.velocity = self.entity.velocity
+        self.angular_velocity = self.entity.angular_velocity
+    def store(self, context):
+        self.entity.stream_name = self.stream_name.store()
+        self.entity.create = self.create
+        self.entity.socket_name = self.socket_name.store() if not (self.port_number.select or self.host_name.select) else None
+        self.entity.port_number = self.port_number.store() if not self.socket_name.select else None
+        self.entity.host_name = self.host_name.store() if not self.socket_name.select else None
+        self.entity.signal = self.signal
+        self.entity.blocking = self.blocking
+        self.entity.send_first = self.send_first
+        self.entity.abort_if_broken = self.abort_if_broken
+        self.entity.steps = self.steps.store()
+        self.entity.file_name = self.file_name.store()
+        self.entity.precision = self.precision.store() if self.file_name.select else None
+        self.entity.shift = self.shift.store() if self.file_name.select else None
+        self.entity.values_motion = self.values_motion
+        self.entity.N_nodedofs = self.N_nodedofs if self.values_motion == "values" else 0
+        self.entity.nodedofs = [v.store() for v in self.nodedofs][:self.entity.N_nodedofs] if self.values_motion == "values" else list()
+        self.entity.N_drives = self.N_drives if self.values_motion == "values" else 0
+        self.entity.drives = [d.store() for d in self.drives][:self.entity.N_drives] if self.values_motion == "values" else list()
+        self.entity.position = self.position
+        self.entity.orientation_matrix = self.orientation_matrix
+        self.entity.orientation_matrix_transpose = self.orientation_matrix_transpose
+        self.entity.velocity = self.velocity
+        self.entity.angular_velocity = self.angular_velocity
+        self.entity.objects = self.sufficient_objects(context) if self.values_motion == "motion" else list()
+        if not self.entity.objects:
+            del self.entity.objects
+    def draw(self, context):
+        self.basis = (self.values_motion, self.N_nodedofs, self.N_drives)
+        layout = self.layout
+        self.stream_name.draw(layout, "Stream name")
+        layout.prop(self, "create")
+        if not (self.port_number.select or self.host_name.select):
+            self.socket_name.draw(layout, "Socket name")
+        if not self.socket_name.select:
+            self.port_number.draw(layout, "Port number")
+            self.host_name.draw(layout, "Host name")
+        layout.prop(self, "signal")
+        layout.prop(self, "blocking")
+        layout.prop(self, "send_first")
+        layout.prop(self, "abort_if_broken")
+        self.steps.draw(layout, "Steps")
+        self.file_name.draw(layout, "File name")
+        if self.file_name.select:
+            self.precision.draw(layout, "Precision")
+            self.shift.draw(layout, "Shift")
+        layout.prop(self, "values_motion")
+        if self.values_motion == "values":
+            row = layout.row()
+            row.prop(self, "N_nodedofs")
+            row.prop(self, "N_drives")
+            for i in range(self.N_nodedofs):
+                self.nodedofs[i].draw(layout, "Nodedof-" + str(i+1))
+            for i in range(self.N_drives):
+                self.drives[i].draw(layout, "Drive-" + str(i+1))
+        else:
+            layout.prop(self, "position")
+            layout.prop(self, "orientation_matrix")
+            layout.prop(self, "orientation_matrix_transpose")
+            layout.prop(self, "velocity")
+            layout.prop(self, "angular_velocity")
+    def check(self, context):
+        return True in [x.check(context) for x in (self.stream_name, self.socket_name, self.port_number, self.host_name, self.steps, self.file_name, self.precision, self.shift)] + [v.check(context) for v in self.nodedofs] + [d.check(context) for d in self.drives] or self.basis != (self.values_motion, self.N_nodedofs, self.N_drives)
+    def create_entity(self):
+        return StreamOutput(self.name)
+
+klasses[StreamOutputOperator.bl_label] = StreamOutputOperator
+
+class StreamAnimation(StreamOutput):
+    pass
+
+class StreamAnimationOperator(StreamOutputOperator):
+    bl_label = "Stream animation"
+    exclusive = True
+    def prereqs(self, context):
+        self.abort_if_broken = True
+        self.position = True
+        self.orientation_matrix = True
+        super().prereqs(context)
+    def draw(self, context):
+        layout = self.layout
+        self.stream_name.draw(layout, "Stream name")
+        self.port_number.draw(layout, "Port number")
+        self.host_name.draw(layout, "Host name")
+    def create_entity(self):
+        return StreamAnimation(self.name)
+
+klasses[StreamAnimationOperator.bl_label] = StreamAnimationOperator
+
 class Body(Entity):
     elem_type = "body"
     def write(self, f):
-        f.write("\tbody: " + self.safe_name() + ",\n")
+        f.write("\tbody: " + self.safe_name())
         self.write_node(f, 0, node=True)
-        f.write("\t\t\t" + BPY.FORMAT(self.mass) + ",\n")
-        self.write_node(f, 0, position=True, p_label="")
+        f.write(",\n\t\t\t" + BPY.FORMAT(self.mass))
+        self.write_node(f, 0, position=True)
         if self.inertial_matrix is not None:
             f.write(", " + self.inertial_matrix.string())
             self.write_node(f, 0, orientation=True, o_label="inertial")
@@ -730,10 +910,9 @@ class BeamSegment(Entity):
     def write(self, f):
         if hasattr(self, "consumer"):
             return
-        f.write("\tbeam2: " + self.safe_name() + ",\n")
+        f.write("\tbeam2: " + self.safe_name())
         for i in range(len(self.objects)):
             self.write_node(f, i, node=True, position=True, orientation=True, p_label="position", o_label="orientation")
-            f.write(",\n")
         f.write("\t\tfrom nodes, reference, " + self.constitutive.safe_name() + ";\n")
     def remesh(self):
         for obj in self.objects:
@@ -813,11 +992,10 @@ class ThreeNodeBeam(Entity):
     file_ext = "act"
     labels = "F1x F1y F1z M1x M1y M1z F2x F2y F2z M2x M2y M2z".split()
     def write(self, f):
-        f.write("\tbeam3: " + self.safe_name() + ",\n")
+        f.write("\tbeam3: " + self.safe_name())
         self.objects = self.segments[0].objects + self.segments[1].objects[1:]
         for i in range(3):
             self.write_node(f, i, node=True, position=True, orientation=True, p_label="position", o_label="orientation")
-            f.write(",\n")
         f.write("\t\tfrom nodes, reference, " + self.segments[0].constitutive.safe_name())
         f.write(",\n\t\tfrom nodes, reference, " + self.segments[1].constitutive.safe_name() + ";\n")
         del self.objects
@@ -838,30 +1016,18 @@ class Gravity(Entity):
     file_ext = "grv"
     labels = "X_dotdot Y_dotdot Z_dotdot".split()
     def write(self, f):
-        f.write("\tgravity: " + self.matrix.string() + ", reference, " + self.drive.safe_name() + ";\n")
+        f.write("\tgravity: uniform, " + self.drive.string() + ";\n")
 
 class GravityOperator(Drive):
     bl_label = "Gravity"
-    matrix = bpy.props.PointerProperty(type = BPY.Matrix)
     @classmethod
     def poll(cls, context):
         return cls.bl_idname.startswith(root_dot+"e_") or not database.element.filter("Gravity")
     def prereqs(self, context):
-        self.matrix.mandatory = True
-        self.matrix.type = "3x1"
         super().prereqs(context)
-    def assign(self, context):
-        self.matrix.assign(self.entity.matrix)
-        super().assign(context)
+        self.drive.dimension = "3D"
     def store(self, context):
-        self.entity.matrix = self.matrix.store()
         self.entity.drive = self.drive.store()
-    def draw(self, context):
-        layout = self.layout
-        self.matrix.draw(layout, "Vector")
-        self.drive.draw(layout, "Drive")
-    def check(self, context):
-        return self.matrix.check(context) or super().check(context)
     def create_entity(self):
         return Gravity(self.name)
 
@@ -902,14 +1068,8 @@ klasses[DrivenOperator.bl_label] = DrivenOperator
 
 class Plot:
     bl_options = {'REGISTER', 'INTERNAL'}
-    prereqs_met = bpy.props.BoolProperty(default=False)
     label_names = bpy.props.CollectionProperty(type=BPY.Str)
     def load(self, context, exts, pd):
-        if not self.prereqs_met:
-            for prereq in "pandas matplotlib.pyplot".split():
-                if subprocess.call(("python", "-c", "import " + prereq)):
-                    raise ImportError("No module named " + prereq)
-            self.prereqs_met = True
         self.base = os.path.join(os.path.splitext(context.blend_data.filepath)[0], context.scene.name)
         if 'frequency' not in BPY.plot_data:
             with open(".".join((self.base, "log")), 'r') as f:
@@ -939,7 +1099,7 @@ class Plot:
                 f.write(self.entity.name + "\n")
                 dataframe.to_csv(f)
                 f.seek(0)
-                subprocess.Popen(("python", plot_script), stdin=f)
+                subprocess.Popen(("python3", plot_script), stdin=f)
         elif self.label_names:
             self.report({'ERROR'}, "None selected.")
         return{'FINISHED'}
@@ -962,7 +1122,7 @@ class PlotElement(bpy.types.Operator, Plot):
         import pandas as pd
         self.load(context, [self.entity.file_ext], pd)
         self.label_names.clear()
-        key = "1" if self.entity.file_ext == "grv" else str(database.element.index(self.entity))
+        key = "1" if self.entity.file_ext == "grv" else str(sorted(database.element, key=lambda x: x.name).index(self.entity))    
         self.dataframe = BPY.plot_data[self.entity.file_ext][key].dropna(1, 'all')
         for i in range(self.dataframe.shape[1]):
             name = self.label_names.add()
@@ -985,8 +1145,13 @@ class PlotNode(bpy.types.Operator, Plot):
         self.load(context, "ine mov".split(), pd)
         node_label = str(database.node.index(SelectedObjects(context)[0]))
         self.dataframe = BPY.plot_data['mov'][node_label].dropna(1, 'all')
-        #self.dataframe.columns = "X Y Z Phi_x Phi_y Phi_z U V W Omega_x Omega_y Omeda_z dU/dt dV/dt dW/dt dOmega_x/dt dOmega_y/dt dOmega_z/dt 20 21 22 23 24 25".split()[:self.dataframe.shape[1]]
-        self.dataframe.columns = "X Y Z".split() + [str(i) for i in range(5, self.dataframe.shape[1] + 2)]
+        columns = "X Y Z".split() + {
+            "orientation matrix": ["R" + str(1 + int(i/3)) + str(1 + int(i%3)) for i in range(9)],
+            "orientation vector": "v1 v2 v3".split(),
+            "euler123": "e1 e2 e3".split(),
+            "euler321": "e3 e2 e1".split(),
+            "euler313": "e3 e1 e3".split()}[context.scene.mbdyn_default_orientation]
+        self.dataframe.columns = columns + ["u v w omega-1 omega-2 omega-3 u_dot v_dot w_dot omega-1_dot omega-2_dot omega-3_dot".split()[i] for i in range(self.dataframe.shape[1] - len(columns))]
         if node_label in BPY.plot_data['ine']:
             df = BPY.plot_data['ine'][node_label].dropna(1, 'all')
             df.columns = "px py pz Lx Ly Lz dpx/dt dpy/dt dpz/dt dLx/dt dLy/dt dLz/dt".split()
@@ -1168,15 +1333,4 @@ class Menu(bpy.types.Menu):
         layout.operator(root_dot + "plot_node")
 BPY.klasses.append(Menu)
 
-for t in types:
-    class Tester(Base):
-        bl_label = t[0] if isinstance(t, tuple) else t
-        @classmethod
-        def poll(cls, context):
-            return False
-        def create_entity(self):
-            return Entity(self.name)
-    if Tester.bl_label not in klasses:
-        klasses[Tester.bl_label] = Tester
-
-bundle = Bundle(tree, Base, klasses, database.element)
+bundle = Bundle(element_tree, Base, klasses, database.element)

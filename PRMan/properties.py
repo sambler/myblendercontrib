@@ -848,6 +848,8 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
         lamp = context.lamp
         if lamp.renderman.renderman_type in ['SKY', 'ENV']:
             lamp.type = 'HEMI'
+        elif lamp.renderman.renderman_type == 'DIST':
+            lamp.type = 'SUN'
         else:
             lamp.type = lamp.renderman.renderman_type
 
@@ -884,15 +886,41 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
             nt.links.remove(output.inputs['Light'].links[0])
             nt.links.new(light.outputs[0], output.inputs['Light'])
 
+    def update_area_shape(self, context):
+        lamp = context.lamp
+        
+        # find the existing or make a new light shader node
+        nt = bpy.data.node_groups[lamp.renderman.nodetree]
+        output = None
+        for node in nt.nodes:
+            if node.renderman_node_type == 'output':
+                output = node
+                break
+        if output and output.inputs['Light'].is_linked:
+            light_shader = output.inputs['Light'].links[0].from_node
+            if hasattr(light_shader, 'rman__Shape'):
+                light_shader.rman__Shape = self.area_shape
+
     renderman_type = EnumProperty(
         name="Light Type",
         update=update_light_type,
         items=[('AREA', 'Area', 'Area Light'),
                ('ENV', 'Environment', 'Environment Light'),
                ('SKY', 'Sky', 'Simulated Sky'),
+               ('DIST', 'Distant', 'Distant Light'),
                ('SPOT', 'Spot', 'Spot Light'),
                ('POINT', 'Point', 'Point Light')],
         default='AREA'
+    )
+
+    area_shape =  EnumProperty(
+        name="Area Shape",
+        update=update_area_shape,
+        items=[('rect', 'Rectangle', 'Rectangle'),
+               ('disk', 'Disk', 'Disk'),
+               ('sphere', 'Sphere', 'Sphere'),
+               ('cylinder', 'Cylinder', 'Cylinder')],
+        default='rect'
     )
 
     nodetree = StringProperty(

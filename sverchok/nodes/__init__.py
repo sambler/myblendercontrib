@@ -103,11 +103,13 @@ nodes_dict = {
         'mask',
         'match',
         'sum',
+        'sum_mk2',
         'zip'
     ],
 
     'list_interfere': [
         'shift',
+        'shift_mk2',
         'repeater',
         'slice',
         'split',
@@ -116,6 +118,7 @@ nodes_dict = {
         'reverse',
         'shuffle',
         'sort',
+        'sort_mk2',
         'flip',
         'numpy_array'
     ],

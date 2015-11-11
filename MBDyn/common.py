@@ -22,90 +22,87 @@
 # ***** END GPL LICENCE BLOCK *****
 # -------------------------------------------------------------------------- 
 
-if "bpy" in locals():
-    import imp
-    imp.reload(bpy)
-    imp.reload(sqrt)
-    imp.reload(bmesh)
-else:
-    import bpy
-    from math import sqrt
-    import bmesh
+import bpy
+from math import sqrt
+import bmesh
+from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, SHUT_RDWR
+from struct import pack, unpack
+from threading import Thread
+from collections import OrderedDict
+
+class Tree(OrderedDict):
+    def get_leaves(self):
+        ret = list()
+        for key, value in self.items():
+            if isinstance(value, Tree):
+                ret.extend(value.get_leaves())
+            else:
+                ret.append(key)
+        return ret
 
 FORMAT = "{:.6g}".format
 
 def safe_name(name):
     return "_".join("_".join(name.split(".")).split())
 
-class Type(str):
-    def __new__(cls, data='', N=None):
-        return super(Type, cls).__new__(cls, data)
-    def __init__(self, data='', N=None):
-        self.N = N
+def create_stream_socket(host_name, port_number):
+    with socket(AF_INET, SOCK_STREAM) as sock:
+        sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        sock.bind((host_name, port_number))
+        sock.listen(5)
+        sock.settimeout(1.)
+        try:
+            streaming_socket, address = sock.accept()
+            return streaming_socket
+        except OSError as err:
+            print(err)
 
-aerodynamic_types = [
-    Type("Aerodynamic body", 1),
-    Type("Aerodynamic beam2", 2),
-    "Aerodynamic beam3",
-    "Generic aerodynamic force",
-    "Induced velocity"]
-beam_types = [
-    Type("Beam segment", 2),
-    "Three node beam"]
-force_types = [
-    "Abstract force",
-    Type("Structural force", 1),
-    Type("Structural internal force", 2),
-    Type("Structural couple", 1),
-    Type("Structural internal couple", 2)]
-genel_types = [
-    "Swashplate"]
-joint_types = [
-    Type("Axial rotation", 2),
-    Type("Clamp", 1),
-    Type("Distance", 2),
-    Type("Deformable displacement joint", 2),
-    Type("Deformable hinge", 2),
-    Type("Deformable joint", 2),
-    Type("Inline", 2),
-    Type("Inplane", 2),
-    Type("Revolute hinge", 2),
-    Type("Rod", 2),
-    Type("Spherical hinge", 2),
-    Type("Total joint", 2),
-    Type("Viscous body", 1)]
-environment_types = [
-    "Air properties",
-    "Gravity"]
-node_types = [
-    Type("Rigid offset", 2),
-    Type("Dummy node", 2),
-    "Feedback node"]
+class StreamSender:
+    def __init__(self, host_name=None, port_number=None):
+        self.socket = create_stream_socket(host_name if host_name is not None else "127.0.0.1", port_number if port_number is not None else 9012)
+    def send(self, floats):
+        self.socket.send(pack('d'*len(floats), *floats))
+    def close(self):
+        try:
+            self.socket.shutdown(SHUT_RDWR)
+        except OSError as err:
+            if err.errno != 107:
+                print(err)
+        self.socket.close()
+        del self.socket
 
-rigid_body_types = ["Body"]
+class StreamReceiver(Thread):
+    def __init__(self, fmt, initial_data=None, host_name=None, port_number=None):
+        Thread.__init__(self)
+        self.daemon = True
+        self.fmt = fmt
+        self.packed_data = pack(self.fmt, *initial_data)
+        self.recv_size = len(self.packed_data)
+        self.receiving = True
+        self.socket = create_stream_socket(host_name if host_name is not None else "127.0.0.1", port_number if port_number is not None else 9011)
+    def run(self):
+        while self.receiving:
+            self.packed_data += self.socket.recv(self.recv_size)
+            self.packed_data = self.packed_data[( (len(self.packed_data) // self.recv_size) - 1) * self.recv_size : ]
+        try:
+            self.socket.shutdown(SHUT_RDWR)
+        except OSError as err:
+            if err.errno != 107:
+                print(err)
+        self.socket.close()
+        del self.socket
+    def get_data(self):
+        return unpack(self.fmt, self.packed_data[:self.recv_size])
+    def close(self):
+        self.receiving = False
 
-structural_static_types = aerodynamic_types + joint_types + ["Rotor"] + beam_types + force_types
+def write_vector(f, v, prepend=True):
+    f.write((", " if prepend else "") + ", ".join([FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in v]))
 
-structural_dynamic_types = rigid_body_types
-
-method_types = [
-    "Crank Nicolson",
-    "ms",
-    "Hope",
-    "Third order",
-    "bdf",
-    "Implicit Euler"]
-
-nonlinear_solver_types = [
-    "Newton Raphston",
-    "Line search",
-    "Matrix free"]
-
-def write_vector(f, v, end=""):
-    f.write(", ".join([FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in v]) + end)
-
-def write_matrix(f, m, pad=""):
-    f.write(",\n".join([pad + ", ".join(FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in r) for r in m]))
+def write_orientation(f, m, pad=""):
+    f.write(",\n" + pad + "euler")
+    write_vector(f, m.to_euler('ZYX'))
+    #f.write(",\n" + pad +"matr,\n" + ",\n\t".join([pad + ", ".join(FORMAT(round(x, 6) if round(x, 6) != -0. else 0) for x in r) for r in m]))
 
 def subsurf(obj):
     subsurf = [m for m in obj.modifiers if m.type == 'SUBSURF']
@@ -147,6 +144,21 @@ def Sphere(obj):
     subsurf(obj)
     bm.free()
 
+def Cube(obj):
+    bm = bmesh.new()
+    for v in [(x, y, z) for z in [-0.5, 0.5] for y in [-0.5, 0.5] for x in [-0.5, 0.5]]:
+        bm.verts.new(v)
+    if hasattr(bm.verts, "ensure_lookup_table"):
+        bm.verts.ensure_lookup_table()
+    for f in [(1,0,2,3),(4,5,7,6),(0,1,5,4),(1,3,7,5),(3,2,6,7),(2,0,4,6)]:
+        bm.faces.new([bm.verts[i] for i in f])
+    crease = bm.edges.layers.crease.new()
+    for e in bm.edges:
+        e[crease] = 1.0
+    bm.to_mesh(obj.data)
+    subsurf(obj)
+    bm.free()
+
 def RhombicPyramid(obj):
     bm = bmesh.new()
     for v in [(.333,0.,0.),(0.,.666,0.),(-.333,0.,0.),(0.,-.666,0.),(0.,0.,1.)]:
@@ -154,6 +166,36 @@ def RhombicPyramid(obj):
     if hasattr(bm.verts, "ensure_lookup_table"):
         bm.verts.ensure_lookup_table()
     for f in [(3,2,1,0),(0,1,4),(1,2,4),(2,3,4),(3,0,4)]:
+        bm.faces.new([bm.verts[i] for i in f])
+    crease = bm.edges.layers.crease.new()
+    for e in bm.edges:
+        e[crease] = 1.0
+    bm.to_mesh(obj.data)
+    subsurf(obj)
+    bm.free()
+
+def TriPyramid(obj):
+    bm = bmesh.new()
+    for v in [(0.,0.,0.),(.333,0.,0.),(0.,.666,0.),(0.,0.,1.)]:
+        bm.verts.new(v)
+    if hasattr(bm.verts, "ensure_lookup_table"):
+        bm.verts.ensure_lookup_table()
+    for f in [(0,1,2),(0,1,3),(0,2,3),(1,2,3)]:
+        bm.faces.new([bm.verts[i] for i in f])
+    crease = bm.edges.layers.crease.new()
+    for e in bm.edges:
+        e[crease] = 1.0
+    bm.to_mesh(obj.data)
+    subsurf(obj)
+    bm.free()
+
+def Octahedron(obj):
+    bm = bmesh.new()
+    for v in [(.5,0.,0.),(0.,.5,0.),(-.5,0.,0.),(0.,-.5,0.),(0.,0.,.5),(0.,0.,-.5)]:
+        bm.verts.new(v)
+    if hasattr(bm.verts, "ensure_lookup_table"):
+        bm.verts.ensure_lookup_table()
+    for f in [(0,1,4),(1,2,4),(2,3,4),(3,0,4),(0,1,5),(1,2,5),(2,3,5),(3,0,5)]:
         bm.faces.new([bm.verts[i] for i in f])
     crease = bm.edges.layers.crease.new()
     for e in bm.edges:

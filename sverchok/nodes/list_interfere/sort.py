@@ -42,6 +42,7 @@ class ListSortNode(bpy.types.Node, SverchCustomTreeNode):
 
     def sv_init(self, context):
         self.inputs.new('StringsSocket', "data", "data")
+        self.inputs.new('StringsSocket', "keys", "keys")
         self.outputs.new('StringsSocket', "data", "data")
 
     def update(self):

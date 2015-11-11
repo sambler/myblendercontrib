@@ -1,3 +1,6 @@
+v0.7.0 11/06/2015
+* Light shapes for area lights area now a selector control not on the shader.  The shader setting will happen automagically.  Also the shape for distant/point/spot lights should be correct now. 
+
 v0.6.0 8/20/2015
 * Light linking!
 * reconfigured rib generation.  The details are technical but in simple terms: output first the data blocks then instances of them.  The upshot is that rib generation takes about the same time, however we fixed a few issue with smoke/hair/etc having stale data or incorrect motion.  Also now rib generation caching should work correctly in all cases, and generating ribs with that on (and nothing changed) should be very fast.

@@ -14,7 +14,7 @@ def make_animated_gif(m):
     initial_location = os.getcwd()
     try:
         os.chdir(m)
-        f = "convert -delay 20 -loop 0 *png animated.gif"
+        f = "convert -delay 10 -loop 0 *png animated.gif"
         subprocess.Popen(f.split())
     except:
         add_scrollback('failed.. - with errors', 'ERROR')

@@ -229,6 +229,8 @@ class RendermanShadingNode(bpy.types.Node):
                         nt.nodes[self.color_ramp_dummy_name], 'color_ramp')
 
             for prop_name in prop_names:
+                if prop_name in ["rman__Shape", "coneAngle", "penumbraAngle"]:
+                    continue
                 prop_meta = self.prop_meta[prop_name]
                 if prop_name not in self.inputs:
                     if prop_meta['renderman_type'] == 'page':
@@ -692,6 +694,10 @@ def draw_node_properties_recursive(layout, context, nt, node, level=0):
             pass
         else:
             for prop_name in prop_names:
+                #skip showing the shape for PxrStdAreaLight
+                if prop_name in ["rman__Shape", "coneAngle", "penumbraAngle"]:
+                    continue
+
                 if prop_name == "codetypeswitch":
                     row = layout.row()
                     if node.codetypeswitch == 'INT':
@@ -1036,7 +1042,8 @@ def gen_params(ri, node, mat_name=None, recurse=True):
                     if meta['renderman_type'] in ['struct', 'enum']:
                         continue
 
-                    if 'options' in meta and meta['options'] == 'texture' or \
+                    if 'options' in meta and meta['options'] == 'texture' \
+                        and node.bl_idname != "PxrPtexturePatternNode" or \
                         (node.renderman_node_type == 'light' and
                             'widget' in meta and meta['widget'] == 'fileInput'):
                         params['%s %s' % (meta['renderman_type'],
@@ -1152,6 +1159,8 @@ def get_bxdf_name(mat):
 
 def get_textures_for_node(node, matName=""):
     textures = []
+    if node.bl_idname == "PxrPtexturePatternNode":
+        return textures
     if node.bl_idname == "PxrOSLPatternNode":
         context = bpy.context
         OSLProps = context.scene.OSLProps

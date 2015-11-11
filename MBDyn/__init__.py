@@ -35,19 +35,12 @@ bl_info = {
 
 if "BPY" in locals():
     import imp
-    imp.reload(BPY)
-    imp.reload(element)
-    imp.reload(drive)
-    imp.reload(driver)
-    imp.reload(friction)
-    imp.reload(shape)
-    imp.reload(function)
-#    imp.reload(ns_node)
-    imp.reload(constitutive)
-    imp.reload(matrix)
-    imp.reload(input_card)
+    for x in [element, constitutive, drive, driver, input_card, friction, function, matrix, 
+#    ns_node, 
+    shape, definition, simulator, base]:
+        imp.reload(x)
 else:
-    from .base import BPY
+    from . import base
     from . import element
     from . import drive
     from . import driver
@@ -60,6 +53,7 @@ else:
     from . import input_card
     from . import definition
     from . import simulator
+from .base import BPY
 
 modules = [element, constitutive, drive, driver, input_card, friction, function, matrix, 
 #    ns_node, 

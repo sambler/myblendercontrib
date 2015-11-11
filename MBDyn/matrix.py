@@ -24,16 +24,15 @@
 
 if "bpy" in locals():
     import imp
-    imp.reload(bpy)
-    imp.reload(Operator)
-    imp.reload(Entity)
+    for x in [base, menu, common]:
+        imp.reload(x)
 else:
-    from .base import bpy, database, Operator, Entity, Bundle, BPY
-    from .common import FORMAT
-
-types = ["3x1", "6x1", "3x3", "6x6", "6xN"]
-
-tree = ["Matrix", types]
+    from . import base
+    from . import menu
+    from . import common
+from .base import bpy, BPY, database, Operator, Entity, Bundle
+from .common import FORMAT
+from .menu import default_klasses, matrix_tree
 
 class Base(Operator):
     bl_label = "Matrices"
@@ -55,14 +54,7 @@ class Base(Operator):
     def set_index(self, context, value):
         context.scene.matrix_index = value
 
-klasses = dict()
-
-for t in types:
-    class DefaultOperator(Base):
-        bl_label = t
-        def create_entity(self):
-            return Entity(self.name)
-    klasses[t] = DefaultOperator
+klasses = default_klasses(matrix_tree, Base)
 
 class MatrixBase(Base):
     N = None
@@ -71,7 +63,6 @@ class MatrixBase(Base):
     floats = bpy.props.CollectionProperty(type = BPY.Float)
     scale = bpy.props.PointerProperty(type = BPY.Float)
     def prereqs(self, context):
-        self.basis = self.subtype
         self.floats.clear()
         for i in range(self.N):
             f = self.floats.add()
@@ -82,7 +73,6 @@ class MatrixBase(Base):
             self.floats[i].assign(f)
         self.scale.assign(self.entity.scale)
     def store(self, context):
-        self.basis = self.subtype
         self.entity.subtype = self.subtype
         self.entity.floats = [f.store() if i in self.ordinals[self.subtype] else 0 for i, f in enumerate(self.floats)]
         self.entity.scale = self.scale.store()
@@ -114,6 +104,7 @@ class Matrix3x1Operator(MatrixBase):
         "null": [],
         "default": []}
     def draw(self, context):
+        self.basis = self.subtype
         layout = self.layout
         layout.prop(self, "subtype")
         if self.subtype not in "null default".split():
@@ -170,7 +161,7 @@ class Matrix3x3Operator(MatrixBase):
     subtype = bpy.props.EnumProperty(items=[
         ("matr", "General", "General matrix"),
         ("null", "Null", "Null matrix"),
-        ("sym", "Symmetric", "Symmetrix matrix"),
+        ("sym", "Symmetric", "Symmetric matrix"),
         ("skew", "Skew symmetric", "Skew symmetric matrix"),
         ("diag", "Diagonal", "Diagonal matrix"),
         ("eye", "Identity", "Identity matrix"),
@@ -183,6 +174,7 @@ class Matrix3x3Operator(MatrixBase):
         "diag": [0,4,8],
         "eye": []}
     def draw(self, context):
+        self.basis = self.subtype
         layout = self.layout
         layout.prop(self, "subtype")
         if self.subtype != "null":
@@ -235,7 +227,7 @@ class Matrix6x6Operator(MatrixBase):
     subtype = bpy.props.EnumProperty(items=[
         ("matr", "General", "General matrix"),
         ("null", "Null", "Null matrix"),
-        ("sym", "Symmetric", "Symmetrix matrix"),
+        ("sym", "Symmetric", "Symmetric matrix"),
         ("diag", "Diagonal", "Diagonal matrix"),
         ("eye", "Identity", "Identity matrix"),
         ], name="Subtype", default="eye")
@@ -247,7 +239,7 @@ class Matrix6x6Operator(MatrixBase):
         "eye": []}
     show_column = bpy.props.IntProperty(min=1, max=4, name="Show column", default=1)
     def draw(self, context):
-        self.basis = self.show_column
+        self.basis = (self.subtype, self.show_column)
         layout = self.layout
         layout.prop(self, "subtype")
         if self.subtype != "null":
@@ -268,7 +260,7 @@ class Matrix6x6Operator(MatrixBase):
                         else:
                             row.label()
     def check(self, context):
-        return (self.basis != self.show_column) or super().check(context)
+        return self.basis != (self.subtype, self.show_column) or self.scale.check(context) or True in [f.check(context) for f in self.floats]
     def create_entity(self):
         return Matrix6x6(self.name)
 
@@ -286,4 +278,4 @@ class Matrix6xNOperator(MatrixBase):
 
 klasses[Matrix6xNOperator.bl_label] = Matrix6xNOperator
 
-bundle = Bundle(tree, Base, klasses, database.matrix)
+bundle = Bundle(matrix_tree, Base, klasses, database.matrix)
