@@ -30,34 +30,35 @@
 import bpy
 
 bl_info = {
-    "name": "Duplicate bone(s) without parenting",
+    "name": "Duplicate object(s) without parenting",
     "author": "sambler",
     "version": (1,0),
     "blender": (2, 65, 0),
-    "location": "Alt-D while in armature edit mode",
-    "description": "Duplicate selected bones without copying the parent connection",
+    "location": "Shift-Alt-D",
+    "description": "Duplicate selected objects or bones without copying the parent connection",
     "warning": "",
-    "wiki_url": "https://github.com/sambler/addonsByMe/blob/master/armature_duplicate_bone.py",
+    "wiki_url": "https://github.com/sambler/addonsByMe/blob/master/duplicate_without_parent.py",
     "tracker_url": "https://github.com/sambler/addonsByMe/issues",
-    "category": "Rigging",
+    "category": "Object",
 }
 
-class DuplicateBone(bpy.types.Operator):
-    """Duplicate bone(s) without parenting"""
-    bl_idname = "armature.duplicate_no_parent"
-    bl_label = "Duplicate bone(s) without parenting"
+class DuplicateWithoutParent(bpy.types.Operator):
+    """Duplicate selection without parenting"""
+    bl_idname = "object.duplicate_no_parent"
+    bl_label = "Duplicate without parenting"
 
     @classmethod
     def poll(cls, context):
-        obj = context.active_object
-        if obj is None:
-            return False
-        return obj.type == 'ARMATURE' and obj.mode == 'EDIT'
+        return context.active_object is not None
 
     def execute(self, context):
-        bpy.ops.armature.duplicate()
-        for b in context.selected_bones:
-            b.parent = None
+        if context.active_object.type == 'ARMATURE':
+            bpy.ops.armature.duplicate()
+            for b in context.selected_bones:
+                b.parent = None
+        else:
+            bpy.ops.object.duplicate()
+            bpy.ops.object.parent_clear(type='CLEAR')
         return bpy.ops.transform.translate('INVOKE_DEFAULT')
 
 addon_keymaps = []
@@ -71,7 +72,11 @@ def register():
     kc = wm.keyconfigs.addon
     if kc:
         km = kc.keymaps.new('Armature', space_type='EMPTY')
-        kmi = km.keymap_items.new(DuplicateBone.bl_idname, 'D', 'PRESS', alt=True)
+        kmi = km.keymap_items.new(DuplicateWithoutParent.bl_idname, 'D', 'PRESS', alt=True, shift=True)
+        addon_keymaps.append((km, kmi))
+
+        km = kc.keymaps.new('Object Mode', space_type='EMPTY')
+        kmi = km.keymap_items.new(DuplicateWithoutParent.bl_idname, 'D', 'PRESS', alt=True, shift=True)
         addon_keymaps.append((km, kmi))
 
 def unregister():
