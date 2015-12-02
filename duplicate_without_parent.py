@@ -52,7 +52,8 @@ class DuplicateWithoutParent(bpy.types.Operator):
         return context.active_object is not None
 
     def execute(self, context):
-        if context.active_object.type == 'ARMATURE':
+        if context.active_object.type == 'ARMATURE' \
+                and context.active_object.mode == 'EDIT':
             bpy.ops.armature.duplicate()
             for b in context.selected_bones:
                 b.parent = None
@@ -72,11 +73,13 @@ def register():
     kc = wm.keyconfigs.addon
     if kc:
         km = kc.keymaps.new('Armature', space_type='EMPTY')
-        kmi = km.keymap_items.new(DuplicateWithoutParent.bl_idname, 'D', 'PRESS', alt=True, shift=True)
+        kmi = km.keymap_items.new(DuplicateWithoutParent.bl_idname,
+                'D', 'PRESS', alt=True, shift=True)
         addon_keymaps.append((km, kmi))
 
         km = kc.keymaps.new('Object Mode', space_type='EMPTY')
-        kmi = km.keymap_items.new(DuplicateWithoutParent.bl_idname, 'D', 'PRESS', alt=True, shift=True)
+        kmi = km.keymap_items.new(DuplicateWithoutParent.bl_idname,
+                'D', 'PRESS', alt=True, shift=True)
         addon_keymaps.append((km, kmi))
 
 def unregister():
