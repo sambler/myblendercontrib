@@ -252,7 +252,7 @@ import os.path
 import http.client
 import xml.dom.minidom
 
-debug = True
+debug = False
 def debugout(str):
     # only use print for info the user may need to see
     if debug: print(str)
