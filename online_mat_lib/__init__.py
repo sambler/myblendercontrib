@@ -253,9 +253,9 @@ import http.client
 import xml.dom.minidom
 
 debug = False
-def debugout(str):
+def debugout(*args):
     # only use print for info the user may need to see
-    if debug: print(str)
+    if debug: print(*args)
 
 library = ""
 library_data = []
