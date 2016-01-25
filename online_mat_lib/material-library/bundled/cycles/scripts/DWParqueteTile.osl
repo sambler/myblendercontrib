@@ -193,6 +193,4 @@ shader DWParquetTile (
 
     BSDF += SpecularColor * SpecularAmt * microfacet_beckmann(Nf,Roughness);
 }
-
-
-		
+	

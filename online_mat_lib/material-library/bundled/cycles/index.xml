@@ -3,9 +3,7 @@
 	<category title="Abstract" folder="abstract" addon="0.4">
 		<material name="Cendre" href="cendre" by="alain_oiselet" stars="5" addon="0.4" />
 		<material name="Pluie sur vitre" href="pluie_sur_vitre" by="alain_oiselet" stars="4" fireflies="medium" addon="0.4" />
-		<material name="Texture Alpha" href="texture_alpha" by="meta-androcto" stars="5" addon="0.4" />
 		<material name="Wire Musgrave" href="trans_wireframe_musgrave" by="meta-androcto" stars="5" addon="0.4" />
-		<material name="Volume Simple" href="volume_simple" stars="5" addon="0.4" />
 	</category>
 	<category title="Car Paint" folder="car-paint" addon="0.4">
 		<material name="Car Paint" href="car_paint_g" stars="4" fireflies="medium" addon="0.4" />
@@ -13,17 +11,13 @@
 		<material name="Flakes 17" href="flakes17" by="elbrujodelatribu" stars="5" fireflies="medium" groups="2" addon="0.4" />
 		<material name="Flaky Tangelo" href="flaky_tangelo" stars="5" fireflies="medium" addon="0.4" />
 		<material name="Glossy" href="glossy_g" by="elbrujodelatribu" stars="5" fireflies="medium" groups="1" addon="0.4" />
-		<material name="Gunmetal" href="gunmetal" stars="5" addon="0.4" />
 		<material name="Metallic Paint" href="metallic_paint_g" by="elbrujodelatribu" stars="5" fireflies="medium" addon="0.4" />
-		<material name="Soft Gold" href="soft_gold" stars="5" addon="0.4" />
 	</category>
 	<category title="Earth" folder="earth" addon="0.4">
 		<material name="Ant Snowy" href="ant_snowy" by="NRK" stars="4" addon="0.4" />
-		<material name="Dirt Adv" href="dirt_adv" stars="3" addon="0.4" />
 		<material name="Ground Brown" href="ground_brown" stars="4" complexity="intermediate" addon="0.4" />
 		<material name="Molten" href="molten" stars="4" complexity="intermediate" fireflies="medium" addon="0.4" />
 		<material name="Planet Plane" href="planet_plane" by="arenyart" stars="4" complexity="intermediate" addon="0.4" />
-		<material name="Sand Dune" href="sand_dune" stars="4" complexity="intermediate" fireflies="medium" addon="0.4" />
 	</category>
 	<category title="Effects" folder="effects" addon="0.4">
 		<material name="Blaster Bolt (Red)" href="blaster_bolt_red" stars="3" addon="0.4" />
@@ -31,10 +25,7 @@
 		<material name="Fresnel" href="fresnel" stars="4" complexity="intermediate" fireflies="medium" addon="0.4" bl="2.64-" />
 		<material name="Gradient Pass" href="gradient_pass" stars="4" complexity="intermediate" addon="0.4" bl="2.64-" />
 		<material name="Invisible Light" href="invisible_light" stars="4" addon="0.4" />
-		<material name="Simulated SSS" href="simulated_sss" by="ZetShandow" stars="4" complexity="intermediate" addon="0.4" />
-		<material name="Slope Thing" href="slope_thing" stars="4" complexity="intermediate" addon="0.5" bl="2.65-" />
 		<material name="Volumetric Light" href="volumetric_light" by="ZetShandow" stars="4" complexity="intermediate" fireflies="medium" addon="0.4" />
-		<material name="X-Ray" href="x_ray_g" stars="4" complexity="intermediate" addon="0.5" bl="2.65-" />
 	</category>
 	<category title="Glass" folder="glass" addon="0.4">
 		<material name="Absorption" href="absorption" by="ZetShandow" stars="4" fireflies="medium" addon="0.4" bl="2.64-" />
@@ -42,15 +33,9 @@
 		<material name="Facade" href="facade" by="Alphisto" stars="4" addon="0.4" speed="fair" />
 		<material name="Fake Glass" href="fake_glass" stars="4" addon="0.4" />
 		<material name="Iridescent" href="iridescent" by="moony" stars="5" fireflies="medium" speed="fair" addon="0.4" />
-		<material name="Kristall" href="kristall" by="mike007" stars="4" addon="0.4" speed="fair" />
-		<material name="Lalique" href="lalique" by="moony" stars="4" addon="0.4" speed="fair" />
 		<material name="Marble" href="marble" by="mStuff" stars="4" addon="0.4" />
-		<material name="SFX Fade" href="sfx_fade" by="Mr_Lamppost" stars="4" fireflies="medium" addon="0.4" bl="2.64-" />
-		<material name="Soda-Lime (Common)" href="soda_lime_common" by="Peter Cassetta" stars="3" addon="0.4" />
-		<material name="Triple Positive" href="triple_positive" stars="5" fireflies="medium" speed="fair" addon="0.4" />
 	</category>
 	<category title="Liquids" folder="liquids" addon="0.4">
-		<material name="Absorption" href="absorption" stars="4" addon="0.4" />
 		<material name="Apple Juice" href="apple_juice" by="BroadStu" stars="4" fireflies="medium" speed="fair" groups="1" addon="0.4" />
 		<material name="Cranberry Juice" href="cranberry_juice" by="Peter Cassetta" stars="4" addon="0.4" />
 		<material name="Pool Water" href="pool_water" stars="4" fireflies="medium" speed="fair" addon="0.4" />
@@ -67,30 +52,21 @@
 		<material name="rusty_g" href="rusty_g" stars="4" complexity="complex" addon="0.4" />
 		<material name="Silver Planet" href="silver_planet" stars="4" fireflies="medium" addon="0.4" />
 	</category>
-	<category title="Nature" folder="nature" addon="0.4">
-		<material name="Forest" href="forest" by="Jonathan L" stars="4" complexity="complex" addon="0.4" />
-		<material name="lava" href="lava" stars="4" complexity="complex" addon="0.4" />
-		<material name="Pearl" href="pearl" by="moony" stars="4" addon="0.4" />
-	</category>
 	<category title="Organic" folder="organic" addon="0.4">
 		<material name="Chocolate Swirl" href="chocolate_swirl" by="meta-androcto" stars="4" addon="0.4" />
 		<material name="Gob Stopper" href="gob_stopper_g" by="mooney" stars="5" addon="0.4" />
 		<material name="Gummy Worm" href="gummy_worm" by="Jimmy Gunawan" stars="4" addon="0.4" />
 		<material name="Lemon" href="lemon" stars="4" addon="0.4" />
-		<material name="Pearl" href="pearl_g" stars="4" addon="0.4" />
 		<material name="Raspberry" href="raspberry" stars="4" addon="0.4" />
 		<material name="Red Apple" href="red_apple" stars="3" addon="0.4" />
 		<material name="Sponge" href="sponge_espuma_g" by="Lucasvreis" stars="4" addon="0.4" />
 	</category>
 	<category title="Skin" folder="skin" addon="0.4">
 		<material name="Dragon Scales" href="dragon_scales" by="meta-androcto" stars="4" complexity="complex" addon="0.5" />
-		<material name="Leather Brown" href="leather_brown" stars="4" addon="0.4" />
 		<material name="Leather" href="leather_g" stars="4" complexity="complex" addon="0.5" />
 		<material name="Peau Humaine" href="peau_humaine" stars="4" addon="0.4" />
 		<material name="Pimple" href="pimple_g" stars="4" complexity="complex" addon="0.5" />
-		<material name="Skin Rough" href="skin_rough" stars="4" addon="0.4" />
 		<material name="Skin Shader" href="skin_shader_g" stars="4" complexity="complex" addon="0.5" />
-		<material name="Skin sss" href="skin_sss_g" stars="4" addon="0.4" />
 	</category>
 	<category title="Stones" folder="stones" addon="0.4">
 		<material name="1970_tiles" href="1970_tiles" stars="4" fireflies="high" addon="0.4" />
@@ -99,12 +75,9 @@
 		<material name="Diamond" href="diamond" stars="3" fireflies="high" speed="slow" addon="0.4" />
 		<material name="Glass Glaze" href="glass_glaze_g"  by="ThorntonJStrolia" stars="5" complexity="intermediate" addon="0.4" />
 		<material name="Mosaic" href="mosaic_g" stars="5" fireflies="medium" groups="1" addon="0.4" />
-		<material name="Rock Proc" href="rock_proc" stars="3" addon="0.4" />
 		<material name="Stone Red" href="stone_red" stars="4" addon="0.4" />
-		<material name="Veined Marble" href="veined_marble" by="moony" stars="3" addon="0.4" />
 	</category>
 	<category title="Synthetic" folder="synthetic" addon="0.4">
-		<material name="Carbon Fiber" href="carbon_fiber" stars="5" complexity="complex" addon="0.4" />
 		<material name="Carbon Fiber (Glossy)" href="carbon_fiber_glossy" stars="3" complexity="complex" addon="0.4" />
 		<material name="Coated Glossy" href="coated_glossy_g" stars="3" addon="0.4" />
 		<material name="Glossy Contrast" href="glossy_contrast" stars="3" addon="0.4" />
@@ -120,7 +93,6 @@
 		<material name="Crushed Velvet" href="crushed_velvet" by="elbrujodelatribu" stars="4" complexity="complex" addon="0.4" />
 		<material name="Denim" href="denim" by="Peter Cassetta" stars="4" complexity="complex" addon="0.4" />
 		<material name="Velvet (Edged)" href="velvet_edged" stars="4" addon="0.4" />
-		<material name="Weave Test" href="weave_test" by="niabot" stars="4" complexity="complex" addon="0.4" />
 		<material name="Woven Fabric" href="woven_fabric" by="varkenvarken" stars="4" complexity="complex" scripts="1" addon="0.5" bl="2.65-" />
 		<material name="Woven Wool" href="woven_wool" by="meta-androcto" stars="3" addon="0.4" />
 	</category>
@@ -129,49 +101,30 @@
 		<material name="Polished Walnut" href="polished_walnut" by="Peter Cassetta" stars="4" complexity="intermediate" addon="0.4" />
 		<material name="Rough Pine" href="rough_pine" by="Peter Cassetta" stars="4" complexity="intermediate" addon="0.4" />
 		<material name="Rough Walnut" href="rough_walnut" by="Peter Cassetta" stars="3" complexity="intermediate" addon="0.4" />
-		<material name="Wood PBR" href="wood_pbr_g" stars="4" complexity="intermediate" addon="0.4" />
 
 	</category>
 	<category title="Nodegroups" folder="groups" addon="0.6">
 		<group name="bw_car3layer" href="bw_car3layer" by="bashi" filesize="4kB" complexity="intermediate" addon="0.6" /> 
-		<group name="bw_carboniv" href="bw_carboniv" by="bashi" filesize="4kB" complexity="intermediate" addon="0.6" />
-		<group name="bw_carpet" href="bw_carpet" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
-		<group name="bw_ceramic" href="bw_ceramic" by="bashi" filesize="4kB" complexity="intermediate" addon="0.6" />
-		<group name="bw_chromebrushed" href="bw_chromebrushed" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
-		<group name="bw_coat_ii" href="bw_coat_ii" by="bashi" filesize="4kB" complexity="intermediate" addon="0.6" />
 		<group name="bw_fabricii" href="bw_fabricii" by="bashi" filesize="4kB" complexity="intermediate" addon="0.6" />
-		<group name="bw_galvanized_steel" href="bw_galvanized_steel" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
-		<group name="bw_glassunified" href="bw_glassunified" by="bashi" filesize="4kB" complexity="intermediate" addon="0.6" />
 		<group name="bw_hdrportallight" href="bw_hdrportallight" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
 		<group name="bw_metal_kn" href="bw_metal_kn" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
 		<group name="bw_plastic_iii" href="bw_plastic_iii" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
-		<group name="bw_scratches" href="bw_scratches" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
 		<group name="bw_woodp" href="bw_woodp" by="bashi" filesize="5kB" complexity="intermediate" addon="0.6" />
 	</category>
 	<category title="OSL Scripts" folder="scripts" addon="0.6">
 		<script name="Barbwire Texture" href="barbwire_texture.osl" by="varkenvarken" filesize="2.0kB" complexity="complex" lines="75" addon="0.6" />
 		<script name="Chain Link Texture" href="chain_link_texture.osl" by="varkenvarken" filesize="0.9kB" complexity="intermediate" lines="38" addon="0.6" />
-		<script name="ChSinus" href="ChSinus.osl" by="Charlie" filesize="0.5kB" complexity="intermediate" lines="20" addon="0.6" />
-		<script name="Cyclone" href="cyclone.osl" by="L. Gritz" filesize="0.7kB" complexity="intermediate" lines="34" addon="0.6" />
-		<script name="DWParqueteTile" href="DWParqueteTile.osl" by="Shane Ambler" filesize="1.8kB" complexity="intermediate" lines="68" addon="0.6" />
+		<script name="Cyclone" href="cyclone.osl" by="L. Gritz" filesize="3.7kB" complexity="intermediate" lines="34" addon="0.6" />
+		<script name="DWParqueteTile" href="DWParqueteTile.osl" by="Shane Ambler" filesize="7.0kB" complexity="intermediate" lines="68" addon="0.6" />
 		<script name="ElJuliaSets" href="ElJuliaSets.osl" by="elbrujodelatribu" filesize="1.7kB" complexity="intermediate" lines="75" addon="0.6" />
-		<script name="Ellipse Mask" href="ellipse_mask.osl" by="varkenvarken" filesize="0.5kB" complexity="intermediate" lines="20" addon="0.6" />
-		<script name="Fingerprint Texture" href="fingerprint_texture.osl" by="varkenvarken" filesize="0.7kB" complexity="intermediate" lines="34" addon="0.6" />
 		<script name="Gabor Noise" href="gabor_4_cycles.osl" filesize="0.5kB" lines="15" addon="0.6" />
-		<script name="Grunge script_a" href="Grunge script_a.osl" filesize="0.5kB" lines="15" addon="0.6" />
-		<script name="LGGreenMarble" href="LGGreenMarble.osl" by="Shane Ambler" filesize="2.0kB" complexity="complex" lines="75" addon="0.6" />
-		<script name="LGRustyMetal" href="LGRustyMetal.osl" by="Charlie" filesize="0.9kB" complexity="intermediate" lines="38" addon="0.6" />
-		<script name="LGVeinedMarble" href="LGVeinedMarble.osl" by="Shane Ambler" filesize="1.8kB" complexity="intermediate" lines="68" addon="0.6" />
-		<script name="lyapunov" href="lyapunov.osl" by="semmi" filesize="1.8kB" complexity="intermediate" lines="68" addon="0.6" />
-		<script name="MA4D_voronoi" href="MA4D_voronoi.osl" by="Michel J. Anders" filesize="1.7kB" complexity="intermediate" lines="75" addon="0.6" />
-		<script name="MABMountains" href="MABMountains.osl" by="Michel J. Anders" filesize="0.5kB" lines="15" addon="0.6" />
-		<script name="Mandelbrot" href="mandelbrot.osl" filesize="0.5kB" lines="15" addon="0.6" />
-		<script name="Mandelbulb" href="mandelbulb.osl" by="semmi" filesize="2.0kB" complexity="complex" lines="75" addon="0.6" />
+		<script name="LGRustyMetal" href="LGRustyMetal.osl" by="Charlie" filesize="3.9kB" complexity="intermediate" lines="38" addon="0.6" />
+		<script name="LGVeinedMarble" href="LGVeinedMarble.osl" by="Shane Ambler" filesize="2.8kB" complexity="intermediate" lines="68" addon="0.6" />
+		<script name="lyapunov" href="lyapunov.osl" by="semmi" filesize="3.8kB" complexity="intermediate" lines="68" addon="0.6" />
+		<script name="MABMountains" href="MABMountains.osl" by="Michel J. Anders" filesize="2.0kB" lines="15" addon="0.6" />
+		<script name="Mandelbulb" href="mandelbulb.osl" by="semmi" filesize="3.0kB" complexity="complex" lines="75" addon="0.6" />
 		<script name="Scales Shader" href="scales_shader.osl" by="varkenvarken" filesize="1.8kB" complexity="intermediate" lines="68" addon="0.6" />
-		<script name="Simplex Noise" href="simplex_noise.osl" by="Michel J. Anders" filesize="0.9kB" complexity="intermediate" lines="38" addon="0.6" />
-		<script name="Toon" href="toon.osl" by="Michel J. Anders" filesize="0.5kB" complexity="intermediate" lines="20" addon="0.6" />
+		<script name="Sierpinski_squares" href="sierpinski_squares.osl" by="Michel J. Anders" filesize="0.9kB" complexity="intermediate" lines="38" addon="0.6" />
 		<script name="Weave Shader" href="weave_shader.osl" by="varkenvarken" filesize="1.7kB" complexity="intermediate" lines="75" addon="0.6" />
-		<script name="Wireframe Shader" href="wireframe.osl" by="DingTo" filesize="0.5kB" lines="15" addon="0.6" />
-		<script name="Wood" href="wood.osl" by="DingTo" filesize="0.5kB" lines="15" addon="0.6" />
 	</category>
 </library>

@@ -132,4 +132,3 @@ shader node_lyapunov(
     Fac = 0.5 + index; 
 
 }
-

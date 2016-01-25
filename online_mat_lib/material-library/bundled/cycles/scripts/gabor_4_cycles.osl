@@ -15,4 +15,4 @@ shader gabor(
  "do_filter", do_filter,  
  "bandwidth", bandwidth,  
  "impulses", impulses);  
-} 
+}

@@ -71,4 +71,3 @@ shader node_julia_zn_zoom(
     Fac = factor;
     Transformed = pa;
 }
-
