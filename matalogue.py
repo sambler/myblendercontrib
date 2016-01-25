@@ -20,9 +20,9 @@ bl_info = {
     "name": "Matalogue",
     "description": " Catalogue of node trees in the toolbar to switch between quickly",
     "author": "Greg Zaal",
-    "version": (1, 0),
-    "blender": (2, 75, 0),
-    "location": "Node Editor > Tools",
+    "version": (1, 1),
+    "blender": (2, 76, 0),
+    "location": "Node Editor > Toolbar (T) > Trees",
     "warning": "",
     "wiki_url": "https://github.com/gregzaal/Matalogue",
     "tracker_url": "https://github.com/gregzaal/Matalogue/issues",
@@ -33,11 +33,8 @@ import bpy
 
 '''
 TODOs:
-    Option to list only visible layers
-    Show list of groups
     Assign material to selected objects
     Recenter view (don't change zoom) (add preference to disable) - talk to devs about making space_data.edit_tree.view_center editable
-    User preference for which panels are collapsed/expanded by default
     Create new material and optionally...
         assign to selected objects
         duplicate from active
@@ -54,6 +51,11 @@ class MatalogueSettings(bpy.types.PropertyGroup):
         name="Selected Objects Only",
         default=False,
         description="Only show materials used by objects that are selected")
+
+    vis_layers_only = bpy.props.BoolProperty(
+        name="Visible Layers Only",
+        default=False,
+        description="Only show materials used by objects that are on a visible layer. (\"Selected Objects Only\" must be disabled)")
 
     all_scenes = bpy.props.BoolProperty(
         name="All Scenes",
@@ -88,6 +90,23 @@ def material_on_sel_obj(mat):
                     return True
     return False
 
+def material_on_vis_layer(mat):
+    settings = bpy.context.window_manager.matalogue_settings
+    scenes = bpy.data.scenes if settings.all_scenes else [bpy.context.scene]
+    for scene in bpy.data.scenes:
+        objs_on_vis_layer = []
+        for obj in scene.objects:
+            if obj.name != "Matalogue Dummy Object":
+                for i, sl in enumerate(scene.layers):
+                    if sl and obj.layers[i]:
+                        objs_on_vis_layer.append(obj)
+                        break
+        for obj in objs_on_vis_layer:
+            for slot in obj.material_slots:
+                if slot.material == mat:
+                    return True
+    return False
+
 def get_materials():
     settings = bpy.context.window_manager.matalogue_settings
     materials = []
@@ -96,6 +115,7 @@ def get_materials():
             (settings.show_zero_users or mat.users),
             (settings.all_scenes or material_in_cur_scene(mat)),
             (not settings.selected_only or material_on_sel_obj(mat)),
+            (not settings.vis_layers_only or material_on_vis_layer(mat)),
             not mat.library,  # don't allow editing of linked library materials - TODO make this optional (can help to be able to look at the nodes, even if you can't edit it)
             mat.use_nodes]
         if all(conditions):
@@ -174,6 +194,27 @@ class TLGoToMat(bpy.types.Operator):
             dummy = dummy_object()
             slot = dummy.material_slots[0]
             slot.material = mat
+
+        return {'FINISHED'}
+
+
+class TLGoToGroup(bpy.types.Operator):
+
+    'Show the nodes inside this group'
+    bl_idname = 'matalogue.goto_group'
+    bl_label = 'Go To Group'
+    tree_type = bpy.props.StringProperty(default = "")
+    tree = bpy.props.StringProperty(default = "")
+
+    def execute(self, context):
+        try:  # Go up one group as many times as possible - error will occur when the top level is reached
+            while True:
+                bpy.ops.node.tree_path_parent()
+        except:
+            pass
+
+        context.space_data.tree_type = self.tree_type
+        context.space_data.path.append(bpy.data.node_groups[self.tree])
 
         return {'FINISHED'}
 
@@ -267,10 +308,50 @@ class MatalogueMaterials(bpy.types.Panel):
             scol.prop(settings, "selected_only")
             r = scol.row()
             r.enabled = not settings.selected_only
+            r.prop(settings, "vis_layers_only")
+            r = scol.row()
+            r.enabled = not settings.selected_only
             r.prop(settings, "all_scenes")
             r = scol.row()
             r.enabled = (settings.all_scenes and not settings.selected_only)
             r.prop(settings, "show_zero_users")
+
+
+class MatalogueGroups(bpy.types.Panel):
+
+    bl_label = "Groups"
+    bl_space_type = "NODE_EDITOR"
+    bl_region_type = "TOOLS"
+    bl_category = "Trees"
+
+    def draw(self, context):
+        layout = self.layout
+
+        col = layout.column(align=True)
+
+        shader_groups = []
+        comp_groups = []
+        for g in bpy.data.node_groups:
+            if g.type == 'SHADER':
+                shader_groups.append(g)
+            elif g.type == 'COMPOSITING':
+                comp_groups.append(g)
+
+        # col.label("Shader Groups")
+        for g in shader_groups:
+            op = col.operator('matalogue.goto_group', text=g.name, emboss=(context.space_data.path[-1].node_tree.name==g.name), icon='NODETREE')
+            op.tree_type = "ShaderNodeTree"
+            op.tree = g.name
+
+        col.separator()
+        col.separator()
+        col.separator()
+
+        # col.label("Compositing Groups")
+        for g in comp_groups:
+            op = col.operator('matalogue.goto_group', text=g.name, emboss=(context.space_data.path[-1].node_tree.name==g.name), icon='NODETREE')
+            op.tree_type = "CompositorNodeTree"
+            op.tree = g.name
 
 
 class MatalogueLighting(bpy.types.Panel):

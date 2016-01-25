@@ -1411,7 +1411,6 @@ def imageToChunks(o,image, with_border=False):
 		#polychunks.append(ch)
 		
 		vecchunks=[]
-		#p=Polygon.Polygon()
 		
 		for ch in polychunks:
 			vecchunk=[]
@@ -1423,7 +1422,6 @@ def imageToChunks(o,image, with_border=False):
 		#print('optimizing outline')
 		
 		#print('directsimplify')
-		#p=Polygon.Polygon()
 		reduxratio=1.25#was 1.25
 		soptions=['distance','distance',o.pixsize*reduxratio,5,o.pixsize*reduxratio]
 		#soptions=['distance','distance',0.0,5,0,5,0]#o.pixsize*1.25,5,o.pixsize*1.25]
@@ -1446,11 +1444,10 @@ def imageToChunks(o,image, with_border=False):
 	else:
 		return []
 	
-def imageToPoly(o,i, with_border=False):
+def imageToShapely(o,i, with_border=False):
 	polychunks=imageToChunks(o,i, with_border)
-	polys=chunksToPolys(polychunks)
+	polys=chunksToShapely(polychunks)
 	
-	#polys=orderPoly(polys)
 	t=time.time()
 	
 	return polys#[polys]

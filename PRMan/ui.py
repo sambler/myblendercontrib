@@ -313,7 +313,7 @@ class RENDER_PT_renderman_advanced_settings(PRManButtonsPanel, Panel):
         row.prop(rm, "shadingrate")
 
         layout.separator()
-
+        
         row = layout.row()
         row.label("Pixel Filter:")
         row.prop(rm, "pixelfilter", text="")
@@ -340,6 +340,11 @@ class RENDER_PT_renderman_advanced_settings(PRManButtonsPanel, Panel):
         row.prop(rm, "use_statistics", text="Output stats")
         row.operator('rman.open_stats')
 
+        layout.separator()
+        row = layout.row()
+        row.operator('rman.open_rib')
+        row.prop(rm, "editor_override")
+        
         layout.separator()
         layout.prop(rm, "always_generate_textures")
         layout.prop(rm, "lazy_rib_gen")
@@ -383,8 +388,7 @@ class MESH_PT_renderman_prim_vars(CollectionPanel, Panel):
 
         layout.prop(rm, "export_default_uv")
         layout.prop(rm, "export_default_vcol")
-        layout.prop(rm, "export_smooth_normals")
-
+    
 
 class MATERIAL_PT_renderman_preview(Panel):
     bl_space_type = 'PROPERTIES'
@@ -642,6 +646,13 @@ class DATA_PT_renderman_camera(ShaderPanel, Panel):
         sub.enabled = scene.renderman.depth_of_field
         sub.prop(scene.renderman, "fstop")
 
+        row = layout.row()
+        row.label("Aperture Controls:")
+        row.prop(cam.renderman, "aperture_sides")
+        row.prop(cam.renderman, "aperture_angle")
+        row.prop(cam.renderman, "aperture_roundness")
+        row.prop(cam.renderman, "aperture_density")
+
         layout.prop(cam.renderman, "use_physical_camera")
         if cam.renderman.use_physical_camera:
             pxrcamera = getattr(cam.renderman, "PxrCamera_settings")
@@ -801,6 +812,12 @@ class OBJECT_PT_renderman_object_geometry(Panel):
             # if rm.export_archive:
             #    col.prop(rm, "export_archive_path")
 
+            
+        col = layout.column()
+        col.operator("object.export_rib_archive", icon="EXPORT", text="Export Object as RIB Archive.")
+        
+        
+        
         col = layout.column()
         # col.prop(rm, "export_coordsys")
 
@@ -973,6 +990,19 @@ class RENDER_PT_layer_custom_aovs(CollectionPanel, Panel):
         col.prop(item, "channel_type")
         if item.channel_type == "custom":
             col.prop(item, 'custom_lpe')
+        
+        col = layout.column()
+        col.label("Exposure Settings")
+        col.prop(item, "exposure_gain")
+        col.prop(item, "exposure_gamma")
+        
+        col = layout.column()
+        col.label("Remap Settings")
+        row = col.row(align=True)
+        row.prop(item, "remap_a", text="A")
+        row.prop(item, "remap_b", text="B")
+        row.prop(item, "remap_c", text="C")
+
         col.prop(item, "show_advanced")
         col = col.column()
         col.enabled = item.show_advanced

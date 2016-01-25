@@ -570,7 +570,7 @@ def add_item(box, idx, segment):
 # ------------------------------------------------------------------
 class MeasureitMainPanel(bpy.types.Panel):
     bl_idname = "measureit_main_panel"
-    bl_label = "Measureit"
+    bl_label = "Tools"
     bl_space_type = 'VIEW_3D'
     bl_region_type = "TOOLS"
     bl_category = 'Measureit'
@@ -602,7 +602,6 @@ class MeasureitMainPanel(bpy.types.Panel):
 
         # Tools
         box = layout.box()
-        box.label("Tools", icon='MODIFIER')
         row = box.row()
         row.operator("measureit.addsegmentbutton", text="Segment", icon="ALIGN")
         row.prop(scene, "measureit_sum", text="Sum")
@@ -630,41 +629,6 @@ class MeasureitMainPanel(bpy.types.Panel):
 
         row = box.row()
         row.operator("measureit.addareabutton", text="Area", icon="MESH_GRID")
-
-        # Configuration data
-        box = layout.box()
-        row = box.row()
-        row.prop(scene, "measureit_gl_txt", text="Text")
-        row = box.row()
-        row.prop(scene, "measureit_default_color", text="")
-        row.prop(scene, "measureit_hint_space")
-        # Arrow
-        row = box.row(True)
-        row.prop(scene, "measureit_glarrow_a", text="")
-        row.prop(scene, "measureit_glarrow_b", text="")
-        row.prop(scene, "measureit_glarrow_s", text="Size")
-
-        row = box.row()
-        row.prop(scene, "measureit_font_size")
-
-        # ------------------------------
-        # Render settings
-        # ------------------------------
-        box = layout.box()
-        box.label("Render", icon='RENDER_STILL')
-        row = box.row()
-        row.prop(scene, "measureit_render_type")
-        row = box.row()
-        row.operator("measureit.rendersegmentbutton", icon='SCRIPT')
-        row = box.row()
-        row.prop(scene, "measureit_render", text="Save render image")
-        row = box.row()
-        row.prop(scene, "measureit_rf", text="Frame")
-        if scene.measureit_rf is True:
-            row.prop(scene, "measureit_rf_color", text="Color")
-            row = box.row()
-            row.prop(scene, "measureit_rf_border", text="Space")
-            row.prop(scene, "measureit_rf_line", text="Width")
 
         # ------------------------------
         # Debug data
@@ -696,6 +660,74 @@ class MeasureitMainPanel(bpy.types.Panel):
             row.prop(scene, 'measureit_debug_font', text="Font")
             row.prop(scene, 'measureit_debug_width', text="Thickness")
             row.prop(scene, 'measureit_debug_precision', text="Precision")
+
+
+# ------------------------------------------------------------------
+# Define panel class for conf functions.
+# ------------------------------------------------------------------
+class MeasureitConfPanel(bpy.types.Panel):
+    bl_idname = "measureit_conf_panel"
+    bl_label = "Configuration"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = "TOOLS"
+    bl_category = 'Measureit'
+
+    # ------------------------------
+    # Draw UI
+    # ------------------------------
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+
+        # Configuration data
+        box = layout.box()
+        row = box.row()
+        row.prop(scene, "measureit_gl_txt", text="Text")
+        row = box.row()
+        row.prop(scene, "measureit_default_color", text="")
+        row.prop(scene, "measureit_hint_space")
+        # Arrow
+        row = box.row(True)
+        row.prop(scene, "measureit_glarrow_a", text="")
+        row.prop(scene, "measureit_glarrow_b", text="")
+        row.prop(scene, "measureit_glarrow_s", text="Size")
+
+        row = box.row()
+        row.prop(scene, "measureit_font_size")
+
+
+# ------------------------------------------------------------------
+# Define panel class for render functions.
+# ------------------------------------------------------------------
+class MeasureitRenderPanel(bpy.types.Panel):
+    bl_idname = "measureit_render_panel"
+    bl_label = "Render"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = "TOOLS"
+    bl_category = 'Measureit'
+
+    # ------------------------------
+    # Draw UI
+    # ------------------------------
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+
+        # Render settings
+        box = layout.box()
+        row = box.row()
+        row.prop(scene, "measureit_render_type")
+        row = box.row()
+        row.operator("measureit.rendersegmentbutton", icon='SCRIPT')
+        row = box.row()
+        row.prop(scene, "measureit_render", text="Save render image")
+        row = box.row()
+        row.prop(scene, "measureit_rf", text="Frame")
+        if scene.measureit_rf is True:
+            row.prop(scene, "measureit_rf_color", text="Color")
+            row = box.row()
+            row.prop(scene, "measureit_rf_border", text="Space")
+            row.prop(scene, "measureit_rf_line", text="Width")
 
 
 # -------------------------------------------------------------

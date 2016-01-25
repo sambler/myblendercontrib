@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2014 Jacques Lucke
+Copyright (C) 2016 Jacques Lucke
 mail@jlucke.com
 
 Created by Jacques Lucke
@@ -22,43 +22,34 @@ Created by Jacques Lucke
 
 bl_info = {
     "name":        "Code Autocomplete",
-    "description": "Improve the scripting experience in Blenders text editor.",
+    "description": "Autocompletion, templates and addon development tools for the text editor.",
     "author":      "Jacques Lucke",
-    "version":     (1, 5, 1),
+    "version":     (2, 0, 0),
     "blender":     (2, 7, 4),
     "location":    "Text Editor",
     "category":    "Development"
     }
-    
-    
-    
+
+
+
 # load and reload submodules
-##################################    
-    
+##################################
+
+# append jedi package path to make 'import jedi' available
+import os, sys
+sys.path.append(os.path.join(__path__[0], "jedi"))
+
+import importlib
 from . import developer_utils
+importlib.reload(developer_utils)
 modules = developer_utils.setup_addon_modules(__path__, __name__, "bpy" in locals())
 
 
 
-# properties
-################################## 
-
-import bpy
-        
-class AddonPreferences(bpy.types.AddonPreferences):
-    bl_idname = __name__
-    
-    line_amount = bpy.props.IntProperty(default = 8, min = 1, max = 20, name = "Lines", description = "Amount of lines shown in the context box")
-    
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row(align = False)
-        row.prop(self, "line_amount")
-        
-               
-    
 # register
 ##################################
+
+import bpy
 
 addon_keymaps = []
 def register_keymaps():
@@ -66,13 +57,12 @@ def register_keymaps():
     wm = bpy.context.window_manager
     km = wm.keyconfigs.addon.keymaps.new(name = "Text", space_type = "TEXT_EDITOR")
     kmi = km.keymap_items.new("code_autocomplete.select_whole_string", type = "Y", value = "PRESS", ctrl = True)
-    kmi = km.keymap_items.new("code_autocomplete.switch_lines", type = "R", value = "PRESS", ctrl = True)
     kmi = km.keymap_items.new("wm.call_menu", type = "SPACE", value = "PRESS", ctrl = True)
-    kmi.properties.name = "code_autocomplete.insert_template_menu"
+    kmi.properties.name = "code_autocomplete_insert_template_menu"
     kmi = km.keymap_items.new("wm.call_menu", type = "TAB", value = "PRESS", ctrl = True)
-    kmi.properties.name = "code_autocomplete.select_text_block"
+    kmi.properties.name = "code_autocomplete_select_text_block"
     addon_keymaps.append(km)
-    
+
 def unregister_keymaps():
     wm = bpy.context.window_manager
     for km in addon_keymaps:
@@ -80,21 +70,24 @@ def unregister_keymaps():
             km.keymap_items.remove(kmi)
         wm.keyconfigs.addon.keymaps.remove(km)
     addon_keymaps.clear()
- 
-from . addon_development_manager import AddonDevelopmentSceneProperties 
+
+from . addon_development import AddonDevelopmentSceneProperties
 from . quick_operators import register_menus, unregister_menus
-    
+from . code_templates.base import draw_template_menu
+
 def register():
     bpy.utils.register_module(__name__)
     register_keymaps()
     register_menus()
+    bpy.types.TEXT_MT_templates.append(draw_template_menu)
     bpy.types.Scene.addon_development = bpy.props.PointerProperty(name = "Addon Development", type = AddonDevelopmentSceneProperties)
-    
+
     print("Registered Code Autocomplete with {} modules.".format(len(modules)))
 
 def unregister():
     bpy.utils.unregister_module(__name__)
     unregister_keymaps()
     unregister_menus()
-    
+    bpy.types.TEXT_MT_templates.remove(draw_template_menu)
+
     print("Unregistered Code Autocomplete")

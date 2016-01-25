@@ -92,16 +92,18 @@ class Base(Operator):
         context.scene.element_index = value
     def draw_panel_post(self, context, layout):
         selected_obs = set(SelectedObjects(context))
+        row = layout.row()
+        row.operator_context = 'EXEC_DEFAULT'
         if selected_obs:
             used_obs = set()
             for e in database.element + database.drive + database.input_card:
                 if hasattr(e, "objects"):
                     used_obs.update(set(e.objects))
             if selected_obs.intersection(used_obs):
-                layout.menu(root_dot + "selected_objects")
+                row.menu(root_dot + "selected_objects")
             else:
-                layout.operator_context = 'EXEC_DEFAULT'
-                layout.operator("object.delete")
+                row.operator("object.delete")
+        row.operator(root_dot + "select_all_filtered")
 
 klasses = default_klasses(element_tree, Base)
 for e, o in klass_list:
@@ -392,8 +394,7 @@ class InLineOperator(Base):
     def create_entity(self):
         return InLine(self.name)
 
-# MBDyn's In line joint is unstable
-#klasses[InLineOperator.bl_label] = InLineOperator
+klasses[InLineOperator.bl_label] = InLineOperator
 
 class InPlane(Joint):
     def write(self, f):
@@ -443,6 +444,8 @@ class RevoluteHingeOperator(Friction):
     theta = bpy.props.PointerProperty(type = BPY.Float)
     average_radius = bpy.props.PointerProperty(type = BPY.Float)
     preload = bpy.props.PointerProperty(type = BPY.Float)
+    def prereqs(self, context):
+        self.friction.mandatory = True
     def assign(self, context):
         self.theta.assign(self.entity.theta)
         self.average_radius.assign(self.entity.average_radius)
@@ -452,6 +455,8 @@ class RevoluteHingeOperator(Friction):
         self.entity.theta = self.theta.store()
         self.entity.average_radius = self.average_radius.store()
         self.entity.preload = self.preload.store()
+        if self.entity.average_radius is None:
+            self.friction.mandatory = False
         super().store(context)
     def draw(self, context):
         self.theta.draw(self.layout, text="Theta")
@@ -1082,7 +1087,7 @@ class Plot:
             BPY.plot_data['timeseries'] = BPY.plot_data['out']['Time'][::BPY.plot_data['frequency']]
         for ext in exts:
             if ext not in BPY.plot_data:
-                df = pd.read_csv(".".join((self.base, ext)), sep=" ", header=None, skipinitialspace=True, names=[i for i in range(50)], lineterminator="\n")
+                df = pd.read_csv(".".join((self.base, ext)), sep=" ", header=None, skipinitialspace=True, names=[i for i in range(1000)], lineterminator="\n")
                 value_counts = df[0].value_counts()
                 p = dict()
                 for node_label in df[0].unique():
@@ -1319,6 +1324,20 @@ class ObjectSpecifications(bpy.types.Operator):
     def check(self, context):
         return self.basis != [obj.rotation_mode for obj in self.objects]
 BPY.klasses.append(ObjectSpecifications)
+
+class SelecteAllFiltered(bpy.types.Operator):
+    bl_label = "Select all filtered"
+    bl_description = "Select and remesh all filtered element objects"
+    bl_idname = root_dot + "select_all_filtered"
+    bl_options = {'REGISTER', 'INTERNAL'}
+    def execute(self, context):
+        bpy.ops.object.select_all(action='DESELECT')
+        for i, element in enumerate(database.element):
+            if database.element.flags[i] and hasattr(element, "objects"):
+                element.remesh()
+                element.objects[0].select = True
+        return {'FINISHED'}
+BPY.klasses.append(SelecteAllFiltered)
 
 class Menu(bpy.types.Menu):
     bl_label = "Selected Objects"

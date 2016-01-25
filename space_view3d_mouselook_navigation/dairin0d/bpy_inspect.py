@@ -18,12 +18,14 @@
 
 import sys
 import itertools
+import ast
 
 import bpy
 
 from mathutils import Vector, Matrix, Quaternion, Euler, Color
 
 from .utils_python import issubclass_safe
+from .utils_math import matrix_flatten, matrix_unflatten
 from .utils_text import compress_whitespace
 
 # TODO: update to match the current API!
@@ -101,8 +103,7 @@ class BlEnums:
         'META':'EDIT_METABALL', 'FONT':'EDIT_TEXT', 'ARMATURE':'EDIT_ARMATURE', 'LATTICE':'EDIT_LATTICE'}
     @classmethod
     def mode_from_object(cls, obj):
-        if not obj:
-            return 'OBJECT'
+        if not obj: return 'OBJECT'
         return cls.__generic_mode_map.get(obj.mode) or cls.__edit_mode_map.get(obj.type)
     
     __mode_to_obj_map = {'EDIT_MESH':'EDIT', 'EDIT_CURVE':'EDIT', 'EDIT_SURFACE':'EDIT', 'EDIT_TEXT':'EDIT',
@@ -115,10 +116,8 @@ class BlEnums:
     
     @classmethod
     def normalize_mode(cls, mode, obj=None):
-        if mode in cls.modes:
-            return mode
-        if mode == 'EDIT':
-            return (cls.__edit_mode_map.get(obj.type) if obj else None)
+        if mode in cls.modes: return mode
+        if mode == 'EDIT': return (cls.__edit_mode_map.get(obj.type) if obj else None)
         return cls.__generic_mode_map.get(mode)
     
     @classmethod
@@ -264,6 +263,39 @@ class BlRna:
             return None
     
     @staticmethod
+    def parent(obj, n=-1, coerce=True):
+        path_parts = obj.path_from_id().split(".")
+        return obj.id_data.path_resolve(".".join(path_parts[:n]), coerce)
+    
+    @staticmethod
+    def full_path(obj):
+        if isinstance(obj, bpy.types.ID): return repr(obj.id_data)
+        return repr(obj.id_data) + "." + obj.path_from_id()
+    
+    @staticmethod
+    def full_path_resolve(full_path, coerce=True):
+        return eval(full_path) # for now
+    
+    @staticmethod
+    def enum_to_int(obj, name):
+        value = getattr(obj, name)
+        rna_prop = BlRna(obj).properties[name]
+        if rna_prop.is_enum_flag:
+            return sum((1 << i) for i, item in enumerate(rna_prop.enum_items) if item.identifier in value)
+        else:
+            for i, item in enumerate(rna_prop.enum_items):
+                if item.identifier == value: return (i+1)
+            return 0
+    
+    @staticmethod
+    def enum_from_int(obj, name, value):
+        rna_prop = BlRna(obj).properties[name]
+        if rna_prop.is_enum_flag:
+            return {item.identifier for i, item in enumerate(rna_prop.enum_items) if (1 << i) & value}
+        else:
+            return rna_prop.enum_items[value].identifier
+    
+    @staticmethod
     def to_bpy_prop(obj, name=None):
         rna_prop = (obj if name is None else BlRna(obj).properties[name])
         
@@ -274,11 +306,9 @@ class BlRna:
         bpy_args = dict(name=rna_prop.name, description=rna_prop.description, options=set())
         def map_arg(rna_name, bpy_name, is_option=False):
             if is_option:
-                if getattr(rna_prop, rna_name, False):
-                    bpy_args["options"].add(bpy_name)
+                if getattr(rna_prop, rna_name, False): bpy_args["options"].add(bpy_name)
             else:
-                if hasattr(rna_prop, rna_name):
-                    bpy_args[bpy_name] = BlRna.serialize_value(getattr(rna_prop, rna_name), False)
+                if hasattr(rna_prop, rna_name): bpy_args[bpy_name] = BlRna.serialize_value(getattr(rna_prop, rna_name), False)
         
         map_arg("is_hidden", 'HIDDEN', True)
         map_arg("is_skip_save", 'SKIP_SAVE', True)
@@ -325,16 +355,13 @@ class BlRna:
         rna_prop = (obj if name is None else BlRna(obj).properties[name])
         type_id = rna_prop.rna_type.identifier
         if hasattr(rna_prop, "array_length"):
-            if rna_prop.array_length == 0:
-                return value == rna_prop.default
-            if isinstance(value, Matrix):
-                value = itertools.chain(*value)
+            if rna_prop.array_length == 0: return value == rna_prop.default
+            if isinstance(value, Matrix): value = matrix_flatten(value)
             return tuple(rna_prop.default_array) == tuple(value)
         elif type_id == "StringProperty":
             return value == rna_prop.default
         elif type_id == "EnumProperty":
-            if rna_prop.is_enum_flag:
-                return set(value) == rna_prop.default_flag
+            if rna_prop.is_enum_flag: return set(value) == rna_prop.default_flag
             return value == rna_prop.default
         return False
     
@@ -343,11 +370,9 @@ class BlRna:
         rna_prop = (obj if name is None else BlRna(obj).properties[name])
         type_id = rna_prop.rna_type.identifier
         if hasattr(rna_prop, "array_length"):
-            if rna_prop.array_length == 0:
-                return rna_prop.default
+            if rna_prop.array_length == 0: return rna_prop.default
             type_id = rna_prop.rna_type.identifier
-            if type_id != "FloatProperty":
-                return tuple(rna_prop.default_array)
+            if type_id != "FloatProperty": return tuple(rna_prop.default_array)
             return BlRna._convert_float_array(rna_prop)
         elif type_id == "StringProperty":
             return rna_prop.default
@@ -361,9 +386,10 @@ class BlRna:
         def convert_vector(rna_prop):
             return Vector(rna_prop.default_array)
         def convert_matrix(rna_prop):
-            size = (3 if rna_prop.array_length == 9 else 4)
-            arr_iter = iter(rna_prop.default_array)
-            return Matrix(tuple(tuple(itertools.islice(arr_iter, size)) for i in range(size)))
+            #size = (3 if rna_prop.array_length == 9 else 4)
+            #arr_iter = iter(rna_prop.default_array)
+            #return Matrix(tuple(tuple(itertools.islice(arr_iter, size)) for i in range(size)))
+            return matrix_unflatten(rna_prop.default_array)
         def convert_euler_quaternion(rna_prop):
             return (Euler if rna_prop.array_length == 3 else Quaternion)(rna_prop.default_array)
         
@@ -650,12 +676,10 @@ class BpyProp:
     def deserialize(obj, data, cls=None, names=None, use_skip_save=False):
         """Deserialize object properties from a JSON data structure"""
         
-        if not cls:
-            cls = type(obj)
+        if not cls: cls = type(obj)
         
         for key, info in BpyProp.iterate(cls, names=names):
-            if use_skip_save and ('SKIP_SAVE' in info["options"]):
-                continue
+            if use_skip_save and ('SKIP_SAVE' in info["options"]): continue
             
             try:
                 data_value = data[key]
@@ -669,8 +693,7 @@ class BpyProp:
                 _obj = getattr(obj, key)
                 BpyProp.deserialize(_obj, data_value, _cls)
             elif info.type == bpy.props.CollectionProperty:
-                if not isinstance(data_value, list):
-                    continue
+                if not isinstance(data_value, list): continue
                 _cls = info["type"]
                 collection = getattr(obj, key)
                 while len(collection) != 0:
@@ -688,14 +711,12 @@ class BpyProp:
     def serialize(obj, cls=None, names=None, use_skip_save=False):
         """Serialize object properties to a JSON data structure"""
         
-        if not cls:
-            cls = type(obj)
+        if not cls: cls = type(obj)
         
         data = {}
         
         for key, info in BpyProp.iterate(cls, names=names):
-            if use_skip_save and ('SKIP_SAVE' in info["options"]):
-                continue
+            if use_skip_save and ('SKIP_SAVE' in info["options"]): continue
             
             data_value = getattr(obj, key)
             
@@ -705,11 +726,9 @@ class BpyProp:
                 data[key] = BpyProp.serialize(_obj, _cls)
             elif info.type == bpy.props.CollectionProperty:
                 _cls = info["type"]
-                data[key] = [BpyProp.serialize(_obj, _cls)
-                    for _obj in data_value]
+                data[key] = [BpyProp.serialize(_obj, _cls) for _obj in data_value]
             elif info.type in BpyProp.vectors:
-                if isinstance(data_value, Matrix):
-                    data_value = itertools.chain(*data_value)
+                if isinstance(data_value, Matrix): data_value = matrix_flatten(data_value)
                 data[key] = list(data_value)
             else:
                 data[key] = data_value
@@ -1081,13 +1100,14 @@ class prop:
             bpy_type = self.types_primitive[vtype]
         elif vtype in self.types_float_vector_subtype: # a = Vector() | prop()
             bpy_type = bpy.props.FloatVectorProperty
-            if vtype is Matrix: value = itertools.chain(*value)
-            value = tuple(value)
-            kwargs["size"] = len(value)
+            if vtype is Matrix: value = matrix_flatten(value)
             if "subtype" not in kwargs: kwargs["subtype"] = self.types_float_vector_subtype[vtype]
             if kwargs["subtype"] == 'COLOR': # need to set min-max to 0..1, otherwise glitches
                 kwargs.setdefault("min", 0.0)
                 kwargs.setdefault("max", 1.0)
+                if "alpha" in kwargs: value = (value[0], value[1], value[2], kwargs.pop("alpha"))
+            value = tuple(value)
+            kwargs["size"] = len(value)
         elif isinstance(value, tuple) and value: # a = (False, False, False) | prop()
             itype = type(value[0])
             if itype in self.types_primitive_vector:

@@ -31,7 +31,7 @@ bl_info = {
     "name": "MeasureIt",
     "author": "Antonio Vazquez (antonioya)",
     "location": "View3D > Tools Panel /Properties panel",
-    "version": (1, 6, 2),
+    "version": (1, 6, 4),
     "blender": (2, 7, 4),
     "description": "Tools for measuring objects.",
     "category": "3D View"}
@@ -89,6 +89,8 @@ def register():
     bpy.utils.register_class(measureit_main.DeleteAllSumButton)
     bpy.utils.register_class(measureit_main.MeasureitEditPanel)
     bpy.utils.register_class(measureit_main.MeasureitMainPanel)
+    bpy.utils.register_class(measureit_main.MeasureitConfPanel)
+    bpy.utils.register_class(measureit_main.MeasureitRenderPanel)
     bpy.utils.register_class(measureit_main.RenderSegmentButton)
 
     # Define properties
@@ -338,6 +340,8 @@ def unregister():
     bpy.utils.unregister_class(measureit_main.DeleteAllSumButton)
     bpy.utils.unregister_class(measureit_main.MeasureitEditPanel)
     bpy.utils.unregister_class(measureit_main.MeasureitMainPanel)
+    bpy.utils.unregister_class(measureit_main.MeasureitConfPanel)
+    bpy.utils.unregister_class(measureit_main.MeasureitRenderPanel)
     bpy.utils.unregister_class(measureit_main.RenderSegmentButton)
 
     # Remove properties

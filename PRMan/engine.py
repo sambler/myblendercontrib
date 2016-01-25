@@ -191,6 +191,7 @@ class RPass:
 
         self.paths['render_output'] = user_path(rm.path_display_driver_image,
                                                 scene=scene)
+        debug("info",self.paths)
         self.paths['shader'] = [user_path(rm.out_dir, scene=scene)] +\
             get_path_list_converted(rm, 'shader')
         self.paths['rixplugin'] = get_path_list_converted(rm, 'rixplugin')

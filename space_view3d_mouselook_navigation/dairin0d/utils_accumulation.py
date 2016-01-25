@@ -27,43 +27,7 @@ from .utils_text import indent, longest_common_substring
 #============================================================================#
 
 """
-Statistics/summaries: (more than one may be requested at once)
-* Count
-* Sum (= mean * count)
-* Sum of squares (?) (= 2nd moment about zero * count)
-* Product (= exp(log(v1) + log(v2) + ...))
-* Min
-* Max
-* Range
-* Center
-* Moments? (0: total/sum, 1: average/mean, 2: variance, 3: skewness; etc.) Moments are about some point (usually zero or mean)
-    * Standard deviation (sqrt(variance)), Variance? (stddev^2), Root mean square error?, Mean absolute deviation?, Mean square error?, Geometric standard deviation?, Harmonic stddev?
-    * Average, Geometric Average?, Harmonic Mean?
-* Sorted list(s) by certain parameter(s)
-* Median
-* Histogram/Frequency map
-* Mode (for discrete/symbolic values, or if some sort of histogram can be built) (will it be useful to see what elements repeat exactly the given number of times?)
-* Pattern (detect common parts or even some general pattern)
-* Union (for enums/sets) -- all items ever encountered (equivalend of Max/Sum)
-* Intersection (for enums/sets) -- only items encountered in each sample (equivalent of Min/Product)
-* Symmetric Difference (for enums/sets) - only items encountered in a single sample (sort of antithesis of Mode)
-
-Bool: treated as int
-Int: all numerical summaries
-Float: all numerical summaries, but instead of mode, kernel density estimation is used
-Enum/Set: frequency map, mode, union, intersection, difference
-String (ordered sequence?): sorted list (if elements are sortable), frequency map, mode, pattern (sort of similar to Intersection)
-Object: frequency map, mode
-
-Vectors can have per-component statistics and "holistic" statistics (when components are taken into account as a whole)
-* Statistics of length/squared-length (Absolute? Euclidean? Manhattan?)
-* Statistics of projection/dot-product/angle to a given vector
-* Mode can, in principle, be calculated for vectors, but frequency map has to be of the corresponding dimension
-* Normals are just normalized directions (maybe they should be handled on the user level?)
-* There's not much we can do about Euler (3-Vector) or Angle-axis (a normal and an angle) besides the per-component statistics
-* Quaternion should probably be converted to Matrix (there are no useful statistics about its components separately)
-* Matrix can be treated as a set of vectors; the result is probably the separate vectors converted into Matrix again (and maybe orthogonalized?)
-
+TODO: "active" query (for consistency)
 """
 
 class Aggregator:
@@ -221,7 +185,7 @@ class Aggregator:
             queries = set(queries) # make sure it's a copy
             
             # make sure requirements are included
-            if 'same' in queries: queries.add('prev')
+            if 'same' in queries: queries.update(('min', 'max') if epsilon else ('prev',))
             if ('range' in queries) or ('center' in queries): queries.update(('min', 'max'))
             if 'mean' in queries: queries.add('Ak')
             if 'geometric_mean' in queries: queries.update(('sum_log', 'count'))
@@ -230,6 +194,7 @@ class Aggregator:
             if 'Qk' in queries: queries.add('Ak')
             if 'Ak' in queries: queries.add('count')
             if 'median' in queries: queries.add('sorted')
+            if 'mode' in queries: queries.add('modes')
             if 'modes' in queries: queries.add('freq_max')
             if 'freq_max' in queries: queries.add('freq_map')
             if queries.intersection(('subseq', 'subseq_starts', 'subseq_ends')):
@@ -265,17 +230,6 @@ class Aggregator:
             reset_lines.append("self._count = 0")
             init_lines.append("self._count = 1")
             add_lines.append("self._count += 1")
-        if 'same' in queries:
-            reset_lines.append("self._same = True")
-            init_lines.append("self._same = True")
-            if epsilon:
-                add_lines.append("if self._same: self._same = (abs(value - self._prev) <= %s)" % epsilon)
-            else:
-                add_lines.append("if self._same: self._same = (value == self._prev)")
-        if 'prev' in queries:
-            reset_lines.append("self._prev = None")
-            init_lines.append("self._prev = value")
-            add_lines.append("self._prev = value")
         
         if 'min' in queries:
             reset_lines.append("self._min = None")
@@ -285,6 +239,18 @@ class Aggregator:
             reset_lines.append("self._max = None")
             init_lines.append("self._max = value")
             add_lines.append("self._max = max(self._max, value)")
+        
+        if 'same' in queries:
+            reset_lines.append("self._same = True")
+            init_lines.append("self._same = True")
+            if epsilon:
+                add_lines.append("if self._same: self._same = (abs(self._max - self._min) <= %s)" % epsilon)
+            else:
+                add_lines.append("if self._same: self._same = (value == self._prev)")
+        if 'prev' in queries:
+            reset_lines.append("self._prev = None")
+            init_lines.append("self._prev = value")
+            add_lines.append("self._prev = value")
         
         if 'sum' in queries:
             reset_lines.append("self._sum = None")
@@ -331,7 +297,6 @@ class Aggregator:
                 add_lines.append("    self._freq_max = freq")
             if 'modes' in queries:
                 reset_lines.append("self._modes = None")
-                #init_lines.append("self._modes = []")
                 init_lines.append("self._modes = [value]")
                 add_lines.append("    self._modes = [value]")
                 add_lines.append("elif freq == self._freq_max:")
@@ -350,7 +315,6 @@ class Aggregator:
                 add_lines.append("        self._freq_max = freq")
             if 'modes' in queries:
                 reset_lines.append("self._modes = None")
-                #init_lines.append("self._modes = []")
                 init_lines.append("self._modes = list(value)")
                 add_lines.append("        self._modes = [item]")
                 add_lines.append("    elif freq == self._freq_max:")
@@ -432,18 +396,23 @@ class Aggregator:
             #        self._subseq_ends = self._endswith(value, self._subseq)
 
 class VectorAggregator:
-    def __init__(self, size, type, queries=None, covert=None):
+    def __init__(self, size, type, queries=None, covert=None, epsilon=1e-6):
         self._type = type
-        self.axes = tuple(Aggregator(type, queries, covert) for i in range(size))
+        self.axes = tuple(Aggregator(type, queries, covert, epsilon) for i in range(size))
     
     def reset(self):
-        for axis in self.axes: axis.reset()
+        for axis in self.axes:
+            axis.reset()
     
     def __len__(self):
         return len(self.axes)
     
-    def add(self, value):
-        for axis, item in zip(self.axes, value): axis.add(item)
+    def add(self, value, i=None):
+        if i is None:
+            for axis, item in zip(self.axes, value):
+                axis.add(item)
+        else:
+            self.axes[i].add(value)
     
     type = property(lambda self: self._type)
     

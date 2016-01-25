@@ -453,22 +453,43 @@ def generate_txmake_options(parent_name):
     for option in txmake.index:
         optionObject = getattr(txmake, option)
         if optionObject['type'] == "bool":
-            optionsMeta[optionObject["name"]] = {'renderman_name' : 'filename' ,'name' : optionObject["name"], 'renderman_type' : 'enum' , 'default' : '', 'label' : optionObject["dispName"], 'type': 'enum', 'options': '', 'widget' : 'mapper', 'connectable' : 'false'}
+            optionsMeta[optionObject["name"]] = {'renderman_name' : 'filename', #Proxy Meta information for the UI system. DO NOT USE FOR ANYTHING!
+                                                 'name' : optionObject["name"], 
+                                                 'renderman_type' : 'bool' , 
+                                                 'default' : '', 
+                                                 'label' : optionObject["dispName"], 
+                                                 'type': 'bool', 
+                                                 'options': '', 
+                                                 'widget' : 'mapper', 
+                                                 'connectable' : 'false'}
             optionsProps[optionObject["name"]] = bpy.props.BoolProperty(name = optionObject['dispName'], default = optionObject['default'], description = optionObject['help'])
         elif optionObject['type'] == "enum":
-            optionsProps[optionObject["name"]] = EnumProperty(
-                name=optionObject["dispName"],
-                default=optionObject[
-                    "default"], description=optionObject["help"],
-                items=optionObject["items"])
-            optionsMeta[optionObject["name"]] = {'renderman_name': 'filename',
+            optionsProps[optionObject["name"]] = EnumProperty(name=optionObject["dispName"],
+                                                              default=optionObject["default"], 
+                                                              description=optionObject["help"],
+                                                              items=optionObject["items"])
+            optionsMeta[optionObject["name"]] = {'renderman_name': 'filename', 
                                                  'name': optionObject["name"],
                                                  'renderman_type': 'enum',
                                                  'default': '',
                                                  'label': optionObject["dispName"],
-                                                 'type': 'enum', 'options': '',
+                                                 'type': 'enum', 
+                                                 'options': '',
                                                  'widget': 'mapper',
                                                  'connectable': 'false'}
+        elif optionObject['type'] == "float":
+            optionsMeta[optionObject["name"]] = {'renderman_name': 'filename', 
+                                                 'name': optionObject["name"],
+                                                 'renderman_type': 'float',
+                                                 'default': '',
+                                                 'label': optionObject["dispName"],
+                                                 'type': 'float', 
+                                                 'options': '',
+                                                 'widget': 'mapper',
+                                                 'connectable': 'false'}
+            optionsProps[optionObject["name"]] = FloatProperty(name=optionObject["dispName"],
+                                                               default=optionObject["default"],
+                                                               description=optionObject["help"])
     return txmake.index, optionsMeta, optionsProps
 
 # map types in args files to socket types
@@ -484,9 +505,10 @@ socket_map = {
     'void': 'RendermanNodeSocketStruct'
 }
 
-
+# To add aditional options simply add an option name to index and then define it.
+# Supported types are bool, enum and float
 class txmake_options():
-    index = ["smode", "tmode", "format", "dataType"]
+    index = ["smode", "tmode", "format", "dataType", "resize", "pattern", "sblur", "tblur"]
     smode = {'name': "smode", 'type': "enum", "default": "periodic",
              "items": [("periodic", "Periodic", ""), ("clamp", "Clamp", "")],
              "dispName": "Smode", "help": "The X dimension tiling",
@@ -505,8 +527,45 @@ class txmake_options():
                 "items": [("float", "Float", ""), ("byte", "Byte", ""),
                           ("short", "Short", ""), ("half", "Half", "")],
                 "dispName": "Data Type",
-                "help": "The data storage txmake uses", "exportType": "noname"}
+                "help": "The data storage txmake uses", 
+                "exportType": "noname"}
+    resize = {'name': "resize", 'type':"enum", "default": "up-",
+              "items": [("up", "Up", ""), ("down", "Down", ""),
+                        ("up-", "Up-(0-1)", ""), ("down-", "Down-(0-1)", ""),
+                        ("round", "Round", ""), ("round-", "Round-(0-1)", ""),
+                        ("none", "None", "")],
+              "dispName": "Type of resizing",
+              "help": "The type of resizing flag to pass to txmake",
+              "exportType": "name"}
 
+
+    sblur = {'name': "sblur" , 'type': "float", 'default': 1.0, 'dispName': "Sblur",
+             'help': "Amount of X blur applied to texture.",
+             'exportType': "name"}
+    tblur = {'name': "tblur" , 'type': "float", 'default': 1.0, 'dispName': "Tblur",
+             'help': "Amount of Y blur applied to texture.",
+             'exportType': "name"}
+    pattern = {'name': "pattern", 'type': "enum", 'default': "diagonal",
+               'items': [("diagonal","Diagonal",""), ("single","Single",""),
+                         ("all","All","")],
+               'dispName': "Pattern Type",
+               'help': "Used to control the set of filtered texture resolutions that are generation by txmake",
+               "exportType": "name"}
+    
+
+# This option will conflict with the option in the args file do not enable unless needed.
+#   filter = {'name': "filter", 'type': "enum", 'default': "catmull-rom",
+#              'items': [("point","Point",""),("box","Box",""),
+#                        ("triangle","Triangle",""),("sinc","Sinc",""),
+#                        ("gaussian","Gaussian",""),("catmull-rom","Catmullrom",""),
+#                        ("mitchell","Mitchell",""),("cubic","Cubic",""),
+#                        ("lanczos","Lanczos",""),("blackman-harris","Blackmanharris",""),
+#                        ("bessel","Bessel",""),("gaussian-soft","Gaussian-soft","")],
+#              'dispName': "Filter Type",
+#              'help': "Type of filter to use when resizing",
+#              'exportType': "name"}
+
+    
 
 # add input sockets
 def node_add_inputs(node, node_name, shaderparameters):

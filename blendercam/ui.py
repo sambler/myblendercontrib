@@ -381,6 +381,7 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 						layout.prop(ao,'strategy')
 					layout.prop(ao,'rotary_axis_1')
 					layout.prop(ao,'rotary_axis_2')
+
 				if ao.strategy=='BLOCK' or ao.strategy=='SPIRAL' or ao.strategy=='CIRCLES' or ao.strategy=='OUTLINEFILL':
 					layout.prop(ao,'movement_insideout')
 					
@@ -407,20 +408,22 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 					layout.prop(ao,'dont_merge')
 					layout.prop(ao,'use_bridges')
 					if ao.use_bridges:
-						layout.prop(ao,'bridges_placement')
+						#layout.prop(ao,'bridges_placement')
 						layout.prop(ao,'bridges_width')
 						layout.prop(ao,'bridges_height')
-						if ao.bridges_placement == 'AUTO':
-							layout.prop(ao,'bridges_per_curve')
-							layout.prop(ao,'bridges_max_distance')
-					
+						
+						layout.prop_search(ao, "bridges_group_name", bpy.data, "groups")
+						#layout.prop(ao,'bridges_group_name')
+						#if ao.bridges_placement == 'AUTO':
+						#	layout.prop(ao,'bridges_per_curve')
+						#	layout.prop(ao,'bridges_max_distance')
+					layout.operator("scene.cam_bridges_add", text="Autogenerate bridges")
 				elif ao.strategy=='WATERLINE':
 					layout.prop(ao,'slice_detail')	
 					layout.prop(ao,'waterline_fill')  
 					if ao.waterline_fill:
 						layout.prop(ao,'dist_between_paths')			
 						layout.prop(ao,'waterline_project')
-					layout.prop(ao,'skin')
 					layout.prop(ao,'inverse')
 				elif ao.strategy=='CARVE':
 					layout.prop(ao,'carve_depth')
@@ -428,6 +431,9 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 				elif ao.strategy=='PENCIL':
 					layout.prop(ao,'dist_along_paths')
 					layout.prop(ao,'pencil_threshold')
+				elif ao.strategy=='MEDIAL_AXIS':
+					layout.prop(ao,'medial_axis_threshold')
+					layout.prop(ao,'medial_axis_subdivision')
 				elif ao.strategy=='CRAZY':
 					layout.prop(ao,'crazy_threshold1')
 					layout.prop(ao,'crazy_threshold5')
@@ -446,9 +452,7 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 					layout.prop(ao,'dist_along_paths')
 					if ao.strategy=='PARALLEL' or ao.strategy=='CROSS':
 						layout.prop(ao,'parallel_angle')
-						
-						
-					layout.prop(ao,'skin')
+												
 					layout.prop(ao,'inverse')
 				#elif ao.strategy=='SLICES':
 				#	layout.prop(ao,'slice_detail')	
@@ -456,6 +460,8 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 			#layout.operator("object.cam_pack_objects")
 			#layout.operator("scene.cam_orientation_add")
 			#gname=ao.name+'_orientations'
+
+			layout.prop(ao,'skin')
 			
 			#if gname in bpy.data.groups:
 			#	layout.label('orientations')
@@ -573,7 +579,7 @@ class CAM_OPTIMISATION_Panel(CAMButtonsPanel, bpy.types.Panel):
 				if ao.optimize:
 					layout.prop(ao,'optimize_threshold')
 				if ao.geometry_source=='OBJECT' or ao.geometry_source=='GROUP':
-					exclude_exact= ao.strategy=='CUTOUT' or ao.strategy=='DRILL' or ao.strategy=='PENCIL'
+					exclude_exact= ao.strategy=='WATERLINE' or ao.strategy=='POCKET' or ao.strategy=='CUTOUT' or ao.strategy=='DRILL' or ao.strategy=='PENCIL'
 					if not exclude_exact:
 						layout.prop(ao,'use_exact')
 						if ao.use_exact:
@@ -696,13 +702,15 @@ class VIEW3D_PT_tools_curvetools(bpy.types.Panel):
 	bl_region_type = 'TOOLS'
 	bl_context = "objectmode"
 	bl_label = "Curve CAM Tools"
-	bl_options = {'DEFAULT_CLOSED'}
-
+	bl_category = "Blender CAM"
+	#bl_options = {'DEFAULT_CLOSED'}
+	
 	def draw(self, context):
 		layout = self.layout
 		#col = layout.column(align=True)
 		#lt = context.window_manager.looptools
 		layout.operator("object.curve_boolean")
 		layout.operator("object.curve_intarsion")
+		layout.operator("object.curve_overcuts")
 		layout.operator("object.silhouete_offset")
 		layout.operator("object.curve_remove_doubles")

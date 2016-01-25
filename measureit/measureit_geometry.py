@@ -221,6 +221,8 @@ def draw_segments(context, myobj, op, region, rv3d):
                         a_n = an_p12.cross(an_p23)
                         a_n.normalize()  # normal vector
                         arc_angle, arc_length = get_arc_data(an_p1, a_p1, an_p2, an_p3)
+                        # Apply scale to arc_length
+                        arc_length *= scene.measureit_scale_factor
 
                     # ----------------------
                     # Area
@@ -442,7 +444,8 @@ def draw_segments(context, myobj, op, region, rv3d):
                                               fsize, right)
                                 # Radius
                                 if scene.measureit_gl_show_d is True and ms.gldist is True and ms.glarc_rad is True:
-                                    tx_dist = ms.glarc_txradio + format_distance(fmt, units, dist)
+                                    tx_dist = ms.glarc_txradio + format_distance(fmt, units,
+                                                                                 dist * scene.measureit_scale_factor)
                                 else:
                                     tx_dist = " "
                             if ms.gltype == 2:
@@ -744,8 +747,8 @@ def get_group_sum(myobj, tag):
         obverts = get_mesh_vertices(myobj)
         for idx in range(0, mp.measureit_num):
             ms = mp.measureit_segments[idx]
-            if (ms.gltype == 1 or ms.gltype == 12
-               or ms.gltype == 13 or ms.gltype == 14) and ms.gltot != '99' \
+            if (ms.gltype == 1 or ms.gltype == 12 or
+                ms.gltype == 13 or ms.gltype == 14) and ms.gltot != '99' \
                     and ms.glfree is False and g == tx[int(ms.gltot)]:  # only segments
                 if ms.glpointa <= len(obverts) and ms.glpointb <= len(obverts):
                     p1 = get_point(obverts[ms.glpointa].co, myobj)

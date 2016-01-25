@@ -29,6 +29,7 @@ from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR, SHUT_
 from struct import pack, unpack
 from threading import Thread
 from collections import OrderedDict
+from time import sleep
 
 class Tree(OrderedDict):
     def get_leaves(self):
@@ -81,9 +82,14 @@ class StreamReceiver(Thread):
         self.receiving = True
         self.socket = create_stream_socket(host_name if host_name is not None else "127.0.0.1", port_number if port_number is not None else 9011)
     def run(self):
-        while self.receiving:
-            self.packed_data += self.socket.recv(self.recv_size)
-            self.packed_data = self.packed_data[( (len(self.packed_data) // self.recv_size) - 1) * self.recv_size : ]
+        try:
+            while self.receiving:
+                self.packed_data += self.socket.recv(self.recv_size)
+                self.packed_data = self.packed_data[( (len(self.packed_data) // self.recv_size) - 1) * self.recv_size : ]
+        except Exception as e:
+            sleep(1)
+            if self.receiving:
+                raise Exception(e)
         try:
             self.socket.shutdown(SHUT_RDWR)
         except OSError as err:

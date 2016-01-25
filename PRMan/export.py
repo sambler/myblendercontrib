@@ -80,7 +80,7 @@ def get_matrix_for_object(passedOb):
 # check for a singular matrix
 def is_singular(mtx):
     return mtx[0][0] == 0.0 and mtx[1][1] == 0.0 and mtx[2][2] == 0.0
-    
+
 
 # export the instance of an object (dupli)
 def export_object_instance(ri, mtx=None, dupli_name=None,
@@ -104,8 +104,10 @@ def is_visible_layer(scene, ob):
 
 def is_renderable(scene, ob):
     return (is_visible_layer(scene, ob) and not ob.hide_render) or \
-    (ob.type in ['ARMATURE', 'LATTICE', 'EMPTY'] and ob.dupli_type not in SUPPORTED_DUPLI_TYPES)
+        (ob.type in ['ARMATURE', 'LATTICE', 'EMPTY']
+         and ob.dupli_type not in SUPPORTED_DUPLI_TYPES)
     # and not ob.type in ('CAMERA', 'ARMATURE', 'LATTICE'))
+
 
 def is_renderable_or_parent(scene, ob):
     if is_renderable(scene, ob):
@@ -116,8 +118,10 @@ def is_renderable_or_parent(scene, ob):
                 return True
     return False
 
+
 def is_data_renderable(scene, ob):
     return (is_visible_layer(scene, ob) and not ob.hide_render and not ob.type in ('EMPTY', 'ARMATURE', 'LATTICE'))
+
 
 def renderable_objects(scene):
     return [ob for ob in scene.objects if (is_renderable(scene, ob) or is_data_renderable(scene, ob))]
@@ -202,7 +206,7 @@ def is_deforming(ob):
     deforming_modifiers = ['ARMATURE', 'CAST', 'CLOTH', 'CURVE', 'DISPLACE',
                            'HOOK', 'LATTICE', 'MESH_DEFORM', 'SHRINKWRAP',
                            'SIMPLE_DEFORM', 'SMOOTH', 'WAVE', 'SOFT_BODY',
-                           'SURFACE', 'MESH_CACHE']
+                           'SURFACE', 'MESH_CACHE', 'FLUID_SIMULATION']
     if ob.modifiers:
         # special cases for auto subd/displace detection
         if len(ob.modifiers) == 1 and is_subd_last(ob):
@@ -213,6 +217,8 @@ def is_deforming(ob):
         for mod in ob.modifiers:
             if mod.type in deforming_modifiers:
                 return True
+    if ob.data and hasattr(ob.data, 'shape_keys') and ob.data.shape_keys:
+        return True
 
     return is_deforming_fluid(ob)
 
@@ -222,7 +228,7 @@ def is_deforming_fluid(ob):
     if ob.modifiers:
         mod = ob.modifiers[len(ob.modifiers) - 1]
         return mod.type == 'SMOKE' and mod.smoke_type == 'DOMAIN'
- 
+
 
 def psys_name(ob, psys):
     return "%s.%s-%s" % (ob.name, psys.name, psys.settings.type)
@@ -232,6 +238,9 @@ def psys_name(ob, psys):
 
 
 def data_name(ob, scene):
+    if not ob.data:
+        return ob.name
+
     # if this is a blob return the family name
     if ob.type == 'META':
         return ob.name.split('.')[0]
@@ -258,7 +267,7 @@ def get_name(ob):
 # ------------- Geometry Access -------------
 
 def get_strands(scene, ob, psys):
-    #we need this to get st
+    # we need this to get st
     psys_modifier = None
     for mod in ob.modifiers:
         if hasattr(mod, 'particle_system') and mod.particle_system == psys:
@@ -277,14 +286,15 @@ def get_strands(scene, ob, psys):
         widthString = "vertex float width"
         hair_width = []
 
-    psys.set_resolution(scene= scene, object=ob, resolution='RENDER')
+    psys.set_resolution(scene=scene, object=ob, resolution='RENDER')
 
     num_parents = len(psys.particles)
     num_children = len(psys.child_particles)
     total_hair_count = num_parents + num_children
     thicknessflag = 0
     width_offset = psys.settings.renderman.width_offset
-    export_st = psys.settings.renderman.export_scalp_st and psys_modifier and len(ob.data.uv_layers) > 0
+    export_st = psys.settings.renderman.export_scalp_st and psys_modifier and len(
+        ob.data.uv_layers) > 0
 
     curve_sets = []
 
@@ -297,7 +307,7 @@ def get_strands(scene, ob, psys):
     for pindex in range(total_hair_count):
         if not psys.settings.show_guide_hairs and pindex < num_parents:
             continue
-        
+
         if pindex >= num_parents:
             particle = psys.particles[(pindex - num_parents) % num_parents]
         else:
@@ -314,9 +324,10 @@ def get_strands(scene, ob, psys):
                 break
 
         if len(strand_points) > 1:
-            #double the first and last
-            strand_points = strand_points[:3] + strand_points + strand_points[-3:]
-            vertsInStrand = len(strand_points)//3
+            # double the first and last
+            strand_points = strand_points[:3] + \
+                strand_points + strand_points[-3:]
+            vertsInStrand = len(strand_points) // 3
             # for varying width make the width array
             if not conwidth:
                 decr = (base_width - tip_width) / (vertsInStrand - 2)
@@ -329,7 +340,7 @@ def get_strands(scene, ob, psys):
             vertsArray.append(vertsInStrand)
             nverts += vertsInStrand
 
-            #get the scalp S
+            # get the scalp S
             if export_st:
                 st = particle.uv_on_emitter(psys_modifier)
                 scalpS.append(st[0])
@@ -338,7 +349,8 @@ def get_strands(scene, ob, psys):
         # if we get more than 100000 vertices, export ri.Curve and reset.  This
         # is to avoid a maxint on the array length
         if nverts > 100000:
-            curve_sets.append((vertsArray, points, widthString, hair_width, scalpS, scalpT))
+            curve_sets.append(
+                (vertsArray, points, widthString, hair_width, scalpS, scalpT))
 
             nverts = 0
             points = []
@@ -347,8 +359,9 @@ def get_strands(scene, ob, psys):
                 hair_width = []
 
     if nverts > 0:
-        curve_sets.append((vertsArray, points, widthString, hair_width, scalpS, scalpT))
-    
+        curve_sets.append((vertsArray, points, widthString,
+                           hair_width, scalpS, scalpT))
+
     psys.set_resolution(scene=scene, object=ob, resolution='PREVIEW')
 
     return curve_sets
@@ -357,18 +370,18 @@ def get_strands(scene, ob, psys):
 # or have been born since the last frame
 
 
-def valid_particle(pa, cfra):
-    return not (pa.birth_time > cfra or (pa.birth_time + pa.die_time) < cfra)
+def valid_particle(pa, valid_frames):
+    return pa.die_time >= valid_frames[0] and pa.birth_time <= valid_frames[1]
 
 
-def get_particles(scene, ob, psys, valid_frame=None):
+def get_particles(scene, ob, psys, valid_frames=None):
     P = []
     rot = []
     width = []
 
-    cfra = scene.frame_current if valid_frame is None else valid_frame
+    valid_frames = (scene.frame_current, scene.frame_current) if valid_frames is None else valid_frames
     psys.set_resolution(scene, ob, 'RENDER')
-    for pa in [p for p in psys.particles if valid_particle(p, cfra)]:
+    for pa in [p for p in psys.particles if valid_particle(p, valid_frames)]:
         P.extend(pa.location)
         rot.extend(pa.rotation)
 
@@ -380,10 +393,11 @@ def get_particles(scene, ob, psys, valid_frame=None):
     return (P, rot, width)
 
 
-def get_mesh(mesh):
+def get_mesh(mesh, get_normals=False):
     nverts = []
     verts = []
     P = []
+    N = []
 
     for v in mesh.vertices:
         P.extend(v.co)
@@ -391,24 +405,20 @@ def get_mesh(mesh):
     for p in mesh.polygons:
         nverts.append(p.loop_total)
         verts.extend(p.vertices)
+        if get_normals:
+            if p.use_smooth:
+                for vi in p.vertices:
+                    N.extend(mesh.vertices[vi].normal)
+            else:
+                N.extend(list(p.normal) * p.loop_total)
 
     if len(verts) > 0:
         P = P[:int(max(verts) + 1) * 3]
     # return the P's minus any unconnected
-    return (nverts, verts, P)
+    return (nverts, verts, P, N)
 
-
-def get_mesh_vertex_N(mesh):
-    N = []
-
-    for v in mesh.vertices:
-        N.extend(v.normal)
-
-    return N
 
 # requires facevertex interpolation
-
-
 def get_mesh_uv(mesh, name=""):
     uvs = []
 
@@ -491,12 +501,6 @@ def get_primvars(ob, geo, interpolation=""):
         primvars["uniform float material_id"] = rib([p.material_index
                                                      for p in geo.polygons])
 
-    # default hard-coded prim vars
-    if rm.export_smooth_normals and ob.renderman.primitive in \
-            ('AUTO', 'POLYGON_MESH', 'SUBDIVISION_MESH'):
-        N = get_mesh_vertex_N(geo)
-        if N and len(N) > 0:
-            primvars["varying normal N"] = N
     if rm.export_default_uv:
         uvs = get_mesh_uv(geo)
         if uvs and len(uvs) > 0:
@@ -544,7 +548,7 @@ def get_primvars_particle(scene, psys):
                         [p for p in psys.particles if valid_particle(p, cfra)]:
                     pvars.extend(pa.angular_velocity)
 
-            primvars["varying float[3] %s" % p.name] = pvars
+            primvars["uniform float[3] %s" % p.name] = pvars
 
         elif p.data_source in \
                 ('SIZE', 'AGE', 'BIRTH_TIME', 'DIE_TIME', 'LIFE_TIME'):
@@ -569,7 +573,7 @@ def get_primvars_particle(scene, psys):
                         [p for p in psys.particles if valid_particle(p, cfra)]:
                     pvars.append(pa.lifetime)
 
-            primvars["varying float %s" % p.name] = pvars
+            primvars["uniform float %s" % p.name] = pvars
 
     return primvars
 
@@ -582,14 +586,14 @@ def get_fluid_mesh(scene, ob):
     fluidmeshverts = fluidmod.settings.fluid_mesh_vertices
 
     mesh = create_mesh(ob, scene)
-    (nverts, verts, P) = get_mesh(mesh)
+    (nverts, verts, P, N) = get_mesh(mesh)
     removeMeshFromMemory(mesh.name)
 
     # use fluid vertex velocity vectors to reconstruct moving points
     P = [P[i] + fluidmeshverts[int(i / 3)].velocity[i % 3] * subframe * 0.5 for
          i in range(len(P))]
 
-    return (nverts, verts, P)
+    return (nverts, verts, P, N)
 
 
 def get_subd_creases(mesh):
@@ -626,11 +630,11 @@ def create_mesh(ob, scene):
 def export_transform(ri, instance, flip_x=False, concat=False):
     ob = instance.ob
     export_motion_begin(ri, instance.motion_data)
-    
+
     if instance.transforming and len(instance.motion_data) > 0:
         samples = [sample[1] for sample in instance.motion_data]
     else:
-        samples = [ob.matrix_local] if ob.parent \
+        samples = [ob.matrix_local] if ob.parent and  ob.parent_type == "object"\
             else [ob.matrix_world]
     for m in samples:
         if flip_x:
@@ -639,12 +643,13 @@ def export_transform(ri, instance, flip_x=False, concat=False):
         if instance.type == 'LAMP' and instance.ob.data.renderman.renderman_type == "SKY":
             m = m.copy()
             m2 = Matrix.Rotation(math.radians(180), 4, 'X')
-            m = m2 * m 
-        if concat:
+            m = m2 * m
+        if concat and ob.parent_type == "object":
             ri.ConcatTransform(rib(m))
         else:
             ri.Transform(rib(m))
     export_motion_end(ri, instance.motion_data)
+
 
 def export_object_transform(ri, ob, flip_x=False):
     m = ob.parent.matrix_world * ob.matrix_local if ob.parent \
@@ -655,8 +660,9 @@ def export_object_transform(ri, ob, flip_x=False):
     if ob.type == 'LAMP' and ob.data.renderman.renderman_type == "SKY":
         m = m.copy()
         m2 = Matrix.Rotation(math.radians(180), 4, 'X')
-        m = m2 * m 
+        m = m2 * m
     ri.Transform(rib(m))
+
 
 def export_light_source(ri, lamp, shape):
     name = "PxrStdAreaLight"
@@ -664,7 +670,7 @@ def export_light_source(ri, lamp, shape):
         lamp.energy], "__instanceid": lamp.name}
     if lamp.type == "HEMI":
         name = "PxrStdEnvMapLight"
-        params["color envtint"] = rib(lamp.color)
+        params["color envTint"] = rib(lamp.color)
     else:
         params["color lightColor"] = rib(lamp.color)
         params["string rman__Shape"] = shape
@@ -688,11 +694,12 @@ def export_light_shaders(ri, lamp, do_geometry=True):
                 ri.Geometry('spherelight', {})
             elif lamp.renderman.area_shape == 'cylinder':
                 ri.Rotate(90.0, 0.0, 1.0, 0.0)
-                ri.Cylinder(lamp.size, -.5*lamp.size_y, .5*lamp.size_y, 360)
+                ri.Cylinder(lamp.size, -.5 *
+                            lamp.size_y, .5 * lamp.size_y, 360)
         else:
             params = {}
             if lamp.renderman.renderman_type == 'SKY':
-                params['constant float[2] resolution'] = [1024,512]
+                params['constant float[2] resolution'] = [1024, 512]
             ri.Geometry(type, params)
 
     def spot():
@@ -712,7 +719,7 @@ def export_light_shaders(ri, lamp, do_geometry=True):
     ri.Attribute('identifier', {'string name': handle})
     # do the shader
     if rm.nodetree != '':
-        #make sure the shape is set on PxrStdAreaLightShape
+        # make sure the shape is set on PxrStdAreaLightShape
         if lamp.type != "HEMI":
             nt = bpy.data.node_groups[rm.nodetree]
             output = None
@@ -728,8 +735,10 @@ def export_light_shaders(ri, lamp, do_geometry=True):
                     else:
                         light_shader.rman__Shape = shapes[lamp.type][0]
                     if lamp.type == 'SPOT':
-                        light_shader.coneAngle = .5*math.degrees(lamp.spot_size)
-                        light_shader.penumbraAngle = math.degrees(lamp.spot_blend)
+                        light_shader.coneAngle = .5 * \
+                            math.degrees(lamp.spot_size)
+                        light_shader.penumbraAngle = math.degrees(
+                            lamp.spot_blend)
 
         export_shader_nodetree(ri, lamp, handle)
     else:
@@ -747,7 +756,8 @@ def export_light(ri, instance):
     params = []
 
     ri.AttributeBegin()
-    export_transform(ri, instance, lamp.type == 'HEMI' and lamp.renderman.renderman_type != "SKY")
+    export_transform(ri, instance, lamp.type ==
+                     'HEMI' and lamp.renderman.renderman_type != "SKY")
     ri.ShadingRate(rm.shadingrate)
 
     export_light_shaders(ri, lamp)
@@ -828,12 +838,12 @@ def geometry_source_rib(ri, scene, ob):
                           rib(bounds))
 
 
-def export_blobby_particles(ri, scene, psys, ob, points):
+def export_blobby_particles(ri, scene, psys, ob, motion_data):
     rm = psys.settings.renderman
-    if len(points) > 1:
-        export_motion_begin(ri, scene, ob)
+    if len(motion_data) > 1:
+        export_motion_begin(ri, motion_data)
 
-    for (P, rot, widths) in points:
+    for (i, (P, rot, widths)) in motion_data:
         op = []
         count = len(widths)
         for i in range(count):
@@ -855,21 +865,23 @@ def export_blobby_particles(ri, scene, psys, ob, points):
             op.append(n)
 
         st = ('',)
-        parm = {}
+        parm = get_primvars_particle(scene, psys)
         ri.Blobby(count, op, tform, st, parm)
-    if len(points) > 1:
+    if len(motion_data) > 1:
         ri.MotionEnd()
 
 
-def export_particle_instances(ri, scene, rpass, psys, ob, points, type='OBJECT'):
+def export_particle_instances(ri, scene, rpass, psys, ob, motion_data, type='OBJECT'):
     rm = psys.settings.renderman
+
+    params = get_primvars_particle(scene, psys)
 
     if type == 'OBJECT':
         master_ob = bpy.data.objects[rm.particle_instance_object]
         # first call object Begin and read in archive of the master
         deforming = is_deforming(master_ob)
         master_archive = get_archive_filename(data_name(master_ob, scene), rpass, deforming,
-            relative=True)
+                                              relative=True)
 
     instance_handle = ri.ObjectBegin()
     if type == 'OBJECT':
@@ -885,14 +897,14 @@ def export_particle_instances(ri, scene, rpass, psys, ob, points, type='OBJECT')
 
     width = rm.width
 
-    num_points = len(points[0][2])
+    num_points = len(motion_data[0][1][2])
     for i in range(num_points):
         ri.AttributeBegin()
 
-        if len(points) > 1:
-            export_motion_begin(ri, scene, ob)
+        if len(motion_data) > 1:
+            export_motion_begin(ri, motion_data)
 
-        for (P, rot, point_width) in points:
+        for (seg, (P, rot, point_width)) in motion_data:
             loc = Vector((P[i * 3 + 0], P[i * 3 + 1], P[i * 3 + 2]))
             rotation = Quaternion((rot[i * 4 + 0], rot[i * 4 + 1],
                                    rot[i * 4 + 2], rot[i * 4 + 3]))
@@ -901,21 +913,27 @@ def export_particle_instances(ri, scene, rpass, psys, ob, points, type='OBJECT')
                 * Matrix.Scale(scale, 4)
 
             ri.Transform(rib(mtx))
-        if len(points) > 1:
+        if len(motion_data) > 1:
             ri.MotionEnd()
+
+        instance_params = {}
+        for param in params:
+            instance_params[param] = params[param][i]
+
+        ri.Attribute("user", instance_params)
 
         ri.ObjectInstance(instance_handle)
         ri.AttributeEnd()
 
 
 #
-def export_particle_points(ri, scene, psys, ob, points):
+def export_particle_points(ri, scene, psys, ob, motion_data):
     rm = psys.settings.renderman
-    if len(points) > 1:
-        export_motion_begin(ri, scene, ob)
+    if len(motion_data) > 1:
+        export_motion_begin(ri, motion_data)
 
-    for (P, rot, width) in points:
-        params = {}  # get_primvars_particle(scene, psys)
+    for (i, (P, rot, width)) in motion_data:
+        params = get_primvars_particle(scene, psys)
         params[ri.P] = rib(P)
         params["uniform string type"] = rm.particle_type
         if rm.constant_width:
@@ -924,7 +942,7 @@ def export_particle_points(ri, scene, psys, ob, points):
             params["varying float width"] = width
         ri.Points(params)
 
-    if len(points) > 1:
+    if len(motion_data) > 1:
         ri.MotionEnd()
 
 # only for emitter types for now
@@ -933,24 +951,44 @@ def export_particle_points(ri, scene, psys, ob, points):
 def export_particles(ri, scene, rpass, ob, psys, data=None):
 
     rm = psys.settings.renderman
-    points = data if data else [get_particles(scene, ob, psys)]
+        
+    if not data:
+        data = [(0, get_particles(scene, ob, psys))]
     # Write object instances or points
     if rm.particle_type == 'particle':
-        export_particle_points(ri, scene, psys, ob, points)
+        export_particle_points(ri, scene, psys, ob, data)
     elif rm.particle_type == 'blobby':
-        export_blobby_particles(ri, scene, psys, ob, points)
+        export_blobby_particles(ri, scene, psys, ob, data)
     else:
         export_particle_instances(
-            ri, scene, rpass, psys, ob, points, type=rm.particle_type)
+            ri, scene, rpass, psys, ob, data, type=rm.particle_type)
 
 
 def export_comment(ri, comment):
     ri.ArchiveRecord('comment', comment)
 
 
+def recursive_texture_set(ob):
+    mat_set = []
+    SUPPORTED_MATERIAL_TYPES = ['MESH', 'CURVE', 'FONT', 'SURFACE']
+    if ob.type in SUPPORTED_MATERIAL_TYPES:
+        for mat in ob.data.materials:
+            if mat:
+                mat_set.append(mat)
+
+    for child in ob.children:
+        mat_set += recursive_texture_set(child)
+
+    if ob.dupli_group:
+        for child in ob.dupli_group.objects:
+            mat_set += recursive_texture_set(child)
+
+    return mat_set
+
+
 def get_texture_list(scene):
     # if not rpass.light_shaders: return
-    SUPPORTED_MATERIAL_TYPES = ['MESH', 'CURVE', 'FONT', 'SURFACE']
+    
     textures = []
     mats_to_scan = []
     for o in renderable_objects(scene):
@@ -959,15 +997,11 @@ def get_texture_list(scene):
         elif o.type == 'LAMP':
             if o.data.renderman.nodetree != '':
                 textures = textures + get_textures(o.data)
-        elif o.type in SUPPORTED_MATERIAL_TYPES:
-            for mat in [mat for mat in o.data.materials if mat is not None]:
-                if mat not in mats_to_scan:
-                    mats_to_scan.append(mat)
         else:
-            debug("error",
-                  "get_texture_list: unsupported object type [%s]." % o.type)
+            mats_to_scan += recursive_texture_set(o)
+            
     # cull duplicates by only doing mats once
-    for mat in mats_to_scan:
+    for mat in set(mats_to_scan):
         new_textures = get_textures(mat)
         if new_textures:
             textures.extend(new_textures)
@@ -983,7 +1017,7 @@ def get_texture_list_preview(scene):
 def export_scene_lights(ri, instances):
     # if not rpass.light_shaders: return
     export_comment(ri, '##Lights')
-    for instance in [inst for name,inst in instances.items() if inst.type == 'LAMP']:
+    for instance in [inst for name, inst in instances.items() if inst.type == 'LAMP']:
         export_light(ri, instance)
 
 
@@ -1097,7 +1131,7 @@ def export_subdivision_mesh(ri, scene, ob, data=None):
     #    export_multi_material(ri, mesh)
 
     creases = get_subd_creases(mesh)
-    (nverts, verts, P) = get_mesh(mesh)
+    (nverts, verts, P, N) = get_mesh(mesh)
     # if this is empty continue:
     if nverts == []:
         debug("error empty subdiv mesh %s" % ob.name)
@@ -1113,7 +1147,7 @@ def export_subdivision_mesh(ri, scene, ob, data=None):
 
     primvars = get_primvars(ob, mesh, "facevarying")
     primvars['P'] = P
-
+    
     if not is_multi_material(mesh):
         if len(creases) > 0:
             for c in creases:
@@ -1137,18 +1171,18 @@ def export_subdivision_mesh(ri, scene, ob, data=None):
         for mat_id, faces in \
                 get_mats_faces(nverts, primvars).items():
             tags.append("faceedit")
-            nargs.extend([2*len(faces), 0, 3])
+            nargs.extend([2 * len(faces), 0, 3])
             for face in faces:
                 intargs.extend([1, face])
             export_material_archive(ri, mesh.materials[mat_id])
-            ri.Resource(mesh.materials[mat_id].name, "attributes", 
+            ri.Resource(mesh.materials[mat_id].name, "attributes",
                         {'string operation': 'save',
                          'string subset': 'shading'})
             string_args.extend(['attributes', mesh.materials[mat_id].name,
                                 'shading'])
         ri.HierarchicalSubdivisionMesh("catmull-clark", nverts, verts, tags, nargs,
-                               intargs, floatargs, string_args, primvars)
-    
+                                       intargs, floatargs, string_args, primvars)
+
     removeMeshFromMemory(mesh.name)
 
 
@@ -1158,13 +1192,14 @@ def get_mats_faces(nverts, primvars):
 
     else:
         mats = {}
-        
+
         for face_id, num_verts in enumerate(nverts):
             mat_id = primvars["uniform float material_id"][face_id]
             if mat_id not in mats:
                 mats[mat_id] = []
             mats[mat_id].append(face_id)
         return mats
+
 
 def split_multi_mesh(nverts, verts, primvars):
     if "uniform float material_id" not in primvars:
@@ -1219,7 +1254,7 @@ def export_polygon_mesh(ri, scene, ob, data=None):
     #    export_multi_material(ri, mesh)
 
     # for multi-material output all those
-    (nverts, verts, P) = get_mesh(mesh)
+    (nverts, verts, P, N) = get_mesh(mesh, get_normals=True)
     # if this is empty continue:
     if nverts == []:
         debug("error empty poly mesh %s" % ob.name)
@@ -1227,6 +1262,7 @@ def export_polygon_mesh(ri, scene, ob, data=None):
         return
     primvars = get_primvars(ob, mesh, "facevarying")
     primvars['P'] = P
+    primvars['facevarying normal N'] = N
 
     if not is_multi_material(mesh):
         ri.PointsPolygons(nverts, verts, primvars)
@@ -1282,7 +1318,7 @@ def export_points(ri, scene, ob, motion):
     else:
         samples = [get_mesh(mesh)]
 
-    for nverts, verts, P in samples:
+    for nverts, verts, P, N in samples:
         params = {
             ri.P: rib(P),
             "uniform string type": rm.primitive_point_type,
@@ -1318,7 +1354,7 @@ def export_smoke(ri, ob):
         "varying float flame": smoke_data.flame_grid,
         "varying color smoke_color": color_grid
     }
-    ri.Volume("box", [-1, 1, -1, 1, -1, 1],
+    ri.Volume("box", rib_ob_bounds(ob.bound_box),
               rib(smoke_data.domain_resolution), params)
 
 
@@ -1411,8 +1447,8 @@ def export_blobby_family(ri, scene, ob):
         m = Matrix.Translation(loc)
 
         sc = Matrix(((meta_el.radius, 0, 0, 0),
-            (0, meta_el.radius, 0, 0),
-            (0, 0, meta_el.radius, 0),
+                     (0, meta_el.radius, 0, 0),
+                     (0, 0, meta_el.radius, 0),
                      (0, 0, 0, 1)))
 
         ro = prot.to_matrix().to_4x4()
@@ -1480,6 +1516,7 @@ def export_geometry_data(ri, scene, ob, data=None):
     elif prim == 'POINTS':
         export_points(ri, ob, data)
 
+
 def is_transforming(ob, do_mb, recurse=False):
     transforming = (do_mb and ob.animation_data is not None)
     if not transforming and ob.parent:
@@ -1496,8 +1533,8 @@ class Instance:
     archive_filename = ''
     ob = None
     material = None
-    
-    def __init__(self, name, type, ob=None, 
+
+    def __init__(self, name, type, ob=None,
                  transforming=False):
         self.name = name
         self.type = type
@@ -1538,15 +1575,14 @@ class DataBlock:
         self.dupli_data = dupli_data
 
 
-# return if a psys should be animated
+# return if a psys should be animated 
+# NB:  we ALWAYS need the animating psys if the emitter is transforming, not just if MB is on
 def is_psys_animating(ob, psys, do_mb):
-    return (do_mb and psys.settings.animation_data is not None) or is_transforming(ob, do_mb, recurse=True)
-
-
+    return (psys.settings.animation_data is not None) or is_transforming(ob, True, recurse=True)
 
 # constructs a list of instances and data blocks based on objects in a scene
 # only the needed for rendering data blocks and instances are cached
-# also save a data structure of the set of motion segments with 
+# also save a data structure of the set of motion segments with
 # instances/datablocks that have the number of motion segments
 def get_instances_and_blocks(obs, rpass):
     instances = {}
@@ -1566,19 +1602,19 @@ def get_instances_and_blocks(obs, rpass):
                 if ob_mb_segs not in motion_segs:
                     motion_segs[ob_mb_segs] = ([], [])
                 motion_segs[ob_mb_segs][0].append(inst.name)
-             
+
             # now get the data_blocks for the instance
             inst_data_blocks = get_data_blocks_needed(ob, rpass, mb_on)
             for db in inst_data_blocks:
                 if not db.dupli_data:
                     inst.data_block_names.append(db.name)
-                
-                # if this data_block is already in the list to export... 
+
+                # if this data_block is already in the list to export...
                 if db.name in data_blocks:
                     continue
-                
+
                 # add data_block to mb list
-                if db.deforming:
+                if db.deforming and mb_on:
                     if ob_mb_segs not in motion_segs:
                         motion_segs[ob_mb_segs] = ([], [])
                     motion_segs[ob_mb_segs][1].append(db.name)
@@ -1589,8 +1625,10 @@ def get_instances_and_blocks(obs, rpass):
 
     return instances, data_blocks, motion_segs
 
-# get the instance type for this object.  
+# get the instance type for this object.
 # If no instance needs exporting, return None
+
+
 def get_instance(ob, scene, do_mb):
     if is_renderable_or_parent(scene, ob):
         return Instance(ob.name, ob.type, ob, is_transforming(ob, do_mb))
@@ -1602,14 +1640,17 @@ def get_instance(ob, scene, do_mb):
 def get_dupli_block(ob, rpass, do_mb):
     name = data_name(ob, rpass.scene)
     deforming = is_deforming(ob)
-    archive_filename = get_archive_filename(data_name(ob, rpass.scene), 
+    archive_filename = get_archive_filename(data_name(ob, rpass.scene),
                                             rpass, deforming)
-    return DataBlock(name, "MESH", archive_filename, ob, 
+    return DataBlock(name, "MESH", archive_filename, ob,
                      deforming, material=ob.active_material,
-                     do_export=file_is_dirty(rpass.scene, ob, archive_filename),
+                     do_export=file_is_dirty(
+                         rpass.scene, ob, archive_filename),
                      dupli_data=True)
 
 # get the data blocks needed for an object
+
+
 def get_data_blocks_needed(ob, rpass, do_mb):
     if not is_renderable(rpass.scene, ob):
         return []
@@ -1626,45 +1667,58 @@ def get_data_blocks_needed(ob, rpass, do_mb):
             if psys.settings.render_type not in ['OBJECT', 'GROUP']:
                 name = psys_name(ob, psys)
                 type = 'PSYS'
-                data = (ob,psys)
+                data = (ob, psys)
                 archive_filename = get_archive_filename(name, rpass,
-                    is_psys_animating(ob, psys, do_mb))
+                                                        is_psys_animating(ob, psys, do_mb))
             else:
                 name = ob.name + '-DUPLI'
                 type = 'DUPLI'
                 archive_filename = get_archive_filename(name, rpass,
-                    is_psys_animating(ob, psys, do_mb))
+                                                        is_psys_animating(ob, psys, do_mb))
                 dupli_emitted = True
                 data = ob
                 if psys.settings.render_type == 'OBJECT':
-                    data_blocks.append(get_dupli_block(psys.settings.dupli_object, rpass, mb_on))
+                    data_blocks.append(get_dupli_block(
+                        psys.settings.dupli_object, rpass, do_mb))
                 else:
                     for dupli_ob in psys.settings.dupli_group.objects:
-                        data_blocks.append(get_dupli_block(dupli_ob, rpass, do_mb))
-            mat = ob.material_slots[psys.settings.material-1].material if psys.settings.material else None
-            data_blocks.append(DataBlock(name, type, archive_filename, data, 
-                                         is_psys_animating(ob, psys, do_mb), material = mat,
+                        data_blocks.append(
+                            get_dupli_block(dupli_ob, rpass, do_mb))
+            mat = ob.material_slots[psys.settings.material -
+                                    1].material if psys.settings.material else None
+            data_blocks.append(DataBlock(name, type, archive_filename, data,
+                                         is_psys_animating(ob, psys, do_mb), material=mat,
                                          do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
-                
+
     if hasattr(ob, 'dupli_type') and ob.dupli_type in SUPPORTED_DUPLI_TYPES and not dupli_emitted:
         name = ob.name + '-DUPLI'
-        #duplis aren't animated
+        # duplis aren't animated
         archive_filename = get_archive_filename(name, rpass, False)
         data_blocks.append(DataBlock(name, "DUPLI", archive_filename, ob,
                                      do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
         if ob.dupli_type == 'GROUP':
             for dupli_ob in ob.dupli_group.objects:
                 data_blocks.append(get_dupli_block(dupli_ob, rpass, do_mb))
-            
+
     # now the objects data
     if is_data_renderable(rpass.scene, ob):
-        name = data_name(ob, rpass.scene)
-        deforming = is_deforming(ob)
-        archive_filename = get_archive_filename(data_name(ob, rpass.scene), 
-                                                rpass, deforming)
-        data_blocks.append(DataBlock(name, "MESH", archive_filename, ob, 
-                                     deforming, material=ob.active_material,
-                                     do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
+        # Check if the object is referring to an archive to use rather then its
+        # geometry.
+        if ob.renderman.geometry_source != 'BLENDER_SCENE_DATA':
+            name = data_name(ob, rpass.scene)
+            deforming = is_deforming(ob)
+            archive_filename = bpy.path.abspath(ob.renderman.path_archive)
+            data_blocks.append(DataBlock(name, "MESH", archive_filename, ob,
+                                         deforming, material=ob.active_material,
+                                         do_export=False))
+        else:
+            name = data_name(ob, rpass.scene)
+            deforming = is_deforming(ob)
+            archive_filename = get_archive_filename(data_name(ob, rpass.scene),
+                                                    rpass, deforming)
+            data_blocks.append(DataBlock(name, "MESH", archive_filename, ob,
+                                         deforming, material=ob.active_material,
+                                         do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
 
     return data_blocks
 
@@ -1675,23 +1729,26 @@ def relpath_archive(archive_filename, rpass):
     else:
         return os.path.relpath(archive_filename, rpass.paths['archive'])
 
+
 def file_is_dirty(scene, ob, archive_filename):
     if scene.renderman.lazy_rib_gen:
         return check_if_archive_dirty(ob.renderman.update_timestamp,
-                                  archive_filename)
+                                      archive_filename)
     else:
         return True
-    
+
+
 def get_transform(instance, subframe):
     if not instance.transforming:
         return
     else:
         ob = instance.ob
-        if ob.parent:
+        if ob.parent and ob.parent_type == "object":
             mat = ob.matrix_local
         else:
             mat = ob.matrix_world
-        instance.motion_data.append((subframe, mat.copy())) 
+        instance.motion_data.append((subframe, mat.copy()))
+
 
 def get_deformation(data_block, subframe, scene):
     if not data_block.deforming or not data_block.do_export:
@@ -1701,9 +1758,11 @@ def get_deformation(data_block, subframe, scene):
             mesh = create_mesh(data_block.data, scene)
             data_block.motion_data.append((subframe, mesh))
         elif data_block.type == "PSYS":
-            ob,psys = data_block.data
+            ob, psys = data_block.data
             if psys.settings.type == "EMITTER":
-                points = get_particles(scene, data_block.data, psys)
+                begin_frame = scene.frame_current - 1 if subframe == 1 else scene.frame_current
+                end_frame = scene.frame_current + 1 if subframe != 1 else scene.frame_current
+                points = get_particles(scene, ob, psys, [begin_frame, end_frame])
                 data_block.motion_data.append((subframe, points))
             else:
                 # this is hair
@@ -1713,13 +1772,13 @@ def get_deformation(data_block, subframe, scene):
 # Create two lists, one of data blocks to export and one of instances to export
 # Collect and store motion blur transformation data in a pre-process.
 # More efficient, and avoids too many frame updates in blender.
+
+
 def cache_motion(scene, rpass):
     origframe = scene.frame_current
-    
     instances, data_blocks, motion_segs = \
         get_instances_and_blocks(scene.objects, rpass)
 
-    
     # the aim here is to do only a minimal number of scene updates,
     # so we process objects in batches of equal numbers of segments
     # and update the scene only once for each of those unique fractional
@@ -1736,13 +1795,42 @@ def cache_motion(scene, rpass):
 
             for name in data_names:
                 get_deformation(data_blocks[name], sub, scene)
-        
+
     scene.frame_set(origframe, 0)
 
     return data_blocks, instances
 
 
+def cache_motion_single_object(scene, rpass, activeObject):
+    origframe = scene.frame_current
+    objectToPass = [activeObject]
+    instances, data_blocks, motion_segs = \
+        get_instances_and_blocks(objectToPass, rpass)
+
+    # the aim here is to do only a minimal number of scene updates,
+    # so we process objects in batches of equal numbers of segments
+    # and update the scene only once for each of those unique fractional
+    # frames per segment set
+    for num_segs, (instance_names, data_names) in motion_segs.items():
+        # prepare list of frames/sub-frames in advance,
+        # ordered from future to present,
+        # to prevent too many scene updates
+        # (since loop ends on current frame/subframe)
+        for sub in get_subframes(num_segs):
+            scene.frame_set(origframe, sub)
+            for name in instance_names:
+                get_transform(instances[name], sub)
+
+            for name in data_names:
+                get_deformation(data_blocks[name], sub, scene)
+
+    scene.frame_set(origframe, 0)
+
+    return data_blocks, instances
+
 # export data_blocks
+
+
 def export_data_archives(ri, scene, rpass, data_blocks):
     for name, db in data_blocks.items():
         if not db.do_export:
@@ -1765,20 +1853,22 @@ def export_instance_read_archive(ri, instance, instances, data_blocks, rpass, is
         export_object_attributes(ri, instance.ob)
     # now the matrix, if we're transforming do the motion here
     export_transform(ri, instance, concat=is_child)
-    
+
     for db_name in instance.data_block_names:
         if db_name in data_blocks:
             export_data_read_archive(ri, data_blocks[db_name], rpass)
-    
+
     # now the children
     for child_name in instance.children:
         if child_name in instances:
-            export_instance_read_archive(ri, instances[child_name], instances, data_blocks, rpass, is_child=True)
+            export_instance_read_archive(
+                ri, instances[child_name], instances, data_blocks, rpass, is_child=True)
     ri.AttributeEnd()
+
 
 def export_data_read_archive(ri, data_block, rpass):
     ri.AttributeBegin()
-    
+
     if data_block.material:
         export_material_archive(ri, data_block.material)
 
@@ -1803,6 +1893,8 @@ def export_archive(*args):
 
 # return the filename for a readarchive that this object will be written into
 # objects with attached psys's, probably always need to be animated
+
+
 def get_archive_filename(name, rpass, animated, relative=False):
     path = rpass.paths['frame_archives'] if animated \
         else rpass.paths['static_archives']
@@ -1882,6 +1974,8 @@ def get_bounding_box(ob):
 
 # export the archives for an mesh. If this is a
 # deforming mesh we'll need to do more than one
+
+
 def export_mesh_archive(ri, scene, data_block):
     # if we cached a deforming mesh get it.
     motion_data = data_block.motion_data if data_block.deforming else None
@@ -1889,7 +1983,7 @@ def export_mesh_archive(ri, scene, data_block):
 
     if motion_data is not None and len(motion_data):
         export_motion_begin(ri, motion_data)
-        for (subframes,sample) in motion_data:
+        for (subframes, sample) in motion_data:
             export_geometry_data(ri, scene, ob, data=sample)
         ri.MotionEnd()
     else:
@@ -1899,22 +1993,25 @@ def export_mesh_archive(ri, scene, data_block):
 # export the archives for an mesh. If this is a
 # deforming mesh the particle export will handle it
 def export_particle_archive(ri, scene, rpass, data_block):
-    ob,psys = data_block.data
+    ob, psys = data_block.data
     data = data_block.motion_data if data_block.deforming else None
     export_particle_system(ri, scene, rpass, ob, psys, data=data)
 
 # export the archives for an mesh. If this is a
 # deforming mesh the particle export will handle it
+
+
 def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
     ob = data_block.data
     ob.dupli_list_create(scene, "RENDER")
-    
+
     if ob.dupli_type == 'GROUP':
         for dupob in ob.dupli_list:
             ri.AttributeBegin()
             dupli_name = "%s.DUPLI.%s.%d" % (ob.name, dupob.object.name,
                                              dupob.index)
             ri.Attribute('identifier', {'string name': dupli_name})
+            ri.ConcatTransform(rib(ob.matrix_world.inverted_safe() * dupob.matrix))
             mat = dupob.object.active_material
             if mat:
                 export_material_archive(ri, mat)
@@ -1924,7 +2021,7 @@ def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
                                                 deforming, True))
             ri.AttributeEnd()
         ob.dupli_list_clear()
-        return     
+        return
 
     # gather list of object masters
     object_masters = {}
@@ -1937,7 +2034,7 @@ def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
             ri.Transform(rib(Matrix.Identity(4)))
             source_data_name = data_name(dupob.object, scene)
             deforming = is_deforming(dupob.object)
-            
+
             ri.ReadArchive(get_archive_filename(source_data_name, rpass,
                                                 deforming, True))
             ri.ObjectEnd()
@@ -1951,7 +2048,7 @@ def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
         export_object_instance(ri, dupob.matrix, dupli_name, instance_handle)
 
     ob.dupli_list_clear()
-    
+
 
 # export an archive with all the materials and read it back in
 def export_materials_archive(ri, rpass, scene):
@@ -2055,10 +2152,11 @@ def export_render_settings(ri, rpass, scene, preview=False):
     ri.ShadingRate(rm.shadingrate)
     ri.Attribute("trace", depths)
     if rm.use_statistics:
-        ri.Option("statistics", {'int endofframe': 1, 'string xmlfilename': 'stats.xml'})
+        ri.Option("statistics", {'int endofframe': 1,
+                                 'string xmlfilename': 'stats.xml'})
 
 
-def export_camera_matrix(ri, scene, ob, motion_data = []):
+def export_camera_matrix(ri, scene, ob, motion_data=[]):
 
     if motion_data:
         export_motion_begin(ri, motion_data)
@@ -2160,7 +2258,6 @@ def export_camera(ri, scene, instances, camera_to_use=None):
         ri.ScreenWindow(-xaspect, xaspect, -yaspect, yaspect)
         ri.Format(resolution[0], resolution[1], 1.0)
 
-
     export_camera_matrix(ri, scene, ob, motion)
 
     ri.Camera("world", {'float[2] shutteropening': [rm.shutter_efficiency_open,
@@ -2184,12 +2281,14 @@ def export_camera_render_preview(ri, scene):
 def export_searchpaths(ri, paths):
     ri.Option("searchpath", {"string shader": ["%s" %
                                                ':'.join(path_list_convert(paths['shader'], to_unix=True))]})
-    rel_tex_paths = [os.path.relpath(path, paths['export_dir']) for path in paths['texture']]
+    rel_tex_paths = [os.path.relpath(path, paths['export_dir'])
+                     for path in paths['texture']]
     ri.Option("searchpath", {"string texture": ["%s" %
                                                 ':'.join(path_list_convert(rel_tex_paths + ["@"], to_unix=True))]})
     # ri.Option("searchpath", {"string procedural": ["%s" % \
     #    ':'.join(path_list_convert(paths['procedural'], to_unix=True))]})
-    ri.Option("searchpath", {"string archive": os.path.relpath(paths['archive'], paths['export_dir'])})
+    ri.Option("searchpath", {"string archive": os.path.relpath(
+        paths['archive'], paths['export_dir'])})
 
 
 def export_header(ri):
@@ -2254,14 +2353,16 @@ def preview_model(ri, scene, mat):
                           {ri.P: [0, -1, -1,  0, 1, -1,  0, 1, 1,  0, -1, 1]})
     elif mat.preview_render_type == 'CUBE':
         ri.Scale(.75, .75, .75)
-        export_geometry_data(ri, scene, scene.objects['previewcube'], data=None)
+        export_geometry_data(ri, scene, scene.objects[
+                             'previewcube'], data=None)
     elif mat.preview_render_type == 'HAIR':
-        return # skipping for now
+        return  # skipping for now
     else:
-        ri.Scale(2, 2 , 2)
+        ri.Scale(2, 2, 2)
         ri.Rotate(90, 0, 0, 1)
         ri.Rotate(45, 1, 0, 0)
-        export_geometry_data(ri, scene, scene.objects['preview.002'], data=None)
+        export_geometry_data(ri, scene, scene.objects[
+                             'preview.002'], data=None)
 
 
 def export_display(ri, rpass, scene):
@@ -2348,6 +2449,11 @@ def export_display(ri, rpass, scene):
 
     for aov in custom_aovs:
         source = aov.channel_type
+        exposure_gain = aov.exposure_gain
+        exposure_gamma = aov.exposure_gamma
+        remap_a = aov.remap_a
+        remap_b = aov.remap_b
+        remap_c = aov.remap_c
         if aov.channel_type == 'custom':
             source = aov.custom_lpe
             # looks like someone didn't set an lpe string
@@ -2360,7 +2466,9 @@ def export_display(ri, rpass, scene):
             source = source.replace("%G", G_string)
             source = source.replace("%LG", LG_string)
 
-        params = {"string source": "color " + source}
+        params = {"string source": "color " + source,
+                  "float[2] exposure": [exposure_gain, exposure_gamma],
+                  "float[3] remap": [remap_a, remap_b, remap_c]}
         ri.DisplayChannel('varying color %s' % (aov.name), params)
 
     if(rm.display_driver == 'it'):
@@ -2374,6 +2482,7 @@ def export_display(ri, rpass, scene):
 
     main_display = user_path(rm.path_display_driver_image,
                              scene=scene)
+    debug("info", "Main_display: " + main_display)
     main_display = os.path.relpath(main_display, rpass.paths['export_dir'])
     image_base, ext = main_display.rsplit('.', 1)
     ri.Display(main_display, dspy_driver, "rgba",
@@ -2398,7 +2507,7 @@ def export_display(ri, rpass, scene):
             ("a", 'float', None, None, None),
             ("mse", 'color', 'color Ci', 'mse', None),
             ("albedo", 'color',
-             'lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;C(U2L)|O',
+             'color lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;C(U2L)|O',
              None, None),
             ("diffuse", 'color', 'color lpe:C(D[DS]*[LO])|O', None, None),
             ("diffuse_mse", 'color', 'color lpe:C(D[DS]*[LO])|O', 'mse', None),
@@ -2442,6 +2551,11 @@ def export_hider(ri, rpass, scene, preview=False):
         hider_params['int minsamples'] = rm.preview_min_samples
         pv = rm.preview_pixel_variance
 
+    if not preview:
+        cam = scene.camera.data.renderman
+        hider_params["float[4] aperture"] = [cam.aperture_sides,
+                                             cam.aperture_angle, cam.aperture_roundness, cam.aperture_density]
+
     ri.PixelVariance(pv)
 
     if rm.light_localization:
@@ -2456,13 +2570,12 @@ def export_hider(ri, rpass, scene, preview=False):
 
 # I hate to make rpass global but it makes so much easier
 def write_rib(rpass, scene, ri):
-    
+
     # precalculate motion blur data
     data_blocks, instances = cache_motion(scene, rpass)
-    
     # export rib archives of objects
     export_data_archives(ri, scene, rpass, data_blocks)
-    
+
     export_header(ri)
     export_searchpaths(ri, rpass.paths)
 
@@ -2490,12 +2603,13 @@ def write_rib(rpass, scene, ri):
     # now output the object archives
     for name, instance in instances.items():
         if instance.type not in ['CAMERA', 'LAMP'] and not instance.parent:
-            export_instance_read_archive(ri, instance, instances, data_blocks, rpass)
+            export_instance_read_archive(
+                ri, instance, instances, data_blocks, rpass)
     instances = None
     ri.WorldEnd()
 
     ri.FrameEnd()
-    
+
 
 def write_preview_rib(rpass, scene, ri):
     preview_rib_data_path = \
@@ -2534,6 +2648,18 @@ def write_preview_rib(rpass, scene, ri):
 
     ri.WorldEnd()
     ri.FrameEnd()
+
+
+def write_single_RIB(rpass, scene, ri, object):
+
+    # precalculate motion blur data
+    data_blocks, instances = cache_motion_single_object(scene, rpass, object)
+    # export rib archives of objects
+    export_data_archives(ri, scene, rpass, data_blocks)
+
+    for name, db in data_blocks.items():
+        fileName = db.archive_filename
+    return fileName
 
 
 def anim_archive_path(filepath, frame):
@@ -2619,7 +2745,8 @@ def add_light(rpass, ri, active, prman):
     lamp = ob.data
     rm = lamp.renderman
     ri.AttributeBegin()
-    export_object_transform(ri, ob, (lamp.type == 'HEMI' and lamp.renderman.renderman_type != "SKY"))
+    export_object_transform(
+        ri, ob, (lamp.type == 'HEMI' and lamp.renderman.renderman_type != "SKY"))
     ri.ShadingRate(rm.shadingrate)
 
     export_light_shaders(ri, lamp)
@@ -2654,6 +2781,7 @@ def issue_transform_edits(rpass, ri, active, prman):
     else:
         if is_emissive(active):
             issue_light_transform_edit(ri, active)
+
 
 def update_light_link(rpass, ri, prman, active, link):
     rpass.edit_num += 1
@@ -2694,7 +2822,6 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
             ri.EditBegin('attribute', {'string scopename': lamp.name})
             export_light_shaders(ri, mat)
             ri.EditEnd()
-
 
     else:
         mat = bpy.context.object.active_material

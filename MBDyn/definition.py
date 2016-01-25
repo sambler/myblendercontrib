@@ -33,6 +33,7 @@ else:
 from .base import bpy, BPY, root_dot, database, Operator, Entity, Bundle
 from .common import FORMAT
 from .menu import default_klasses, definition_tree
+import sys
 
 class Base(Operator):
     bl_label = "Definitions"
@@ -62,7 +63,7 @@ class GeneralProblem(Entity):
         if self.strategy == "factor":
             f.write(", " + ", ".join([BPY.FORMAT(x) for x in (self.reduction_factor, self.steps_before_reduction,
                 self.raise_factor, self.steps_before_raise, self.factor_min_iterations)])
-                + (", " + BPY.FORMAT(self.factor_max_iterations) if self.factor_max_iterations is not None else ""))
+                + (", " + (BPY.FORMAT(self.factor_max_iterations) if self.factor_max_iterations is not None else BPY.FORMAT(self.max_iterations))))
         elif self.strategy == "change":
             f.write(", " + self.time_step_pattern_drive.string())
         if self.strategy != "no change":
@@ -1152,10 +1153,11 @@ class JobControl(Entity):
                 ("element connection, " if self.element_connection else "") +
                 ("node connection, " if self.node_connection else ""))
             f.write(s[:-2] + ";\n")
-        if self.select_timeout is not None:
-            f.write("\tselect timeout: " + BPY.FORMAT(self.select_timeout) + ";\n")
-        else:
-            f.write("\tselect timeout: forever;\n")
+        if sys.platform != "win32":
+            if self.select_timeout is not None:
+                f.write("\tselect timeout: " + BPY.FORMAT(self.select_timeout) + ";\n")
+            else:
+                f.write("\tselect timeout: forever;\n")
         f.write("\tdefault orientation: " + self.default_orientation + ";\n")
         f.write("\toutput meter: " + self.meter_drive.string() +
             ";\n\toutput precision: " + FORMAT(self.output_precision) + ";\n" +
@@ -1177,7 +1179,7 @@ class JobControlOperator(Base):
         ("euler321", "Euler321", ""),
         ("orientation vector", "Orientation vector", ""),
         ("orientation matrix", "Orientation matrix", ""),
-        ], name="Default orientation", default="orientation matrix")
+        ], name="Default orientation", default="euler123")
     output_precision = bpy.props.IntProperty(name="Output precision", default=6, min=1)
     static_model = bpy.props.BoolProperty(name="Static model", description="Set model type to static")
     def prereqs(self, context):
@@ -1217,7 +1219,10 @@ class JobControlOperator(Base):
             row = layout.split(.1)
             row.label()
             row.prop(self, attribute)
-        self.select_timeout.draw(layout, "Select timeout", "Set")
+        if sys.platform != "win32":
+            self.select_timeout.draw(layout, "Select timeout", "Set")
+        else:
+            layout.label("Select timeout is disabled on win32 platforms")
         self.meter_drive.draw(self.layout, "Output meter drive", "Set")
         layout.prop(self, "default_orientation")
         layout.prop(self, "output_precision")

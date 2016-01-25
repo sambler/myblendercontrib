@@ -29,6 +29,7 @@ collision_tree = Tree([
     ("Box", 2),
     ("Capsule", 2),
     ("Cone", 2),
+    ("Plane", 2),
     ("Sphere", 2)])
 
 # Each module
@@ -43,6 +44,7 @@ loadable_element_types = [
     "Box",
     "Capsule",
     "Cone",
+    "Plane",
     "Sphere",
     "Collision world"]
 
@@ -52,4 +54,4 @@ structural_static_types = []
 structural_dynamic_types = []
 
 # Types in this list will be be handled like a Rigid offset
-offset_types = ["Box", "Cone", "Capsule", "Sphere"]
+offset_types = ["Box", "Cone", "Capsule", "Plane", "Sphere"]

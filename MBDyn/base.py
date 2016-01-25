@@ -314,7 +314,6 @@ class BPY:
             name="Name", description="Select a card, or New to create one",
             update=lambda self, context: update_input_card(self, context, self.name, self.input_card_type, self.value_type))
         input_card_type = bpy.props.StringProperty(default="Module load")
-        value_type = bpy.props.StringProperty()
         def assign(self, arg):
             if self.to_be_assigned(arg):
                 self.value_type = arg.value_type
@@ -417,12 +416,16 @@ class BPY:
             update=lambda self, context: update_scene(self, context, self.name))
     class Bool(bpy.types.PropertyGroup, ValueMode):
         value = bpy.props.BoolProperty()
+        value_type = bpy.props.StringProperty(default="bool")
     class Float(bpy.types.PropertyGroup, ValueMode):
         value = bpy.props.FloatProperty(min=-9.9e10, max=9.9e10, step=100, precision=6)
+        value_type = bpy.props.StringProperty(default="real")
     class Int(bpy.types.PropertyGroup, ValueMode):
         value = bpy.props.IntProperty()
+        value_type = bpy.props.StringProperty(default="integer")
     class Str(bpy.types.PropertyGroup, ValueMode):
         value = bpy.props.StringProperty()
+        value_type = bpy.props.StringProperty(default="string")
     class MatrixFloat(bpy.types.PropertyGroup):
         mandatory = bpy.props.BoolProperty(default=False)
         type = bpy.props.StringProperty()

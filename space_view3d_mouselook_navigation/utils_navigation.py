@@ -242,10 +242,10 @@ def ellipsoid_sweep(scene, e2w, w2e, v, ray_origin, subdivs=8, max_cnt=16):
             p0 = ray_origin.copy()
         
         raycast_result = scene.ray_cast(p0, p1)
-        if raycast_result[0]:
-            rn = raycast_result[4]
+        if raycast_result.success:
+            rn = raycast_result.normal
             rn = (w2e * Vector((rn.x, rn.y, rn.z, 0))).to_3d()
-            p = w2e * raycast_result[3]
+            p = w2e * raycast_result.location
             L = p.dot(n)
             r = p - L*n
             h = math.sqrt(max(1.0 - r.length_squared, 0.0))

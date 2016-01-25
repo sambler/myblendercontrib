@@ -127,7 +127,7 @@ def make_merged_live_curve(node, curve_name, verts, edges, matrices):
 
         # and rebuild
         for edge in edges:
-            v0, v1 = m*Vector(verts[edge[0]]), m*Vector(verts[edge[1]])
+            v0, v1 = m * Vector(verts[edge[0]]), m * Vector(verts[edge[1]])
 
             full_flat = [v0[0], v0[1], v0[2], 0.0, v1[0], v1[1], v1[2], 0.0]
 

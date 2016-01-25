@@ -31,9 +31,10 @@ from bpy.types import Menu, Operator, UIList, AddonPreferences
 
 #from . import patterns
 #from . import chunk_operations
-from cam import ui, ops,utils, simple,polygon_utils_cam#, post_processors
+from cam import ui, ops, utils, simple, polygon_utils_cam#, post_processors
 import numpy
-import Polygon
+
+from shapely import geometry as sgeometry
 from bpy.app.handlers import persistent
 import subprocess,os, sys, threading
 import pickle
@@ -42,7 +43,7 @@ import pickle
 bl_info = {
 	"name": "CAM - gcode generation tools",
 	"author": "Vilem Novak",
-	"version": (0, 8, 0),
+	"version": (0, 9, 0),
 	"blender": (2, 7, 0),
 	"location": "Properties > render",
 	"description": "Generate machining paths for CNC",
@@ -85,7 +86,7 @@ class machineSettings(bpy.types.PropertyGroup):
 	'''stores all data for machines'''
 	#name = bpy.props.StringProperty(name="Machine Name", default="Machine")
 	post_processor = EnumProperty(name='Post processor',
-		items=(('ISO','Iso','this should export a standardized gcode'),('MACH3','Mach3','default mach3'),('EMC','EMC - LinuxCNC','default emc'),('HEIDENHAIN','Heidenhain','heidenhain'),('TNC151','Heidenhain TNC151','Post Processor for the Heidenhain TNC151 machine'),('SIEGKX1','Sieg KX1','Sieg KX1'),('HM50','Hafco HM-50','Hafco HM-50'),('CENTROID','Centroid M40','Centroid M40'),('ANILAM','Anilam Crusader M','Anilam Crusader M'),('GRAVOS','Gravos','Gravos'),('WIN-PC','Win-PC','German CNC'),('SHOPBOT MTC','ShopBot MTC','ShopBot MTC'),('LYNX_OTTER_O','Lynx Otter o','Lynx Otter o')),
+		items=(('ISO','Iso','this should export a standardized gcode'),('MACH3','Mach3','default mach3'),('EMC','EMC - LinuxCNC','default emc'),('GRBL','grbl','grbl on Arduino cnc shield'),('HEIDENHAIN','Heidenhain','heidenhain'),('TNC151','Heidenhain TNC151','Post Processor for the Heidenhain TNC151 machine'),('SIEGKX1','Sieg KX1','Sieg KX1'),('HM50','Hafco HM-50','Hafco HM-50'),('CENTROID','Centroid M40','Centroid M40'),('ANILAM','Anilam Crusader M','Anilam Crusader M'),('GRAVOS','Gravos','Gravos'),('WIN-PC','Win-PC','German CNC'),('SHOPBOT MTC','ShopBot MTC','ShopBot MTC'),('LYNX_OTTER_O','Lynx Otter o','Lynx Otter o')),
 		description='Post processor',
 		default='MACH3')
 	#units = EnumProperty(name='Units', items = (('IMPERIAL', ''))
@@ -206,7 +207,7 @@ def updateZbufferImage(self,context):
 	self.update_zbufferimage_tag=True
 	self.update_offsetimage_tag=True
 	utils.getOperationSources(self)
-	utils.checkMemoryLimit(self)
+	#utils.checkMemoryLimit(self)
 
 def updateStrategy(o,context):
 	''''''
@@ -219,8 +220,9 @@ def updateStrategy(o,context):
 	updateExact(o,context)
 
 def updateCutout(o,context):
-	if o.outlines_count>1:
-		o.use_bridges=False
+	pass;
+	#if o.outlines_count>1:
+	#	o.use_bridges=False
 		
 	
 def updateExact(o,context):
@@ -446,7 +448,7 @@ class camOperation(bpy.types.PropertyGroup):
 	plunge_angle =	bpy.props.FloatProperty(name="Plunge angle", description="What angle is allready considered to plunge", default=math.pi/6, min=0, max=math.pi*0.5 , precision=0, subtype="ANGLE" , unit="ROTATION" , update = updateRest)
 	spindle_rpm = FloatProperty(name="Spindle rpm", description="Spindle speed ", min=1000, max=60000, default=12000, update = updateChipload)
 	#movement parallel_step_back 
-	movement_type = EnumProperty(name='Movement type',items=(('CONVENTIONAL','Conventional', 'a'),('CLIMB', 'Climb', 'a'),('MEANDER', 'Meander' , 'a')	 ),description='movement type', default='CLIMB', update = updateRest)
+	movement_type = EnumProperty(name='Movement type',items=(('CONVENTIONAL','Conventional / Up milling', 'cutter rotates against the direction of the feed'),('CLIMB', 'Climb / Down milling', 'cutter rotates with the direction of the feed'),('MEANDER', 'Meander / Zig Zag' , 'cutting is done both with and against the rotation of the spindle')	 ),description='movement type', default='CLIMB', update = updateRest)
 	spindle_rotation_direction = EnumProperty(name='Spindle rotation', items=(('CW','Clock wise', 'a'),('CCW', 'Counter clock wise', 'a')),description='Spindle rotation direction',default='CW', update = updateRest)
 	free_movement_height = bpy.props.FloatProperty(name="Free movement height", default=0.01, min=0.0000, max=32,precision=PRECISION, unit="LENGTH", update = updateRest)
 	movement_insideout = EnumProperty(name='Direction', items=(('INSIDEOUT','Inside out', 'a'),('OUTSIDEIN', 'Outside in', 'a')),description='approach to the piece',default='INSIDEOUT', update = updateRest)
@@ -462,9 +464,9 @@ class camOperation(bpy.types.PropertyGroup):
 	simulation_detail=bpy.props.FloatProperty(name="Simulation sampling raster detail", default=0.0002, min=0.00001, max=0.01,precision=PRECISION, unit="LENGTH", update = updateRest)
 	do_simulation_feedrate = bpy.props.BoolProperty(name="Adjust feedrates with simulation EXPERIMENTAL",description="Adjust feedrates with simulation", default=False, update = updateRest)
 	
-	imgres_limit = bpy.props.IntProperty(name="Maximum resolution in megapixels", default=10, min=1, max=512,description="This property limits total memory usage and prevents crashes. Increase it if you know what are doing.", update = updateZbufferImage)
+	imgres_limit = bpy.props.IntProperty(name="Maximum resolution in megapixels", default=16, min=1, max=512,description="This property limits total memory usage and prevents crashes. Increase it if you know what are doing.", update = updateZbufferImage)
 	optimize = bpy.props.BoolProperty(name="Reduce path points",description="Reduce path points", default=True, update = updateRest)
-	optimize_threshold=bpy.props.FloatProperty(name="Reduction threshold in μm", default=1, min=0.000000001, max=1000,precision=20, update = updateRest)
+	optimize_threshold=bpy.props.FloatProperty(name="Reduction threshold in μm", default=.2, min=0.000000001, max=1000,precision=20, update = updateRest)
 	
 	dont_merge = bpy.props.BoolProperty(name="Dont merge outlines when cutting",description="this is usefull when you want to cut around everything", default=False, update = updateRest)
 	
@@ -474,6 +476,9 @@ class camOperation(bpy.types.PropertyGroup):
 	crazy_threshold2=bpy.props.FloatProperty(name="max engagement", default=0.5, min=0.00000001, max=100,precision=PRECISION, update = updateRest)
 	crazy_threshold3=bpy.props.FloatProperty(name="max angle", default=2, min=0.00000001, max=100,precision=PRECISION, update = updateRest)
 	crazy_threshold4=bpy.props.FloatProperty(name="test angle step", default=0.05, min=0.00000001, max=100,precision=PRECISION, update = updateRest)
+	####
+	medial_axis_threshold=bpy.props.FloatProperty(name="Long vector threshold", default=0.001, min=0.00000001, max=100,precision=PRECISION,  unit="LENGTH", update = updateRest)
+	medial_axis_subdivision=bpy.props.FloatProperty(name="Fine subdivision", default=0.0002, min=0.00000001, max=100,precision=PRECISION,  unit="LENGTH", update = updateRest)
 	#calculations
 	duration = bpy.props.FloatProperty(name="Estimated time", default=0.01, min=0.0000, max=32,precision=PRECISION, unit="TIME")
 	#chip_rate
@@ -481,6 +486,9 @@ class camOperation(bpy.types.PropertyGroup):
 	use_bridges =  bpy.props.BoolProperty(name="Use bridges",description="use bridges in cutout", default=False, update = updateBridges)
 	bridges_width = bpy.props.FloatProperty(name = 'width of bridges', default=0.002, unit='LENGTH', precision=PRECISION, update = updateBridges)
 	bridges_height = bpy.props.FloatProperty(name = 'height of bridges', description="Height from the bottom of the cutting operation", default=0.0005, unit='LENGTH', precision=PRECISION, update = updateBridges)
+	bridges_group_name = bpy.props.StringProperty(name='Bridges Group', description='Group of curves used as bridges', update=operationValid)
+
+	'''commented this - auto bridges will be generated, but not as a setting of the operation
 	bridges_placement = bpy.props.EnumProperty(name='Bridge placement',
 		items=(
 			('AUTO','Automatic', 'Automatic bridges with a set distance'),
@@ -492,6 +500,9 @@ class camOperation(bpy.types.PropertyGroup):
 	
 	bridges_per_curve = bpy.props.IntProperty(name="minimum bridges per curve", description="", default=4, min=1, max=512, update = updateBridges)
 	bridges_max_distance = bpy.props.FloatProperty(name = 'Maximum distance between bridges', default=0.08, unit='LENGTH', precision=PRECISION, update = updateBridges)
+	'''
+	group_name = bpy.props.StringProperty(name='Group', description='Object group handled by this operation', update=operationValid)
+
 	#optimisation panel
 	
 	#material settings
@@ -509,9 +520,9 @@ class camOperation(bpy.types.PropertyGroup):
 	offset_image=numpy.array([],dtype=float)
 	zbuffer_image=numpy.array([],dtype=float)
 	
-	silhouete= Polygon.Polygon()
-	ambient = Polygon.Polygon()
-	operation_limit=Polygon.Polygon()
+	silhouete= sgeometry.Polygon()
+	ambient = sgeometry.Polygon()
+	operation_limit=sgeometry.Polygon()
 	borderwidth=50
 	object=None
 	path_object_name=bpy.props.StringProperty(name='Path object', description='actual cnc path')
@@ -706,7 +717,7 @@ def get_panels():#convenience function for bot register and unregister functions
 	ops.CamOperationRemove,
 	ops.CamOperationMove,
 	#bridges related
-	ops.CamBridgeAdd,
+	ops.CamBridgesAdd,
 	#5 axis ops
 	ops.CamOrientationAdd,
 	#shape packing
@@ -717,6 +728,7 @@ def get_panels():#convenience function for bot register and unregister functions
 	ops.CamOffsetSilhouete,
 	ops.CamObjectSilhouete,
 	ops.CamCurveIntarsion,
+	ops.CamCurveOvercuts,
 	ops.CamCurveRemoveDoubles,
 	
 	

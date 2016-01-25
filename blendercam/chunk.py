@@ -1,4 +1,9 @@
-import Polygon
+
+import shapely
+from shapely.geometry import polygon as spolygon
+from shapely import ops
+from shapely import geometry as sgeometry
+from cam import polygon_utils_cam
 from cam import simple
 from cam.simple import * 
 
@@ -10,9 +15,9 @@ class camPathChunk:
 	#progressIndex=-1# for e.g. parallel strategy, when trying to save time..
 	def __init__(self,inpoints ,startpoints = None, endpoints = None, rotations = None):
 		if len(inpoints)>2:
-			self.poly=Polygon.Polygon(inpoints)
+			self.poly=sgeometry.Polygon(inpoints)
 		else:
-			self.poly=Polygon.Polygon()
+			self.poly=sgeometry.Polygon()
 		self.points=inpoints#for 3 axes, this is only storage of points. For N axes, here go the sampled points
 		if startpoints:
 			self.startpoints = startpoints#from where the sweep test begins, but also retract point for given path
@@ -124,13 +129,16 @@ class camPathChunk:
 		#self.unsortedchildren=False		
 	#	return self
 	
-	def getNextClosest(self,o,pos):#this should be deprecated after reworking sortchunks a bit
+	def getNextClosest(self,o,pos):
+		#finds closest chunk that can be milled, when inside sorting hierarchy.
 		mind=100000000000
 		
 		self.cango=False
 		closest=None
 		testlist=[]
 		testlist.extend(self.children)
+		tested=[]
+		tested.extend(self.children)
 		ch=None
 		while len(testlist)>0:
 			chtest=testlist.pop()
@@ -140,8 +148,10 @@ class camPathChunk:
 				
 				for child in chtest.children:
 					if child.sorted==False:
-						testlist.append(child)
-					cango=False
+						if child not in tested:
+							testlist.append(child)
+							tested.append(child)
+						cango=False
 					
 				if cango:
 					d=chtest.dist(pos,o)
@@ -149,10 +159,9 @@ class camPathChunk:
 						ch=chtest
 						mind=d
 		if ch!=None:
-			print('found some')
+			#print('found some')
 			return ch
-		#self.unsortedchildren=False		
-		print('returning none')
+		#print('returning none')
 		return None	
 	
 		
@@ -289,9 +298,8 @@ class camPathChunk:
 				z=znew
 				i+=1
 					
-				
+		self.points = chunk.points
 		
-		return chunk
 
 	def rampZigZag(self,zstart,zend,o):
 		chunk=camPathChunk([])
@@ -422,8 +430,7 @@ class camPathChunk:
 								ratio=1-(traveled/ramplength)
 								znew=zstart-stepdown*ratio
 								chunk.points.append((p2[0],p2[1],max(p2[2],znew)))#max value here is so that it doesn't go below surface in the case of 3d paths
-		
-		return chunk
+		self.points=chunk.points
 #def appendChunk(sorted,ch,o,pos) 
 
 def chunksCoherency(chunks):
@@ -536,7 +543,7 @@ def limitChunks(chunks,o, force=False):#TODO: this should at least add point on 
 			nch1=nch
 			closed=True
 			for s in ch.points:
-				sampled=o.ambient.isInside(s[0],s[1])
+				sampled=o.ambient.contains(sgeometry.Point(s[0],s[1]))
 				if not sampled and len(nch.points)>0:
 					nch.closed=False
 					closed=False
@@ -545,7 +552,7 @@ def limitChunks(chunks,o, force=False):#TODO: this should at least add point on 
 				elif sampled:
 					nch.points.append(s)
 				prevsampled=sampled
-			if len(nch.points)>1 and closed and ch.closed and ch.points[0]==ch.points[1]:
+			if len(nch.points)>2 and closed and ch.closed and ch.points[0]==ch.points[1]:
 				nch.closed=True
 			elif ch.closed and nch!=nch1 and len(nch.points)>1 and nch.points[-1]==nch1.points[0]:#here adds beginning of closed chunk to the end, if the chunks were split during limiting
 				nch.points.extend(nch1.points)
@@ -565,8 +572,8 @@ def parentChildPoly(parents,children,o):
 		#print(parent.poly)
 		for child in children:
 			#print(child.poly)
-			if child!=parent and len(child.poly)>0:
-				if parent.poly.isInside(child.poly[0][0][0],child.poly[0][0][1]):
+			if child!=parent:# and len(child.poly)>0
+				if parent.poly.contains(sgeometry.Point(child.poly.boundary.coords[0])):
 					parent.children.append(child)
 					child.parents.append(parent)
 
@@ -607,7 +614,8 @@ def parentChild(parents, children, o):
 					parent.children.append(child)
 					child.parents.append(parent)	
 
-def chunksToPolys(chunks):#this does more cleve chunks to Poly with hierarchies... ;)
+	
+def chunksToShapely(chunks):#this does more cleve chunks to Poly with hierarchies... ;)
 	#print ('analyzing paths')
 	#verts=[]
 	#pverts=[]
@@ -615,16 +623,14 @@ def chunksToPolys(chunks):#this does more cleve chunks to Poly with hierarchies.
 	for ch in chunks:#first convert chunk to poly
 		if len(ch.points)>2:
 			pchunk=[]
-			for v in ch.points:
-				pchunk.append((v[0],v[1]))
-			ch.poly=Polygon.Polygon(pchunk)
-			ch.poly.simplify()
-		
+			ch.poly=sgeometry.Polygon(ch.points)
+			
 	for ppart in chunks:#then add hierarchy relations
 		for ptest in chunks:
 				
-			if ppart!=ptest and len(ptest.poly)>0 and len(ppart.poly)>0 and ptest.poly.nPoints(0)>0 and ppart.poly.nPoints(0)>0:
-				if ptest.poly.isInside(ppart.poly[0][0][0],ppart.poly[0][0][1]):
+			#if ppart!=ptest and len(ptest.poly)>0 and len(ppart.poly)>0 and ptest.poly.nPoints(0)>0 and ppart.poly.nPoints(0)>0:
+			if ppart!=ptest :
+				if ptest.poly.contains(ppart.poly):
 					#hierarchy works like this: - children get milled first. 
 					#ptest.children.append(ppart)
 					ppart.parents.append(ptest)
@@ -650,18 +656,31 @@ def chunksToPolys(chunks):#this does more cleve chunks to Poly with hierarchies.
 		if len(ch.parents)>0:
 			#print(len(ch.parents))
 			#ch.parents[0].poly=ch.parents[0].poly-ch.poly
-			ch.parents[0].poly.addContour(ch.poly[0],1)
-		
+			#print(ch.parents[0].poly,[ch.poly])
+			print('addparent')
+			#polygon_utils_cam.shapelyToCurve('crust',ch.parents[0].poly,0)
+			#polygon_utils_cam.shapelyToCurve('hole',ch.poly,0)
+			ch.parents[0].poly = ch.parents[0].poly.difference(ch.poly)#sgeometry.Polygon( ch.parents[0].poly, ch.poly)
+			
+			
 	returnpolys=[]
 
 	for polyi in range(0,len(chunks)):#export only the booleaned polygons
 		ch=chunks[polyi]
 		if len(ch.parents)==0:
-			ch.poly.simplify()#TODO:THIS CHECK
+			#ch.poly.simplify()#TODO:THIS CHECK
 			returnpolys.append(ch.poly)
+			#if len(ch.poly.interiors)>0:
+			#	print(ch.poly.interiors[0].coords[0])
+			#polygon_utils_cam.shapelyToCurve('test',ch.poly,0)
+			#print(ch.poly.boundary)
+	#print('shapely hierarchies')
 	#print(len(returnpolys))
+	
+	
 	return returnpolys  
 		
+
 def meshFromCurveToChunk(object):
 	mesh=object.data
 	#print('detecting contours from curve')
@@ -686,7 +705,7 @@ def meshFromCurveToChunk(object):
 		else:
 			chunk.points.append(co)
 			if len(chunk.points)>2 and (not(dk.isdisjoint([(vi,lastvi)])) or not(dk.isdisjoint([(lastvi,vi)]))):#this was looping chunks of length of only 2 points...
-				print('itis')
+				#print('itis')
 				
 				chunk.closed=True
 				chunk.points.append((mesh.vertices[lastvi].co+object.location).to_tuple())#add first point to end#originally the z was mesh.vertices[lastvi].co.z+z
@@ -709,6 +728,7 @@ def meshFromCurveToChunk(object):
 		chunk.points.append((mesh.vertices[lastvi].co.x+x,mesh.vertices[lastvi].co.y+y,mesh.vertices[lastvi].co.z+z))
 	#else:
 		#   print('itisnot')
+		
 	chunks.append(chunk)
 	return chunks
 
@@ -726,7 +746,7 @@ def makeVisible(o):
 
 def restoreVisibility(o,storage):
 	o.hide=storage[0]
-	print(storage)
+	#print(storage)
 	for i in range(0,20):
 		o.layers[i]=storage[1][i]
 
@@ -769,38 +789,46 @@ def curveToChunks(o):
 	
 	return chunks
 	
-def polyToChunks(p,zlevel):#
+def shapelyToChunks(p,zlevel):#
 	chunks=[]
 	#p=sortContours(p)
-	
+	seq=polygon_utils_cam.shapelyToCoords(p)
 	i=0
-	for o in p:
+	for s in seq:
 		#progress(p[i])
-		if p.nPoints(i)>2:
+		if len(s)>1:
 			chunk=camPathChunk([])
-			chunk.poly=Polygon.Polygon(o)
-			for v in o:
+			if len(s)==2:
+				sgeometry.LineString(s)
+			else:
+				chunk.poly=spolygon.Polygon(s)#this should maybe be LineString? but for sorting, we need polygon inside functions.
+			for v in s:
 				#progress (v)
-				chunk.points.append((v[0],v[1],zlevel))  
+				#print(v)
+				if p.has_z:
+					chunk.points.append((v[0],v[1],v[2]))  
+				else:
+					chunk.points.append((v[0],v[1],zlevel))  
 			
-			chunk.points.append(chunk.points[0])#last point =first point
-			chunk.closed=True
+			#chunk.points.append((chunk.points[0][0],chunk.points[0][1],chunk.points[0][2]))#last point =first point
+			if chunk.points[0]==chunk.points[-1] and len(s)>2:
+				chunk.closed=True
 			chunks.append(chunk)
 		i+=1
 	chunks.reverse()#this is for smaller shapes first.
 	#
 	return chunks
-
-def chunkToPoly(chunk):
-	pverts=[]
 	
-	for v in chunk.points:
+def chunkToShapely(chunk):
+	#pverts=[]
+	
+	#for v in chunk.points:
 		 
-		pverts.append((v[0],v[1]))
+	#	pverts.append((v[0],v[1]))
 	 
-	p=Polygon.Polygon(pverts)
-	return p
-
+	p=spolygon.Polygon(chunk.points)
+	return p	
+	
 def chunksRefine(chunks,o):
 	'''add extra points in between for chunks'''
 	for ch in chunks:
@@ -829,6 +857,52 @@ def chunksRefine(chunks,o):
 						
 						newchunk.append((p.x,p.y,p.z))
 					
+					
+			newchunk.append(s)  
+			v2=v1
+		#print('after',len(newchunk))
+		ch.points=newchunk
+			
+	return chunks
+
+		
+def chunksRefineThreshold(chunks,distance, limitdistance):
+	'''add extra points in between for chunks. For medial axis strategy only !'''
+	for ch in chunks:
+		#print('before',len(ch))
+		newchunk=[]
+		v2=Vector(ch.points[0])
+		#print(ch.points)
+		for s in ch.points:
+			
+			v1=Vector(s)
+			#print(v1,v2)
+			v=v1-v2
+			
+			#print(v.length,o.dist_along_paths)
+			if v.length>limitdistance:
+				d=v.length
+				v.normalize()
+				i=1
+				vref=Vector((0,0,0))
+				vhalf = v*d/2
+				while vref.length<d/2:
+					
+					vref=v*distance*i
+					if vref.length<d:
+						p=v2+vref
+						
+						newchunk.append((p.x,p.y,p.z))
+					i+=1
+					vref=v*distance*i#because of the condition, so it doesn't run again.
+				while i>0:
+					vref=v*distance*i
+					if vref.length<d:
+						p=v1-vref
+						
+						newchunk.append((p.x,p.y,p.z))
+					i-=1
+					vref=v*distance*i 
 					
 			newchunk.append(s)  
 			v2=v1

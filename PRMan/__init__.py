@@ -26,7 +26,7 @@ import bpy
 import sys
 
 bl_info = {
-    "name": "PRMan Render Engine",
+    "name": "RenderMan For Blender",
     "author": "Brian Savery",
     "version": (0, 7, 0),
     "blender": (2, 74, 0),
@@ -40,7 +40,7 @@ from . import engine
 
 class PRManRender(bpy.types.RenderEngine):
     bl_idname = 'PRMAN_RENDER'
-    bl_label = "PRMan Render"
+    bl_label = "RenderMan Render"
     bl_use_preview = True
     bl_use_save_buffers = True
 

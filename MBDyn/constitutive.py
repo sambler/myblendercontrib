@@ -876,8 +876,8 @@ for dimension in "1D 3D 6D".split():
         def draw(self, context):
             layout = self.layout
             layout.operator_context = 'INVOKE_DEFAULT'
-            for bl_label, klass in klasses.items():
-                if [d for d in klass.dimension_items if self.dimension in d[0]]:
+            for bl_label in constitutive_tree.get_leaves():
+                if [d for d in klasses[bl_label].dimension_items if self.dimension in d[0]]:
                     op = layout.operator(root_dot + "c_" + "_".join(bl_label.lower().split()))
                     op.dimension = self.dimension
     BPY.klasses.append(Menu)

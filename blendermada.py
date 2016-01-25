@@ -23,7 +23,7 @@
 bl_info = {
     "name": "Blendermada Client",
     "author": "Sergey Ozerov, <ozzyrov@gmail.com>",
-    "version": (0, 9, 0),
+    "version": (0, 9, 1),
     "blender": (2, 70, 0),
     "location": "Properties > Material > Blendermada Client",
     "description": "Browse and download materials from online CC0 database.",
@@ -99,12 +99,26 @@ def bmd_urlopen(url, **kwargs):
 
 def get_materials(category):
     engine = get_engine()
-    filepath = os.path.join(get_cache_path(), '%s-cat-%s' % (engine, category))
+    filepath = os.path.join(get_cache_path(), '{}-cat-{}'.format(engine, category))
     if file_expired(filepath, 300):
         r = bmd_urlopen(
             '/api/materials/materials.json',
             engine=engine,
             category=category,
+        )
+        ans = json.loads(str(r.read(), 'UTF-8'))
+        dump_data(ans, filepath)
+    return load_data(filepath)
+
+def get_favorites():
+    engine = get_engine()
+    filepath = os.path.join(get_cache_path(), '{}-cat-fav'.format(engine))
+    if file_expired(filepath, 300):
+        addon_prefs = bpy.context.user_preferences.addons[__name__]
+        r = bmd_urlopen(
+            '/api/materials/v1/favorites.json',
+            engine=engine,
+            key=addon_prefs.preferences.api_key,
         )
         ans = json.loads(str(r.read(), 'UTF-8'))
         dump_data(ans, filepath)
@@ -255,6 +269,12 @@ def render_callback(self, context):
 
 def update_categories(context):
     context.scene.bmd_category_list.clear()
+    addon_prefs = bpy.context.user_preferences.addons[__name__]
+    if addon_prefs.preferences.api_key != '':
+        a = context.scene.bmd_category_list.add()
+        a.id   = 0
+        a.slug = 'favorites'
+        a.name = '<Favorites>'
     for i in get_categories():
         a = context.scene.bmd_category_list.add()
         a.id   = i['id']
@@ -264,7 +284,12 @@ def update_categories(context):
 
 def update_materials(self, context):
     context.scene.bmd_material_list.clear()
-    for i in get_materials(context.scene.bmd_category_list[context.scene.bmd_category_list_idx].id):
+    id = context.scene.bmd_category_list[context.scene.bmd_category_list_idx].id
+    if id == 0: # Favorites
+        mats = get_favorites()
+    else:
+        mats = get_materials(id)    
+    for i in mats:
         a = context.scene.bmd_material_list.add()
         a.id = i['id']
         a.slug = i['slug']
@@ -500,10 +525,15 @@ class BMDAddonPreferences(bpy.types.AddonPreferences):
         description="Use 256x256 previews instead of 128x128",
         update=preview_size_update,
     )
+    api_key = StringProperty(
+        name="API key",
+        description="Use it to access your favorites materials",
+    )
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "cache_path")
         layout.prop(self, "use_big_preview")
+        layout.prop(self, "api_key")
 
 
 def register():

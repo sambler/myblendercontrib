@@ -19,7 +19,7 @@ bl_info = {
     "name": "Mouselook Navigation",
     "description": "Alternative 3D view navigation",
     "author": "dairin0d, moth3r",
-    "version": (1, 0, 5),
+    "version": (1, 0, 6),
     "blender": (2, 7, 0),
     "location": "View3D > orbit/pan/dolly/zoom/fly/walk",
     "warning": "",
@@ -51,7 +51,7 @@ except ImportError:
     dairin0d_location = "."
 
 exec("""
-from {0}dairin0d.utils_view3d import SmartView3D
+from {0}dairin0d.utils_view3d import SmartView3D, RaycastResult
 from {0}dairin0d.utils_userinput import InputKeyMonitor, ModeStack, KeyMapUtils
 from {0}dairin0d.utils_gl import cgl
 from {0}dairin0d.utils_ui import NestedLayout, calc_region_rect
@@ -408,12 +408,12 @@ class MouselookNavigation:
                         #ray_data = self.sv.ray(self.sv.project(self.sv.focus))
                         #raycast_result = context.scene.ray_cast(ray_data[0], ray_data[1])
                         raycast_result = self.sv.ray_cast(self.sv.project(self.sv.focus))
-                        if raycast_result[0]:
-                            normal = raycast_result[4]
-                            if normal.dot(ray_data[1] - ray_data[0]) > 0:
-                                normal = -normal
+                        if raycast_result.success:
+                            normal = raycast_result.normal
+                            ray_data = self.sv.ray(self.sv.project(self.sv.focus))
+                            if normal.dot(ray_data[1] - ray_data[0]) > 0: normal = -normal
                             self.teleport_time_start = clock
-                            self.teleport_pos = raycast_result[3] + normal * view_height
+                            self.teleport_pos = raycast_result.location + normal * view_height
                             self.teleport_pos_start = self.sv.viewpoint
                     
                     if move_vector.magnitude > 0:
@@ -849,7 +849,7 @@ class MouselookNavigation:
         elif addon_prefs.zbrush_method == 'RAYCAST':
             cast_result = self.sv.ray_cast(mouse_region, raycast_radius)
         else: # SELECTION
-            cast_result = (False, None) # Auto Depth is useless with ZBrush mode anyway
+            cast_result = RaycastResult() # Auto Depth is useless with ZBrush mode anyway
         
         self.zoom_to_selection = addon_prefs.zoom_to_selection
         self.force_origin_mouse = self.keys_origin_mouse()
@@ -867,8 +867,8 @@ class MouselookNavigation:
         if self.use_origin_selection:
             self.explicit_orbit_origin = calc_selection_center(context, True)
         elif self.use_origin_mouse:
-            if cast_result[0]:
-                self.explicit_orbit_origin = cast_result[3]
+            if cast_result.success:
+                self.explicit_orbit_origin = cast_result.location
                 if self.sv.is_perspective:
                     # Blender adjusts distance so that focus and z-point lie in the same plane
                     viewpoint = self.sv.viewpoint
@@ -888,10 +888,8 @@ class MouselookNavigation:
                 wrk_pos = min(wrk_x, wrk_y)
                 if wrk_pos > self.zbrush_border:
                     if addon_prefs.zbrush_method == 'SELECTION':
-                        select_result = self.sv.select(mouse_region)
-                        cast_result = (select_result[0] != None, select_result[0])
-                    if cast_result[0]:
-                        return {'PASS_THROUGH'}
+                        cast_result = self.sv.select(mouse_region)
+                    if cast_result.success: return {'PASS_THROUGH'}
             self.mode_stack.mode = self.default_mode
         self.update_cursor_icon(context)
         

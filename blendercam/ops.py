@@ -25,9 +25,12 @@ import bpy
 import subprocess,os, sys, threading
 from cam import utils, pack,polygon_utils_cam,chunk,simple
 from bpy.props import *
-import Polygon
+import shapely
 
-	
+from shapely import geometry as sgeometry
+import mathutils
+from mathutils import *
+import math
 
 
 class threadCom:#object passed to threads to read background process stdout info 
@@ -664,10 +667,10 @@ class CamOrientationAdd(bpy.types.Operator):
 		return {'FINISHED'}
 		
 
-class CamBridgeAdd(bpy.types.Operator):
-	'''Add orientation to cam operation, for multiaxis operations'''
-	bl_idname = "scene.cam_bridge_add"
-	bl_label = "Add bridge"
+class CamBridgesAdd(bpy.types.Operator):
+	'''Add bridge objects to curve'''
+	bl_idname = "scene.cam_bridges_add"
+	bl_label = "Add bridges"
 	bl_options = {'REGISTER', 'UNDO'}
 	
 		
@@ -680,7 +683,7 @@ class CamBridgeAdd(bpy.types.Operator):
 		s=bpy.context.scene
 		a=s.cam_active_operation
 		o=s.cam_operations[a]
-		utils.addBridge(o)
+		utils.addAutoBridges(o)
 		return {'FINISHED'}
 		
 		
@@ -711,19 +714,19 @@ class CamCurveIntarsion(bpy.types.Operator):
 	bl_label = "Intarsion"
 	bl_options = {'REGISTER', 'UNDO'}
 	
-	radius = bpy.props.FloatProperty(name="offset", default=.003, min=0, max=100,precision=4, unit="LENGTH")
+	diameter = bpy.props.FloatProperty(name="cutter diameter", default=.003, min=0, max=100,precision=4, unit="LENGTH")
 		
 	#@classmethod
 	#def poll(cls, context):
 	#	return context.active_object is not None and context.active_object.type=='CURVE' and len(bpy.context.selected_objects)==2
 
 	def execute(self, context):
-		utils.silhoueteOffset(context,-self.radius)
+		utils.silhoueteOffset(context,-self.diameter/2)
 		o1=bpy.context.active_object
 
-		utils.silhoueteOffset(context,2*self.radius)
+		utils.silhoueteOffset(context,self.diameter)
 		o2=bpy.context.active_object
-		utils.silhoueteOffset(context,-self.radius)
+		utils.silhoueteOffset(context,-self.diameter/2)
 		o3=bpy.context.active_object
 		o1.select=True
 		o2.select=True
@@ -731,6 +734,97 @@ class CamCurveIntarsion(bpy.types.Operator):
 		bpy.ops.object.delete(use_global=False)
 		o3.select=True
 		return {'FINISHED'}	
+
+#intarsion or joints
+class CamCurveOvercuts(bpy.types.Operator):
+	'''Adds overcuts for slots'''
+	bl_idname = "object.curve_overcuts"
+	bl_label = "Add Overcuts"
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	
+	diameter = bpy.props.FloatProperty(name="diameter", default=.003, min=0, max=100,precision=4, unit="LENGTH")
+	threshold = bpy.props.FloatProperty(name="threshold", default=math.pi/2*.99, min=-3.14, max=3.14,precision=4, subtype="ANGLE" , unit="ROTATION")
+	do_outer = bpy.props.BoolProperty(name="Outer polygons", default=True)
+	invert = bpy.props.BoolProperty(name="Invert", default=False)
+	#@classmethod
+	#def poll(cls, context):
+	#	return context.active_object is not None and context.active_object.type=='CURVE' and len(bpy.context.selected_objects)==2
+
+	def execute(self, context):
+		#utils.silhoueteOffset(context,-self.diameter)
+		o1=bpy.context.active_object
+		shapes=utils.curveToShapely(o1)
+		negative_overcuts=[]
+		positive_overcuts=[]
+		diameter = self.diameter*1.001
+		for s in shapes:
+				s=shapely.geometry.polygon.orient(s,1)
+				if s.boundary.type == 'LineString':
+					loops = [s.boundary]#s=shapely.geometry.asMultiLineString(s)
+				else:	
+					loops = s.boundary
+				
+				for ci,c in enumerate(loops):
+					if ci>0 or self.do_outer:
+						#c=s.boundary
+						for i,co in enumerate(c.coords):
+							i1=i-1
+							if i1==-1:
+								i1=-2
+							i2=i+1
+							if i2 == len(c.coords):
+								i2=0
+								
+							v1 = Vector(co) - Vector(c.coords[i1])
+							v1 = v1.xy#Vector((v1.x,v1.y,0))
+							v2 = Vector(c.coords[i2]) - Vector(co)
+							v2 = v2.xy#v2 = Vector((v2.x,v2.y,0))
+							if not v1.length==0 and not v2.length == 0:
+								a=v1.angle_signed(v2)
+								sign=1
+								#if ci==0:
+								#	sign=-1
+								#else:
+								#	sign=1
+								
+								if self.invert:# and ci>0:
+									sign*=-1
+								if (sign<0 and a<-self.threshold) or (sign>0 and a>self.threshold):
+									p=Vector((co[0],co[1]))
+									v1.normalize()
+									v2.normalize()
+									v=v1-v2
+									v.normalize()
+									p=p-v*diameter/2
+									if abs(a)<math.pi/2:
+										shape=utils.Circle(diameter/2,64)
+										shape= shapely.affinity.translate(shape,p.x,p.y)
+									else:
+										l=math.tan(a/2)*diameter/2
+										p1=p-sign*v*l
+										l=shapely.geometry.LineString((p,p1))
+										shape=l.buffer(diameter/2, resolution = 64)
+									
+									if sign>0:
+										negative_overcuts.append(shape)
+									else:	
+										positive_overcuts.append(shape)
+									
+								print(a)
+					
+							
+				#for c in s.boundary:
+		negative_overcuts = shapely.ops.unary_union(negative_overcuts)
+		positive_overcuts = shapely.ops.unary_union(positive_overcuts)
+		#shapes.extend(overcuts)
+		fs=shapely.ops.unary_union(shapes)
+		fs = fs.union(positive_overcuts)
+		fs = fs.difference(negative_overcuts)
+		o=utils.shapelyToCurve(o1.name+'_overcuts',fs,o1.location.z)
+		#o=utils.shapelyToCurve('overcuts',overcuts,0)
+		return {'FINISHED'}	
+
 		
 class CamCurveRemoveDoubles(bpy.types.Operator):
 	'''curve remove doubles - warning, removes beziers!'''
@@ -749,7 +843,8 @@ class CamCurveRemoveDoubles(bpy.types.Operator):
 		bpy.ops.mesh.remove_doubles()
 		bpy.ops.object.editmode_toggle()
 		bpy.ops.object.convert(target='CURVE')
-
+		a=bpy.context.active_object
+		a.data.show_normal_face = False
 		if mode:
 			bpy.ops.object.editmode_toggle()
 		
@@ -767,7 +862,7 @@ class CamOffsetSilhouete(bpy.types.Operator):
 		
 	@classmethod
 	def poll(cls, context):
-		return context.active_object is not None and (context.active_object.type=='CURVE'  or context.active_object.type=='MESH')
+		return context.active_object is not None and (context.active_object.type=='CURVE' or context.active_object.type=='FONT' or context.active_object.type=='MESH')
 
 	def execute(self, context):#this is almost same as getobjectoutline, just without the need of operation data
 		utils.silhoueteOffset(context,self.offset)
@@ -789,13 +884,11 @@ class CamObjectSilhouete(bpy.types.Operator):
 	def execute(self, context):#this is almost same as getobjectoutline, just without the need of operation data
 		ob=bpy.context.active_object
 		self.silh=utils.getObjectSilhouete('OBJECTS', objects=bpy.context.selected_objects)
-		poly=Polygon.Polygon()
-		for p in self.silh:
-			for ci in range(0,len(p)):
-				poly.addContour(p[ci])
 		bpy.context.scene.cursor_location=(0,0,0)
-		polygon_utils_cam.polyToMesh(ob.name+'_silhouette',poly,0)#
-		bpy.ops.object.convert(target='CURVE')
+		#smp=sgeometry.asMultiPolygon(self.silh)
+		for smp in self.silh:
+			polygon_utils_cam.shapelyToCurve(ob.name+'_silhouette',smp,0)#
+		#bpy.ops.object.convert(target='CURVE')
 		bpy.context.scene.cursor_location=ob.location
 		bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 		return {'FINISHED'}

@@ -38,6 +38,7 @@ from mathutils import Matrix
 import subprocess
 from tempfile import TemporaryFile
 import os
+import sys
 from signal import SIGTERM
 import math
 from mathutils import Vector, Euler, Quaternion
@@ -140,7 +141,7 @@ class InitialValue(Entity):
             f.write(",\n\t\treference, " + frame_label + ", null" +
                 ",\n\t\treference, " + frame_label + ", null;\n")
         with open(os.path.join(directory, context.scene.name + ".mbd"), "w") as f:
-            f.write("# MBDyn v1.6 input file generated using BlenderAndMBDyn v2.0\n\n")
+            f.write("# MBDyn v1.7 input file generated using BlenderAndMBDyn v2.0\n\n")
             frame_for, frames, parent_of = dict(), list(), dict()
             reference_frames = database.input_card.filter("Reference frame")
             for frame in reference_frames:
@@ -528,10 +529,11 @@ class Simulate(bpy.types.Operator, Base):
                 node.location = Vector(data[12*i : 12*i+3])
                 node.rotation_euler = Matrix([data[12*i+3 : 12*i+6], data[12*i+6 : 12*i+9], data[12*i+9 : 12*i+12]]).to_euler(node.rotation_euler.order)
         if self.process.poll() == None:
-            output = subprocess.check_output(("tail", "-n", "1", self.out_file))
-            if output and 2 < len(output.split()):
-                percent = 100.*(1.-(self.t_final - float(output.split()[2]))/self.t_range)
-                context.window_manager.progress_update(percent)
+            if self.platform != "win32":
+                output = subprocess.check_output(("tail", "-n", "1", self.out_file))
+                if output and 2 < len(output.split()):
+                    percent = 100.*(1.-(self.t_final - float(output.split()[2]))/self.t_range)
+                    context.window_manager.progress_update(percent)
             return {'PASS_THROUGH'}
         else:
             return self.close(context)
@@ -595,13 +597,36 @@ class Simulate(bpy.types.Operator, Base):
         self.out_file = os.path.join(directory, context.scene.name + ".out")
         self.t_final = sim.final_time if sim.final_time is not None else float("inf")
         self.t_range = self.t_final - (sim.initial_time if sim.initial_time is not None else 0.0)
-        subprocess.call(("touch", self.out_file))
+        with open(self.out_file) as f:
+            pass
         wm = context.window_manager
         wm.progress_begin(0., 100.)
         self.timer = wm.event_timer_add(1./24., context.window)
         wm.modal_handler_add(self)
+        self.platform = sys.platform
         return{'RUNNING_MODAL'}
 BPY.klasses.append(Simulate)
+
+class FileWrapper:
+    def __init__(self, file):
+        self.file = file
+        self.pos = 0
+        self.size = self.file.seek(0, 2)
+        self.file.seek(0, 0)
+    def __next__(self):
+        line = next(self.file)
+        self.pos += len(line)
+        return line
+    def __iter__(self):
+        line = next(self.file)
+        while line:
+            self.pos += len(line)
+            yield line
+            line = next(self.file)
+    def close(self):
+        self.file.close()
+    def seek(self, *args, **kwargs):
+        self.file.seek(*args, **kwargs)
 
 class WriteKeyframes(bpy.types.Operator, Base):
     bl_idname = root_dot + "write_keyframes"
@@ -609,53 +634,53 @@ class WriteKeyframes(bpy.types.Operator, Base):
     bl_label = "Write keyframes"
     bl_description = "Import each node's location and orientation into Blender keyframes starting at the next frame"
     steps = bpy.props.IntProperty(name="MBDyn steps between Blender keyframes", default=1, min=1)
+    rate = bpy.props.IntProperty(name="Keyframes per MBDyn second", default=15, min=1)
     def invoke(self, context, event):
-        scene = context.scene
-        directory = os.path.splitext(context.blend_data.filepath)[0]
-        for node in database.node:
-            for data_path in "location rotation_euler".split():
-                node.keyframe_insert(data_path)
-        with open(os.path.join(directory, context.scene.name + ".mov")) as f:
-            self.lines = f.readlines()
-        self.marker = int(self.lines[0].split()[0])
-        self.N = float(len(self.lines))
-        for self.i, line in enumerate(self.lines[1:]):
-            if int(line.split()[0]) == self.marker:
-                break
         return context.window_manager.invoke_props_dialog(self)
+    def insert_keyframe(self, label, fields):
+        database.node[label].location = fields[:3]
+        if self.orientation == "orientation matrix":
+            euler = Matrix([fields[3:6], fields[6:9], fields[9:12]]).to_euler()
+            database.node[label].rotation_euler = euler[0], euler[1], euler[2]
+        elif self.orientation == "euler321":
+            database.node[label].rotation_euler = Euler((math.radians(fields[5]), math.radians(fields[4]), math.radians(fields[3])), 'XYZ')
+        elif self.orientation == "euler123":
+            database.node[label].rotation_euler = Euler((math.radians(fields[3]), math.radians(fields[4]), math.radians(fields[5])), 'ZYX').to_quaternion().to_euler('XYZ')
+            #database.node[label].rotation_mode = 'ZYX'
+        elif self.orientation == "orientation vector":
+            #database.node[label].rotation_axis_angle = [math.sqrt(sum([x*x for x in fields[3:6]]))] + fields[3:6]
+            database.node[label].rotation_euler = Quaternion(fields[3:6], math.sqrt(sum([x*x for x in fields[3:6]]))).to_euler('XYZ')
+        for data_path in "location rotation_euler".split():
+            database.node[label].keyframe_insert(data_path)
     def execute(self, context):
-        orientation = database.simulator[context.scene.simulator_index].job_control.default_orientation
-        if orientation == "euler313":
+        self.orientation = database.simulator[context.scene.simulator_index].job_control.default_orientation
+        if self.orientation == "euler313":
             self.report({'ERROR'}, "euler313 cannot be imported. Simulate in another format, selected from Job Control -> Default Orientation")
         scene = context.scene
         frame_initial = scene.frame_current
         wm = context.window_manager
         wm.progress_begin(0., 100.)
-        skip = self.steps - 1
-        for n, line in enumerate(self.lines):
-            if int(line.split()[0]) == self.marker:
-                skip = (skip + 1) % self.steps
-            if not skip:
-                wm.progress_update(100.*float(n)/self.N)
-                fields = line.split()
-                node_index = int(fields[0])
-                if node_index == self.marker:
+        directory = os.path.splitext(context.blend_data.filepath)[0]
+        dt = 1.0 / self.rate
+        keytime = - float("inf")
+        parser = lambda l: (int(l[0]), [float(x) for x in l[1:]])
+        with open(os.path.join(directory, scene.name + ".out")) as f_out, open(os.path.join(directory, scene.name + ".mov")) as f_mov:
+            label, fields = parser(f_mov.readline().split())
+            fw_out = FileWrapper(f_out)
+            for step, time in map(lambda l: (int(l[1]), float(l[2])), map(str.split, filter(lambda ln: ln.startswith("Step"), fw_out))):
+                is_a_keyframe = dt < time - keytime
+                if is_a_keyframe:
+                    keytime = time
                     scene.frame_current += 1
-                fields = [float(field) for field in fields[1:]]
-                database.node[node_index].location = fields[:3]
-                if orientation == "orientation matrix":
-                    euler = Matrix([fields[3:6], fields[6:9], fields[9:12]]).to_euler()
-                    database.node[node_index].rotation_euler = euler[0], euler[1], euler[2]
-                elif orientation == "euler321":
-                    database.node[node_index].rotation_euler = Euler((math.radians(fields[5]), math.radians(fields[4]), math.radians(fields[3])), 'XYZ')
-                elif orientation == "euler123":
-                    database.node[node_index].rotation_euler = Euler((math.radians(fields[3]), math.radians(fields[4]), math.radians(fields[5])), 'ZYX').to_quaternion().to_euler('XYZ')
-                    #database.node[node_index].rotation_mode = 'ZYX'
-                elif orientation == "orientation vector":
-                    #database.node[node_index].rotation_axis_angle = [math.sqrt(sum([x*x for x in fields[3:6]]))] + fields[3:6]
-                    database.node[node_index].rotation_euler = Quaternion(fields[3:6], math.sqrt(sum([x*x for x in fields[3:6]]))).to_euler('XYZ')
-                for data_path in "location rotation_euler".split():
-                    database.node[node_index].keyframe_insert(data_path)
+                    wm.progress_update(100. * float(fw_out.pos) / float(fw_out.size))
+                labels = list()
+                while f_mov and label not in labels:
+                    if is_a_keyframe:
+                        self.insert_keyframe(label, fields)
+                    labels.append(label)
+                    split_line = f_mov.readline().split()
+                    if split_line:
+                        label, fields = parser(split_line)
         for node in database.node:
             node.rotation_mode = 'XYZ'
         scene.frame_current = frame_initial + 1
@@ -663,8 +688,8 @@ class WriteKeyframes(bpy.types.Operator, Base):
         return{'FINISHED'}
     def draw(self, context):
         layout = self.layout
-        layout.label("File has " + str(int(self.N/(self.i+1))) + " timesteps.")
-        layout.prop(self, "steps")
+        #layout.label("File has " + str(int(self.N/(self.i+1))) + " timesteps.")
+        layout.prop(self, "rate")
 BPY.klasses.append(WriteKeyframes)
 
 bundle = Bundle(simulator_tree, Base, klasses, database.simulator)

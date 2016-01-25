@@ -8,6 +8,7 @@ nodes_dict = {
         'edge_angles',
         'distance_pp',
         'polygons_centers',
+        'polygons_centers_mk3',
         'neuro_elman',
         'image_components',
         'kd_tree',
@@ -18,16 +19,16 @@ nodes_dict = {
         'bmesh_props',
         'closest_point_on_mesh',
         'colors',
-       # 'bvh_raycast',
-       # 'bvh_overlap',
-       # 'bvh_nearest'
+        # 'bvh_raycast',
+        # 'bvh_overlap',
+        # 'bvh_nearest'
     ],
 
     'basic_view': [
-        'viewer_bmesh',
         'viewer_bmesh_mk2',
         'viewer_indices',
         'viewer_curves',
+        'viewer_curves_2d',
         'viewer_skin',
         'viewer_text',
         'viewer_mk2',
@@ -42,9 +43,12 @@ nodes_dict = {
         'wifi_out',
         'switch',
         'obj_remote',
+        'dupli_instances',
+        'instancer',  # this is the mesh instancer (can I rename it? 'mesh_instances')
         'group',
         'cache',
         'getsetprop',
+        'node_remote',
         'get_blenddata',
         'set_blenddata',
         'sort_blenddata',
@@ -53,7 +57,7 @@ nodes_dict = {
         'BMOperators',
         'bmesh_in',
         'bmesh_out',
-       # 'create_bvh_tree',
+        # 'create_bvh_tree',
         'bmesh_to_element'
     ],
 
@@ -82,12 +86,10 @@ nodes_dict = {
         'random_vector',
         'script',
         'script_mk2',
-        'prototyper_js',
         'formula',
         'sphere',
         'basic_spline',
         'basic_3pt_arc',
-        'instancer',
         'profile',
         'generative_art'
     ],
@@ -102,13 +104,11 @@ nodes_dict = {
         'mask_join',
         'mask',
         'match',
-        'sum',
         'sum_mk2',
         'zip'
     ],
 
     'list_interfere': [
-        'shift',
         'shift_mk2',
         'repeater',
         'slice',
@@ -117,7 +117,6 @@ nodes_dict = {
         'item',
         'reverse',
         'shuffle',
-        'sort',
         'sort_mk2',
         'flip',
         'numpy_array'
@@ -165,7 +164,7 @@ nodes_dict = {
         'edges_adaptative',
         'join_tris',
         'lathe',
-        'line_connect',
+        'uv_connect',
         'offset',
         'inset_special',
         'polygons_adaptative',

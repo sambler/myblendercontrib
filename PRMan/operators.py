@@ -28,6 +28,7 @@ import os
 import subprocess
 import bgl
 import blf
+import webbrowser
 
 from bpy.props import PointerProperty, StringProperty, BoolProperty, \
     EnumProperty, IntProperty, FloatProperty, FloatVectorProperty, \
@@ -43,8 +44,10 @@ from .shader_parameters import tex_source_path
 from .shader_parameters import tex_optimised_path
 
 from .export import export_archive
+from .export import get_texture_list
 from .engine import RPass
 from .export import debug
+from .export import write_single_RIB
 from . import engine
 
 from bpy_extras.io_utils import ExportHelper
@@ -61,6 +64,28 @@ class Renderman_open_stats(bpy.types.Operator):
         bpy.ops.wm.url_open(url="file://" + os.path.join(output_dir, 'stats.xml'))
         return {'FINISHED'}
 
+class Renderman_open_last_RIB(bpy.types.Operator):
+    bl_idname = 'rman.open_rib'
+    bl_label = "Open Last RIB Scene file."
+    bl_description = "Opens the last generated Scene.rib file in the system default text editor."
+    
+    def invoke(self, context, event=None):
+        rm = context.scene.renderman
+        rpass = RPass(context.scene, interactive=False)
+        path = rpass.paths['rib_output']
+        if rm.editor_override == "":
+            try:
+                webbrowser.open(path)
+            except Exception:
+                debug('error',"File not available!")
+        else:
+            command = rm.editor_override + " " + path
+            try:
+                os.system(command)
+            except Exception:
+                debug('error',"File or text editor not available. (Check and make sure text editor is in system path.)")
+        return {'FINISHED'}
+    
 class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
 
     ''''''
@@ -87,26 +112,35 @@ class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
             default.location[0] -= 300
             nt.links.new(default.outputs[0], output.inputs[0])
         else:
-
+            # we only need to set the renderman type as the update method there 
+            # handles making the nodetree
             light_type = idblock.type
-            light_shader = 'PxrStdAreaLightLightNode'
-            if light_type == 'SUN':
-                light_shader = 'PxrStdEnvDayLightLightNode'
-            elif light_type == 'HEMI':
-                light_shader = 'PxrStdEnvMapLightLightNode'
-            elif light_type == 'AREA' or light_type == 'POINT':
-                idblock.type = "AREA"
-                context.lamp.size = 1.0
-                context.lamp.size_y = 1.0
-                
+            if light_type == "SUN":
+                idblock.renderman.renderman_type = "DIST"
+            elif light_type == "HEMI":
+                idblock.renderman.renderman_type = "ENV"
             else:
-                idblock.type = "AREA"
+                idblock.renderman.renderman_type = light_type
+            # light_type = idblock.type
+            # light_shader = 'PxrStdAreaLightLightNode'
+            # if light_type == 'SUN':
+            #     context.lamp.renderman.type=
+            #     light_shader = 'PxrStdEnvDayLightLightNode'
+            # elif light_type == 'HEMI':
+            #     light_shader = 'PxrStdEnvMapLightLightNode'
+            # elif light_type == 'AREA' or light_type == 'POINT':
+            #     idblock.type = "AREA"
+            #     context.lamp.size = 1.0
+            #     context.lamp.size_y = 1.0
+                
+            # else:
+            #     idblock.type = "AREA"
 
-            output = nt.nodes.new('RendermanOutputNode')
-            default = nt.nodes.new(light_shader)
-            default.location = output.location
-            default.location[0] -= 300
-            nt.links.new(default.outputs[0], output.inputs[1])
+            # output = nt.nodes.new('RendermanOutputNode')
+            # default = nt.nodes.new(light_shader)
+            # default.location = output.location
+            # default.location[0] -= 300
+            # nt.links.new(default.outputs[0], output.inputs[1])
 
         return {'FINISHED'}
 
@@ -114,7 +148,7 @@ class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
 class refresh_osl_shader(bpy.types.Operator):
     bl_idname = "node.refresh_osl_shader"
     bl_label = "Refresh OSL Node"
-    bl_description = "Refreshes the OSL node This takes a few seconds!!!"
+    bl_description = "Refreshes the OSL node This takes a second!!"
 
     def invoke(self, context, event):
         context.node.RefreshNodes(context)
@@ -169,77 +203,49 @@ class StartInteractive(bpy.types.Operator):
                         area.tag_redraw()
         return {'FINISHED'}
 
-
-class ExportRIBArchive(bpy.types.Operator, ExportHelper):
-
-    ''''''
-    bl_idname = "export_shape.rib"
-    bl_label = "Export RIB Archive (.rib)"
-    bl_description = "Export an object to an archived geometry file on disk"
-
-    filename_ext = ".rib"
-    filter_glob = StringProperty(default="*.rib", options={'HIDDEN'})
-
-    archive_motion = BoolProperty(name='Export Motion Data',
-                                  description='Exports a MotionBegin/End block for any sub-frame (motion blur) animation data',
-                                  default=True)
-
-    animated = BoolProperty(name='Animated Frame Sequence',
-                            description='Exports a sequence of rib files for a frame range',
-                            default=False)
-    frame_start = IntProperty(
-        name="Start Frame",
-        description="The first frame of the sequence to export",
-        default=1)
-    frame_end = IntProperty(
-        name="End Frame",
-        description="The final frame of the sequence to export",
-        default=1)
-
-    @classmethod
-    def poll(self, context):
-        return len(context.selected_objects) > 0
-
-    def execute(self, context):
-        export_archive(context.scene, context.selected_objects,
-                       **self.as_keywords(ignore=("check_existing",
-                                                  "filter_glob")))
-
+class ExportRIBObject(bpy.types.Operator):
+    bl_idname = "object.export_rib_archive"
+    bl_label = "Export Object as RIB Archive."
+    bl_description = "Export single object as a RIB archive for use in other blend files or for other uses."
+    def invoke(self, context, event=None):
+        print("Exporting all the RIB!!" + str(context.active_object))
+        rpass = RPass(context.scene, interactive=False)
+        object = context.active_object
+        
+        #rpass.convert_textures(get_texture_list(context.scene))
+        rpass.ri.Option("rib", {"string asciistyle": "indented,wide"})
+        
+        export_filename = write_single_RIB(rpass, context.scene, rpass.ri, object)
+        
+        object.renderman.geometry_source = 'ARCHIVE'
+        object.renderman.path_archive = export_filename
+        object.show_bounds = True
+        
         return {'FINISHED'}
 
-
-
-
-'''
-class TEXT_OT_add_inline_rib(bpy.types.Operator):
-    """
-    This operator is only intended for when there are no
-    blender text datablocks in the file. Just for convenience
-    """
-    bl_label = "Add New"
-    bl_idname = "text.add_inline_rib"
-
-    context = StringProperty(
-                name="Context",
-                description="Name of context member to find renderman pointer in",
-                default="")
-    collection = StringProperty(
-                name="Collection",
-                description="The collection to manipulate",
-                default="")
+''' # Item that is not needed because of the switch.
+class ExportRIBArchive(bpy.types.Operator):
+    bl_idname = "global.export_rib_archive"
+    bl_label = "Export RIB Archives for scene"
+    bl_description = "Export the scene to disk without rendering."
 
     def execute(self, context):
-        if len(bpy.data.texts) > 0:
-            return {'CANCELLED'}
-        bpy.data.texts.new(name="Inline RIB")
-
-        id = getattr_recursive(context, self.properties.context)
-        rm = id.renderman
-        collection = getattr(rm, prop_coll)
+        rpass = RPass(context.scene, interactive=False)
+        
+        rpass.convert_textures(get_texture_list(context.scene))
+        rpass.ri.Begin(rpass.paths['rib_output'])
+        rpass.ri.Option("rib", {"string asciistyle": "indented,wide"})
+        
+        write_rib(rpass, context.scene, rpass.ri)
+        
+        rpass.ri.End()
+        return {'FINISHED'}
 '''
 
 
-# Yuck, this should be built in to blender...
+
+
+# Yuck, this should be built in to blender... Yes it should
 class COLLECTION_OT_add_remove(bpy.types.Operator):
     bl_label = "Add or Remove Paths"
     bl_idname = "collection.add_remove"
@@ -326,19 +332,15 @@ class OT_add_aov_list(bpy.types.Operator):
 
 
 # Menus
-export_archive_menu_func = (lambda self, context: self.layout.operator(
-    ExportRIBArchive.bl_idname, text="RIB Archive (.rib)"))
 compile_shader_menu_func = (lambda self, context: self.layout.operator(
     TEXT_OT_compile_shader.bl_idname))
 
 
 def register():
-    bpy.types.INFO_MT_file_export.append(export_archive_menu_func)
     bpy.types.TEXT_MT_text.append(compile_shader_menu_func)
     bpy.types.TEXT_MT_toolbox.append(compile_shader_menu_func)
 
 
 def unregister():
-    bpy.types.INFO_MT_file_export.remove(export_archive_menu_func)
     bpy.types.TEXT_MT_text.remove(compile_shader_menu_func)
     bpy.types.TEXT_MT_toolbox.remove(compile_shader_menu_func)
