@@ -35,8 +35,8 @@
 bl_info = {
     "name": "Create multi Bounding Box",
     "author": "sambler",
-    "version": (1,0),
-    "blender": (2, 65, 0),
+    "version": (1,1),
+    "blender": (2, 73, 0),
     "location": "View3D > Add > Mesh > Create Bounding Box",
     "description": "Create an individual mesh cube matching the bounding box of each selected object",
     "warning": "",
@@ -51,7 +51,7 @@ from bpy.props import BoolProperty, FloatVectorProperty
 import mathutils
 from bpy_extras import object_utils
 
-class CreateMultiBoundingBox(bpy.types.Operator):
+class CreateMultiBoundingBox(bpy.types.Operator, object_utils.AddObjectHelper):
     """Create a mesh cube that encompasses all selected objects"""
     bl_idname = "mesh.multi_boundbox_add"
     bl_label = "Create Multi Bounding Box"
@@ -95,6 +95,8 @@ class CreateMultiBoundingBox(bpy.types.Operator):
             bm = bmesh.new()
             for v_co in obj.bound_box:
                 bm.verts.new(v_co)
+
+            bm.verts.ensure_lookup_table()
 
             for f_idx in faces:
                 bm.faces.new([bm.verts[i] for i in f_idx])
