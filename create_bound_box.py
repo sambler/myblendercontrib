@@ -35,8 +35,8 @@
 bl_info = {
     "name": "Create Bounding Box",
     "author": "sambler",
-    "version": (1,2),
-    "blender": (2, 65, 0),
+    "version": (1,3),
+    "blender": (2, 73, 0),
     "location": "View3D > Add > Mesh > Create Bounding Box",
     "description": "Create a mesh cube that encompasses all selected objects",
     "warning": "",
@@ -82,7 +82,7 @@ def add_box(width, height, depth):
 
     return verts, faces
 
-class CreateBoundingBox(bpy.types.Operator):
+class CreateBoundingBox(bpy.types.Operator, object_utils.AddObjectHelper):
     """Create a mesh cube that encompasses all selected objects"""
     bl_idname = "mesh.boundbox_add"
     bl_label = "Create Bounding Box"
@@ -136,6 +136,8 @@ class CreateBoundingBox(bpy.types.Operator):
         bm = bmesh.new()
         for v_co in verts_loc:
             bm.verts.new(v_co)
+
+        bm.verts.ensure_lookup_table()
 
         for f_idx in faces:
             bm.faces.new([bm.verts[i] for i in f_idx])
