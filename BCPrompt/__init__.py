@@ -33,7 +33,12 @@ bl_info = {
     "category": "Console"}
 
 if 'bpy' in globals():
-    print('{0}: detected reload event! cool.'.format(__package__))
+
+    msg = ": detected reload event! cool."
+    if 'bc_utils' in globals():
+        bc_utils.print_addon_msg(__package__, msg)
+    else:
+        print(__package__ + msg)
 
     if 'bc_operators' in globals():
         import imp
@@ -53,7 +58,10 @@ if 'bpy' in globals():
         imp.reload(fast_ops.curve_handle_equalizer)
         imp.reload(fast_ops.curve_nurbs_to_polyline)
         imp.reload(keymaps.console_keymaps)
-        print('{0}: reloaded.'.format(__package__))
+
+        from .bc_utils import print_addon_msg
+        print_addon_msg(__package__, ': reloaded')
+
 
 else:
     from . import bc_operators
@@ -71,12 +79,26 @@ def menu_func(self, context):
     self.layout.operator("curve.nurbs_to_polyline")
 
 
+def text_toolblock_func(self, context):
+    self.layout.separator()
+    self.layout.operator("text.duplicate_textblock", text="Duplicate TextBlock")
+
+
+def console_buttons_func(self, context):
+    self.layout.operator('wm.set_editmode_shortcuts', text='123')
+
+
 def register():
     bpy.utils.register_module(__name__)
-    console_keymaps.add(__package__)
     bpy.types.VIEW3D_MT_edit_curve_specials.append(menu_func)
+    bpy.types.CONSOLE_HT_header.append(console_buttons_func)
+    bpy.types.TEXT_MT_toolbox.prepend(text_toolblock_func)
+    console_keymaps.add_keymap(__package__)
 
 
 def unregister():
+    console_keymaps.remove_keymap()
     bpy.utils.unregister_module(__name__)
     bpy.types.VIEW3D_MT_edit_curve_specials.remove(menu_func)
+    bpy.types.CONSOLE_HT_header.remove(console_buttons_func)
+    bpy.types.TEXT_MT_toolbox.remove(text_toolblock_func)

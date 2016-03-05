@@ -295,7 +295,7 @@ def get_strands(scene, ob, psys):
     width_offset = psys.settings.renderman.width_offset
     export_st = psys.settings.renderman.export_scalp_st and psys_modifier and len(
         ob.data.uv_layers) > 0
-
+    
     curve_sets = []
 
     points = []
@@ -308,10 +308,6 @@ def get_strands(scene, ob, psys):
         if not psys.settings.show_guide_hairs and pindex < num_parents:
             continue
 
-        if pindex >= num_parents:
-            particle = psys.particles[(pindex - num_parents) % num_parents]
-        else:
-            particle = psys.particles[pindex]
         strand_points = []
         # walk through each strand
         for step in range(0, steps + 1):
@@ -342,7 +338,11 @@ def get_strands(scene, ob, psys):
 
             # get the scalp S
             if export_st:
-                st = particle.uv_on_emitter(psys_modifier)
+                if pindex >= num_parents:
+                    particle = psys.particles[(pindex - num_parents) % num_parents]
+                else:
+                    particle = psys.particles[pindex]
+                st = psys.uv_on_emitter(psys_modifier, particle, pindex)
                 scalpS.append(st[0])
                 scalpT.append(st[1])
 
@@ -357,6 +357,8 @@ def get_strands(scene, ob, psys):
             vertsArray = []
             if not conwidth:
                 hair_width = []
+            scalpS = []
+            scalpT = []
 
     if nverts > 0:
         curve_sets.append((vertsArray, points, widthString,
@@ -748,6 +750,43 @@ def export_light_shaders(ri, lamp, do_geometry=True):
     if do_geometry:
         shapes[lamp.type][1]()
 
+def export_world(ri, world, do_geometry=True):
+    rm = world.renderman
+    #if no shader do nothing!
+    if rm.renderman_type == 'NONE' or rm.nodetree == '':
+        return
+    params = []
+
+    ri.AttributeBegin()
+
+    if do_geometry:
+        m = Matrix.Identity(4)
+        if rm.renderman_type == 'ENV':
+            m[0] *= -1.0
+        if rm.renderman_type == 'SKY':
+            m2 = Matrix.Rotation(math.radians(180), 4, 'X')
+            m = m2 * m
+        ri.Transform(rib(m))
+        ri.ShadingRate(rm.shadingrate)
+
+    handle = world.name
+    # need this for rerendering
+    ri.Attribute('identifier', {'string name': handle})
+    # do the light only if nodetree
+    if rm.nodetree != '':
+        # make sure the shape is set on PxrStdAreaLightShape
+        export_shader_nodetree(ri, world, handle)
+        params = {}
+        if rm.renderman_type == 'SKY':
+            params['constant float[2] resolution'] = [1024, 512]
+        
+        if do_geometry:
+            ri.Geometry("envsphere", params)
+    
+    ri.AttributeEnd()
+
+    ri.Illuminate("World", rm.illuminates_by_default)
+
 
 def export_light(ri, instance):
     ob = instance.ob
@@ -999,6 +1038,9 @@ def get_texture_list(scene):
                 textures = textures + get_textures(o.data)
         else:
             mats_to_scan += recursive_texture_set(o)
+    if scene.world.renderman.renderman_type != 'NONE' and \
+            scene.world.renderman.nodetree != '':
+        textures = textures + get_textures(scene.world)
             
     # cull duplicates by only doing mats once
     for mat in set(mats_to_scan):
@@ -1696,7 +1738,7 @@ def get_data_blocks_needed(ob, rpass, do_mb):
         archive_filename = get_archive_filename(name, rpass, False)
         data_blocks.append(DataBlock(name, "DUPLI", archive_filename, ob,
                                      do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
-        if ob.dupli_type == 'GROUP':
+        if ob.dupli_type == 'GROUP' and ob.dupli_group:
             for dupli_ob in ob.dupli_group.objects:
                 data_blocks.append(get_dupli_block(dupli_ob, rpass, do_mb))
 
@@ -2595,7 +2637,7 @@ def write_rib(rpass, scene, ri):
 
     # export_global_illumination_lights(ri, rpass, scene)
     # export_world_coshaders(ri, rpass, scene) # BBM addition
-
+    export_world(ri, scene.world)
     export_scene_lights(ri, instances)
 
     export_default_bxdf(ri, "default")
@@ -2755,14 +2797,19 @@ def add_light(rpass, ri, active, prman):
     ri.Illuminate(lamp.name, rm.illuminates_by_default)
     ri.EditEnd()
 
+def delete_light(rpass, ri, name, prman):
+    rpass.edit_num += 1
+    edit_flush(ri, rpass.edit_num, prman)
+    ri.EditBegin('overrideilluminate')
+    ri.Illuminate(name, False)
+    ri.EditEnd()
 
 # test the active object type for edits to do then do them
-
 
 def issue_transform_edits(rpass, ri, active, prman):
     if active.type == 'LAMP' and active.name not in rpass.lights:
         add_light(rpass, ri, active, prman)
-        rpass.lights.append(active.name)
+        rpass.lights[active.name] = active.data.name
         return
 
     if active.type not in ['LAMP', 'CAMERA'] and not is_emissive(active):
@@ -2794,11 +2841,17 @@ def update_light_link(rpass, ri, prman, active, link):
 # test the active object type for edits to do then do them
 def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
     if node is None:
-        mat = bpy.context.object.active_material
+        mat = None
+        if bpy.context.object:
+            mat = bpy.context.object.active_material
         lamp = None
-        if mat is None and bpy.data.scenes[0].objects.active.type == 'LAMP':
+        world = bpy.context.scene.world
+        if mat is None and bpy.data.scenes[0].objects.active \
+            and bpy.data.scenes[0].objects.active.type == 'LAMP':
             lamp = bpy.data.scenes[0].objects.active
             mat = bpy.data.scenes[0].objects.active.data
+        elif mat is None and world.renderman.nodetree != '':
+            mat = world
         if mat is None:
             return
         # do an attribute full rebind
@@ -2822,13 +2875,24 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
             ri.EditBegin('attribute', {'string scopename': lamp.name})
             export_light_shaders(ri, mat)
             ri.EditEnd()
+        elif world:
+            ri.EditBegin('attribute', {'string scopename': world.name})
+            export_world(ri, mat, do_geometry = False)
+            ri.EditEnd()
 
     else:
-        mat = bpy.context.object.active_material
+        world = bpy.context.scene.world
+        mat = None
+
+        if bpy.context.object:
+            mat = bpy.context.object.active_material
         # if this is a lamp use that for the mat/name
-        if mat is None and bpy.data.scenes[0].objects.active.type == 'LAMP':
+        if mat is None and bpy.data.scenes[0].objects.active \
+            and bpy.data.scenes[0].objects.active.type == 'LAMP':
             mat = bpy.data.scenes[0].objects.active.data
-        if mat is None:
+        elif mat is None and bpy.context.scene.world.renderman.nodetree != '':
+            mat = bpy.context.scene.world
+        elif mat is None:
             return
         mat_name = mat.name
 

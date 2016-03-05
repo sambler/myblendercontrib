@@ -198,6 +198,56 @@ class RendermanPropertyGroup(bpy.types.PropertyGroup):
 class RendermanShadingNode(bpy.types.Node):
     bl_label = 'Output'
 
+    def update_mat(self, mat):
+        if self.renderman_node_type == 'bxdf' and self.outputs['Bxdf'].is_linked:
+            mat.specular_color = [1,1,1]
+            mat.diffuse_color = [1,1,1]
+            mat.use_transparency = False
+            mat.specular_intensity = 0
+            mat.diffuse_intensity = 1
+
+            if hasattr(self, "baseColor"):
+                mat.diffuse_color = self.baseColor
+            elif hasattr(self, "emitColor"):
+                mat.diffuse_color = self.emitColor
+            elif hasattr(self, "diffuseColor"):
+                mat.diffuse_color = self.diffuseColor
+            elif hasattr(self, "midColor"):
+                mat.diffuse_color = self.midColor
+            elif hasattr(self, "transmissionColor"):
+                mat.diffuse_color = self.transmissionColor
+            elif hasattr(self, "frontColor"):
+                mat.diffuse_color = self.frontColor
+            
+            #specular intensity
+            if hasattr(self, "specular"):
+                mat.specular_intensity = self.specular
+            elif hasattr(self, "SpecularGainR"):
+                mat.specular_intensity = self.specularGainR
+            elif hasattr(self, "reflectionGain"):
+                mat.specular_intensity = self.reflectionGain
+
+            # specular color 
+            if hasattr(self, "specularColor"):
+                mat.specular_color = self.specularColor
+            elif hasattr(self, "reflectionColor"):
+                mat.specular_color = self.reflectionColor
+            
+
+            if self.bl_idname in ["PxrGlassBxdfNode", "PxrLMGlassBxdfNode"]:
+                mat.use_transparency = True
+                mat.alpha = .5
+            
+            if self.bl_idname == "PxrLMMetalBxdfNode":
+                mat.diffuse_color = [0,0,0]
+                mat.specular_intensity = 1
+                mat.specular_color = self.specularColor
+                mat.mirror_color = [1,1,1]
+            
+            elif self.bl_idname == "PxrLMPlasticBxdfNode":
+                mat.specular_intensity = 1
+                
+
     # all the properties of a shader will go here, also inputs/outputs
     # on connectable props will have the same name
     # node_props = None
@@ -854,7 +904,8 @@ class Add_Node:
             else:
                 nt.links.new(newnode.outputs[self.input_type], socket)
             newnode.location = old_node.location
-
+            active_material = context.active_object.active_material
+            newnode.update_mat(active_material)
             nt.nodes.remove(old_node)
         return {'FINISHED'}
 
@@ -1002,6 +1053,7 @@ def gen_params(ri, node, mat_name=None, recurse=True):
                     if 'options' in meta and meta['options'] == 'texture' or \
                         (node.renderman_node_type == 'light' and
                             'widget' in meta and meta['widget'] == 'fileInput'):
+                        
                         params['%s %s' % (meta['renderman_type'],
                                           meta['renderman_name'])] = \
                             rib(get_tex_file_name(prop),
@@ -1020,6 +1072,10 @@ def gen_params(ri, node, mat_name=None, recurse=True):
                 pass
             if node.plugin_name == 'PxrRamp' and prop_name in ['colors', 'positions']:
                 pass
+            
+            if(prop_name == 'sblur' or prop_name == 'tblur'):
+                pass
+            
             else:
                 prop = getattr(node, prop_name)
                 # if property group recurse
@@ -1110,8 +1166,14 @@ def shader_node_rib(ri, node, mat_name, disp_bound=0.0, recurse=True):
 
 
 def get_tex_file_name(prop):
+    frame_num = bpy.data.scenes[0].frame_current
+    prop = prop.replace('$f4', str(frame_num).zfill(4))
+    prop = prop.replace('$F4', str(frame_num).zfill(4))
+    prop = prop.replace('$f3', str(frame_num).zfill(3))
+    prop = prop.replace('$f3', str(frame_num).zfill(3))
+    prop = prop.replace('\\', '\/')
     if prop != '' and prop.rsplit('.', 1) != 'tex':
-        return os.path.basename(prop).rsplit('.', 2)[0] + '.tex'
+        return os.path.basename(prop).rsplit('.', 1)[0] + '.tex'
     else:
         return prop
 
@@ -1330,6 +1392,7 @@ def register():
     pattern_nodeitems = []
     bxdf_nodeitems = []
     light_nodeitems = []
+    displacement_nodeitems = []
     for name, node_type in RendermanPatternGraph.nodetypes.items():
         node_item = NodeItem(name, label=node_type.bl_label)
         if node_type.renderman_node_type == 'pattern':
@@ -1338,6 +1401,8 @@ def register():
             bxdf_nodeitems.append(node_item)
         elif node_type.renderman_node_type == 'light':
             light_nodeitems.append(node_item)
+        elif node_type.renderman_node_type == 'displacement':
+            displacement_nodeitems.append(node_item)
 
     # all categories in a list
     node_categories = [
@@ -1352,6 +1417,9 @@ def register():
                                                   key=attrgetter('_label'))),
         RendermanPatternNodeCategory("PRMan_lights", "PRMan Lights",
                                      items=sorted(light_nodeitems,
+                                                  key=attrgetter('_label'))),
+        RendermanPatternNodeCategory("PRMan_displacements", "PRMan Displacements",
+                                     items=sorted(displacement_nodeitems,
                                                   key=attrgetter('_label')))
 
     ]

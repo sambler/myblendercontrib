@@ -91,3 +91,18 @@ class TEXT_Cycle_TextBlocks(bpy.types.Operator):
         context.space_data.text = texts[new_idx]
 
         return {'FINISHED'}
+
+
+class TEXT_Duplicate_Textblock(bpy.types.Operator):
+
+    bl_idname = "text.duplicate_textblock"
+    bl_label = "Duplicate Textblock"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        edit_text = bpy.context.edit_text
+        texts = bpy.data.texts
+        t = texts.new(name=edit_text.name + "_dupe")
+        t.from_string(edit_text.as_string())
+        context.space_data.text = t
+        return {'FINISHED'}

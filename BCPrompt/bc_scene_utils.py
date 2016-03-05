@@ -86,3 +86,70 @@ def add_mesh_2_json(kind):
         fullstr = ''.join(ofile)
         nf = bpy.data.texts.new(file_by_name)
         nf.from_string(fullstr)
+
+
+def crop_to_active():
+    se = bpy.context.scene.sequence_editor
+    start = se.active_strip.frame_start
+    duration = se.active_strip.frame_duration
+    bpy.context.scene.frame_start = start
+    bpy.context.scene.frame_end = start + duration - 1
+
+
+def v2rdim():
+    SCN = bpy.context.scene
+    SE = SCN.sequence_editor
+
+    # if m == 'v2rdim':
+    #     sequence = SE.active_strip
+    # elif m.startswith('v2rdim '):
+    #     vidname = m[7:]
+    #     sequence = SE.sequences.get(vidname)
+    #     if not sequence:
+    #         print(vidname, 'is not a sequence - check the spelling')
+    #         return True
+
+    def get_size(sequence):
+
+        if hasattr(sequence, "sequences") and len(sequence.sequences) > 0:
+            # just pick first.
+            sequence = sequence.sequences[0]
+
+        clips = bpy.data.movieclips
+        fp = sequence.filepath
+        mv = clips.load(fp)
+        x, y = mv.size[:]
+        clips.remove(mv)
+        return x, y
+
+    sequence = SE.active_strip
+    x, y = get_size(sequence)
+    SCN.render.resolution_x = x
+    SCN.render.resolution_y = y
+    SCN.render.resolution_percentage = 100
+
+
+def render_to_filepath(fp):
+    bpy.context.scene.render.filepath = fp
+    bpy.ops.render.opengl(animation=True, sequencer=True)
+
+
+def process_size_query(m):
+
+    def path_iterator(path_name, filetype):
+        for fp in os.listdir(path_name):
+            if fp.endswith("." + filetype):
+                yield fp
+
+    if m == 'sizeof':
+        # this means user knows path is set and wants to list size of gifs
+        fp = bpy.context.scene.render.filepath
+        print(fp)
+        for path in path_iterator(fp, 'gif'):
+            fullpath = os.path.join(fp, path)
+            print('---', path, 'kb =', os.stat(fullpath).st_size)
+
+    # make this when you need it - not before.
+    # elif len(m.split(' ')) == 2:
+    #    # if you have spaces in your filename or path you are an idiot.
+    #    path = m.split(' ')[1]

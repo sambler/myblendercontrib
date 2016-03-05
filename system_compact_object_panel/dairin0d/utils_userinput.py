@@ -15,8 +15,6 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 import bpy
 
 from .utils_python import reverse_enumerate
@@ -262,12 +260,26 @@ class KeyMapUtils:
         return -1
     
     @staticmethod
+    def normalize_event_type(event_type):
+        if event_type == 'ACTIONMOUSE':
+            userprefs = bpy.context.user_preferences
+            select_mouse = userprefs.inputs.select_mouse
+            return ('RIGHTMOUSE' if select_mouse == 'LEFT' else 'LEFTMOUSE')
+        elif event_type == 'SELECTMOUSE':
+            userprefs = bpy.context.user_preferences
+            select_mouse = userprefs.inputs.select_mouse
+            return ('LEFTMOUSE' if select_mouse == 'LEFT' else 'RIGHTMOUSE')
+        return event_type
+    
+    @staticmethod
     def equal(kmi, event, pressed_keys=[]):
         """Test if event corresponds to the given keymap item"""
         modifier_match = (kmi.key_modifier == 'NONE') or (kmi.key_modifier in pressed_keys)
         modifier_match &= kmi.any or ((kmi.alt == event.alt) and (kmi.ctrl == event.ctrl)
             and (kmi.shift == event.shift) and (kmi.oskey == event.oskey))
-        return ((kmi.type == event.type) and (kmi.value == event.value) and modifier_match)
+        kmi_type = KeyMapUtils.normalize_event_type(kmi.type)
+        event_type = KeyMapUtils.normalize_event_type(event.type)
+        return ((kmi_type == event_type) and (kmi.value == event.value) and modifier_match)
     
     @staticmethod
     def clear(ko):
@@ -290,7 +302,7 @@ class KeyMapUtils:
                 shift=kmi.shift, ctrl=kmi.ctrl, alt=kmi.alt,
                 oskey=kmi.oskey, key_modifier=kmi.key_modifier,
                 active=kmi.active, show_expanded=kmi.show_expanded,
-                id=kmi.id, properties=BlRna.serialize(kmi.properties))
+                id=kmi.id, properties=BlRna.serialize(kmi.properties, ignore_default=True))
         elif isinstance(ko, bpy.types.KeyMap):
             km = ko
             return dict(name=km.name, space_type=km.space_type, region_type=km.region_type,
@@ -315,7 +327,7 @@ class KeyMapUtils:
                     oskey=data.get("oskey", False), key_modifier=data.get("key_modifier", 'NONE'), head=head)
             kmi.active = data.get("active", True)
             kmi.show_expanded = data.get("show_expanded", False)
-            BlRna.deserialize(kmi.properties, data.get("properties", {}), ignore_default=True, suppress_errors=True)
+            BlRna.deserialize(kmi.properties, data.get("properties", {}), suppress_errors=True)
         elif isinstance(ko, bpy.types.KeyConfig):
             # Note: for different modes, different space_type are required!
             # e.g. 'VIEW_3D' for "3D View", and 'EMPTY' for "Sculpt"
@@ -345,6 +357,8 @@ class KeyMapUtils:
                     return i
             return None
         
+        src_count = len(km.keymap_items)
+        only_append = True
         for after, kmi_data, before in kmi_datas:
             i_after = (insertion_index(after, True) if after else None)
             i_before = (insertion_index(before, False) if before else None)
@@ -358,9 +372,14 @@ class KeyMapUtils:
             else:
                 i = (i_after+1 if "*" not in after else i_before)
             
+            only_append &= (i >= src_count)
+            
             km_items.insert(i, kmi_data)
         
-        KeyMapUtils.clear(km)
-        
-        for kmi_data in km_items:
-            KeyMapUtils.deserialize(km, kmi_data)
+        if only_append:
+            for kmi_data in km_items[src_count:]:
+                KeyMapUtils.deserialize(km, kmi_data)
+        else:
+            KeyMapUtils.clear(km)
+            for kmi_data in km_items:
+                KeyMapUtils.deserialize(km, kmi_data)

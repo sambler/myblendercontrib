@@ -136,6 +136,15 @@ class BatchOperations:
         idnames = cls.split_idnames(idnames)
         
         if name == "use_fake_user":
+            for idname in idnames:
+                group = cls.to_group(idname)
+                if group: group.use_fake_user = value
+            
+            # Apparently in Blender 2.77 groups have significantly different behavior:
+            # group.users ALWAYS returns 1, no matter how many objects are in the group;
+            # linking a temporary object to group makes object's user count increase,
+            # but unlinking does not decrease it (a bug?)
+            """
             obj = None
             
             for idname in idnames:
@@ -158,6 +167,7 @@ class BatchOperations:
                 if obj: group.objects.unlink(obj)
             
             if obj: bpy.data.objects.remove(obj)
+            """
         else:
             use_kwargs = False
             

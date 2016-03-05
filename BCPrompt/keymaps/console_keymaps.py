@@ -1,31 +1,52 @@
 import bpy
+import os
+
+from ..bc_utils import print_addon_msg
 
 
-def add(origin):
-    operators_registered = 'do_action' in dir(bpy.ops.console)
-    print(origin, ': operators registered')
-    try:
-        wm = bpy.context.window_manager
+addon_keymaps = []
 
-        console = wm.keyconfigs.user.keymaps.get('Console')
-        if console:
-            keymaps = console.keymap_items
-            if not ('console.do_action' in keymaps):
-                keymaps.new('console.do_action', 'RET', 'PRESS', ctrl=1)
 
-        TE = wm.keyconfigs.user.keymaps.get('Text')
-        if TE:
-            keymaps = TE.keymap_items
-            if not ('text.do_comment' in keymaps):
-                keymaps.new('text.do_comment', 'SLASH', 'PRESS', ctrl=1)
+def add_keymap(origin):
+    print_addon_msg(origin, ': operators registered')
 
-            cycle_textblocks = 'text.cycle_textblocks'
-            if not (cycle_textblocks in keymaps):
-                m = keymaps.new(cycle_textblocks, 'WHEELUPMOUSE', 'PRESS', alt=1)
-                m.properties.direction = 1
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
 
-                m = keymaps.new(cycle_textblocks, 'WHEELDOWNMOUSE', 'PRESS', alt=1)
-                m.properties.direction = -1
+    if not kc:
+        print('no keyconfig path found, skipping')
+        return
 
-    except:
-        print('BCPrompt keymaps maybe already exist, didnt dupe')
+    """ Console: Add Ctrl + Enter """
+
+    km = kc.keymaps.new(name='Console', space_type='CONSOLE')
+    kmi = km.keymap_items
+
+    new_shortcut = kmi.new('console.do_action', 'RET', 'PRESS', ctrl=1)
+    addon_keymaps.append((km, new_shortcut))
+
+    """ Text Editor: Add fwslash """
+
+    km = kc.keymaps.new(name='Text', space_type='TEXT_EDITOR')
+    kmi = km.keymap_items
+
+    new_shortcut = kmi.new('text.do_comment', 'SLASH', 'PRESS', ctrl=1)
+    addon_keymaps.append((km, new_shortcut))
+
+    """ Text Editor: Add text cycle using wheel to """
+
+    cycle_textblocks = 'text.cycle_textblocks'
+
+    new_shortcut = kmi.new(cycle_textblocks, 'WHEELUPMOUSE', 'PRESS', alt=1)
+    new_shortcut.properties.direction = 1
+    addon_keymaps.append((km, new_shortcut))
+
+    new_shortcut = kmi.new(cycle_textblocks, 'WHEELDOWNMOUSE', 'PRESS', alt=1)
+    new_shortcut.properties.direction = -1
+    addon_keymaps.append((km, new_shortcut))
+
+
+def remove_keymap():
+    for km, kmi in addon_keymaps:
+        km.keymap_items.remove(kmi)
+    addon_keymaps.clear()

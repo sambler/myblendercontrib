@@ -15,9 +15,79 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 import traceback
+
+def copyattrs(src, dst, filter=""):
+    for attr in dir(src):
+        if attr.find(filter) > -1:
+            try:
+                setattr(dst, attr, getattr(src, attr))
+            except:
+                pass
+
+def attrs_to_dict(obj):
+    return {name:getattr(obj, name) for name in dir(obj) if not name.startswith("_")}
+
+def dict_to_attrs(obj, d):
+    for name, value in d.items():
+        if not name.startswith("_"):
+            try:
+                setattr(obj, name, value)
+            except:
+                pass
+
+def compare_epsilon(a, b, epsilon):
+    if (epsilon is None) or (not isinstance(a, (int, float))): return (a == b)
+    return abs(a - b) <= epsilon
+
+def setattr_cmp(obj, name, value, epsilon=None):
+    "Utility function to avoid triggering updates when nothing changed"
+    if compare_epsilon(getattr(obj, name), value, epsilon): return False
+    setattr(obj, name, value)
+    return True
+
+def setitem_cmp(obj, key, value, epsilon=None):
+    "Utility function to avoid triggering updates when nothing changed"
+    try:
+        if compare_epsilon(obj[name], value, epsilon): return False
+    except KeyError:
+        pass
+    obj[name] = value
+    return True
+
+def bools_to_int(bools):
+    # https://stackoverflow.com/questions/4065737/python-numpy-convert-list-of-bools-to-unsigned-int
+    return sum((1 << i) for i, b in enumerate(bools) if b)
+
+def binary_search(seq, t, key=None, cmp=None): # bisect module doesn't support key/compare callbacks
+    # http://code.activestate.com/recipes/81188-binary-search/
+    min = 0
+    max = len(seq) - 1
+    if not (cmp or key):
+        while True:
+            if max < min: return -1
+            m = (min + max) // 2
+            k = seq[m]
+            if k < t: min = m + 1
+            elif k > t: max = m - 1
+            else: return m
+    elif key:
+        t = key(t)
+        while True:
+            if max < min: return -1
+            m = (min + max) // 2
+            k = key(seq[m])
+            if k < t: min = m + 1
+            elif k > t: max = m - 1
+            else: return m
+    else:
+        while True:
+            if max < min: return -1
+            m = (min + max) // 2
+            s = cmp(seq[m], t)
+            if s < 0: min = m + 1
+            elif s > 0: max = m - 1
+            else: return m
 
 def reverse_enumerate(l):
     return zip(range(len(l)-1, -1, -1), reversed(l))
@@ -36,8 +106,7 @@ def send_catch(iterator, arg):
 
 def ensure_baseclass(cls, base):
     for _base in cls.__bases__:
-        if issubclass(_base, base):
-            return cls
+        if issubclass(_base, base): return cls
     
     # A declaration like SomeClass(object, object_descendant)
     # will result in an error (cannot create a consistent
@@ -50,16 +119,31 @@ def ensure_baseclass(cls, base):
 def issubclass_safe(value, classinfo):
     return (issubclass(value, classinfo) if isinstance(value, type) else None)
 
+def sequence_compare(seqA, seqB):
+    if len(seqA) != len(seqB): return False
+    return all(seqA[i] == seqB[i] for i in range(len(seqA)))
+
+def sequence_startswith(a, b):
+    na = len(a); nb = len(b)
+    if nb > na: return False
+    return all(a[i] == b[i] for i in range(nb))
+
+def sequence_endswith(a, b):
+    na = len(a); nb = len(b)
+    if nb > na: return False
+    return all(a[na-i] == b[nb-i] for i in range(1, nb+1))
+
 # Primary function of such objects is to store
 # attributes and values assigned to an instance
 class AttributeHolder:
-    def __init__(self, original=None):
-        self.__original = original
+    def __init__(self, *args, **kwargs):
+        self.__original = (args[0] if args else None)
+        for k, v in kwargs.items():
+            setattr(self, k, v)
     
     def __getattr__(self, key):
         # This is primarily to be able to have some default values
-        if self.__original:
-            return getattr(self.__original, key)
+        if self.__original: return getattr(self.__original, key)
         raise AttributeError("attribute '%s' is not defined" % key)
     
     def __getitem__(self, key):
@@ -79,6 +163,20 @@ class AttributeHolder:
             del self.__items[key]
         except AttributeError:
             raise KeyError(key)
+
+class DummyObject:
+    def __call__(self, *args, **kwargs):
+        return self
+    def __getattr__(self, name):
+        return self
+    def __setattr__(self, name, value):
+        pass
+    def __getitem__(self, key):
+        return self
+    def __setitem__(self, key, value):
+        pass
+    def __delitem__(self, key):
+        pass
 
 class SilentError:
     """
@@ -110,8 +208,7 @@ class SilentError:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if not isinstance(exc_value, self.catch): return
         self.value = exc_value
-        print("".join(traceback.format_exception(
-            exc_type, exc_value, exc_traceback)))
+        print("".join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
         return True
 
 class PrimitiveLock(object):

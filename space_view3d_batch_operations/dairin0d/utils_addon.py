@@ -873,7 +873,7 @@ class AddonManager:
         return classmethod(eval(s, {"modes":modes, "regions":regions, "spaces":spaces, "poll":poll}, {}))
     
     @staticmethod
-    def _normalize(enum_name, enum, enums, single_enum=False):
+    def _normalize(enum_name, enum, enums, single_enum=False, substitutions=()):
         """Make sure enum attributes have proper format"""
         
         if single_enum:
@@ -882,24 +882,28 @@ class AddonManager:
             err_text = "%s must be an item or a collection of items from %s" % (enum_name, enums)
         
         if isinstance(enum, str):
-            if enum not in enums:
-                raise TypeError(err_text)
-        elif hasattr(enum, "__iter__") and (not single_enum):
-            enum = set(enum)
-            
-            if not enum:
-                raise TypeError(err_text)
-            
-            for v in enum:
-                if v not in enums:
-                    raise TypeError(err_text)
-            
-            if len(enum) == 1:
-                enum = v
+            enum = {enum}
         else:
-            raise TypeError(err_text)
+            if single_enum: raise TypeError(err_text)
+            enum = set(enum)
+            if not enum: raise TypeError(err_text)
         
-        return enum
+        def find_substitution(v):
+            for s in substitutions:
+                if v not in s: continue
+                for vs in s:
+                    if vs in enums: return vs
+        
+        for v in tuple(enum):
+            if v not in enums:
+                vs = find_substitution(v)
+                if vs is None:
+                    raise TypeError(err_text)
+                else:
+                    enum.discard(v)
+                    enum.add(vs)
+        
+        return (next(iter(enum)) if single_enum else enum)
     
     @staticmethod
     def _func_args_to_bpy_props(func, props_allowed=True):
@@ -1101,7 +1105,8 @@ class AddonManager:
         
         # Make sure enum-attributes have correct values
         if hasattr(cls, "bl_options"):
-            cls.bl_options = self._normalize("bl_options", cls.bl_options, BlEnums.options.get(base.__name__, ()))
+            substitutions=[('GRAB_POINTER', 'GRAB_CURSOR')] # in 2.75, one of Operator's bl_options was renamed
+            cls.bl_options = self._normalize("bl_options", cls.bl_options, BlEnums.options.get(base.__name__, ()), substitutions=substitutions)
             if isinstance(cls.bl_options, str): cls.bl_options = {cls.bl_options}
         
         if hasattr(cls, "bl_region_type") and has_poll:

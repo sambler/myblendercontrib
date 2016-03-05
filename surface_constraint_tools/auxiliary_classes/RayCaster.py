@@ -79,7 +79,7 @@ class RayCaster():
         # origin a sufficient distance antiparallel to the ray's direction to
         # ensure that the ray's origin is in front of the mesh object.
         if rv3d.view_perspective == 'ORTHO':
-            ray_origin -= 10000 * ray_direction
+            ray_origin -= 1000 * ray_direction
 
         # Otherwise, if the view is a perspective projection or projected from
         # a camera then advance the ray's origin to the near clipping plane.
@@ -127,8 +127,12 @@ class RayCaster():
             ray_target = self.ray_target
 
         # Perform the ray cast intersection test.
-        location, normal, face_index =\
-            mesh_object.ray_cast(ray_origin, ray_target)
+        if bpy.app.version < (2, 76, 9):
+            location, normal, face_index =\
+                mesh_object.ray_cast(ray_origin, ray_target)
+        else:
+            hit, location, normal, face_index =\
+                mesh_object.ray_cast(ray_origin, ray_target)
 
         # Convert the object space intersection information to world space, if
         # necessary.

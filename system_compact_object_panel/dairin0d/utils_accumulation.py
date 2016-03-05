@@ -16,330 +16,478 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# <pep8 compliant>
-
 import bpy
 
 import math
 import bisect
 
+from .utils_python import sequence_startswith, sequence_endswith
+from .utils_text import indent, longest_common_substring
+
 #============================================================================#
 
-# TODO: documentation
+"""
+TODO: "active" query (for consistency)
+"""
 
-class NumberAccumulator:
-    count = 0
-    result = None
-    min = None
-    max = None
+class Aggregator:
+    _count = 0
+    _same = True
+    _prev = None
     
-    def __init__(self, mode):
-        self._mode = mode
-        self._init = getattr(self, mode + "_INIT")
-        self._next = getattr(self, mode)
-        self._calc = getattr(self, mode + "_CALC")
+    _min = None
+    _max = None
     
-    def reset(self):
-        for k in list(self.__dict__.keys()):
-            if not k.startswith("_"):
-                del self.__dict__[k]
+    _sum = None
+    _sum_log = None
+    _sum_rec = None
+    _product = None
     
-    def copy(self):
-        return NumberAccumulator(self._mode)
+    _Ak = None
+    _Qk = None
     
-    def __len__(self):
-        return self.count
+    _sorted = None
     
-    def add(self, value):
-        self.count = 1
-        self.min = value
-        self.max = value
-        self.add = self._add
-        self._init(value)
+    _freq_map = None
+    _freq_max = None
+    _modes = None
     
-    def _add(self, value):
-        self.count += 1
-        self.min = min(self.min, value)
-        self.max = max(self.max, value)
-        self._next(value)
+    _union = None
+    _intersection = None
+    _difference = None
     
-    def calc(self):
-        return self._calc()
+    _subseq = None
+    _subseq_starts = None
+    _subseq_ends = None
     
-    def same(self, tolerance=1e-6):
-        if self.count == 0:
-            return True
-        return (self.max - self.min) < tolerance
+    # sum can be calculated from average, and product (for values > 0)
+    # can be calculated from sum_log, but it won't be precise for ints
     
-    # utility function
-    @staticmethod
-    def _median(values):
-        n = len(values)
-        if (n % 2) == 1:
-            return values[n // 2]
-        else:
-            i = n // 2
-            return (values[i] + values[i - 1]) * 0.5
-    # ====================================================== #
+    type = property(lambda self: self._type)
     
-    def AVERAGE_INIT(self, value):
-        self.Ak = value
-    def AVERAGE(self, value):
-        Ak_1 = self.Ak
-        self.Ak = Ak_1 + (value - Ak_1) / self.count
-    def AVERAGE_CALC(self):
-        if self.count > 0:
-            self.result = self.Ak
-        yield
+    count = property(lambda self: self._count)
+    same = property(lambda self: self._same)
     
-    def STDDEV_INIT(self, value):
-        self.Ak = value
-        self.Qk = 0.0
-    def STDDEV(self, value):
-        Ak_1 = self.Ak
-        self.Ak = Ak_1 + (value - Ak_1) / self.count
-        self.Qk = self.Qk + (value - Ak_1) * (value - self.Ak)
-    def STDDEV_CALC(self):
-        if self.count > 0:
-            self.result = math.sqrt(self.Qk / self.count)
-        yield
+    min = property(lambda self: self._min)
+    max = property(lambda self: self._max)
+    @property
+    def range(self):
+        if (self._max is None) or (self._min is None): return None
+        return self._max - self._min
+    @property
+    def center(self):
+        if (self._max is None) or (self._min is None): return None
+        return (self._max + self._min) * 0.5
     
-    def MEDIAN_INIT(self, value):
-        self.values = [value]
-    def MEDIAN(self, value):
-        bisect.insort_left(self.values, value)
-    def MEDIAN_CALC(self):
-        if self.count > 0:
-            self.result = self._median(values)
-        yield
+    sum = property(lambda self: self._sum)
+    sum_log = property(lambda self: self._sum_log)
+    sum_rec = property(lambda self: self._sum_rec)
+    product = property(lambda self: self._product)
     
-    def MODE_INIT(self, value):
-        self.values = [value]
-    def MODE(self, value):
-        bisect.insort_left(self.values, value)
-    def MODE_CALC(self):
-        if self.count <= 0:
-            return
+    @property
+    def mean(self):
+        return self._Ak
+    @property
+    def geometric_mean(self):
+        if (self._sum_log is None) or (self._count is None): return None
+        return math.exp(self._sum_log / self._count)
+    @property
+    def harmonic_mean(self):
+        if (self._sum_rec is None): return None
+        return 1.0 / self._sum_rec
+    @property
+    def variance(self):
+        if (self._Qk is None) or (self._count is None): return None
+        if self._count < 2: return 0.0
+        return self._Qk / (self._count - 1)
+    @property
+    def stddev(self):
+        if (self._Qk is None) or (self._count is None): return None
+        if self._count < 2: return 0.0
+        return math.sqrt(self._Qk / (self._count - 1))
+    
+    sorted = property(lambda self: self._sorted)
+    @property
+    def median(self):
+        if not self._sorted: return None
+        n = len(self._sorted)
+        if (n % 2) == 1: return self._sorted[n // 2]
+        i = n // 2
+        return (self._sorted[i] + self._sorted[i - 1]) * 0.5
+    
+    freq_map = property(lambda self: self._freq_map)
+    freq_max = property(lambda self: self._freq_max)
+    modes = property(lambda self: self._modes)
+    mode = property(lambda self: self._modes[0] if self._modes else None)
+    
+    union = property(lambda self: self._union)
+    intersection = property(lambda self: self._intersection)
+    difference = property(lambda self: self._difference)
+    
+    subseq = property(lambda self: self._subseq)
+    subseq_starts = property(lambda self: self._subseq_starts)
+    subseq_ends = property(lambda self: self._subseq_ends)
+    
+    def get(self, query, fallback):
+        value = getattr(self, query)
+        if value is None: return fallback
+        return ((value > 0.5) if isinstance(fallback, bool) else value)
+    
+    _numerical_queries = frozenset([
+        'count', 'same', 'min', 'max', 'range', 'center',
+        'sum', 'sum_log', 'sum_rec', 'product',
+        'mean', 'geometric_mean', 'harmonic_mean', 'variance', 'stddev',
+        'sorted', 'median', 'freq_map', 'freq_max', 'modes',
+    ])
+    _enum_queries = frozenset([
+        'count', 'same',
+        'freq_map', 'freq_max', 'modes',
+        'union', 'intersection', 'difference',
+    ])
+    _sequence_queries = frozenset([
+        'count', 'same',
+        'sorted', 'median', 'freq_map', 'freq_max', 'modes',
+        'subseq', 'subseq_starts', 'subseq_ends',
+    ])
+    _object_queries = frozenset([
+        'count', 'same',
+        'freq_map', 'freq_max', 'modes',
+    ])
+    _all_queries = {'NUMBER':_numerical_queries, 'ENUM':_enum_queries,
+        'SEQUENCE':_sequence_queries, 'OBJECT':_object_queries}
+    
+    _compiled = {}
+    
+    def __init__(self, type, queries=None, convert=None, epsilon=1e-6):
+        self._type = type
         
-        values = self.values
-        n = len(values)
+        self._startswith = sequence_startswith
+        self._endswith = sequence_endswith
+        if type == 'STRING':
+            self._startswith = str.startswith
+            self._endswith = str.endswith
+            type = 'SEQUENCE'
+        elif type == 'BOOL':
+            if convert is None: convert = int
+            type = 'NUMBER'
         
-        # Divide the range to n bins of equal width
-        neighbors = [0] * n
-        sigma = (self.max - self.min) / (n - 1)
+        if queries is None:
+            queries = self._all_queries[type]
+        elif isinstance(queries, str):
+            queries = queries.split(" ")
         
-        mode = 0
-        for i in range(n):
-            v = values[i] # position of current item
-            density = neighbors[i] # density of preceding neighbors
+        if (type != 'NUMBER') or ((epsilon is not None) and (epsilon <= 0)): epsilon = None
+        
+        compiled_key0 = (type, frozenset(queries), convert, epsilon)
+        compiled = Aggregator._compiled.get(compiled_key0)
+        
+        if not compiled:
+            queries = set(queries) # make sure it's a copy
             
-            # Find+add density of subsequent neighbors
-            for j in range(i + 1, n):
-                yield
-                dv = sigma - abs(v - values[j])
-                if dv <= 0:
-                    break
-                neighbors[j] += dv
-                density += dv
+            # make sure requirements are included
+            if 'same' in queries: queries.update(('min', 'max') if epsilon else ('prev',))
+            if ('range' in queries) or ('center' in queries): queries.update(('min', 'max'))
+            if 'mean' in queries: queries.add('Ak')
+            if 'geometric_mean' in queries: queries.update(('sum_log', 'count'))
+            if 'harmonic_mean' in queries: queries.add('sum_rec')
+            if ('variance' in queries) or ('stddev' in queries): queries.update(('Qk', 'count'))
+            if 'Qk' in queries: queries.add('Ak')
+            if 'Ak' in queries: queries.add('count')
+            if 'median' in queries: queries.add('sorted')
+            if 'mode' in queries: queries.add('modes')
+            if 'modes' in queries: queries.add('freq_max')
+            if 'freq_max' in queries: queries.add('freq_map')
+            if queries.intersection(('subseq', 'subseq_starts', 'subseq_ends')):
+                queries.update(('subseq', 'subseq_starts', 'subseq_ends'))
             
-            if density > mode:
-                mode = density
-                modes = [v]
-            elif (density != 0) and (density == mode):
-                modes.append(v)
+            compiled_key = (type, frozenset(queries), convert, epsilon)
+            compiled = Aggregator._compiled.get(compiled_key)
+            
+            if not compiled:
+                compiled = self._compile(type, queries, convert, epsilon)
+                Aggregator._compiled[compiled_key] = compiled
+            
+            Aggregator._compiled[compiled_key0] = compiled
         
-        if mode == 0:
-            # All items have same density
-            self.result = (self.max + self.min) * 0.5
+        self.queries = compiled_key0[1] # the original queries, without dependencies
+        
+        # Assign bound methods
+        self.reset = compiled[0].__get__(self, self.__class__)
+        self._init = compiled[1].__get__(self, self.__class__)
+        self._add = compiled[2].__get__(self, self.__class__)
+        
+        self.reset()
+    
+    def _compile(self, type, queries, convert, epsilon):
+        reset_lines = []
+        init_lines = []
+        add_lines = []
+        
+        localvars = dict(log=math.log, insort_left=bisect.insort_left,
+            startswith=self._startswith, endswith=self._endswith, convert=convert)
+        
+        if 'count' in queries:
+            reset_lines.append("self._count = 0")
+            init_lines.append("self._count = 1")
+            add_lines.append("self._count += 1")
+        
+        if 'min' in queries:
+            reset_lines.append("self._min = None")
+            init_lines.append("self._min = value")
+            add_lines.append("self._min = min(self._min, value)")
+        if 'max' in queries:
+            reset_lines.append("self._max = None")
+            init_lines.append("self._max = value")
+            add_lines.append("self._max = max(self._max, value)")
+        
+        if 'same' in queries:
+            reset_lines.append("self._same = True")
+            init_lines.append("self._same = True")
+            if epsilon:
+                add_lines.append("if self._same: self._same = (abs(self._max - self._min) <= %s)" % epsilon)
+            else:
+                add_lines.append("if self._same: self._same = (value == self._prev)")
+        if 'prev' in queries:
+            reset_lines.append("self._prev = None")
+            init_lines.append("self._prev = value")
+            add_lines.append("self._prev = value")
+        
+        if 'sum' in queries:
+            reset_lines.append("self._sum = None")
+            init_lines.append("self._sum = value")
+            add_lines.append("self._sum += value")
+        if 'sum_log' in queries:
+            reset_lines.append("self._sum_log = None")
+            init_lines.append("self._sum_log = (log(value) if value > 0.0 else 0.0)")
+            add_lines.append("self._sum_log += (log(value) if value > 0.0 else 0.0)")
+        if 'sum_rec' in queries:
+            reset_lines.append("self._sum_rec = None")
+            init_lines.append("self._sum_rec = (1.0 / value if value != 0.0 else 0.0)")
+            add_lines.append("self._sum_rec += (1.0 / value if value != 0.0 else 0.0)")
+        if 'product' in queries:
+            reset_lines.append("self._product = None")
+            init_lines.append("self._product = value")
+            add_lines.append("self._product *= value")
+        
+        if 'Ak' in queries:
+            reset_lines.append("self._Ak = None")
+            init_lines.append("self._Ak = value")
+            add_lines.append("delta = (value - self._Ak)")
+            add_lines.append("self._Ak += delta / self._count")
+        if 'Qk' in queries:
+            reset_lines.append("self._Qk = None")
+            init_lines.append("self._Qk = 0.0")
+            add_lines.append("self._Qk += delta * (value - self._Ak)")
+        
+        if 'sorted' in queries:
+            reset_lines.append("self._sorted = None")
+            init_lines.append("self._sorted = [value]")
+            add_lines.append("insort_left(self._sorted, value)")
+        
+        if type != 'ENUM':
+            if 'freq_map' in queries:
+                reset_lines.append("self._freq_map = None")
+                init_lines.append("self._freq_map = {value:1}")
+                add_lines.append("freq = self._freq_map.get(value, 0) + 1")
+                add_lines.append("self._freq_map[value] = freq")
+            if 'freq_max' in queries:
+                reset_lines.append("self._freq_max = None")
+                init_lines.append("self._freq_max = 0")
+                add_lines.append("if freq > self._freq_max:")
+                add_lines.append("    self._freq_max = freq")
+            if 'modes' in queries:
+                reset_lines.append("self._modes = None")
+                init_lines.append("self._modes = [value]")
+                add_lines.append("    self._modes = [value]")
+                add_lines.append("elif freq == self._freq_max:")
+                add_lines.append("    self._modes.append(value)")
         else:
-            self.result = self._median(modes)
+            if 'freq_map' in queries:
+                reset_lines.append("self._freq_map = None")
+                init_lines.append("self._freq_map = {item:1 for item in value}")
+                add_lines.append("for item in value:")
+                add_lines.append("    freq = self._freq_map.get(item, 0) + 1")
+                add_lines.append("    self._freq_map[item] = freq")
+            if 'freq_max' in queries:
+                reset_lines.append("self._freq_max = None")
+                init_lines.append("self._freq_max = 0")
+                add_lines.append("    if freq > self._freq_max:")
+                add_lines.append("        self._freq_max = freq")
+            if 'modes' in queries:
+                reset_lines.append("self._modes = None")
+                init_lines.append("self._modes = list(value)")
+                add_lines.append("        self._modes = [item]")
+                add_lines.append("    elif freq == self._freq_max:")
+                add_lines.append("        self._modes.append(item)")
+        
+        if 'union' in queries:
+            reset_lines.append("self._union = None")
+            init_lines.append("self._union = set(value)")
+            add_lines.append("self._union.update(value)")
+        if 'intersection' in queries:
+            reset_lines.append("self._intersection = None")
+            init_lines.append("self._intersection = set(value)")
+            add_lines.append("self._intersection.intersection_update(value)")
+        if 'difference' in queries:
+            reset_lines.append("self._difference = None")
+            init_lines.append("self._difference = set(value)")
+            add_lines.append("self._difference.symmetric_difference_update(value)")
+        
+        if 'subseq' in queries:
+            reset_lines.append("self._subseq = None")
+            reset_lines.append("self._subseq_starts = None")
+            reset_lines.append("self._subseq_ends = None")
+            init_lines.append("self._subseq = value")
+            init_lines.append("self._subseq_starts = True")
+            init_lines.append("self._subseq_ends = True")
+            add_lines.append("self._subseq_update(value)")
+        
+        reset_lines.append("self.add = self._init")
+        reset_lines = [indent(line, "    ") for line in reset_lines]
+        reset_lines.insert(0, "def reset(self):")
+        reset_code = "\n".join(reset_lines)
+        #print(reset_code)
+        exec(reset_code, localvars, localvars)
+        reset = localvars["reset"]
+        
+        if convert is not None: init_lines.insert(0, "value = convert(value)")
+        init_lines.append("self.add = self._add")
+        init_lines = [indent(line, "    ") for line in init_lines]
+        init_lines.insert(0, "def _init(self, value):")
+        init_code = "\n".join(init_lines)
+        #print(init_code)
+        exec(init_code, localvars, localvars)
+        _init = localvars["_init"]
+        
+        if convert is not None: init_lines.insert(0, "value = convert(value)")
+        add_lines = [indent(line, "    ") for line in add_lines]
+        add_lines.insert(0, "def _add(self, value):")
+        add_code = "\n".join(add_lines)
+        #print(add_code)
+        exec(add_code, localvars, localvars)
+        _add = localvars["_add"]
+        
+        return reset, _init, _add
     
-    def RANGE_INIT(self, value):
-        pass
-    def RANGE(self, value):
-        pass
-    def RANGE_CALC(self):
-        if self.count > 0:
-            self.result = (self.max - self.min)
-        yield
-    
-    def CENTER_INIT(self, value):
-        pass
-    def CENTER(self, value):
-        pass
-    def CENTER_CALC(self):
-        if self.count > 0:
-            self.result = (self.min + self.max) * 0.5
-        yield
-    
-    def MIN_INIT(self, value):
-        pass
-    def MIN(self, value):
-        pass
-    def MIN_CALC(self):
-        if self.count > 0:
-            self.result = self.min
-        yield
-    
-    def MAX_INIT(self, value):
-        pass
-    def MAX(self, value):
-        pass
-    def MAX_CALC(self):
-        if self.count > 0:
-            self.result = self.max
-        yield
+    def _subseq_update(self, value):
+        if self._subseq_starts:
+            if self._startswith(value, self._subseq):
+                pass
+            elif self._startswith(self._subseq, value):
+                self._subseq = value
+            else:
+                self._subseq_starts = False
+        if self._subseq_ends:
+            if self._endswith(value, self._subseq):
+                pass
+            elif self._endswith(self._subseq, value):
+                self._subseq = value
+            else:
+                self._subseq_ends = False
+        if self._subseq and not (self._subseq_starts or self._subseq_ends):
+            prev_subseq = self._subseq
+            self._subseq = next(iter(longest_common_substring(self._subseq, value)), None) or value[0:0]
+            # Seems like there is no other way than to check everything again
+            # (e.g. Blue, Red, White -> "e" is common, but is wasn't on the end in "Red")
+            #if self._subseq:
+            #    if self._startswith(prev_subseq, self._subseq):
+            #        self._subseq_starts = self._startswith(value, self._subseq)
+            #    if self._endswith(prev_subseq, self._subseq):
+            #        self._subseq_ends = self._endswith(value, self._subseq)
 
-class VectorAccumulator:
-    result = None
-    
-    def __init__(self, mode, size=3):
-        self._mode = mode
-        self._size = size
-        self.axes = [NumberAccumulator(mode) for i in range(size)]
+class VectorAggregator:
+    def __init__(self, size, type, queries=None, covert=None, epsilon=1e-6):
+        self._type = type
+        self.axes = tuple(Aggregator(type, queries, covert, epsilon) for i in range(size))
     
     def reset(self):
-        for acc in self.axes:
-            acc.reset()
-        self.result = None
-    
-    def copy(self):
-        return VectorAccumulator(self._mode, self._size)
+        for axis in self.axes:
+            axis.reset()
     
     def __len__(self):
-        return len(self.axes[0])
+        return len(self.axes)
     
-    def add(self, value):
-        for i in range(len(self.axes)):
-            self.axes[i].add(value[i])
-    
-    def calc(self):
-        calcs = [axis.calc() for axis in self.axes]
-        
-        try:
-            while True:
-                for calc in calcs:
-                    next(calc)
-                yield
-        except StopIteration:
-            pass
-        
-        if len(self) > 0:
-            self.result = [axis.result for axis in self.axes]
-    
-    def same(self, tolerance=1e-6):
-        return [axis.same(tolerance) for axis in self.axes]
-
-class AxisAngleAccumulator:
-    result = None
-    
-    def __init__(self, mode):
-        self._mode = mode
-        self.x = NumberAccumulator(mode)
-        self.y = NumberAccumulator(mode)
-        self.z = NumberAccumulator(mode)
-        self.a = NumberAccumulator(mode)
-    
-    def reset(self):
-        self.x.reset()
-        self.y.reset()
-        self.z.reset()
-        self.a.reset()
-        self.result = None
-    
-    def copy(self):
-        return AxisAngleAccumulator(self._mode)
-    
-    def __len__(self):
-        return len(self.x)
-    
-    def add(self, value):
-        self.x.add(value[0][0])
-        self.y.add(value[0][1])
-        self.z.add(value[0][2])
-        self.a.add(value[1])
-    
-    def calc(self):
-        calcs = (self.x.calc(),
-                 self.y.calc(),
-                 self.z.calc(),
-                 self.a.calc())
-        
-        try:
-            while True:
-                for calc in calcs:
-                    next(calc)
-                yield
-        except StopIteration:
-            pass
-        
-        if len(self) > 0:
-            self.result = ((self.x.result,
-                            self.y.result,
-                            self.z.result),
-                            self.a.result)
-    
-    def same(self, tolerance=1e-6):
-        return ((self.x.same(tolerance),
-                 self.y.same(tolerance),
-                 self.z.same(tolerance)),
-                 self.a.same(tolerance))
-
-class NormalAccumulator:
-    # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    result = None
-    
-    def __init__(self, mode, size=3):
-        self._mode = mode
-        self._size = size
-        self.axes = [NumberAccumulator(mode) for i in range(size)]
-    
-    def reset(self):
-        for acc in self.axes:
-            acc.reset()
-        self.result = None
-    
-    def copy(self):
-        return NormalAccumulator(self._mode, self._size)
-    
-    def __len__(self):
-        return len(self.axes[0])
-    
-    def add(self, value):
-        for i in range(len(self.axes)):
-            self.axes[i].add(value[i])
-    
-    def calc(self):
-        calcs = [axis.calc() for axis in self.axes]
-        
-        try:
-            while True:
-                for calc in calcs:
-                    next(calc)
-                yield
-        except StopIteration:
-            pass
-        
-        if len(self) > 0:
-            self.result = [axis.result for axis in self.axes]
-    
-    def same(self, tolerance=1e-6):
-        return [axis.same(tolerance) for axis in self.axes]
-
-def accumulation_context(scene):
-    obj = scene.objects.active
-    if obj:
-        obj_mode = obj.mode
-    else:
-        return 'OBJECT'
-    
-    if obj_mode == 'EDIT':
-        obj_type = obj.type
-        if obj_type in ('CURVE', 'SURFACE'):
-            return 'CURVE'
+    def add(self, value, i=None):
+        if i is None:
+            for axis, item in zip(self.axes, value):
+                axis.add(item)
         else:
-            return obj_type
-    elif obj_mode == 'POSE':
-        return 'POSE'
-    else:
-        return 'OBJECT'
+            self.axes[i].add(value)
+    
+    type = property(lambda self: self._type)
+    
+    count = property(lambda self: (self.axes[0].count if self.axes else 0)) # same for all
+    same = property(lambda self: tuple(axis.same for axis in self.axes))
+    
+    min = property(lambda self: tuple(axis.min for axis in self.axes))
+    max = property(lambda self: tuple(axis.max for axis in self.axes))
+    range = property(lambda self: tuple(axis.range for axis in self.axes))
+    center = property(lambda self: tuple(axis.center for axis in self.axes))
+    
+    sum = property(lambda self: tuple(axis.sum for axis in self.axes))
+    sum_log = property(lambda self: tuple(axis.sum_log for axis in self.axes))
+    sum_rec = property(lambda self: tuple(axis.sum_rec for axis in self.axes))
+    product = property(lambda self: tuple(axis.product for axis in self.axes))
+    
+    mean = property(lambda self: tuple(axis.mean for axis in self.axes))
+    geometric_mean = property(lambda self: tuple(axis.geometric_mean for axis in self.axes))
+    harmonic_mean = property(lambda self: tuple(axis.harmonic_mean for axis in self.axes))
+    variance = property(lambda self: tuple(axis.variance for axis in self.axes))
+    stddev = property(lambda self: tuple(axis.stddev for axis in self.axes))
+    
+    sorted = property(lambda self: tuple(axis.sorted for axis in self.axes))
+    median = property(lambda self: tuple(axis.median for axis in self.axes))
+    
+    freq_map = property(lambda self: tuple(axis.freq_map for axis in self.axes))
+    freq_max = property(lambda self: tuple(axis.freq_max for axis in self.axes))
+    modes = property(lambda self: tuple(axis.modes for axis in self.axes))
+    mode = property(lambda self: tuple(axis.mode for axis in self.axes))
+    
+    union = property(lambda self: tuple(axis.union for axis in self.axes))
+    intersection = property(lambda self: tuple(axis.intersection for axis in self.axes))
+    difference = property(lambda self: tuple(axis.difference for axis in self.axes))
+    
+    subseq = property(lambda self: tuple(axis.subseq for axis in self.axes))
+    subseq_starts = property(lambda self: tuple(axis.subseq_starts for axis in self.axes))
+    subseq_ends = property(lambda self: tuple(axis.subseq_ends for axis in self.axes))
+    
+    def get(self, query, fallback, vector=True):
+        if not vector: return tuple(axis.get(query, fallback) for axis in self.axes)
+        return tuple(axis.get(query, fb_item) for axis, fb_item in zip(self.axes, fallback))
+
+class PatternRenamer:
+    before = "\u2190"
+    after = "\u2192"
+    whole = "\u2194"
+    
+    @classmethod
+    def is_pattern(cls, value):
+        return (cls.before in value) or (cls.after in value) or (cls.whole in value)
+    
+    @classmethod
+    def make(cls, subseq, subseq_starts, subseq_ends):
+        pattern = subseq
+        if (not subseq_starts): pattern = cls.before + pattern
+        if (not subseq_ends): pattern = pattern + cls.after
+        if (pattern == cls.before+cls.after): pattern = cls.whole
+        return pattern
+    
+    @classmethod
+    def apply(cls, value, src_pattern, pattern):
+        middle = src_pattern.lstrip(cls.before).rstrip(cls.after).rstrip(cls.whole)
+        if middle not in value: return value # pattern not applicable
+        i_mid = value.index(middle)
+        
+        sL, sC, sR = "", value, ""
+        
+        if src_pattern.startswith(cls.before):
+            if middle: sL = value[:i_mid]
+        
+        if src_pattern.endswith(cls.after):
+            if middle: sR = value[i_mid+len(middle):]
+        
+        return pattern.replace(cls.before, sL).replace(cls.after, sR).replace(cls.whole, sC)
+    
+    @classmethod
+    def apply_to_attr(cls, obj, attr_name, pattern, src_pattern):
+        setattr(obj, attr_name, cls.apply(getattr(obj, attr_name), src_pattern, pattern))

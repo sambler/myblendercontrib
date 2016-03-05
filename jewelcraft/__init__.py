@@ -10,16 +10,17 @@ bl_info = {
 	"category": "Object"}
 
 if "bpy" in locals():
-	import importlib
-	importlib.reload(var)
-	importlib.reload(localization)
-	importlib.reload(operators)
-	importlib.reload(ui)
-	importlib.reload(modules.icons)
-	importlib.reload(modules.units)
-	importlib.reload(modules.assets)
-	importlib.reload(modules.stats)
-	importlib.reload(modules.props_utility)
+	from importlib import reload
+	reload(var)
+	reload(localization)
+	reload(operators)
+	reload(ui)
+	reload(modules.icons)
+	reload(modules.units)
+	reload(modules.assets)
+	reload(modules.stats)
+	reload(modules.props_utility)
+	del reload
 else:
 	import bpy
 	from bpy.props import (
@@ -44,7 +45,7 @@ else:
 
 
 
-class JewelCraftPreferences(AddonPreferences):
+class Preferences(AddonPreferences):
 
 	bl_idname = var.addon_id
 
@@ -66,7 +67,7 @@ class JewelCraftPreferences(AddonPreferences):
 
 
 
-class JewelCraftProperties(PropertyGroup):
+class Properties(PropertyGroup):
 
 	import_gem_cut = EnumProperty(name="Cut", items=props_utility.gem_cut)
 	import_gem_type = EnumProperty(name="Type", items=props_utility.gem_type)
@@ -84,19 +85,19 @@ class JewelCraftProperties(PropertyGroup):
 	export_dim = StringProperty(description="Object for dimensions reference")
 	export_weight = StringProperty(description="Object for weight reference")
 
-	export_metals           = BoolProperty()
-	export_m_24kt           = BoolProperty()
-	export_m_22kt           = BoolProperty()
-	export_m_18kt_white     = BoolProperty(default=True)
-	export_m_14kt_white     = BoolProperty(default=True)
-	export_m_18kt_yellow    = BoolProperty()
-	export_m_14kt_yellow    = BoolProperty()
-	export_m_sterling       = BoolProperty()
-	export_m_palladium      = BoolProperty()
-	export_m_platinum       = BoolProperty()
-	export_m_custom         = BoolProperty()
-	export_m_custom_name    = StringProperty(description="Material name")
-	export_m_custom_density = FloatProperty(description="Custom density (g/cm³)", default=1.0, min=0.01, step=1, precision=2)
+	export_metals        = BoolProperty()
+	export_m_24g         = BoolProperty()
+	export_m_22g         = BoolProperty()
+	export_m_18wg        = BoolProperty(default=True)
+	export_m_18yg        = BoolProperty()
+	export_m_14wg        = BoolProperty(default=True)
+	export_m_14yg        = BoolProperty()
+	export_m_ster        = BoolProperty()
+	export_m_pd          = BoolProperty()
+	export_m_pl          = BoolProperty()
+	export_m_custom      = BoolProperty()
+	export_m_custom_name = StringProperty(description="Material name")
+	export_m_custom_dens = FloatProperty(description="Custom density (g/cm³)", default=1.0, min=0.01, step=1, precision=2)
 
 	export_lang = EnumProperty(
 		name="Export stats language",
@@ -112,9 +113,9 @@ class JewelCraftProperties(PropertyGroup):
 
 
 classes = (
-	ui.JewelCraftImportPanel,
-	ui.JewelCraftWeightingPanel,
-	ui.JewelCraftExportPanel,
+	ui.ImportPanel,
+	ui.WeightingPanel,
+	ui.ExportPanel,
 
 	operators.SEARCH_TYPE,
 
@@ -126,10 +127,10 @@ classes = (
 	operators.IMPORT_CUTTER,
 	operators.IMPORT_CUTTER_SEAT,
 	operators.IMPORT_IMITATION_3_PRONG,
-	operators.MAKE_DUPLIFACE,
-	operators.WEIGHT_DISPLAY,
 
+	operators.MAKE_DUPLIFACE,
 	operators.SELECT_DUPLI,
+	operators.WEIGHT_DISPLAY,
 
 	operators.EXPORT_PICK_SIZE,
 	operators.EXPORT_PICK_SHANK,
@@ -137,8 +138,8 @@ classes = (
 	operators.EXPORT_PICK_WEIGHT,
 	operators.EXPORT_STATS,
 
-	JewelCraftPreferences,
-	JewelCraftProperties,
+	Preferences,
+	Properties,
 )
 
 
@@ -148,7 +149,7 @@ def register():
 	for cls in classes:
 		bpy.utils.register_class(cls)
 
-	bpy.types.Scene.jewelcraft = PointerProperty(type=JewelCraftProperties)
+	bpy.types.Scene.jewelcraft = PointerProperty(type=Properties)
 
 
 def unregister():

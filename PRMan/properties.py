@@ -38,6 +38,8 @@ from bpy.props import PointerProperty, StringProperty, BoolProperty, \
     EnumProperty, IntProperty, FloatProperty, FloatVectorProperty, \
     CollectionProperty, BoolVectorProperty
 
+from . import engine
+
 
 # get the names of args files in rmantree/lib/ris/integrator/args
 def get_integrator_names():
@@ -167,7 +169,6 @@ class LightLinking(bpy.types.PropertyGroup):
         self.name = "%s %s" % (
             self.light, infostr[valstr.index(self.illuminate)])
 
-        from . import engine
         if engine.ipr is not None and engine.ipr.is_interactive_running:
             engine.ipr.update_light_link(context, self)
 
@@ -541,7 +542,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
     preview_max_samples = IntProperty(
         name="Preview Max Samples",
         description="The maximum number of camera samples per pixel",
-        min=0, default=16)
+        min=0, default=8)
 
     preview_max_specular_depth = IntProperty(
         name="Max Preview Specular Depth",
@@ -981,6 +982,68 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
     shd_inlinerib_texts = CollectionProperty(
         type=RendermanInlineRIB, name='Shadow map pass Inline RIB')
     shd_inlinerib_index = IntProperty(min=-1, default=-1)
+
+    # illuminate
+    illuminates_by_default = BoolProperty(
+        name="Illuminates by default",
+        description="Illuminates by default",
+        default=True)
+
+class RendermanWorldSettings(bpy.types.PropertyGroup):
+
+    # do this to keep the nice viewport update
+    def update_light_type(self, context):
+        world = context.scene.world
+        world_type = world.renderman.renderman_type
+        if world_type == 'NONE':
+            return
+        # use pxr area light for everything but env, sky
+        light_shader = 'PxrStdEnvMapLightLightNode'
+        if world_type == 'SKY':
+            light_shader = 'PxrStdEnvDayLightLightNode'
+        
+        # find the existing or make a new light shader node
+        nt = bpy.data.node_groups[world.renderman.nodetree]
+        output = None
+        for node in nt.nodes:
+            if node.renderman_node_type == 'output':
+                output = node
+                break
+        if output == None:
+            output = nt.nodes.new('RendermanOutputNode')
+
+        for node in nt.nodes:
+            if hasattr(node, 'typename') and node.typename == light_shader:
+                nt.links.remove(output.inputs['Light'].links[0])
+                nt.links.new(node.outputs[0], output.inputs['Light'])
+                break
+        else:
+            light = nt.nodes.new(light_shader)
+            light.location = output.location
+            light.location[0] -= 300
+            #nt.links.remove(output.inputs['Light'].links[0])
+            nt.links.new(light.outputs[0], output.inputs['Light'])
+
+    renderman_type = EnumProperty(
+        name="World Type",
+        update=update_light_type,
+        items=[
+                ('NONE', 'None', 'No World'),
+                ('ENV', 'Environment', 'Environment Light'),
+               ('SKY', 'Sky', 'Simulated Sky'),
+               ],
+        default='NONE'
+    )
+
+    nodetree = StringProperty(
+        name="Node Tree",
+        description="Name of the shader node tree for this light",
+        default="")
+
+    shadingrate = FloatProperty(
+        name="Light Shading Rate",
+        description="Shading Rate for lights.  Keep this high unless needed for using detailed maps",
+        default=100.0)
 
     # illuminate
     illuminates_by_default = BoolProperty(
@@ -1430,6 +1493,7 @@ classes = [RendermanPath,
            RendermanLightSettings,
            RendermanParticleSettings,
            RendermanIntegratorSettings,
+           RendermanWorldSettings,
            RendermanAOV,
            RendermanAOVList,
            RendermanCameraSettings,
@@ -1452,6 +1516,8 @@ def register():
 
     bpy.types.Scene.renderman = PointerProperty(
         type=RendermanSceneSettings, name="Renderman Scene Settings")
+    bpy.types.World.renderman = PointerProperty(
+        type=RendermanWorldSettings, name="Renderman World Settings")
     bpy.types.Material.renderman = PointerProperty(
         type=RendermanMaterialSettings, name="Renderman Material Settings")
     bpy.types.Texture.renderman = PointerProperty(

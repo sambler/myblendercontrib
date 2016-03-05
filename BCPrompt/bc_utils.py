@@ -11,7 +11,11 @@ import traceback
 import webbrowser
 from urllib.request import (urlopen, urlretrieve)
 
-from .sub_util import (make_animated_gif, cmd_controller)
+from .sub_util import (
+    make_animated_gif,
+    make_optimized_animated_gif,
+    cmd_controller
+)
 
 
 def center_to_selected(context):
@@ -409,6 +413,13 @@ bl_context     | 'armature_edit', 'curve_edit', 'imagepaint', 'lattice_edit',
                | 'vertexpaint', 'weightpaint'
 """
     add_scrollback(content, 'OUTPUT')
+
+
+def print_addon_msg(origin, msg):
+    can_paint = os.name in {'posix'}
+    with_color = "\033[1;32m{0}\033[0m" if can_paint else "{0}"
+    print(with_color.format(origin), end='')
+    print(msg)
 
 
 def register():

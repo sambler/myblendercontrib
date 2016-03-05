@@ -15,8 +15,6 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 bl_info = {
     "name": "Compact Object panel",
     "description": "Changes Object panel to a more compact layout",

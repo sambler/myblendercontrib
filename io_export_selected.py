@@ -20,7 +20,7 @@
 bl_info = {
     "name": "Export Selected",
     "author": "dairin0d, rking",
-    "version": (1, 5, 3),
+    "version": (1, 5, 4),
     "blender": (2, 6, 9),
     "location": "File > Export > Selected",
     "description": "Export selected objects to a chosen format",
@@ -114,7 +114,7 @@ class ToggleObjectMode:
 
 def iter_exporters():
     #categories = dir(bpy.ops)
-    categories = ["export_anim", "export_mesh", "export_scene"]
+    categories = ["export_anim", "export_curve", "export_mesh", "export_scene"]
     for category_name in categories:
         op_category = getattr(bpy.ops, category_name)
         
@@ -449,7 +449,11 @@ class ExportSelected(bpy.types.Operator, ExportHelper):
                 obj.select = True
             else:
                 scene.objects.unlink(obj)
-                bpy.data.objects.remove(obj)
+                try:
+                    bpy.data.objects.remove(obj)
+                except RuntimeError: # non-zero users
+                    pass
+        
         scene.update()
         
         # Seems like attempts at manual removal cause Blender to crash

@@ -2,7 +2,10 @@ import bpy
 from mathutils import Matrix
 from collections import defaultdict
 from .. import var
-from . import units
+from . import (
+	units,
+	utility,
+)
 
 
 def gem_import():
@@ -15,7 +18,7 @@ def gem_import():
 	bpy.ops.object.select_all(action='DESELECT')
 
 	ob = data_to.objects[0]
-	ob.data['gem'] = {'CUT': cut}
+	ob.data['gem'] = {'cut': cut}
 
 	ob.location = bpy.context.scene.cursor_location
 	to_size(ob, size)
@@ -33,7 +36,7 @@ def cut_replace():
 			data_to = asset_import(ob_name=cut.title())
 
 			ob = data_to.objects[0]
-			ob.data['gem'] = {'CUT': cut}
+			ob.data['gem'] = {'cut': cut}
 
 			append_to(ob, obj)
 			to_size(ob, obj.dimensions[1])
@@ -61,7 +64,8 @@ def type_replace():
 def prongs_import():
 	for obj in bpy.context.selected_objects:
 		if obj.data.get('gem'):
-			cut = obj.data['gem']['CUT']
+			utility.ob_prop_style_convert(obj)
+			cut = obj.data['gem']['cut']
 			data_to = asset_import(ob_name=cut.title()+' Prongs', mat_name='Prongs')
 
 			ob = data_to.objects[0]
@@ -88,7 +92,8 @@ def cutter_import(seat_only=False):
 
 	for obj in bpy.context.selected_objects:
 		if obj.data.get('gem'):
-			cut = obj.data['gem']['CUT']
+			utility.ob_prop_style_convert(obj)
+			cut = obj.data['gem']['cut']
 			data_to = asset_import(ob_name=cut.title()+' Cutter'+suffix, mat_name='Cutter')
 
 			ob = data_to.objects[0]
@@ -124,7 +129,7 @@ def make_dupliface():
 
 	if gem:
 		ob = gem
-		name = ob.name+' '
+		name = ob.name + ' '
 	else:
 		ob = obs[0]
 		name = ''
@@ -150,9 +155,8 @@ def make_dupliface():
 
 	for ob in obs:
 		ob.parent = df
-		ob.location = [0,0,0]
 		apply_transforms(ob)
-
+	bpy.ops.object.origin_clear()
 
 
 def select_dupli():
@@ -167,6 +171,7 @@ def select_dupli():
 	name_app = gems_name.append
 	for ob in context.visible_objects:
 		if (ob.type == 'MESH' and ob.data.get('gem')):
+			utility.ob_prop_style_convert(ob)
 			loc_app(ob.location.freeze())
 			name_app(ob.name)
 
@@ -205,12 +210,14 @@ def asset_import(ob_name=False, mat_name=False):
 
 
 def type_set(ob, tpe, materials):
-	ob.data['gem']['TYPE'] = tpe
+	utility.ob_prop_style_convert(ob)
+	ob.data['gem']['type'] = tpe
 	material_assign(ob, tpe.replace('_', ' ').title(), materials)
 
 
 def type_copy(ob, obj):
-	ob.data['gem']['TYPE'] = obj.data['gem']['TYPE']
+	utility.ob_prop_style_convert(obj)
+	ob.data['gem']['type'] = obj.data['gem']['type']
 	append = ob.data.materials.append
 	for mat in obj.data.materials:
 		append(mat)

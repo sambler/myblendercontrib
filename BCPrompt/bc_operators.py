@@ -11,6 +11,9 @@ from .bc_command_dispatch import (
     in_bpm_commands,
     in_fast_ops_commands)
 
+from .bc_utils import set_keymap
+
+
 history_append = bpy.ops.console.history_append
 addon_enable = bpy.ops.wm.addon_enable
 
@@ -42,11 +45,12 @@ ico        |  enables icon addon in texteditor panel (Dev)
 -debug     |  dl + enable extended mesh index visualiser. it's awesome.
 --sort     |  sorting operator: sorts open edgeloop, by index handy for polyline export
 -----------+----------------------------------------------------------
--idxv      |  enable by shortcut name (user defined)
-enable <named addon>  |  package name or folder name
-v2rdim     |  sets render dimensions to current strip.
-fc         |  fcurrent -> end.frame
-gif <dir>  |  make animated gif of content of dir
+-idxv         |  enable by shortcut name (user defined)
+enable x      |  where 'x' is package name or folder name
+v2rdim        |  sets render dimensions to current strip.
+fc            |  fcurrent -> end.frame
+gif dir       |  make animated gif of *.png sequence found in dir's path
+nodeview whie |  set bg col of nodeview
 '''
 
     add_scrollback(content, 'OUTPUT')
@@ -92,6 +96,15 @@ class ConsoleDoAction(bpy.types.Operator):
             bpy.ops.console.clear()
             return DONE
 
+        return {'FINISHED'}
+
+
+class ConsoleShortCutButtons(bpy.types.Operator):
+    bl_label = "ConsoleEditModePushButton"
+    bl_idname = "wm.set_editmode_shortcuts"
+
+    def execute(self, context):
+        set_keymap()
         return {'FINISHED'}
 
 

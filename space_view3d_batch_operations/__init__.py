@@ -19,7 +19,7 @@ bl_info = {
     "name": "Batch Operations / Manager",
     "description": "Modifiers, Materials, Groups management / batch operations",
     "author": "dairin0d, moth3r",
-    "version": (0, 6, 3),
+    "version": (0, 6, 4),
     "blender": (2, 7, 0),
     "location": "View3D > Batch category in Tools panel",
     "warning": "",
@@ -80,6 +80,16 @@ Requests by Wazou:
 * when clicking on modifier/material/etc. in Batch Operations, switch the Buttons area(s) to display the corresponding modifier/material/etc.
 * Add remove option to remove material from object along with its slot (but not removing from the .blend completely)
 
+Requests by Jerry Perkins:
+* a way to push a selected modifier to the bottom of all selected objects
+
+
+moth3r, 2015-12-22:
+maybe is not a bug but at least behavior kinda looks strange, at least to me. When I would like to show or hide a group of linked mesh object I cannot do it via batch panel. It kinda works on a fresh loaded file/scene but after some time item selection stops working completely. 
+
+
+moth3r, 2016-02-18
+add option to display a batch category of objects which don't have materials/modifiers/gorups/etc.
 
 
 Make sure copy/pasting doesn't crash Blender after Undo (seems like it doesn't crash, but pasted references to objects are invalid)

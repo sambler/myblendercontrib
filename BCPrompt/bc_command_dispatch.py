@@ -16,12 +16,14 @@ from .bc_utils import (
     write_keys_textfile,
     view_types_to_console,
     make_animated_gif,
+    make_optimized_animated_gif,
     cmd_controller
 )
 
 from .bc_text_repr_utils import (
     do_text_glam,
-    do_text_synthax)
+    do_text_synthax,
+    do_console_rewriter)
 
 from .bc_search_utils import (
     search_blenderscripting,
@@ -40,7 +42,11 @@ from .bc_scene_utils import (
     distance_check,
     align_view_to_3dcursor,
     parent_selected_to_new_empty,
-    add_mesh_2_json
+    add_mesh_2_json,
+    crop_to_active,
+    v2rdim,
+    render_to_filepath,
+    process_size_query
 )
 
 from .bc_update_utils import (
@@ -146,41 +152,30 @@ def in_scene_commands(context, m):
         add_mesh_2_json('yup')
         add_scrollback('added mesh 2 json (y up) script to text editor! remember to triangulate first', 'OUTPUT')
 
-    elif m.startswith('v2rdim'):
-        SCN = bpy.context.scene
-        SE = SCN.sequence_editor
-
-        if m == 'v2rdim':
-            sequence = SE.active_strip
-        elif m.startswith('v2rdim '):
-            vidname = m[7:]
-            sequence = SE.sequences.get(vidname)
-            if not sequence:
-                print(vidname, 'is not a sequence - check the spelling')
-                return True
-
-        def get_size(sequence):
-            clips = bpy.data.movieclips
-            fp = sequence.filepath
-            mv = clips.load(fp)
-            x, y = mv.size[:]
-            clips.remove(mv)
-            return x, y
-
-        x, y = get_size(sequence)
-        SCN.render.resolution_x = x
-        SCN.render.resolution_y = y
-        SCN.render.resolution_percentage = 100
+    elif m == 'v2rdim':
+        v2rdim()
 
     elif m in {'crop to active', 'cta'}:
-        se = bpy.context.scene.sequence_editor
-        start = se.active_strip.frame_start
-        duration = se.active_strip.frame_duration
-        bpy.context.scene.frame_start = start
-        bpy.context.scene.frame_end = start + duration
+        crop_to_active()
+
+    elif m == 'dandc':
+        v2rdim()
+        crop_to_active()
+        add_scrollback('set render dims and cropped timeline', 'OUTPUT')
+
+    elif m.startswith('anim '):
+        fp = m[5:]
+        add_scrollback('going to render to ' + fp, 'OUTPUT')
+        render_to_filepath(fp)
 
     elif m.startswith("gif ") and (len(m) > 5):
         make_animated_gif(m[4:])
+
+    elif m.startswith("ogif ") and (len(m) > 6):
+        make_optimized_animated_gif(m[5:])
+
+    elif m.startswith('sizeof'):
+        process_size_query(m)
 
     elif m == 'sel lights':
         for o in bpy.data.objects:
@@ -213,6 +208,11 @@ def in_scene_commands(context, m):
             msg = 'no objects selected to parent to'
             output_type = 'ERROR'
         add_scrollback(msg, output_type)
+
+    elif m == 'nodeview white':
+        current_theme = bpy.context.user_preferences.themes.items()[0][0]
+        editor = bpy.context.user_preferences.themes[current_theme].node_editor
+        editor.space.back = (1, 1, 1)
 
     else:
         return False
@@ -376,6 +376,27 @@ def in_core_dev_commands(context, m):
     elif m.startswith("!"):
         ''' dispatch a threaded worker '''
         cmd_controller(m[1:])
+
+    elif m.startswith('obj='):
+        do_console_rewriter(context, m)
+
+    elif m == 'git help':
+        git_strings = (
+            "git pull --all",
+            "git push --all",
+            "git add --all",
+            "git add <specify file>  # do this from inside the right directory",
+            "git commit -am \"commit message here\"",
+            "git checkout -b <branch_name>  # new_branch_name_based_on_current_branch",
+            "git branch -D <branch_name> # deletes branch locally (you must be on a different branch first)",
+            "git branch",
+            " ",
+            "-- be in master, or branch to merge into",
+            "   git merge <branch_to_merge>",
+            "   git push --all"
+        )
+        for line in git_strings:
+            add_scrollback(line, 'OUTPUT')
 
     else:
         return False

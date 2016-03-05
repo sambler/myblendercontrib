@@ -3,7 +3,11 @@
 import os
 import bpy
 import math
-from .utils import getBBox, scale
+from mathutils import Vector
+#import numpy as np
+from .utils.misc import getBBox, scale
+from .utils.kmeans1D import kmeans1d, getBreaks
+#from .utils.jenks_caspall import jenksCaspall
 from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, EnumProperty, CollectionProperty, FloatVectorProperty
 from bpy.types import PropertyGroup, UIList, Panel, Operator
 from bpy.app.handlers import persistent
@@ -29,7 +33,7 @@ node = None
 #Set up a propertyGroup and populate a CollectionProperty
 #########################################
 class CustomItem(PropertyGroup):
-	
+
 	#Define update function for FloatProperty
 	def updStop(item, context):
 		#first arg is the container of the prop to update, here a customItem
@@ -189,7 +193,7 @@ class Reclass_uilist(UIList):
 		elif vals == [0, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]:
 			return ['N', 'N-E', 'E', 'S-E', 'S', 'S-W', 'W', 'N-W', 'N']
 		elif vals == [0, 30, 90, 150, 210, 270, 330]:
-			return ['N', 'N-E', 'S-E', 'S', 'S-W', 'N-W', 'N']	
+			return ['N', 'N-E', 'S-E', 'S', 'S-W', 'N-W', 'N']
 		elif vals == [0, 60, 120, 180, 240, 300, 360]:
 			return ['N-E', 'E', 'S-E', 'S-W', 'W', 'N-W', 'N-E']
 		elif vals == [0, 90, 270]:
@@ -198,7 +202,7 @@ class Reclass_uilist(UIList):
 			return ['E', 'W']
 		else:
 			return False
-	
+
 	def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 		'''
 		called for each item of the collection visible in the list
@@ -221,7 +225,7 @@ class Reclass_uilist(UIList):
 				split = split.split(percentage=0.4)
 				split.prop(item, "color", text="")
 				split.prop(item, "val", text="")
-			else:	
+			else:
 				split = layout.split(percentage=0.2)
 				#split.label(str(index))
 				split.label(str(item.idx+1))
@@ -276,7 +280,7 @@ class Reclass_panel(Panel):
 				row.label("max = " + str(round(inMax,2)))
 				row = layout.row()
 				row.label("delta = " + str(round(inMax-inMin,2)))
-			
+
 
 #Make Operators to manage ui list
 #########################################
@@ -285,7 +289,7 @@ class Reclass_switchInterpolation(Operator):
 	'''Switch color interpolation (continuous / discrete)'''
 	bl_idname = "reclass.switch_interpolation"
 	bl_label = "Switch color interpolation (continuous or discrete)"
-	
+
 	def execute(self, context):
 		node = context.active_node
 		cr = node.color_ramp
@@ -300,7 +304,7 @@ class Reclass_flip(Operator):
 	'''Flip color ramp'''
 	bl_idname = "reclass.flip"
 	bl_label = "Flip color ramp"
-	
+
 	def execute(self, context):
 		node = context.active_node
 		cr = node.color_ramp
@@ -315,7 +319,7 @@ class Reclass_flip(Operator):
 		for i, stop in enumerate(stops):
 			#stop.position = newStops[i][0]
 			stop.color = revStops[i][1]
-		#refresh	
+		#refresh
 		populateList(node)
 		return {'FINISHED'}
 
@@ -323,7 +327,7 @@ class Reclass_refresh(Operator):
 	"""Refresh list to match node setting"""
 	bl_idname = "reclass.list_refresh"
 	bl_label = "Populate list"
-	
+
 	def execute(self, context):
 		node = context.active_node
 		populateList(node)
@@ -334,7 +338,7 @@ class Reclass_clear(Operator):
 	"""Clear color ramp"""
 	bl_idname = "reclass.list_clear"
 	bl_label = "Clear list"
-	
+
 	def execute(self, context):
 		#bpy.context.scene.uiListCollec.clear()
 		node = context.active_node
@@ -427,6 +431,46 @@ def clearRamp(stops, startColor=(0,0,0,1), endColor=(1,1,1,1), startPos=0, endPo
 	last.color = endColor
 	return (first, last)
 
+def getValues():
+	'''Return mesh data values (z, slope or az) for classification'''
+	scn = bpy.context.scene
+	obj = scn.objects.active
+	#make a temp mesh with modifiers apply
+	#mesh = obj.data #modifiers not apply
+	mesh = obj.to_mesh(scn, apply_modifiers=True, settings='PREVIEW')
+	mesh.transform(obj.matrix_world)
+	#
+	mode = scn.analysisMode
+	if mode == 'HEIGHT':
+		values = [vertex.co.z for vertex in mesh.vertices]
+	elif mode == 'SLOPE':
+		z = Vector((0,0,1))
+		m = obj.matrix_world
+		values =  [math.degrees(z.angle(m * face.normal)) for face in mesh.polygons]
+	elif mode == 'ASPECT':
+		y = Vector((0,1,0))
+		m = obj.matrix_world
+		#values =  [math.degrees(y.angle(m * face.normal)) for face in mesh.polygons]
+		values = []
+		for face in mesh.polygons:
+			normal = face.normal.copy()
+			normal.z = 0 #project vector into XY plane
+			try:
+				a = math.degrees(y.angle(m * normal))
+			except ValueError:
+				pass#zero length vector as no angle
+			else:
+				#returned angle is between 0° (north) to 180° (south)
+				#we must correct it to get angle between 0 to 360°
+				if normal.x <0:
+					a = 360 - a
+				values.append(a)
+	values.sort()
+	#remove temp mesh
+	bpy.data.meshes.remove(mesh)
+
+	return values
+
 
 class Reclass_auto(Operator):
 	'''Auto reclass by equal interval or fixed classe number'''
@@ -440,12 +484,14 @@ class Reclass_auto(Operator):
 			('CLASSES_NB', 'Fixed classes number', "Define the expected number of classes"),
 			('EQUAL_STEP', 'Equal interval value', "Define step value between classes"),
 			('TARGET_STEP', 'Target interval value', "Define target step value that stops will match"),
+			('QUANTILE', 'Quantile', 'Assigns the same number of data values to each class.'),
+			('1DKMEANS', 'Natural breaks', 'kmeans clustering optimized for one dimensional data'),
 			('ASPECT', 'Aspect reclassification', "Value define the number of azimuth")]
 			)
 	color1 = FloatVectorProperty(name="Start color", subtype='COLOR', min=0, max=1, size=4)
 	color2 = FloatVectorProperty(name="End color", subtype='COLOR', min=0, max=1, size=4)
 	value = IntProperty(name="Value", default=4)
-	
+
 	def invoke(self, context, event):
 		#Set color to actual ramp
 		node = context.active_node
@@ -495,14 +541,17 @@ class Reclass_auto(Operator):
 				val += interval
 				position = scale(val, inMin, inMax, 0, 1)
 				stop = stops.new(position)
-	
+
 		if self.autoReclassMode == 'CLASSES_NB':
 			nbClasses = self.value
 			if nbClasses >= 32:
 				self.report({'ERROR'}, "Ramp is limited to 32 colors")
 				return {'FINISHED'}
-			clearRamp(stops, startColor, endColor)
 			delta = inMax-inMin
+			if nbClasses >= delta:
+				self.report({'ERROR'}, "Too many classes")
+				return {'FINISHED'}
+			clearRamp(stops, startColor, endColor)
 			interval = delta/nbClasses
 			val = inMin
 			for i in range(nbClasses-1):
@@ -512,14 +561,14 @@ class Reclass_auto(Operator):
 
 		if self.autoReclassMode == 'ASPECT':
 			bpy.context.scene.analysisMode = 'ASPECT'
-			delta = inMax-inMin #360�
+			delta = inMax-inMin #360°
 			interval = 360 / self.value
 			nbClasses = self.value #math.ceil(delta/interval)
 			if nbClasses >= 32:
 				self.report({'ERROR'}, "Ramp is limited to 32 colors")
 				return {'FINISHED'}
 			first, last = clearRamp(stops, startColor, endColor)
-			offset = interval/2	
+			offset = interval/2
 			intervalNorm = scale(interval, inMin, inMax, 0, 1)
 			offsetNorm = scale(offset, inMin, inMax, 0, 1)
 			#move actual last stop to before last position
@@ -537,7 +586,47 @@ class Reclass_auto(Operator):
 			stop = stops.new(1-offsetNorm)
 			stop.color = first.color
 			cr.interpolation = 'CONSTANT'
-			
+
+		if self.autoReclassMode == 'QUANTILE':
+			nbClasses = self.value
+			values = getValues()
+			if nbClasses >= 32:
+				self.report({'ERROR'}, "Ramp is limited to 32 colors")
+				return {'FINISHED'}
+			if nbClasses >= len(values):
+				self.report({'ERROR'}, "Too many classes")
+				return {'FINISHED'}
+			clearRamp(stops, startColor, endColor)
+			n = len(values)
+			q = int(n/nbClasses) #number of value per quantile
+			cumulative_q = q
+			previousVal = scale(0, 0, 1, inMin, inMax)
+			for i in range(nbClasses-1):
+				val = values[cumulative_q]
+				if val != previousVal:
+					position = scale(val, inMin, inMax, 0, 1)
+					stop = stops.new(position)
+					previousVal = val
+				cumulative_q += q
+
+		if self.autoReclassMode == '1DKMEANS':
+			nbClasses = self.value
+			values = getValues()
+			if nbClasses >= 32:
+				self.report({'ERROR'}, "Ramp is limited to 32 colors")
+				return {'FINISHED'}
+			if nbClasses >= len(values):
+				self.report({'ERROR'}, "Too many classes")
+				return {'FINISHED'}
+			clearRamp(stops, startColor, endColor)
+			#compute clusters
+			#clusters = jenksCaspall(values, nbClasses, 4)
+			#for val in clusters.breaks:
+			clusters = kmeans1d(values, nbClasses)
+			for val in getBreaks(values, clusters):
+				position = scale(val, inMin, inMax, 0, 1)
+				stop = stops.new(position)
+
 		#refresh
 		populateList(node)
 		return {'FINISHED'}
@@ -563,7 +652,7 @@ class Reclass_gradient(Operator):
 
 	color1 = FloatVectorProperty(name="Start color", subtype='COLOR', min=0, max=1, size=4)
 	color2 = FloatVectorProperty(name="End color", subtype='COLOR', min=0, max=1, size=4)
-	
+
 	def invoke(self, context, event):
 		#Set color to actual ramp
 		node = context.active_node
@@ -601,13 +690,6 @@ class ColorList(PropertyGroup):
 bpy.utils.register_class(ColorList)
 bpy.types.Scene.colorRampPreview = CollectionProperty(type=ColorList)
 
-class BoolList(PropertyGroup):
-	useIt = BoolProperty(default=True)
-	
-bpy.utils.register_class(BoolList)
-bpy.types.Scene.useColors = CollectionProperty(type=BoolList)
-
-colorEditRange = 5
 
 class Reclass_gradient2(Operator):
 	'''Quick colors gradient edit'''
@@ -618,82 +700,71 @@ class Reclass_gradient2(Operator):
 			name="Space",
 			description="Select interpolation color space",
 			items = colorSpaces)
-			
+
 	method = EnumProperty(
 			name="Method",
 			description="Select interpolation method",
 			items = interpoMethods)
 
+	#special function to redraw an operator popup called through invoke_props_dialog
+	def check(self, context):
+		return True
+
 	def updatePreview(self, context):
-		#make preview
+		#feed colors collection for preview
+		context.scene.colorRampPreview.clear()
 		node = context.active_node
 		cr = node.color_ramp
 		stops = cr.elements
-		nbColors = colorEditRange
 		if self.fitGradient:
 			minPos, maxPos = stops[0].position, stops[-1].position
 			delta = maxPos-minPos
 		else:
 			delta = 1
-		offset = delta/(nbColors-1)
-		position = 0		
-		for i in range(nbColors):
-			item = bpy.context.scene.colorRampPreview[i]
+		offset = delta/(self.nbColors-1)
+		position = 0
+		for i in range(self.nbColors):
+			item = bpy.context.scene.colorRampPreview.add()
 			item.color = cr.evaluate(position)
-			position += offset	
+			position += offset
 		return
-	
-	fitGradient = BoolProperty()#(update=updatePreview)
-	
+
+	fitGradient = BoolProperty(update=updatePreview)
+
+	nbColors = IntProperty(
+			name="Number of colors",
+			description="Set the number of colors needed to define the quick quadient",
+			min=2, default=4, update=updatePreview)
+
 	def invoke(self, context, event):
-		#clear collection(s)
-		context.scene.useColors.clear()
-		context.scene.colorRampPreview.clear()
-		#feed collections(s)
-		nbColors = colorEditRange	
-		for i in range(nbColors):
-			bpy.context.scene.colorRampPreview.add()
-			boolItem = bpy.context.scene.useColors.add()
-			if 0 < i < nbColors-1:
-				boolItem.useIt = False
-		#update color preview
+		#update collection of colors preview
 		self.updatePreview(context)
 		#Show dialog with operator properties
 		wm = context.window_manager
 		return wm.invoke_props_dialog(self, width=200, height=200)
 
-	def draw(self, context):#layout for invoke props modal dialog
-		#operator.draw() is different from panel.draw()
-		#because it's only called once (when the pop-up is created)
-		#so we can't redraw if the user change nbColors
+	def draw(self, context):
 		layout = self.layout
 		layout.prop(self, "colorSpace", text='Space')
 		layout.prop(self, "method", text='Method')
 		layout.prop(self, "fitGradient", text="Fit gradient to min/max positions")
+		layout.prop(self, "nbColors", text='Number of colors')
 		row = layout.row(align=True)
 		colorItems = context.scene.colorRampPreview
-		boolItems = context.scene.useColors
-		nbColors = len(colorItems)
-		for i in range(nbColors):
-			col = row.column()
+		for i in range(self.nbColors):
 			colorItem = colorItems[i]
-			col.prop(colorItem, 'color', text='')
-			if 0 < i < nbColors-1:
-				boolItem = boolItems[i]
-				col.prop(boolItem, 'useIt', text='')
+			row.prop(colorItem, 'color', text='')
 
 	def execute(self, context):
 		#build gradient
-		useColors = [item.useIt for item in context.scene.useColors]
 		colorList = context.scene.colorRampPreview
 		colorRamp = Gradient()
 		nbColors = len(colorList)
 		offset = 1/(nbColors-1)
 		position = 0
 		for i, item in enumerate(colorList):
-			if useColors[i]:
-				color = Color(list(item.color), 'rgb')
-				colorRamp.addStop(round(position,4), color)
+			color = Color(list(item.color), 'rgb')
+			colorRamp.addStop(round(position,4), color)
 			position += offset
 		#get color ramp node
 		node = context.active_node
@@ -769,7 +840,7 @@ class Reclass_gradient3(Operator):
 			items = colorSpaces,
 			update = updatePreview
 			)
-			
+
 	method = EnumProperty(
 			name="Method",
 			description="Select interpolation method",
@@ -778,7 +849,7 @@ class Reclass_gradient3(Operator):
 			)
 
 	fitGradient = BoolProperty()
-			
+
 	def invoke(self, context, event):
 		#clear collection
 		context.scene.colorRampPreview.clear()
@@ -854,11 +925,15 @@ class Reclass_exportSVG(Operator):
 			name="Color space",
 			description="Select interpolation color space",
 			items = colorSpaces)
-			
+
 	method = EnumProperty(
 			name="Interp. method",
 			description="Select interpolation method",
 			items = interpoMethods)
+
+	#special function to redraw an operator popup called through invoke_props_dialog
+	def check(self, context):
+		return True
 
 	def invoke(self, context, event):
 		#Show dialog with operator properties
@@ -870,11 +945,12 @@ class Reclass_exportSVG(Operator):
 		layout.prop(self, "name", text='Name')
 		layout.prop(self, "gradientType")
 		layout.prop(self, "makeDiscrete")
-		layout.separator()
-		layout.label('Interpolation options')
-		layout.prop(self, "colorSpace", text='Color space')
-		layout.prop(self, "method", text='Method')
-		layout.prop(self, "n", text="Number of colors")
+		if self.gradientType == "INTERPOLATE":
+			layout.separator()
+			layout.label('Interpolation options')
+			layout.prop(self, "colorSpace", text='Color space')
+			layout.prop(self, "method", text='Method')
+			layout.prop(self, "n", text="Number of colors")
 
 	def execute(self, context):
 		#Get node color ramp

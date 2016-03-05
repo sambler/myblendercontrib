@@ -99,10 +99,11 @@ def getCutterArray(operation,pixsize):
 			for b in range(0,res):
 				vstart.y=(b+0.5-m)*ps*scale
 				vend.y=vstart.y
-				
-				c=cutob.ray_cast(vstart,vend)
-				if c[2]!=-1:
-					z=-c[0][2]/scale
+				v = vend-vstart
+				c=cutob.ray_cast(vstart,v, v.length)
+				#print(c)
+				if c[3]!=-1:
+					z=-c[1][2]/scale
 					#print(c)
 					if z>-9:
 						#print(z)

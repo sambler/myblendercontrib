@@ -38,7 +38,6 @@ from {0}dairin0d.bpy_inspect import prop, BlRna, BlEnums, BpyOp
 from {0}dairin0d.utils_accumulation import Aggregator, VectorAggregator, PatternRenamer
 from {0}dairin0d.utils_blender import ChangeMonitor, Selection, SelectionSnapshot, ToggleObjectMode, IndividuallyActiveSelected, BlUtil
 from {0}dairin0d.utils_addon import AddonManager, UIMonitor
-
 """.format(dairin0d_location))
 
 addon = AddonManager()
@@ -250,7 +249,7 @@ class Operator_batch_repeat_actions:
         bpy.ops.ed.undo_push(message="Batch Repeat")
         
         for obj in IndividuallyActiveSelected(selected_objs):
-            for i in range(len(self.operations)):
+            for i in range(len(self.operations)-1, 0, -1):
                 item = self.operations[i]
                 if not item.value: continue
                 code = compiled[i]

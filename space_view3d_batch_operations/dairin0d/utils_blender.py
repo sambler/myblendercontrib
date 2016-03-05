@@ -305,7 +305,7 @@ class MeshCache:
 # =============================== MESH BAKER =============================== #
 #============================================================================#
 class MeshBaker:
-    def __init__(self, scene, include=None, exclude=None, obj_types=None, edit=False, selection=True, geometry='DEFAULT', origins='DEFAULT', bbox='NONE', dupli=True, solid_only=False, matrix=None, auto_clear=False):
+    def __init__(self, scene, include=None, exclude=None, obj_types=None, edit=False, selection=True, geometry='DEFAULT', origins='DEFAULT', bbox='NONE', dupli=True, solid_only=False, matrix=None, auto_clear=False, collect_materials=False, remove_doubles=None):
         self.scene = scene
         self.mode = BlEnums.mode_from_object(scene.objects.active)
         self.edit = edit # whether to add object geometry in editmode
@@ -318,12 +318,16 @@ class MeshBaker:
         self.matrix = matrix or Matrix()
         self.matrix_inv = matrix_inverted_safe(self.matrix)
         self.auto_clear = auto_clear
+        self.collect_materials = collect_materials
+        self.remove_doubles = remove_doubles
         self.bm = bmesh.new()
         self._mesh = None
         self._obj = None
         self._vert_to_obj = []
         self._edge_to_obj = []
         self._face_to_obj = []
+        self._materials_dict = {}
+        self._materials_list = []
         
         self.obj_types = obj_types
         self.objects = set(include or (obj for obj in scene.objects if obj.is_visible(scene)))
@@ -342,6 +346,10 @@ class MeshBaker:
         self._mesh = bpy.data.meshes.new("BakedMesh")
         self.bm.to_mesh(self._mesh)
         #self._mesh.update(calc_tessface=True) # calc_tessface() # is this necessary?
+        if self._materials_list:
+            materials = self._mesh.materials
+            for material in self._materials_list:
+                materials.append(material)
         return self._mesh
     
     def object(self, mode='UNLINK'):
@@ -352,12 +360,15 @@ class MeshBaker:
         # Make Blender recognize object as having geometry
         self.scene.objects.link(self._obj)
         self.scene.update()
+        obj = self._obj # save reference in case mode == 'FORGET'
         if mode == 'UNLINK':
             # We don't need this object in scene
             self.scene.objects.unlink(self._obj)
         elif mode == 'HIDE':
             self._obj.hide = True
-        return self._obj
+        elif mode == 'FORGET':
+            self.forget_results()
+        return obj
     
     @staticmethod
     def _index_cmp(item, i):
@@ -398,7 +409,14 @@ class MeshBaker:
         if instances: result = self._names_to_instances(result)
         return result
     
-    def delete_results(self):
+    def forget_results(self): # so that they won't be deleted on MeshBaker's destruction
+        self._obj = None
+        self._mesh = None
+    
+    def delete_results(self): # old alias, remains for compatibility
+        self.cleanup()
+    
+    def cleanup(self):
         if self._obj and self._obj.name:
             if self._obj.name in self.scene.objects:
                 self.scene.objects.unlink(self._obj)
@@ -423,9 +441,12 @@ class MeshBaker:
             if use_dt and (time.clock() > time_stop): return
     
     def _on_finish(self):
-        self.bm.verts.index_update()
-        self.bm.edges.index_update()
-        self.bm.faces.index_update()
+        if isinstance(self.remove_doubles, (float, int)): # this will invalidate indices
+            bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=self.remove_doubles)
+        else:
+            self.bm.verts.index_update()
+            self.bm.edges.index_update()
+            self.bm.faces.index_update()
     
     def _delete_bm(self):
         if self.bm and self.bm.is_valid:
@@ -433,21 +454,38 @@ class MeshBaker:
         self.bm = None
     
     def __del__(self):
-        if self.auto_clear: self.delete_results()
+        if self.auto_clear: self.cleanup()
     
     def _merge(self, bm_copy):
+        # As of 2.75, the "dest" argument does not work yet
+        #geom = bm_copy.verts[:] + bm_copy.edges[:] + bm_copy.faces[:]
+        #bmesh.ops.duplicate(bm_copy, geom=geom, dest=self.bm, use_select_history=False)
+        
+        # BMesh elements' copy_from() doesn't seem to work on other-mesh elements as well
+        
         verts_map = {}
         for vS in bm_copy.verts:
             vD = self.bm.verts.new(Vector(vS.co))
             vD.normal = Vector(vS.normal)
             verts_map[vS] = vD
         for eS in bm_copy.edges:
-            eD = self.bm.edges.new(tuple(verts_map[vS] for vS in eS.verts))
+            try:
+                eD = self.bm.edges.new(tuple(verts_map[vS] for vS in eS.verts))
+            except ValueError: # edge already exists
+                continue
+            eD.seam = eS.seam
+            eD.smooth = eS.smooth
         for fS in bm_copy.faces:
-            fD = self.bm.faces.new(tuple(verts_map[vS] for vS in fS.verts))
+            try:
+                fD = self.bm.faces.new(tuple(verts_map[vS] for vS in fS.verts))
+            except ValueError: # face already exists
+                continue
             fD.normal = Vector(fS.normal)
+            fD.material_index = fS.material_index
+            fD.smooth = fS.smooth
     
     def _to_mesh(self, obj, force_objectmode=False):
+        force_objectmode |= self.collect_materials
         bm_copy = bmesh.new()
         if obj.type == 'MESH':
             with ToggleObjectMode(force_objectmode):
@@ -479,6 +517,21 @@ class MeshBaker:
             bbox_mode = self.bbox_mode
             dupli_mode = self.dupli_mode
             gather_bone_offsets = True
+        
+        default_material_id = None
+        material_id_map = {}
+        
+        if self.collect_materials:
+            for slot_id, material_slot in enumerate(obj.material_slots):
+                material = material_slot.material
+                material_id = self._materials_dict.get(material)
+                if material_id is None:
+                    material_id = len(self._materials_list)
+                    self._materials_dict[material] = material_id
+                    self._materials_list.append(material)
+                
+                material_id_map[slot_id] = material_id
+                if default_material_id is None: default_material_id = material_id
         
         bbox = BlUtil.Object.bounding_box(obj)
         
@@ -554,8 +607,8 @@ class MeshBaker:
                     bbox = [None, None] # Blender does not return valid bbox for armature
                     bm_copy = bmesh.new()
                     for bone, selected in BlUtil.Object.iter_bone_info(obj):
-                        self._bbox_add(bbox, bone.head)
-                        self._bbox_add(bbox, bone.tail)
+                        #self._add_bbox(bbox, bone.head) # outdated code - test again?
+                        #self._add_bbox(bbox, bone.tail) # outdated code - test again?
                         if no_selection and any(selected): continue
                         if gather_bone_offsets:
                             vert_offsets.append((len(bm_copy.verts), bone.name))
@@ -571,7 +624,7 @@ class MeshBaker:
                     for point in data.points:
                         bm_copy.verts.new(point.co_deform)
                         # TODO: edges between points?
-                        self._bbox_add(bbox, point.co_deform)
+                        #self._add_bbox(bbox, point.co_deform) # outdated code - test again?
                     bbox = (bbox[0] or Vector(), bbox[1] or Vector())
                 else:
                     bm_copy = bmesh.new()
@@ -587,6 +640,10 @@ class MeshBaker:
             if add_bbox: self._add_bbox(bm_copy, bbox_mode, bbox, matrix)
             
             if len(verts) > 0:
+                if material_id_map:
+                    for face in bm_copy.faces:
+                        face.material_index = material_id_map.get(face.material_index, default_material_id)
+                
                 bm_copy.transform(matrix)
                 self._merge(bm_copy)
             

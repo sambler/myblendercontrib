@@ -6,10 +6,10 @@ from .. import (
 	localization,
 )
 from . import (
-	utility,
 	units,
 	volume,
 	report,
+	utility,
 )
 
 
@@ -25,11 +25,11 @@ def weight_display():
 		report.data = '{} {}'.format(round(vol, 4), l['mm3'])
 
 	elif m == 'CUSTOM':
-		dens = units.convert(props.weighting_custom, 'CM_MM')
+		dens = units.convert(props.weighting_custom, 'cm->mm')
 		report.data = '{} {}'.format(round(vol * dens, 2), l['g'])
 
 	else:
-		mdens = units.convert(var.metal_density[m], 'CM_MM')
+		mdens = units.convert(var.metal_density[m], 'cm->mm')
 		report.data = '{} {}'.format(round(vol * mdens, 2), l['g'])
 
 
@@ -45,16 +45,16 @@ def stats_get():
 
 	stats['METALS'] = []
 	append = stats['METALS'].append
-	if props.export_m_24kt        : append('24KT')
-	if props.export_m_22kt        : append('22KT')
-	if props.export_m_18kt_white  : append('18KT_WHITE')
-	if props.export_m_14kt_white  : append('14KT_WHITE')
-	if props.export_m_18kt_yellow : append('18KT_YELLOW')
-	if props.export_m_14kt_yellow : append('14KT_YELLOW')
-	if props.export_m_sterling    : append('STERLING')
-	if props.export_m_palladium   : append('PALLADIUM')
-	if props.export_m_platinum    : append('PLATINUM')
-	if props.export_m_custom      : append('CUSTOM')
+	if props.export_m_24g    : append('24G')
+	if props.export_m_22g    : append('22G')
+	if props.export_m_18wg   : append('18WG')
+	if props.export_m_18yg   : append('18YG')
+	if props.export_m_14wg   : append('14WG')
+	if props.export_m_14yg   : append('14YG')
+	if props.export_m_ster   : append('STER')
+	if props.export_m_pd     : append('PD')
+	if props.export_m_pl     : append('PL')
+	if props.export_m_custom : append('CUSTOM')
 
 	if (props.export_size and obs.get(props.export_size)):
 		stats['SIZE'] = units.system(obs[props.export_size].dimensions[0])
@@ -142,11 +142,13 @@ def export():
 		f = open(save_path, 'w', encoding='utf-8')
 		f.write(stats)
 		f.close()
+		return True
 
 	else:
 		prefs = bpy.context.user_preferences.addons[var.addon_id].preferences
 		l = localization.locale[prefs.lang]
-		return utility.show_error_message(l['error_file'])
+		utility.show_error_message(l['error_file'])
+		return False
 
 
 
@@ -186,8 +188,9 @@ def stats_gems():
 
 		if (ob.type == 'MESH' and ob.data.get('gem')):
 
-			tpe = ob.data['gem']['TYPE']
-			cut = ob.data['gem']['CUT']
+			utility.ob_prop_style_convert(ob)
+			tpe = ob.data['gem']['type']
+			cut = ob.data['gem']['cut']
 
 			if (ob.parent and ob.parent.dupli_type == 'FACES'):
 				count = polycount(ob.parent)
@@ -196,20 +199,13 @@ def stats_gems():
 			else:
 				count = 1
 
-			if cut in ['ROUND', 'SQUARE', 'CUSHION', 'ASSCHER', 'PRINCESS', 'OCTAGON', 'RADIANT', 'FLANDERS']:
-				length = round(units.system( (ob.dimensions[0] + ob.dimensions[1]) / 2 ), 2)
-				depth  = round(units.system(ob.dimensions[2]), 2)
-				if length.is_integer(): length = int(length)
-				if depth.is_integer():  depth  = int(depth)
-				size = (length, depth)
-			else:
-				length = round(units.system(ob.dimensions[1]), 2)
-				width  = round(units.system(ob.dimensions[0]), 2)
-				depth  = round(units.system(ob.dimensions[2]), 2)
-				if length.is_integer(): length = int(length)
-				if width.is_integer():  width  = int(width)
-				if depth.is_integer():  depth  = int(depth)
-				size = (length, width, depth)
+			length = round(units.system(ob.dimensions[1]), 2)
+			width  = round(units.system(ob.dimensions[0]), 2)
+			depth  = round(units.system(ob.dimensions[2]), 2)
+			if length.is_integer(): length = int(length)
+			if width.is_integer():  width  = int(width)
+			if depth.is_integer():  depth  = int(depth)
+			size = (length, width, depth)
 
 			if (stats.get(tpe) and stats[tpe].get(cut) and stats[tpe][cut].get(size)):
 				stats[tpe][cut][size] = stats[tpe][cut][size] + count
@@ -255,25 +251,24 @@ def export_locale():
 def format_weight(vol, metal, l):
 	if metal == 'CUSTOM':
 		props = bpy.context.scene.jewelcraft
-		dens = units.convert(props.export_m_custom_density, 'CM_MM')
+		dens = units.convert(props.export_m_custom_dens, 'cm->mm')
 		mat = props.export_m_custom_name
 	else:
-		dens = units.convert(var.metal_density[metal], 'CM_MM')
+		dens = units.convert(var.metal_density[metal], 'cm->mm')
 		mat = l[metal.lower()]
 
 	return '{} {} ({})'.format(round(vol * dens, 2), l['g'], mat)
 
 
 def format_gems(tpe, cut, size, qty, l):
-	if len(size) == 2:
-		crt = ct_calc(tpe, cut, l=size[0], h=size[1])
+
+	crt = ct_calc(tpe, cut, l=size[0], w=size[1], h=size[2])
+	qty_ct = round(qty * crt, 3)
+
+	if cut in ['ROUND', 'SQUARE', 'ASSCHER', 'OCTAGON', 'FLANDERS']:
 		Size = '{} {} ({} {})'.format(size[0], l['mm'], crt, l['ct'])
-
 	else:
-		crt = ct_calc(tpe, cut, l=size[0], w=size[1], h=size[2])
 		Size = '{} × {} {} ({} {})'.format(size[0], size[1], l['mm'], crt, l['ct'])
-
-	qty_ct = qty * crt
 
 	Qty = '{} {} ({} {})'.format(qty, l['items'], qty_ct, l['ct'])
 	Type = l[tpe.lower()]
@@ -284,24 +279,26 @@ def format_gems(tpe, cut, size, qty, l):
 
 def ct_calc(tpe, cut, l=None, w=None, h=None):
 	props = bpy.context.scene.jewelcraft
-	dens = units.convert(var.stone_density[tpe], 'CM_MM')
+	dens = units.convert(var.stone_density[tpe], 'cm->mm')
 	corr = var.gem_volume_correction[cut]
 
 	if cut in ['ROUND', 'OCTAGON']:
-		vol = (pi * ((l/2)**2) * (h/3)) * corr
+		l = (l + w) / 2
+		vol = pi * (l/2)**2 * (h/3) # Cone
 
 	elif cut in ['OVAL', 'PEAR', 'MARQUISE', 'HEART']:
-		vol = (pi * (l/2) * (w/2) * (h/3)) * corr
+		vol = pi * (l/2) * (w/2) * (h/3) # Cone rectangular
 
 	elif cut in ['SQUARE', 'ASSCHER', 'PRINCESS', 'CUSHION', 'RADIANT', 'FLANDERS']:
-		vol = (l*w*h / 3) * corr
+		vol = l*w*h / 3 # Pyramid
 
 	elif cut in ['BAGUETTE', 'EMERALD']:
-		vol = (l*w * (h/2)) * corr
+		vol = l*w * (h/2) # Prism
 
-	elif cut in ['TRILLION', 'TRILLIANT']:
-		vol = (l*w*h / 6) * corr
+	elif cut in ['TRILLION', 'TRILLIANT', 'TRIANGLE']:
+		vol = l*w*h / 6 # Tetrahedron
 
-	ct = units.convert(vol * dens, 'G_CT')
+	g = (vol * corr) * dens
+	ct = units.convert(g, 'g->ct')
 
 	return round(ct, 3)

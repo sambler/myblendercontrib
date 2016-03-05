@@ -104,6 +104,22 @@ class SmartView3D:
                     sv = SmartView3D(window=window, area=area, space_data=space_data, region=region, region_data=region_data)
                     if sv: yield sv
         elif isinstance(ui_obj, bpy.types.Area):
+            if ui_obj.type != 'VIEW_3D': return
+            wm = bpy.context.window_manager
+            for window in wm.windows:
+                for area in window.screen.areas:
+                    if area != ui_obj: continue
+                    space_data = area.spaces.active
+                    if space_data.type != 'VIEW_3D': continue
+                    for region in area.regions:
+                        if region.type != 'WINDOW': continue
+                        region_data = rv3d_from_region(area, region)
+                        sv = SmartView3D(window=window, area=area, space_data=space_data, region=region, region_data=region_data)
+                        if sv: yield sv
+        elif isinstance(ui_obj, bpy.types.Region):
+            sv = SmartView3D(region=ui_obj)
+            if sv: yield sv
+        elif ui_obj is None:
             wm = bpy.context.window_manager
             for window in wm.windows:
                 for area in window.screen.areas:
@@ -115,9 +131,6 @@ class SmartView3D:
                         region_data = rv3d_from_region(area, region)
                         sv = SmartView3D(window=window, area=area, space_data=space_data, region=region, region_data=region_data)
                         if sv: yield sv
-        elif isinstance(ui_obj, bpy.types.Region):
-            sv = SmartView3D(region=ui_obj)
-            if sv: yield sv
     
     def __bool__(self):
         return bool(self.area.regions and (self.area.type == 'VIEW_3D'))

@@ -1078,7 +1078,7 @@ def exportGcodePath(filename,vertslist,operations):
 	elif m.post_processor=='HEIDENHAIN':
 		extension='.H'
 		from .nc import heiden as postprocessor
-	elif m.post_processor=='TNC11':
+	elif m.post_processor=='TNC151':
 		from .nc import tnc151 as postprocessor
 	elif m.post_processor=='SIEGKX1':
 		from .nc import siegkx1 as postprocessor
@@ -1134,8 +1134,7 @@ def exportGcodePath(filename,vertslist,operations):
 		#work-plane, by now always xy, 
 		c.set_plane(0)
 		c.flush_nc()
-		c.write_spindle()
-		c.flush_nc()
+		
 		return c
 		
 	c=startNewFile()
@@ -1158,21 +1157,24 @@ def exportGcodePath(filename,vertslist,operations):
 		else:
 			spdir_clockwise=False
 		
-		c.spindle(o.spindle_rpm,spdir_clockwise)
-		c.flush_nc()
 		#write tool, not working yet probably 
 		#print (last_cutter)
 		if last_cutter!=[o.cutter_id,o.cutter_diameter,o.cutter_type,o.cutter_flutes]:
 			c.comment('Tool change - D = %s type %s flutes %s' % ( strInUnits(o.cutter_diameter,4),o.cutter_type, o.cutter_flutes))
 			c.tool_change(o.cutter_id)
 			c.flush_nc()
+		
 		last_cutter=[o.cutter_id,o.cutter_diameter,o.cutter_type,o.cutter_flutes]	
 		
+
+		c.spindle(o.spindle_rpm,spdir_clockwise)
+		c.write_spindle()
 		c.flush_nc()
+
 		if m.spindle_start_time>0:
 			c.dwell(m.spindle_start_time)
-			c.flush_nc()
-		
+		c.flush_nc()
+
 		
 		# dhull c.feedrate(unitcorr*o.feedrate)
 		
@@ -1197,11 +1199,12 @@ def exportGcodePath(filename,vertslist,operations):
 			last=Vector((0.0,0.0,free_movement_height))#nonsense values so first step of the operation gets written for sure
 		lastrot=Euler((0,0,0))
 		duration=0.0
-		f=millfeedrate 
+		f=0.1123456#nonsense value, so first feedrate always gets written 
 		fadjustval = 1 # if simulation load data is Not present
 		
 		downvector= Vector((0,0,-1))
 		plungelimit=(pi/2-o.plunge_angle)
+		
 		
 		#print('2')
 		for vi,vert in enumerate(verts):
@@ -1302,21 +1305,23 @@ def exportGcodePath(filename,vertslist,operations):
 				findex+=1
 				c.file_close()
 				c=startNewFile()
-				c.spindle(o.spindle_rpm,spdir_clockwise)
 				c.flush_nc()
 				c.comment('Tool change - D = %s type %s flutes %s' % ( strInUnits(o.cutter_diameter,4),o.cutter_type, o.cutter_flutes))
 				c.tool_change(o.cutter_id)
 				c.spindle(o.spindle_rpm,spdir_clockwise)
-				c.feedrate(unitcorr*o.feedrate)
+				c.write_spindle()
 				c.flush_nc()
+
 				if m.spindle_start_time>0:
 					c.dwell(m.spindle_start_time)
 					c.flush_nc()
+				
+				c.feedrate(unitcorr*o.feedrate)
 				c.rapid(x=last.x*unitcorr,y=last.y*unitcorr,z=free_movement_height*unitcorr)
 				c.rapid(x=last.x*unitcorr,y=last.y*unitcorr,z=last.z*unitcorr)
 				processedops=0
 				
-			
+				
 		
 		c.feedrate(unitcorr*o.feedrate)
 				
@@ -2883,6 +2888,9 @@ def getPath3axis(context, operation):
 		if o.cutter_type=='VCARVE':
 			angle = o.cutter_tip_angle
 			maxdepth = - math.tan(math.pi*(90-angle/2)/180) * o.cutter_diameter/2
+		elif o.cutter_type=='BALLNOSE' or o.cutter_type=='BALL':
+			#angle = o.cutter_tip_angle
+			maxdepth = o.cutter_diameter/2
 		#remember resolutions of curves, to refine them, 
 		#otherwise medial axis computation yields too many branches in curved parts
 		resolutions_before=[]

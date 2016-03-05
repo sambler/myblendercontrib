@@ -1,5 +1,9 @@
 import bpy
 import struct
+from console_python import add_scrollback, get_console
+
+
+history_append = bpy.ops.console.history_append
 
 
 def hex_to_rgb(rgb_str):
@@ -62,6 +66,22 @@ def do_text_synthax(theme):
         texed.cursor = (0.3607843, 0.6431373, 0.8980393)
         texed.line_numbers_background = (0.8588236, 0.8588236, 0.8588236)
         texed.syntax_special = (0.654902, 0.5960785, 0.027451)
+
+
+def do_console_rewriter(ctx, m):
+    fail = 'null ops, check spelling or be less specific'
+    msg = fail
+    if (m == 'obj='):
+        msg = 'obj = bpy.context.active_object'
+    elif (m == 'obj=['):
+        msg = 'obj = bpy.data.objects[\''
+    elif (len(m) > 5) and (m[5:] in bpy.data.objects):
+        msg = "obj = bpy.data.objects['{0}']".format(m[5:])
+
+    add_scrollback(m + ' --> ' + msg, 'OUTPUT')
+    history_append(text=m, remove_duplicates=True)
+    if not (msg == fail):
+        ctx.space_data.history[-1].body = msg
 
 
 def register():

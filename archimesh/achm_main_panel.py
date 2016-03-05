@@ -209,10 +209,6 @@ class AchmPencilAction(bpy.types.Operator):
         mypoints = None
         clearangles = None
 
-        # define error margin 
-        xrange = 0.01
-        yrange = 0.01
-        
         if debugmode is True:
             print("======================================================================")
             print("==                                                                  ==")
@@ -249,11 +245,13 @@ class AchmPencilAction(bpy.types.Operator):
                         if idx == 0:
                             x = point[0]
                             y = point[1]
-                        else:    
-                            if (x - xrange) <= point[0] <= (x + xrange):
+                        else:
+                            abs_x = abs(point[0] - x)
+                            abs_y = abs(point[1] - y)
+
+                            if abs_y > abs_x:
                                 orientation = "V"
-                                
-                            if (y - yrange) <= point[1] <= (y + yrange):
+                            else:
                                 orientation = "H"
                                 
                             if old_orientation == orientation:

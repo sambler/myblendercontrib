@@ -22,6 +22,19 @@ def make_animated_gif(m):
     os.chdir(initial_location)
 
 
+def make_optimized_animated_gif(m):
+
+    try:
+        temp_root = os.path.dirname(__file__)
+        fp = os.path.join(temp_root, 'tmp', 'gifbatch.sh')
+        print(fp)
+        f2 = 'bash {0} {1}'.format(fp, m)
+        print(f2)
+        subprocess.Popen(f2.split())
+    except:
+        add_scrollback('failed.. - with errors', 'ERROR')
+
+
 class Controller_Thread(threading.Thread):
     def __init__(self, commands):
         self.commands = commands
