@@ -406,7 +406,6 @@ class MouselookNavigation:
                     
                     if self.teleport_allowed and self.keys_fps_teleport():
                         #ray_data = self.sv.ray(self.sv.project(self.sv.focus))
-                        #raycast_result = context.scene.ray_cast(ray_data[0], ray_data[1])
                         raycast_result = self.sv.ray_cast(self.sv.project(self.sv.focus))
                         if raycast_result.success:
                             normal = raycast_result.normal
@@ -597,7 +596,7 @@ class MouselookNavigation:
             pos += v
             
             v0 = self.velocity * dt
-            v, collided = apply_collisions(context.scene, pos, v0, view_height, is_crouching, True, 0)
+            v, collided = apply_collisions(bpy.context.scene, pos, v0, view_height, is_crouching, True, 0)
             if collided:
                 self.velocity = Vector()
             pos += v

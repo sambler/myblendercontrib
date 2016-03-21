@@ -355,7 +355,7 @@ def generate_property(sp):
                     in sp.attrib else param_max
                 prop = FloatProperty(name=param_label,
                                      default=param_default, precision=3,
-                                     min=param_min, max=param_max,
+                                     soft_min=param_min, soft_max=param_max,
                                      description=param_help, update=update_func)
         renderman_type = 'float'
 
@@ -378,8 +378,8 @@ def generate_property(sp):
                 sp.attrib['max']) if 'max' in sp.attrib else 2 ** 31 - 1
             prop = IntProperty(name=param_label,
                                default=param_default,
-                               min=param_min,
-                               max=param_max,
+                               soft_min=param_min,
+                               soft_max=param_max,
                                description=param_help, update=update_func)
         renderman_type = 'int'
 

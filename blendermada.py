@@ -23,13 +23,13 @@
 bl_info = {
     "name": "Blendermada Client",
     "author": "Sergey Ozerov, <ozzyrov@gmail.com>",
-    "version": (0, 9, 1),
+    "version": (0, 9, 7),
     "blender": (2, 70, 0),
     "location": "Properties > Material > Blendermada Client",
-    "description": "Browse and download materials from online CC0 database.",
+    "description": "Browse and download materials from online material database.",
     "warning": "Beta version",
-    "wiki_url": "http://blendermada.com/addon.html",
-    "tracker_url": "https://github.com/TrueCryer/blendermada",
+    "wiki_url": "http://blendermada.com/addon/",
+    "tracker_url": "https://github.com/TrueCryer/blendermada_client/issues",
     "category": "Material",
 }
 
@@ -92,9 +92,27 @@ def get_engine():
     except:
         return ''
 
+def get_proxy_handlers():
+    handlers = []
+    addon_prefs = bpy.context.user_preferences.addons[__name__].preferences
+    if addon_prefs.proxy_use_proxy:
+        proxy_handler = request.ProxyHandler({
+            'http': '{host}:{port}'.format(
+                host=addon_prefs.proxy_server,
+                port=addon_prefs.proxy_port,
+            ),
+        })
+        handlers.append(proxy_handler)
+        if addon_prefs.proxy_use_auth:
+            pass
+    return handlers
+
 def bmd_urlopen(url, **kwargs):
     full_url = parse.urljoin('http://blendermada.com/', url)
     params = parse.urlencode(kwargs)
+    handlers = get_proxy_handlers()
+    opener = request.build_opener(*handlers)
+    request.install_opener(opener)
     return request.urlopen('%s?%s' % (full_url, params))
 
 def get_materials(category):
@@ -521,7 +539,7 @@ class BMDAddonPreferences(bpy.types.AddonPreferences):
         default=os.path.expanduser(os.path.join('~', '.blendermada')),
     )
     use_big_preview = BoolProperty(
-        name="Use big previews",
+        name="Use a big preview",
         description="Use 256x256 previews instead of 128x128",
         update=preview_size_update,
     )
@@ -529,11 +547,44 @@ class BMDAddonPreferences(bpy.types.AddonPreferences):
         name="API key",
         description="Use it to access your favorites materials",
     )
+    proxy_use_proxy = BoolProperty(
+        name="Use proxy",
+        description="Use proxy for requests",
+    )
+    proxy_server = StringProperty(
+        name="Server",
+    )
+    proxy_port = StringProperty(
+        name="Port",
+    )
+    proxy_use_auth = BoolProperty(
+        name="Use proxy authentication",
+    )
+    proxy_user = StringProperty(
+        name="User",
+    )
+    proxy_password = StringProperty(
+        name="Password",
+    )
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "cache_path")
         layout.prop(self, "use_big_preview")
+        layout.prop(self, "cache_path")
+        layout.separator()
+        layout.label(text="Authentication")
         layout.prop(self, "api_key")
+        layout.separator()
+        layout.label(text="Proxy")
+        row = layout.row()
+        row.prop(self, "proxy_use_proxy")
+        if self.proxy_use_proxy:
+            row.prop(self, "proxy_server")
+            row.prop(self, "proxy_port")
+            row = layout.row()
+            row.prop(self, "proxy_use_auth")
+            if self.proxy_use_auth:
+                row.prop(self, "proxy_user")
+                row.prop(self, "proxy_password")
 
 
 def register():

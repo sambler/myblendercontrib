@@ -139,10 +139,9 @@ def export():
 		filename = bpy.path.display_name_from_filepath(filepath)
 		save_path = path.join(path.dirname(filepath), filename + '_stats.txt')
 
-		f = open(save_path, 'w', encoding='utf-8')
-		f.write(stats)
-		f.close()
-		return True
+		with open(save_path, 'w', encoding='utf-8') as file:
+			file.write(stats)
+			return True
 
 	else:
 		prefs = bpy.context.user_preferences.addons[var.addon_id].preferences
@@ -265,7 +264,7 @@ def format_gems(tpe, cut, size, qty, l):
 	crt = ct_calc(tpe, cut, l=size[0], w=size[1], h=size[2])
 	qty_ct = round(qty * crt, 3)
 
-	if cut in ['ROUND', 'SQUARE', 'ASSCHER', 'OCTAGON', 'FLANDERS']:
+	if cut in ('ROUND', 'SQUARE', 'ASSCHER', 'OCTAGON', 'FLANDERS'):
 		Size = '{} {} ({} {})'.format(size[0], l['mm'], crt, l['ct'])
 	else:
 		Size = '{} × {} {} ({} {})'.format(size[0], size[1], l['mm'], crt, l['ct'])
@@ -282,20 +281,20 @@ def ct_calc(tpe, cut, l=None, w=None, h=None):
 	dens = units.convert(var.stone_density[tpe], 'cm->mm')
 	corr = var.gem_volume_correction[cut]
 
-	if cut in ['ROUND', 'OCTAGON']:
+	if cut in ('ROUND', 'OCTAGON'):
 		l = (l + w) / 2
 		vol = pi * (l/2)**2 * (h/3) # Cone
 
-	elif cut in ['OVAL', 'PEAR', 'MARQUISE', 'HEART']:
+	elif cut in ('OVAL', 'PEAR', 'MARQUISE', 'HEART'):
 		vol = pi * (l/2) * (w/2) * (h/3) # Cone rectangular
 
-	elif cut in ['SQUARE', 'ASSCHER', 'PRINCESS', 'CUSHION', 'RADIANT', 'FLANDERS']:
+	elif cut in ('SQUARE', 'ASSCHER', 'PRINCESS', 'CUSHION', 'RADIANT', 'FLANDERS'):
 		vol = l*w*h / 3 # Pyramid
 
-	elif cut in ['BAGUETTE', 'EMERALD']:
+	elif cut in ('BAGUETTE', 'EMERALD'):
 		vol = l*w * (h/2) # Prism
 
-	elif cut in ['TRILLION', 'TRILLIANT', 'TRIANGLE']:
+	elif cut in ('TRILLION', 'TRILLIANT', 'TRIANGLE'):
 		vol = l*w*h / 6 # Tetrahedron
 
 	g = (vol * corr) * dens

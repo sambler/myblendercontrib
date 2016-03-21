@@ -1070,10 +1070,10 @@ def gen_params(ri, node, mat_name=None, recurse=True):
         for prop_name, meta in node.prop_meta.items():
             if prop_name in txmake_options.index:
                 pass
-            if node.plugin_name == 'PxrRamp' and prop_name in ['colors', 'positions']:
+            elif node.plugin_name == 'PxrRamp' and prop_name in ['colors', 'positions']:
                 pass
             
-            if(prop_name == 'sblur' or prop_name == 'tblur'):
+            elif(prop_name == 'sblur' or prop_name == 'tblur'):
                 pass
             
             else:

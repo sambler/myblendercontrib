@@ -112,7 +112,12 @@ def render_main(self, context, animation=False):
 
         # Load image on memory
         img.gl_load(0, bgl.GL_NEAREST, bgl.GL_NEAREST)
-        tex = img.bindcode
+
+        # 2.77 API change
+        if bpy.app.version >= (2, 77, 0):
+            tex = img.bindcode[0]
+        else:
+            tex = img.bindcode
 
         # --------------------------------------------
         # Create output image (to apply texture)

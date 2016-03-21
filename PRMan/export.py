@@ -83,11 +83,10 @@ def is_singular(mtx):
 
 
 # export the instance of an object (dupli)
-def export_object_instance(ri, mtx=None, dupli_name=None,
-                           instance_handle=None):
+def export_object_instance(ri, mtx=None, instance_handle=None, num=None):
     if mtx and not is_singular(mtx):
         ri.AttributeBegin()
-        ri.Attribute("identifier", {"name": dupli_name})
+        ri.Attribute("identifier", {"int id": num})
         ri.Transform(rib(mtx))
         ri.ObjectInstance(instance_handle)
         ri.AttributeEnd()
@@ -1680,19 +1679,33 @@ def get_instance(ob, scene, do_mb):
 
 # get the data_block needed for a dupli
 def get_dupli_block(ob, rpass, do_mb):
-    name = data_name(ob, rpass.scene)
-    deforming = is_deforming(ob)
-    archive_filename = get_archive_filename(data_name(ob, rpass.scene),
-                                            rpass, deforming)
-    return DataBlock(name, "MESH", archive_filename, ob,
-                     deforming, material=ob.active_material,
-                     do_export=file_is_dirty(
-                         rpass.scene, ob, archive_filename),
-                     dupli_data=True)
+    if hasattr(ob, 'dupli_type') and ob.dupli_type in SUPPORTED_DUPLI_TYPES:
+        name = ob.name + '-DUPLI'
+        # duplis aren't animated
+        archive_filename = get_archive_filename(name, rpass, False)
+        dbs = [DataBlock(name, "DUPLI", archive_filename, ob,
+                                     do_export=file_is_dirty(rpass.scene, ob, archive_filename))]
+        if ob.dupli_type == 'GROUP' and ob.dupli_group:
+            for dupli_ob in ob.dupli_group.objects:
+                for db in get_dupli_block(dupli_ob, rpass, do_mb):
+                    dbs.append(db)
+        return dbs
+
+    else:
+        name = data_name(ob, rpass.scene)
+        deforming = is_deforming(ob)
+        archive_filename = get_archive_filename(data_name(ob, rpass.scene),
+                                                rpass, deforming)
+        
+
+        return [DataBlock(name, "MESH", archive_filename, ob,
+                         deforming, material=ob.active_material,
+                         do_export=file_is_dirty(
+                             rpass.scene, ob, archive_filename),
+                         dupli_data=True)]
+
 
 # get the data blocks needed for an object
-
-
 def get_data_blocks_needed(ob, rpass, do_mb):
     if not is_renderable(rpass.scene, ob):
         return []
@@ -1726,8 +1739,9 @@ def get_data_blocks_needed(ob, rpass, do_mb):
                     for dupli_ob in psys.settings.dupli_group.objects:
                         data_blocks.append(
                             get_dupli_block(dupli_ob, rpass, do_mb))
+            
             mat = ob.material_slots[psys.settings.material -
-                                    1].material if psys.settings.material else None
+                                    1].material if psys.settings.material and len(ob.material_slots) else None
             data_blocks.append(DataBlock(name, type, archive_filename, data,
                                          is_psys_animating(ob, psys, do_mb), material=mat,
                                          do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
@@ -1740,10 +1754,11 @@ def get_data_blocks_needed(ob, rpass, do_mb):
                                      do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
         if ob.dupli_type == 'GROUP' and ob.dupli_group:
             for dupli_ob in ob.dupli_group.objects:
-                data_blocks.append(get_dupli_block(dupli_ob, rpass, do_mb))
+                for db in get_dupli_block(dupli_ob, rpass, do_mb):
+                    data_blocks.append(db)
 
     # now the objects data
-    if is_data_renderable(rpass.scene, ob):
+    if is_data_renderable(rpass.scene, ob) and emit_ob:
         # Check if the object is referring to an archive to use rather then its
         # geometry.
         if ob.renderman.geometry_source != 'BLENDER_SCENE_DATA':
@@ -2067,7 +2082,7 @@ def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
 
     # gather list of object masters
     object_masters = {}
-    for dupob in ob.dupli_list:
+    for num,dupob in enumerate(ob.dupli_list):
         if dupob.object.name not in object_masters:
             instance_handle = ri.ObjectBegin()
             mat = dupob.object.active_material
@@ -2084,10 +2099,10 @@ def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
             # export "null" bxdf to clear material for object master
             ri.Bxdf("null", "null")
 
-        dupli_name = "%s.DUPLI.%s.%d" % (ob.name, dupob.object.name,
-                                         dupob.index)
+        #dupli_name = "%s.DUPLI.%s.%d" % (ob.name, dupob.object.name,
+        #                                 dupob.index)
         instance_handle = object_masters[dupob.object.name]
-        export_object_instance(ri, dupob.matrix, dupli_name, instance_handle)
+        export_object_instance(ri, dupob.matrix, instance_handle, num)
 
     ob.dupli_list_clear()
 
@@ -2185,7 +2200,7 @@ def export_render_settings(ri, rpass, scene, preview=False):
     depths = {'int maxdiffusedepth': rm.max_diffuse_depth,
               'int maxspeculardepth': rm.max_specular_depth,
               'int displacements': 1}
-    if preview:
+    if preview or rpass.is_interactive:
         depths = {'int maxdiffusedepth': rm.preview_max_diffuse_depth,
                   'int maxspeculardepth': rm.preview_max_specular_depth}
 
@@ -2744,6 +2759,8 @@ def issue_light_transform_edit(ri, obj):
     ri.EditBegin('attribute', {'string scopename': obj.data.name})
     export_object_transform(ri, obj, obj.type == 'LAMP' and (
         lamp.type == 'HEMI' and lamp.renderman.renderman_type != "SKY"))
+    if lamp.renderman.renderman_type == 'POINT':
+        ri.Scale(.01, .01, .01)
     ri.EditEnd()
 
 
