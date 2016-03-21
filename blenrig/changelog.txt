@@ -1,0 +1,2 @@
+BlenRig 5 V1.001
+_rig update to 1.001, fix IK torso bug
