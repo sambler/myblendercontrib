@@ -29,7 +29,7 @@
 # http://blender.stackexchange.com/q/49541/935
 
 bl_info = {
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (2, 75, 0),
     "author": "sambler",
     "name": "Change Keying Sets",
@@ -93,6 +93,11 @@ class KeyingsetsPanel(bpy.types.Panel):
         row = layout.row()
         row.operator('anim.set_keyingset', text='LocRotScale').type = 'LocRotScale'
 
+        # note that the bl_label of the keying set is used for the type
+        # for a list of available type values - paste this in blenders python console
+        # [k.bl_label for k in bpy.context.scene.keying_sets_all]
+        row = layout.row()
+        row.operator('anim.set_keyingset', text='WholeCharacter').type = 'Whole Character'
 
 # store keymaps here to access after registration
 addon_keymaps = []
