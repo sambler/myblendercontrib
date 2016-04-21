@@ -58,7 +58,7 @@ def main(self, context):
         bpy.ops.console.insert(text=text)
         bpy.ops.console.execute()
 
-class MeshSummaryPreferences(bpy.types.AddonPreferences):
+class RunScriptPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
     scripts_folder = bpy.props.StringProperty(name="Scripts Folder",
