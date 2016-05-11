@@ -5,6 +5,7 @@
                           menu_shadow_width="12"
                           icon_file=""
                           icon_alpha="1"
+                          widget_emboss="#ffffff00"
                           axis_x="#ff1a1a"
                           axis_y="#00dc00"
                           axis_z="#0080ff">
@@ -238,6 +239,7 @@
     </user_interface>
     <view_3d>
       <ThemeView3D grid="#746e68"
+                   clipping_border_3d="#313131ff"
                    wire="#000000"
                    wire_edit="#000000"
                    gp_vertex="#000000"
@@ -570,6 +572,8 @@
                         uv_shadow="#707070ff"
                         uv_others="#606060ff"
                         frame_current="#60c040"
+                        metadatabg="#000000"
+                        metadatatext="#ffffff"
                         handle_free="#000000"
                         handle_auto="#909000"
                         handle_align="#803060"
@@ -762,6 +766,7 @@
                        node_selected="#ffa600"
                        node_active="#ffa600"
                        wire="#ffffff"
+                       wire_inner="#737373"
                        wire_select="#ffffff"
                        selected_text="#7f7070"
                        node_backdrop="#333333b3"
