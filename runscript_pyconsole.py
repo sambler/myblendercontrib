@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Run Script in PyConsole",
     "author": "CoDEmanX, SAmbler",
-    "version": (1, 1),
+    "version": (1, 2),
     "blender": (2, 67, 0),
     "location": "Python Console > Console > Run Script",
     "description": "Execute the code of a textblock or file within the python console.",
@@ -50,9 +50,22 @@ def get_texts(context):
     return {'visible': [t.name for t in l],
             'invisible': [t.name for t in bpy.data.texts if t not in l]}
 
+def reload_script(txt, context):
+    for area in context.screen.areas:
+        if area.type == 'TEXT_EDITOR':
+            override = context.copy()
+            override['area'] = area
+            vis_text = area.spaces[0].text
+            area.spaces[0].text = txt
+            bpy.ops.text.reload(override)
+            area.spaces[0].text = vis_text
+            break
+
 def main(self, context):
     text = bpy.data.texts.get(self.text)
     if text is not None:
+        if text.is_modified:
+            reload_script(text, context)
         text = "exec(compile(" + repr(text) + ".as_string(), '" + text.name + "', 'exec'))"
         bpy.ops.console.clear_line()
         bpy.ops.console.insert(text=text)
