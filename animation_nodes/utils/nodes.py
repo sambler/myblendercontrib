@@ -17,6 +17,13 @@ def idToSocket(socketID):
 def idToNode(nodeID):
     return bpy.data.node_groups[nodeID[0]].nodes[nodeID[1]]
 
+def createNodeByIdDict():
+    nodeByID = dict()
+    for tree in getAnimationNodeTrees():
+        treeName = tree.name
+        for node in tree.nodes:
+            nodeByID[(treeName, node.name)] = node
+    return nodeByID
 
 def getSocket(treeName, nodeName, isOutput, identifier):
     node = bpy.data.node_groups[treeName].nodes[nodeName]
@@ -27,10 +34,22 @@ def getSocket(treeName, nodeName, isOutput, identifier):
 def getNode(treeName, nodeName):
     return bpy.data.node_groups[treeName].nodes[nodeName]
 
+def getLabelFromIdName(idName):
+    cls = getattr(bpy.types, idName, None)
+    return getattr(cls, "bl_label", "")
+
+def iterAnimationNodesSockets():
+    for node in iterAnimationNodes():
+        yield from node.inputs
+        yield from node.outputs
+
 def iterAnimationNodes():
     for nodeTree in getAnimationNodeTrees():
-        for node in nodeTree.nodes:
-            if node.isAnimationNode: yield node
+        yield from (node for node in nodeTree.nodes if node.isAnimationNode)
+
+def iterNodesInAnimationNodeTrees():
+    for nodeTree in getAnimationNodeTrees():
+        yield from nodeTree.nodes
 
 def getAnimationNodeTrees(skipLinkedTrees = True):
     nodeTrees = []

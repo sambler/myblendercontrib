@@ -1,7 +1,6 @@
 import re
 import bpy
 from bpy.props import *
-from ... sockets.info import toIdName
 from ... events import networkChanged
 from ... utils.layout import splitAlignment
 from ... base_types.node import AnimationNode
@@ -12,12 +11,12 @@ from . subprogram_sockets import SubprogramData, subprogramInterfaceChanged
 class GroupInputNode(bpy.types.Node, AnimationNode, SubprogramBaseNode):
     bl_idname = "an_GroupInputNode"
     bl_label = "Group Input"
+    bl_width_default = 180
 
     def create(self):
         self.randomizeNetworkColor()
         self.subprogramName = "My Group"
-        socket = self.outputs.new("an_NodeControlSocket", "New Parameter").margin = 0.15
-        self.width = 180
+        socket = self.newOutput("an_NodeControlSocket", "New Parameter").margin = 0.15
 
     def draw(self, layout):
         layout.separator()
@@ -34,7 +33,7 @@ class GroupInputNode(bpy.types.Node, AnimationNode, SubprogramBaseNode):
         col.label("Parameter Defaults:")
         box = col.box()
         for socket in list(self.outputs)[:-1]:
-            socket.drawSocket(box, socket.text, drawType = "TEXT_PROPERTY_OR_NONE")
+            socket.drawSocket(box, socket.text, node = self, drawType = "TEXT_PROPERTY_OR_NONE")
 
     def drawControlSocket(self, layout, socket):
         left, right = splitAlignment(layout)
@@ -50,7 +49,7 @@ class GroupInputNode(bpy.types.Node, AnimationNode, SubprogramBaseNode):
 
     def newParameter(self, dataType, name = None, defaultValue = None):
         if name is None: name = dataType
-        socket = self.outputs.new(toIdName(dataType), name, "parameter")
+        socket = self.newOutput(dataType, name, "parameter")
         if defaultValue is not None: socket.setProperty(defaultValue)
         socket.text = name
         socket.moveable = True
@@ -94,7 +93,7 @@ class GroupInputNode(bpy.types.Node, AnimationNode, SubprogramBaseNode):
 
     @property
     def outputNode(self):
-        return self.network.groupOutputNode
+        return self.network.getGroupOutputNode()
 
     def createGroupOutputNode(self):
         node = newNodeAtCursor("an_GroupOutputNode")

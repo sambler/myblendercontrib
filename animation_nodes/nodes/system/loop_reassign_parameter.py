@@ -1,25 +1,26 @@
 import bpy
 from bpy.props import *
 from ... base_types.node import AnimationNode
-from ... tree_info import getNodeByIdentifier, keepNodeLinks
+from ... tree_info import getNodeByIdentifier, keepNodeState
 
 class ReassignLoopParameterNode(bpy.types.Node, AnimationNode):
     bl_idname = "an_ReassignLoopParameterNode"
     bl_label = "Reassign Loop Parameter"
+    bl_width_default = 180
     onlySearchTags = True
 
     def identifierChanged(self, context):
         socket = self.linkedParameterSocket
         if socket:
-            self.parameterIdName = self.linkedParameterSocket.bl_idname
-            self.generateSocket()
+            self.parameterDataType = self.linkedParameterSocket.dataType
+            self.generateSockets()
 
     loopInputIdentifier = StringProperty(update = identifierChanged)
     parameterIdentifier = StringProperty(update = identifierChanged)
-    parameterIdName = StringProperty()
+    parameterDataType = StringProperty()
 
     def create(self):
-        self.width = 180
+        pass
 
     def draw(self, layout):
         socket = self.linkedParameterSocket
@@ -32,15 +33,15 @@ class ReassignLoopParameterNode(bpy.types.Node, AnimationNode):
         network = self.network
         if network.type != "Invalid": return
         if network.loopInAmount != 1: return
-        loopInput = network.loopInputNode
+        loopInput = network.getLoopInputNode()
         if self.loopInputIdentifier == loopInput.identifier: return
         self.loopInputIdentifier = loopInput.identifier
 
-    @keepNodeLinks
-    def generateSocket(self):
+    @keepNodeState
+    def generateSockets(self):
         self.inputs.clear()
-        socket = self.inputs.new(self.parameterIdName, "New Value", "newValue")
-        socket.defaultDrawType = "TEXT_ONLY"
+        self.newInput(self.parameterDataType, "New Value", "newValue", defaultDrawType = "TEXT_ONLY")
+        self.newInput("Boolean", "Condition", "condition", hide = True)
 
     @property
     def linkedParameterSocket(self):
@@ -52,4 +53,9 @@ class ReassignLoopParameterNode(bpy.types.Node, AnimationNode):
     @property
     def loopInputNode(self):
         try: return getNodeByIdentifier(self.loopInputIdentifier)
+        except: return None
+
+    @property
+    def conditionSocket(self):
+        try: return self.inputs["Condition"]
         except: return None

@@ -171,6 +171,7 @@ def make_node_cats():
         ['EvaluateLineNode',    'Vector Evaluate'],
         ['SvInterpolationNode', 'Vector Interpolation'],
         ['SvInterpolationNodeMK2', 'Vector Interpolation mk2'],
+        ['SvInterpolationNodeMK3', 'Vector Interpolation mk3'],
         ['SvVertSortNode',      'Vector Sort',          'SORTSIZE'],
         ['SvNoiseNode',         'Vector Noise', 'FORCE_TURBULENCE'],
         ['svAxisInputNode',     'Vector X | Y | Z',      'MANIPUL'],
@@ -252,6 +253,7 @@ def make_node_cats():
         ["SvScriptNodeMK2",       "Script 2"],
         ["SvMeshFilterNode",      "Mesh filter"],
         ["SvTriangulateNode",     "Triangulate mesh"],
+        ["SvHeavyTriangulateNode","Triangulate mesh (heavy)"],
         ["SvBricksNode",          "Bricks grid"],
         ["SvMatrixApplyJoinNode", "Apply matrix to mesh"],
         ["SvMatrixTubeNode",      "Matrix Tube"],
@@ -260,6 +262,7 @@ def make_node_cats():
     node_cats["Alpha Nodes"] = [
         ["SvCurveViewerNode",     "Curve Viewer",           'MOD_CURVE'],
         ["SvCurveViewerNodeAlt",  "Curve Viewer 2D",        'MOD_CURVE'],
+        ["SvPolylineViewerNode",  "Polyline Viewer",        'MOD_CURVE'],
         ['SvTypeViewerNode',      'Typography Viewer'],
         ["SvImageComponentsNode", "Image Decompose",       "GROUP_VCOL"],
         ["SvJoinTrianglesNode",   "Join Triangles"],

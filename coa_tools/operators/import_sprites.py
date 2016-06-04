@@ -17,17 +17,6 @@ Created by Andreas Esau
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
-bl_info = {
-    "name": "Cutout Animation Tools",
-    "description": "This Addon provides a Toolset for a 2D Animation Workflow.",
-    "author": "Andreas Esau",
-    "version": (0, 1, 0, "Alpha"),
-    "blender": (2, 75, 0),
-    "location": "View 3D > Tools > Cutout Animation Tools",
-    "warning": "This addon is still in development.",
-    "wiki_url": "",
-    "category": "Ndee Tools" }
     
 import bpy
 import bpy_extras
@@ -60,6 +49,7 @@ class ImportSprite(bpy.types.Operator):
     
     def create_mesh(self,context,name="Sprite",width=100,height=100,pos=Vector((0,0,0))):
         me = bpy.data.meshes.new(name)
+        me.show_double_sided = True
         obj = bpy.data.objects.new(name,me)
         context.scene.objects.link(obj)
         context.scene.objects.active = obj
@@ -77,8 +67,10 @@ class ImportSprite(bpy.types.Operator):
         bmesh.update_edit_mesh(me)
         bpy.ops.object.mode_set(mode="OBJECT")
         obj.data.uv_textures.new("UVMap")
+        set_uv_default_coords(context,obj)
+        
         obj.location = Vector((pos[0],pos[1],-pos[2]))*self.scale + Vector((self.offset[0],self.offset[1],self.offset[2]))*self.scale
-        obj["sprite"] = True
+        obj["coa_sprite"] = True
         if self.parent != "None":
             obj.parent = bpy.data.objects[self.parent]
         return obj
@@ -109,12 +101,18 @@ class ImportSprite(bpy.types.Operator):
         if os.path.exists(self.path):
             data = bpy.data
             sprite_name = os.path.basename(self.path)
-            if sprite_name not in data.images:
+            
+            sprite_found = False
+            for image in bpy.data.images:
+                if os.path.exists(bpy.path.abspath(image.filepath)) and os.path.exists(self.path):
+                    if os.path.samefile(bpy.path.abspath(image.filepath),self.path):
+                        sprite_found = True
+                        img = image
+                        img.reload()
+                        break
+            if not sprite_found:
                 img = data.images.load(self.path)
-            else:
-                img = data.images[sprite_name]
-                img.filepath = self.path
-                img.reload()
+                
             obj = self.create_mesh(context,name=img.name,width=img.size[0],height=img.size[1],pos=self.pos)
             mat = self.create_material(context,obj,name=img.name)
             tex = self.create_texture(context,mat,img,name=img.name)

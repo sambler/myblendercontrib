@@ -1,3 +1,24 @@
+# blender CAM ui.py (c) 2012 Vilem Novak
+#
+# ***** BEGIN GPL LICENSE BLOCK *****
+#
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ***** END GPL LICENCE BLOCK *****
+
 import bpy
 from bpy.types import UIList
 
@@ -79,6 +100,8 @@ class CAM_MACHINE_Panel(CAMButtonsPanel, bpy.types.Panel):
 		ao=s.cam_machine
 	
 		if ao:
+			use_experimental = bpy.context.user_preferences.addons['cam'].preferences.experimental
+			
 			#machine preset
 			row = layout.row(align=True)
 			row.menu("CAM_MACHINE_presets", text=bpy.types.CAM_MACHINE_presets.bl_label)
@@ -105,11 +128,21 @@ class CAM_MACHINE_Panel(CAMButtonsPanel, bpy.types.Panel):
 			layout.prop(ao,'spindle_max')
 			layout.prop(ao,'spindle_start_time')
 			layout.prop(ao,'spindle_default')
-			#layout.prop(ao,'axis4')
-			#layout.prop(ao,'axis5')
-			#layout.prop(ao,'collet_size')
-			#
-
+			
+			if use_experimental:
+				layout.prop(ao,'axis4')
+				layout.prop(ao,'axis5')
+				layout.prop(ao,'collet_size')
+				
+				layout.prop(ao, 'output_block_numbers')
+				if ao.output_block_numbers:
+					layout.prop(ao, 'start_block_number')
+					layout.prop(ao, 'block_number_increment')
+				layout.prop(ao, 'output_tool_definitions')
+				layout.prop(ao, 'output_tool_change')
+				if ao.output_tool_change:
+					layout.prop(ao, 'output_g43_on_tool_change')
+			
 class CAM_MATERIAL_Panel(CAMButtonsPanel, bpy.types.Panel):	 
 	"""CAM material panel"""
 	bl_label = "CAM Material size and position"
@@ -128,7 +161,7 @@ class CAM_MATERIAL_Panel(CAMButtonsPanel, bpy.types.Panel):
 			if ao:
 				#print(dir(layout))
 				layout.template_running_jobs()
-				if ao.geometry_source=='OBJECT' or ao.geometry_source=='GROUP':
+				if ao.geometry_source in ['OBJECT', 'GROUP']:
 					row = layout.row(align=True)
 					layout.prop(ao,'material_from_model')
 					
@@ -267,6 +300,7 @@ class CAM_OPERATIONS_Panel(CAMButtonsPanel, bpy.types.Panel):
 		#row = layout.row() 
 	   
 		if len(scene.cam_operations)>0:
+			use_experimental = bpy.context.user_preferences.addons['cam'].preferences.experimental
 			ao=scene.cam_operations[scene.cam_active_operation]
 
 			row = layout.row(align=True)
@@ -291,7 +325,7 @@ class CAM_OPERATIONS_Panel(CAMButtonsPanel, bpy.types.Panel):
 					row.label('computing')
 					row.operator('object.kill_calculate_cam_paths_background', text="", icon='CANCEL')
 					#layout.prop(ao,'computing')
-				
+					
 				sub = layout.column()
 				sub.active = not ao.computing
 				
@@ -313,10 +347,14 @@ class CAM_OPERATIONS_Panel(CAMButtonsPanel, bpy.types.Panel):
 					elif ao.geometry_source=='GROUP':
 						layout.prop_search(ao, "group_name", bpy.data, "groups")
 				
-				if ao.strategy=='CARVE' or ao.strategy=='PROJECTED_CURVE':
+				if ao.strategy in ['CARVE', 'PROJECTED_CURVE']:
 					layout.prop_search(ao, "curve_object", bpy.data, "objects")
 					if ao.strategy=='PROJECTED_CURVE':
 						layout.prop_search(ao, "curve_object1", bpy.data, "objects")
+
+				if use_experimental and ao.geometry_source in ['OBJECT', 'GROUP']:
+					layout.prop(ao, 'use_modifiers')
+
 
 									 
 class CAM_INFO_Panel(CAMButtonsPanel, bpy.types.Panel):
@@ -340,7 +378,9 @@ class CAM_INFO_Panel(CAMButtonsPanel, bpy.types.Panel):
 					layout.label(text=l, icon='COLOR_RED')
 			if ao.valid:
 				if ao.duration>0:
-					layout.label('operation time: '+str(int(ao.duration*100)/100.0)+' min')	   
+					layout.label('operation time: ' + str(int(ao.duration/60)) + \
+					 ' hour, ' + str(int(ao.duration)%60) + ' min, ' + \
+					 str(int(ao.duration*60)%60) + ' sec.')	   
 				layout.label(  'chipload: '+ strInUnits(ao.chipload,4) + ' / tooth')
 				
 		
@@ -382,7 +422,7 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 					layout.prop(ao,'rotary_axis_1')
 					layout.prop(ao,'rotary_axis_2')
 
-				if ao.strategy=='BLOCK' or ao.strategy=='SPIRAL' or ao.strategy=='CIRCLES' or ao.strategy=='OUTLINEFILL':
+				if ao.strategy in ['BLOCK', 'SPIRAL', 'CIRCLES', 'OUTLINEFILL']:
 					layout.prop(ao,'movement_insideout')
 					
 				#if ao.geometry_source=='OBJECT' or ao.geometry_source=='GROUP':
@@ -406,18 +446,6 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 							layout.prop(ao,'dist_between_paths')
 							layout.prop(ao,'movement_insideout')
 					layout.prop(ao,'dont_merge')
-					layout.prop(ao,'use_bridges')
-					if ao.use_bridges:
-						#layout.prop(ao,'bridges_placement')
-						layout.prop(ao,'bridges_width')
-						layout.prop(ao,'bridges_height')
-						
-						layout.prop_search(ao, "bridges_group_name", bpy.data, "groups")
-						#layout.prop(ao,'bridges_group_name')
-						#if ao.bridges_placement == 'AUTO':
-						#	layout.prop(ao,'bridges_per_curve')
-						#	layout.prop(ao,'bridges_max_distance')
-					layout.operator("scene.cam_bridges_add", text="Autogenerate bridges")
 				elif ao.strategy=='WATERLINE':
 					layout.prop(ao,'slice_detail')	
 					layout.prop(ao,'waterline_fill')  
@@ -454,6 +482,20 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 						layout.prop(ao,'parallel_angle')
 												
 					layout.prop(ao,'inverse')
+				if ao.strategy not in ['POCKET', 'DRILL', 'CURVE', 'MEDIAL_AXIS']:	
+					layout.prop(ao,'use_bridges')				
+					if ao.use_bridges:
+						#layout.prop(ao,'bridges_placement')
+						layout.prop(ao,'bridges_width')
+						layout.prop(ao,'bridges_height')
+						
+						layout.prop_search(ao, "bridges_group_name", bpy.data, "groups")
+						#layout.prop(ao,'bridges_group_name')
+						#if ao.bridges_placement == 'AUTO':
+						#	layout.prop(ao,'bridges_per_curve')
+						#	layout.prop(ao,'bridges_max_distance')
+					layout.operator("scene.cam_bridges_add", text="Autogenerate bridges")
+
 				#elif ao.strategy=='SLICES':
 				#	layout.prop(ao,'slice_detail')	
 			#first attempt to draw object list for orientations:
@@ -487,6 +529,8 @@ class CAM_MOVEMENT_Panel(CAMButtonsPanel, bpy.types.Panel):
 	def draw(self, context):
 		layout = self.layout
 		scene=bpy.context.scene
+		use_experimental = bpy.context.user_preferences.addons['cam'].preferences.experimental
+		
 		row = layout.row() 
 		if len(scene.cam_operations)==0:
 			layout.label('Add operation first')
@@ -495,7 +539,7 @@ class CAM_MOVEMENT_Panel(CAMButtonsPanel, bpy.types.Panel):
 			if ao.valid:
 				layout.prop(ao,'movement_type')
 				
-				if ao.movement_type=='BLOCK' or ao.movement_type=='SPIRAL' or ao.movement_type=='CIRCLES':
+				if ao.movement_type in ['BLOCK', 'SPIRAL', 'CIRCLES']:
 					layout.prop(ao,'movement_insideout')
 				   
 				layout.prop(ao,'spindle_rotation_direction')
@@ -503,7 +547,7 @@ class CAM_MOVEMENT_Panel(CAMButtonsPanel, bpy.types.Panel):
 				if ao.strategy=='PARALLEL' or ao.strategy=='CROSS':
 					if not ao.ramp:
 						layout.prop(ao,'parallel_step_back')
-				if ao.strategy=='CUTOUT':
+				if ao.strategy=='CUTOUT' or (use_experimental and (ao.strategy=='POCKET' or ao.strategy=='MEDIAL_AXIS')):
 					layout.prop(ao,'first_down')
 					#if ao.first_down:
 					
@@ -579,21 +623,21 @@ class CAM_OPTIMISATION_Panel(CAMButtonsPanel, bpy.types.Panel):
 				if ao.optimize:
 					layout.prop(ao,'optimize_threshold')
 				if ao.geometry_source=='OBJECT' or ao.geometry_source=='GROUP':
-					exclude_exact= ao.strategy=='WATERLINE' or ao.strategy=='POCKET' or ao.strategy=='CUTOUT' or ao.strategy=='DRILL' or ao.strategy=='PENCIL'
+					exclude_exact = ao.strategy in ['WATERLINE', 'POCKET', 'CUTOUT', 'DRILL', 'PENCIL']
 					if not exclude_exact:
 						layout.prop(ao,'use_exact')
 						if ao.use_exact:
 							layout.prop(ao,'exact_subdivide_edges')
-					#if not ao.use_exact or:
-					layout.prop(ao,'pixsize')
-					layout.prop(ao,'imgres_limit')
-					
-					sx=ao.max.x-ao.min.x
-					sy=ao.max.y-ao.min.y
-					resx=int(sx/ao.pixsize)
-					resy=int(sy/ao.pixsize)
-					l='resolution:'+str(resx)+'x'+str(resy)
-					layout.label( l)
+					if exclude_exact or not ao.use_exact:
+						layout.prop(ao,'pixsize')
+						layout.prop(ao,'imgres_limit')
+						
+						sx=ao.max.x-ao.min.x
+						sy=ao.max.y-ao.min.y
+						resx=int(sx/ao.pixsize)
+						resy=int(sy/ao.pixsize)
+						l='resolution: '+str(resx)+' x '+str(resy)
+						layout.label( l)
 					
 				layout.prop(ao,'simulation_detail')
 				layout.prop(ao,'circle_detail')
@@ -628,7 +672,7 @@ class CAM_AREA_Panel(CAMButtonsPanel, bpy.types.Panel):
 					layout.prop(ao,'ambient_radius')
 				
 				layout.prop(ao,'maxz')#experimental
-				if ao.geometry_source=='OBJECT' or ao.geometry_source=='GROUP':
+				if ao.geometry_source in ['OBJECT', 'GROUP']:
 					layout.prop(ao,'minz_from_ob')
 					if not ao.minz_from_ob:
 						layout.prop(ao,'minz')
@@ -657,6 +701,35 @@ class CAM_AREA_Panel(CAMButtonsPanel, bpy.types.Panel):
 				if ao.use_limit_curve:
 					layout.prop_search(ao, "limit_curve", bpy.data, "objects")
 				layout.prop(ao,"ambient_cutter_restrict")
+
+class CAM_GCODE_Panel(CAMButtonsPanel, bpy.types.Panel):
+	"""CAM operation g-code options panel"""
+	bl_label = "CAM g-code options "
+	bl_idname = "WORLD_PT_CAM_GCODE"
+	
+	COMPAT_ENGINES = {'BLENDERCAM_RENDER'}
+	
+
+	def draw(self, context):
+		layout = self.layout
+		scene=bpy.context.scene
+		row = layout.row() 
+		if len(scene.cam_operations)==0:
+			layout.label('Add operation first')
+		if len(scene.cam_operations)>0:
+			use_experimental = bpy.context.user_preferences.addons['cam'].preferences.experimental
+			if use_experimental:
+				ao=scene.cam_operations[scene.cam_active_operation]
+				if ao.valid:
+					layout.prop(ao, 'output_header')
+					if ao.output_header:
+						layout.prop(ao, 'gcode_header')
+					layout.prop(ao, 'output_trailer')
+					if ao.output_trailer:
+						layout.prop(ao, 'gcode_trailer')
+			else:
+				layout.label('Enable Show experimental features')
+				layout.label('in Blender CAM Addon preferences')
 				
 class CAM_PACK_Panel(CAMButtonsPanel, bpy.types.Panel):	 
 	"""CAM material panel"""
@@ -712,5 +785,7 @@ class VIEW3D_PT_tools_curvetools(bpy.types.Panel):
 		layout.operator("object.curve_boolean")
 		layout.operator("object.curve_intarsion")
 		layout.operator("object.curve_overcuts")
+		layout.operator("object.silhouete")
 		layout.operator("object.silhouete_offset")
 		layout.operator("object.curve_remove_doubles")
+		layout.operator("object.mesh_get_pockets")

@@ -1,3 +1,17 @@
+v0.8.0 03/22/2016
+* Lots of bug fixes!
+* Fix an issue with artifacts in denoise
+* Added controls for aperture shape to camera
+* Open last rib button for debugging
+* UDIM textures fix
+* Adding and Deleting lights in IPR should work now
+* Material color is set in Blender for viewport help
+* Support a "World" light that can be either daylight or an env map
+* Shader Parameters get soft min and maxes (can set values manually)
+* Point lights correct when moving in IPR
+* Copy and Pasting nodes should work
+* !!! Longstanding IPR bug, the initial rendering with IPR no longer locks up Blender.
+
 v0.7.0 11/06/2015
 * Light shapes for area lights area now a selector control not on the shader.  The shader setting will happen automagically.  Also the shape for distant/point/spot lights should be correct now. 
 

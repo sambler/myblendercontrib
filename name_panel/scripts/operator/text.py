@@ -30,7 +30,7 @@ class generate(Operator):
   bl_idname = 'wm.regular_expression_cheatsheet'
   bl_label = 'Generate Cheatsheet'
   bl_description = 'Generate a text reference for regular expressions.'
-  bl_options = {'REGISTER', 'UNDO'}
+  bl_options = {'UNDO'}
 
   # execute
   def execute(self, context):

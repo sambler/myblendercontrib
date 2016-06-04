@@ -1,7 +1,7 @@
 import bpy
 from .. import problems
 from .. preferences import getPreferences
-from .. utils.blender_ui import iterAreas
+from .. utils.blender_ui import redrawAll
 from .. utils.nodes import getAnimationNodeTrees
 
 def iterAutoExecutionNodeTrees(events):
@@ -17,13 +17,9 @@ def executeNodeTrees(nodeTrees):
 def afterExecution():
     prefs = getPreferences()
     if prefs.sceneUpdateAfterAutoExecution:
-        for scene in set(tree.scene for tree in getAnimationNodeTrees()):
+        for scene in bpy.data.scenes:
             scene.update()
 
     from .. events import isRendering
     if prefs.redrawAllAfterAutoExecution and not isRendering():
         redrawAll()
-
-def redrawAll():
-    for area in iterAreas():
-        area.tag_redraw()

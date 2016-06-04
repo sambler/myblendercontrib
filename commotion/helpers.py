@@ -1,25 +1,12 @@
 import bpy
 
 
-def show_error_message(message, wrap=80):
-	lines = []
-	if wrap > 0:
-		while len(message) > wrap:
-			i = message.rfind(' ',0,wrap)
-			if i == -1:
-				lines.append(message[:wrap])
-				message = message[wrap:]
-			else:
-				lines.append(message[:i])
-				message = message[i+1:]
-	if message:
-		lines.append(message)
+def show_error_message(message):
+
 	def draw(self, context):
-		for line in lines:
-			self.layout.label(line)
-	bpy.context.window_manager.popup_menu(draw, title="Error Message", icon="ERROR")
+		self.layout.label(message)
 
-
+	bpy.context.window_manager.popup_menu(draw, title='Error', icon='ERROR')
 
 
 
@@ -27,38 +14,36 @@ def show_error_message(message, wrap=80):
 
 
 def shape_list_refresh(context):
-	sce = context.scene
-	skp = sce.commotion_skp
+	scene = context.scene
+	skcoll = scene.commotion_skcoll
 
-	if hasattr(sce, 'commotion_skp'):
-		for sps in skp:
-			skp.remove(0)
+	if hasattr(scene, 'commotion_skcoll'):
+		for sk in skcoll:
+			skcoll.remove(0)
 
 	i = 0
 	for kb in context.active_object.data.shape_keys.key_blocks:
-		skp.add()
-		skp[i].name = kb.name
-		skp[i].index = i
+		skcoll.add()
+		skcoll[i].name = kb.name
+		skcoll[i].index = i
 		i += 1
 
 
 def update_sp(self, context):
-	sce = context.scene
-	skp = sce.commotion_skp
-	props = sce.commotion
+	scene = context.scene
+	skcoll = scene.commotion_skcoll
+	props = scene.commotion
 	key = context.active_object.data.shape_keys
 
 	if key.use_relative:
-		for sps in skp:
-			if sps.selected:
-				key.key_blocks[sps.index].value = props.shape_value
+		for sk in skcoll:
+			if sk.selected:
+				key.key_blocks[sk.index].value = props.shape_value
 	else:
 		for ob in context.selected_objects:
-			for sps in skp:
-				if sps.selected:
-					ob.data.shape_keys.key_blocks[sps.index].interpolation = props.shape_interpolation
-
-
+			for sk in skcoll:
+				if sk.selected:
+					ob.data.shape_keys.key_blocks[sk.index].interpolation = props.shape_interpolation
 
 
 
@@ -72,9 +57,9 @@ def auto_keyframes(context):
 		key = ob.data.shape_keys
 
 		key.eval_time = int(key.key_blocks[1].frame)
-		key.keyframe_insert(data_path="eval_time", frame=frame)
+		key.keyframe_insert(data_path='eval_time', frame=frame)
 		key.eval_time = int(key.key_blocks[-1].frame)
-		key.keyframe_insert(data_path="eval_time", frame=frame+20)
+		key.keyframe_insert(data_path='eval_time', frame=frame + 20)
 
 
 def keyframes_offset(fcus, i, context):
@@ -224,8 +209,6 @@ def offset_multitarget(objects, targets, offset, threshold, mode, context):
 
 
 
-
-
 def create_nla_tracks(anim):
 	frst_frame = anim.action.frame_range[0]
 
@@ -254,9 +237,6 @@ def create_strips(mode, context):
 			else:
 				return show_error_message('Selected objects have no Animation')
 			create_nla_tracks(anim)
-
-
-
 
 
 
@@ -312,10 +292,6 @@ def link_to_active(mode, context):
 
 
 
-
-
-
-
 def copy_to_selected(mode, context):
 	obj = context.active_object
 	obs = context.selected_objects
@@ -346,8 +322,6 @@ def copy_to_selected(mode, context):
 
 
 
-
-
 def remove_nla_track(anim):
 	trks = anim.nla_tracks
 	anim.action = trks[0].strips[0].action
@@ -371,9 +345,6 @@ def strips_to_fcurves(mode, context):
 
 
 
-
-
-
 def sync_len(mode, context):
 	obs = context.selected_objects
 
@@ -385,10 +356,6 @@ def sync_len(mode, context):
 		for ob in obs:
 			strip = ob.animation_data.nla_tracks[0].strips[0]
 			strip.action_frame_end = (strip.action_frame_start + strip.action.frame_range[1] - 1)
-
-
-
-
 
 
 
@@ -490,7 +457,7 @@ def expression_func_set(context):
 	expr = props.sk_drivers_expression_func
 
 	for ob in context.selected_objects:
-		func_expr = "dist_trigger(" + expr + ", '" + ob.name + "')"
+		func_expr = "dist_trigger(%s, '%s')" % (expr, ob.name)
 		fcus = ob.data.shape_keys.animation_data.drivers
 		for fcu in fcus:
 			if fcu.data_path == 'eval_time':

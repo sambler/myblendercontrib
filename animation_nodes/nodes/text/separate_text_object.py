@@ -2,8 +2,8 @@ import bpy
 import random
 from bpy.props import *
 from mathutils import Vector, Matrix
+from ... id_keys import setIDKeyData
 from ... base_types.node import AnimationNode
-from ... id_keys import setIDKeyData, createIDKey
 from ... utils.blender_ui import executeInAreaType
 from ... nodes.container_provider import getMainObjectContainer
 
@@ -24,6 +24,7 @@ originTypeItems = [
 class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
     bl_idname = "an_SeparateTextObjectNode"
     bl_label = "Separate Text Object"
+    bl_width_default = 200
 
     sourceObjectName = StringProperty(name = "Source Object")
     currentID = IntProperty(default = 0)
@@ -34,8 +35,7 @@ class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
     originType = EnumProperty(name = "Origin Type", items = originTypeItems, default = "DEFAULT")
 
     def create(self):
-        self.outputs.new("an_ObjectListSocket", "Text Objects", "textObjects")
-        self.width = 200
+        self.newOutput("Object List", "Text Objects", "textObjects")
 
     def draw(self, layout):
         row = layout.row(align = True)
@@ -47,7 +47,7 @@ class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
         if source is not None:
             row.prop(source, "hide", text = "")
 
-        layout.prop_search(self, "materialName", bpy.data, "materials", text="Material", icon="MATERIAL_DATA")
+        layout.prop_search(self, "materialName", bpy.data, "materials", text = "Material", icon = "MATERIAL_DATA")
         layout.prop(self, "originType", text = "Origin")
         layout.prop(self, "outputType", expand = True)
 
@@ -66,7 +66,9 @@ class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
         textObjects = [None] * self.objectCount
         for object in bpy.context.scene.objects:
             if self.isObjectPartOfThisNode(object):
-                textObjects[getattr(object, '["'+indexPropertyName+'"]', 0)] = object
+                index = getattr(object, '["{}"]'.format(indexPropertyName), -1)
+                if 0 <= index < self.objectCount:
+                    textObjects[index] = object
         return textObjects
 
     def updateSeparation(self):
@@ -77,9 +79,6 @@ class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
         if source is None: return
         if source.data is None: return
         source.hide = False
-
-        createIDKey("Initial Transforms", "Transforms")
-        createIDKey("Initial Text", "String")
 
         objects = splitTextObject(source)
         originalTexts = [object.data.body for object in objects]
@@ -97,8 +96,10 @@ class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
         for i, (object, originalCharacter) in enumerate(zip(objects, originalTexts)):
             object[idPropertyName] = self.currentID
             object[indexPropertyName] = i
-            setIDKeyData(object, "Initial Transforms", "Transforms", (object.location, object.rotation_euler, object.scale))
-            setIDKeyData(object, "Initial Text", "String", originalCharacter)
+            object.id_keys.set("String", "Initial Text", originalCharacter)
+            object.id_keys.set("Transforms", "Initial Transforms",
+                (object.location, object.rotation_euler, object.scale))
+        bpy.ops.an.update_id_keys_list()
         self.objectCount = len(objects)
 
         material = bpy.data.materials.get(self.materialName)
@@ -106,6 +107,7 @@ class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
             setMaterialOnObjects(objects, material)
 
         source.hide = True
+        source.hide_render = True
 
     def removeExistingObjects(self):
         objects = []
@@ -116,6 +118,7 @@ class SeparateTextObjectNode(bpy.types.Node, AnimationNode):
             removeObject(object)
 
     def createNewNodeID(self):
+        random.seed()
         self.currentID = round(random.random() * 100000)
 
     def isObjectPartOfThisNode(self, object):

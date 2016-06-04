@@ -16,14 +16,14 @@ def register():
     kmi.properties.name = "an.context_pie"
 
     # Move view to subprogram nodes
-    kmi = km.keymap_items.new("an.move_view_to_subprogram", type = "TAB", value = "PRESS")
+    kmi = km.keymap_items.new("an.network_navigation", type = "TAB", value = "PRESS")
 
     # Selection Pie Menu
     kmi = km.keymap_items.new("wm.call_menu_pie", type = "E", value = "PRESS")
     kmi.properties.name = "an.selection_pie"
 
     # Floating Advanced Panel
-    kmi = km.keymap_items.new("an.floation_advanced_panel", type = "U", value = "PRESS")
+    kmi = km.keymap_items.new("an.floating_advanced_node_settings_panel", type = "U", value = "PRESS")
 
     addon_keymaps.append(km)
 

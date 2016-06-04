@@ -1,11 +1,11 @@
 from . import problems
 from . import tree_info
-from . ui import node_colors
-from . utils.nodes import iterAnimationNodes, getAnimationNodeTrees
+from . utils.timing import measureTime
+from . ui.node_colors import colorNetworks
+from . nodes.system import subprogram_sockets
 from . execution.units import createExecutionUnits
 from . node_link_conversion import correctForbiddenNodeLinks
-from . nodes.system import subprogram_sockets
-from . utils.timing import measureTime
+from . utils.nodes import iterAnimationNodes, getAnimationNodeTrees, createNodeByIdDict
 
 @measureTime
 def updateEverything():
@@ -16,34 +16,30 @@ def updateEverything():
     tree_info.update()
     problems.reset()
     enableUseFakeUser()
-    fixHiddenLinks() # is fixed in the next blender release 2.76
     callNodeEditFunctions()
     correctForbiddenNodeLinks()
+
+    # from now on no nodes will be created or removed
+    nodeByID = createNodeByIdDict()
+
     subprogram_sockets.updateIfNecessary()
     checkIfNodeTreeIsLinked()
-    checkNetworks()
+    checkUndefinedNodes(nodeByID)
+    nodesByNetwork = checkNetworks(nodeByID)
     checkIdentifiers()
 
     if problems.canCreateExecutionUnits():
-        createExecutionUnits()
+        createExecutionUnits(nodeByID)
+
+    colorNetworks(nodesByNetwork, nodeByID)
+
+    nodeByID.clear()
 
 
 def enableUseFakeUser():
-    '''
-    Make sure the node trees will not be removed when closing the file.
-    '''
+    # Make sure the node trees will not be removed when closing the file.
     for tree in getAnimationNodeTrees():
         tree.use_fake_user = True
-
-def fixHiddenLinks():
-    for tree in getAnimationNodeTrees():
-        linksToReplace = [link for link in tree.links if link.from_socket.hide or link.to_socket.hide]
-        for link in linksToReplace:
-            fromSocket, toSocket = link.from_socket, link.to_socket
-            tree.links.remove(link)
-            fromSocket.hide = toSocket.hide = False
-            tree.links.new(toSocket, fromSocket)
-    tree_info.updateIfNecessary()
 
 def callNodeEditFunctions():
     tree_info.updateIfNecessary()
@@ -51,19 +47,22 @@ def callNodeEditFunctions():
         node.edit()
         tree_info.updateIfNecessary()
 
-def checkNetworks():
+def checkNetworks(nodeByID):
     invalidNetworkExists = False
+    nodesByNetworkDict = {}
 
     for network in tree_info.getNetworks():
         if network.type == "Invalid":
             invalidNetworkExists = True
-        nodes = network.getAnimationNodes()
+        nodes = network.getAnimationNodes(nodeByID)
         markInvalidNodes(network, nodes)
-        node_colors.colorNetwork(network, nodes)
         checkNodeOptions(network, nodes)
+        nodesByNetworkDict[network] = nodes
 
     if invalidNetworkExists:
         problems.InvalidNetworksExist().report()
+
+    return nodesByNetworkDict
 
 def markInvalidNodes(network, nodes):
     isInvalid = network.type == "Invalid"
@@ -90,3 +89,8 @@ def checkIfNodeTreeIsLinked():
         if tree.library is not None:
             problems.LinkedAnimationNodeTreeExists().report()
             break
+
+def checkUndefinedNodes(nodeByID):
+    undefinedNodes = tree_info.getUndefinedNodes(nodeByID)
+    if len(undefinedNodes) > 0:
+        problems.UndefinedNodeExists(undefinedNodes).report()

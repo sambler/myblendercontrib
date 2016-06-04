@@ -3,6 +3,7 @@ from bpy.props import *
 from ... sockets.info import toDataType
 from ... events import executionCodeChanged
 from ... base_types.node import AnimationNode
+from ... utils.blender_ui import getDpiFactor
 from ... utils.enum_items import enumItemsFromDicts
 from ... utils.nodes import newNodeAtCursor, invokeTranslation
 from ... tree_info import getSubprogramNetworks, getNodeByIdentifier, getNetworkByIdentifier
@@ -20,6 +21,7 @@ inputBasedCache = {}
 class InvokeSubprogramNode(bpy.types.Node, AnimationNode):
     bl_idname = "an_InvokeSubprogramNode"
     bl_label = "Invoke Subprogram"
+    bl_width_default = 170
 
     def subprogramIdentifierChanged(self, context):
         self.updateSockets()
@@ -30,13 +32,17 @@ class InvokeSubprogramNode(bpy.types.Node, AnimationNode):
     def cacheTypeChanged(self, context):
         self.clearCache()
         executionCodeChanged()
+        self.showCacheOptions = True
 
     cacheType = EnumProperty(name = "Cache Type", items = cacheTypeItems, update = cacheTypeChanged)
     isOutputStorable = BoolProperty(default = False)
-    isInputHashable = BoolProperty(default = False)
+    isInputComparable = BoolProperty(default = False)
+
+    showCacheOptions = BoolProperty(name = "Show Cache Options", default = False,
+    description = "Draw cache options in the node for easier access")
 
     def create(self):
-        self.width = 170
+        pass
 
     @property
     def inputVariables(self):
@@ -109,17 +115,24 @@ class InvokeSubprogramNode(bpy.types.Node, AnimationNode):
         props = row.operator("an.empty_subprogram_template", icon = "NEW", text = "New Subprogram" if len(networks) == 0 else "")
         props.targetNodeIdentifier = self.identifier
 
+        if self.showCacheOptions:
+            self.drawCacheOptions(layout)
+
         layout.separator()
 
     def drawAdvanced(self, layout):
+        self.drawCacheOptions(layout)
+        layout.prop(self, "showCacheOptions")
+
+    def drawCacheOptions(self, layout):
         col = layout.column()
         col.active = self.isOutputStorable
         col.prop(self, "cacheType")
         if not self.canCache:
             col = layout.column(align = True)
-            layout.label("This caching method is not available:")
-            if not self.isOutputStorable: layout.label("  - The output is not storable")
-            if not self.isInputHashable: layout.label("  - The input is not hashable")
+            col.label("This caching method is not available:")
+            if not self.isOutputStorable: col.label("  - The output is not storable")
+            if not self.isInputComparable: col.label("  - The input is not comparable")
         self.invokeFunction(layout, "clearCache", text = "Clear Cache")
 
 
@@ -133,9 +146,8 @@ class InvokeSubprogramNode(bpy.types.Node, AnimationNode):
         self.clearCache()
 
     def checkCachingPossibilities(self):
-        self.isInputHashable = all(socket.hashable for socket in self.inputs)
+        self.isInputComparable = all(socket.comparable for socket in self.inputs)
         self.isOutputStorable = all(socket.storable for socket in self.outputs)
-
 
     def clearCache(self):
         oneTimeCache.pop(self.identifier, None)
@@ -156,11 +168,10 @@ class InvokeSubprogramNode(bpy.types.Node, AnimationNode):
     def canCache(self):
         if self.cacheType == "DISABLED": return True
         if self.cacheType in ("ONE_TIME", "FRAME_BASED") and self.isOutputStorable: return True
-        if self.cacheType == "INPUT_BASED" and self.isInputHashable and self.isOutputStorable: return True
+        if self.cacheType == "INPUT_BASED" and self.isInputComparable and self.isOutputStorable: return True
         return False
 
 
-@enumItemsFromDicts
 def getSubprogramItems(self, context):
     itemDict = []
     for network in getSubprogramNetworks():
@@ -168,7 +179,7 @@ def getSubprogramItems(self, context):
             "value" : network.identifier,
             "name" : network.name,
             "description" : network.description})
-    return itemDict
+    return enumItemsFromDicts(itemDict)
 
 class ChangeSubprogram(bpy.types.Operator):
     bl_idname = "an.change_subprogram"
@@ -188,7 +199,7 @@ class ChangeSubprogram(bpy.types.Operator):
             node = getNodeByIdentifier(self.nodeIdentifier)
             self.subprogram = node.subprogramIdentifier
         except: pass # when the old subprogram identifier doesn't exist
-        return context.window_manager.invoke_props_dialog(self, width = 400)
+        return context.window_manager.invoke_props_dialog(self, width = 400 * getDpiFactor())
 
     def check(self, context):
         return True
@@ -202,11 +213,11 @@ class ChangeSubprogram(bpy.types.Operator):
             layout.label("Desription: " + network.description)
             layout.separator()
             if network.type == "Group":
-                socketData = network.groupInputNode.getSocketData()
+                socketData = network.getGroupInputNode().getSocketData()
             if network.type == "Loop":
-                socketData = network.loopInputNode.getSocketData()
+                socketData = network.getLoopInputNode().getSocketData()
             if network.type == "Script":
-                socketData = network.scriptNode.getSocketData()
+                socketData = network.getScriptNode().getSocketData()
 
             col = layout.column()
             col.label("Inputs:")

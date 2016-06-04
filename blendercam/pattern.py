@@ -1,3 +1,24 @@
+# blender CAM pattern.py (c) 2012 Vilem Novak
+#
+# ***** BEGIN GPL LICENSE BLOCK *****
+#
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ***** END GPL LICENCE BLOCK *****
+
 import time
 import mathutils
 from mathutils import *
@@ -36,7 +57,8 @@ def getPathPatternParallel(o,angle):
 	#ar=numpy.array((1.1,1.1))
 	#ar.resize()
 	#defaultar=numpy.arange(int(-dim/pathd), int(dim/pathd)).tolist()
-	if bpy.app.debug_value==0:
+	if bpy.app.debug_value==0:# by default off
+		#this is the original pattern method, slower, but well tested:
 		dirvect=Vector((0,1,0))
 		dirvect.rotate(e)
 		dirvect.normalize()
@@ -332,7 +354,7 @@ def getPathPattern(operation):
 		pathchunks=[]
 		chunks=[]
 		for p in polys:
-			p=p.buffer(-o.dist_between_paths/3,o.circle_detail)#first, move a bit inside, because otherwise the border samples go crazy very often changin between hit/non hit and making too many jumps in the path.
+			p=p.buffer(-o.dist_between_paths/10,o.circle_detail)#first, move a bit inside, because otherwise the border samples go crazy very often changin between hit/non hit and making too many jumps in the path.
 			chunks.extend(shapelyToChunks(p,0))
 		
 		pathchunks.extend(chunks)
@@ -352,12 +374,17 @@ def getPathPattern(operation):
 				p=p.buffer(-o.dist_between_paths,o.circle_detail)
 				if not p.is_empty:
 					nchunks=shapelyToChunks(p,zlevel)
-					#parentChildPoly(lastchunks,nchunks,o)
+					
+					if o.movement_insideout=='INSIDEOUT':
+						parentChildDist(lastchunks,nchunks,o)
+					else:
+						parentChildDist(nchunks,lastchunks,o)
 					pathchunks.extend(nchunks)
 					lastchunks=nchunks
 				percent=int(i/approxn*100)
 				progress('outlining polygons ',percent) 
 				i+=1
+		pathchunks.reverse()
 		if not(o.inverse):#dont do ambient for inverse milling
 			lastchunks=firstchunks
 			for p in polys:
@@ -372,20 +399,25 @@ def getPathPattern(operation):
 							dist+=o.pixsize*2.5
 					p=p.buffer(dist,o.circle_detail)
 					if not p.is_empty:
-						chunks=shapelyToChunks(p,zlevel)
-						pathchunks.extend(chunks)
-					lastchunks=chunks
+						nchunks=shapelyToChunks(p,zlevel)
+						if o.movement_insideout=='INSIDEOUT':
+							parentChildDist(nchunks,lastchunks,o)
+						else:
+							parentChildDist(lastchunks,nchunks,o)
+						pathchunks.extend(nchunks)
+						lastchunks=nchunks
 		
-		if o.movement_insideout=='INSIDEOUT':
+		if o.movement_insideout == 'OUTSIDEIN':
 			pathchunks.reverse()
+		
 		for chunk in pathchunks:
-			if o.movement_insideout=='INSIDEOUT':
+			if o.movement_insideout=='OUTSIDEIN':
 				chunk.points.reverse()
 			if (o.movement_type=='CLIMB' and o.spindle_rotation_direction=='CW') or (o.movement_type=='CONVENTIONAL' and o.spindle_rotation_direction=='CCW'):
 				chunk.points.reverse()
 		
-		parentChildPoly(pathchunks,pathchunks,o)	
-		pathchunks=chunksRefine(pathchunks,o)
+		#parentChildPoly(pathchunks,pathchunks,o)	
+		chunksRefine(pathchunks,o)
 	progress(time.time()-t)
 	return pathchunks
 	
@@ -555,4 +587,3 @@ def getPathPattern4axis(operation):
 	#sprint(len(pathchunks))
 	#print(o.strategy4axis)
 	return pathchunks 
-	

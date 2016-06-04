@@ -1,11 +1,12 @@
 import bpy
 from bpy.props import *
 from ... base_types.node import AnimationNode
-from ... sockets.info import getBaseDataTypeItems, toListIdName, getListDataTypes, toBaseDataType
+from ... sockets.info import getListDataTypes, toBaseDataType, toListDataType
 
 class CombineListsNode(bpy.types.Node, AnimationNode):
     bl_idname = "an_CombineListsNode"
     bl_label = "Combine Lists"
+    dynamicLabelType = "ALWAYS"
     onlySearchTags = True
 
     @classmethod
@@ -14,12 +15,9 @@ class CombineListsNode(bpy.types.Node, AnimationNode):
                 for dataType in getListDataTypes()]
 
     def assignedTypeChanged(self, context):
-        self.listIdName = toListIdName(self.assignedType)
         self.recreateSockets()
 
     assignedType = StringProperty(update = assignedTypeChanged)
-
-    listIdName = StringProperty()
 
     def create(self):
         self.assignedType = "Float"
@@ -34,17 +32,17 @@ class CombineListsNode(bpy.types.Node, AnimationNode):
         self.invokeSocketTypeChooser(layout, "assignListDataType",
             socketGroup = "LIST", text = "Change Type", icon = "TRIA_RIGHT")
 
+    def drawLabel(self):
+        return "Combine " + toListDataType(self.assignedType)
+
     @property
     def inputVariables(self):
         return { socket.identifier : "list_" + str(i) for i, socket in enumerate(self.inputs) }
 
     def getExecutionCode(self):
-        lines = []
-        lines.append("outList = []")
-        for i, socket in enumerate(self.inputs):
-            if socket.name == "...": continue
-            lines.append("outList.extend({})".format("list_" + str(i)))
-        return lines
+        yield "outList = []"
+        for i, socket in enumerate(self.inputs[:-1]):
+            yield "outList.extend(list_{})".format(i)
 
     def edit(self):
         emptySocket = self.inputs["..."]
@@ -61,19 +59,23 @@ class CombineListsNode(bpy.types.Node, AnimationNode):
         self.inputs.clear()
         self.outputs.clear()
 
-        self.inputs.new("an_NodeControlSocket", "...")
+        self.newInput("Node Control", "...")
         for _ in range(inputAmount):
             self.newInputSocket()
-        self.outputs.new(self.listIdName, "List", "outList")
+        self.newOutput(toListDataType(self.assignedType), "List", "outList")
 
     def newInputSocket(self):
-        socket = self.inputs.new(self.listIdName, "List")
+        socket = self.newInput(toListDataType(self.assignedType), "List")
+        socket.defaultDrawType = "PREFER_PROPERTY"
+        socket.textProps.editable = True
         socket.dataIsModified = True
         socket.display.text = True
-        socket.text = "List"
         socket.removeable = True
         socket.moveable = True
-        socket.textProps.editable = True
-        socket.defaultDrawType = "PREFER_PROPERTY"
+        socket.text = "List"
         socket.moveUp()
+
+        if len(self.inputs) > 2:
+            socket.copyDisplaySettingsFrom(self.inputs[0])
+
         return socket

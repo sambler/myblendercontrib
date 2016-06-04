@@ -58,9 +58,11 @@ class ExampleAddonPreferences(bpy.types.AddonPreferences):
     show_donate_icon = bpy.props.BoolProperty(name="Show Donate Icon",default=True)
     sprite_import_export_scale = bpy.props.FloatProperty(name="Sprite import/export scale",default=0.01)
     sprite_thumb_size = bpy.props.IntProperty(name="Sprite thumbnail size",default=48)
+    json_export = bpy.props.BoolProperty(name="Experimental Json export",default=False)
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "show_donate_icon")
+        layout.prop(self,"json_export")
         layout.prop(self,"sprite_import_export_scale")
         layout.prop(self,"sprite_thumb_size")
 
@@ -70,7 +72,8 @@ def register_keymaps():
     addon = bpy.context.window_manager.keyconfigs.addon
     km = addon.keymaps.new(name = "3D View", space_type = "VIEW_3D")
     # insert keymap items here
-    kmi = km.keymap_items.new("my_operator.select_frame_thumb", type = "F", value = "PRESS")
+    kmi = km.keymap_items.new("wm.call_menu_pie", type = "F", value = "PRESS")
+    kmi.properties.name = "view3d.coa_pie_menu"
     addon_keymaps.append(km)
 
 def unregister_keymaps():
@@ -103,7 +106,9 @@ def register():
     print("Registered {} with {} modules".format(bl_info["name"], len(modules)))
     
     bpy.types.Object.coa_anim_collections = bpy.props.CollectionProperty(type=AnimationCollections)
+    bpy.types.Object.coa_uv_default_state = bpy.props.CollectionProperty(type=UVData)
     bpy.types.Scene.coa_ticker = bpy.props.IntProperty()
+    bpy.types.WindowManager.coa_update_uv = bpy.props.BoolProperty(default=False)
     kc = bpy.context.window_manager.keyconfigs.addon
     if kc:
         km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
@@ -111,8 +116,9 @@ def register():
         kmi.active = False
         
     bpy.app.handlers.frame_change_post.append(update_sprites)    
-    bpy.app.handlers.scene_update_pre.append(update_thumbs)
+    bpy.app.handlers.scene_update_pre.append(scene_update)
     bpy.app.handlers.load_post.append(coa_startup)
+
     register_keymaps()
     
 def unregister():
@@ -127,35 +133,82 @@ def unregister():
     bpy.context.window_manager.coa_running_modal = False
     
     bpy.app.handlers.frame_change_post.remove(update_sprites)
-    bpy.app.handlers.scene_update_pre.remove(update_thumbs)
+    bpy.app.handlers.scene_update_pre.remove(scene_update)
     bpy.app.handlers.load_post.remove(coa_startup)
+    
     unregister_keymaps()
     
+
          
 @persistent
 def update_sprites(dummy):
-    bpy.context.scene.coa_ticker += 1
-    try:
-        context = bpy.context
-        for obj in bpy.context.visible_objects:
-            if "sprite" in obj and obj.animation_data != None and obj.animation_data.action != None and obj.type == "MESH":
-                update_uv(bpy.context,obj)
-                set_alpha(obj,bpy.context,obj.coa_alpha)
-                set_z_value(context,obj,obj.coa_z_value)
-                set_modulate_color(obj,context,obj.coa_modulate_color)
-                
-    except:
-        pass
-    if bpy.context.scene.coa_ticker%3 == 0:
-        bpy.context.scene.update()
+    update_scene = False
 
+    context = bpy.context
+    objects = []
+    
+    if hasattr(context,"visible_objects"):
+        objects = context.visible_objects
+    else:
+        objects = bpy.data.objects
+    
+        
+    for obj in objects:
+        if "coa_sprite" in obj and obj.animation_data != None and obj.type == "MESH":
+            if obj.coa_sprite_frame != obj.coa_sprite_frame_last:
+                update_uv(bpy.context,obj)
+                obj.coa_sprite_frame_last = obj.coa_sprite_frame
+            if obj.coa_alpha != obj.coa_alpha_last:
+                set_alpha(obj,bpy.context,obj.coa_alpha)
+                obj.coa_alpha_last = obj.coa_alpha
+                update_scene = True
+            if obj.coa_z_value != obj.coa_z_value_last:
+                set_z_value(context,obj,obj.coa_z_value)
+                obj.coa_z_value_last = obj.coa_z_value
+            if obj.coa_modulate_color != obj.coa_modulate_color_last:
+                set_modulate_color(obj,context,obj.coa_modulate_color)
+                obj.coa_modulate_color_last = obj.coa_modulate_color
+
+        if update_scene:
+            bpy.context.scene.update()
+
+    ### animation wrap mode
+    if hasattr(context,"active_object"):
+        sprite_object = get_sprite_object(context.active_object)
+        if sprite_object != None and sprite_object.coa_animation_loop:
+            if context.scene.frame_current > context.scene.frame_end:
+                context.scene.frame_current = 0
+
+
+ticker = 0
 @persistent
-def update_thumbs(dummy):
-    obj = bpy.context.active_object
-    if obj != None and not obj.coa_sprite_updated:
-        for thumb in preview_collections["coa_thumbs"]:
-            preview_collections["coa_thumbs"][thumb].reload()
-        obj.coa_sprite_updated = True
+def scene_update(dummy):
+    global ticker
+    ticker += 1
+    context = bpy.context
+    if hasattr(context,"visible_objects"):
+        objects = context.visible_objects
+    else:
+        objects = bpy.data.objects
+    if  hasattr(context,"window_manager"):   
+        wm = bpy.context.window_manager
+        if wm.coa_update_uv:
+            for obj in objects:
+                if "coa_sprite" in obj and obj.animation_data != None and obj.type == "MESH":
+                    if obj.coa_sprite_frame != obj.coa_sprite_frame_last:
+                        update_uv(bpy.context,obj)
+                        obj.coa_sprite_frame_last = obj.coa_sprite_frame 
+                    if ticker%5 == 0:
+                        if obj.coa_alpha != obj.coa_alpha_last:
+                            set_alpha(obj,bpy.context,obj.coa_alpha)
+                            obj.coa_alpha_last = obj.coa_alpha                
+                
+    if hasattr(bpy.context,"active_object"):
+        obj = bpy.context.active_object
+        if obj != None and not obj.coa_sprite_updated:
+            for thumb in preview_collections["coa_thumbs"]:
+                preview_collections["coa_thumbs"][thumb].reload()
+            obj.coa_sprite_updated = True
 
 
 ### start modal operator 
@@ -173,7 +226,17 @@ def scene_update_callback(scene):
 def coa_startup(dummy):
     print("startup coa modal operator")
     bpy.app.handlers.scene_update_pre.append(scene_update_callback)
-
+    
+    ### version fix
+    for obj in bpy.data.objects:
+        if obj.type == "MESH":
+            if "sprite" in obj:
+                obj["coa_sprite"] = True
+                del obj["sprite"]
+            obj.coa_sprite_updated = False
+            obj.coa_tiles_changed = True
+            if "coa_sprite" in obj:
+                set_uv_default_coords(bpy.context,obj)
 
 
 import atexit

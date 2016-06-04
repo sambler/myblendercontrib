@@ -21,7 +21,7 @@
 #
 #  Author: Trentin Frederick (a.k.a, proxe)
 #  Contact: trentin.shaun.frederick@gmail.com
-#  Version: 1.5
+#  Version: 1.6.1
 #
 # ##### END INFO BLOCK #####
 
@@ -29,10 +29,11 @@
 bl_info = {
   'name': 'Name Panel',
   'author': 'Trentin Frederick (proxe)',
-  'version': (1, 5),
-  'blender': (2, 76, 0),
+  'version': (1, 6, 1),
+  'blender': (2, 67, 0),
   'location': '3D View → Tool or Property Shelf → Name',
-  'description': 'An improved 3D view name panel with batch name tools.',
+  'description': 'In panel datablock name stack with batch name tools.',
+  'wiki_url': 'https://cgcookiemarkets.com/all-products/name-panel/?view=docs',
   'tracker_url': 'https://github.com/trentinfrederick/name-panel/issues',
   'category': '3D View'
 }
@@ -42,8 +43,8 @@ import bpy
 from bpy.types import AddonPreferences
 from bpy.props import *
 from .scripts import settings as PropertyGroup
-from .scripts.interface import button, icon, menu, panel
-from .scripts.operator import active, auto, batch, copy, shortcuts, select, settings, text
+from .scripts.interface import button, icon, menu, name, properties
+from .scripts.operator import auto, batch, copy, icon, settings, text
 
 # addon
 addon = bpy.context.user_preferences.addons.get(__name__)
@@ -55,17 +56,24 @@ class preferences(AddonPreferences):
   '''
   bl_idname = __name__
 
-  # experimental
-  experimental = BoolProperty(
-    name = 'Experimental Features',
-    description = 'Enable experimental features for this addon',
+  # popups
+  popups = BoolProperty(
+    name = 'Pop-ups',
+    description = 'Enable settings pop-up for modifiers and constraints. (Experimental!)',
+    default = False
+  )
+
+  # large popups
+  largePopups = BoolProperty(
+    name = 'Large Pop-ups',
+    description = 'Increase the size of pop-ups.',
     default = False
   )
 
   # location
   location = EnumProperty(
     name = 'Panel Location',
-    description = 'The 3D view shelf to use. (Save user settings and restart Blender)',
+    description = 'The 3D view shelf to use (Save user settings and restart Blender.)',
     items = [
       ('TOOLS', 'Tool Shelf', 'Places the Name panel in the tool shelf under the tab labeled \'Name\''),
       ('UI', 'Property Shelf', 'Places the Name panel in the property shelf.')
@@ -73,13 +81,20 @@ class preferences(AddonPreferences):
     default = 'TOOLS'
   )
 
+  # draw
   def draw(self, context):
 
     # layout
     layout = self.layout
 
-    # experimental
-    layout.prop(self, 'experimental')
+    # row
+    row = layout.row()
+
+    # pop ups
+    row.prop(self, 'popups')
+
+    # pop ups
+    row.prop(self, 'largePopups')
 
     # label
     layout.label(text='Location:')
@@ -95,15 +110,19 @@ class preferences(AddonPreferences):
     split = layout.split(align=True)
     split.scale_y = 2
 
-    # prop = split.operator('wm.url_open', text='BlenderMarket')
-    # prop.url = ''
+    # blender market
+    prop = split.operator('wm.url_open', text='Blender Market')
+    prop.url = 'https://cgcookiemarkets.com/all-products/name-panel/'
 
-    prop = split.operator('wm.url_open', text='BlenderArtists')
-    prop.url = 'http://blenderartists.org/forum/showthread.php?272086-Addon-Item-Panel-amp-Batch-Naming-1-5'
+    # gumroad
+    prop = split.operator('wm.url_open', text='Gumroad')
+    prop.url = 'https://gumroad.com/l/UyXd'
 
-    # prop = split.operator('wm.url_open', text='BlendSwap')
-    # prop.url = 'http://www.blendswap.com/blends/view/82472'
+    # blender artists
+    prop = split.operator('wm.url_open', text='Blender Artists')
+    prop.url = 'http://blenderartists.org/forum/showthread.php?272086'
 
+    # github
     prop = split.operator('wm.url_open', text='Github')
     prop.url = 'https://github.com/trentinfrederick/name-panel'
 
@@ -116,25 +135,6 @@ def register():
   # register module
   bpy.utils.register_module(__name__)
 
-  # shelf position
-  # addon
-  if addon:
-    try:
-      if addon.preferences['location'] == 0:
-        bpy.utils.unregister_class(panel.UIName)
-      else:
-        # remove blender default panel
-        try:
-          bpy.utils.unregister_class(bpy.types.VIEW3D_PT_view3d_name)
-        except:
-          pass
-        bpy.utils.unregister_class(panel.toolsName)
-    except:
-      bpy.utils.unregister_class(panel.UIName)
-  else:
-    bpy.utils.unregister_class(panel.UIName)
-
-  # pointer properties
   # batch auto name settings
   bpy.types.Scene.BatchAutoName = PointerProperty(
     type = PropertyGroup.batch.auto.name,
@@ -186,13 +186,37 @@ def register():
 
   # name panel settings
   bpy.types.Scene.NamePanel = PointerProperty(
-    type = PropertyGroup.panel,
+    type = PropertyGroup.name,
     name = 'Name Panel Settings',
     description = 'Storage location for the name panel settings.'
   )
 
+  # properties panel settings
+  bpy.types.Scene.PropertiesPanel = PointerProperty(
+    type = PropertyGroup.properties,
+    name = 'Properties Panel Settings',
+    description = 'Storage location for the properties panel settings.'
+  )
+
   # append
   bpy.types.OUTLINER_HT_header.append(button.batchName)
+
+  # shelf position
+  # addon
+  if addon:
+    try:
+      if addon.preferences['location'] == 0:
+        bpy.utils.unregister_class(name.UIName)
+        bpy.utils.unregister_class(properties.UIProperties)
+      else:
+        bpy.utils.unregister_class(name.toolsName)
+        bpy.utils.unregister_class(properties.toolsProperties)
+    except:
+      bpy.utils.unregister_class(name.UIName)
+      bpy.utils.unregister_class(properties.UIProperties)
+  else:
+    bpy.utils.unregister_class(name.UIName)
+    bpy.utils.unregister_class(properties.UIProperties)
 
 # unregister
 def unregister():
@@ -200,10 +224,10 @@ def unregister():
     Unregister.
   '''
 
-  # register module
+  # unregister module
   bpy.utils.unregister_module(__name__)
 
-  # pointer properties
+  # delete pointer properties
   del bpy.types.Scene.BatchAutoName
   del bpy.types.Scene.BatchAutoName_ObjectNames
   del bpy.types.Scene.BatchAutoName_ConstraintNames

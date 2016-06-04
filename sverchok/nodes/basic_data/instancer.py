@@ -46,10 +46,13 @@ def make_or_update_instance(node, obj_name, matrix):
     objects = bpy.data.objects
     mesh_name = node.mesh_to_clone
 
+    if not mesh_name:
+        return
+
     if obj_name in objects:
         sv_object = objects[obj_name]
     else:
-        mesh = meshes[mesh_name]
+        mesh = meshes.get(mesh_name)
         sv_object = objects.new(obj_name, mesh)
         scene.objects.link(sv_object)
 
@@ -102,7 +105,7 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
         description="Choose Object to take mesh from",
         update=updateNode)
 
-    grouping = BoolProperty(default=False)
+    grouping = BoolProperty(default=False, update=updateNode)
 
     activate = BoolProperty(
         default=True,
@@ -192,6 +195,8 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
 
         if self.grouping:
             self.to_group()
+        else:
+            self.ungroup()
 
     def remove_non_updated_objects(self, obj_index, _name):
         meshes = bpy.data.meshes
@@ -225,8 +230,17 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
                 if obj.name not in newgroup.objects:
                     newgroup.objects.link(obj)
 
+    def ungroup(self):
+        g = bpy.data.groups.get(self.basemesh_name)
+        if g:
+            bpy.data.groups.remove(g)
+
     def update_socket(self, context):
         self.update()
+
+    def free(self):
+        self.remove_non_updated_objects(-1, self.basemesh_name)
+        self.ungroup()
 
 
 def register():

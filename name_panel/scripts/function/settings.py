@@ -32,6 +32,12 @@ def reset(context, panel, auto, names, name, copy):
     # name panel option
     namePanelOption = context.scene.NamePanel
 
+    # pin active object
+    namePanelOption.pinActiveObject = False
+
+    # hide search
+    namePanelOption.hideSearch = True
+
     # filters
     namePanelOption.filters = False
 
@@ -39,10 +45,16 @@ def reset(context, panel, auto, names, name, copy):
     namePanelOption.options = False
 
     # selected
-    namePanelOption.selected = False
+    namePanelOption.displayNames = False
 
-    # pin active object
-    namePanelOption.pinActiveObject = True
+    # mode
+    namePanelOption.mode = 'SELECTED'
+
+    # search
+    namePanelOption.search = ''
+
+    # regex
+    namePanelOption.regex = False
 
     # groups
     namePanelOption.groups = False
@@ -86,16 +98,19 @@ def reset(context, panel, auto, names, name, copy):
     # particle systems
     namePanelOption.particleSystems = False
 
-    # selected bones
-    namePanelOption.selectedBones = False
+    # display bones
+    namePanelOption.displayBones = False
+
+    # bone mode
+    namePanelOption.boneMode = 'SELECTED'
 
   # auto
   if auto:
 
-    # batch auto name option
+    # auto name option
     batchAutoNameOption = context.scene.BatchAutoName
 
-    # batch type
+    # type
     batchAutoNameOption.batchType = 'SELECTED'
 
     # objects
@@ -127,6 +142,9 @@ def reset(context, panel, auto, names, name, copy):
 
     # object name
     objectName = context.scene.BatchAutoName_ObjectNames
+
+    # prefix
+    objectName.prefix = False
 
     # mesh
     objectName.mesh = 'Mesh'
@@ -163,6 +181,9 @@ def reset(context, panel, auto, names, name, copy):
 
     # constraint name
     constraintName = context.scene.BatchAutoName_ConstraintNames
+
+    # prefix
+    constraintName.prefix = False
 
     # camera solver
     constraintName.cameraSolver = 'Camera Solver'
@@ -247,6 +268,9 @@ def reset(context, panel, auto, names, name, copy):
 
     # modifier name
     modifierName = context.scene.BatchAutoName_ModifierNames
+
+    # prefix
+    modifierName.prefix = False
 
     # data transfer
     modifierName.dataTransfer = 'Data Transfer'
@@ -433,6 +457,9 @@ def reset(context, panel, auto, names, name, copy):
     # object data name
     objectDataName = context.scene.BatchAutoName_ObjectDataNames
 
+    # prefix
+    objectDataName.prefix = False
+
     # mesh
     objectDataName.mesh = 'Mesh'
 
@@ -466,65 +493,71 @@ def reset(context, panel, auto, names, name, copy):
   # name
   if name:
 
-    # batch name option
+    # name option
     batchNameOption = context.scene.BatchName
 
-    # batch type
+    # type
     batchNameOption.batchType = 'SELECTED'
 
-    # batch objects
-    batchNameOption.objects = False
-
-    # batch groups
-    batchNameOption.groups = False
-
-    # batch actions
+    # actions
     batchNameOption.actions = False
 
-    # batch grease pencil
+    # action groups
+    batchNameOption.actionGroups = False
+
+    # grease pencil
     batchNameOption.greasePencil = False
 
-    # batch object constraints
+    # pencil layers
+    batchNameOption.pencilLayers = False
+
+    # objects
+    batchNameOption.objects = False
+
+    # groups
+    batchNameOption.groups = False
+
+    # constraints
     batchNameOption.constraints = False
 
-    # batch modifiers
+    # modifiers
     batchNameOption.modifiers = False
 
-    # batch object data
+    # object data
     batchNameOption.objectData = False
 
-    # batch bones
+    # bone groups
+    batchNameOption.boneGroups = False
+
+    # bones
     batchNameOption.bones = False
 
-    # batch bone constraints
+    # bone constraints
     batchNameOption.boneConstraints = False
 
-    # batch materials
-    batchNameOption.materials = False
-
-    # batch textures
-    batchNameOption.textures = False
-
-    # batch particle systems
-    batchNameOption.particleSystems = False
-
-    # batch particle settings
-    batchNameOption.particleSettings = False
-
-    # batch vertex groups
+    # vertex groups
     batchNameOption.vertexGroups = False
 
-    # batch shape keys
+    # shapekeys
     batchNameOption.shapekeys = False
 
-    # batch uvs
+    # uvs
     batchNameOption.uvs = False
 
-    # batch vertex colors
+    # vertex colors
     batchNameOption.vertexColors = False
 
-    # batch bone groups
-    batchNameOption.boneGroups = False
+    # materials
+    batchNameOption.materials = False
+
+    # textures
+    batchNameOption.textures = False
+
+    # particle systems
+    batchNameOption.particleSystems = False
+
+    # particle settings
+    batchNameOption.particleSettings = False
 
     # object type
     batchNameOption.objectType = 'ALL'
@@ -534,6 +567,27 @@ def reset(context, panel, auto, names, name, copy):
 
     # modifier type
     batchNameOption.modifierType = 'ALL'
+
+    # sensors
+    batchNameOption.sensors = False
+
+    # controllers
+    batchNameOption.controllers = False
+
+    # actuators
+    batchNameOption.actuators = False
+
+    # line sets
+    batchNameOption.lineSets = False
+
+    # linestyles
+    batchNameOption.linestyles = False
+
+    # linestyle modifiers
+    batchNameOption.linestyleModifiers = False
+
+    # linestyle modifier type
+    batchNameOption.linestyleModifierType = 'ALL'
 
     # scenes
     batchNameOption.scenes = False
@@ -562,7 +616,7 @@ def reset(context, panel, auto, names, name, copy):
     # sounds
     batchNameOption.sounds = False
 
-    # layouts
+    # screens
     batchNameOption.screens = False
 
     # keying sets
@@ -573,9 +627,6 @@ def reset(context, panel, auto, names, name, copy):
 
     # brushes
     batchNameOption.brushes = False
-
-    # linestyles
-    batchNameOption.linestyles = False
 
     # nodes
     batchNameOption.nodes = False
@@ -607,34 +658,37 @@ def reset(context, panel, auto, names, name, copy):
     # suffix
     batchNameOption.suffix = ''
 
+    # suffix last
+    batchNameOption.suffixLast = False
+
     # trim start
     batchNameOption.trimStart = 0
 
     # trim end
     batchNameOption.trimEnd = 0
 
-    # process
+    # sort
     batchNameOption.sort = False
-
-    # padding
-    batchNameOption.padding = 0
 
     # start
     batchNameOption.start = 1
 
+    # padding
+    batchNameOption.padding = 0
+
     # separator
     batchNameOption.separator = '.'
 
-    # process only
+    # sort only
     batchNameOption.sortOnly = False
 
   # copy
   if copy:
 
-    # batch copy option
+    # copy option
     batchCopyOption = context.scene.BatchCopyName
 
-    # batch type
+    # type
     batchCopyOption.batchType = 'SELECTED'
 
     # source
@@ -643,7 +697,7 @@ def reset(context, panel, auto, names, name, copy):
     # objects
     batchCopyOption.objects = False
 
-    # object datas
+    # object data
     batchCopyOption.objectData = False
 
     # materials
@@ -675,17 +729,29 @@ def transfer(context, panel, auto, names, name, copy):
         # name panel option
         namePanelOption = context.scene.NamePanel
 
+        # pin active object
+        scene.NamePanel.pinActiveObject = namePanelOption.pinActiveObject
+
+        # hide search
+        scene.NamePanel.hideSearch = namePanelOption.hideSearch
+
         # filters
         scene.NamePanel.filters = namePanelOption.filters
 
         # options
         scene.NamePanel.options = namePanelOption.options
 
-        # selected
-        scene.NamePanel.selected = namePanelOption.selected
+        # display names
+        scene.NamePanel.displayNames = namePanelOption.displayNames
 
-        # pin active object
-        scene.NamePanel.pinActiveObject = namePanelOption.pinActiveObject
+        # mode
+        scene.NamePanel.mode = namePanelOption.mode
+
+        # search
+        scene.NamePanel.search = namePanelOption.search
+
+        # regex
+        scene.NamePanel.regex = namePanelOption.regex
 
         # groups
         scene.NamePanel.groups = namePanelOption.groups
@@ -729,8 +795,11 @@ def transfer(context, panel, auto, names, name, copy):
         # particels systems
         scene.NamePanel.particleSystems = namePanelOption.particleSystems
 
-        # selected bones
-        scene.NamePanel.selectedBones = namePanelOption.selectedBones
+        # display bones
+        scene.NamePanel.displayBones = namePanelOption.displayBones
+
+        # bone mode
+        scene.NamePanel.boneMode = namePanelOption.boneMode
 
   # auto
   if auto:
@@ -740,7 +809,7 @@ def transfer(context, panel, auto, names, name, copy):
         # auto name option
         batchAutoNameOption = context.scene.BatchAutoName
 
-        # batch type
+        # type
         scene.BatchAutoName.batchType = batchAutoNameOption.batchType
 
         # objects
@@ -774,6 +843,9 @@ def transfer(context, panel, auto, names, name, copy):
 
         # object name
         objectName = context.scene.BatchAutoName_ObjectNames
+
+        # prefix
+        scene.BatchAutoName_ObjectNames.prefix = objectName.prefix
 
         # mesh
         scene.BatchAutoName_ObjectNames.mesh = objectName.mesh
@@ -810,6 +882,9 @@ def transfer(context, panel, auto, names, name, copy):
 
         # constraint name
         constraintName = context.scene.BatchAutoName_ConstraintNames
+
+        # prefix
+        scene.BatchAutoName_ConstraintNames.prefix = constraintName.prefix
 
         # camera solver
         scene.BatchAutoName_ConstraintNames.cameraSolver = constraintName.cameraSolver
@@ -894,6 +969,9 @@ def transfer(context, panel, auto, names, name, copy):
 
         # modifier name
         modifierName = context.scene.BatchAutoName_ModifierNames
+
+        # prefix
+        scene.BatchAutoName_ModifierNames.prefix = modifierName.prefix
 
         # data transfer
         scene.BatchAutoName_ModifierNames.dataTransfer = modifierName.dataTransfer
@@ -1045,6 +1123,9 @@ def transfer(context, panel, auto, names, name, copy):
         # object data name
         objectDataName = context.scene.BatchAutoName_ObjectDataNames
 
+        # prefix
+        scene.BatchAutoName_ObjectDataNames.prefix = objectDataName.prefix
+
         # mesh
         scene.BatchAutoName_ObjectDataNames.mesh = objectDataName.mesh
 
@@ -1080,59 +1161,71 @@ def transfer(context, panel, auto, names, name, copy):
     for scene in bpy.data.scenes:
       if scene != context.scene:
 
-        # batch name option
+        # name option
         batchNameOption = context.scene.BatchName
 
         # batch type
         scene.BatchName.batchType = batchNameOption.batchType
 
-        # batch objects
+        # actions
+        scene.BatchName.actions = batchNameOption.actions
+
+        # action groups
+        scene.BatchName.actionGroups = batchNameOption.actionGroups
+
+        # grease pencil
+        scene.BatchName.greasePencil = batchNameOption.greasePencil
+
+        # pencil layers
+        scene.BatchName.pencilLayers = batchNameOption.pencilLayers
+
+        # objects
         scene.BatchName.objects = batchNameOption.objects
 
-        # batch object constraints
-        scene.BatchName.constraints = batchNameOption.constraints
-
-        # batch modifiers
-        scene.BatchName.modifiers = batchNameOption.modifiers
-
-        # batch object data
-        scene.BatchName.objectData = batchNameOption.objectData
-
-        # batch bones
-        scene.BatchName.bones = batchNameOption.bones
-
-        # batch bone constraints
-        scene.BatchName.boneConstraints = batchNameOption.boneConstraints
-
-        # batch materials
-        scene.BatchName.materials = batchNameOption.materials
-
-        # batch textures
-        scene.BatchName.textures = batchNameOption.textures
-
-        # batch particle systems
-        scene.BatchName.particleSystems = batchNameOption.particleSystems
-
-        # batch particle settings
-        scene.BatchName.particleSettings = batchNameOption.particleSettings
-
-        # batch groups
+        # groups
         scene.BatchName.groups = batchNameOption.groups
 
-        # batch vertex groups
+        # constraints
+        scene.BatchName.constraints = batchNameOption.constraints
+
+        # modifiers
+        scene.BatchName.modifiers = batchNameOption.modifiers
+
+        # object data
+        scene.BatchName.objectData = batchNameOption.objectData
+
+        # bone groups
+        scene.BatchName.boneGroups = batchNameOption.boneGroups
+
+        # bones
+        scene.BatchName.bones = batchNameOption.bones
+
+        # bone constraints
+        scene.BatchName.boneConstraints = batchNameOption.boneConstraints
+
+        # vertex groups
         scene.BatchName.vertexGroups = batchNameOption.vertexGroups
 
-        # batch shape keys
+        # shapekeys
         scene.BatchName.shapekeys = batchNameOption.shapekeys
 
-        # batch uvs
+        # uvs
         scene.BatchName.uvs = batchNameOption.uvs
 
-        # batch vertex colors
+        # vertex colors
         scene.BatchName.vertexColors = batchNameOption.vertexColors
 
-        # batch bone groups
-        scene.BatchName.boneGroups = batchNameOption.boneGroups
+        # materials
+        scene.BatchName.materials = batchNameOption.materials
+
+        # textures
+        scene.BatchName.textures = batchNameOption.textures
+
+        # particle systems
+        scene.BatchName.particleSystems = batchNameOption.particleSystems
+
+        # particle settings
+        scene.BatchName.particleSettings = batchNameOption.particleSettings
 
         # object type
         scene.BatchName.objectType = batchNameOption.objectType
@@ -1142,6 +1235,27 @@ def transfer(context, panel, auto, names, name, copy):
 
         # modifier type
         scene.BatchName.modifierType = batchNameOption.modifierType
+
+        # sensors
+        scene.BatchName.sensors = batchNameOption.sensors
+
+        # controllers
+        scene.BatchName.controllers = batchNameOption.controllers
+
+        # actuators
+        scene.BatchName.actuators = batchNameOption.actuators
+
+        # line sets
+        scene.BatchName.lineSets = batchNameOption.lineSets
+
+        # linestyles
+        scene.BatchName.linestyles = batchNameOption.linestyles
+
+        # linestyle modifiers
+        scene.BatchName.linestyleModifiers = batchNameOption.linestyleModifiers
+
+        # linestyle modifier type
+        scene.BatchName.linestyleModifierType = batchNameOption.linestyleModifierType
 
         # scenes
         scene.BatchName.scenes = batchNameOption.scenes
@@ -1197,7 +1311,7 @@ def transfer(context, panel, auto, names, name, copy):
         # texts
         scene.BatchName.texts = batchNameOption.texts
 
-        # name
+        # custom name
         scene.BatchName.customName = batchNameOption.customName
 
         # find
@@ -1215,25 +1329,28 @@ def transfer(context, panel, auto, names, name, copy):
         # suffix
         scene.BatchName.suffix = batchNameOption.suffix
 
+        # suffix last
+        scene.BatchName.suffixLast = batchNameOption.suffixLast
+
         # trim start
         scene.BatchName.trimStart = batchNameOption.trimStart
 
         # trim end
         scene.BatchName.trimEnd = batchNameOption.trimEnd
 
-        # process
+        # sort
         scene.BatchName.sort = batchNameOption.sort
-
-        # padding
-        scene.BatchName.padding = batchNameOption.padding
 
         # start
         scene.BatchName.start = batchNameOption.start
 
+        # padding
+        scene.BatchName.padding = batchNameOption.padding
+
         # separator
         scene.BatchName.separator = batchNameOption.separator
 
-        # process only
+        # sort only
         scene.BatchName.sortOnly = batchNameOption.sortOnly
 
   # copy
@@ -1241,10 +1358,10 @@ def transfer(context, panel, auto, names, name, copy):
     for scene in bpy.data.scenes[:]:
       if scene != context.scene:
 
-        # batch copy option
+        # copy option
         batchCopyOption = context.scene.BatchCopyName
 
-        # batch type
+        # type
         scene.BatchCopyName.batchType = batchCopyOption.batchType
 
         # source

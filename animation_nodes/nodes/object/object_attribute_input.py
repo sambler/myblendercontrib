@@ -7,6 +7,7 @@ from ... base_types.node import AnimationNode
 class ObjectAttributeInputNode(bpy.types.Node, AnimationNode):
     bl_idname = "an_ObjectAttributeInputNode"
     bl_label = "Object Attribute Input"
+    bl_width_default = 160
 
     attribute = StringProperty(name = "Attribute", default = "",
         update = executionCodeChanged)
@@ -14,14 +15,16 @@ class ObjectAttributeInputNode(bpy.types.Node, AnimationNode):
     errorMessage = StringProperty()
 
     def create(self):
-        self.width = 160
-        self.inputs.new("an_ObjectSocket", "Object", "object").defaultDrawType = "PROPERTY_ONLY"
-        self.outputs.new("an_GenericSocket", "Value", "value")
+        self.newInput("Object", "Object", "object", defaultDrawType = "PROPERTY_ONLY")
+        self.newOutput("Generic", "Value", "value")
 
     def draw(self, layout):
         layout.prop(self, "attribute", text = "")
         if self.errorMessage != "":
             layout.label(self.errorMessage, icon = "ERROR")
+
+    def drawAdvanced(self, layout):
+        self.invokeFunction(layout, "createAutoExecutionTrigger", text = "Create Execution Trigger")
 
     def getExecutionCode(self):
         code = self.evaluationExpression
@@ -43,3 +46,9 @@ class ObjectAttributeInputNode(bpy.types.Node, AnimationNode):
     def evaluationExpression(self):
         if self.attribute.startswith("["): return "value = object" + self.attribute
         else: return "value = object." + self.attribute
+
+    def createAutoExecutionTrigger(self):
+        item = self.nodeTree.autoExecution.customTriggers.new("MONITOR_PROPERTY")
+        item.idType = "OBJECT"
+        item.dataPath = self.attribute
+        item.idObjectName = self.inputs["Object"].objectName

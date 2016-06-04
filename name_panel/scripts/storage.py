@@ -198,6 +198,33 @@ class batch:
       ('SOFT_BODY', 'Soft Body', '', 'MOD_SOFT', 49)
     ]
 
+    linestyleModifiers = [
+      ('ALL', 'All Modifiers', '', 'MODIFIER', 0),
+      ('ALONG_STROKE', 'Along Stroke', '', 'MODIFIER', 1),
+      ('CREASE_ANGLE', 'Crease Angle', '', 'MODIFIER', 2),
+      ('CURVATURE_3D', 'Curvature 3D', '', 'MODIFIER', 3),
+      ('DISTANCE_FROM_CAMERA', 'Distance from Camera', '', 'MODIFIER', 4),
+      ('DISTANCE_FROM_OBJECT', 'Distance from Object', '', 'MODIFIER', 5),
+      ('MATERIAL', 'Material', '', 'MODIFIER', 6),
+      ('NOISE', 'Noise', '', 'MODIFIER', 7),
+      ('TANGENT', 'Tangent', '', 'MODIFIER', 8),
+      ('CALLIGRAPHY', 'Calligraphy', '', 'MODIFIER', 9),
+      ('2D_OFFSET', '2D Offset', '', 'MODIFIER', 10),
+      ('2D_TRANSFORM', '2D Transform', '', 'MODIFIER', 11),
+      ('BACKBONE_STRETCHER', 'Backbone Stretcher', '', 'MODIFIER', 12),
+      ('BEZIER_CURVE', 'Bezier Curve', '', 'MODIFIER', 13),
+      ('BLUEPRINT', 'Blue Print', '', 'MODIFIER', 14),
+      ('GUIDING_LINES', 'Guiding Lines', '', 'MODIFIER', 15),
+      ('PERLIN_NOISE_1D', 'Perlin Noise 1D', '', 'MODIFIER', 16),
+      ('PERLIN_NOISE_2D', 'Perlin Noise 2D', '', 'MODIFIER', 17),
+      ('POLYGONIZATION', 'Polygonization', '', 'MODIFIER', 18),
+      ('SAMPLING', 'Sampling', '', 'MODIFIER', 19),
+      ('SIMPLIFICATION', 'Simplification', '', 'MODIFIER', 20),
+      ('SINUS_DISPLACEMENT', 'Sinus Displacement', '', 'MODIFIER', 21),
+      ('SPATIAL_NOISE', 'Spatial Noise', '', 'MODIFIER', 22),
+      ('TIP_REMOVER', 'Tip Remover', '', 'MODIFIER', 23)
+    ]
+
   # lists
 
   # structure
@@ -205,20 +232,23 @@ class batch:
   #  [datablock.name, [count, datablock]
   # ]
 
-  # objects
-  objects = []
-
-  # groups
-  groups = []
-
   # actions
   actions = []
+
+  # action groups
+  actionsGroups = []
 
   # grease pencils
   greasePencils = []
 
   # pencil layers
   pencilLayers = []
+
+  # objects
+  objects = []
+
+  # groups
+  groups = []
 
   # constraints
   constraints = []
@@ -280,6 +310,18 @@ class batch:
   # particle settings
   particleSettings = []
 
+  # linestyles
+  linestyles = []
+
+  # sensors
+  sensors = []
+
+  # controllers
+  controllers = []
+
+  # actuators
+  actuators = []
+
   # scenes
   scenes = []
 
@@ -319,8 +361,6 @@ class batch:
   # brushes
   brushes = []
 
-  # linestyles
-  linestyles = []
 
   # nodes
   nodes = []

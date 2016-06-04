@@ -2,11 +2,12 @@ import bpy
 from bpy.props import *
 from ... base_types.node import AnimationNode
 from ... utils.selection import getSortedSelectedObjectNames
-from ... sockets.info import getBaseDataTypeItems, toIdName, toListIdName, getListDataTypes, toBaseDataType
+from ... sockets.info import getListDataTypes, toBaseDataType, toListDataType
 
 class CreateListNode(bpy.types.Node, AnimationNode):
     bl_idname = "an_CreateListNode"
     bl_label = "Create List"
+    dynamicLabelType = "ALWAYS"
     onlySearchTags = True
 
     @classmethod
@@ -15,14 +16,9 @@ class CreateListNode(bpy.types.Node, AnimationNode):
                 for dataType in getListDataTypes()]
 
     def assignedTypeChanged(self, context):
-        baseDataType = self.assignedType
-        self.baseIdName = toIdName(baseDataType)
-        self.listIdName = toListIdName(self.baseIdName)
         self.recreateSockets()
 
     assignedType = StringProperty(update = assignedTypeChanged)
-    baseIdName = StringProperty()
-    listIdName = StringProperty()
 
     def hideStatusChanged(self, context):
         for socket in self.inputs:
@@ -56,6 +52,9 @@ class CreateListNode(bpy.types.Node, AnimationNode):
 
         self.drawAdvancedTypeSpecific(layout)
 
+    def drawLabel(self):
+        return "Create " + toListDataType(self.assignedType)
+
     @property
     def inputVariables(self):
         return { socket.identifier : "element_" + str(i) for i, socket in enumerate(self.inputs) }
@@ -83,13 +82,13 @@ class CreateListNode(bpy.types.Node, AnimationNode):
         self.inputs.clear()
         self.outputs.clear()
 
-        self.inputs.new("an_NodeControlSocket", "...")
+        self.newInput("Node Control", "...")
         for i in range(inputAmount):
             self.newInputSocket()
-        self.outputs.new(self.listIdName, "List", "outList")
+        self.newOutput(toListDataType(self.assignedType), "List", "outList")
 
     def newInputSocket(self):
-        socket = self.inputs.new(self.baseIdName, "Element")
+        socket = self.newInput(self.assignedType, "Element")
         socket.dataIsModified = True
         socket.display.text = True
         socket.text = "Element"
@@ -97,11 +96,17 @@ class CreateListNode(bpy.types.Node, AnimationNode):
         socket.moveable = True
         socket.defaultDrawType = "PREFER_PROPERTY"
         socket.moveUp()
+
+        if len(self.inputs) > 2:
+            socket.copyDisplaySettingsFrom(self.inputs[0])
+
+        self.updateOutputName()
         return socket
 
     def updateOutputName(self):
         name = "List ({})".format(len(self.inputs) - 1)
-        self.outputs[0].name = name
+        if len(self.outputs) > 0:
+            self.outputs[0].name = name
 
     def removeElementInputs(self):
         for socket in self.inputs[:-1]:

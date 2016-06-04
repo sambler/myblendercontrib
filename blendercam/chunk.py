@@ -1,3 +1,24 @@
+# blender CAM chunk.py (c) 2012 Vilem Novak
+#
+# ***** BEGIN GPL LICENSE BLOCK *****
+#
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ***** END GPL LICENCE BLOCK *****
+
 
 import shapely
 from shapely.geometry import polygon as spolygon
@@ -64,10 +85,20 @@ class camPathChunk:
 			
 		
 	def setZ(self,z):
-		i=0
-		for p in self.points:
-			self.points[i]=(p[0],p[1],z)
-			i+=1
+		for i,p in enumerate(self.points):
+			self.points[i] = (p[0], p[1], z)
+
+	def isbelowZ(self, z):
+		isbelow = False
+		for p in (self.points):
+			if p[2] <= z:
+				isbelow = True
+		return isbelow
+
+	def clampZ(self, z):
+		for i,p in enumerate(self.points):
+			if p[2] < z:
+				self.points[i] = (p[0], p[1], z)
 			
 	def dist(self,pos,o):
 		if self.closed:
@@ -353,7 +384,7 @@ class camPathChunk:
 				ramppoints.extend(negramppoints[1:])
 				
 				traveled=0.0
-				chunk.points.append((ch.points[0][0],ch.points[0][1],max(ch.points[0][1],zstart)))
+				chunk.points.append((ch.points[0][0],ch.points[0][1],max(ch.points[0][2],zstart)))
 				for r in range(turns):
 					for p in range(0,len(ramppoints)):
 						p1=chunk.points[-1]
@@ -576,7 +607,53 @@ def parentChildPoly(parents,children,o):
 				if parent.poly.contains(sgeometry.Point(child.poly.boundary.coords[0])):
 					parent.children.append(child)
 					child.parents.append(parent)
+			
+def parentChildDist(parents, children,o, distance= None):
+	#parenting based on x,y distance between chunks
+	#hierarchy works like this: - children get milled first.
+	if distance==None:
+		dlim=o.dist_between_paths*2
+		if (o.strategy=='PARALLEL' or o.strategy=='CROSS') and o.parallel_step_back:
+			dlim=dlim*2
+	else:
+		dlim = distance
+	#print('distance')
+	#print(len(children),len(parents))
+	#i=0
+	#simplification greatly speeds up the distance finding algorithms. 
+	for child in children:
+		if not child.poly.is_empty:
+			child.simppoly=child.poly.simplify(0.0003).boundary
+	for parent in parents:
+		if not parent.poly.is_empty:
+			parent.simppoly=parent.poly.simplify(0.0003).boundary
+	
+	for child in children:
+		for parent in parents:
+			print(len(children),len(parents))
+			isrelation=False
+			if parent!=child:
+				if not parent.poly.is_empty and not child.poly.is_empty:
+					#print(dir(parent.simppoly))
+					d=parent.simppoly.distance(child.simppoly)
+					if d<dlim:
+						isrelation = True
+				else:#this is the old method, preferably should be replaced in most cases except parallell where this method works probably faster.
+					#print('warning, sorting will be slow due to bad parenting in parentChildDist')
+					for v in child.points:
+						for v1 in parent.points:
+							if dist2d(v,v1)<dlim:
+								isrelation=True
+								break
+						if isrelation:
+							break
+				if isrelation:
+					#print('truelink',dist2d(v,v1))
+					parent.children.append(child)
+					child.parents.append(parent)
+	#print('distance done')
 
+'''
 def parentChildDist(parents, children,o, distance= None):
 	#parenting based on distance between chunks
 	#hierarchy works like this: - children get milled first.
@@ -603,7 +680,7 @@ def parentChildDist(parents, children,o, distance= None):
 					#print('truelink',dist2d(v,v1))
 					parent.children.append(child)
 					child.parents.append(parent)
-						
+'''						
 def parentChild(parents, children, o):
 	#connect all children to all parents. Useful for any type of defining hierarchy.
 	#hierarchy works like this: - children get milled first. 
@@ -622,7 +699,7 @@ def chunksToShapely(chunks):#this does more cleve chunks to Poly with hierarchie
 	polys=[]
 	for ch in chunks:#first convert chunk to poly
 		if len(ch.points)>2:
-			pchunk=[]
+			#pchunk=[]
 			ch.poly=sgeometry.Polygon(ch.points)
 			
 	for ppart in chunks:#then add hierarchy relations
@@ -751,12 +828,15 @@ def restoreVisibility(o,storage):
 		o.layers[i]=storage[1][i]
 
 def meshFromCurve(o):
-	activate(o)
 	#print(o.name,o)
 	storage = makeVisible(o)#this is here because all of this doesn't work when object is not visible or on current layer
-	bpy.ops.object.duplicate_move(OBJECT_OT_duplicate={"linked":False, "mode":'TRANSLATION'}, TRANSFORM_OT_translate={"value":(0, 0, 0), "constraint_axis":(False, False, False), "constraint_orientation":'GLOBAL', "mirror":False, "proportional":'DISABLED', "proportional_edit_falloff":'SMOOTH', "proportional_size":1, "snap":False, "snap_target":'CLOSEST', "snap_point":(0, 0, 0), "snap_align":False, "snap_normal":(0, 0, 0), "texture_space":False, "release_confirm":False})
+	activate(o)
+	bpy.ops.object.duplicate()
 	bpy.ops.group.objects_remove_all()
+	bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+
 	co=bpy.context.active_object
+	print(co.name)
 	if co.type=='FONT':#support for text objects is only and only here, just convert them to curves.
 		bpy.ops.object.convert(target='CURVE', keep_original=False)
 	co.data.dimensions='3D'
@@ -780,6 +860,8 @@ def meshFromCurve(o):
 	
 def curveToChunks(o):
 	co = meshFromCurve(o)
+	#if co.type!='MESH':
+	#	return []
 	chunks=meshFromCurveToChunk(co)
 	
 		

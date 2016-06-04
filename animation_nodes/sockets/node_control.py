@@ -9,7 +9,7 @@ class NodeControlSocket(bpy.types.NodeSocket, AnimationNodeSocket):
     allowedInputTypes = ["None"]
     drawColor = (0.0, 0.0, 0.0, 0.0)
     storable = False
-    hashable = False
+    comparable = False
 
     margin = FloatProperty(default = 0.0001, min = 0.0001)
 
@@ -24,3 +24,15 @@ class NodeControlSocket(bpy.types.NodeSocket, AnimationNodeSocket):
         subcol = col.column()
         subcol.label("")
         subcol.scale_y = self.margin
+
+    @classmethod
+    def getDefaultValue(cls):
+        return None
+
+    @classmethod
+    def getDefaultValueCode(cls):
+        return "None"
+
+    @classmethod
+    def correctValue(cls, value):
+        return value, 0

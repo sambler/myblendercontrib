@@ -63,8 +63,29 @@ def updateMachine(self,context):
 def updateMaterial(self,context):
 	print('update material')
 	utils.addMaterialAreaObject()
-
-
+	
+def selectObject(ob):
+	bpy.ops.object.select_all(action='DESELECT')
+	ob.select = True
+	
+def updateOperation(self, context):
+	scene = context.scene
+	ao = scene.cam_operations[scene.cam_active_operation]
+	# highlight the cutting path if it exists
+	# if no cutting path then try highlighting the object in the 3d view
+	try:
+		ob = bpy.data.objects[ao.path_object_name]
+		selectObject(ob)
+	except:
+		if ao.geometry_source=='OBJECT':
+			try:
+				ob = bpy.data.objects[ao.object_name]
+				selectObject(ob)
+			except:
+				pass
+	
+	
+	
 class CamAddonPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -86,7 +107,20 @@ class machineSettings(bpy.types.PropertyGroup):
 	'''stores all data for machines'''
 	#name = bpy.props.StringProperty(name="Machine Name", default="Machine")
 	post_processor = EnumProperty(name='Post processor',
-		items=(('ISO','Iso','this should export a standardized gcode'),('MACH3','Mach3','default mach3'),('EMC','EMC - LinuxCNC','default emc'),('GRBL','grbl','grbl on Arduino cnc shield'),('HEIDENHAIN','Heidenhain','heidenhain'),('TNC151','Heidenhain TNC151','Post Processor for the Heidenhain TNC151 machine'),('SIEGKX1','Sieg KX1','Sieg KX1'),('HM50','Hafco HM-50','Hafco HM-50'),('CENTROID','Centroid M40','Centroid M40'),('ANILAM','Anilam Crusader M','Anilam Crusader M'),('GRAVOS','Gravos','Gravos'),('WIN-PC','Win-PC','German CNC'),('SHOPBOT MTC','ShopBot MTC','ShopBot MTC'),('LYNX_OTTER_O','Lynx Otter o','Lynx Otter o')),
+		items=(('ISO', 'Iso', 'exports standardized gcode ISO 6983 (RS-274)'),
+			('MACH3', 'Mach3', 'default mach3'),
+			('EMC', 'LinuxCNC - EMC2', 'Linux based CNC control software - formally EMC2'),
+			('GRBL', 'grbl', 'optimized gcode for grbl firmware on Arduino with cnc shield'),
+			('HEIDENHAIN', 'Heidenhain', 'heidenhain'),
+			('TNC151', 'Heidenhain TNC151', 'Post Processor for the Heidenhain TNC151 machine'),
+			('SIEGKX1', 'Sieg KX1', 'Sieg KX1'),
+			('HM50', 'Hafco HM-50', 'Hafco HM-50'),
+			('CENTROID', 'Centroid M40', 'Centroid M40'),
+			('ANILAM', 'Anilam Crusader M', 'Anilam Crusader M'),
+			('GRAVOS', 'Gravos', 'Gravos'),
+			('WIN-PC', 'WinPC-NC', 'German CNC by Burkhard Lewetz'),
+			('SHOPBOT MTC', 'ShopBot MTC', 'ShopBot MTC'),
+			('LYNX_OTTER_O', 'Lynx Otter o', 'Lynx Otter o')),
 		description='Post processor',
 		default='MACH3')
 	#units = EnumProperty(name='Units', items = (('IMPERIAL', ''))
@@ -101,10 +135,10 @@ class machineSettings(bpy.types.PropertyGroup):
 	feedrate_max=bpy.props.FloatProperty(name="Feedrate maximum /min", default=2, min=0.00001, max=320000,precision=PRECISION, unit='LENGTH')
 	feedrate_default=bpy.props.FloatProperty(name="Feedrate default /min", default=1.5, min=0.00001, max=320000,precision=PRECISION, unit='LENGTH')
 	#UNSUPPORTED:
-	spindle_min=bpy.props.FloatProperty(name="#Spindlespeed minimum /min", default=5000, min=0.00001, max=320000,precision=1)
-	spindle_max=bpy.props.FloatProperty(name="#Spindlespeed maximum /min", default=30000, min=0.00001, max=320000,precision=1)
-	spindle_default=bpy.props.FloatProperty(name="#Spindlespeed default /min", default=15000, min=0.00001, max=320000,precision=1)
-	spindle_start_time = bpy.props.FloatProperty(name="Spindle start delay ", description = 'Wait for the spindle to start spinning before starting the feeds , in seconds', default=0, min=0.0000, max=320000,precision=1)
+	spindle_min=bpy.props.FloatProperty(name="Spindle speed minimum RPM", default=5000, min=0.00001, max=320000,precision=1)
+	spindle_max=bpy.props.FloatProperty(name="Spindle speed maximum RPM", default=30000, min=0.00001, max=320000,precision=1)
+	spindle_default=bpy.props.FloatProperty(name="Spindle speed default RPM", default=15000, min=0.00001, max=320000,precision=1)
+	spindle_start_time = bpy.props.FloatProperty(name="Spindle start delay seconds", description = 'Wait for the spindle to start spinning before starting the feeds , in seconds', default=0, min=0.0000, max=320000,precision=1)
 	
 	axis4 = bpy.props.BoolProperty(name="#4th axis",description="Machine has 4th axis", default=0)
 	axis5 = bpy.props.BoolProperty(name="#5th axis",description="Machine has 5th axis", default=0)
@@ -121,6 +155,21 @@ class machineSettings(bpy.types.PropertyGroup):
 	'''
 	collet_size=bpy.props.FloatProperty(name="#Collet size", description="Collet size for collision detection",default=33, min=0.00001, max=320000,precision=PRECISION , unit="LENGTH")
 	#exporter_start = bpy.props.StringProperty(name="exporter start", default="%")
+
+    #post processor options
+
+	output_block_numbers =  BoolProperty(name = "output block numbers", description = "output block numbers ie N10 at start of line", default = False)
+
+	start_block_number =  IntProperty(name = "start block number", description = "the starting block number ie 10", default = 10)
+
+	block_number_increment =  IntProperty(name = "block number increment", description = "how much the block number should increment for the next line", default = 10)
+
+	output_tool_definitions =  BoolProperty(name = "output tool definitions", description = "output tool definitions", default = True)
+	
+	output_tool_change =  BoolProperty(name = "output tool change commands", description = "output tool change commands ie: Tn M06", default = True)
+
+	output_g43_on_tool_change = BoolProperty(name = "output G43 on tool change", description = "output G43 on tool change line", default = False)
+
 
 class PackObjectsSettings(bpy.types.PropertyGroup):
 	'''stores all data for machines'''
@@ -146,24 +195,25 @@ def operationValid(self,context):
 	o=self
 	o.changed=True
 	o.valid=True
+	invalidmsg = "Operation has no valid data input\n"
 	o.warnings=""
 	o=bpy.context.scene.cam_operations[bpy.context.scene.cam_active_operation]
 	if o.geometry_source=='OBJECT':
 		if not o.object_name in bpy.data.objects :
 			o.valid=False;
-			o.warnings="Operation has no valid data input"
+			o.warnings= invalidmsg
 	if o.geometry_source=='GROUP':
 		if not o.group_name in bpy.data.groups:
 			o.valid=False;
-			o.warnings="Operation has no valid data input"
+			o.warnings=invalidmsg
 		elif len(bpy.data.groups[o.group_name].objects)==0: 
 			o.valid=False;
-			o.warnings="Operation has no valid data input"
+			o.warnings=invalidmsg
 		
 	if o.geometry_source=='IMAGE':
 		if not o.source_image_name in bpy.data.images:
 			o.valid=False
-			o.warnings="Operation has no valid data input"
+			o.warnings=invalidmsg
 
 		o.use_exact=False
 	o.update_offsetimage_tag=True
@@ -236,6 +286,7 @@ def updateExact(o,context):
 def updateOpencamlib(o,context):
 	print('update opencamlib ')
 	o.changed=True
+	
 def updateBridges(o,context):
 	print('update bridges ')
 	o.changed=True
@@ -502,7 +553,7 @@ class camOperation(bpy.types.PropertyGroup):
 	bridges_max_distance = bpy.props.FloatProperty(name = 'Maximum distance between bridges', default=0.08, unit='LENGTH', precision=PRECISION, update = updateBridges)
 	'''
 	group_name = bpy.props.StringProperty(name='Group', description='Object group handled by this operation', update=operationValid)
-
+	use_modifiers = BoolProperty(name = "use mesh modifiers", description = "include mesh modifiers using render level when calculating operation, does not effect original mesh", default = False)
 	#optimisation panel
 	
 	#material settings
@@ -514,6 +565,17 @@ class camOperation(bpy.types.PropertyGroup):
 	max = bpy.props.FloatVectorProperty(name = 'Operation maximum', default=(0,0,0), unit='LENGTH', precision=PRECISION,subtype="XYZ")
 	warnings = bpy.props.StringProperty(name='warnings', description='warnings', default='', update = updateRest)
 	chipload = bpy.props.FloatProperty(name="chipload",description="Calculated chipload", default=0.0, unit='LENGTH', precision=10)
+
+	#g-code options for operation
+	output_header =  BoolProperty(name = "output g-code header", description = "output user defined g-code command header at start of operation", default = False)
+
+	gcode_header =  StringProperty(name = "g-code header", description = "g-code commands at start of operation. Use ; for line breaks", default = "G53 G0")
+
+	output_trailer =  BoolProperty(name = "output g-code trailer", description = "output user defined g-code command trailer at end of operation", default = False)
+
+	gcode_trailer =  StringProperty(name = "g-code trailer", description = "g-code commands at end of operation. Use ; for line breaks", default = "M02")
+	
+		
 	#internal properties
 	###########################################
 	#testing = bpy.props.IntProperty(name="developer testing ", description="This is just for script authors for help in coding, keep 0", default=0, min=0, max=512)
@@ -630,7 +692,8 @@ class AddPresetCamOperation(bl_operators.presets.AddPresetBase, Operator):
 			and prop!='name_property'):
 				d.append(prop)
 	'''
-	preset_values = ['o.use_layers', 'o.duration', 'o.chipload', 'o.material_from_model', 'o.stay_low', 'o.carve_depth', 'o.dist_along_paths', 'o.source_image_crop_end_x', 'o.source_image_crop_end_y', 'o.material_size', 'o.material_radius_around_model', 'o.use_limit_curve', 'o.cut_type', 'o.use_exact','o.exact_subdivide_edges', 'o.minz_from_ob', 'o.free_movement_height', 'o.source_image_crop_start_x', 'o.movement_insideout', 'o.spindle_rotation_direction', 'o.skin', 'o.source_image_crop_start_y', 'o.movement_type', 'o.source_image_crop', 'o.limit_curve', 'o.spindle_rpm', 'o.ambient_behaviour', 'o.cutter_type', 'o.source_image_scale_z', 'o.cutter_diameter', 'o.source_image_size_x', 'o.curve_object', 'o.curve_object1', 'o.cutter_flutes', 'o.ambient_radius', 'o.simulation_detail', 'o.update_offsetimage_tag', 'o.dist_between_paths', 'o.max', 'o.min', 'o.pixsize', 'o.slice_detail', 'o.parallel_step_back', 'o.drill_type', 'o.source_image_name', 'o.dont_merge', 'o.update_silhouete_tag', 'o.material_origin', 'o.inverse', 'o.waterline_fill', 'o.source_image_offset', 'o.circle_detail', 'o.strategy', 'o.update_zbufferimage_tag', 'o.stepdown', 'o.feedrate', 'o.cutter_tip_angle', 'o.cutter_id', 'o.path_object_name', 'o.pencil_threshold', 'o.geometry_source', 'o.optimize_threshold', 'o.protect_vertical', 'o.plunge_feedrate', 'o.minz', 'o.warnings', 'o.object_name', 'o.optimize', 'o.parallel_angle', 'o.cutter_length']
+	preset_values = ['o.use_layers', 'o.duration', 'o.chipload', 'o.material_from_model', 'o.stay_low', 'o.carve_depth', 'o.dist_along_paths', 'o.source_image_crop_end_x', 'o.source_image_crop_end_y', 'o.material_size', 'o.material_radius_around_model', 'o.use_limit_curve', 'o.cut_type', 'o.use_exact','o.exact_subdivide_edges', 'o.minz_from_ob', 'o.free_movement_height', 'o.source_image_crop_start_x', 'o.movement_insideout', 'o.spindle_rotation_direction', 'o.skin', 'o.source_image_crop_start_y', 'o.movement_type', 'o.source_image_crop', 'o.limit_curve', 'o.spindle_rpm', 'o.ambient_behaviour', 'o.cutter_type', 'o.source_image_scale_z', 'o.cutter_diameter', 'o.source_image_size_x', 'o.curve_object', 'o.curve_object1', 'o.cutter_flutes', 'o.ambient_radius', 'o.simulation_detail', 'o.update_offsetimage_tag', 'o.dist_between_paths', 'o.max', 'o.min', 'o.pixsize', 'o.slice_detail', 'o.parallel_step_back', 'o.drill_type', 'o.source_image_name', 'o.dont_merge', 'o.update_silhouete_tag', 'o.material_origin', 'o.inverse', 'o.waterline_fill', 'o.source_image_offset', 'o.circle_detail', 'o.strategy', 'o.update_zbufferimage_tag', 'o.stepdown', 'o.feedrate', 'o.cutter_tip_angle', 'o.cutter_id', 'o.path_object_name', 'o.pencil_threshold', 'o.geometry_source', 'o.optimize_threshold', 'o.protect_vertical', 'o.plunge_feedrate', 'o.minz', 'o.warnings', 'o.object_name', 'o.optimize', 'o.parallel_angle', 'o.cutter_length',
+	'o.output_header', 'o.gcode_header', 'o.output_trailer', 'o.gcode_trailer', 'o.use_modifiers']
 
 	preset_subdir = "cam_operations"   
 	 
@@ -661,6 +724,10 @@ class AddPresetCamMachine(bl_operators.presets.AddPresetBase, Operator):
 		"d.axis4",
 		"d.axis5",
 		"d.collet_size",
+		"d.output_tool_change",
+		"d.output_block_numbers",
+		"d.output_tool_definitions",
+		"d.output_g43_on_tool_change",
 	]
 
 	preset_subdir = "cam_machines"
@@ -691,6 +758,7 @@ def get_panels():#convenience function for bot register and unregister functions
 	ui.CAM_MOVEMENT_Panel,
 	ui.CAM_FEEDRATE_Panel,
 	ui.CAM_CUTTER_Panel,
+	ui.CAM_GCODE_Panel,
 	ui.CAM_MACHINE_Panel,
 	ui.CAM_PACK_Panel,
 	ui.CAM_SLICE_Panel,
@@ -730,6 +798,7 @@ def get_panels():#convenience function for bot register and unregister functions
 	ops.CamCurveIntarsion,
 	ops.CamCurveOvercuts,
 	ops.CamCurveRemoveDoubles,
+	ops.CamMeshGetPockets,
 	
 	
 	
@@ -872,7 +941,7 @@ def register():
 
 	s.cam_operations = bpy.props.CollectionProperty(type=camOperation)
 	
-	s.cam_active_operation = bpy.props.IntProperty(name="CAM Active Operation", description="The selected operation")
+	s.cam_active_operation = bpy.props.IntProperty(name="CAM Active Operation", description="The selected operation", update=updateOperation)
 	s.cam_machine = bpy.props.PointerProperty(type=machineSettings)
 	
 	s.cam_text= bpy.props.StringProperty()

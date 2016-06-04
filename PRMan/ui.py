@@ -37,7 +37,7 @@ from bl_ui.properties_particle import ParticleButtonsPanel
 # helper functions for parameters
 from .shader_parameters import tex_optimised_path
 from .shader_parameters import tex_source_path
-from .nodes import draw_nodes_properties_ui, draw_node_properties_recursive
+from .nodes import draw_nodes_properties_ui, draw_node_properties_recursive, load_tree_from_lib
 
 # Use some of the existing buttons.
 import bl_ui.properties_render as properties_render
@@ -466,6 +466,8 @@ class MATERIAL_PT_renderman_shader_surface(ShaderPanel, Panel):
     def draw(self, context):
         mat = context.material
         if context.material.renderman and context.material.renderman.nodetree:
+            if context.material.renderman.nodetree not in bpy.data.node_groups:
+                load_tree_from_lib(context.material)    
             nt = bpy.data.node_groups[context.material.renderman.nodetree]
             draw_nodes_properties_ui(
                 self.layout, context, nt, input_name=self.shader_type)
@@ -492,6 +494,8 @@ class MATERIAL_PT_renderman_shader_light(ShaderPanel, Panel):
 
     def draw(self, context):
         if context.material.renderman.nodetree:
+            if context.material.renderman.nodetree not in bpy.data.node_groups:
+                load_tree_from_lib(context.material)    
             nt = bpy.data.node_groups[context.material.renderman.nodetree]
             draw_nodes_properties_ui(
                 self.layout, context, nt, input_name=self.shader_type)
@@ -504,6 +508,8 @@ class MATERIAL_PT_renderman_shader_displacement(ShaderPanel, Panel):
 
     def draw(self, context):
         if context.material.renderman.nodetree != "":
+            if context.material.renderman.nodetree not in bpy.data.node_groups:
+                load_tree_from_lib(context.material)    
             nt = bpy.data.node_groups[context.material.renderman.nodetree]
             draw_nodes_properties_ui(
                 self.layout, context, nt, input_name=self.shader_type)

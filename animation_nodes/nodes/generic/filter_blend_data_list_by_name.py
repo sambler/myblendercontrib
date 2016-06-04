@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import *
-from ... sockets.info import toListIdName
+from ... sockets.info import toListDataType
 from ... events import executionCodeChanged
 from ... base_types.node import AnimationNode
 
@@ -12,16 +12,18 @@ filterTypeItems = [("STARTS_WITH", "Starts With", "All Objects with names starti
 class FilterBlendDataListByNameNode(bpy.types.Node, AnimationNode):
     bl_idname = "an_FilterBlendDataListByNameNode"
     bl_label = "Filter Blend Data List By Name"
+    bl_width_default = 170
+    dynamicLabelType = "ALWAYS"
 
     onlySearchTags = True
     searchTags = [("Filter {} List by Name".format(name), {"dataType" : repr(name)}) for name in dataTypes]
 
     def dataTypeChanged(self, context):
         self.createSockets()
-        executionCodeChanged()
 
     # Should be set only on node creation
-    dataType = StringProperty(name = "Data Type", update = dataTypeChanged)
+    dataType = StringProperty(name = "Data Type", default = "Object",
+        update = dataTypeChanged)
 
     filterType = EnumProperty(name = "Filter Type", default = "STARTS_WITH",
         items = filterTypeItems, update = executionCodeChanged)
@@ -30,7 +32,7 @@ class FilterBlendDataListByNameNode(bpy.types.Node, AnimationNode):
         update = executionCodeChanged)
 
     def create(self):
-        self.width = 170
+        self.createSockets()
 
     def draw(self, layout):
         layout.prop(self, "filterType", expand = True)
@@ -42,10 +44,10 @@ class FilterBlendDataListByNameNode(bpy.types.Node, AnimationNode):
     def createSockets(self):
         self.inputs.clear()
         self.outputs.clear()
-        idName = toListIdName(self.dataType)
-        self.inputs.new(idName, self.dataType + " List", "sourceList")
-        self.inputs.new("an_StringSocket", "Name", "name")
-        self.outputs.new(idName, self.dataType + " List", "targetList")
+        listDataType = toListDataType(self.dataType)
+        self.newInput(listDataType, listDataType, "sourceList")
+        self.newInput("String", "Name", "name")
+        self.newOutput(listDataType, listDataType, "targetList")
 
     def getExecutionCode(self):
         operation = "startswith" if self.filterType == "STARTS_WITH" else "endswith"

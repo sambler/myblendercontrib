@@ -1,4 +1,7 @@
 import bpy
+from .. problems import canExecute
+from .. utils.layout import writeText
+from .. utils.blender_ui import isViewportRendering
 
 class AutoExecutionPanel(bpy.types.Panel):
     bl_idname = "an_auto_execution_panel"
@@ -19,21 +22,37 @@ class AutoExecutionPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+
         tree = context.space_data.edit_tree
         autoExecution = tree.autoExecution
 
-        col = layout.column()
-        col.active = autoExecution.enabled
-        col.prop(autoExecution, "sceneUpdate", text = "Always")
-        col.separator()
+        isRendering = isViewportRendering()
 
-        col = col.column()
-        col.active = not autoExecution.sceneUpdate
+        if not canExecute():
+            layout.label("Look in the 'Problems' panel", icon = "INFO")
+
+        layout.active = autoExecution.enabled
+
+        col = layout.column()
+        col.active = not isRendering
+        text = "Always" if not isRendering else "Always (deactivated)"
+        col.prop(autoExecution, "sceneUpdate", text = text)
+
+        col = layout.column()
+        col.active = not autoExecution.sceneUpdate or isRendering
         col.prop(autoExecution, "treeChanged", text = "Tree Changed")
         col.prop(autoExecution, "frameChanged", text = "Frame Changed")
         col.prop(autoExecution, "propertyChanged", text = "Property Changed")
 
         layout.prop(autoExecution, "minTimeDifference", slider = True)
+
+        col = layout.column()
+        col.operator("an.add_auto_execution_trigger", text = "New Trigger", icon = "ZOOMIN")
+        customTriggers = autoExecution.customTriggers
+
+        subcol = col.column(align = True)
+        for i, monitorPropertyTrigger in enumerate(customTriggers.monitorPropertyTriggers):
+            monitorPropertyTrigger.draw(subcol, i)
 
     @classmethod
     def getTree(cls):

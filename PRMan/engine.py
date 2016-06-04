@@ -405,13 +405,14 @@ class RPass:
         if self.rm.do_denoise and not isProblem:
             base, ext = render_output.rsplit('.', 1)
             # denoise data has the name .denoise.exr
+            denoise_options = "-t%d" % self.rm.threads
             denoise_data = base + '.denoise.' + 'exr'
             filtered_name = base + '.denoise_filtered.' + 'exr'
             if os.path.exists(denoise_data):
                 try:
                     # denoise to _filtered
                     cmd = [os.path.join(self.paths['rmantree'], 'bin',
-                                        'denoise'), denoise_data]
+                                        'denoise')] + [denoise_options] +  [denoise_data]
 
                     engine.update_stats("", ("PRMan: Denoising image"))
                     t1 = time.time()
@@ -543,6 +544,9 @@ class RPass:
     def end_interactive(self):
         self.is_interactive = False
         self.is_interactive_running = False
+        self.edit_num += 1
+        self.ri.ArchiveRecord("structure", self.ri.STREAMMARKER + "%d" % self.edit_num)
+        prman.RicFlush("%d" % self.edit_num, 0, self.ri.SUSPENDRENDERING)
         self.ri.EditWorldEnd()
         self.ri.End()
         self.material_dict = {}
@@ -609,7 +613,7 @@ class RPass:
             out_file_path = os.path.join(
                 self.paths['texture_output'], out_file)
 
-            if os.path.isfile(out_file_path) and \
+            if os.path.isfile(out_file_path) and os.path.exists(in_file) and\
                     self.rm.always_generate_textures is False and \
                     os.path.getmtime(in_file) <= \
                     os.path.getmtime(out_file_path):

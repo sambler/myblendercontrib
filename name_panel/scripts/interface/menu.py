@@ -43,7 +43,7 @@ class specials(Menu):
     layout.operator('view3d.batch_auto_name', icon='AUTO')
 
     # bath name
-    layout.operator('wm.batch_name', icon='SORTALPHA')
+    layout.operator('wm.batch_name', icon='SORTALPHA').quickBatch = False
 
     # batch copy
     layout.operator('view3d.batch_copy_name', icon='COPYDOWN')
@@ -61,14 +61,5 @@ class specials(Menu):
     # pin active object
     layout.prop(option, 'pinActiveObject')
 
-    # serparator
-    # layout.separator()
-
-    # object names
-    # layout.operator('view3d.auto_name_object_names', icon='OBJECT_DATA')
-
-    # constraint names
-    # layout.operator('view3d.auto_name_constraint_names', icon='CONSTRAINT')
-
-    # modifier names
-    # layout.operator('view3d.auto_name_modifier_names', icon='MODIFIER')
+    # hide search
+    layout.prop(option, 'hideSearch')

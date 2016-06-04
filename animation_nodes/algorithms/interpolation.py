@@ -5,6 +5,7 @@ Here is a good source for different interpolation functions in Java:
 https://github.com/libgdx/libgdx/blob/master/gdx/src/com/badlogic/gdx/math/Interpolation.java
 '''
 
+# using pythons functools.partial function is slower
 def assignArguments(function, *arguments):
     def interpolationWrapper(x):
         return function(x, *arguments)
@@ -51,12 +52,12 @@ exponentOfName = {
     "QUARTIC" : 4,
     "QUINTIC" : 5 }
 
-
-def sampleInterpolation(interpolation, amount = 40):
+def sampleInterpolation(interpolation, amount = 40, minValue = 0, maxValue = 1):
     samples = []
+    size = maxValue - minValue
     for i in range(amount):
           x = i / (amount - 1)
-          y = interpolation(x)
+          y = interpolation(x) * size + minValue
           samples.append(y)
     return samples
 
@@ -220,9 +221,6 @@ def sinOut(x):
 
 
 # Specials
-
-def curveMapping(x, curve):
-    return min(max((curve.evaluate(x) - 0.25) * 2, -0.5), 1.5)
 
 def fCurveMapping(x, settings):
     fCurve, xMove, xFactor, yMove, yDivisor = settings

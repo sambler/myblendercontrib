@@ -17,17 +17,6 @@ Created by Andreas Esau
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
-bl_info = {
-    "name": "Cutout Animation Tools",
-    "description": "This Addon provides a Toolset for a 2D Animation Workflow.",
-    "author": "Andreas Esau",
-    "version": (0, 1, 0, "Alpha"),
-    "blender": (2, 75, 0),
-    "location": "View 3D > Tools > Cutout Animation Tools",
-    "warning": "This addon is still in development.",
-    "wiki_url": "",
-    "category": "Ndee Tools" }
     
 import bpy
 import bpy_extras
@@ -59,6 +48,8 @@ class COAModal(bpy.types.Operator):
         self.type_hist = ""
         self.value_pressed = False
         self.scaling = False
+        self.obj_mode_hist = "OBJECT"
+        self.bone_transformation = False
         
     def set_frame_bounds_and_actions(self,context):
         scene = context.scene
@@ -69,12 +60,12 @@ class COAModal(bpy.types.Operator):
     
     
     def check_event_value(self,event):
-        if event.value == "PRESS" and self.value_hist in ["RELEASE","NOTHING"]:
+        if event.value == "PRESS" and self.value_hist != "PRESS":#and self.value_hist in ["RELEASE","NOTHING"]:
             self.value_pressed = True
             return "JUST_PRESSED"
         elif event.value != "RELEASE" and self.value_pressed:
             return "PRESSED"
-        elif event.value == "RELEASE" and self.value_hist == "PRESS":
+        elif event.value == "RELEASE" and (self.value_hist == "PRESS" or self.value_hist == "NOTHING"):
             self.value_pressed = False
             return "JUST_RELEASED"
         else:
@@ -93,50 +84,122 @@ class COAModal(bpy.types.Operator):
                 elif event.type in ["RIGHTMOUSE","ESC"]:
                     self.scaling = False
                     return "SCALE_CANCELLED"
+                
+    def set_view_front(self,context):
+        for area in context.screen.areas:
+            if area.type == "VIEW_3D":
+                for space in area.spaces:
+                    if space.type == "VIEW_3D":
+                        region = space.region_3d
+                        region.view_rotation = Quaternion((0.7071,0.7071,-0.0,-0.0))
     
+    def update_bone_group_color(self,context):
+        active_object = context.active_object
+        suffix = "_group_color"
+        if active_object != None and active_object.type == "ARMATURE":
+            for bone in active_object.pose.bones:
+                custom_shape = bone.custom_shape
+                if custom_shape != None and bone.bone_group != None:
+                    mat_name = bone.bone_group.name+"_group_color"
+                    if mat_name in bpy.data.materials:
+                        material = bpy.data.materials[mat_name]
+                    else:
+                        material = bpy.data.materials.new(mat_name)
+                            
+                    if len(custom_shape.material_slots) == 0:
+                        custom_shape.data.materials.append(material)
+                    else:
+                        custom_shape.material_slots[0].material = material    
+                    
+                    material.diffuse_color = bone.bone_group.colors.normal
+                elif custom_shape != None:
+                    if len(custom_shape.material_slots) > 0:
+                        custom_shape.material_slots[0].material = None
+            
+            for bone_group in active_object.pose.bone_groups:
+                if (bone_group.name+suffix) in bpy.data.materials:
+                    material = bpy.data.materials[bone_group.name+suffix]
+                    if material.diffuse_color != bone_group.colors.normal:
+                        material.diffuse_color = bone_group.colors.normal
+    
+            
+            
     def modal(self,context,event):
         ### execute only if an event pressed is triggered
         active_object = context.active_object
+
         if self.check_event_value(event) == "JUST_PRESSED":
             wm = context.window_manager
             self.sprite_object = get_sprite_object(context.active_object)
             
             self.set_scaling(active_object,event)
-            if self.sprite_object != None:
+            if self.sprite_object != None and context.scene.coa_nla_mode == "ACTION":
                 self.set_frame_bounds_and_actions(context)
             
-            screen = context.screen    
+            screen = context.screen
             if screen.coa_view == "2D":
                 set_middle_mouse_move(True)
+                self.set_view_front(context)
             elif screen.coa_view == "3D":
                 set_middle_mouse_move(False)
                 
         elif self.check_event_value(event) == "JUST_RELEASED":
+            obj = active_object
+            self.update_bone_group_color(context)
+            
             screen = context.screen
-            if screen.coa_view == "2D":
-                set_middle_mouse_move(True)
-            elif screen.coa_view == "3D":
-                set_middle_mouse_move(False)
+            if "coa_init_fullscreen" not in screen:
+                if "-nonnormal" in context.screen.name:
+                    context.screen.coa_view = bpy.data.screens[context.screen.name.split("-nonnormal")[0]].coa_view
+                if screen.coa_view == "2D":
+                    set_middle_mouse_move(True)
+                    self.set_view_front(context)
+                elif screen.coa_view == "3D":
+                    set_middle_mouse_move(False)
+                screen["coa_init_fullscreen"] = True    
                 
-            if active_object != None and "sprite" in active_object and active_object.mode == "OBJECT":    
-                set_alpha(active_object,bpy.context,active_object.coa_alpha)
-                set_z_value(context,active_object,active_object.coa_z_value)
-                set_modulate_color(active_object,context,active_object.coa_modulate_color)
                 
+            if active_object != None and "coa_sprite" in active_object and active_object.mode == "OBJECT":
+                if obj.coa_alpha != obj.coa_alpha_last:
+                    set_alpha(obj,bpy.context,obj.coa_alpha)
+                    obj.coa_alpha_last = obj.coa_alpha
+                if obj.coa_z_value != obj.coa_z_value_last:
+                    set_z_value(context,obj,obj.coa_z_value)
+                    obj.coa_z_value_last = obj.coa_z_value
+                if obj.coa_modulate_color != obj.coa_modulate_color_last:
+                    set_modulate_color(obj,context,obj.coa_modulate_color)
+                    obj.coa_modulate_color_last = obj.coa_modulate_color
+            
+            if obj != None and "coa_sprite" in obj:        
+                ### leaving object edit mode
+                if obj.type == "MESH" and self.obj_mode_hist == "EDIT" and obj.mode == "OBJECT":
+                    set_uv_default_coords(context,obj)
+                ### Store sprite dimension in coa_sprite_dimension when mesh is rescaled
+                    for obj in context.selected_objects:
+                        if obj != None and "coa_sprite":
+                            obj.coa_sprite_dimension = Vector((get_local_dimension(obj)[0],0,get_local_dimension(obj)[1]))
+                ### entering object edit mode
+                elif obj.type == "MESH" and self.obj_mode_hist == "OBJECT" and obj.mode == "EDIT":
+                    #obj.coa_sprite_frame = 0
+                    pass
+                    
+                self.obj_mode_hist = obj.mode
                 
-        
-        ### Store sprite dimension in coa_sprite_dimension when mesh is rescaled
-            for obj in context.selected_objects:
-                if obj != None and "sprite" in obj and len(obj.data.vertices) == 4:
-                    obj.coa_sprite_dimension = Vector((get_local_dimension(obj)[0],0,get_local_dimension(obj)[1]))
+        if active_object != None and (self.check_event_value(event) in ["JUST_PRESSED","PRESSED"] and event.type == "G") and active_object.type == "ARMATURE" and active_object.mode == "POSE":
+            bpy.context.window_manager.coa_update_uv = True
+        elif self.check_event_value(event) == "JUST_RELEASED" and bpy.context.window_manager.coa_update_uv:  
+            bpy.context.window_manager.coa_update_uv = False
+                    
+        #print("value = ",event.value,"value_hist = ",self.value_hist)
+            
         if self.check_scaling(active_object,event) == "SCALE_APPLIED":
             bpy.ops.object.mode_set(mode="OBJECT")
             bpy.ops.object.mode_set(mode="EDIT")
             active_object.coa_sprite_dimension = Vector((get_local_dimension(active_object)[0],0,get_local_dimension(active_object)[1]))
         ###
-        
         self.value_hist = str(event.value)
         self.type_hist = str(event.type)
+        
         return{'PASS_THROUGH'}
         
     def execute(self,context):

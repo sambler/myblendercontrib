@@ -1,4 +1,6 @@
 import bpy
+from .. problems import canExecute
+from .. utils.layout import writeText
 from .. utils.timing import prettyTime
 
 class TreePanel(bpy.types.Panel):
@@ -23,10 +25,15 @@ class TreePanel(bpy.types.Panel):
         props = col.operator("an.execute_tree", icon = "PLAY")
         props.name = tree.name
 
+        if not canExecute():
+            layout.label("Look in the 'Problems' panel", icon = "INFO")
+
+        layout.label(prettyTime(tree.lastExecutionInfo.executionTime), icon = "TIME")
+
         layout.separator()
+        layout.prop_search(tree, "sceneName", bpy.data, "scenes", icon = "SCENE_DATA", text = "Scene")
         layout.prop(tree, "editNodeLabels")
 
-        layout.label(prettyTime(tree.executionTime), icon = "TIME")
 
     @classmethod
     def getTree(cls):

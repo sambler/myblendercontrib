@@ -289,7 +289,7 @@ class PathsChain(bpy.types.Operator):
 	bl_idname = "object.calculate_cam_paths_chain"
 	bl_label = "Calculate CAM paths in current chain and export chain gcode"
 	bl_options = {'REGISTER', 'UNDO'}
-		
+
 	def execute(self, context):
 		import bpy
 		s=bpy.context.scene
@@ -303,9 +303,6 @@ class PathsChain(bpy.types.Operator):
 		utils.exportGcodePath(chain.filename,meshes,chainops)
 		return {'FINISHED'}
 	
-	def draw(self, context):
-		layout = self.layout
-		layout.prop_search(self, "operation", bpy.context.scene, "cam_operations")	 
 		
 class PathExport(bpy.types.Operator):
 	'''Export gcode. Can be used only when the path object is present'''
@@ -602,10 +599,18 @@ class CamOperationRemove(bpy.types.Operator):
 		return context.scene is not None
 
 	def execute(self, context):
-		#main(context)
-		bpy.context.scene.cam_operations.remove(bpy.context.scene.cam_active_operation)
-		if bpy.context.scene.cam_active_operation>0:
-			bpy.context.scene.cam_active_operation-=1
+		scene = context.scene
+		try:
+			ao = scene.cam_operations[scene.cam_active_operation]
+			ob = bpy.data.objects[ao.path_object_name]
+			scene.objects.active = ob
+			bpy.ops.object.delete(True)
+		except:
+			pass
+		
+		scene.cam_operations.remove(scene.cam_active_operation)
+		if scene.cam_active_operation>0:
+			scene.cam_active_operation-=1
 		
 		return {'FINISHED'}
 	
@@ -693,7 +698,7 @@ class CamBridgesAdd(bpy.types.Operator):
 		
 #boolean operations for curve objects
 class CamCurveBoolean(bpy.types.Operator):
-	'''Boolean operation on two curves'''
+	'''perform Boolean operation on two or more curves'''
 	bl_idname = "object.curve_boolean"
 	bl_label = "Curve Boolean"
 	bl_options = {'REGISTER', 'UNDO'}
@@ -703,13 +708,17 @@ class CamCurveBoolean(bpy.types.Operator):
 		description='boolean type',
 		default='UNION')
 		
-	#@classmethod
-	#def poll(cls, context):
-	#	return context.active_object is not None and context.active_object.type=='CURVE' and len(bpy.context.selected_objects)==2
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None and context.active_object.type in ['CURVE','FONT']
 
 	def execute(self, context):
-		utils.polygonBoolean(context,self.boolean_type)
-		return {'FINISHED'}
+		if len(context.selected_objects)>1:
+			utils.polygonBoolean(context,self.boolean_type)
+			return {'FINISHED'}
+		else:
+			self.report({'ERROR'}, 'at least 2 curves must be selected')
+			return {'CANCELLED'}
 
 #intarsion or joints
 class CamCurveIntarsion(bpy.types.Operator):
@@ -718,11 +727,11 @@ class CamCurveIntarsion(bpy.types.Operator):
 	bl_label = "Intarsion"
 	bl_options = {'REGISTER', 'UNDO'}
 	
-	diameter = bpy.props.FloatProperty(name="cutter diameter", default=.003, min=0, max=100,precision=4, unit="LENGTH")
+	diameter = bpy.props.FloatProperty(name="cutter diameter", default=.001, min=0, max=100,precision=4, unit="LENGTH")
 		
-	#@classmethod
-	#def poll(cls, context):
-	#	return context.active_object is not None and context.active_object.type=='CURVE' and len(bpy.context.selected_objects)==2
+	@classmethod	
+	def poll(cls, context):
+		return context.active_object is not None and (context.active_object.type in ['CURVE','FONT'])
 
 	def execute(self, context):
 		utils.silhoueteOffset(context,-self.diameter/2)
@@ -751,9 +760,9 @@ class CamCurveOvercuts(bpy.types.Operator):
 	threshold = bpy.props.FloatProperty(name="threshold", default=math.pi/2*.99, min=-3.14, max=3.14,precision=4, subtype="ANGLE" , unit="ROTATION")
 	do_outer = bpy.props.BoolProperty(name="Outer polygons", default=True)
 	invert = bpy.props.BoolProperty(name="Invert", default=False)
-	#@classmethod
-	#def poll(cls, context):
-	#	return context.active_object is not None and context.active_object.type=='CURVE' and len(bpy.context.selected_objects)==2
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None and (context.active_object.type in ['CURVE','FONT'])
 
 	def execute(self, context):
 		#utils.silhoueteOffset(context,-self.diameter)
@@ -835,6 +844,10 @@ class CamCurveRemoveDoubles(bpy.types.Operator):
 	bl_idname = "object.curve_remove_doubles"
 	bl_label = "C-Remove doubles"
 	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None and (context.active_object.type=='CURVE')
 
 	def execute(self, context):
 		mode=False
@@ -853,7 +866,89 @@ class CamCurveRemoveDoubles(bpy.types.Operator):
 			bpy.ops.object.editmode_toggle()
 		
 		return {'FINISHED'}	
-		
+
+class CamMeshGetPockets(bpy.types.Operator):
+	'''Detect pockets in a mesh and extract them as curves'''
+	bl_idname = "object.mesh_get_pockets"
+	bl_label = "Get pocket surfaces"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	threshold = bpy.props.FloatProperty(name="horizontal threshold", default=.99, min=0, max=1.0, precision=4)
+
+	@classmethod
+	def poll(cls, context):
+		return context.active_object is not None and (context.active_object.type=='MESH')
+	
+	def execute(self, context):
+		obs = bpy.context.selected_objects
+		s=bpy.context.scene
+		cobs = []
+		for ob in obs:
+			if ob.type=='MESH':
+				pockets={}
+				mw = ob.matrix_world
+				m=ob.data
+				i=0
+				bpy.ops.object.editmode_toggle()
+				bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+				bpy.ops.mesh.select_all(action='DESELECT')
+				bpy.ops.object.editmode_toggle()
+				i=0
+				for f in m.polygons:
+					n= mw * f.normal
+					if n.z > self.threshold :
+						f.select=True
+						z=m.vertices[f.vertices[0]].co.z
+						if pockets.get(z)==None:
+							pockets[z] = [i]
+						else:
+							pockets[z].append(i)
+					i+=1
+				print(len(pockets))
+				for p in pockets:
+					print(p)
+				ao = bpy.context.active_object
+				i=0
+				for p in pockets:
+					print(i)
+					i+=1
+					
+					sf = pockets[p]
+					for f in m.polygons:
+						f.select=False
+					
+					for fi in sf:
+						f=m.polygons[fi]
+						f.select=True
+					
+					bpy.ops.object.editmode_toggle()
+					
+					bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+					bpy.ops.mesh.region_to_loop()
+					bpy.ops.mesh.separate(type = 'SELECTED')
+					
+					bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+					bpy.ops.object.editmode_toggle()
+					ao.select=False
+					s.objects.active=bpy.context.selected_objects[0]
+					cobs.append(s.objects.active)
+					bpy.ops.object.convert(target='CURVE')
+					bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+
+					bpy.context.selected_objects[0].select=False
+					ao.select=True
+					s.objects.active=ao
+					#bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+			
+			# turn off selection of all objects in 3d view
+			bpy.ops.object.select_all(action='DESELECT')
+			# make new curves more visible by making them selected in the 3d view
+			# This also allows the active object to still work with the operator
+			# if the user decides to change the horizontal threshold property
+			for obj in cobs:
+				obj.select = True
+				
+		return {'FINISHED'}			
 
 #this operator finds the silhouette of objects(meshes, curves just get converted) and offsets it.
 class CamOffsetSilhouete(bpy.types.Operator):
@@ -881,7 +976,7 @@ class CamObjectSilhouete(bpy.types.Operator):
 		
 	@classmethod
 	def poll(cls, context):
-		return context.active_object is not None and (context.active_object.type=='CURVE' or context.active_object.type=='MESH')
+		return context.active_object is not None and (context.active_object.type=='MESH')
 
 		
 		

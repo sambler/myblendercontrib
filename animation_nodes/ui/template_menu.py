@@ -6,8 +6,7 @@ class TemplatesMenu(bpy.types.Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("an.empty_subprogram_template")
-        layout.separator()
+
         layout.operator("an.grid_arrange_objects_template")
         layout.operator("an.random_vertices_offset_template")
         layout.operator("an.network_from_particles_template")
@@ -19,6 +18,7 @@ class TemplatesMenu(bpy.types.Menu):
         layout.operator("an.fcurve_animation_offset_template")
         layout.operator("an.simple_parent_template")
         layout.operator("an.grid_3d_template")
+        layout.operator("an.animate_individual_letters_template")
 
 class TemplatesMenuInHeader(bpy.types.Header):
     bl_idname = "an_templates_menu_in_header"
@@ -29,4 +29,5 @@ class TemplatesMenuInHeader(bpy.types.Header):
     
         layout = self.layout
         layout.separator()
+        layout.menu("an_subprograms_menu", text = "Subprograms")
         layout.menu("an_templates_menu", text = "Templates")

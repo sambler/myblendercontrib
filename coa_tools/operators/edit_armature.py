@@ -17,17 +17,6 @@ Created by Andreas Esau
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
-bl_info = {
-    "name": "Cutout Animation Tools",
-    "description": "This Addon provides a Toolset for a 2D Animation Workflow.",
-    "author": "Andreas Esau",
-    "version": (0, 1, 0, "Alpha"),
-    "blender": (2, 75, 0),
-    "location": "View 3D > Tools > Cutout Animation Tools",
-    "warning": "This addon is still in development.",
-    "wiki_url": "",
-    "category": "Ndee Tools" }
     
 import bpy
 import bpy_extras
@@ -97,22 +86,6 @@ class QuickArmature(bpy.types.Operator):
             ray = [ray[0],ray[4],ray[5],ray[1],ray[2]]
         
         return start, end, ray
-
-    def check_region(self,context,event):
-        if context.area != None:
-            if context.area.type == "VIEW_3D":
-                t_panel = context.area.regions[1]
-                n_panel = context.area.regions[3]
-                
-                view_3d_region_x = Vector((context.area.x + t_panel.width, context.area.x + context.area.width - n_panel.width))
-                view_3d_region_y = Vector((context.region.y, context.region.y+context.region.height))
-                
-                if event.mouse_x > view_3d_region_x[0] and event.mouse_x < view_3d_region_x[1] and event.mouse_y > view_3d_region_y[0] and event.mouse_y < view_3d_region_y[1]:
-                    self.in_view_3d = True
-                else:
-                    self.in_view_3d = False
-            else:
-                self.in_view_3d = False    
     
     def create_armature(self,context):
         obj = bpy.context.active_object
@@ -245,7 +218,11 @@ class QuickArmature(bpy.types.Operator):
         orig_armature.select = True     
         obj.select = True       
         
+        obj_orig_location = obj.location
+        obj.location[1] = 0
         bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+        obj.location = obj_orig_location
+        
         for i,bone in enumerate(orig_armature.data.edit_bones):
             orig_armature.data.bones[i].use_deform = use_deform[i]
         i = 0
@@ -278,7 +255,7 @@ class QuickArmature(bpy.types.Operator):
         
     
     def modal(self, context, event):
-        self.check_region(context,event)
+        self.in_view_3d = check_region(context,event)
         if self.in_view_3d:
             if not event.alt:
                 bpy.context.window.cursor_set("PAINT_BRUSH")
@@ -289,119 +266,132 @@ class QuickArmature(bpy.types.Operator):
         scene = context.scene
         ob = context.active_object
         
-        self.mouse_press_hist = self.mouse_press
-        mouse_button = None
-        if context.user_preferences.inputs.select_mouse == "RIGHT":
-            mouse_button = 'LEFTMOUSE'
-        else:
-            mouse_button = 'RIGHTMOUSE'    
-        ### Set Mouse click 
-        if (event.value == 'PRESS') and event.type == mouse_button:
-            self.mouse_press = True
-            #return {'RUNNING_MODAL'}
-        elif event.value == 'RELEASE' and (event.type == mouse_button):
-            self.mouse_press = False
-        #print(event.value,"-----------",event.type)
-        ### Cast Ray from mousePosition and set Cursor to hitPoint
-        rayStart,rayEnd, ray = self.project_cursor(event)
-
-        if ray[0] == True and ray[1] != None:
-            bpy.context.scene.cursor_location = ray[3]
-        elif rayEnd != None:
-            bpy.context.scene.cursor_location = rayEnd
-        bpy.context.scene.cursor_location[1] = context.active_object.location[1]
-
-        if not event.alt and not event.ctrl:
-            self.object_hover = None
-            ### mouse just pressed
-            if not self.mouse_press_hist and self.mouse_press and self.in_view_3d:
-                #print("just pressed")
-                self.mouse_click_vec = Vector(context.scene.cursor_location)
-                self.create_bones(context,context.active_object)
-                
-                self.drag_bone(context,event,self.current_bone)
-                if context.active_bone != None:
-                    bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
-            
-            ### mouse pressed
-            elif self.mouse_press_hist and self.mouse_press:
-                #print("pressed")
-                self.drag_bone(context,event,self.current_bone)
-                if context.active_bone != None:
-                    bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
-            ### mouse release   
-            elif not self.mouse_press and self.mouse_press_hist and self.current_bone != None: 
-                #print("just released")
-                bpy.ops.ed.undo_push(message="Add Bone: "+self.current_bone.name)
-                self.current_bone.hide = False   
-                self.current_bone = None
-                self.mouse_click_vec = Vector((1000000,1000000,1000000))
-                
-                self.set_waits = True
-                bpy.ops.object.mode_set(mode='OBJECT')
-                bpy.ops.object.mode_set(mode='EDIT')
-                self.set_waits = False 
-                
-        elif event.alt and not event.ctrl:
-            self.object_hover_hist = self.object_hover
-            hover_objects = self.return_ray_sprites(context,event)
-            distance = 1000000000
-            if len(hover_objects) > 0:
-                for ray in hover_objects:
-                    sprite_center = get_bounds_and_center(ray[1])[0]
-                    if ((sprite_center) - ray[3]).length < distance:
-                        distance = (sprite_center - ray[3]).length
-                        self.object_hover = ray[1]
+        if self.in_view_3d:
+            self.mouse_press_hist = self.mouse_press
+            mouse_button = None
+            if context.user_preferences.inputs.select_mouse == "RIGHT":
+                mouse_button = 'LEFTMOUSE'
             else:
-                self.object_hover = None
-            show_x_ray = False
-            if self.object_hover != self.object_hover_hist:
-                if self.object_hover != None:
-                    self.object_hover.show_name = True
-                    self.object_hover.select = True
-                    show_x_ray = self.object_hover.show_x_ray
-                    self.object_hover.show_x_ray = True
-                if self.object_hover_hist != None:
-                    self.object_hover_hist.show_name = False
-                    self.object_hover_hist.select = False
+                mouse_button = 'RIGHTMOUSE'    
+            ### Set Mouse click 
+            if (event.value == 'PRESS') and event.type == mouse_button:
+                self.mouse_press = True
+                #return {'RUNNING_MODAL'}
+            elif event.value in ['RELEASE','NOTHING'] and (event.type == mouse_button):
+                self.mouse_press = False 
+            #print(event.value,"-----------",event.type)
+            ### Cast Ray from mousePosition and set Cursor to hitPoint
+            rayStart,rayEnd, ray = self.project_cursor(event)
+
+            if ray[0] == True and ray[1] != None:
+                bpy.context.scene.cursor_location = ray[3]
+            elif rayEnd != None:
+                bpy.context.scene.cursor_location = rayEnd
+            bpy.context.scene.cursor_location[1] = context.active_object.location[1]
+            
+            if event.value in ["RELEASE"]:
+                if self.object_hover_hist != None :
                     self.object_hover_hist.show_x_ray = False
-            ### mouse just pressed
-            if not self.mouse_press_hist and self.mouse_press and self.in_view_3d and self.object_hover != None:
-                selected_bones = context.selected_editable_bones
-                if ray[0] and ray[1] != None and len(selected_bones) == 1:
-                    obj = ray[1]
-                    self.set_weights(context,self.object_hover)
-                    #self.set_parent(context,self.object_hover)
-                if ray[0] and ray[1] != None and len(selected_bones) > 1:
-                    obj = ray[1]
-                    self.set_weights(context,self.object_hover)
-            return{'RUNNING_MODAL'}
-        if self.object_hover_hist != None:
-            self.object_hover_hist.show_x_ray = False
-            self.object_hover_hist.select = False
-            self.object_hover_hist.show_name = False
-            self.object_hover_hist = None
+                    self.object_hover_hist.select = False
+                    self.object_hover_hist.show_name = False
+                    self.object_hover_hist = None
+                if self.object_hover != None:
+                    self.object_hover.show_x_ray = False
+                    self.object_hover.select = False
+                    self.object_hover.show_name = False
+                        
                 
-        ### cancel  
-        if (event.type in {'ESC'} and self.in_view_3d) or (context.active_object.mode != "EDIT" and context.active_object.type == "ARMATURE" and self.set_waits == False) or not self.sprite_object.coa_edit_armature:
-            bpy.context.space_data.show_manipulator = self.show_manipulator
-            bpy.context.window.cursor_set("CROSSHAIR")
-            bpy.ops.object.mode_set(mode=self.armature_mode)
+            if not event.alt and not event.ctrl:
+                self.object_hover = None
+                ### mouse just pressed
+                if not self.mouse_press_hist and self.mouse_press and self.in_view_3d:
+                    #print("just pressed")
+                    self.mouse_click_vec = Vector(context.scene.cursor_location)
+                    self.create_bones(context,context.active_object)
+                    
+                    self.drag_bone(context,event,self.current_bone)
+                    if context.active_bone != None:
+                        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
+                
+                ### mouse pressed
+                elif self.mouse_press_hist and self.mouse_press:
+                    #print("pressed")
+                    self.drag_bone(context,event,self.current_bone)
+                    if context.active_bone != None:
+                        bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
+                ### mouse release   
+                elif not self.mouse_press and self.mouse_press_hist and self.current_bone != None:
+                    bpy.ops.ed.undo_push(message="Add Bone: "+self.current_bone.name)
+                    self.current_bone.hide = False   
+                    self.current_bone = None
+                    self.mouse_click_vec = Vector((1000000,1000000,1000000))
+                    
+                    self.set_waits = True
+                    bpy.ops.object.mode_set(mode='OBJECT')
+                    bpy.ops.object.mode_set(mode='EDIT')
+                    self.set_waits = False 
             
-            for pose_bone in context.active_object.pose.bones:
-                if "default_bones" in context.active_object.pose.bone_groups and pose_bone.bone_group == None:
-                    pose_bone.bone_group = context.active_object.pose.bone_groups["default_bones"]
+            elif (event.alt or "ALT" in event.type) and not event.ctrl:
+                self.object_hover_hist = self.object_hover
+                
+                hover_objects = self.return_ray_sprites(context,event)
+                distance = 1000000000
+                if len(hover_objects) > 0:
+                    for ray in hover_objects:
+                        sprite_center = get_bounds_and_center(ray[1])[0]
+                        if ((sprite_center) - ray[3]).length < distance:
+                            distance = (sprite_center - ray[3]).length
+                            self.object_hover = ray[1]
+                else:
+                    self.object_hover = None
+                
+                show_x_ray = False
+                if self.object_hover != self.object_hover_hist:
+                    if self.object_hover != None:
+                        self.object_hover.show_name = True
+                        self.object_hover.select = True
+                        show_x_ray = self.object_hover.show_x_ray
+                        self.object_hover.show_x_ray = True      
+                    if self.object_hover_hist != None:
+                        self.object_hover_hist.show_name = False
+                        self.object_hover_hist.select = False
+                        self.object_hover_hist.show_x_ray = False
+                ### mouse just pressed
+                if not self.mouse_press_hist and self.mouse_press and self.in_view_3d and self.object_hover != None:
+                    selected_bones = context.selected_editable_bones
+                    if ray[0] and ray[1] != None and len(selected_bones) == 1:
+                        obj = ray[1]
+                        self.set_weights(context,self.object_hover)
+                        #self.set_parent(context,self.object_hover)
+                    if ray[0] and ray[1] != None and len(selected_bones) > 1:
+                        obj = ray[1]
+                        self.set_weights(context,self.object_hover)
+                return{'RUNNING_MODAL'}
+
             
-            #lock_sprites(context,get_sprite_object(context.active_object),get_sprite_object(context.active_object).lock_sprites)
-            self.sprite_object.coa_edit_armature = False
             
-            ### restore previous selection
-            for obj in bpy.context.scene.objects:
-                obj.select = False
-            for obj in self.selected_objects:
-                obj.select = True
-            context.scene.objects.active = self.active_object   
-            return{'CANCELLED'}
+            
+                    
+            ### cancel  
+            if (event.type in {'ESC'} and self.in_view_3d) or (context.active_object.mode != "EDIT" and context.active_object.type == "ARMATURE" and self.set_waits == False) or not self.sprite_object.coa_edit_armature:
+                bpy.context.space_data.show_manipulator = self.show_manipulator
+                bpy.context.window.cursor_set("CROSSHAIR")
+                bpy.ops.object.mode_set(mode=self.armature_mode)
+                
+                for pose_bone in context.active_object.pose.bones:
+                    if "default_bones" in context.active_object.pose.bone_groups and pose_bone.bone_group == None:
+                        pose_bone.bone_group = context.active_object.pose.bone_groups["default_bones"]
+                
+                #lock_sprites(context,get_sprite_object(context.active_object),get_sprite_object(context.active_object).lock_sprites)
+                self.sprite_object.coa_edit_armature = False
+                
+                ### restore previous selection
+                for obj in bpy.context.scene.objects:
+                    obj.select = False
+                for obj in self.selected_objects:
+                    obj.select = True
+                context.scene.objects.active = self.active_object   
+                return{'CANCELLED'}
         return {'PASS_THROUGH'}
     
     def execute(self, context):

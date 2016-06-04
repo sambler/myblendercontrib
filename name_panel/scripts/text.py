@@ -34,8 +34,6 @@ Special Characters
 
   a|b      matches either a or b.
 
-  ()       Creates a capture group and indicates precedence.
-
 
 Quantifiers
 
@@ -77,6 +75,10 @@ Special Sequences
 
 Groups
 
+  ()             Creates a capture group and indicates precedence.
+
+  \1             Recall first captured group, change accordingly.
+
   (?P<name>...)  Creates a group with the id of 'name'.
 
   \g<id>         Matches a previously defined group.
@@ -84,41 +86,62 @@ Groups
   (?(id)yes|no)  Match 'yes' if group 'id' matched, else 'no'.
 
 
-Example
+Examples
 
-  \W[0-9]*$|_[0-9]*$
+(1) String: 'Name.001'
 
-  This expression will strip any numbers at the tail end of a name up to and
-  including any non-alphanumeric character OR it will strip any numbers up to
-  and including an underscore.
+    Find: \W[0-9]*$
 
-  The individual characters used are;
+    Result: 'Name'
 
-  \W    Non-alphanumeric. (any character other then [0-9a-zA-Z_])
+    This expression will strip any numbers at the tail end of a name up to and
+    including any non-alphanumeric character.
 
-  [0-9] Character class from range 0 through 9.
+    The individual characters used are;
 
-  *     Anything preceding this symbol will be matched until no other matches
-        are found.
+    \W    Non-alphanumeric. (any character other then [0-9a-zA-Z_])
 
-  $     Indicates that we want to start from the end of the string.
+    [0-9] Character class from range 0 through 9.
 
-  |     Or, has to be one or the other, otherwise nothing happens, either
-        everything on the left or everything on the right of this symbol.
+    *     Anything preceding this symbol will be matched until no other matches
+          are found.
 
-  _     This is literally the underscore symbol, the expression above has an '|'
-        in it because the underscore is considered an Alphanumeric symbol and
-        everything before the '|' symbol will not remove numbers from the end of
-        the name if those numbers are preceded by an underscore.
+    $     Indicates that we want to start from the end of the string.
 
-        in other words \W[0-9]*$ by itself works for almost all situations when
-        you want to remove trailing numbers except if those numbers are proceded
-        by an underscore, in those cases you will likely want to use '|' to
-        account for the underscore situation.
+
+(2) String: 'Name.001'
+
+    Find: ([A-z]*\.)
+
+    Replace: Changed_\1
+
+    Result: 'Changed_Name.001'
+
+    This expression will create a capture group of any characters and a . (dot)
+    replace those characters with 'Changed_' infront of that captured group.
+
+      The individual characters used are;
+
+      (     Start a capture group.
+
+      [A-z] Character class range A-z (upper and lowercase).
+
+      *     Anything preceding this symbol will be matched until no other
+            matches are found.
+
+      \.    Used here to escape the character . (dot) which has special
+            meaning in regular expressions.
+
+      )     End a capture group.
+
+      \1    Recall first captured group.
+
+
+
 
 
   Regular expressions are much like a tiny programming language, this cheatsheet
-  will get you started.
+  will help get you started.
 
   For a more complete documentation of python related regular expressions;
 

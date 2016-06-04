@@ -42,14 +42,14 @@ class reset(Operator):
 
   # auto
   auto = BoolProperty(
-    name = 'Batch Auto Name',
+    name = 'Auto Name',
     description = 'Reset the option values for batch auto name.',
     default = True
   )
 
   # names
   names = BoolProperty(
-    name = 'Batch Auto Name → Names',
+    name = 'Auto Name → Names',
     description = 'Reset the option values for batch auto name → name settings.',
     default = False
   )
@@ -63,8 +63,8 @@ class reset(Operator):
 
   # copy
   copy = BoolProperty(
-    name = 'Batch Copy Name',
-    description = 'Reset the option values for batch copy name.',
+    name = 'Batch Name Copy',
+    description = 'Reset the option values for batch name copy.',
     default = True
   )
 
@@ -124,15 +124,15 @@ class transfer(Operator):
 
   # auto
   auto = BoolProperty(
-    name = 'Batch Auto Name',
-    description = 'Transfer the option values for batch auto name.',
+    name = 'Auto Name',
+    description = 'Transfer the option values for auto name.',
     default = True
   )
 
   # names
   names = BoolProperty(
-    name = 'Batch Auto Name → Names',
-    description = 'Transfer the option values for batch auto name → names.',
+    name = 'Auto Name → Names',
+    description = 'Transfer the option values for the auto name → names.',
     default = True
   )
 
@@ -145,8 +145,8 @@ class transfer(Operator):
 
   # copy
   copy = BoolProperty(
-    name = 'Batch Copy Name',
-    description = 'Transfer the option values for batch copy name.',
+    name = 'Batch Name Copy',
+    description = 'Transfer the option values for batch name copy.',
     default = True
   )
 

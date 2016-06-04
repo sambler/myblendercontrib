@@ -23,11 +23,66 @@ from bpy.types import PropertyGroup
 from bpy.props import *
 from . import storage
 
-# panel
-class panel(PropertyGroup):
+# name
+class name(PropertyGroup):
   '''
     Properties that effect how name panel displays the datablocks within the users current selection.
   '''
+
+  # owner
+  owner = StringProperty(
+    name = 'Owner',
+    description = 'The owner\'s name of the target datablock.',
+    default = ''
+  )
+
+  # target
+  target = StringProperty(
+    name = 'Target',
+    description = 'Datablock target\'s name belonging to the owner.',
+    default = ''
+  )
+
+  # context
+  context = EnumProperty(
+    name = 'Context',
+    description = 'The context the name panel is in based on last icon clicked',
+    items = [
+      ('OBJECT', 'Object', '', 'OBJECT_DATA', 0),
+      ('GROUP', 'Group', '', 'GROUP', 1),
+      ('ACTION', 'Action', '', 'ACTION', 2),
+      ('GREASE_PENCIL', 'Grease Pencil', '', 'GREASEPENCIL', 3),
+      ('CONSTRAINT', 'Constraint', '', 'CONSTRAINT', 4),
+      ('MODIFIER', 'Modifier', '', 'MODIFIER', 5),
+      ('OBJECT_DATA', 'Object Data', '', 'MESH_DATA', 6),
+      ('BONE_GROUP', 'Bone Group', '', 'GROUP_BONE', 7),
+      ('BONE', 'Bone', '', 'BONE_DATA', 8),
+      ('BONE_CONSTRAINT', 'Bone Constraint', '', 'CONSTRAINT_BONE', 9),
+      ('VERTEX_GROUP', 'Vertex Group', '', 'GROUP_VERTEX', 10),
+      ('SHAPEKEY', 'Shapekey', '', 'SHAPEKEY_DATA', 11),
+      ('UV', 'UV Map', '', 'GROUP_UVS', 12),
+      ('VERTEX_COLOR', 'Vertex Colors', '', 'GROUP_VCOL', 13),
+      ('MATERIAL', 'Material', '', 'MATERIAL', 14),
+      ('TEXTURE', 'Texture', '', 'TEXTURE', 15),
+      ('PARTICLE_SYSTEM', 'Particle System', '', 'PARTICLES', 16),
+      ('PARTICLE_SETTING', 'Particle Settings', '', 'MOD_PARTICLES', 17)
+    ],
+    default = 'OBJECT'
+  )
+
+  # pin active object
+  pinActiveObject = BoolProperty(
+    name = 'Pin Active Object',
+    description = 'Keeps the active object at the top of the stack.',
+    default = True
+  )
+
+  # hide search
+  hideSearch = BoolProperty(
+    name = 'Hide Search',
+    description = 'Only display the search field in the name panel when the filters option is toggled on.',
+    default = True
+  )
 
   # filters
   filters = BoolProperty(
@@ -43,18 +98,11 @@ class panel(PropertyGroup):
     default = False
   )
 
-  # selected
-  selected = BoolProperty(
-    name = 'Selected',
-    description = 'Display all possible object related datablock names within your current selection inside the name panel.',
+  # display names
+  displayNames = BoolProperty(
+    name = 'Display Names',
+    description = 'Display additional object names in the name stack.',
     default = False
-  )
-
-  # pin active object
-  pinActiveObject = BoolProperty(
-    name = 'Pin Active Object',
-    description = 'Keeps the active object at the top of the stack.',
-    default = True
   )
 
   # search
@@ -69,6 +117,17 @@ class panel(PropertyGroup):
     name = 'Regular Expressions',
     description = 'Enable regular expressions.',
     default = False
+  )
+
+  # mode
+  mode = EnumProperty(
+    name = 'Mode',
+    description = 'Mode option for additional object related names displayed.',
+    items = [
+      ('SELECTED', 'Selected', 'Display selected objects.'),
+      ('LAYERS', 'Layers', 'Display objects in active scene layers.')
+    ],
+    default = 'SELECTED'
   )
 
   # groups
@@ -169,11 +228,35 @@ class panel(PropertyGroup):
     default = False
   )
 
-  # selected bones
-  selectedBones = BoolProperty(
-    name = 'Selected',
-    description = 'Display selected bone names.',
+  # bone mode
+  boneMode = EnumProperty(
+    name = 'Bone Mode',
+    description = 'The display mode for bones.',
+    items = [
+      ('SELECTED', 'Selected', 'Display the selected bones.'),
+      ('LAYERS', 'Layers', 'Display bones in active armature layers.',)
+    ],
+    default = 'SELECTED'
+  )
+
+  # display bones
+  displayBones = BoolProperty(
+    name = 'Display Bones',
+    description = 'Display additional bone names.',
     default = False
+  )
+
+# properties
+class properties(PropertyGroup):
+  '''
+    Properties that effect how properties panel displays the options.
+  '''
+
+  # display active
+  displayActive = BoolProperty(
+    name = 'Display Active',
+    description = 'Prefer to display the active objects options instead of the last icon clicked when applicable.',
+    default = True
   )
 
 class batch:
@@ -199,10 +282,10 @@ class batch:
         Main properties that effect how the batch auto name operator is performed.
       '''
 
-      # batch type
-      batchType = EnumProperty(
-        name = 'Batch Type',
-        description = '',
+      # mode
+      mode = EnumProperty(
+        name = 'Mode',
+        description = 'How to perform auto naming on datablocks designated below.',
         items = [
           ('SELECTED', 'Selected', 'Effect all objects and object related datablock names in the current 3D view selection.'),
           ('SCENE', 'Scene', 'Effect all objects and object related datablock names in the current scene.'),
@@ -274,6 +357,13 @@ class batch:
       '''
         Properties that effect the names used when auto naming objects.
       '''
+
+      # prefix
+      prefix = BoolProperty(
+        name = 'Prefix',
+        description = 'Prefix the names of the objects with the values below.'
+      )
+
       # mesh
       mesh = StringProperty(
         name = 'Mesh',
@@ -356,6 +446,12 @@ class batch:
       '''
         Properties that effect the names used when auto naming constraints.
       '''
+
+      # prefix
+      prefix = BoolProperty(
+        name = 'Prefix',
+        description = 'Prefix the names of the constraints with the values below.'
+      )
 
       # camera solver
       cameraSolver = StringProperty(
@@ -551,6 +647,13 @@ class batch:
       '''
         Properties that effect the names used when auto naming modifiers.
       '''
+
+      # prefix
+      prefix = BoolProperty(
+        name = 'Prefix',
+        description = 'Prefix the names of the modifiers with the values below.'
+      )
+
       # data transfer
       dataTransfer = StringProperty(
         name = 'Data Transfer',
@@ -899,6 +1002,13 @@ class batch:
       '''
         Properties that effect the names used when auto naming objects.
       '''
+
+      # prefix
+      prefix = BoolProperty(
+        name = 'Prefix',
+        description = 'Prefix the names of the object\'s data with the values below.'
+      )
+
       # mesh
       mesh = StringProperty(
         name = 'Mesh',
@@ -982,17 +1092,45 @@ class batch:
       Properties that effect how the batch name operation is performed.
     '''
 
-    # batch type
-    batchType = EnumProperty(
-      name = 'Batch Type',
-      description = '',
+    # mode
+    mode = EnumProperty(
+      name = 'Mode',
+      description = 'How to perform batch naming on datablocks designated below.',
       items = [
         ('SELECTED', 'Selected', 'Effect all objects and object related datablock names in the current 3D view selection.'),
         ('SCENE', 'Scene', 'Effect all objects and object related datablock names in the current scene.'),
         ('OBJECTS', 'All Objects', 'Effect all objects and object related datablock names in the file.'),
-        ('GLOBAL', 'Global', 'Effect all datablocks in the file whether they are attached to an object or not. (Disables type filter menus.)')
+        ('GLOBAL', 'Global', 'Effect all datablocks in the file whether they are attached to an object or not.')
       ],
       default = 'SELECTED'
+    )
+
+    # actions
+    actions = BoolProperty(
+      name = 'Actions',
+      description = 'Name object actions. (Use \'Global\' for all)',
+      default = False
+    )
+
+    # action groups
+    actionGroups = BoolProperty(
+      name = 'Action Groups',
+      description = 'Name object action groups. (Use \'Global\' for all)',
+      default = False
+    )
+
+    # grease pencil
+    greasePencil = BoolProperty(
+      name = 'Grease Pencil',
+      description = 'Name object grease pencils. (Use \'Global\' for all)',
+      default = False
+    )
+
+    # pencil layers
+    pencilLayers = BoolProperty(
+      name = 'Grease Pencil Layers',
+      description = 'Name object grease pencils layers. (Use \'Global\' for all)',
+      default = False
     )
 
     # objects
@@ -1005,21 +1143,7 @@ class batch:
     # groups
     groups = BoolProperty(
       name = 'Groups',
-      description = 'Name object groups.',
-      default = False
-    )
-
-    # actions
-    actions = BoolProperty(
-      name = 'Actions',
-      description = 'Name object actions. (Use \'Global\' for all)',
-      default = False
-    )
-
-    # grease pencil
-    greasePencil = BoolProperty(
-      name = 'Grease Pencil',
-      description = 'Name object grease pencils and layers. (Use \'Global\' for all)',
+      description = 'Name object groups. (Use \'Global\' for all)',
       default = False
     )
 
@@ -1145,6 +1269,56 @@ class batch:
       default = 'ALL'
     )
 
+    # sensors
+    sensors = BoolProperty(
+      name = 'Sensors',
+      description = 'Name object game sensors.',
+      default = False
+    )
+
+    # controllers
+    controllers = BoolProperty(
+      name = 'Controllers',
+      description = 'Name object game controllers',
+      default = False
+    )
+
+    # actuators
+    actuators = BoolProperty(
+      name = 'Actuators',
+      description = 'Name object game actuators',
+      default = False
+    )
+
+    # line sets
+    lineSets = BoolProperty(
+      name = 'Line Sets',
+      description = 'Name line sets.',
+      default = False
+    )
+
+    # linestyles
+    linestyles = BoolProperty(
+      name = 'Linestyles',
+      description = 'Name linestyles.',
+      default = False
+    )
+
+    # linestyle modifiers
+    linestyleModifiers = BoolProperty(
+    name = 'Linestyle Modifiers',
+    description = 'Name linestyle modifiers.',
+    default = False
+    )
+
+    # linestyle modifier type
+    linestyleModifierType = EnumProperty(
+      name = 'Linestyle Modifier Type',
+      description = 'Type of linestyle modifiers to be effected.',
+      items = storage.batch.menu.linestyleModifiers,
+      default = 'ALL'
+    )
+
     # scenes
     scenes = BoolProperty(
       name = 'Scenes',
@@ -1236,13 +1410,6 @@ class batch:
       default = False
     )
 
-    # linestyles
-    linestyles = BoolProperty(
-      name = 'Linestyles',
-      description = 'Name linestyles.',
-      default = False
-    )
-
     # nodes
     nodes = BoolProperty(
       name = 'Nodes',
@@ -1257,6 +1424,13 @@ class batch:
       default = False
     )
 
+    # frame nodes
+    frameNodes = BoolProperty(
+      name = 'Frame Nodes',
+      description = 'Name frame nodes.',
+      default = False
+    )
+
     # node groups
     nodeGroups = BoolProperty(
       name = 'Node Groups',
@@ -1268,6 +1442,132 @@ class batch:
     texts = BoolProperty(
       name = 'Texts',
       description = 'Name text documents.',
+      default = False
+    )
+
+    # ignore action
+    ignoreAction = BoolProperty(
+      name = 'Ignore Action',
+      description = 'Ignore action names.',
+      default = False
+    )
+
+    # ignore grease pencil
+    ignoreGreasePencil = BoolProperty(
+      name = 'Ignore Grease Pencil',
+      description = 'Ignore grease pencil names.',
+      default = False
+    )
+
+    # ignore object
+    ignoreObject = BoolProperty(
+      name = 'Ignore Object',
+      description = 'Ignore object names.',
+      default = False
+    )
+
+    # ignore group
+    ignoreGroup  = BoolProperty(
+      name = 'Ignore Oject Group',
+      description = 'Ignore object group names.',
+      default = False
+    )
+
+    # ignore constraint
+    ignoreConstraint = BoolProperty(
+      name = 'Ignore Constraint',
+      description = 'Ignore constraint names.',
+      default = False
+    )
+
+    # ignore modifier
+    ignoreModifier = BoolProperty(
+      name = 'Ignore Modifier',
+      description = 'Ignore modifier names.',
+      default = False
+    )
+
+    # ignore bone
+    ignoreBone = BoolProperty(
+      name = 'Ignore Bone',
+      description = 'Ignore bone names.',
+      default = False
+    )
+
+    # ignore bone group
+    ignoreBoneGroup  = BoolProperty(
+      name = 'Ignore Bone Group',
+      description = 'Ignore bone group names.',
+      default = False
+    )
+
+    # ignore bone constraint
+    ignoreBoneConstraint = BoolProperty(
+      name = 'Ignore Bone Constraint',
+      description = 'Ignore bone constraint names.',
+      default = False
+    )
+
+    # ignore object data
+    ignoreObjectData = BoolProperty(
+      name = 'Ignore Object Data',
+      description = 'Ignore object data names.',
+      default = False
+    )
+
+    # ignore vertex group
+    ignoreVertexGroup = BoolProperty(
+      name = 'Ignore Vertex Group',
+      description = 'Ignore vertex group names.',
+      default = False
+    )
+
+    # ignore shapekey
+    ignoreShapekey = BoolProperty(
+      name = 'Ignore Shapekey',
+      description = 'Ignore shapekey names.',
+      default = False
+    )
+
+    # ignore uv
+    ignoreUV = BoolProperty(
+      name = 'Ignore UV',
+      description = 'Ignore uv names.',
+      default = False
+    )
+
+    # ignore vertex color
+    ignoreVertexColor = BoolProperty(
+      name = 'Ignore Vertex Color',
+      description = 'Ignore vertex color names.',
+      default = False
+    )
+
+    # ignore material
+    ignoreMaterial = BoolProperty(
+      name = 'Ignore Material',
+      description = 'Ignore material names.',
+      default = False
+    )
+
+    # ignore texture
+    ignoreTexture = BoolProperty(
+      name = 'Ignore Texture',
+      description = 'Ignore texture names.',
+      default = False
+    )
+
+    # ignore particle system
+    ignoreParticleSystem = BoolProperty(
+      name = 'Ignore Particle System',
+      description = 'Ignore particle system names.',
+      default = False
+    )
+
+    # ignore particle setting
+    ignoreParticleSetting = BoolProperty(
+      name = 'Ignore Particle Setting',
+      description = 'Ignore particle setting names.',
       default = False
     )
 
@@ -1311,7 +1611,7 @@ class batch:
     # suffix last
     suffixLast = BoolProperty(
       name = 'Suffix Last',
-      description = 'Force the suffix to be placed last even when recounting duplicate names.',
+      description = 'Force the suffix to be placed last when recounting duplicate names.',
       default = False
     )
 
@@ -1337,7 +1637,7 @@ class batch:
     sort = BoolProperty(
       name = 'Sort Duplicates',
       description = 'Recount names that are identical with a trailing number.',
-      default = True
+      default = False
     )
 
     # start
@@ -1358,17 +1658,24 @@ class batch:
 
     # separator
     separator = StringProperty(
-        name = 'Separator',
-        description = 'The separator to use between the name and number.',
-        default = '.'
+      name = 'Separator',
+      description = 'The separator to use between the name and number.',
+      default = '.'
     )
 
     # sort only
     sortOnly = BoolProperty(
-       name = 'Only Sort Duplicates',
-       description = 'Only effect names during the naming process that need to be numbered.',
-       default = False
-     )
+     name = 'Only Sort Duplicates',
+     description = 'Only effect names during the naming process that need to be numbered.',
+     default = False
+    )
+
+    # link
+    link = BoolProperty(
+      name = 'Link Duplicates',
+      description = 'If possible link the original duplicate name to the other duplicates location.',
+      default = False
+    )
 
   # copy
   class copy(PropertyGroup):
@@ -1376,10 +1683,10 @@ class batch:
       Properties that effect how the batch copy name operation is performed.
     '''
 
-    # batch type
-    batchType = EnumProperty(
-      name = 'Batch Type',
-      description = '',
+    # mode
+    mode = EnumProperty(
+      name = 'Mode',
+      description = 'How to perform batch name copying on datablocks designated below.',
       items = [
         ('SELECTED', 'Selected', 'Effect all objects and object related datablock names in the current 3D view selection.'),
         ('SCENE', 'Scene', 'Effect all objects and object related datablock names in the current scene.'),

@@ -1,15 +1,15 @@
-import bpy
 import os
+import bpy
+import sys
 from bpy.props import *
 
 addonName = os.path.basename(os.path.dirname(__file__))
 
 class NodeColorProperties(bpy.types.PropertyGroup):
-    bl_idname = "an_NodeColorProperties"
 
     def changeNodeColors(self, context):
-        from . ui.node_colors import colorNetworks
-        colorNetworks()
+        from . ui.node_colors import colorAllNodes
+        colorAllNodes()
 
     mainNetwork = FloatVectorProperty(name = "Main Network",
         description = "Color for all networks that are not in a subprogram",
@@ -33,18 +33,71 @@ class NodeColorProperties(bpy.types.PropertyGroup):
         default = 0.2, soft_min = 0.0, soft_max = 1.0,
         update = changeNodeColors)
 
+    nodeColorModeItems = [
+        ("NETWORKS", "Networks", "", "NONE", 0),
+        ("NEEDED_COPIES", "Needed Copies", "", "NONE", 1)]
 
-profileSortModeItems = [
-    ("calls", "Amount of Calls", "Number of calls", "NONE", 0),
-    ("tottime", "Total Time", " Total time spent in the given function (and excluding time made in calls to sub-functions)", "NONE", 1),
-    ("cumtime", "Cumulative Time", "Cumulative time spent in this and all subfunctions (from invocation till exit)", "NONE", 2) ]
+    nodeColorMode = EnumProperty(name = "Node Color Mode", default = "NETWORKS",
+        items = nodeColorModeItems, update = changeNodeColors)
 
-class DeveloperProperties(bpy.types.PropertyGroup):
-    bl_idname = "an_DeveloperProperties"
 
-    profilingSortMode = EnumProperty(name = "Profiling Sort Mode",
+class ProfilingProperties(bpy.types.PropertyGroup):
+
+    profilingFunctionItems = [
+        ("EXECUTION", "Execution", "", "NONE", 0),
+        ("TREE_ANALYSIS", "Tree Analysis", "", "NONE", 1),
+        ("UPDATE_EVERYTHING", "Update Everything", "", "NONE", 2),
+        ("SCRIPT_GENERATION", "Script Generation", "", "NONE", 3)]
+
+    profilingOutputTypeItems = [
+        ("CONSOLE", "Console", "", "CONSOLE", 0),
+        ("TEXT_BLOCK", "Text Block", "", "TEXT", 1)]
+
+    profileSortModeItems = [
+        ("calls", "Amount of Calls", "Number of calls", "NONE", 0),
+        ("tottime", "Total Time", " Total time spent in the given function (and excluding time made in calls to sub-functions)", "NONE", 1),
+        ("cumtime", "Cumulative Time", "Cumulative time spent in this and all subfunctions (from invocation till exit)", "NONE", 2) ]
+
+    function = EnumProperty(name = "Profiling Function",
+        default = "EXECUTION", items = profilingFunctionItems)
+
+    output = EnumProperty(name = "Profiling Output",
+        default = "CONSOLE", items = profilingOutputTypeItems)
+
+    sort = EnumProperty(name = "Profiling Sort Mode",
         default = "cumtime", items = profileSortModeItems)
 
+class DeveloperProperties(bpy.types.PropertyGroup):
+
+    profiling = PointerProperty(type = ProfilingProperties)
+
+    socketEditModeItems = [
+        ("NORMAL", "Normal", "", "NONE", 0),
+        ("PERFORMANCE", "Performance", "", "NONE", 1)]
+
+    socketEditMode = EnumProperty(name = "Socket Edit Mode", default = "NORMAL",
+        description = "Change to display different sets of socket properties",
+        items = socketEditModeItems)
+
+    debug = BoolProperty(name = "Debug", default = False)
+
+class ExecutionCodeProperties(bpy.types.PropertyGroup):
+
+    def settingChanged(self, context):
+        from . events import executionCodeChanged
+        from . base_types.node import updateNodeLabelMode
+        executionCodeChanged()
+        updateNodeLabelMode()
+
+    executionCodeTypeItems = [
+        ("DEFAULT", "Default", "", "NONE", 0),
+        ("MONITOR", "Monitor Execution", "", "NONE", 1),
+        ("MEASURE", "Measure Execution Times", "", "NONE", 2),
+        ("BAKE", "Bake", "", "NONE", 3)]
+
+    type = EnumProperty(name = "Execution Code Type", default = "DEFAULT",
+        description = "Different execution codes can be useful in different contexts",
+        update = settingChanged, items = executionCodeTypeItems)
 
 class AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = addonName
@@ -55,16 +108,9 @@ class AddonPreferences(bpy.types.AddonPreferences):
     sceneUpdateAfterAutoExecution = BoolProperty(
         name = "Scene Update After Auto Execution", default = True)
 
-    generateCompactCode = BoolProperty(
-        name = "Generate Compact Code", default = False,
-        description = "Avoid comments and blank lines (this has no impact on performance)")
-
-    forbidSubprogramRecursion = BoolProperty(
-        name = "Forbid Subprogram Recursion", default = True,
-        description = "A subprogram invoker node must not be in the same network that it calls")
-
     nodeColors = PointerProperty(type = NodeColorProperties)
     developer = PointerProperty(type = DeveloperProperties)
+    executionCode = PointerProperty(type = ExecutionCodeProperties)
 
     def draw(self, context):
         layout = self.layout
@@ -78,10 +124,6 @@ class AddonPreferences(bpy.types.AddonPreferences):
         subcol.prop(self, "redrawAllAfterAutoExecution", text = "Redraw All")
         subcol.prop(self, "sceneUpdateAfterAutoExecution", text = "Scene Update")
 
-        subcol = col.column(align = True)
-        subcol.label("Execution Code:")
-        subcol.prop(self, "generateCompactCode")
-
         col = row.column()
 
         subcol = col.column(align = True)
@@ -91,18 +133,29 @@ class AddonPreferences(bpy.types.AddonPreferences):
         subcol.prop(self.nodeColors, "subprogramValue", slider = True)
         subcol.prop(self.nodeColors, "subprogramSaturation", slider = True)
 
+        layout.prop(self.developer, "debug")
+
 def getPreferences():
     # TODO: access user_preferences without the context
     return bpy.context.user_preferences.addons[addonName].preferences
 
-def generateCompactCode():
-    return getPreferences().generateCompactCode
-
-def forbidSubprogramRecursion():
-    return getPreferences().forbidSubprogramRecursion
-
 def getDeveloperSettings():
     return getPreferences().developer
 
-def nodeColors():
+def getExecutionCodeSettings():
+    return getPreferences().executionCode
+
+def getExecutionCodeType():
+    return getExecutionCodeSettings().type
+
+def getColorSettings():
     return getPreferences().nodeColors
+
+def debuggingIsEnabled():
+    return getPreferences().developer.debug
+
+def getBlenderVersion():
+    return bpy.app.version
+
+def getAnimationNodesVersion():
+    return sys.modules[addonName].bl_info["version"]

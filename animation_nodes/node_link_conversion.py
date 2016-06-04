@@ -1,20 +1,31 @@
 import bpy
 from . import tree_info
 from mathutils import Vector
+from . utils.nodes import idToSocket
 from . sockets.info import toBaseIdName, isList
-from . tree_info import getAllDataLinks, getDirectlyLinkedSocket
+from . tree_info import getAllDataLinkIDs, getDirectlyLinkedSocket
 
 def correctForbiddenNodeLinks():
-    dataLinks = getAllDataLinks()
-    invalidLinks = filterInvalidLinks(dataLinks)
-    for dataOrigin, target in invalidLinks:
+    for dataOrigin, target in iterLinksThatNeedToBeCorrectedOrRemoved():
         directOrigin = getDirectlyLinkedSocket(target)
         if not tryToCorrectLink(dataOrigin, directOrigin, target):
             removeLink(directOrigin, target)
     tree_info.updateIfNecessary()
 
-def filterInvalidLinks(dataLinks):
-    return [dataLink for dataLink in dataLinks if not isConnectionValid(*dataLink)]
+approvedLinkTypes = set()
+
+def iterLinksThatNeedToBeCorrectedOrRemoved():
+    for originID, targetID, originType, targetType in getAllDataLinkIDs():
+        if (originType, targetType) in approvedLinkTypes:
+            continue
+
+        origin = idToSocket(originID)
+        target = idToSocket(targetID)
+
+        if isConnectionValid(origin, target):
+            approvedLinkTypes.add((originType, targetType))
+        else:
+            yield (origin, target)
 
 def isConnectionValid(origin, target):
     return origin.dataType in target.allowedInputTypes or target.allowedInputTypes[0] == "all"
@@ -58,7 +69,12 @@ class SimpleConvert(LinkCorrection):
         ("Float", "Euler") : "an_CombineEulerNode",
         ("Euler", "Float") : "an_SeparateEulerNode",
         ("Object", "Vector") : "an_ObjectTransformsInputNode",
-        ("Object", "Matrix") : "an_ObjectMatrixInputNode"
+        ("Object", "Matrix") : "an_ObjectMatrixInputNode",
+        ("Polygon List", "Mesh Data") : "an_MeshDataFromPolygonsNode",
+        ("Object", "Shape Key List") : "an_ShapeKeysFromObjectNode",
+        ("String", "Float") : "an_ParseNumberNode",
+        ("Vector", "Euler") : "an_DirectionToRotationNode",
+        ("Euler", "Vector") : "an_RotationToDirectionNode"
     }
 
     def check(self, origin, target):
@@ -67,23 +83,25 @@ class SimpleConvert(LinkCorrection):
         nodeIdName = self.rules[(dataOrigin.dataType, target.dataType)]
         node = insertLinkedNode(nodeTree, nodeIdName, origin, target)
 
-class ConvertVectorToEuler(LinkCorrection):
+class ConvertToIntegerList(LinkCorrection):
     def check(self, origin, target):
-        return origin.dataType == "Vector" and target.dataType == "Euler"
+        return origin.dataType in ("Float List", "Edge Indices", "Polygon Indices") and target.dataType == "Integer List"
     def insert(self, nodeTree, origin, target, dataOrigin):
-        node = insertLinkedNode(nodeTree, "an_ConvertVectorAndEulerNode", origin, target)
-        node.conversionType = "VECTOR_TO_EULER"
+        node = insertLinkedNode(nodeTree, "an_ConvertToIntegerListNode", origin, target)
+        node.setOriginType(dataOrigin.dataType)
         node.inputs[0].linkWith(origin)
-        node.outputs[0].linkWith(target)
 
-class ConvertEulerToVector(LinkCorrection):
+class ConvertFloatToScale(LinkCorrection):
     def check(self, origin, target):
-        return origin.dataType == "Euler" and target.dataType == "Vector"
+        return origin.dataType in ("Float", "Integer") and target.dataType == "Vector" and "scale" in target.name.lower()
     def insert(self, nodeTree, origin, target, dataOrigin):
-        node = insertLinkedNode(nodeTree, "an_ConvertVectorAndEulerNode", origin, target)
-        node.conversionType = "EULER_TO_VECTOR"
-        node.inputs[0].linkWith(origin)
-        node.outputs[0].linkWith(target)
+        insertLinkedNode(nodeTree, "an_VectorFromValueNode", origin, target)
+
+class ConvertNormalToEuler(LinkCorrection):
+    def check(self, origin, target):
+        return origin.dataType == "Vector" and origin.name == "Normal" and target.dataType == "Euler"
+    def insert(self, nodeTree, origin, target, dataOrigin):
+        insertLinkedNode(nodeTree, "an_DirectionToRotationNode", origin, target)
 
 class ConvertEulerToQuaternion(LinkCorrection):
     def check(self, origin, target):
@@ -119,6 +137,25 @@ class ConvertElementToList(LinkCorrection):
         node.assignBaseDataType(origin.dataType, inputAmount = 1)
         insertBasicLinking(nodeTree, origin, node, target)
 
+class ConvertVectorListToSplineList(LinkCorrection):
+    def check(self, origin, target):
+        return origin.dataType == "Vector List" and target.dataType == "Spline List"
+    def insert(self, nodeTree, origin, target, dataOrigin):
+        splineFromPoints, createList = insertNodes(nodeTree, ["an_SplineFromPointsNode", "an_CreateListNode"], origin, target)
+        createList.assignBaseDataType("Spline", inputAmount = 1)
+        nodeTree.links.new(splineFromPoints.inputs[0], origin)
+        nodeTree.links.new(createList.inputs[0], splineFromPoints.outputs[0])
+        nodeTree.links.new(createList.outputs[0], target)
+
+class ConvertObjectToShapeKey(LinkCorrection):
+    def check(self, origin, target):
+        return origin.dataType == "Object" and target.dataType == "Shape Key"
+    def insert(self, nodeTree, origin, target, dataOrigin):
+        getShapeKeys, getListElement = insertNodes(nodeTree, ["an_ShapeKeysFromObjectNode", "an_GetListElementNode"], origin, target)
+        getListElement.inputs[1].value = 1
+        nodeTree.links.new(getShapeKeys.inputs[0], origin)
+        nodeTree.links.new(getListElement.inputs[0], getShapeKeys.outputs[0])
+        nodeTree.links.new(getListElement.outputs[0], target)
 
 class ConvertSeparatedMeshDataToBMesh(LinkCorrection):
     separatedMeshDataTypes = ["Vector List", "Edge Indices List", "Polygon Indices List"]
@@ -129,6 +166,16 @@ class ConvertSeparatedMeshDataToBMesh(LinkCorrection):
         nodeTree.links.new(toMeshData.inputs[self.separatedMeshDataTypes.index(origin.dataType)], origin)
         nodeTree.links.new(toMesh.inputs[0], toMeshData.outputs[0])
         nodeTree.links.new(toMesh.outputs[0], target)
+
+class ConvertObjectToMeshData(LinkCorrection):
+    def check(self, origin, target):
+        return origin.dataType == "Object" and target.dataType == "Mesh Data"
+    def insert(self, nodeTree, origin, target, dataOrigin):
+        objectMeshData, toMeshData = insertNodes(nodeTree, ["an_ObjectMeshDataNode", "an_CombineMeshDataNode"], origin, target)
+        origin.linkWith(objectMeshData.inputs[0])
+        for i in range(3):
+            objectMeshData.outputs[i].linkWith(toMeshData.inputs[i])
+        toMeshData.outputs[0].linkWith(target)
 
 class ConvertListToLength(LinkCorrection):
     def check(self, origin, target):
@@ -141,18 +188,21 @@ class ConvertToString(LinkCorrection):
         return target.dataType == "String"
     def insert(self, nodeTree, origin, target, dataOrigin):
         node = insertLinkedNode(nodeTree, "an_ConvertToStringNode", origin, target)
+        node.hide = True
 
 class ConvertFromGenericList(LinkCorrection):
     def check(self, origin, target):
         return origin.dataType == "Generic List" and isList(target.dataType)
     def insert(self, nodeTree, origin, target, dataOrigin):
         node = insertLinkedNode(nodeTree, "an_ConvertNode", origin, target)
+        node.hide = True
 
 class ConvertFromGeneric(LinkCorrection):
     def check(self, origin, target):
         return origin.dataType == "Generic"
     def insert(self, nodeTree, origin, target, dataOrigin):
         node = insertLinkedNode(nodeTree, "an_ConvertNode", origin, target)
+        node.hide = True
         tree_info.update()
         node.assignType(target.dataType)
 
@@ -186,13 +236,17 @@ def getSocketCenter(socket1, socket2):
     return (socket1.node.viewLocation + socket2.node.viewLocation) / 2
 
 linkCorrectors = [
+    ConvertToIntegerList(),
+    ConvertNormalToEuler(),
+    ConvertObjectToMeshData(),
     ConvertSeparatedMeshDataToBMesh(),
-    ConvertVectorToEuler(),
-    ConvertEulerToVector(),
+    ConvertVectorListToSplineList(),
     ConvertEulerToQuaternion(),
     ConvertQuaternionToEuler(),
+    ConvertFloatToScale(),
     ConvertListToElement(),
     ConvertElementToList(),
+    ConvertObjectToShapeKey(),
 	ConvertListToLength(),
     SimpleConvert(),
     ConvertToString(),

@@ -11,6 +11,10 @@ class MeshData:
         self.edges = edges
         self.polygons = polygons
 
+    def __repr__(self):
+        return "<AN Mesh Data Object: Vertices: {}, Edges: {}, Polygons: {}>".format(
+                len(self.vertices), len(self.edges), len(self.polygons))
+
     def copy(self):
         return MeshData(copyVectorList(self.vertices), copy2dList(self.edges), copy2dList(self.polygons))
 
@@ -26,10 +30,13 @@ class MeshData:
         return True
 
     def hasValidEdgeTupleLengths(self):
-        return all(len(edge) == 2 for edge in self.edges)
+        checkTuple = tuple([2] * len(self.edges))
+        edgeTupleLengths = tuple(map(len, self.edges))
+        return checkTuple == edgeTupleLengths
 
     def hasValidPolygonTupleLengths(self):
-        return all(len(polygon) >= 3 for polygon in self.polygons)
+        polygonTupleLengths = set(map(len, self.polygons))
+        return all(amount >= 3 for amount in polygonTupleLengths)
 
     def hasValidIndices(self):
         maxEdgeIndex = max(itertools.chain([-1], *self.edges))
@@ -45,6 +52,13 @@ class MeshData:
 
 class Vertex:
     __slots__ = ("location", "normal", "groupWeights")
+
+    @staticmethod
+    def fromBMeshVert(bmeshVert):
+        return Vertex(
+                 bmeshVert.co,
+                 bmeshVert.normal,
+                 [])
 
     @staticmethod
     def fromMeshVertexInLocalSpace(meshVertex):
@@ -70,38 +84,52 @@ class Vertex:
 
 
 class Polygon:
-    __slots__ = ("vertices", "normal", "center", "area", "materialIndex")
+    __slots__ = ("vertexLocations", "normal", "center", "area", "materialIndex")
 
     @staticmethod
-    def fromMeshPolygonInLocalSpace(meshPolygon, vertexLocations):
-        vertices = [vertexLocations[index].copy() for index in meshPolygon.vertices]
+    def fromBMeshFace(bmeshFace, centerWeighted = False):
+        vertexLocations = [v.co for v in bmeshFace.verts]
         return Polygon(
-                 vertices,
+                 vertexLocations,
+                 bmeshFace.normal,
+                 bmeshFace.calc_center_median_weighted() if centerWeighted else bmeshFace.calc_center_median(),
+                 bmeshFace.calc_area(),
+                 bmeshFace.material_index)
+ 
+    @staticmethod
+    def fromMeshPolygonInLocalSpace(meshPolygon, allVertexLocations):
+        vertexLocations = [allVertexLocations[index].copy() for index in meshPolygon.vertices]
+        return Polygon(
+                 vertexLocations,
                  meshPolygon.normal.copy(),
                  meshPolygon.center.copy(),
                  meshPolygon.area,
                  meshPolygon.material_index)
 
     @staticmethod
-    def fromMeshPolygonInWorldSpace(meshPolygon, vertexLocations, transformation, normalTransformation, scale):
-        vertices = [vertexLocations[index].copy() for index in meshPolygon.vertices]
+    def fromMeshPolygonInWorldSpace(meshPolygon, allVertexLocations, transformation, normalTransformation, scale):
+        vertexLocations = [allVertexLocations[index].copy() for index in meshPolygon.vertices]
         return Polygon(
-                 vertices,
+                 vertexLocations,
                  normalTransformation * meshPolygon.normal,
                  transformation * meshPolygon.center,
                  meshPolygon.area * scale,
                  meshPolygon.material_index)
 
-    def __init__(self, vertices, normal, center, area, materialIndex):
-        self.vertices = vertices
+    def __init__(self, vertexLocations, normal, center, area, materialIndex):
+        self.vertexLocations = vertexLocations
         self.normal = normal
         self.center = center
         self.area = area
         self.materialIndex = materialIndex
 
     def copy(self):
-        return Polygon(copyVectorList(self.vertices), self.normal.copy(),
+        return Polygon(copyVectorList(self.vertexLocations), self.normal.copy(),
                        self.center, self.area, self.materialIndex)
+
+    def __repr__(self):
+        return "<Polygon - Center: ({:.3f}, {:.3f}, {:.3f}), Verts: {}>".format(
+            self.center.x, self.center.y, self.center.z, len(self.vertexLocations))
 
 
 def copyVectorList(list):

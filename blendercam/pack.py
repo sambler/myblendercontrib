@@ -1,3 +1,24 @@
+# blender CAM pack.py (c) 2012 Vilem Novak
+#
+# ***** BEGIN GPL LICENSE BLOCK *****
+#
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ***** END GPL LICENCE BLOCK *****
+
 import bpy
 from cam import utils, simple,polygon_utils_cam
 import shapely
@@ -65,8 +86,8 @@ def packCurves():
 		polyfield.append([[0,0],0.0,poly,ob,z])
 	random.shuffle(polyfield)
 	#primitive layout here:
-	allpoly=sgeometry.Polygon()#main collision poly.
-	
+	allpoly=prepared.prep(sgeometry.Polygon())#main collision poly.
+	#allpoly=sgeometry.Polygon()#main collision poly.
 	
 	shift=0.0015#one milimeter by now.
 	rotchange=.3123456#in radians
@@ -116,7 +137,8 @@ def packCurves():
 			#print(iter,p.bounds)
 			
 			if xmin>0 and ymin>0 and ((direction=='Y' and xmax<sheetsizex) or (direction=='X' and ymax<sheetsizey)):
-				if allpoly.disjoint(ptrans):
+				if not allpoly.intersects(ptrans):
+				#if allpoly.disjoint(ptrans):
 					#print('gothit')
 					#we do more good solutions, choose best out of them:
 					hits+=1
@@ -172,6 +194,9 @@ def packCurves():
 				#allpoly=npoly
 				placedpolys.append(ptrans)
 				allpoly=prepared.prep(sgeometry.MultiPolygon(placedpolys))
+				#*** temporary fix until prepared geometry code is setup properly
+				#allpoly=sgeometry.MultiPolygon(placedpolys)
+				
 				#polygon_utils_cam.polyToMesh(allpoly,0.1)#debug visualisation
 				
 				#for c in p:

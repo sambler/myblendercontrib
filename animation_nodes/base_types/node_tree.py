@@ -1,35 +1,39 @@
 import bpy
 import time
 from bpy.props import *
-from .. events import treeChanged, isRendering
-from .. nodes.generic.debug_loop import clearDebugLoopTextBlocks
-from .. utils.blender_ui import iterActiveScreens, iterActiveSpacesByType
+from .. utils.handlers import eventHandler
+from .. utils.nodes import getAnimationNodeTrees
+from . tree_auto_execution import AutoExecutionProperties
+from .. events import treeChanged, isRendering, propertyChanged
+from .. utils.blender_ui import iterActiveScreens, isViewportRendering
+from .. preferences import getBlenderVersion, getAnimationNodesVersion
+from .. tree_info import getNetworksByNodeTree, getSubprogramNetworksByNodeTree
 from .. execution.units import getMainUnitsByNodeTree, setupExecutionUnits, finishExecutionUnits
 
-class AutoExecutionProperties(bpy.types.PropertyGroup):
-    bl_idname = "an_AutoExecutionProperties"
 
-    enabled = BoolProperty(default = True, name = "Enabled",
-        description = "Enable auto execution for this node tree")
+class LastTreeExecutionInfo(bpy.types.PropertyGroup):
 
-    sceneUpdate = BoolProperty(default = True, name = "Scene Update",
-        description = "Execute many times per second to react on all changes in real time")
+    isDefault = BoolProperty(default = True)
+    executionTime = FloatProperty(name = "Execution Time")
+    blenderVersion = IntVectorProperty(name = "Blender Version", default = (2, 77, 0))
+    animationNodesVersion = IntVectorProperty(name = "Animation Nodes Version", default = (1, 0, 1))
 
-    frameChanged = BoolProperty(default = False, name = "Frame Changed",
-        description = "Execute after the frame changed")
+    def updateVersions(self):
+        self.blenderVersion = getBlenderVersion()
+        self.animationNodesVersion = getAnimationNodesVersion()
+        self.isDefault = False
 
-    propertyChanged = BoolProperty(default = False, name = "Property Changed",
-        description = "Execute when a attribute in a animation node tree changed")
+    @property
+    def blenderVersionString(self):
+        return self.toVersionString(self.blenderVersion)
 
-    treeChanged = BoolProperty(default = False, name = "Tree Changed",
-        description = "Execute when the node tree changes (create/remove links and nodes)")
+    @property
+    def animationNodesVersionString(self):
+        return self.toVersionString(self.animationNodesVersion)
 
-    minTimeDifference = FloatProperty(name = "Min Time Difference",
-        description = "Auto execute not that often; E.g. only every 0.5 seconds",
-        default = 0.0, min = 0.0, soft_max = 1.0)
-
-    lastExecutionTimestamp = FloatProperty(default = 0.0)
-
+    def toVersionString(self, intVector):
+        numbers = tuple(intVector)
+        return "{}.{}.{}".format(*numbers)
 
 class AnimationNodeTree(bpy.types.NodeTree):
     bl_idname = "an_AnimationNodeTree"
@@ -37,8 +41,10 @@ class AnimationNodeTree(bpy.types.NodeTree):
     bl_icon = "ACTION"
 
     autoExecution = PointerProperty(type = AutoExecutionProperties)
-    executionTime = FloatProperty(name = "Execution Time")
-    sceneName = StringProperty()
+    lastExecutionInfo = PointerProperty(type = LastTreeExecutionInfo)
+
+    sceneName = StringProperty(name = "Scene",
+        description = "The global scene used by this node tree (never none)")
 
     editNodeLabels = BoolProperty(name = "Edit Node Labels", default = False)
 
@@ -48,10 +54,12 @@ class AnimationNodeTree(bpy.types.NodeTree):
     def canAutoExecute(self, events):
         def isAnimationPlaying():
             return any([screen.is_animation_playing for screen in iterActiveScreens()])
-        def isViewportRendering():
-            return any([space.viewport_shade == "RENDERED" for space in iterActiveSpacesByType("VIEW_3D")])
 
         a = self.autoExecution
+
+        # always update the triggers for better visual feedback
+        customTriggerHasBeenActivated = a.customTriggers.update()
+
         if not a.enabled: return False
         if not self.hasMainExecutionUnits: return False
 
@@ -71,7 +79,7 @@ class AnimationNodeTree(bpy.types.NodeTree):
             if events.intersection({"File", "Addon"}) and \
                 (a.sceneUpdate or a.frameChanged or a.propertyChanged or a.treeChanged): return True
 
-        return False
+        return customTriggerHasBeenActivated
 
     def autoExecute(self):
         self._execute()
@@ -85,15 +93,21 @@ class AnimationNodeTree(bpy.types.NodeTree):
     def _execute(self):
         units = self.mainUnits
         if len(units) == 0:
-            self.executionTime = 0
+            self.lastExecutionInfo.executionTime = 0
             return
-            
-        clearDebugLoopTextBlocks(self)
+
+        allExecutionsSuccessfull = True
+
         start = time.clock()
         for unit in units:
-            unit.execute()
+            success = unit.execute()
+            if not success:
+                allExecutionsSuccessfull = False
         end = time.clock()
-        self.executionTime = end - start
+
+        if allExecutionsSuccessfull:
+            self.lastExecutionInfo.executionTime = end - start
+            self.lastExecutionInfo.updateVersions()
 
     @property
     def hasMainExecutionUnits(self):
@@ -106,9 +120,25 @@ class AnimationNodeTree(bpy.types.NodeTree):
     @property
     def scene(self):
         scene = bpy.data.scenes.get(self.sceneName)
-        if scene is None: scene = bpy.data.scenes[0]
+        if scene is None:
+            scene = bpy.data.scenes[0]
         return scene
 
     @property
     def timeSinceLastAutoExecution(self):
         return abs(time.clock() - self.autoExecution.lastExecutionTimestamp)
+
+    @property
+    def networks(self):
+        return getNetworksByNodeTree(self)
+
+    @property
+    def subprogramNetworks(self):
+        return getSubprogramNetworksByNodeTree(self)
+
+@eventHandler("SCENE_UPDATE_POST")
+def updateSelectedScenes(scene):
+    for tree in getAnimationNodeTrees():
+        scene = tree.scene
+        if scene.name != tree.sceneName:
+            tree.sceneName = scene.name

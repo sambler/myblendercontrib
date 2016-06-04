@@ -29,8 +29,8 @@ def main(context):
   # option
   option = context.scene.BatchCopyName
 
-  # batch type
-  if option.batchType in {'SELECTED', 'OBJECTS'}:
+  # mode
+  if option.mode in {'SELECTED', 'OBJECTS'}:
     for object in bpy.data.objects[:]:
 
       # source object
@@ -39,8 +39,8 @@ def main(context):
         # objects
         if option.objects:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
 
               # use active object
@@ -60,8 +60,8 @@ def main(context):
         if option.objectData:
           if object.type not in 'EMPTY':
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
 
                 # use active object
@@ -80,8 +80,8 @@ def main(context):
         # materials
         if option.materials:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for material in object.material_slots[:]:
                 if material.material != None:
@@ -104,8 +104,8 @@ def main(context):
         # textures
         if option.textures:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for material in object.material_slots[:]:
                 if material.material != None:
@@ -132,8 +132,8 @@ def main(context):
         # particle systems
         if option.particleSystems:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for system in object.particle_systems[:]:
 
@@ -154,8 +154,8 @@ def main(context):
         # particle settings
         if option.particleSettings:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for system in object.particle_systems[:]:
 
@@ -180,8 +180,8 @@ def main(context):
           # objects
           if option.objects:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
 
                 # use active object
@@ -200,8 +200,8 @@ def main(context):
           # object data
           if option.objectData:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
 
                 # use active object
@@ -220,8 +220,8 @@ def main(context):
           # materials
           if option.materials:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -244,8 +244,8 @@ def main(context):
           # textures
           if option.textures:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -272,8 +272,8 @@ def main(context):
           # particle systems
           if option.particleSystems:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -294,8 +294,8 @@ def main(context):
           # particle settings
           if option.particleSettings:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -319,8 +319,8 @@ def main(context):
         # objects
         if option.objects:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
 
               # use active object
@@ -344,8 +344,8 @@ def main(context):
         if option.objectData:
           if object.type not in 'EMPTY':
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
 
                 # use active object
@@ -368,8 +368,8 @@ def main(context):
         # materials
         if option.materials:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for material in object.material_slots[:]:
                 if material.material != None:
@@ -396,8 +396,8 @@ def main(context):
         # textures
         if option.textures:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for material in object.material_slots[:]:
                 if material.material != None:
@@ -428,8 +428,8 @@ def main(context):
         # particle systems
         if option.particleSystems:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for system in object.particle_systems[:]:
 
@@ -454,8 +454,8 @@ def main(context):
         # particle settings
         if option.particleSettings:
 
-          # batch type
-          if option.batchType in 'SELECTED':
+          # mode
+          if option.mode in 'SELECTED':
             if object.select:
               for system in object.particle_systems[:]:
 
@@ -484,8 +484,8 @@ def main(context):
           # objects
           if option.objects:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
 
                 # use active object
@@ -513,8 +513,8 @@ def main(context):
           if option.objectData:
             if object.type not in 'EMPTY':
 
-              # batch type
-              if option.batchType in 'SELECTED':
+              # mode
+              if option.mode in 'SELECTED':
                 if object.select:
 
                   # use active object
@@ -541,8 +541,8 @@ def main(context):
           # materials
           if option.materials:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -573,8 +573,8 @@ def main(context):
           # textures
           if option.textures:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -609,8 +609,8 @@ def main(context):
           # particle systems
           if option.particleSystems:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -639,8 +639,8 @@ def main(context):
           # particle settings
           if option.particleSettings:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -672,8 +672,8 @@ def main(context):
           # objects
           if option.objects:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
 
                 # use active object
@@ -697,8 +697,8 @@ def main(context):
           if option.objectData:
             if object.type not in 'EMPTY':
 
-              # batch type
-              if option.batchType in 'SELECTED':
+              # mode
+              if option.mode in 'SELECTED':
                 if object.select:
 
                   # use active object
@@ -721,8 +721,8 @@ def main(context):
           # materials
           if option.materials:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -749,8 +749,8 @@ def main(context):
           # textures
           if option.textures:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -781,8 +781,8 @@ def main(context):
           # particle system
           if option.particleSystems:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -807,8 +807,8 @@ def main(context):
           # particle settings
           if option.particleSettings:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -836,8 +836,8 @@ def main(context):
           # objects
           if option.objects:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
 
                 # use active object
@@ -861,8 +861,8 @@ def main(context):
           if option.objectData:
             if object.type not in 'EMPTY':
 
-              # batch type
-              if option.batchType in 'SELECTED':
+              # mode
+              if option.mode in 'SELECTED':
                 if object.select:
 
                   # use active object
@@ -885,8 +885,8 @@ def main(context):
           # materials
           if option.materials:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -913,8 +913,8 @@ def main(context):
           # textures
           if option.textures:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for material in object.material_slots[:]:
                   if material.material != None:
@@ -945,8 +945,8 @@ def main(context):
           # particle systems
           if option.particleSystems:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -971,8 +971,8 @@ def main(context):
           # particle settings
           if option.particleSettings:
 
-            # batch type
-            if option.batchType in 'SELECTED':
+            # mode
+            if option.mode in 'SELECTED':
               if object.select:
                 for system in object.particle_systems[:]:
 
@@ -993,7 +993,7 @@ def main(context):
                 else:
                   if hasattr(object.particle_systems.active, 'settings'):
                     system.settings.name = object.particle_systems.active.settings.name
-  # batch type
+  # mode
   else:
     for object in context.scene.objects[:]:
 
