@@ -21,13 +21,14 @@
 bl_info = {
     "name": "Dynamic Toolshelf Menu",
     "author": "meta-androcto",
-    "version": (3, 0, 0),
-    "blender": (2, 7, 1),
+    "version": (3, 0, 1),
+    "blender": (2, 7, 7),
     "location": "View3D > Spacebar Key, Dynamic Tab",
     "description": "Context Sensitive Toolshelf Menu",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/3D_interaction/Dynamic_Spacebar_Menu",
+    "tracker_url": "https://developer.blender.org/maniphest/task/create/?project=3&type=Bug",
     "category": "3D View",
 }
 
@@ -38,7 +39,7 @@ class View3DPanel():
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
 
-class VIEW3D_PT_add_menu(View3DPanel,bpy.types.Panel):
+class VIEW3D_PT_Toolshelf_menu(View3DPanel,bpy.types.Panel):
     bl_label = "Dynamic Toolshelf"
     bl_category = "Dynamic"
 
@@ -1389,6 +1390,34 @@ class VIEW3D_MT_undoS(bpy.types.Menu):
         layout.operator_context = 'INVOKE_REGION_WIN'
         layout.operator("ed.undo", icon='TRIA_LEFT')
         layout.operator("ed.redo", icon='TRIA_RIGHT')
+
+## Addons Preferences Update Panel
+def update_panel(self, context):
+    try:
+        bpy.utils.unregister_class(VIEW3D_PT_Toolshelf_menu)
+    except:
+        pass
+    VIEW3D_PT_Toolshelf_menu.bl_category = context.user_preferences.addons[__name__].preferences.category
+    bpy.utils.register_class(VIEW3D_PT_Toolshelf_menu)   
+
+class ToolshelfMenuAddonPreferences(bpy.types.AddonPreferences):
+    # this must match the addon name, use '__package__'
+    # when defining this in a submodule of a python package.
+    bl_idname = __name__
+
+    category = bpy.props.StringProperty(
+            name="Category",
+            description="Choose a name for the category of the panel",
+            default="Dynamic",
+            update=update_panel)
+
+    def draw(self, context):
+
+        layout = self.layout
+        row = layout.row()
+        col = row.column()
+        col.label(text="Category:")
+        col.prop(self, "category", text="")
 
 def register():
     bpy.utils.register_module(__name__)
