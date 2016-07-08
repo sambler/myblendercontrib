@@ -1,0 +1,309 @@
+########################################################################
+'''
+Speaker
+
+'''
+########################################################################
+import bpy
+
+from bpy.props import *
+from bpy.types import Panel, Operator
+from bpy.utils import register_class, unregister_class
+from bpy_extras import object_utils
+
+from sound_drivers.utils import get_driver_settings, propfromtype,\
+                icon_from_bpy_datapath, getSpeaker, getAction,\
+                set_channel_idprop_rna, f, get_context_area
+
+# testing scene property context speaker
+
+def get_soundspeaker_list(self):
+    wf = [a['wavfile'] for a in bpy.data.actions if 'wavfile' in a.keys()]
+    speakers = [sp.data
+                for sp in self.objects
+                if sp.type == 'SPEAKER'
+                and sp.data.sound is not None
+                and sp.data.sound.name in wf]
+    return speakers
+    #return  [s for s in bpy.data.speakers  if 'vismode' in s.keys() and '_RNA_UI' in s.keys() and 'vismode' in s['_RNA_UI'].keys() and 'context' in s['_RNA_UI']['vismode'].keys()]
+
+bpy.types.Scene.soundspeakers = property(get_soundspeaker_list)
+
+def get_channel_names(self):
+    channels = [ k[:-1] for k in self.keys() 
+                 if len(k) == 3
+                 and k.endswith('0')]
+    channels = [a['channel_name'] for a in bpy.data.actions 
+                if 'channel_name' in a.keys()
+                #and a['channel_name'] in channels
+                and a['wavfile'] == self.sound.name]
+    return list(set(channels))
+
+bpy.types.Speaker.channels = property(get_channel_names)
+
+
+def set_context_speaker(self, speaker):
+
+    if speaker is not None and speaker.rna_type.identifier != "Speaker":
+        raise TypeError("Context Speaker must be a Speaker type")
+        return None
+
+    #look for previous context speaker
+    if speaker is None:
+        return None
+
+    if speaker not in self.soundspeakers:
+        print("Speaker must be baked before it can have context")
+        return None
+
+    for s in self.soundspeakers:
+        if s != speaker:
+            s.is_context_speaker = False
+    return speaker
+
+def get_context_speaker(self):
+
+    #make sure that every speaker has an ['_RNA_UI']['vismode']
+    
+
+    speakers = [sp for sp in get_soundspeaker_list(self) if
+                sp.is_context_speaker]
+
+    return speakers[0] if len(speakers) else None
+
+bpy.types.Scene.speaker = property(get_context_speaker, set_context_speaker)
+
+
+class Speaker():
+    def __init__(self, speaker):
+        pass
+
+
+class SpeakerPanel():
+    bl_label = "Speaker Panel"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "data"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def get_action(self, context):
+        return getAction(getSpeaker(context), search=True)
+
+    @classmethod
+    def poll(cls, context):
+        speaker = getSpeaker(context)
+        return speaker is not None and 'SPEAKER' in speaker.vismode and hasattr(context, "speaker")
+
+
+class SpeakerDataPanel(SpeakerPanel, Panel):
+
+    def draw_header(self, context):
+        layout = self.layout
+        layout.label("", icon='SPEAKER')
+
+    def draw(self, context):
+        space = context.space_data
+        if space.use_pin_id:
+            speaker = space.pin_id
+        else:
+            speaker = context.speaker
+
+        layout = self.layout
+        action = getAction(speaker)
+        layout.label("NOT IMPLEMENTED YET", icon='INFO')
+        layout.separator()
+        layout.label("Spatial Layouts ie (STEREO, 5.1 Surround)")
+        return
+
+        speakerL = None
+        speakerR = None
+        actionL = None
+        actionR = None
+        '''
+        STEREO
+        if context.object.parent:
+            for sp in context.object.parent.children:
+                if "LEFT" in sp.data.keys() and sp.data["LEFT"]:
+                    speakerL = sp.data
+                    actionL = getAction(speakerL)
+                    print('LEFT')
+                elif "RIGHT" in sp.data.keys() and sp.data["RIGHT"]:
+                    speakerR = sp.data
+                    print('RIGHT')
+                    actionR = getAction(speakerR)
+        '''
+        #print(context.object.parent, action, actionL, actionR)
+
+
+'''
+Operators
+'''
+class OBJECT_OT_speaker_add(bpy.types.Operator, object_utils.AddObjectHelper):
+    """Add a Speaker to SoundDrive"""
+    bl_idname = "object.speaker_add"
+    bl_label = "Add Speaker"
+    bl_options = {'REGISTER', 'UNDO'}
+    '''
+    Override the add speaker operator.
+    Copy the props from the original operator to make it seemless
+    Set the panels to {'SOUND'}
+    '''
+    propdic = {}
+
+    propfromtype(propdic, bpy.types.OBJECT_OT_speaker_add)
+    for k,v in propdic.items():
+        exec("%s = v" % k)
+        #(OBJECT_OT_speaker_add, k, v)
+
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        layout = self.layout
+        ob = context.active_object
+        if ob.type != 'SPEAKER':
+            return
+        sound = (hasattr(ob, "data") and getattr(ob.data, "sound", None) is not None)
+        layout.enabled = (len(context.screen.areas) > 1) and not sound
+        #layout.label(str(sound))
+        col = layout.column(align=True)
+        col.prop(self, 'view_align')
+
+        col = layout.column(align=True)
+        col.label(text="Location")
+        col.prop(self, 'location', text="")
+
+        col = layout.column(align=True)
+        col.enabled = not self.view_align
+        col.label(text="Rotation")
+        col.prop(self, 'rotation', text="")
+
+
+    def invoke(self, context, event):
+        object_utils.object_add_grid_scale_apply_operator(self, context)
+        return self.execute(context)
+
+    def execute(self, context):
+        spk = bpy.data.speakers.new('Speaker')
+        base = object_utils.object_data_add(context, spk, operator=self)
+        ob = base.object
+        context.scene.frame_set(1)
+        #return {'FINISHED'}
+        if not getattr(ob, "animation_data", None):
+            d = context.copy()
+            info = None
+            nla = None
+            #find any area that is not the current area
+            ob.animation_data_create()
+            soundtrack = ob.animation_data.nla_tracks.new()
+            soundtrack.name = "SoundTrack"
+            areas = [a for a in context.screen.areas if a != context.area]
+            if len(areas):
+                area = areas[0]
+                t =  area.type
+                area.type = 'NLA_EDITOR'
+                d["area"] = area
+                # add an NLA track
+                nla = get_context_area(context, d, area_type='NLA_EDITOR')
+                bpy.ops.nla.soundclip_add(d)
+                soundtrack.select = False #  Otherwise you get track on track.
+                area.type = t
+            else:
+                # ok no override available.. going to have to flip into NLA_ED
+                # draw method unavailable. feck it.
+                context.area.type = 'NLA_EDITOR'
+                bpy.ops.nla.soundclip_add()
+                context.area.type = 'VIEW_3D'
+
+            spk.vismode = {'SOUND'}
+
+            props = get_context_area(context, {}, area_type='PROPERTIES',
+                                     context_screen = True)
+            if props is not None:
+                if getattr(props.spaces.active, "context", None):
+                    try:
+                        props.spaces.active.context = 'DATA'
+                    except:
+                        pass
+
+        return {'FINISHED'}
+
+
+class SpeakerSelectorOperator(bpy.types.Operator):
+    """Edit Driver"""
+    bl_idname = "speaker.select_context"
+    bl_label = "Set Context Speaker"
+    bl_description = "Set Context Speaker"
+    contextspeakername = StringProperty(default="")
+    @classmethod
+    def poll(cls, context):
+        #global dm
+        speakers = [s for s in context.scene.objects if s.type == 'SPEAKER']
+        return len(speakers) > 0
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+        speaker = bpy.data.speakers.get(self.contextspeakername)
+        speaker.is_context_speaker = True
+        #context.scene.speaker = speaker
+        wm = context.window_manager
+        return wm.invoke_popup(self)
+        bpy.ops.wm.call_menu("soundtest.menu")
+        return {'FINISHED'}
+
+    def execute(self, context):
+        speaker = bpy.data.speakers.get(self.contextspeakername)
+        if speaker:
+            speaker.is_context_speaker = True
+        return {'FINISHED'}
+
+    def draw(self, context):
+        layout = self.layout
+        layout = layout.column(align=True)
+        speaker = bpy.data.speakers.get(self.contextspeakername)
+        speakers = [speaker]
+
+        actions = [a for a in bpy.data.actions if 'wavfile' in a.keys()]# and "%s%d" % (a['channel_name'],0) in sp.keys()]
+        wf = [a["wavfile"] for a in actions]
+
+        for speaker in speakers:
+            row = layout.row()
+            row.label(speaker.name, icon='SPEAKER')
+            row = layout.row()
+            #row.separator()
+            sounds = [s for s in bpy.data.sounds if s.name in wf]
+            for sound in sounds:
+                row = layout.row()
+                row.label(sound.name)
+                sp = [a for a in actions if a["wavfile"] == sound.name]
+                for a in sp:
+                    '''
+                    row.label(text=" ")
+                    '''
+                    row = layout.row()
+                    text = "[%s] %s" % (a["channel_name"], a.name)
+                    op = row.operator("soundaction.change", text=text)
+                    op.action = a.name
+
+def toggle_context_speaker(self, context):
+    if self.is_context_speaker:
+        context.scene.speaker = self
+
+    #context.scene.speaker = self
+
+def register():
+    bpy.types.Speaker.is_context_speaker = BoolProperty(name="ContextSpeaker",
+                                           description="(Un)Set context Speaker",
+                                           default=False,
+                                           update=toggle_context_speaker)
+    register_class(OBJECT_OT_speaker_add)
+    register_class(SpeakerDataPanel)
+    register_class(SpeakerSelectorOperator)
+
+def unregister():
+    unregister_class(OBJECT_OT_speaker_add)
+    unregister_class(SpeakerDataPanel)
+    unregister_class(SpeakerSelectorOperator)
