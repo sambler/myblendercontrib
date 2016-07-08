@@ -428,7 +428,6 @@ def generate_window_object(op, mymesh):
     mfaces = []
     # noinspection PyBroadException
     try:
-        # TODO: aqui esta el problema
         rst, ft1, cam, mer, sm = generate_vertex_data(op, myvertex, mfaces)
         if rst is not True:
             return False
