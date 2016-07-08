@@ -53,6 +53,11 @@ from measureit_geometry import *
 # -------------------------------------------------------------
 def render_main(self, context, animation=False):
     # noinspection PyBroadException,PyBroadException
+    # Save old info
+    settings = bpy.context.scene.render.image_settings
+    depth = settings.color_depth
+    settings.color_depth = '8'
+    # noinspection PyBroadException
     try:
         # Get visible layers
         layers = []
@@ -71,7 +76,6 @@ def render_main(self, context, animation=False):
 
         width = int(scene.render.resolution_x * render_scale)
         height = int(scene.render.resolution_y * render_scale)
-
         # ---------------------------------------
         # Get output path
         # ---------------------------------------
@@ -85,6 +89,7 @@ def render_main(self, context, animation=False):
         else:
             self.report({'ERROR'},
                         "MeasureIt: Unable to save temporary render image. Define a valid render path")
+            settings.color_depth = depth
             return False
 
         # Get Render Image
@@ -92,6 +97,7 @@ def render_main(self, context, animation=False):
         if img is None:
             self.report({'ERROR'},
                         "MeasureIt: Unable to save temporary render image. Define a valid render path")
+            settings.color_depth = depth
             return False
 
         # -----------------------------
@@ -198,8 +204,6 @@ def render_main(self, context, animation=False):
                         if scene.measureit_debug_faces is True or scene.measureit_debug_normals is True:
                             draw_faces(context, myobj, None, None)
 
-
-
                 if scene.measureit_rf is True:
                     bgl.glColor3f(1.0, 1.0, 1.0)
                     rfcolor = scene.measureit_rf_color
@@ -269,9 +273,11 @@ def render_main(self, context, animation=False):
 
             save_image(self, outpath, out)
 
+        settings.color_depth = depth
         return True
 
     except:
+        settings.color_depth = depth
         print("Unexpected error:" + str(sys.exc_info()))
         self.report({'ERROR'}, "MeasureIt: Unable to create render image")
         return False

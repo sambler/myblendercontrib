@@ -22,6 +22,11 @@
 import bpy
 from mathutils import Vector
 
+# ################################ Globals ###################################
+
+# Scalar Keyframe attributes that need to be remapped
+remap_keyframe_attrs = ['period']
+
 # ###################### Animation Helper Functions ##########################
 
 
@@ -60,7 +65,7 @@ def copy_fcurve_modifiers(old_curve, new_curve, remap=lambda x: x):
     while new_curve.modifiers:
         new_curve.modifiers.remove(new_curve.modifiers[-1])
     for modifier in old_curve.modifiers:
-        new_modifier = new_curve.modifiers.new()
+        new_modifier = new_curve.modifiers.new(type=modifier.type)
         copy_attrs(modifier, new_modifier, remap)
 
 
@@ -82,6 +87,8 @@ def copy_keyframes(old_curve, new_curve, remap=lambda x: x):
                 if type(value) == Vector:
                     setattr(
                         new_key, attr, Vector((remap(value[0]), value[1])))
+                elif attr in remap_keyframe_attrs:
+                    setattr(new_key, attr, remap(value))
                 else:
                     setattr(new_key, attr, value)
             except:

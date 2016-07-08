@@ -19,9 +19,12 @@
 
 # imports
 import bpy
+from random import random
+from . import shared
+from .. import storage
 
 # name
-def main(context):
+def main(self, context):
   '''
     Send datablock values to name.
   '''
@@ -44,14 +47,14 @@ def main(context):
             # object type
             if option.objectType in 'ALL':
 
-              # name
-              name(context, object, True, False, False, False)
+              # populate
+              populate(context, object)
 
             # object type
             elif option.objectType in object.type:
 
-              # name
-              name(context, object, True, False, False, False)
+              # populate
+              populate(context, object)
 
         # mode
         else:
@@ -59,14 +62,14 @@ def main(context):
           # object type
           if option.objectType in 'ALL':
 
-            # name
-            name(context, object, True, False, False, False)
+            # populate
+            populate(context, object)
 
           # object type
           elif option.objectType in object.type:
 
-            # name
-            name(context, object, True, False, False, False)
+            # populate
+            populate(context, object)
 
       # constraints
       if option.constraints:
@@ -79,14 +82,14 @@ def main(context):
               # constraint type
               if option.constraintType in 'ALL':
 
-                # name
-                name(context, constraint, False, True, False, False)
+                # populate
+                populate(context, constraint)
 
               # constraint type
               elif option.constraintType in constraint.type:
 
-                # name
-                name(context, constraint, False, True, False, False)
+                # populate
+                populate(context, constraint)
 
         # mode
         else:
@@ -95,14 +98,14 @@ def main(context):
             # constraint type
             if option.constraintType in 'ALL':
 
-              # name
-              name(context, constraint, False, True, False, False)
+              # populate
+              populate(context, constraint)
 
             # constraint type
             elif option.constraintType in constraint.type:
 
-              # name
-              name(context, constraint, False, True, False, False)
+              # populate
+              populate(context, constraint)
 
       # modifiers
       if option.modifiers:
@@ -115,28 +118,28 @@ def main(context):
               # modifier type
               if option.modifierType in 'ALL':
 
-                # name
-                name(context, modifier, False, False, True, False)
+                # populate
+                populate(context, modifier)
 
               # modifier type
               elif option.modifierType in modifier.type:
 
-                # name
-                name(context, modifier, False, False, True, False)
+                # populate
+                populate(context, modifier)
         else:
           for modifier in object.modifiers[:]:
 
             # modifier type
             if option.modifierType in 'ALL':
 
-              # name
-              name(context, modifier, False, False, True, False)
+              # populate
+              populate(context, modifier)
 
             # modifier type
             elif option.modifierType in modifier.type:
 
-              # name
-              name(context, modifier, False, False, True, False)
+              # populate
+              populate(context, modifier)
 
       # object data
       if option.objectData:
@@ -149,14 +152,14 @@ def main(context):
               # object type
               if option.objectType in 'ALL':
 
-                # name
-                name(context, object, False, False, False, True)
+                # populate
+                populate(context, object.data, object)
 
               # object type
               elif option.objectType in object.type:
 
-                # name
-                name(context, object, False, False, False, True)
+                # populate
+                populate(context, object.data, object)
 
           # mode
           else:
@@ -164,14 +167,14 @@ def main(context):
             # object type
             if option.objectType in 'ALL':
 
-              # name
-              name(context, object, False, False, False, True)
+              # populate
+              populate(context, object.data, object)
 
             # object type
             elif option.objectType in object.type:
 
-              # name
-              name(context, object, False, False, False, True)
+              # populate
+              populate(context, object.data, object)
 
       # bone constraints
       if option.boneConstraints:
@@ -187,14 +190,14 @@ def main(context):
                     # constraint type
                     if option.constraintType in 'ALL':
 
-                      # name
-                      name(context, constraint, False, True, False, False)
+                      # populate
+                      populate(context, constraint)
 
                     # constraint type
                     elif option.constraintType in constraint.type:
 
-                      # name
-                      name(context, constraint, False, True, False, False)
+                      # populate
+                      populate(context, constraint)
         else:
           if object.type in 'ARMATURE':
             for bone in object.pose.bones[:]:
@@ -203,14 +206,14 @@ def main(context):
                 # constraint type
                 if option.constraintType in 'ALL':
 
-                  # name
-                  name(context, constraint, False, True, False, False)
+                  # populate
+                  populate(context, constraint)
 
                 # constraint type
                 elif option.constraintType in constraint.type:
 
-                  # name
-                  name(context, constraint, False, True, False, False)
+                  # populate
+                  populate(context, constraint)
 
   # mode
   else:
@@ -222,14 +225,14 @@ def main(context):
         # object type
         if option.objectType in 'ALL':
 
-          # name
-          name(context, object, True, False, False, False)
+          # populate
+          populate(context, object)
 
         # object type
         elif option.objectType in object.type:
 
-          # name
-          name(context, object, True, False, False, False)
+          # populate
+          populate(context, object)
 
       # constraints
       if option.constraints:
@@ -238,14 +241,14 @@ def main(context):
           # constraint type
           if option.constraintType in 'ALL':
 
-            # name
-            name(context, constraint, False, True, False, False)
+            # populate
+            populate(context, constraint)
 
           # constraint type
           elif option.constraintType in constraint.type:
 
-            # name
-            name(context, constraint, False, True, False, False)
+            # populate
+            populate(context, constraint)
 
       # modifiers
       if option.modifiers:
@@ -254,14 +257,14 @@ def main(context):
           # modifier type
           if option.modifierType in 'ALL':
 
-            # name
-            name(context, modifier, False, False, True, False)
+            # populate
+            populate(context, modifier)
 
           # modifier type
           elif option.modifierType in modifier.type:
 
-            # name
-            name(context, modifier, False, False, True, False)
+            # populate
+            populate(context, modifier)
 
       # object data
       if option.objectData:
@@ -270,14 +273,14 @@ def main(context):
           # object type
           if option.objectType in 'ALL':
 
-            # name
-            name(context, object, False, False, False, True)
+            # populate
+            populate(context, object.data, object)
 
           # object type
           elif option.objectType in object.type:
 
-            # name
-            name(context, object, False, False, False, True)
+            # populate
+            populate(context, object.data, object)
 
       # bone constraints
       if option.boneConstraints:
@@ -288,17 +291,170 @@ def main(context):
               # constraint type
               if option.constraintType in 'ALL':
 
-                # name
-                name(context, constraint, False, True, False, False)
+                # populate
+                populate(context, constraint)
 
               # constraint type
               elif option.constraintType in constraint.type:
 
-                # name
-                name(context, constraint, False, True, False, False)
+                # populate
+                populate(context, constraint)
+
+  # all
+  all = [
+    # object
+    storage.batch.objects,
+
+    # constraints
+    storage.batch.constraints,
+
+    # modifiers
+    storage.batch.modifiers,
+
+    # cameras
+    storage.batch.cameras,
+
+    # meshes
+    storage.batch.meshes,
+
+    # curves
+    storage.batch.curves,
+
+    # lamps
+    storage.batch.lamps,
+
+    # lattices
+    storage.batch.lattices,
+
+    # metaballs
+    storage.batch.metaballs,
+
+    # speakers
+    storage.batch.speakers,
+
+    # armatures
+    storage.batch.armatures,
+  ]
+
+  # process
+  for collection in all:
+    if collection != []:
+
+      # process
+      process(self, context, collection)
+
+# populate
+def populate(context, datablock, source=None):
+  '''
+    Sort datablocks into proper storage list.
+  '''
+
+  # option
+  option = context.scene.BatchName
+
+  # objects
+  if datablock.rna_type.identifier == 'Object':
+    storage.batch.objects.append([datablock.name, datablock.name, datablock.name, [datablock, ''], 'OBJECT'])
+
+  # constraints
+  if hasattr(datablock.rna_type.base, 'identifier'):
+    if datablock.rna_type.base.identifier == 'Constraint':
+      storage.batch.constraints.append([datablock.name, datablock.name, datablock.name, [datablock, ''], 'CONSTRAINT'])
+
+  # modifiers
+  if hasattr(datablock.rna_type.base, 'identifier'):
+    if datablock.rna_type.base.identifier in 'Modifier':
+      storage.batch.modifiers.append([datablock.name, datablock.name, datablock.name, [datablock, ''], 'MODIFIER'])
+
+  # cameras
+  if datablock.rna_type.identifier == 'Camera':
+    storage.batch.cameras.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+  # meshes
+  if datablock.rna_type.identifier == 'Mesh':
+    storage.batch.meshes.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+  # curves
+  if datablock.rna_type.identifier in {'SurfaceCurve', 'TextCurve', 'Curve'}:
+    storage.batch.curves.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+  # lamps
+  if hasattr(datablock.rna_type.base, 'identifier'):
+    if datablock.rna_type.base.identifier == 'Lamp':
+      storage.batch.lamps.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+  # lattices
+  if datablock.rna_type.identifier == 'Lattice':
+    storage.batch.lattices.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+  # metaballs
+  if datablock.rna_type.identifier == 'MetaBall':
+    storage.batch.metaballs.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+  # speakers
+  if datablock.rna_type.identifier == 'Speaker':
+    storage.batch.speakers.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+  # armatures
+  if datablock.rna_type.identifier == 'Armature':
+    storage.batch.armatures.append([datablock.name, datablock.name, datablock.name, [datablock, '', source], 'DATA'])
+
+def process(self, context, collection):
+  '''
+    Process collection, send names to rename and shared sort.
+  '''
+
+  # compare
+  compare = []
+
+  # clean
+  clean = []
+
+  # clean duplicates
+  for name in collection:
+
+    # remove duplicates
+    if name[3][0] not in compare:
+
+      # append
+      compare.append(name[3][0])
+      clean.append(name)
+
+  # don with collection
+  collection.clear()
+
+  # name
+  for name in clean:
+    rename(self, context, name)
+
+  # randomize names (prevents conflicts)
+  for name in clean:
+
+    # randomize name
+    name[3][0].name = str(random())
+
+  # is shared sort
+  if context.scene.BatchShared.sort:
+
+    # sort
+    shared.sort(self, context, clean, context.scene.BatchShared)
+
+  # isnt shared sort
+  else:
+
+    # apply names
+    for name in clean:
+      name[3][0].name = name[1]
+
+      # count
+      if name[1] != name[2]:
+        self.count += 1
+
+    # done with clean
+    clean.clear()
 
 # object
-def name(context, datablock, object, constraint, modifier, objectData):
+def rename(self, context, name):
   '''
     Change the datablock names based on its type.
   '''
@@ -319,406 +475,406 @@ def name(context, datablock, object, constraint, modifier, objectData):
   objectDataName = context.scene.BatchAutoName_ObjectDataNames
 
   # object
-  if object:
+  if name[4] == 'OBJECT':
 
     # mesh
-    if datablock.type == 'MESH':
-      datablock.name = objectName.mesh + datablock.name if objectName.prefix else objectName.mesh
+    if name[3][0].type == 'MESH':
+      name[1] = objectName.mesh + name[1] if objectName.prefix else objectName.mesh
 
     # curve
-    if datablock.type == 'CURVE':
-      datablock.name = objectName.curve + datablock.name if objectName.prefix else objectName.curve
+    if name[3][0].type == 'CURVE':
+      name[1] = objectName.curve + name[1] if objectName.prefix else objectName.curve
 
     # surface
-    if datablock.type == 'SURFACE':
-      datablock.name = objectName.surface + datablock.name if objectName.prefix else objectName.surface
+    if name[3][0].type == 'SURFACE':
+      name[1] = objectName.surface + name[1] if objectName.prefix else objectName.surface
 
     # meta
-    if datablock.type == 'META':
-      datablock.name = objectName.meta + datablock.name if objectName.prefix else objectName.meta
+    if name[3][0].type == 'META':
+      name[1] = objectName.meta + name[1] if objectName.prefix else objectName.meta
 
     # font
-    if datablock.type == 'FONT':
-      datablock.name = objectName.font + datablock.name if objectName.prefix else objectName.font
+    if name[3][0].type == 'FONT':
+      name[1] = objectName.font + name[1] if objectName.prefix else objectName.font
 
     # armature
-    if datablock.type == 'ARMATURE':
-      datablock.name = objectName.armature + datablock.name if objectName.prefix else objectName.armature
+    if name[3][0].type == 'ARMATURE':
+      name[1] = objectName.armature + name[1] if objectName.prefix else objectName.armature
 
     # lattice
-    if datablock.type == 'LATTICE':
-      datablock.name = objectName.lattice + datablock.name if objectName.prefix else objectName.lattice
+    if name[3][0].type == 'LATTICE':
+      name[1] = objectName.lattice + name[1] if objectName.prefix else objectName.lattice
 
     # empty
-    if datablock.type == 'EMPTY':
-      datablock.name = objectName.empty + datablock.name if objectName.prefix else objectName.empty
+    if name[3][0].type == 'EMPTY':
+      name[1] = objectName.empty + name[1] if objectName.prefix else objectName.empty
 
     # speaker
-    if datablock.type == 'SPEAKER':
-      datablock.name = objectName.speaker + datablock.name if objectName.prefix else objectName.speaker
+    if name[3][0].type == 'SPEAKER':
+      name[1] = objectName.speaker + name[1] if objectName.prefix else objectName.speaker
 
     # camera
-    if datablock.type == 'CAMERA':
-      datablock.name = objectName.camera + datablock.name if objectName.prefix else objectName.camera
+    if name[3][0].type == 'CAMERA':
+      name[1] = objectName.camera + name[1] if objectName.prefix else objectName.camera
 
     # lamp
-    if datablock.type == 'LAMP':
-      datablock.name = objectName.lamp + datablock.name if objectName.prefix else objectName.lamp
+    if name[3][0].type == 'LAMP':
+      name[1] = objectName.lamp + name[1] if objectName.prefix else objectName.lamp
 
   # constraint (bone constraint)
-  if constraint:
+  if name[4] == 'CONSTRAINT':
 
     # camera solver
-    if datablock.type == 'CAMERA_SOLVER':
-      datablock.name = constraintName.cameraSolver + datablock.name if constraintName.prefix else constraintName.cameraSolver
+    if name[3][0].type == 'CAMERA_SOLVER':
+      name[1] = constraintName.cameraSolver + name[1] if constraintName.prefix else constraintName.cameraSolver
 
     # follow track
-    if datablock.type == 'FOLLOW_TRACK':
-      datablock.name = constraintName.followTrack + datablock.name if constraintName.prefix else constraintName.followTrack
+    if name[3][0].type == 'FOLLOW_TRACK':
+      name[1] = constraintName.followTrack + name[1] if constraintName.prefix else constraintName.followTrack
 
     # object solver
-    if datablock.type == 'OBJECT_SOLVER':
-      datablock.name = constraintName.objectSolver + datablock.name if constraintName.prefix else constraintName.objectSolver
+    if name[3][0].type == 'OBJECT_SOLVER':
+      name[1] = constraintName.objectSolver + name[1] if constraintName.prefix else constraintName.objectSolver
 
     # copy location
-    if datablock.type == 'COPY_LOCATION':
-      datablock.name = constraintName.copyLocation + datablock.name if constraintName.prefix else constraintName.copyLocation
+    if name[3][0].type == 'COPY_LOCATION':
+      name[1] = constraintName.copyLocation + name[1] if constraintName.prefix else constraintName.copyLocation
 
     # copy rotation
-    if datablock.type == 'COPY_ROTATION':
-      datablock.name = constraintName.copyRotation + datablock.name if constraintName.prefix else constraintName.copyRotation
+    if name[3][0].type == 'COPY_ROTATION':
+      name[1] = constraintName.copyRotation + name[1] if constraintName.prefix else constraintName.copyRotation
 
     # copy scale
-    if datablock.type == 'COPY_SCALE':
-      datablock.name = constraintName.copyScale + datablock.name if constraintName.prefix else constraintName.copyScale
+    if name[3][0].type == 'COPY_SCALE':
+      name[1] = constraintName.copyScale + name[1] if constraintName.prefix else constraintName.copyScale
 
     # copy transforms
-    if datablock.type == 'COPY_TRANSFORMS':
-      datablock.name = constraintName.copyTransforms + datablock.name if constraintName.prefix else constraintName.copyTransforms
+    if name[3][0].type == 'COPY_TRANSFORMS':
+      name[1] = constraintName.copyTransforms + name[1] if constraintName.prefix else constraintName.copyTransforms
 
     # limit distance
-    if datablock.type == 'LIMIT_DISTANCE':
-      datablock.name = constraintName.limitDistance + datablock.name if constraintName.prefix else constraintName.limitDistance
+    if name[3][0].type == 'LIMIT_DISTANCE':
+      name[1] = constraintName.limitDistance + name[1] if constraintName.prefix else constraintName.limitDistance
 
     # limit location
-    if datablock.type == 'LIMIT_LOCATION':
-      datablock.name = constraintName.limitLocation + datablock.name if constraintName.prefix else constraintName.limitLocation
+    if name[3][0].type == 'LIMIT_LOCATION':
+      name[1] = constraintName.limitLocation + name[1] if constraintName.prefix else constraintName.limitLocation
 
     # limit rotation
-    if datablock.type == 'LIMIT_ROTATION':
-      datablock.name = constraintName.limitRotation + datablock.name if constraintName.prefix else constraintName.limitRotation
+    if name[3][0].type == 'LIMIT_ROTATION':
+      name[1] = constraintName.limitRotation + name[1] if constraintName.prefix else constraintName.limitRotation
 
     # limit scale
-    if datablock.type == 'LIMIT_SCALE':
-      datablock.name = constraintName.limitScale + datablock.name if constraintName.prefix else constraintName.limitScale
+    if name[3][0].type == 'LIMIT_SCALE':
+      name[1] = constraintName.limitScale + name[1] if constraintName.prefix else constraintName.limitScale
 
     # maintain volume
-    if datablock.type == 'MAINTAIN_VOLUME':
-      datablock.name = constraintName.maintainVolume + datablock.name if constraintName.prefix else constraintName.maintainVolume
+    if name[3][0].type == 'MAINTAIN_VOLUME':
+      name[1] = constraintName.maintainVolume + name[1] if constraintName.prefix else constraintName.maintainVolume
 
     # transform
-    if datablock.type == 'TRANSFORM':
-      datablock.name = constraintName.transform + datablock.name if constraintName.prefix else constraintName.transform
+    if name[3][0].type == 'TRANSFORM':
+      name[1] = constraintName.transform + name[1] if constraintName.prefix else constraintName.transform
 
     # clamp to
-    if datablock.type == 'CLAMP_TO':
-      datablock.name = constraintName.clampTo + datablock.name if constraintName.prefix else constraintName.clampTo
+    if name[3][0].type == 'CLAMP_TO':
+      name[1] = constraintName.clampTo + name[1] if constraintName.prefix else constraintName.clampTo
 
     # damped track
-    if datablock.type == 'DAMPED_TRACK':
-      datablock.name = constraintName.dampedTrack + datablock.name if constraintName.prefix else constraintName.dampedTrack
+    if name[3][0].type == 'DAMPED_TRACK':
+      name[1] = constraintName.dampedTrack + name[1] if constraintName.prefix else constraintName.dampedTrack
 
     # inverse kinematics
-    if datablock.type == 'IK':
-      datablock.name = constraintName.inverseKinematics + datablock.name if constraintName.prefix else constraintName.inverseKinematics
+    if name[3][0].type == 'IK':
+      name[1] = constraintName.inverseKinematics + name[1] if constraintName.prefix else constraintName.inverseKinematics
 
     # locked track
-    if datablock.type == 'LOCKED_TRACK':
-      datablock.name = constraintName.lockedTrack + datablock.name if constraintName.prefix else constraintName.lockedTrack
+    if name[3][0].type == 'LOCKED_TRACK':
+      name[1] = constraintName.lockedTrack + name[1] if constraintName.prefix else constraintName.lockedTrack
 
     # spline inverse kinematics
-    if datablock.type == 'SPLINE_IK':
-      datablock.name = constraintName.splineInverseKinematics + datablock.name if constraintName.prefix else constraintName.splineInverseKinematics
+    if name[3][0].type == 'SPLINE_IK':
+      name[1] = constraintName.splineInverseKinematics + name[1] if constraintName.prefix else constraintName.splineInverseKinematics
 
     # stretch to
-    if datablock.type == 'STRETCH_TO':
-      datablock.name = constraintName.stretchTo + datablock.name if constraintName.prefix else constraintName.stretchTo
+    if name[3][0].type == 'STRETCH_TO':
+      name[1] = constraintName.stretchTo + name[1] if constraintName.prefix else constraintName.stretchTo
 
     # track to
-    if datablock.type == 'TRACK_TO':
-      datablock.name = constraintName.trackTo + datablock.name if constraintName.prefix else constraintName.trackTo
+    if name[3][0].type == 'TRACK_TO':
+      name[1] = constraintName.trackTo + name[1] if constraintName.prefix else constraintName.trackTo
 
     # action
-    if datablock.type == 'ACTION':
-      datablock.name = constraintName.action + datablock.name if constraintName.prefix else constraintName.action
+    if name[3][0].type == 'ACTION':
+      name[1] = constraintName.action + name[1] if constraintName.prefix else constraintName.action
 
     # child of
-    if datablock.type == 'CHILD_OF':
-      datablock.name = constraintName.childOf + datablock.name if constraintName.prefix else constraintName.childOf
+    if name[3][0].type == 'CHILD_OF':
+      name[1] = constraintName.childOf + name[1] if constraintName.prefix else constraintName.childOf
 
     # floor
-    if datablock.type == 'FLOOR':
-      datablock.name = constraintName.floor + datablock.name if constraintName.prefix else constraintName.floor
+    if name[3][0].type == 'FLOOR':
+      name[1] = constraintName.floor + name[1] if constraintName.prefix else constraintName.floor
 
     # follow path
-    if datablock.type == 'FOLLOW_PATH':
-      datablock.name = constraintName.followPath + datablock.name if constraintName.prefix else constraintName.followPath
+    if name[3][0].type == 'FOLLOW_PATH':
+      name[1] = constraintName.followPath + name[1] if constraintName.prefix else constraintName.followPath
 
     # pivot
-    if datablock.type == 'PIVOT':
-      datablock.name = constraintName.pivot + datablock.name if constraintName.prefix else constraintName.pivot
+    if name[3][0].type == 'PIVOT':
+      name[1] = constraintName.pivot + name[1] if constraintName.prefix else constraintName.pivot
 
     # rigid body joint
-    if datablock.type == 'RIGID_BODY_JOINT':
-      datablock.name = constraintName.rigidBodyJoint + datablock.name if constraintName.prefix else constraintName.rigidBodyJoint
+    if name[3][0].type == 'RIGID_BODY_JOINT':
+      name[1] = constraintName.rigidBodyJoint + name[1] if constraintName.prefix else constraintName.rigidBodyJoint
 
     # shrinkwrap
-    if datablock.type == 'SHRINKWRAP':
-      datablock.name = constraintName.shrinkwrap + datablock.name if constraintName.prefix else constraintName.shrinkwrap
+    if name[3][0].type == 'SHRINKWRAP':
+      name[1] = constraintName.shrinkwrap + name[1] if constraintName.prefix else constraintName.shrinkwrap
 
   # modifier
-  if modifier:
+  if name[4] == 'MODIFIER':
 
     # data transfer
-    if datablock.type == 'DATA_TRANSFER':
-      datablock.name = modifierName.dataTransfer + datablock.name if modifierName.prefix else modifierName.dataTransfer
+    if name[3][0].type == 'DATA_TRANSFER':
+      name[1] = modifierName.dataTransfer + name[1] if modifierName.prefix else modifierName.dataTransfer
 
     # mesh cache
-    if datablock.type == 'MESH_CACHE':
-      datablock.name = modifierName.meshCache + datablock.name if modifierName.prefix else modifierName.meshCache
+    if name[3][0].type == 'MESH_CACHE':
+      name[1] = modifierName.meshCache + name[1] if modifierName.prefix else modifierName.meshCache
 
     # normal edit
-    if datablock.type == 'NORMAL_EDIT':
-      datablock.name = modifierName.normalEdit + datablock.name if modifierName.prefix else modifierName.normalEdit
+    if name[3][0].type == 'NORMAL_EDIT':
+      name[1] = modifierName.normalEdit + name[1] if modifierName.prefix else modifierName.normalEdit
 
     # uv project
-    if datablock.type == 'UV_PROJECT':
-      datablock.name = modifierName.uvProject + datablock.name if modifierName.prefix else modifierName.uvProject
+    if name[3][0].type == 'UV_PROJECT':
+      name[1] = modifierName.uvProject + name[1] if modifierName.prefix else modifierName.uvProject
 
     # uv warp
-    if datablock.type == 'UV_WARP':
-      datablock.name = modifierName.uvWarp + datablock.name if modifierName.prefix else modifierName.uvWarp
+    if name[3][0].type == 'UV_WARP':
+      name[1] = modifierName.uvWarp + name[1] if modifierName.prefix else modifierName.uvWarp
 
     # vertex weight edit
-    if datablock.type == 'VERTEX_WEIGHT_EDIT':
-      datablock.name = modifierName.vertexWeightEdit + datablock.name if modifierName.prefix else modifierName.vertexWeightEdit
+    if name[3][0].type == 'VERTEX_WEIGHT_EDIT':
+      name[1] = modifierName.vertexWeightEdit + name[1] if modifierName.prefix else modifierName.vertexWeightEdit
 
     # vertex weight mix
-    if datablock.type == 'VERTEX_WEIGHT_MIX':
-      datablock.name = modifierName.vertexWeightMix + datablock.name if modifierName.prefix else modifierName.vertexWeightMix
+    if name[3][0].type == 'VERTEX_WEIGHT_MIX':
+      name[1] = modifierName.vertexWeightMix + name[1] if modifierName.prefix else modifierName.vertexWeightMix
 
     # vertex weight proximity
-    if datablock.type == 'VERTEX_WEIGHT_PROXIMITY':
-      datablock.name = modifierName.vertexWeightProximity + datablock.name if modifierName.prefix else modifierName.vertexWeightProximity
+    if name[3][0].type == 'VERTEX_WEIGHT_PROXIMITY':
+      name[1] = modifierName.vertexWeightProximity + name[1] if modifierName.prefix else modifierName.vertexWeightProximity
 
     # array
-    if datablock.type == 'ARRAY':
-      datablock.name = modifierName.array + datablock.name if modifierName.prefix else modifierName.array
+    if name[3][0].type == 'ARRAY':
+      name[1] = modifierName.array + name[1] if modifierName.prefix else modifierName.array
 
     # bevel
-    if datablock.type == 'BEVEL':
-      datablock.name = modifierName.bevel + datablock.name if modifierName.prefix else modifierName.bevel
+    if name[3][0].type == 'BEVEL':
+      name[1] = modifierName.bevel + name[1] if modifierName.prefix else modifierName.bevel
 
     # boolean
-    if datablock.type == 'BOOLEAN':
-      datablock.name = modifierName.boolean + datablock.name if modifierName.prefix else modifierName.boolean
+    if name[3][0].type == 'BOOLEAN':
+      name[1] = modifierName.boolean + name[1] if modifierName.prefix else modifierName.boolean
 
     # build
-    if datablock.type == 'BUILD':
-      datablock.name = modifierName.build + datablock.name if modifierName.prefix else modifierName.build
+    if name[3][0].type == 'BUILD':
+      name[1] = modifierName.build + name[1] if modifierName.prefix else modifierName.build
 
     # decimate
-    if datablock.type == 'DECIMATE':
-      datablock.name = modifierName.decimate + datablock.name if modifierName.prefix else modifierName.decimate
+    if name[3][0].type == 'DECIMATE':
+      name[1] = modifierName.decimate + name[1] if modifierName.prefix else modifierName.decimate
 
     # edge split
-    if datablock.type == 'EDGE_SPLIT':
-      datablock.name = modifierName.edgeSplit + datablock.name if modifierName.prefix else modifierName.edgeSplit
+    if name[3][0].type == 'EDGE_SPLIT':
+      name[1] = modifierName.edgeSplit + name[1] if modifierName.prefix else modifierName.edgeSplit
 
     # mask
-    if datablock.type == 'MASK':
-      datablock.name = modifierName.mask + datablock.name if modifierName.prefix else modifierName.mask
+    if name[3][0].type == 'MASK':
+      name[1] = modifierName.mask + name[1] if modifierName.prefix else modifierName.mask
 
     # mirror
-    if datablock.type == 'MIRROR':
-      datablock.name = modifierName.mirror + datablock.name if modifierName.prefix else modifierName.mirror
+    if name[3][0].type == 'MIRROR':
+      name[1] = modifierName.mirror + name[1] if modifierName.prefix else modifierName.mirror
 
     # multiresolution
-    if datablock.type == 'MULTIRES':
-      datablock.name = modifierName.multiresolution + datablock.name if modifierName.prefix else modifierName.multiresolution
+    if name[3][0].type == 'MULTIRES':
+      name[1] = modifierName.multiresolution + name[1] if modifierName.prefix else modifierName.multiresolution
 
     # remesh
-    if datablock.type == 'REMESH':
-      datablock.name = modifierName.remesh + datablock.name if modifierName.prefix else modifierName.remesh
+    if name[3][0].type == 'REMESH':
+      name[1] = modifierName.remesh + name[1] if modifierName.prefix else modifierName.remesh
 
     # screw
-    if datablock.type == 'SCREW':
-      datablock.name = modifierName.screw + datablock.name if modifierName.prefix else modifierName.screw
+    if name[3][0].type == 'SCREW':
+      name[1] = modifierName.screw + name[1] if modifierName.prefix else modifierName.screw
 
     # skin
-    if datablock.type == 'SKIN':
-      datablock.name = modifierName.skin + datablock.name if modifierName.prefix else modifierName.skin
+    if name[3][0].type == 'SKIN':
+      name[1] = modifierName.skin + name[1] if modifierName.prefix else modifierName.skin
 
     # solidify
-    if datablock.type == 'SOLIDIFY':
-      datablock.name = modifierName.solidify + datablock.name if modifierName.prefix else modifierName.solidify
+    if name[3][0].type == 'SOLIDIFY':
+      name[1] = modifierName.solidify + name[1] if modifierName.prefix else modifierName.solidify
 
     # subdivision surface
-    if datablock.type == 'SUBSURF':
-      datablock.name = modifierName.subdivisionSurface + datablock.name if modifierName.prefix else modifierName.subdivisionSurface
+    if name[3][0].type == 'SUBSURF':
+      name[1] = modifierName.subdivisionSurface + name[1] if modifierName.prefix else modifierName.subdivisionSurface
 
     # triangulate
-    if datablock.type == 'TRIANGULATE':
-      datablock.name = modifierName.triangulate + datablock.name if modifierName.prefix else modifierName.triangulate
+    if name[3][0].type == 'TRIANGULATE':
+      name[1] = modifierName.triangulate + name[1] if modifierName.prefix else modifierName.triangulate
 
     # wireframe
-    if datablock.type == 'WIREFRAME':
-      datablock.name = modifierName.wireframe + datablock.name if modifierName.prefix else modifierName.wireframe
+    if name[3][0].type == 'WIREFRAME':
+      name[1] = modifierName.wireframe + name[1] if modifierName.prefix else modifierName.wireframe
 
     # armature
-    if datablock.type == 'ARMATURE':
-      datablock.name = modifierName.armature + datablock.name if modifierName.prefix else modifierName.armature
+    if name[3][0].type == 'ARMATURE':
+      name[1] = modifierName.armature + name[1] if modifierName.prefix else modifierName.armature
 
     # cast
-    if datablock.type == 'CAST':
-      datablock.name = modifierName.cast + datablock.name if modifierName.prefix else modifierName.cast
+    if name[3][0].type == 'CAST':
+      name[1] = modifierName.cast + name[1] if modifierName.prefix else modifierName.cast
 
     # corrective smooth
-    if datablock.type == 'CORRECTIVE_SMOOTH':
-      datablock.name = modifierName.correctiveSmooth + datablock.name if modifierName.prefix else modifierName.correctiveSmooth
+    if name[3][0].type == 'CORRECTIVE_SMOOTH':
+      name[1] = modifierName.correctiveSmooth + name[1] if modifierName.prefix else modifierName.correctiveSmooth
 
     # curve
-    if datablock.type == 'CURVE':
-      datablock.name = modifierName.curve + datablock.name if modifierName.prefix else modifierName.curve
+    if name[3][0].type == 'CURVE':
+      name[1] = modifierName.curve + name[1] if modifierName.prefix else modifierName.curve
 
     # displace
-    if datablock.type == 'DISPLACE':
-      datablock.name = modifierName.displace + datablock.name if modifierName.prefix else modifierName.displace
+    if name[3][0].type == 'DISPLACE':
+      name[1] = modifierName.displace + name[1] if modifierName.prefix else modifierName.displace
 
     # hook
-    if datablock.type == 'HOOK':
-      datablock.name = modifierName.hook + datablock.name if modifierName.prefix else modifierName.hook
+    if name[3][0].type == 'HOOK':
+      name[1] = modifierName.hook + name[1] if modifierName.prefix else modifierName.hook
 
     # laplacian smooth
-    if datablock.type == 'LAPLACIANSMOOTH':
-      datablock.name = modifierName.laplacianSmooth + datablock.name if modifierName.prefix else modifierName.laplacianSmooth
+    if name[3][0].type == 'LAPLACIANSMOOTH':
+      name[1] = modifierName.laplacianSmooth + name[1] if modifierName.prefix else modifierName.laplacianSmooth
 
     # laplacian deform
-    if datablock.type == 'LAPLACIANDEFORM':
-      datablock.name = modifierName.laplacianDeform + datablock.name if modifierName.prefix else modifierName.laplacianDeform
+    if name[3][0].type == 'LAPLACIANDEFORM':
+      name[1] = modifierName.laplacianDeform + name[1] if modifierName.prefix else modifierName.laplacianDeform
 
     # lattice
-    if datablock.type == 'LATTICE':
-      datablock.name = modifierName.lattice + datablock.name if modifierName.prefix else modifierName.lattice
+    if name[3][0].type == 'LATTICE':
+      name[1] = modifierName.lattice + name[1] if modifierName.prefix else modifierName.lattice
 
     # mesh deform
-    if datablock.type == 'MESH_DEFORM':
-      datablock.name = modifierName.meshDeform + datablock.name if modifierName.prefix else modifierName.meshDeform
+    if name[3][0].type == 'MESH_DEFORM':
+      name[1] = modifierName.meshDeform + name[1] if modifierName.prefix else modifierName.meshDeform
 
     # shrinkwrap
-    if datablock.type == 'SHRINKWRAP':
-      datablock.name = modifierName.shrinkwrap + datablock.name if modifierName.prefix else modifierName.shrinkwrap
+    if name[3][0].type == 'SHRINKWRAP':
+      name[1] = modifierName.shrinkwrap + name[1] if modifierName.prefix else modifierName.shrinkwrap
 
     # simple deform
-    if datablock.type == 'SIMPLE_DEFORM':
-      datablock.name = modifierName.simpleDeform + datablock.name if modifierName.prefix else modifierName.simpleDeform
+    if name[3][0].type == 'SIMPLE_DEFORM':
+      name[1] = modifierName.simpleDeform + name[1] if modifierName.prefix else modifierName.simpleDeform
 
     # smooth
-    if datablock.type == 'SMOOTH':
-      datablock.name = modifierName.smooth + datablock.name if modifierName.prefix else modifierName.smooth
+    if name[3][0].type == 'SMOOTH':
+      name[1] = modifierName.smooth + name[1] if modifierName.prefix else modifierName.smooth
 
     # warp
-    if datablock.type == 'WARP':
-      datablock.name = modifierName.warp + datablock.name if modifierName.prefix else modifierName.warp
+    if name[3][0].type == 'WARP':
+      name[1] = modifierName.warp + name[1] if modifierName.prefix else modifierName.warp
 
     # wave
-    if datablock.type == 'WAVE':
-      datablock.name = modifierName.wave + datablock.name if modifierName.prefix else modifierName.wave
+    if name[3][0].type == 'WAVE':
+      name[1] = modifierName.wave + name[1] if modifierName.prefix else modifierName.wave
 
     # cloth
-    if datablock.type == 'CLOTH':
-      datablock.name = modifierName.cloth + datablock.name if modifierName.prefix else modifierName.cloth
+    if name[3][0].type == 'CLOTH':
+      name[1] = modifierName.cloth + name[1] if modifierName.prefix else modifierName.cloth
 
     # collision
-    if datablock.type == 'COLLISION':
-      datablock.name = modifierName.collision + datablock.name if modifierName.prefix else modifierName.collision
+    if name[3][0].type == 'COLLISION':
+      name[1] = modifierName.collision + name[1] if modifierName.prefix else modifierName.collision
 
     # dynamic paint
-    if datablock.type == 'DYNAMIC_PAINT':
-      datablock.name = modifierName.dynamicPaint + datablock.name if modifierName.prefix else modifierName.dynamicPaint
+    if name[3][0].type == 'DYNAMIC_PAINT':
+      name[1] = modifierName.dynamicPaint + name[1] if modifierName.prefix else modifierName.dynamicPaint
 
     # explode
-    if datablock.type == 'EXPLODE':
-      datablock.name = modifierName.explode + datablock.name if modifierName.prefix else modifierName.explode
+    if name[3][0].type == 'EXPLODE':
+      name[1] = modifierName.explode + name[1] if modifierName.prefix else modifierName.explode
 
     # fluid simulation
-    if datablock.type == 'FLUID_SIMULATION':
-      datablock.name = modifierName.fluidSimulation + datablock.name if modifierName.prefix else modifierName.fluidSimulation
+    if name[3][0].type == 'FLUID_SIMULATION':
+      name[1] = modifierName.fluidSimulation + name[1] if modifierName.prefix else modifierName.fluidSimulation
 
     # ocean
-    if datablock.type == 'OCEAN':
-      datablock.name = modifierName.ocean + datablock.name if modifierName.prefix else modifierName.ocean
+    if name[3][0].type == 'OCEAN':
+      name[1] = modifierName.ocean + name[1] if modifierName.prefix else modifierName.ocean
 
     # particle instance
-    if datablock.type == 'PARTICLE_INSTANCE':
-      datablock.name = modifierName.particleInstance + datablock.name if modifierName.prefix else modifierName.particleInstance
+    if name[3][0].type == 'PARTICLE_INSTANCE':
+      name[1] = modifierName.particleInstance + name[1] if modifierName.prefix else modifierName.particleInstance
 
     # particle system
-    if datablock.type == 'PARTICLE_SYSTEM':
-      datablock.name = modifierName.particleSystem + datablock.name if modifierName.prefix else modifierName.particleSystem
+    if name[3][0].type == 'PARTICLE_SYSTEM':
+      name[1] = modifierName.particleSystem + name[1] if modifierName.prefix else modifierName.particleSystem
 
     # smoke
-    if datablock.type == 'SMOKE':
-      datablock.name = modifierName.smoke + datablock.name if modifierName.prefix else modifierName.smoke
+    if name[3][0].type == 'SMOKE':
+      name[1] = modifierName.smoke + name[1] if modifierName.prefix else modifierName.smoke
 
     # soft body
-    if datablock.type == 'SOFT_BODY':
-      datablock.name = modifierName.softBody + datablock.name if modifierName.prefix else modifierName.softBody
+    if name[3][0].type == 'SOFT_BODY':
+      name[1] = modifierName.softBody + name[1] if modifierName.prefix else modifierName.softBody
 
   # object data
-  if objectData:
+  if name[4] == 'DATA':
 
     # mesh
-    if datablock.type == 'MESH':
-      datablock.data.name = objectDataName.mesh + datablock.data.name if objectDataName.prefix else objectDataName.mesh
+    if name[3][2].type == 'MESH':
+      name[1] = objectDataName.mesh + name[1] if objectDataName.prefix else objectDataName.mesh
 
     # curve
-    if datablock.type == 'CURVE':
-      datablock.data.name = objectDataName.curve + datablock.data.name if objectDataName.prefix else objectDataName.curve
+    if name[3][2].type == 'CURVE':
+      name[1] = objectDataName.curve + name[1] if objectDataName.prefix else objectDataName.curve
 
     # surface
-    if datablock.type == 'SURFACE':
-      datablock.data.name = objectDataName.surface + datablock.data.name if objectDataName.prefix else objectDataName.surface
+    if name[3][2].type == 'SURFACE':
+      name[1] = objectDataName.surface + name[1] if objectDataName.prefix else objectDataName.surface
 
     # meta
-    if datablock.type == 'META':
-      datablock.data.name = objectDataName.meta + datablock.data.name if objectDataName.prefix else objectDataName.meta
+    if name[3][2].type == 'META':
+      name[1] = objectDataName.meta + name[1] if objectDataName.prefix else objectDataName.meta
 
     # font
-    if datablock.type == 'FONT':
-      datablock.data.name = objectDataName.font + datablock.data.name if objectDataName.prefix else objectDataName.font
+    if name[3][2].type == 'FONT':
+      name[1] = objectDataName.font + name[1] if objectDataName.prefix else objectDataName.font
 
     # armature
-    if datablock.type == 'ARMATURE':
-      datablock.data.name = objectDataName.armature + datablock.data.name if objectDataName.prefix else objectDataName.armature
+    if name[3][2].type == 'ARMATURE':
+      name[1] = objectDataName.armature + name[1] if objectDataName.prefix else objectDataName.armature
 
     # lattice
-    if datablock.type == 'LATTICE':
-      datablock.data.name = objectDataName.lattice + datablock.data.name if objectDataName.prefix else objectDataName.lattice
+    if name[3][2].type == 'LATTICE':
+      name[1] = objectDataName.lattice + name[1] if objectDataName.prefix else objectDataName.lattice
 
     # empty
-    if datablock.type == 'EMPTY':
+    if name[3][2].type == 'EMPTY':
       pass
-      # datablock.data.name = objectDataName.empty + datablock.data.name if objectDataName.prefix else objectDataName.empty
+      # name[1] = objectDataName.empty + name[1] if objectDataName.prefix else objectDataName.empty
 
     # speaker
-    if datablock.type == 'SPEAKER':
-      datablock.data.name = objectDataName.speaker + datablock.data.name if objectDataName.prefix else objectDataName.speaker
+    if name[3][2].type == 'SPEAKER':
+      name[1] = objectDataName.speaker + name[1] if objectDataName.prefix else objectDataName.speaker
 
     # camera
-    if datablock.type == 'CAMERA':
-      datablock.data.name = objectDataName.camera + datablock.data.name if objectDataName.prefix else objectDataName.camera
+    if name[3][2].type == 'CAMERA':
+      name[1] = objectDataName.camera + name[1] if objectDataName.prefix else objectDataName.camera
 
     # lamp
-    if datablock.type == 'LAMP':
-      datablock.data.name = objectDataName.lamp + datablock.data.name if objectDataName.prefix else objectDataName.lamp
+    if name[3][2].type == 'LAMP':
+      name[1] = objectDataName.lamp + name[1] if objectDataName.prefix else objectDataName.lamp

@@ -21,42 +21,14 @@
 import bpy
 import re
 from random import random
+from . import shared
 from .. import storage
 
-tag = False
-
-# shared
-class shared:
-  '''
-    Contains Lists;
-      greasePencils
-      objectData
-      materials
-      textures
-  '''
-
-  # grease pencils
-  greasePencils = []
-
-  particleSettings = []
-
-  # object data
-  objectData = []
-
-  # materials
-  materials = []
-
-  # textures
-  textures = []
-
 # main
-def main(context, quickBatch):
+def main(self, context):
   '''
     Send datablock values to populate then send collections to process, action group & lineset names are sent to name.
   '''
-
-  # tag
-  global tag
 
   # panel
   panel = context.scene.NamePanel
@@ -65,7 +37,7 @@ def main(context, quickBatch):
   option = context.scene.BatchName
 
   # quick batch
-  if quickBatch:
+  if self.quickBatch:
 
     # display names
     if panel.displayNames:
@@ -76,21 +48,21 @@ def main(context, quickBatch):
         for object in context.selected_objects[:]:
 
           # quick
-          quick(context, object, panel, option)
+          quick(self, context, object, panel, option)
 
       # mode
-      else:
+      else: # panel.mode == 'LAYERS'
         for object in context.scene.objects[:]:
           if True in [x&y for (x,y) in zip(object.layers, context.scene.layers)]:
 
             # quick
-            quick(context, object, panel, option)
+            quick(self, context, object, panel, option)
 
     # display names
-    else:
+    else: # not panel.displayNames
 
       # quick
-      quick(context, context.active_object, panel, option)
+      quick(self, context, context.active_object, panel, option)
 
     # all
     all = [
@@ -147,18 +119,11 @@ def main(context, quickBatch):
     for collection in all:
       if collection != []:
 
-        # clear duplicates
-        list = []
-        [list.append(item) for item in collection if item not in list]
-
         # process
-        process(context, list)
-
-        # clear storage
-        collection.clear()
+        process(self, context, collection, option)
 
   # quick batch
-  else:
+  else: # not quickBatch
 
     # mode
     if option.mode in {'SELECTED', 'OBJECTS'}:
@@ -205,7 +170,7 @@ def main(context, quickBatch):
         storage.batch.actions.clear()
 
         # process
-        process(context, actions)
+        process(self, context, actions, option)
 
       # action groups
       if option.actionGroups:
@@ -252,7 +217,7 @@ def main(context, quickBatch):
         # name action groups
         for action in actions:
           for group in action[1][1].groups:
-            group.name = name(context, group.name) if not option.suffixLast else name(context, group.name) + option.suffix
+            group.name = rename(self, context, group.name) if not option.suffixLast else rename(self, context, group.name, option) + option.suffix
 
       # grease pencil
       if option.greasePencil:
@@ -265,77 +230,36 @@ def main(context, quickBatch):
 
                 # object type
                 if option.objectType in 'ALL':
-                  if object.grease_pencil.users == 1:
 
-                    # populate
-                    populate(context, object.grease_pencil, object)
-                  else:
-
-                    # shared
-                    if object.grease_pencil not in shared.greasePencils[:]:
-                      shared.greasePencils.append(object.grease_pencil)
-
-                      # populate
-                      populate(context, object.grease_pencil, object)
+                  # populate
+                  populate(context, object.grease_pencil, object)
 
                 # object type
                 elif option.objectType in object.type:
-                  if object.grease_pencil.users == 1:
 
-                    # populate
-                    populate(context, object.grease_pencil, object)
-                  else:
-
-                    # shared
-                    if object.grease_pencil not in shared.greasePencils[:]:
-                      shared.greasePencils.append(object.grease_pencil)
-
-                      # populate
-                      populate(context, object.grease_pencil, object)
+                  # populate
+                  populate(context, object.grease_pencil, object)
 
             # mode
             else:
 
               # object type
               if option.objectType in 'ALL':
-                if object.grease_pencil.users == 1:
 
-                  # populate
-                  populate(context, object.grease_pencil, object)
-                else:
-
-                  # shared
-                  if object.grease_pencil not in shared.greasePencils[:]:
-                    shared.greasePencils.append(object.grease_pencil)
-
-                    # populate
-                    populate(context, object.grease_pencil, object)
+                # populate
+                populate(context, object.grease_pencil, object)
 
               # object type
               elif option.objectType in object.type:
-                if object.grease_pencil.users == 1:
 
-                  # populate
-                  populate(context, object.grease_pencil, object)
-
-                else:
-
-                  # shared
-                  if object.grease_pencil not in shared.greasePencils[:]:
-                    shared.greasePencils.append(object.grease_pencil)
-
-                    # populate
-                    populate(context, object.grease_pencil, object)
-
+                # populate
+                populate(context, object.grease_pencil, object)
 
         # process
-        process(context, storage.batch.greasePencils)
+        process(self, context, storage.batch.greasePencils, option)
 
         # clear storage
         storage.batch.greasePencils.clear()
-
-        # clear shared
-        shared.greasePencils.clear()
 
       # pencil layers
       if option.pencilLayers:
@@ -348,99 +272,48 @@ def main(context, quickBatch):
 
                 # object type
                 if option.objectType in 'ALL':
-                  if object.grease_pencil.users == 1:
 
-                    # layers
-                    for layer in object.grease_pencil.layers[:]:
+                  # layers
+                  for layer in object.grease_pencil.layers[:]:
 
-                      # populate
-                      populate(context, layer)
-                  else:
-
-                    # shared
-                    if object.grease_pencil not in shared.greasePencils[:]:
-                      shared.greasePencils.append(object.grease_pencil)
-
-                      # layers
-                      for layer in object.grease_pencil.layers[:]:
-
-                        # populate
-                        populate(context, layer)
+                    # populate
+                    populate(context, layer)
 
                 # object type
                 elif option.objectType in object.type:
-                  if object.grease_pencil.users == 1:
 
-                    # layers
-                    for layer in object.grease_pencil.layers[:]:
+                  # layers
+                  for layer in object.grease_pencil.layers[:]:
 
-                      # populate
-                      populate(context, layer)
-                  else:
-
-                    # shared
-                    if object.grease_pencil not in shared.greasePencils[:]:
-                      shared.greasePencils.append(object.grease_pencil)
-
-                      # layers
-                      for layer in object.grease_pencil.layers[:]:
-
-                        # populate
-                        populate(context, layer)
+                    # populate
+                    populate(context, layer)
 
             # mode
             else:
 
               # object type
               if option.objectType in 'ALL':
-                if object.grease_pencil.users == 1:
 
-                  # layers
-                  for layer in object.grease_pencil.layers[:]:
+                # layers
+                for layer in object.grease_pencil.layers[:]:
 
-                    # populate
-                    populate(context, layer)
-                else:
-
-                  # shared
-                  if object.grease_pencil not in shared.greasePencils[:]:
-                    shared.greasePencils.append(object.grease_pencil)
-
-                    # layers
-                    for layer in object.grease_pencil.layers[:]:
-
-                      # populate
-                      populate(context, layer)
+                  # populate
+                  populate(context, layer)
 
               # object type
               elif option.objectType in object.type:
-                if object.grease_pencil.users == 1:
 
-                  # layers
-                  for layer in object.grease_pencil.layers[:]:
+                # layers
+                for layer in object.grease_pencil.layers[:]:
 
-                    # populate
-                    populate(context, layer)
-                else:
-
-                  # shared
-                  if object.grease_pencil not in shared.greasePencils[:]:
-                    shared.greasePencils.append(object.grease_pencil)
-
-                    # layers
-                    for layer in object.grease_pencil.layers[:]:
-
-                      # populate
-                      populate(context, layer)
+                  # populate
+                  populate(context, layer)
 
             # process
-            process(context, storage.batch.pencilLayers)
+            process(self, context, storage.batch.pencilLayers, option)
 
             # clear storage
             storage.batch.pencilLayers.clear()
-
-        # clear shared
-        shared.greasePencils.clear()
 
       # objects
       if option.objects:
@@ -478,7 +351,7 @@ def main(context, quickBatch):
               populate(context, object)
 
         # process
-        process(context, storage.batch.objects)
+        process(self, context, storage.batch.objects, option)
 
         # clear storage
         storage.batch.objects.clear()
@@ -535,7 +408,7 @@ def main(context, quickBatch):
         storage.batch.groups.clear()
 
         # process
-        process(context, objectGroups)
+        process(self, context, objectGroups, option)
 
       # constraints
       if option.constraints:
@@ -575,7 +448,7 @@ def main(context, quickBatch):
                 populate(context, constraint)
 
           # process
-          process(context, storage.batch.constraints)
+          process(self, context, storage.batch.constraints, option)
 
           # clear storage
           storage.batch.constraints.clear()
@@ -618,7 +491,7 @@ def main(context, quickBatch):
                 populate(context, modifier)
 
           # process
-          process(context, storage.batch.modifiers)
+          process(self, context, storage.batch.modifiers, option)
 
           # clear storage
           storage.batch.modifiers.clear()
@@ -634,69 +507,30 @@ def main(context, quickBatch):
 
                 # object type
                 if option.objectType in 'ALL':
-                  if object.data.users == 1:
 
-                    # populate
-                    populate(context, object.data, object)
-                  else:
-
-                    # shared
-                    if object.data.name not in shared.objectData[:]:
-                      shared.objectData.append(object.data.name)
-
-                      # populate
-                      populate(context, object.data, object)
+                  # populate
+                  populate(context, object.data, object)
 
                 # object type
                 elif option.objectType in object.type:
-                  if object.data.users == 1:
 
-                    # populate
-                    populate(context, object.data, object)
-                  else:
-
-                    # shared shared
-                    if object.data.name not in shared.objectData[:]:
-                      shared.objectData.append(object.data.name)
-
-                      # populate
-                      populate(context, object.data, object)
+                  # populate
+                  populate(context, object.data, object)
 
             # mode
             else:
 
               # object type
               if option.objectType in 'ALL':
-                if object.data.users == 1:
 
-                  # populate
-                  populate(context, object.data, object)
-                else:
-
-                  # shared shared
-                  if object.data.name not in shared.objectData[:]:
-                    shared.objectData.append(object.data.name)
-
-                    # populate
-                    populate(context, object.data, object)
+                # populate
+                populate(context, object.data, object)
 
               # object type
               elif option.objectType in object.type:
-                if object.data.users == 1:
 
-                  # populate
-                  populate(context, object.data, object)
-                else:
-
-                  # shared shared
-                  if object.data.name not in shared.objectData[:]:
-                    shared.objectData.append(object.data.name)
-
-                    # populate
-                    populate(context, object.data, object)
-
-        # clear shared
-        shared.objectData.clear()
+                # populate
+                populate(context, object.data, object)
 
         # object data
         objectData = [
@@ -715,7 +549,7 @@ def main(context, quickBatch):
           if collection != []:
 
             # process
-            process(context, collection)
+            process(self, context, collection, option)
 
             # clear storage
             collection.clear()
@@ -743,7 +577,7 @@ def main(context, quickBatch):
                 populate(context, group)
 
           # process
-          process(context, storage.batch.boneGroups)
+          process(self, context, storage.batch.boneGroups, option)
 
           # clear storage
           storage.batch.boneGroups.clear()
@@ -791,7 +625,7 @@ def main(context, quickBatch):
                     populate(context, bone)
 
             # process
-            process(context, storage.batch.bones)
+            process(self, context, storage.batch.bones, option)
 
             # clear storage
             storage.batch.bones.clear()
@@ -821,7 +655,7 @@ def main(context, quickBatch):
                         populate(context, constraint)
 
                     # process
-                    process(context, storage.batch.constraints)
+                    process(self, context, storage.batch.constraints, option)
 
                     # clear storage
                     storage.batch.constraints.clear()
@@ -844,7 +678,7 @@ def main(context, quickBatch):
                     populate(context, constraint)
 
                 # process
-                process(context, storage.batch.constraints)
+                process(self, context, storage.batch.constraints, option)
 
                 # clear storage
                 storage.batch.constraints.clear()
@@ -872,7 +706,7 @@ def main(context, quickBatch):
                     populate(context, group)
 
                 # process
-                process(context, storage.batch.vertexGroups)
+                process(self, context, storage.batch.vertexGroups, option)
 
                 # clear storage
                 storage.batch.vertexGroups.clear()
@@ -894,7 +728,7 @@ def main(context, quickBatch):
                   populate(context, group)
 
               # process
-              process(context, storage.batch.vertexGroups)
+              process(self, context, storage.batch.vertexGroups, option)
 
               # clear storage
               storage.batch.vertexGroups.clear()
@@ -940,7 +774,7 @@ def main(context, quickBatch):
                     populate(context, block)
 
               # process
-              process(context, storage.batch.shapekeys)
+              process(self, context, storage.batch.shapekeys, option)
 
               # clear storage
               storage.batch.shapekeys.clear()
@@ -966,7 +800,7 @@ def main(context, quickBatch):
                 populate(context, uv)
 
             # process
-            process(context, storage.batch.uvs)
+            process(self, context, storage.batch.uvs, option)
 
             # clear storage
             storage.batch.uvs.clear()
@@ -992,7 +826,7 @@ def main(context, quickBatch):
                 populate(context, color)
 
             # process
-            process(context, storage.batch.vertexColors)
+            process(self, context, storage.batch.vertexColors, option)
 
             # clear storage
             storage.batch.vertexColors.clear()
@@ -1006,33 +840,6 @@ def main(context, quickBatch):
             if object.select:
               for slot in object.material_slots[:]:
                 if slot.material != None:
-                  if slot.material.users == 1:
-
-                    # object type
-                    if option.objectType in 'ALL':
-
-                      # populate
-                      populate(context, slot.material, slot)
-
-                    # object type
-                    elif option.objectType in object.type:
-
-                      # populate
-                      populate(context, slot.material, slot)
-                  else:
-
-                    # shared
-                    if slot.material not in shared.materials[:]:
-                      shared.materials.append(slot.material)
-
-                      # populate
-                      populate(context, slot.material, slot)
-
-          # mode
-          else:
-            for slot in object.material_slots[:]:
-              if slot.material != None:
-                if slot.material.users == 1:
 
                   # object type
                   if option.objectType in 'ALL':
@@ -1045,23 +852,29 @@ def main(context, quickBatch):
 
                     # populate
                     populate(context, slot.material, slot)
-                else:
 
-                  # shared
-                  if slot.material not in shared.materials[:]:
-                    shared.materials.append(slot.material)
+          # mode
+          else:
+            for slot in object.material_slots[:]:
+              if slot.material != None:
 
-                    # populate
-                    populate(context, slot.material, slot)
+                # object type
+                if option.objectType in 'ALL':
+
+                  # populate
+                  populate(context, slot.material, slot)
+
+                # object type
+                elif option.objectType in object.type:
+
+                  # populate
+                  populate(context, slot.material, slot)
 
         # process
-        process(context, storage.batch.materials)
+        process(self, context, storage.batch.materials, option)
 
         # clear storage
         storage.batch.materials.clear()
-
-        # clear shared
-        shared.materials.clear()
 
       # textures
       if option.textures:
@@ -1073,130 +886,45 @@ def main(context, quickBatch):
               if object.select:
                 for slot in object.material_slots[:]:
                   if slot.material != None:
-                    if slot.material.users == 1:
-                      for texslot in slot.material.texture_slots[:]:
-                        if texslot != None:
-                          if texslot.texture.users == 1:
+                    for texslot in slot.material.texture_slots[:]:
+                      if texslot != None:
 
-                            # object type
-                            if option.objectType in 'ALL':
+                        # object type
+                        if option.objectType in 'ALL':
 
-                              # populate
-                              populate(context, texslot.texture, texslot)
+                          # populate
+                          populate(context, texslot.texture, texslot)
 
-                            # object type
-                            elif option.objectType in object.type:
+                        # object type
+                        elif option.objectType in object.type:
 
-                              # populate
-                              populate(context, texslot.texture, texslot)
-                          else:
-
-                            # shared
-                            if texslot.texture not in shared.textures[:]:
-                              shared.textures.append(texslot.texture)
-
-                              # populate
-                              populate(context, texslot.texture, texslot)
-                    else:
-
-                      # shared
-                      if slot.material not in shared.materials[:]:
-                        shared.materials.append(slot.material)
-                        for texslot in slot.material.texture_slots[:]:
-                          if texslot != None:
-                            if texslot.texture.users == 1:
-
-                              # object type
-                              if option.objectType in 'ALL':
-
-                                # populate
-                                populate(context, texslot.texture, texslot)
-
-                              # object type
-                              elif option.objectType in object.type:
-
-                                # populate
-                                populate(context, texslot.texture, texslot)
-                            else:
-
-                              # shared
-                              if texslot.texture not in shared.textures[:]:
-                                shared.textures.append(texslot.texture)
-
-                                # populate
-                                populate(context, texslot.texture, texslot)
-
-                    # process
-                    process(context, storage.batch.textures)
-
-                    # clear storage
-                    storage.batch.textures.clear()
+                          # populate
+                          populate(context, texslot.texture, texslot)
 
             # mode
             else:
               for slot in object.material_slots[:]:
                 if slot.material != None:
-                  if slot.material.users == 1:
-                    for texslot in slot.material.texture_slots[:]:
-                      if texslot != None:
-                        if texslot.texture.users == 1:
+                  for texslot in slot.material.texture_slots[:]:
+                    if texslot != None:
 
-                          # object type
-                          if option.objectType in 'ALL':
+                      # object type
+                      if option.objectType in 'ALL':
 
-                            # populate
-                            populate(context, texslot.texture, texslot)
+                        # populate
+                        populate(context, texslot.texture, texslot)
 
-                          # object type
-                          elif option.objectType in object.type:
+                      # object type
+                      elif option.objectType in object.type:
 
-                            # populate
-                            populate(context, texslot.texture, texslot)
-                        else:
-
-                          # shared
-                          if texslot.texture not in shared.textures[:]:
-                            shared.textures.append(texslot.texture)
-
-                            # populate
-                            populate(context, texslot.texture, texslot)
-                  else:
-
-                    # shared
-                    if slot.material not in shared.materials[:]:
-                      shared.materials.append(slot.material)
-                      for texslot in slot.material.texture_slots[:]:
-                        if texslot != None:
-                          if texslot.texture.users == 1:
-
-                            # object type
-                            if option.objectType in 'ALL':
-
-                              # populate
-                              populate(context, texslot.texture, texslot)
-
-                            # object type
-                            elif option.objectType in object.type:
-
-                              # populate
-                              populate(context, texslot.texture, texslot)
-                          else:
-
-                            # shared
-                            if texslot.texture not in shared.textures[:]:
-                              shared.textures.append(texslot.texture, texslot)
-
-                              # populate
-                              populate(context, texslot.texture, texslot)
+                        # populate
+                        populate(context, texslot.texture, texslot)
 
         # process
-        process(context, storage.batch.textures)
+        process(self, context, storage.batch.textures, option)
 
         # clear storage
         storage.batch.textures.clear()
-
-        # clear shared
-        shared.textures.clear()
 
       # particle systems
       if option.particleSystems:
@@ -1237,7 +965,7 @@ def main(context, quickBatch):
                   populate(context, system)
 
             # process
-            process(context, storage.batch.particleSystems)
+            process(self, context, storage.batch.particleSystems, option)
 
             # clear storage
             storage.batch.particleSystems.clear()
@@ -1254,33 +982,15 @@ def main(context, quickBatch):
 
                   # object type
                   if option.objectType in 'ALL':
-                    if system.settings.users == 1:
 
-                      # populate
-                      populate(context, system.settings, system)
-                    else:
-
-                      # shared
-                      if system.settings not in shared.particleSettings[:]:
-                        shared.particleSettings.append(system.settings)
-
-                        # populate
-                        populate(context, system.settings, system)
+                    # populate
+                    populate(context, system.settings, system)
 
                   # object type
                   elif option.objectType in object.type:
-                    if system.settings.users == 1:
 
-                      # populate
-                      populate(context, system.settings, system)
-                    else:
-
-                      # shared
-                      if system.settings not in shared.particleSettings[:]:
-                        shared.particleSettings.append(system.settings)
-
-                        # populate
-                        populate(context, system.settings, system)
+                    # populate
+                    populate(context, system.settings, system)
 
             # mode
             else:
@@ -1288,42 +998,21 @@ def main(context, quickBatch):
 
                 # object type
                 if option.objectType in 'ALL':
-                  if system.settings.users == 1:
 
-                    # populate
-                    populate(context, system.settings, system)
-                  else:
-
-                    # shared
-                    if system.settings not in shared.particleSettings[:]:
-                      shared.particleSettings.append(system.settings)
-
-                      # populate
-                      populate(context, system.settings, system)
+                  # populate
+                  populate(context, system.settings, system)
 
                 # object type
                 elif option.objectType in object.type:
-                  if system.settings.users == 1:
 
-                    # populate
-                    populate(context, system.settings, system)
-                  else:
-
-                    # shared
-                    if system.settings not in shared.particleSettings[:]:
-                      shared.particleSettings.append(system.settings)
-
-                      # populate
-                      populate(context, system.settings, system)
+                  # populate
+                  populate(context, system.settings, system)
 
         # process
-        process(context, storage.batch.particleSettings)
+        process(self, context, storage.batch.particleSettings, option)
 
         # clear storage
         storage.batch.particleSettings.clear()
-
-        # clear shared
-        shared.particleSettings.clear()
 
     # sensors
     if option.sensors:
@@ -1365,7 +1054,7 @@ def main(context, quickBatch):
               populate(context, sensor)
 
         # process
-        process(context, storage.batch.sensors)
+        process(self, context, storage.batch.sensors, option)
 
         # clear storage
         storage.batch.sensors.clear()
@@ -1410,7 +1099,7 @@ def main(context, quickBatch):
               populate(context, controller)
 
         # process
-        process(context, storage.batch.controllers)
+        process(self, context, storage.batch.controllers, option)
 
         # clear storage
         storage.batch.controllers.clear()
@@ -1455,7 +1144,7 @@ def main(context, quickBatch):
               populate(context, actuator)
 
         # process
-        process(context, storage.batch.actuators)
+        process(self, context, storage.batch.actuators, option)
 
         # clear storage
         storage.batch.actuators.clear()
@@ -1489,7 +1178,7 @@ def main(context, quickBatch):
         storage.batch.actions.clear()
 
         # process
-        process(context, actions)
+        process(self, context, actions, option)
 
       # action groups
       if option.actionGroups:
@@ -1517,7 +1206,7 @@ def main(context, quickBatch):
         # name action groups
         for action in actions:
           for group in action[1][1].groups:
-            group.name = name(context, group.name) if not option.suffixLast else name(context, group.name) + option.suffix
+            group.name = rename(self, context, group.name) if not option.suffixLast else rename(self, context, group.name, option) + option.suffix
 
       # grease pencil
       if option.greasePencil:
@@ -1526,44 +1215,21 @@ def main(context, quickBatch):
 
             # object type
             if option.objectType in 'ALL':
-              if object.grease_pencil.users == 1:
 
-                # populate
-                populate(context, object.grease_pencil, object)
-
-              else:
-
-                # shared
-                if object.grease_pencil not in shared.greasePencils[:]:
-                  shared.greasePencils.append(object.grease_pencil)
-
-                  # populate
-                  populate(context, object.grease_pencil, object)
+              # populate
+              populate(context, object.grease_pencil, object)
 
             # object type
             elif option.objectType in object.type:
-              if object.grease_pencil.users == 1:
 
-                # populate
-                populate(context, object.grease_pencil, object)
-
-              else:
-
-                # shared
-                if object.grease_pencil not in shared.greasePencils[:]:
-                  shared.greasePencils.append(object.grease_pencil)
-
-                  # populate
-                  populate(context, object.grease_pencil, object)
+              # populate
+              populate(context, object.grease_pencil, object)
 
         # process
-        process(context, storage.batch.greasePencils)
+        process(self, context, storage.batch.greasePencils, option)
 
         # clear storage
         storage.batch.greasePencils.clear()
-
-        # clear shared
-        shared.greasePencils.clear()
 
       # pencil layers
       if option.pencilLayers:
@@ -1572,54 +1238,27 @@ def main(context, quickBatch):
 
             # object type
             if option.objectType in 'ALL':
-              if object.grease_pencil.users == 1:
 
-                # layers
-                for layer in object.grease_pencil.layers[:]:
+              # layers
+              for layer in object.grease_pencil.layers[:]:
 
-                  # populate
-                  populate(context, layer)
-              else:
-
-                # shared
-                if object.grease_pencil not in shared.greasePencils[:]:
-                  shared.greasePencils.append(object.grease_pencil)
-
-                  # layers
-                  for layer in object.grease_pencil.layers[:]:
-
-                    # populate
-                    populate(context, layer)
+                # populate
+                populate(context, layer)
 
             # object type
             elif option.objectType in object.type:
-              if object.grease_pencil.users == 1:
 
-                # layers
-                for layer in object.grease_pencil.layers[:]:
+              # layers
+              for layer in object.grease_pencil.layers[:]:
 
-                  # populate
-                  populate(context, layer)
-              else:
-
-                # shared
-                if object.grease_pencil not in shared.greasePencils[:]:
-                  shared.greasePencils.append(object.grease_pencil)
-
-                  # layers
-                  for layer in object.grease_pencil.layers[:]:
-
-                    # populate
-                    populate(context, layer)
+                # populate
+                populate(context, layer)
 
             # process
-            process(context, storage.batch.pencilLayers)
+            process(self, context, storage.batch.pencilLayers, option)
 
             # clear storage
             storage.batch.pencilLayers.clear()
-
-        # clear shared
-        shared.greasePencils.clear()
 
       # objects
       if option.objects:
@@ -1638,7 +1277,7 @@ def main(context, quickBatch):
             populate(context, object)
 
         # process
-        process(context, storage.batch.objects)
+        process(self, context, storage.batch.objects, option)
 
         # clear storage
         storage.batch.objects.clear()
@@ -1671,7 +1310,7 @@ def main(context, quickBatch):
         storage.batch.groups.clear()
 
         # process
-        process(context, objectGroups)
+        process(self, context, objectGroups, option)
 
       # constraints
       if option.constraints:
@@ -1691,7 +1330,7 @@ def main(context, quickBatch):
               populate(context, constraint)
 
           # process
-          process(context, storage.batch.constraints)
+          process(self, context, storage.batch.constraints, option)
 
           # clear storage
           storage.batch.constraints.clear()
@@ -1714,7 +1353,7 @@ def main(context, quickBatch):
               populate(context, modifier)
 
           # process
-          process(context, storage.batch.modifiers)
+          process(self, context, storage.batch.modifiers, option)
 
           # clear storage
           storage.batch.modifiers.clear()
@@ -1726,36 +1365,15 @@ def main(context, quickBatch):
 
             # object type
             if option.objectType in 'ALL':
-              if object.data.users == 1:
 
-                # populate
-                populate(context, object.data, object)
-              else:
-
-                # shared shared
-                if object.data.name not in shared.objectData[:]:
-                  shared.objectData.append(object.data.name)
-
-                  # populate
-                  populate(context, object.data, object)
+              # populate
+              populate(context, object.data, object)
 
             # object type
             elif option.objectType in object.type:
-              if object.data.users == 1:
 
-                # populate
-                populate(context, object.data, object)
-              else:
-
-                # shared shared
-                if object.data.name not in shared.objectData[:]:
-                  shared.objectData.append(object.data.name)
-
-                  # populate
-                  populate(context, object.data, object)
-
-        # clear shared
-        shared.objectData.clear()
+              # populate
+              populate(context, object.data, object)
 
         # object data
         objectData = [
@@ -1772,7 +1390,7 @@ def main(context, quickBatch):
           if collection != []:
 
             # process
-            process(context, collection)
+            process(self, context, collection, option)
 
             # clear storage
             collection.clear()
@@ -1787,7 +1405,7 @@ def main(context, quickBatch):
               populate(context, group)
 
           # process
-          process(context, storage.batch.boneGroups)
+          process(self, context, storage.batch.boneGroups, option)
 
           # clear storage
           storage.batch.boneGroups.clear()
@@ -1812,7 +1430,7 @@ def main(context, quickBatch):
                   populate(context, bone)
 
             # process
-            process(context, storage.batch.bones)
+            process(self, context, storage.batch.bones, option)
 
             # clear storage
             storage.batch.bones.clear()
@@ -1837,7 +1455,7 @@ def main(context, quickBatch):
                   populate(context, constraint)
 
               # process
-              process(context, storage.batch.constraints)
+              process(self, context, storage.batch.constraints, option)
 
               # clear storage
               storage.batch.constraints.clear()
@@ -1861,7 +1479,7 @@ def main(context, quickBatch):
                 populate(context, group)
 
             # process
-            process(context, storage.batch.vertexGroups)
+            process(self, context, storage.batch.vertexGroups, option)
 
             # clear storage
             storage.batch.vertexGroups.clear()
@@ -1886,7 +1504,7 @@ def main(context, quickBatch):
                   populate(context, block)
 
               # process
-              process(context, storage.batch.shapekeys)
+              process(self, context, storage.batch.shapekeys, option)
 
               # clear storage
               storage.batch.shapekeys.clear()
@@ -1901,7 +1519,7 @@ def main(context, quickBatch):
               populate(context, uv)
 
             # process
-            process(context, storage.batch.uvs)
+            process(self, context, storage.batch.uvs, option)
 
             # clear storage
             storage.batch.uvs.clear()
@@ -1916,7 +1534,7 @@ def main(context, quickBatch):
               populate(context, color)
 
             # process
-            process(context, storage.batch.vertexColors)
+            process(self, context, storage.batch.vertexColors, option)
 
             # clear storage
             storage.batch.vertexColors.clear()
@@ -1926,37 +1544,24 @@ def main(context, quickBatch):
         for object in context.scene.objects[:]:
           for slot in object.material_slots[:]:
             if slot.material != None:
-              if slot.material.users == 1:
 
-                # object type
-                if option.objectType in 'ALL':
+              # object type
+              if option.objectType in 'ALL':
 
-                  # populate
-                  populate(context, slot.material, slot)
+                # populate
+                populate(context, slot.material, slot)
 
-                # object type
-                elif option.objectType in object.type:
+              # object type
+              elif option.objectType in object.type:
 
-                  # populate
-                  populate(context, slot.material, slot)
-              else:
-
-                # shared
-                if slot.material not in shared.materials[:]:
-                  shared.materials.append(slot.material)
-
-                  # populate
-                  populate(context, slot.material, slot)
-
+                # populate
+                populate(context, slot.material, slot)
 
         # process
-        process(context, storage.batch.materials)
+        process(self, context, storage.batch.materials, option)
 
         # clear storage
         storage.batch.materials.clear()
-
-        # clear shared
-        shared.materials.clear()
 
       # textures
       if option.textures:
@@ -1964,67 +1569,26 @@ def main(context, quickBatch):
           if context.scene.render.engine not in 'CYCLES':
             for slot in object.material_slots[:]:
               if slot.material != None:
-                if slot.material.users == 1:
-                  for texslot in slot.material.texture_slots[:]:
-                    if texslot != None:
-                      if texslot.texture.users == 1:
+                for texslot in slot.material.texture_slots[:]:
+                  if texslot != None:
 
-                        # object type
-                        if option.objectType in 'ALL':
+                    # object type
+                    if option.objectType in 'ALL':
 
-                          # populate
-                          populate(context, texslot.texture, texslot)
+                      # populate
+                      populate(context, texslot.texture, texslot)
 
-                        # object type
-                        elif option.objectType in object.type:
+                    # object type
+                    elif option.objectType in object.type:
 
-                          # populate
-                          populate(context, texslot.texture, texslot)
-                      else:
-
-                        # shared
-                        if texslot.texture not in shared.textures[:]:
-                          shared.textures.append(texslot.texture)
-
-                          # populate
-                          populate(context, texslot.texture, texslot)
-                else:
-
-                  # shared
-                  if slot.material not in shared.materials[:]:
-                    shared.materials.append(slot.material)
-                    for texslot in slot.material.texture_slots[:]:
-                      if texslot != None:
-                        if texslot.texture.users == 1:
-
-                          # object type
-                          if option.objectType in 'ALL':
-
-                            # populate
-                            populate(context, texslot.texture, texslot)
-
-                          # object type
-                          elif option.objectType in object.type:
-
-                            # populate
-                            populate(context, texslot.texture, texslot)
-                        else:
-
-                          # shared
-                          if texslot.texture not in shared.textures[:]:
-                            shared.textures.append(texslot.texture)
-
-                            # populate
-                            populate(context, texslot.texture, texslot)
+                      # populate
+                      populate(context, texslot.texture, texslot)
 
         # process
-        process(context, storage.batch.textures)
+        process(self, context, storage.batch.textures, option)
 
         # clear storage
         storage.batch.textures.clear()
-
-        # clear shared
-        shared.textures.clear()
 
       # particle systems
       if option.particleSystems:
@@ -2045,7 +1609,7 @@ def main(context, quickBatch):
                 populate(context, system)
 
             # process
-            process(context, storage.batch.particleSystems)
+            process(self, context, storage.batch.particleSystems, option)
 
             # clear storage
             storage.batch.particleSystems.clear()
@@ -2058,42 +1622,21 @@ def main(context, quickBatch):
 
               # object type
               if option.objectType in 'ALL':
-                if system.settings.users == 1:
 
-                  # populate
-                  populate(context, system.settings, system)
-                else:
-
-                  # shared
-                  if system.settings not in shared.particleSettings[:]:
-                    shared.particleSettings.append(system.settings)
-
-                    # populate
-                    populate(context, system.settings, system)
+                # populate
+                populate(context, system.settings, system)
 
               # object type
               elif option.objectType in object.type:
-                if system.settings.users == 1:
 
-                  # populate
-                  populate(context, system.settings, system)
-                else:
-
-                  # shared
-                  if system.settings not in shared.particleSettings[:]:
-                    shared.particleSettings.append(system.settings)
-
-                    # populate
-                    populate(context, system.settings, system)
+                # populate
+                populate(context, system.settings, system)
 
         # process
-        process(context, storage.batch.particleSettings)
+        process(self, context, storage.batch.particleSettings, option)
 
         # clear storage
         storage.batch.particleSettings.clear()
-
-        # clear shared
-        shared.particleSettings.clear()
 
       # sensors
       if option.sensors:
@@ -2114,7 +1657,7 @@ def main(context, quickBatch):
               populate(context, sensor)
 
           # process
-          process(context, storage.batch.sensors)
+          process(self, context, storage.batch.sensors, option)
 
           # clear storage
           storage.batch.sensors.clear()
@@ -2138,7 +1681,7 @@ def main(context, quickBatch):
               populate(context, controller)
 
           # process
-          process(context, storage.batch.controllers)
+          process(self, context, storage.batch.controllers, option)
 
           # clear storage
           storage.batch.controllers.clear()
@@ -2162,7 +1705,7 @@ def main(context, quickBatch):
               populate(context, actuator)
 
           # process
-          process(context, storage.batch.actuators)
+          process(self, context, storage.batch.actuators, option)
 
           # clear storage
           storage.batch.actuators.clear()
@@ -2178,7 +1721,7 @@ def main(context, quickBatch):
           populate(context, action)
 
         # process
-        process(context, storage.batch.actions)
+        process(self, context, storage.batch.actions, option)
 
         # clear storage
         storage.batch.actions.clear()
@@ -2193,7 +1736,7 @@ def main(context, quickBatch):
         # process
         for action in storage.batch.actions:
           for group in action[1][1].groups:
-            group.name = name(context, group.name) if not option.suffixLast else name(context, group.name) + option.suffix
+            group.name = rename(self, context, group.name) if not option.suffixLast else rename(self, context, group.name, option) + option.suffix
 
           # bones
           if option.bones:
@@ -2202,10 +1745,8 @@ def main(context, quickBatch):
             for curve in action[1][1].fcurves[:]:
               if 'pose' in curve.data_path:
                 if not re.search(re.escape(']['), curve.data_path) and not re.search('constraints', curve.data_path):
-                  try:
-                    curve.data_path = 'pose.bones["' + curve.group.name + '"].' + (curve.data_path.rsplit('.', 1)[1]).rsplit('[', 1)[0]
-                  except:
-                    pass
+                  try: curve.data_path = 'pose.bones["' + curve.group.name + '"].' + (curve.data_path.rsplit('.', 1)[1]).rsplit('[', 1)[0]
+                  except: pass
 
         # clear storage
         storage.batch.actions.clear()
@@ -2218,7 +1759,7 @@ def main(context, quickBatch):
           populate(context, pencil)
 
         # process
-        process(context, storage.batch.greasePencils)
+        process(self, context, storage.batch.greasePencils, option)
 
         # clear storage
         storage.batch.greasePencils.clear()
@@ -2234,7 +1775,7 @@ def main(context, quickBatch):
             populate(context, layer)
 
           # process
-          process(context, storage.batch.pencilLayers)
+          process(self, context, storage.batch.pencilLayers, option)
 
           # clear storage
           storage.batch.pencilLayers.clear()
@@ -2256,7 +1797,7 @@ def main(context, quickBatch):
             populate(context, object)
 
         # process
-        process(context, storage.batch.objects)
+        process(self, context, storage.batch.objects, option)
 
         # clear storage
         storage.batch.objects.clear()
@@ -2269,7 +1810,7 @@ def main(context, quickBatch):
           populate(context, group)
 
         # process
-        process(context, storage.batch.groups)
+        process(self, context, storage.batch.groups, option)
 
         # clear storage
         storage.batch.groups.clear()
@@ -2310,7 +1851,7 @@ def main(context, quickBatch):
                 populate(context, constraint)
 
           # process
-          process(context, storage.batch.constraints)
+          process(self, context, storage.batch.constraints, option)
 
           # clear storage
           storage.batch.constraints.clear()
@@ -2351,7 +1892,7 @@ def main(context, quickBatch):
                 populate(context, modifier)
 
           # process
-          process(context, storage.batch.modifiers)
+          process(self, context, storage.batch.modifiers, option)
 
           # clear storage
           storage.batch.modifiers.clear()
@@ -2366,7 +1907,7 @@ def main(context, quickBatch):
           populate(context, camera)
 
         # process
-        process(context, storage.batch.cameras)
+        process(self, context, storage.batch.cameras, option)
 
         # clear storage
         storage.batch.cameras.clear()
@@ -2378,7 +1919,7 @@ def main(context, quickBatch):
           populate(context, mesh)
 
         # process
-        process(context, storage.batch.meshes)
+        process(self, context, storage.batch.meshes, option)
 
         # clear storage
         storage.batch.meshes.clear()
@@ -2390,7 +1931,7 @@ def main(context, quickBatch):
           populate(context, curve)
 
         # process
-        process(context, storage.batch.curves)
+        process(self, context, storage.batch.curves, option)
 
         # clear storage
         storage.batch.curves.clear()
@@ -2402,7 +1943,7 @@ def main(context, quickBatch):
           populate(context, lamp)
 
         # process
-        process(context, storage.batch.lamps)
+        process(self, context, storage.batch.lamps, option)
 
         # clear storage
         storage.batch.lamps.clear()
@@ -2414,7 +1955,7 @@ def main(context, quickBatch):
           populate(context, lattice)
 
         # process
-        process(context, storage.batch.lattices)
+        process(self, context, storage.batch.lattices, option)
 
         # clear storage
         storage.batch.lattices.clear()
@@ -2426,7 +1967,7 @@ def main(context, quickBatch):
           populate(context, metaball)
 
         # process
-        process(context, storage.batch.metaballs)
+        process(self, context, storage.batch.metaballs, option)
 
         # clear storage
         storage.batch.metaballs.clear()
@@ -2438,7 +1979,7 @@ def main(context, quickBatch):
           populate(context, speaker)
 
         # process
-        process(context, storage.batch.speakers)
+        process(self, context, storage.batch.speakers, option)
 
         # clear storage
         storage.batch.speakers.clear()
@@ -2450,7 +1991,7 @@ def main(context, quickBatch):
           populate(context, armature)
 
         # process
-        process(context, storage.batch.armatures)
+        process(self, context, storage.batch.armatures, option)
 
         # clear storage
         storage.batch.armatures.clear()
@@ -2465,7 +2006,7 @@ def main(context, quickBatch):
               populate(context, group)
 
             # process
-            process(context, storage.batch.boneGroups)
+            process(self, context, storage.batch.boneGroups, option)
 
             # clear storage
             storage.batch.boneGroups.clear()
@@ -2479,7 +2020,7 @@ def main(context, quickBatch):
             populate(context, bone)
 
           # process
-          process(context, storage.batch.bones)
+          process(self, context, storage.batch.bones, option)
 
           # clear storage
           storage.batch.bones.clear()
@@ -2495,7 +2036,7 @@ def main(context, quickBatch):
                 populate(context, constraint)
 
               # process
-              process(context, storage.batch.constraints)
+              process(self, context, storage.batch.constraints, option)
 
               # clear storage
               storage.batch.constraints.clear()
@@ -2510,7 +2051,7 @@ def main(context, quickBatch):
               populate(context, group)
 
             # process
-            process(context, storage.batch.vertexGroups)
+            process(self, context, storage.batch.vertexGroups, option)
 
             # clear storage
             storage.batch.vertexGroups.clear()
@@ -2527,7 +2068,7 @@ def main(context, quickBatch):
               populate(context, block)
 
             # process
-            process(context, storage.batch.shapekeys)
+            process(self, context, storage.batch.shapekeys, option)
 
             # clear storage
             storage.batch.shapekeys.clear()
@@ -2542,7 +2083,7 @@ def main(context, quickBatch):
               populate(context, uv)
 
             # process
-            process(context, storage.batch.uvs)
+            process(self, context, storage.batch.uvs, option)
 
             # clear storage
             storage.batch.uvs.clear()
@@ -2557,7 +2098,7 @@ def main(context, quickBatch):
               populate(context, color)
 
             # process
-            process(context, storage.batch.vertexColors)
+            process(self, context, storage.batch.vertexColors, option)
 
             # clear storage
             storage.batch.vertexColors.clear()
@@ -2570,7 +2111,7 @@ def main(context, quickBatch):
           populate(context, material)
 
         # process
-        process(context, storage.batch.materials)
+        process(self, context, storage.batch.materials, option)
 
         # clear storage
         storage.batch.materials.clear()
@@ -2583,7 +2124,7 @@ def main(context, quickBatch):
           populate(context, texture)
 
         # process
-        process(context, storage.batch.textures)
+        process(self, context, storage.batch.textures, option)
 
         # clear storage
         storage.batch.textures.clear()
@@ -2598,7 +2139,7 @@ def main(context, quickBatch):
               populate(context, system)
 
             # process
-            process(context, storage.batch.particleSystems)
+            process(self, context, storage.batch.particleSystems, option)
 
             # clear storage
             storage.batch.particleSystems.clear()
@@ -2611,7 +2152,7 @@ def main(context, quickBatch):
           populate(context, settings)
 
         # process
-        process(context, storage.batch.particleSettings)
+        process(self, context, storage.batch.particleSettings, option)
 
         # clear storage
         storage.batch.particleSettings.clear()
@@ -2635,7 +2176,7 @@ def main(context, quickBatch):
               populate(context, sensor)
 
           # process
-          process(context, storage.batch.sensors)
+          process(self, context, storage.batch.sensors, option)
 
           # clear storage
           storage.batch.sensors.clear()
@@ -2659,7 +2200,7 @@ def main(context, quickBatch):
               populate(context, controller)
 
           # process
-          process(context, storage.batch.controllers)
+          process(self, context, storage.batch.controllers, option)
 
           # clear storage
           storage.batch.controllers.clear()
@@ -2683,7 +2224,7 @@ def main(context, quickBatch):
               populate(context, actuator)
 
           # process
-          process(context, storage.batch.actuators)
+          process(self, context, storage.batch.actuators, option)
 
           # clear storage
           storage.batch.actuators.clear()
@@ -2694,7 +2235,7 @@ def main(context, quickBatch):
         for layer in scene.render.layers[:]:
           for lineset in layer.freestyle_settings.linesets[:]:
             if hasattr(lineset, 'name'):
-              lineset.name = name(context, lineset.name) if not option.suffixLast else name(context, lineset.name) + option.suffix
+              lineset.name = rename(self, context, lineset.name) if not option.suffixLast else rename(self, context, lineset.name, option) + option.suffix
 
     # linestyles
     if option.linestyles:
@@ -2704,7 +2245,7 @@ def main(context, quickBatch):
         populate(context, style)
 
       # process
-      process(context, storage.batch.linestyles)
+      process(self, context, storage.batch.linestyles, option)
 
       # clear storage
       storage.batch.linestyles.clear()
@@ -2730,7 +2271,7 @@ def main(context, quickBatch):
             populate(context, modifier)
 
         # process
-        process(context, storage.batch.modifiers)
+        process(self, context, storage.batch.modifiers, option)
 
         # clear storage
         storage.batch.modifiers.clear()
@@ -2752,7 +2293,7 @@ def main(context, quickBatch):
             populate(context, modifier)
 
         # process
-        process(context, storage.batch.modifiers)
+        process(self, context, storage.batch.modifiers, option)
 
         # clear storage
         storage.batch.modifiers.clear()
@@ -2774,7 +2315,7 @@ def main(context, quickBatch):
             populate(context, modifier)
 
         # process
-        process(context, storage.batch.modifiers)
+        process(self, context, storage.batch.modifiers, option)
 
         # clear storage
         storage.batch.modifiers.clear()
@@ -2796,7 +2337,7 @@ def main(context, quickBatch):
             populate(context, modifier)
 
         # process
-        process(context, storage.batch.modifiers)
+        process(self, context, storage.batch.modifiers, option)
 
         # clear storage
         storage.batch.modifiers.clear()
@@ -2809,7 +2350,7 @@ def main(context, quickBatch):
         populate(context, scene)
 
       # process
-      process(context, storage.batch.scenes)
+      process(self, context, storage.batch.scenes, option)
 
       # clear storage
       storage.batch.scenes.clear()
@@ -2823,7 +2364,7 @@ def main(context, quickBatch):
           populate(context, layer)
 
         # process
-        process(context, storage.batch.renderLayers)
+        process(self, context, storage.batch.renderLayers, option)
 
         # clear storage
         storage.batch.renderLayers.clear()
@@ -2836,7 +2377,7 @@ def main(context, quickBatch):
         populate(context, world)
 
       # process
-      process(context, storage.batch.worlds)
+      process(self, context, storage.batch.worlds, option)
 
       # clear storage
       storage.batch.worlds.clear()
@@ -2849,7 +2390,7 @@ def main(context, quickBatch):
         populate(context, library)
 
       # process
-      process(context, storage.batch.libraries)
+      process(self, context, storage.batch.libraries, option)
 
       # clear storage
       storage.batch.libraries.clear()
@@ -2862,7 +2403,7 @@ def main(context, quickBatch):
         populate(context, image)
 
       # process
-      process(context, storage.batch.images)
+      process(self, context, storage.batch.images, option)
 
       # clear storage
       storage.batch.images.clear()
@@ -2875,7 +2416,7 @@ def main(context, quickBatch):
         populate(context, mask)
 
       # process
-      process(context, storage.batch.masks)
+      process(self, context, storage.batch.masks, option)
 
       # clear storage
       storage.batch.masks.clear()
@@ -2890,7 +2431,7 @@ def main(context, quickBatch):
             populate(context, sequence)
 
           # process
-          process(context, storage.batch.sequences)
+          process(self, context, storage.batch.sequences, option)
 
           # clear storage
           storage.batch.sequences.clear()
@@ -2903,7 +2444,7 @@ def main(context, quickBatch):
         populate(context, clip)
 
       # process
-      process(context, storage.batch.movieClips)
+      process(self, context, storage.batch.movieClips, option)
 
       # clear storage
       storage.batch.movieClips.clear()
@@ -2916,7 +2457,7 @@ def main(context, quickBatch):
         populate(context, sound)
 
       # process
-      process(context, storage.batch.sounds)
+      process(self, context, storage.batch.sounds, option)
 
       # clear storage
       storage.batch.sounds.clear()
@@ -2929,7 +2470,7 @@ def main(context, quickBatch):
         populate(context, screen)
 
       # process
-      process(context, storage.batch.screens)
+      process(self, context, storage.batch.screens, option)
 
       # clear storage
       storage.batch.screens.clear()
@@ -2943,7 +2484,7 @@ def main(context, quickBatch):
           populate(context, keyingSet)
 
         # process
-        process(context, storage.batch.keyingSets)
+        process(self, context, storage.batch.keyingSets, option)
 
         # clear storage
         storage.batch.keyingSets.clear()
@@ -2956,7 +2497,7 @@ def main(context, quickBatch):
         populate(context, palette)
 
       # process
-      process(context, storage.batch.palettes)
+      process(self, context, storage.batch.palettes, option)
 
       # clear storage
       storage.batch.palettes.clear()
@@ -2969,7 +2510,7 @@ def main(context, quickBatch):
         populate(context, brush)
 
       # process
-      process(context, storage.batch.brushes)
+      process(self, context, storage.batch.brushes, option)
 
       # clear storage
       storage.batch.brushes.clear()
@@ -2986,7 +2527,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodes)
+          process(self, context, storage.batch.nodes, option)
 
           # clear storage
           storage.batch.nodes.clear()
@@ -3000,7 +2541,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodes)
+          process(self, context, storage.batch.nodes, option)
 
           # clear storage
           storage.batch.nodes.clear()
@@ -3014,7 +2555,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodes)
+          process(self, context, storage.batch.nodes, option)
 
           # clear storage
           storage.batch.nodes.clear()
@@ -3027,7 +2568,7 @@ def main(context, quickBatch):
           populate(context, node)
 
         # process
-        process(context, storage.batch.nodes)
+        process(self, context, storage.batch.nodes, option)
 
         # clear storage
         storage.batch.nodes.clear()
@@ -3035,8 +2576,8 @@ def main(context, quickBatch):
     # node labels
     if option.nodeLabels:
 
-      # batch tag
-      tag = True
+      # tag
+      self.tag = True
 
       # shader
       for material in bpy.data.materials[:]:
@@ -3047,7 +2588,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodeLabels)
+          process(self, context, storage.batch.nodeLabels, option)
 
           # clear storage
           storage.batch.nodeLabels.clear()
@@ -3061,7 +2602,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodeLabels)
+          process(self, context, storage.batch.nodeLabels, option)
 
           # clear storage
           storage.batch.nodeLabels.clear()
@@ -3075,7 +2616,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodeLabels)
+          process(self, context, storage.batch.nodeLabels, option)
 
           # clear storage
           storage.batch.nodeLabels.clear()
@@ -3088,13 +2629,13 @@ def main(context, quickBatch):
           populate(context, node)
 
         # process
-        process(context, storage.batch.nodeLabels)
+        process(self, context, storage.batch.nodeLabels, option)
 
         # clear storage
         storage.batch.nodeLabels.clear()
 
-      # batch tag
-      tag = False
+      # tag
+      self.tag = False
 
     # node groups
     if option.nodeGroups:
@@ -3104,7 +2645,7 @@ def main(context, quickBatch):
         populate(context, group)
 
       # process
-      process(context, storage.batch.nodeGroups)
+      process(self, context, storage.batch.nodeGroups, option)
 
       # clear storage
       storage.batch.nodeGroups.clear()
@@ -3117,7 +2658,7 @@ def main(context, quickBatch):
         populate(context, text)
 
       # process
-      process(context, storage.batch.texts)
+      process(self, context, storage.batch.texts, option)
 
       # clear storage
       storage.batch.texts.clear()
@@ -3134,7 +2675,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodes)
+          process(self, context, storage.batch.nodes, option)
 
           # clear storage
           storage.batch.nodes.clear()
@@ -3148,7 +2689,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodes)
+          process(self, context, storage.batch.nodes, option)
 
           # clear storage
           storage.batch.nodes.clear()
@@ -3162,7 +2703,7 @@ def main(context, quickBatch):
             populate(context, node)
 
           # process
-          process(context, storage.batch.nodes)
+          process(self, context, storage.batch.nodes, option)
 
           # clear storage
           storage.batch.nodes.clear()
@@ -3175,13 +2716,13 @@ def main(context, quickBatch):
           populate(context, node)
 
         # process
-        process(context, storage.batch.nodes)
+        process(self, context, storage.batch.nodes, option)
 
         # clear storage
         storage.batch.nodes.clear()
 
 # quick
-def quick(context, object, panel, option):
+def quick(self, context, object, panel, option):
   '''
     Quick batch mode for main.
   '''
@@ -3235,7 +2776,7 @@ def quick(context, object, panel, option):
             populate(context, layer)
 
         # process
-        process(context, storage.batch.pencilLayers)
+        process(self, context, storage.batch.pencilLayers, option)
 
         # clear storage
         storage.batch.pencilLayers.clear()
@@ -3269,7 +2810,7 @@ def quick(context, object, panel, option):
           populate(context, constraint)
 
       # process
-      process(context, storage.batch.constraints)
+      process(self, context, storage.batch.constraints, option)
 
       # clear storage
       storage.batch.constraints.clear()
@@ -3288,7 +2829,7 @@ def quick(context, object, panel, option):
           populate(context, modifier)
 
       # process
-      process(context, storage.batch.modifiers)
+      process(self, context, storage.batch.modifiers, option)
 
       # clear storage
       storage.batch.modifiers.clear()
@@ -3308,7 +2849,7 @@ def quick(context, object, panel, option):
             populate(context, group)
 
         # process
-        process(context, storage.batch.boneGroups)
+        process(self, context, storage.batch.boneGroups, option)
 
         # clear storage
         storage.batch.boneGroups.clear()
@@ -3382,7 +2923,7 @@ def quick(context, object, panel, option):
               if search == '' or re.search(search, context.active_bone, re.I):
 
                 # name
-                context.active_bone.name = name(context, context.active_bone.name) if option.suffixLast else name(context, context.active_bone.name) + option.suffix
+                context.active_bone.name = rename(self, context, context.active_bone.name) if option.suffixLast else rename(self, context, context.active_bone.name, option) + option.suffix
 
             # mode
             elif object.mode == 'POSE':
@@ -3391,7 +2932,7 @@ def quick(context, object, panel, option):
               if search == '' or re.search(search, context.active_pose_bone, re.I):
 
                 # name
-                context.active_pose_bone.name = name(context, context.active_pose_bone.name) if option.suffixLast else name(context, context.active_pose_bone.name) + option.suffix
+                context.active_pose_bone.name = rename(self, context, context.active_pose_bone.name) if option.suffixLast else rename(self, context, context.active_pose_bone.name, option) + option.suffix
 
     # bone constraints
     if panel.boneConstraints:
@@ -3412,10 +2953,10 @@ def quick(context, object, panel, option):
                   if search == '' or re.search(search, constraint.name, re.I):
 
                     # append
-                    storage.batch.constraints.append([constraint.name, [1, constraint]])
+                    storage.batch.constraints.append([constraint.name, constraint.name, constraint.name, [constraint, '']])
 
                 # process
-                process(context, storage.batch.constraints)
+                process(self, context, storage.batch.constraints, option)
 
                 # clear storage
                 storage.batch.constraints.clear()
@@ -3430,10 +2971,10 @@ def quick(context, object, panel, option):
                     if search == '' or re.search(search, constraint.name, re.I):
 
                       # append
-                      storage.batch.constraints.append([constraint.name, [1, constraint]])
+                      storage.batch.constraints.append([constraint.name, constraint.name, constraint.name, [constraint, '']])
 
                   # process
-                  process(context, storage.batch.constraints)
+                  process(self, context, storage.batch.constraints, option)
 
                   # clear storage
                   storage.batch.constraints.clear()
@@ -3446,10 +2987,10 @@ def quick(context, object, panel, option):
               if search == '' or re.search(search, constraint.name, re.I):
 
                 # append
-                storage.batch.constraints.append([constraint.name, [1, constraint]])
+                storage.batch.constraints.append([constraint.name, constraint.name, constraint.name, [constraint, '']])
 
             # process
-            process(context, storage.batch.constraints)
+            process(self, context, storage.batch.constraints, option)
 
             # clear storage
             storage.batch.constraints.clear()
@@ -3481,7 +3022,7 @@ def quick(context, object, panel, option):
             populate(context, group)
 
         # process
-        process(context, storage.batch.vertexGroups)
+        process(self, context, storage.batch.vertexGroups, option)
 
         # clear storage
         storage.batch.vertexGroups.clear()
@@ -3502,7 +3043,7 @@ def quick(context, object, panel, option):
               populate(context, key)
 
           # process
-          process(context, storage.batch.shapekeys)
+          process(self, context, storage.batch.shapekeys, option)
 
           # clear storage
           storage.batch.shapekeys.clear()
@@ -3522,7 +3063,7 @@ def quick(context, object, panel, option):
             populate(context, uv)
 
         # process
-        process(context, storage.batch.uvs)
+        process(self, context, storage.batch.uvs, option)
 
         # clear storage
         storage.batch.uvs.clear()
@@ -3542,7 +3083,7 @@ def quick(context, object, panel, option):
             populate(context, vertexColor)
 
         # process
-        process(context, storage.batch.vertexColors)
+        process(self, context, storage.batch.vertexColors, option)
 
         # clear storage
         storage.batch.vertexColors.clear()
@@ -3634,7 +3175,7 @@ def quick(context, object, panel, option):
             populate(context, modifier.particle_system)
 
       # process
-      process(context, storage.batch.particleSystems)
+      process(self, context, storage.batch.particleSystems, option)
 
       # clear storage
       storage.batch.particleSystems.clear()
@@ -3659,523 +3200,298 @@ def populate(context, datablock, source=None):
     Sort datablocks into proper storage list.
   '''
 
-  # tag
-  global tag
-
   # option
   option = context.scene.BatchName
 
   # objects
   if datablock.rna_type.identifier == 'Object':
-    storage.batch.objects.append([datablock.name, [1, datablock]])
+    storage.batch.objects.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # groups
   if datablock.rna_type.identifier == 'Group':
-    storage.batch.groups.append([datablock.name, [1, datablock]])
+    storage.batch.groups.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # actions
   if datablock.rna_type.identifier == 'Action':
-    storage.batch.actions.append([datablock.name, [1, datablock, source]])
+    storage.batch.actions.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # grease pencils
   if datablock.rna_type.identifier == 'GreasePencil':
-    storage.batch.greasePencils.append([datablock.name, [1, datablock, source]])
+    storage.batch.greasePencils.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # pencil layers
   if datablock.rna_type.identifier == 'GPencilLayer':
-    storage.batch.pencilLayers.append([datablock.info, [1, datablock]])
+    storage.batch.pencilLayers.append([datablock.info, datablock.info, datablock.info, [datablock, '']])
 
   # constraints
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'Constraint':
-      storage.batch.constraints.append([datablock.name, [1, datablock]])
+      storage.batch.constraints.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # modifiers
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier in 'Modifier':
-      storage.batch.modifiers.append([datablock.name, [1, datablock]])
+      storage.batch.modifiers.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # cameras
   if datablock.rna_type.identifier == 'Camera':
-    storage.batch.cameras.append([datablock.name, [1, datablock, source]])
+    storage.batch.cameras.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # meshes
   if datablock.rna_type.identifier == 'Mesh':
-    storage.batch.meshes.append([datablock.name, [1, datablock, source]])
+    storage.batch.meshes.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # curves
   if datablock.rna_type.identifier in {'SurfaceCurve', 'TextCurve', 'Curve'}:
-    storage.batch.curves.append([datablock.name, [1, datablock, source]])
+    storage.batch.curves.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # lamps
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'Lamp':
-      storage.batch.lamps.append([datablock.name, [1, datablock, source]])
+      storage.batch.lamps.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # lattices
   if datablock.rna_type.identifier == 'Lattice':
-    storage.batch.lattices.append([datablock.name, [1, datablock, source]])
+    storage.batch.lattices.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # metaballs
   if datablock.rna_type.identifier == 'MetaBall':
-    storage.batch.metaballs.append([datablock.name, [1, datablock, source]])
+    storage.batch.metaballs.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # speakers
   if datablock.rna_type.identifier == 'Speaker':
-    storage.batch.speakers.append([datablock.name, [1, datablock, source]])
+    storage.batch.speakers.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # armatures
   if datablock.rna_type.identifier == 'Armature':
-    storage.batch.armatures.append([datablock.name, [1, datablock, source]])
+    storage.batch.armatures.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # bones
   if datablock.rna_type.identifier in {'PoseBone', 'EditBone', 'Bone'}:
-    storage.batch.bones.append([datablock.name, [1, datablock]])
+    storage.batch.bones.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # vertex groups
   if datablock.rna_type.identifier == 'VertexGroup':
-    storage.batch.vertexGroups.append([datablock.name, [1, datablock]])
+    storage.batch.vertexGroups.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # shapekeys
   if datablock.rna_type.identifier == 'ShapeKey':
-    storage.batch.shapekeys.append([datablock.name, [1, datablock]])
+    storage.batch.shapekeys.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # uvs
   if datablock.rna_type.identifier == 'MeshTexturePolyLayer':
-    storage.batch.uvs.append([datablock.name, [1, datablock]])
+    storage.batch.uvs.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # vertex colors
   if datablock.rna_type.identifier == 'MeshLoopColorLayer':
-    storage.batch.vertexColors.append([datablock.name, [1, datablock]])
+    storage.batch.vertexColors.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # materials
   if datablock.rna_type.identifier == 'Material':
-    storage.batch.materials.append([datablock.name, [1, datablock, source]])
+    storage.batch.materials.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # textures
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'Texture':
-      storage.batch.textures.append([datablock.name, [1, datablock, source]])
+      storage.batch.textures.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # particle systems
   if datablock.rna_type.identifier == 'ParticleSystem':
-    storage.batch.particleSystems.append([datablock.name, [1, datablock]])
+    storage.batch.particleSystems.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # particle settings
   if datablock.rna_type.identifier == 'ParticleSettings':
-    storage.batch.particleSettings.append([datablock.name, [1, datablock, source]])
+    storage.batch.particleSettings.append([datablock.name, datablock.name, datablock.name, [datablock, '', source]])
 
   # line style
   if datablock.rna_type.identifier == 'FreestyleLineStyle':
-    storage.batch.linestyles.append([datablock.name, [1, datablock]])
+    storage.batch.linestyles.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # line style modifiers
   if hasattr(datablock.rna_type.base, 'identifier'):
     if hasattr(datablock.rna_type.base.base, 'identifier'):
       if datablock.rna_type.base.base.identifier == 'LineStyleModifier':
-        storage.batch.modifiers.append([datablock.name, [1, datablock]])
+        storage.batch.modifiers.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # sensors
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'Sensor':
-      storage.batch.sensors.append([datablock.name, [1, datablock]])
+      storage.batch.sensors.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # controllers
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'Controller':
-      storage.batch.controllers.append([datablock.name, [1, datablock]])
+      storage.batch.controllers.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # actuators
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'Actuator':
-      storage.batch.actuators.append([datablock.name, [1, datablock]])
+      storage.batch.actuators.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # scenes
   if datablock.rna_type.identifier == 'Scene':
-    storage.batch.scenes.append([datablock.name, [1, datablock]])
+    storage.batch.scenes.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # render layers
   if datablock.rna_type.identifier == 'SceneRenderLayer':
-    storage.batch.renderLayers.append([datablock.name, [1, datablock]])
+    storage.batch.renderLayers.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # worlds
   if datablock.rna_type.identifier == 'World':
-    storage.batch.worlds.append([datablock.name, [1, datablock]])
+    storage.batch.worlds.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # libraries
   if datablock.rna_type.identifier == 'Library':
-    storage.batch.libraries.append([datablock.name, [1, datablock]])
+    storage.batch.libraries.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # images
   if datablock.rna_type.identifier == 'Image':
-    storage.batch.images.append([datablock.name, [1, datablock]])
+    storage.batch.images.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # masks
   if datablock.rna_type.identifier == 'Mask':
-    storage.batch.masks.append([datablock.name, [1, datablock]])
+    storage.batch.masks.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # sequences
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'Sequence':
-      storage.batch.sequences.append([datablock.name, [1, datablock]])
+      storage.batch.sequences.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # movie clips
   if datablock.rna_type.identifier == 'MovieClip':
-    storage.batch.movieClips.append([datablock.name, [1, datablock]])
+    storage.batch.movieClips.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # sounds
   if datablock.rna_type.identifier == 'Sound':
-    storage.batch.sounds.append([datablock.name, [1, datablock]])
+    storage.batch.sounds.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # screens
   if datablock.rna_type.identifier == 'Screen':
-    storage.batch.screens.append([datablock.name, [1, datablock]])
+    storage.batch.screens.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # keying sets
   if datablock.rna_type.identifier == 'KeyingSet':
-    storage.batch.keyingSets.append([datablock.bl_label, [1, datablock]])
+    storage.batch.keyingSets.append([datablock.bl_label, datablock.bl_label, datablock.bl_label, [datablock, '']])
 
   # palettes
   if datablock.rna_type.identifier == 'Palette':
-    storage.batch.palettes.append([datablock.name, [1, datablock]])
+    storage.batch.palettes.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # brushes
   if datablock.rna_type.identifier == 'Brush':
-    storage.batch.brushes.append([datablock.name, [1, datablock]])
+    storage.batch.brushes.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # nodes
   if hasattr(datablock.rna_type.base, 'base'):
     if hasattr(datablock.rna_type.base.base, 'base'):
       if hasattr(datablock.rna_type.base.base.base, 'identifier'):
         if datablock.rna_type.base.base.base.identifier == 'Node':
-          storage.batch.nodes.append([datablock.name, [1, datablock]])
+          storage.batch.nodes.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
-          if tag:
-            datablock.label = name(context, datablock.label)
+          if self.tag:
+            datablock.label = rename(self, context, datablock.label, option)
 
   # node groups
   if hasattr(datablock.rna_type.base, 'identifier'):
     if datablock.rna_type.base.identifier == 'NodeTree':
-      storage.batch.nodeGroups.append([datablock.name, [1, datablock]])
+      storage.batch.nodeGroups.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
   # frame nodes
   if datablock.rna_type.identifier == 'NodeFrame':
-    storage.batch.nodes.append([datablock.name, [1, datablock]])
+    storage.batch.nodes.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
-    if tag:
-      datablock.label = name(context, datablock.label)
+    if self.tag:
+      datablock.label = rename(self, context, datablock.label, option)
 
   # texts
   if datablock.rna_type.identifier == 'Text':
-    storage.batch.texts.append([datablock.name, [1, datablock]])
+    storage.batch.texts.append([datablock.name, datablock.name, datablock.name, [datablock, '']])
 
-def process(context, collection):
+def process(self, context, collection, option):
   '''
-    Process collection, send names to name.
+    Process collection, send names to rename and shared sort.
   '''
 
-  # option
-  option = context.scene.BatchName
+  # compare
+  compare = []
 
-  # counter
-  counter = [
-    # 'datablock.name', ...
-  ]
+  # clean
+  clean = []
 
-  # sort
-  try:
-    collection.sort()
-  except:
-    pass
+  # clean duplicates
+  for name in collection:
 
-  # collection
-  for item in collection[:]:
+    # remove duplicates
+    if name[3][0] not in compare:
 
-    # sort
-    if option.sort:
+      # append
+      compare.append(name[3][0])
+      clean.append(name)
 
-      # name
-      item[0] = name(context, (re.split(r'\W[0-9]*$|_[0-9]*$', item[0]))[0])
+  # done with collection
+  collection.clear()
 
-    # sort
-    else:
+  # sort collection
+  try: clean.sort()
+  except: pass
 
-      # name
-      item[0] = name(context, item[0])
+  # process collection
+  for name in clean:
 
-    # count
-    counter.append(item[0])
+    # rename
+    name[0] = rename(self, context, name[1], option)
+    name[1] = name[0]
 
-  # start
-  i = 0
+  # randomize names (prevents conflicts)
+  for name in clean:
 
-  # collection
-  for item in collection[:]:
+    # datablock
+    datablock = name[3][0]
 
-    # count
-    item[1][0] = counter.count(counter[i])
+    # has name
+    if hasattr(name[3][0], 'name'):
 
-    # add
-    i += 1
+      # randomize name
+      name[3][0].name = str(random())
 
-  # clear counter
-  counter.clear()
+    # has info
+    if hasattr(name[3][0], 'info'):
 
-  # collection
-  for item in collection[:]:
+      # randomize info
+      name[3][0].info = str(random())
 
-    # sort
-    if option.sort:
+    # has bl_label
+    if hasattr(name[3][0], 'bl_label'):
 
-      # count
-      if item[1][0] > 1:
+      # randomize bl_label
+      name[3][0].bl_label = str(random())
 
-        # name
-        if hasattr(item[1][1], 'name'):
-
-          # randomize name
-          item[1][1].name = str(random())
-
-        # info
-        elif hasattr(item[1][1], 'info'):
-
-          # randomize name
-          item[1][1].info = str(random())
-
-        # bl_label
-        elif hasattr(item[1][1], 'bl_label'):
-
-          # randomize name
-          item[1][1].bl_label = str(random())
-
-      # sort only
-      elif not option.sortOnly:
-
-        # name
-        if hasattr(item[1][1], 'name'):
-
-          # randomize name
-          item[1][1].name = str(random())
-
-        # info
-        elif hasattr(item[1][1], 'info'):
-
-          # randomize name
-          item[1][1].info = str(random())
-
-        # bl_label
-        elif hasattr(item[1][1], 'bl_label'):
-
-          # randomize name
-          item[1][1].bl_label = str(random())
+  # is shared sort
+  if context.scene.BatchShared.sort:
 
     # sort
-    else:
+    shared.sort(self, context, clean, context.scene.BatchShared)
 
-      # name
-      if hasattr(item[1][1], 'name'):
+  # isnt shared sort
+  else:
 
-        # randomize name
-        item[1][1].name = str(random())
+    # apply names
+    for name in clean:
 
-      # info
-      elif hasattr(item[1][1], 'info'):
+      # update
+      name[3][0].name = name[1] + option.suffix if option.suffixLast else name[1]
 
-        # randomize name
-        item[1][1].info = str(random())
-
-      # bl_label
-      elif hasattr(item[1][1], 'bl_label'):
-
-        # randomize name
-        item[1][1].bl_label = str(random())
-
-  # list
-  list = []
-
-  # sort
-  if option.sort:
-
-    # start
-    i = 0
-
-    # datablocks
-    for item in collection[:]:
-
-      # count
-      if item[1][0] > 1:
-
-        # duplicates
-        if item[0] not in list:
-
-          # suffix last
-          if option.suffixLast:
-
-            # rename
-            rename = item[0] + option.separator + '0'*option.padding + str(i + option.start).zfill(len(str(item[1][0]))) + option.suffix
-
-          # suffix lasr
-          else:
-
-            # rename
-            rename = item[0] + option.separator + '0'*option.padding + str(i + option.start).zfill(len(str(item[1][0])))
-
-          # name
-          if hasattr(item[1][1], 'name'):
-
-            # rename
-            item[1][1].name = rename
-
-          # info
-          elif hasattr(item[1][1], 'info'):
-
-            # rename
-            item[1][1].info = rename
-
-          # bl_label
-          elif hasattr(item[1][1], 'bl_label'):
-
-            # rename
-            item[1][1].bl_label = rename
-
-          # add
-          i += 1
-
-        # count
-        if i == item[1][0]:
-
-          # reset
-          i = 0
-
-          # duplicates
-          list.append(item[0])
-
-  # sort only
-  if not option.sortOnly:
-
-    # collection
-    for item in collection[:]:
-
-      # duplicates
-      if item[0] not in list:
-
-        # suffix last
-        if option.suffixLast:
-
-          # rename
-          rename = item[0] + option.suffix
-
-        # suffix last
-        else:
-
-          # rename
-          rename = item[0]
-
-        # name
-        if hasattr(item[1][1], 'name'):
-
-          # rename
-          item[1][1].name = rename
-
-        # info
-        elif hasattr(item[1][1], 'info'):
-
-          # rename
-          item[1][1].info = rename
-
-        # bl_label
-        elif hasattr(item[1][1], 'bl_label'):
-
-          # rename
-          item[1][1].bl_label = rename
-
-  # link
-  if option.link:
-
-    try:
-
-      list = []
-
-      for item in collection[:]:
-
-        if item[0] not in list:
-
-          source = item[1]
-
-          # source[1].name = re.split(r'\W[0-9]*$|_[0-9]*$', source[1].name)[0]
-
-          list.append(item[0])
-
-        if item[1][1] != source[1]:
-
-          # actions
-          if item[1][1].rna_type.identifier == 'Action':
-            item[1][2].action = source[1]
-
-          # grease pencils
-          if item[1][1].rna_type.identifier == 'GreasePencil':
-            item[1][2].grease_pencil = source[1]
-
-          # cameras
-          if item[1][1].rna_type.identifier == 'Camera':
-            item[1][2].data = source[1]
-
-          # meshes
-          if item[1][1].rna_type.identifier == 'Mesh':
-            item[1][2].data = source[1]
-
-          # curves
-          if item[1][1].rna_type.identifier in {'SurfaceCurve', 'TextCurve', 'Curve'}:
-            item[1][2].data = source[1]
-
-          # lamps
-          if hasattr(item[1][1].rna_type.base, 'identifier'):
-            if item[1][1].rna_type.base.identifier == 'Lamp':
-              item[1][2].data = source[1]
-
-          # lattices
-          if item[1][1].rna_type.identifier == 'Lattice':
-            item[1][2].data = source[1]
-
-          # metaballs
-          if item[1][1].rna_type.identifier == 'MetaBall':
-            item[1][2].data = source[1]
-
-          # speakers
-          if item[1][1].rna_type.identifier == 'Speaker':
-            item[1][2].data = source[1]
-
-          # armatures
-          if item[1][1].rna_type.identifier == 'Armature':
-            item[1][2].data = source[1]
-
-          # materials
-          if item[1][1].rna_type.identifier == 'Material':
-            item[1][2].material = source[1]
-
-          # textures
-          if hasattr(item[1][1].rna_type.base, 'identifier'):
-            if item[1][1].rna_type.base.identifier == 'Texture':
-              item[1][2].texture = source[1]
-
-          # particle settings
-          if item[1][1].rna_type.identifier == 'ParticleSettings':
-            item[1][2].settings = source[1]
-
-    except:
-      pass
+      # done with clean
+      clean.clear()
 
 # name
-def name(context, oldName):
+def rename(self, context, oldName, option):
   '''
-    Name datablocks received from process.
+    Update string received from process.
   '''
 
   # option
   option = context.scene.BatchName
-
-  # name check
-  nameCheck = oldName
 
   # custom name
   if option.customName != '':
@@ -4196,15 +3512,16 @@ def name(context, oldName):
 
   # find & replace
   if option.regex:
-    newName = re.sub(option.find, option.replace, newName)
+    try: newName = re.sub(option.find, option.replace, newName)
+    except Exception as e: self.report({'WARNING'}, 'Invalid Expression: ' + str(e) + ' while working on: ' + oldName)
   else:
     newName = re.sub(re.escape(option.find), option.replace, newName)
 
   # prefix & suffix
   newName = option.prefix + newName + option.suffix if not option.suffixLast else option.prefix + newName
 
-  # name check
-  if nameCheck != newName:
-    return newName
-  else:
-    return oldName
+  # purge re
+  re.purge()
+
+  # new name
+  return newName

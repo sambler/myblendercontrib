@@ -19,9 +19,6 @@
 
 # modified properties_constraints.py
 
-# imports
-import bpy
-
 # constraint button
 class ConstraintButtons:
   '''

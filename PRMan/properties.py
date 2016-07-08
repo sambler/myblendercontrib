@@ -351,6 +351,11 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         description="Localized sampling can give much less noisy renders with similar render times, and may in fact be faster with many lights.",
         default=True)
 
+    dark_falloff = FloatProperty(
+        name="Dark Falloff",
+        description="Adds a small boost to pixel values in order to improve adaptive sampling",
+        min=0, default=0.0)
+
     min_samples = IntProperty(
         name="Min Samples",
         description="The minimum number of camera samples per pixel",

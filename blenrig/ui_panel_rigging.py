@@ -22,6 +22,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
         arm_data = bpy.context.active_object.data       
         p_bones = arm.pose.bones 
         layout = self.layout
+
 ####### Body Settings
         if "gui_rig_body" in arm_data:
             props = context.window_manager.blenrig_5_props
@@ -554,8 +555,12 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             if arm_data['bone_auto_hide'] == 1:
                 row_props.operator("gui.blenrig_5_tabs",text = "  Bone Auto Hiding", icon="CHECKBOX_HLT", emboss = 0).tab = "bone_auto_hide"   
             else:
-                row_props.operator("gui.blenrig_5_tabs",text = "  Bone Auto Hiding", icon="CHECKBOX_DEHLT", emboss = 0).tab = "bone_auto_hide"         
-            col_2.label('Layers Names: (Always keep 32 items)')
+                row_props.operator("gui.blenrig_5_tabs",text = "  Bone Auto Hiding", icon="CHECKBOX_DEHLT", emboss = 0).tab = "bone_auto_hide"     
+            col_2.label('Layers Schemes:')   
+            row_schemes = col_2.row()
+            row_schemes.operator("blenrig5.layers_scheme_compact", text="Compact")
+            row_schemes.operator("blenrig5.layers_scheme_expanded", text="Expanded")                             
+            col_2.label('Layers Names: (Always keep 32 items)')  
             row_layers = col_2.row()
             row_layers.prop(arm_data, '["layer_list"]', "", toggle=True)                                 
         else:
@@ -795,11 +800,15 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             row = split.row()
             row.operator("blenrig5.reset_constraints")
             row.operator("blenrig5.reset_deformers", text="Reset Deformers")                 
-            col.separator()
-                                     
+            col.separator()                                     
         else:
             row.operator("gui.blenrig_5_tabs", icon="SCRIPTWIN", emboss = 1).tab = "gui_rig_bake"
             row.label(text="RIGGING & BAKING")
+            
+####### Rig Version Info
+        col = layout.column()
+        row = col.row()
+        row.label("Armature Ver. " + str(arm_data['rig_version']))                
 
 ####### Object Baking Panel
 

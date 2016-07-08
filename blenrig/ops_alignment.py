@@ -51,49 +51,51 @@ class Operator_BlenRig_Fix_Misaligned_Bones(bpy.types.Operator):
         if arm_data.use_mirror_x == True:                
             for b in bones:      
                 if b.name in selected_bones:    
-                    if '_R' not in b.name:
+                    if b.keys() != '[]':                    
+                        if '_R' not in b.name:
+                            if 'b_head' in b.keys():
+                                for t in bones:
+                                    if (t.name == b['b_head'][0]):
+                                        if b['b_head'][1] == 'head':
+                                            b.head = t.head
+                                        if b['b_head'][1] == 'tail':
+                                            b.head = t.tail      
+                        #Match tails   
+                        if '_R' not in b.name:   
+                            if 'b_tail' in b.keys(): 
+                                for t in bones:
+                                    if (t.name == b['b_tail'][0]):
+                                        if b['b_tail'][1] == 'head':
+                                            b.tail = t.head
+                                        if b['b_tail'][1] == 'tail':
+                                            b.tail = t.tail  
+                        #X-mirror                    
+                        if '_L' in b.name:
+                            b.select = 1
+                            b.select_head = 1
+                            b.select_tail = 1
+                            bpy.ops.armature.symmetrize(direction='NEGATIVE_X')  
+                            bpy.ops.armature.select_all(action='DESELECT')                                                      
+        else:
+            for b in bones:
+                if b.name in selected_bones:
+                    if 'b_head' in b.keys():   
+                        #Match heads                      
                         if b['b_head']:
                             for t in bones:
                                 if (t.name == b['b_head'][0]):
                                     if b['b_head'][1] == 'head':
                                         b.head = t.head
                                     if b['b_head'][1] == 'tail':
-                                        b.head = t.tail      
-                    #Match tails   
-                    if '_R' not in b.name:                            
-                        if b['b_tail']:
+                                        b.head = t.tail                                                                            
+                        #Match tails                 
+                        if 'b_tail' in b.keys():
                             for t in bones:
                                 if (t.name == b['b_tail'][0]):
                                     if b['b_tail'][1] == 'head':
                                         b.tail = t.head
                                     if b['b_tail'][1] == 'tail':
-                                        b.tail = t.tail  
-                    #X-mirror                    
-                    if '_L' in b.name:
-                        b.select = 1
-                        b.select_head = 1
-                        b.select_tail = 1
-                        bpy.ops.armature.symmetrize(direction='NEGATIVE_X')  
-                        bpy.ops.armature.select_all(action='DESELECT')                                                      
-        else:
-            for b in bones:
-                if b.name in selected_bones:
-                    #Match heads                      
-                    if b['b_head']:
-                        for t in bones:
-                            if (t.name == b['b_head'][0]):
-                                if b['b_head'][1] == 'head':
-                                    b.head = t.head
-                                if b['b_head'][1] == 'tail':
-                                    b.head = t.tail                                                                            
-                    #Match tails                 
-                    if b['b_tail']:
-                        for t in bones:
-                            if (t.name == b['b_tail'][0]):
-                                if b['b_tail'][1] == 'head':
-                                    b.tail = t.head
-                                if b['b_tail'][1] == 'tail':
-                                    b.tail = t.tail    
+                                        b.tail = t.tail    
 
         # Restore selection    
         if props.align_selected_only == 1:                                
@@ -198,19 +200,22 @@ class Operator_BlenRig_Auto_Bone_Roll(bpy.types.Operator):
         if arm_data.use_mirror_x == True:  
             for b in bones:
                 if b.name in selected_bones:
-                    if '_R' not in b.name:          
-                        if b['b_roll'][0] == roll_type:
-                            b.select = 1
-                            bpy.ops.armature.calculate_roll(type=roll_type, axis_flip=False, axis_only=False)
-                            b.select = 0    
+                    if '_R' not in b.name:                      
+                        if b.keys() != '[]':    
+                            if 'b_roll' in b.keys():  
+                                if b['b_roll'][0] == roll_type:
+                                    b.select = 1
+                                    bpy.ops.armature.calculate_roll(type=roll_type, axis_flip=False, axis_only=False)
+                                    b.select = 0    
         else:
             for b in bones:
                 if b.name in selected_bones:
-                    if b['b_roll']:        
-                        if b['b_roll'][0] == roll_type:
-                            b.select = 1
-                            bpy.ops.armature.calculate_roll(type=roll_type, axis_flip=False, axis_only=False)
-                            b.select = 0   
+                    if b.keys() != '[]':  
+                        if 'b_roll' in b.keys():       
+                            if b['b_roll'][0] == roll_type:
+                                b.select = 1
+                                bpy.ops.armature.calculate_roll(type=roll_type, axis_flip=False, axis_only=False)
+                                b.select = 0   
                             
         # Restore selection    
         if props.align_selected_only == 1:                                
@@ -254,8 +259,22 @@ class Operator_BlenRig_Auto_Bone_Roll(bpy.types.Operator):
         if arm_data.use_mirror_x == True:
             for b in bones:
                 if b.name in selected_bones:
-                    if '_R' not in b.name:               
-                        if b['b_roll']:                            
+                    if '_R' not in b.name:    
+                        if b.keys() != '[]':    
+                            if 'b_roll' in b.keys():                         
+                                if b['b_roll'][0] == 'ACTIVE':
+                                    for t in bones:
+                                        if (t.name == b['b_roll'][1]):
+                                            arm.data.edit_bones.active = t
+                                            b.select = 1
+                                            bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)   
+                                            b.select = 0  
+                                            bpy.ops.armature.select_all(action='DESELECT') 
+        else:
+            for b in bones:      
+                if b.name in selected_bones: 
+                    if b.keys() != '[]':                      
+                        if 'b_roll' in b.keys():                            
                             if b['b_roll'][0] == 'ACTIVE':
                                 for t in bones:
                                     if (t.name == b['b_roll'][1]):
@@ -263,20 +282,8 @@ class Operator_BlenRig_Auto_Bone_Roll(bpy.types.Operator):
                                         b.select = 1
                                         bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)   
                                         b.select = 0  
-                                        bpy.ops.armature.select_all(action='DESELECT') 
-        else:
-            for b in bones:      
-                if b.name in selected_bones: 
-                    if b['b_roll']:                            
-                        if b['b_roll'][0] == 'ACTIVE':
-                            for t in bones:
-                                if (t.name == b['b_roll'][1]):
-                                    arm.data.edit_bones.active = t
-                                    b.select = 1
-                                    bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)   
-                                    b.select = 0  
-                                    bpy.ops.armature.select_all(action='DESELECT')   
-                            
+                                        bpy.ops.armature.select_all(action='DESELECT')   
+                                
         # Restore selection    
         if props.align_selected_only == 1:                                
             for b in bones:
@@ -311,30 +318,32 @@ class Operator_BlenRig_Auto_Bone_Roll(bpy.types.Operator):
         if arm_data.use_mirror_x == True:
             for b in bones:
                 if b.name in selected_bones:
-                    if '_R' not in b.name:               
-                        if b['b_roll']:                            
-                            if b['b_roll'][0] == 'CURSOR':
-                                for t in bones:
-                                    if (t.name == b['b_roll'][1]):
-                                        arm.data.edit_bones.active = t
-                                        bpy.ops.view3d.snap_cursor_to_active(c)
-                                        b.select = 1
-                                        bpy.ops.armature.calculate_roll(type='CURSOR', axis_flip=False, axis_only=False)   
-                                        b.select = 0  
-                                        bpy.ops.armature.select_all(action='DESELECT') 
+                    if '_R' not in b.name:     
+                        if b.keys() != '[]':    
+                            if 'b_roll' in b.keys():                                                           
+                                if b['b_roll'][0] == 'CURSOR':
+                                    for t in bones:
+                                        if (t.name == b['b_roll'][1]):
+                                            arm.data.edit_bones.active = t
+                                            bpy.ops.view3d.snap_cursor_to_active(c)
+                                            b.select = 1
+                                            bpy.ops.armature.calculate_roll(type='CURSOR', axis_flip=False, axis_only=False)   
+                                            b.select = 0  
+                                            bpy.ops.armature.select_all(action='DESELECT') 
         else:      
             for b in bones:
-                if b.name in selected_bones:     
-                    if b['b_roll']:                            
-                        if b['b_roll'][0] == 'CURSOR':
-                            for t in bones:
-                                    if (t.name == b['b_roll'][1]):
-                                        arm.data.edit_bones.active = t
-                                        bpy.ops.view3d.snap_cursor_to_active(c)
-                                        b.select = 1
-                                        bpy.ops.armature.calculate_roll(type='CURSOR', axis_flip=False, axis_only=False)   
-                                        b.select = 0  
-                                        bpy.ops.armature.select_all(action='DESELECT') 
+                if b.name in selected_bones:   
+                    if b.keys() != '[]':    
+                        if 'b_roll' in b.keys():                                               
+                            if b['b_roll'][0] == 'CURSOR':
+                                for t in bones:
+                                        if (t.name == b['b_roll'][1]):
+                                            arm.data.edit_bones.active = t
+                                            bpy.ops.view3d.snap_cursor_to_active(c)
+                                            b.select = 1
+                                            bpy.ops.armature.calculate_roll(type='CURSOR', axis_flip=False, axis_only=False)   
+                                            b.select = 0  
+                                            bpy.ops.armature.select_all(action='DESELECT') 
                             
         # Restore selection    
         if props.align_selected_only == 1:                                
@@ -363,8 +372,41 @@ class Operator_BlenRig_Auto_Bone_Roll(bpy.types.Operator):
         if arm_data.use_mirror_x == True:
             for b in bones:
                 if b.name in selected_bones:
-                    if '_R' not in b.name:               
-                        if b['b_align']:
+                    if '_R' not in b.name:   
+                        if b.keys() != '[]':                                        
+                            if 'b_align' in b.keys():
+                                if b['b_align'][0] != "''":                             
+                                    for t in bones:
+                                        if (t.name == b['b_align'][0]):
+                                            arm.data.edit_bones.active = t
+                                            b.select = 1
+                                            bpy.ops.armature.align()  
+                                            bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
+                                            b.select = 0  
+                                            bpy.ops.armature.select_all(action='DESELECT') 
+                                            for t2 in bones:
+                                                if t2.keys() != '[]':                                        
+                                                    if 'b_align' in t2.keys():                                                
+                                                        if (b.name == t2['b_head'][0]):
+                                                            if t2['b_head'][1] == 'head':
+                                                                t2.head = b.head
+                                                            if t2['b_head'][1] == 'tail':
+                                                                t2.head = b.tail    
+                                                        if (b.name == t2['b_tail'][0]):
+                                                            if t2['b_tail'][1] == 'head':
+                                                                t2.tail = b.head
+                                                            if t2['b_head'][1] == 'tail':
+                                                                t2.tail = b.tail                                                                                           
+                                                                arm.data.edit_bones.active = t
+                                                                t2.select = 1
+                                                                bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
+                                                                t2.select = 0  
+                                                                bpy.ops.armature.select_all(action='DESELECT')                                      
+        else: 
+            for b in bones:
+                if b.name in selected_bones:      
+                    if b.keys() != '[]':                                        
+                        if 'b_align' in b.keys():   
                             if b['b_align'][0] != "''":                             
                                 for t in bones:
                                     if (t.name == b['b_align'][0]):
@@ -375,50 +417,23 @@ class Operator_BlenRig_Auto_Bone_Roll(bpy.types.Operator):
                                         b.select = 0  
                                         bpy.ops.armature.select_all(action='DESELECT') 
                                         for t2 in bones:
-                                            if (b.name == t2['b_head'][0]):
-                                                if t2['b_head'][1] == 'head':
-                                                    t2.head = b.head
-                                                if t2['b_head'][1] == 'tail':
-                                                    t2.head = b.tail    
-                                            if (b.name == t2['b_tail'][0]):
-                                                if t2['b_tail'][1] == 'head':
-                                                    t2.tail = b.head
-                                                if t2['b_head'][1] == 'tail':
-                                                    t2.tail = b.tail                                                                                           
-                                                    arm.data.edit_bones.active = t
-                                                    t2.select = 1
-                                                    bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
-                                                    t2.select = 0  
-                                                    bpy.ops.armature.select_all(action='DESELECT')                                      
-        else: 
-            for b in bones:
-                if b.name in selected_bones:          
-                    if b['b_align']:
-                        if b['b_align'][0] != "''":                             
-                            for t in bones:
-                                if (t.name == b['b_align'][0]):
-                                    arm.data.edit_bones.active = t
-                                    b.select = 1
-                                    bpy.ops.armature.align()  
-                                    bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
-                                    b.select = 0  
-                                    bpy.ops.armature.select_all(action='DESELECT') 
-                                    for t2 in bones:
-                                        if (b.name == t2['b_head'][0]):
-                                            if t2['b_head'][1] == 'head':
-                                                t2.head = b.head
-                                            if t2['b_head'][1] == 'tail':
-                                                t2.head = b.tail    
-                                        if (b.name == t2['b_tail'][0]):
-                                            if t2['b_tail'][1] == 'head':
-                                                t2.tail = b.head
-                                            if t2['b_head'][1] == 'tail':
-                                                t2.tail = b.tail                                                                                           
-                                                arm.data.edit_bones.active = t
-                                                t2.select = 1
-                                                bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
-                                                t2.select = 0  
-                                                bpy.ops.armature.select_all(action='DESELECT')                                                                                                          
+                                            if t2.keys() != '[]':                                        
+                                                if 'b_align' in t2.keys():                                               
+                                                    if (b.name == t2['b_head'][0]):
+                                                        if t2['b_head'][1] == 'head':
+                                                            t2.head = b.head
+                                                        if t2['b_head'][1] == 'tail':
+                                                            t2.head = b.tail    
+                                                    if (b.name == t2['b_tail'][0]):
+                                                        if t2['b_tail'][1] == 'head':
+                                                            t2.tail = b.head
+                                                        if t2['b_head'][1] == 'tail':
+                                                            t2.tail = b.tail                                                                                           
+                                                            arm.data.edit_bones.active = t
+                                                            t2.select = 1
+                                                            bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
+                                                            t2.select = 0  
+                                                            bpy.ops.armature.select_all(action='DESELECT')                                                                                                          
                            
         # Restore selection    
         if props.align_selected_only == 1:                                
@@ -526,8 +541,22 @@ class Operator_BlenRig_Custom_Bone_Roll(bpy.types.Operator):
         if arm_data.use_mirror_x == True:
             for b in bones:
                 if b.name in selected_bones:
-                    if '_R' not in b.name:               
-                        if b['b_roll']:                            
+                    if '_R' not in b.name:    
+                        if b.keys() != '[]':    
+                            if 'b_roll' in b.keys():                         
+                                if b['b_roll'][0] == 'ACTIVE':
+                                    for t in bones:
+                                        if (t.name == b['b_roll'][1]):
+                                            arm.data.edit_bones.active = t
+                                            b.select = 1
+                                            bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)   
+                                            b.select = 0  
+                                            bpy.ops.armature.select_all(action='DESELECT') 
+        else:
+            for b in bones:      
+                if b.name in selected_bones: 
+                    if b.keys() != '[]':                      
+                        if 'b_roll' in b.keys():                            
                             if b['b_roll'][0] == 'ACTIVE':
                                 for t in bones:
                                     if (t.name == b['b_roll'][1]):
@@ -535,27 +564,15 @@ class Operator_BlenRig_Custom_Bone_Roll(bpy.types.Operator):
                                         b.select = 1
                                         bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)   
                                         b.select = 0  
-                                        bpy.ops.armature.select_all(action='DESELECT') 
-        else:
-            for b in bones:
-                if b.name in selected_bones:       
-                    if b['b_roll']:                            
-                        if b['b_roll'][0] == 'ACTIVE':
-                            for t in bones:
-                                if (t.name == b['b_roll'][1]):
-                                    arm.data.edit_bones.active = t
-                                    b.select = 1
-                                    bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)   
-                                    b.select = 0  
-                                    bpy.ops.armature.select_all(action='DESELECT')                                  
-                            
+                                        bpy.ops.armature.select_all(action='DESELECT')   
+                                
         # Restore selection    
         if props.align_selected_only == 1:                                
             for b in bones:
                 if b.name in selected_bones:
                     b.select = 1
                     b.select_head = 1 
-                    b.select_tail = 1 
+                    b.select_tail = 1     
 
     def blenrig_bone_align(self, context):
         bpy.ops.object.mode_set(mode='EDIT')
@@ -569,15 +586,48 @@ class Operator_BlenRig_Custom_Bone_Roll(bpy.types.Operator):
                 selected_bones.append(b.name)
         else:
             for b in bones:
-                selected_bones.append(b.name)          
+                selected_bones.append(b.name)           
         bpy.ops.armature.reveal()
         bpy.ops.armature.select_all(action='DESELECT')        
 
         if arm_data.use_mirror_x == True:
             for b in bones:
                 if b.name in selected_bones:
-                    if '_R' not in b.name:               
-                        if b['b_align']:
+                    if '_R' not in b.name:   
+                        if b.keys() != '[]':                                        
+                            if 'b_align' in b.keys():
+                                if b['b_align'][0] != "''":                             
+                                    for t in bones:
+                                        if (t.name == b['b_align'][0]):
+                                            arm.data.edit_bones.active = t
+                                            b.select = 1
+                                            bpy.ops.armature.align()  
+                                            bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
+                                            b.select = 0  
+                                            bpy.ops.armature.select_all(action='DESELECT') 
+                                            for t2 in bones:
+                                                if t2.keys() != '[]':                                        
+                                                    if 'b_align' in t2.keys():                                                
+                                                        if (b.name == t2['b_head'][0]):
+                                                            if t2['b_head'][1] == 'head':
+                                                                t2.head = b.head
+                                                            if t2['b_head'][1] == 'tail':
+                                                                t2.head = b.tail    
+                                                        if (b.name == t2['b_tail'][0]):
+                                                            if t2['b_tail'][1] == 'head':
+                                                                t2.tail = b.head
+                                                            if t2['b_head'][1] == 'tail':
+                                                                t2.tail = b.tail                                                                                           
+                                                                arm.data.edit_bones.active = t
+                                                                t2.select = 1
+                                                                bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
+                                                                t2.select = 0  
+                                                                bpy.ops.armature.select_all(action='DESELECT')                                      
+        else: 
+            for b in bones:
+                if b.name in selected_bones:      
+                    if b.keys() != '[]':                                        
+                        if 'b_align' in b.keys():   
                             if b['b_align'][0] != "''":                             
                                 for t in bones:
                                     if (t.name == b['b_align'][0]):
@@ -588,51 +638,24 @@ class Operator_BlenRig_Custom_Bone_Roll(bpy.types.Operator):
                                         b.select = 0  
                                         bpy.ops.armature.select_all(action='DESELECT') 
                                         for t2 in bones:
-                                            if (b.name == t2['b_head'][0]):
-                                                if t2['b_head'][1] == 'head':
-                                                    t2.head = b.head
-                                                if t2['b_head'][1] == 'tail':
-                                                    t2.head = b.tail    
-                                            if (b.name == t2['b_tail'][0]):
-                                                if t2['b_tail'][1] == 'head':
-                                                    t2.tail = b.head
-                                                if t2['b_head'][1] == 'tail':
-                                                    t2.tail = b.tail                                                                                           
-                                                    arm.data.edit_bones.active = t
-                                                    t2.select = 1
-                                                    bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
-                                                    t2.select = 0  
-                                                    bpy.ops.armature.select_all(action='DESELECT')                                      
-        else:     
-            for b in bones:
-                if b.name in selected_bones:      
-                    if b['b_align']:
-                        if b['b_align'][0] != "''":                             
-                            for t in bones:
-                                if (t.name == b['b_align'][0]):
-                                    arm.data.edit_bones.active = t
-                                    b.select = 1
-                                    bpy.ops.armature.align()  
-                                    bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
-                                    b.select = 0  
-                                    bpy.ops.armature.select_all(action='DESELECT') 
-                                    for t2 in bones:
-                                        if (b.name == t2['b_head'][0]):
-                                            if t2['b_head'][1] == 'head':
-                                                t2.head = b.head
-                                            if t2['b_head'][1] == 'tail':
-                                                t2.head = b.tail    
-                                        if (b.name == t2['b_tail'][0]):
-                                            if t2['b_tail'][1] == 'head':
-                                                t2.tail = b.head
-                                            if t2['b_head'][1] == 'tail':
-                                                t2.tail = b.tail                                                                                           
-                                                arm.data.edit_bones.active = t
-                                                t2.select = 1
-                                                bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
-                                                t2.select = 0  
-                                                bpy.ops.armature.select_all(action='DESELECT')                                                                                                          
-                            
+                                            if t2.keys() != '[]':                                        
+                                                if 'b_align' in t2.keys():                                               
+                                                    if (b.name == t2['b_head'][0]):
+                                                        if t2['b_head'][1] == 'head':
+                                                            t2.head = b.head
+                                                        if t2['b_head'][1] == 'tail':
+                                                            t2.head = b.tail    
+                                                    if (b.name == t2['b_tail'][0]):
+                                                        if t2['b_tail'][1] == 'head':
+                                                            t2.tail = b.head
+                                                        if t2['b_head'][1] == 'tail':
+                                                            t2.tail = b.tail                                                                                           
+                                                            arm.data.edit_bones.active = t
+                                                            t2.select = 1
+                                                            bpy.ops.armature.calculate_roll(type='ACTIVE', axis_flip=False, axis_only=False)  
+                                                            t2.select = 0  
+                                                            bpy.ops.armature.select_all(action='DESELECT')                                                                                                          
+                           
         # Restore selection    
         if props.align_selected_only == 1:                                
             for b in bones:

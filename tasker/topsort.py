@@ -119,6 +119,22 @@ class Network(object):
             if not iterated:
                 raise CyclicGraphError("Sorting has found a cyclic graph.")
 
+    def full_sort(self):
+        """
+        return a list of sets, topologically sorted in a tree to nicely space
+        nodes in a graphical network
+        """
+        sorted_nodes = []
+        while self.nodes:
+            base = set()
+            for node in self.leaf_nodes:
+                base.add(node)
+                self.prune_node(node)
+            sorted_nodes.append(base)
+            if not base:
+                raise CyclicGraphError
+        return sorted_nodes
+
     def dot(self):
         """
         Return a buffer that represents something dot(1) can render.

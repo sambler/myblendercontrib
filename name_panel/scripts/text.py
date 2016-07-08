@@ -88,11 +88,11 @@ Groups
 
 Examples
 
-(1) String: 'Name.001'
+(1) String: Name.001
 
     Find: \W[0-9]*$
 
-    Result: 'Name'
+    Result: Name
 
     This expression will strip any numbers at the tail end of a name up to and
     including any non-alphanumeric character.
@@ -109,13 +109,13 @@ Examples
     $     Indicates that we want to start from the end of the string.
 
 
-(2) String: 'Name.001'
+(2) String: Name.001
 
     Find: ([A-z]*\.)
 
     Replace: Changed_\1
 
-    Result: 'Changed_Name.001'
+    Result: Changed_Name.001
 
     This expression will create a capture group of any characters and a . (dot)
     replace those characters with 'Changed_' infront of that captured group.
@@ -137,13 +137,26 @@ Examples
       \1    Recall first captured group.
 
 
+(3) String: Name
+
+    Find: ^((?!Name).)*$
+
+    Replace: Not_Name
+
+    Result: Not_Name
+
+  This expression will actually look ahead in the name and determine if there
+  is the string 'Name' in it, if there is then it will be skipped, however if it
+  is not there then that name will be entirely replaced with Not_Name. This is
+  useful in situations where you want to name everything except those names
+  with a specific string in it.
 
 
 
-  Regular expressions are much like a tiny programming language, this cheatsheet
-  will help get you started.
+Regular expressions are much like a tiny programming language, this cheatsheet
+will help get you started.
 
-  For a more complete documentation of python related regular expressions;
+For a more complete documentation of python related regular expressions;
 
-    https://docs.python.org/3.5/library/re.html
+  https://docs.python.org/3.5/library/re.html
 '''

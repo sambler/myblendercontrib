@@ -24,7 +24,7 @@
 #
 # Synoptic Panel/Rig Picker based on work by: Salvador Artero     
 #
-# Special thanks on python advice to: Campbell Barton, Bassam Kurdali, Daniel Salazar, CodeManX, Patrick Crawford, Gabriel Caraballo
+# Special thanks on python advice to: Campbell Barton, Bassam Kurdali, Daniel Salazar, CodeManX, Patrick Crawford, Gabriel Caraballo, Ines Almeida
 # Special thanks for feedback and ideas to: Jorge Rausch, Gabriel Sabsay, Pablo Vázquez, Hjalti Hjálmarsson, Beorn Leonard, Sarah Laufer
 #
 # #########################################################################################################
@@ -34,12 +34,12 @@
 bl_info = {
     'name': 'BlenRig 5',
     'author': 'Juan Pablo Bouza',
-    'version': (1,0,1),
-    'blender': (2, 76, 0),
+    'version': (1,0,2),
+    'blender': (2, 77, 0),
     'location': 'Armature, Object and Lattice properties, View3d tools panel, Armature Add menu',
     'description': 'BlenRig 5 rigging system',
-    'wiki_url': 'https://cloud.blender.org/p/blenrig/',
-    'tracker_url': '',
+    'wiki_url': 'https://cloud.blender.org/p/blenrig/56966411c379cf44546120e8',
+    'tracker_url': 'https://gitlab.com/jpbouza/BlenRig/issues',
     'category': 'Rigging'}
 
 
@@ -83,18 +83,17 @@ def optimize_body(self, context):
 from bpy.app.handlers import persistent
 
 @persistent
-def load_handler(context):  
-    bone_auto_hide(context)       
-
-bpy.app.handlers.load_post.append(load_handler)
-bpy.app.handlers.frame_change_post.append(load_handler)
-
-@persistent
-def load_reproportion_handler(context):
+def load_reprop_handler(context):  
+    bone_auto_hide(context)      
     reproportion_toggle(context)
-    rig_toggles(context) 
+    rig_toggles(context)  
+    
+@persistent
+def load_handler(context):  
+    bone_auto_hide(context)          
 
-bpy.app.handlers.load_post.append(load_reproportion_handler)
+bpy.app.handlers.load_post.append(load_reprop_handler)
+bpy.app.handlers.frame_change_post.append(load_handler)
 
 
 ######### Properties Creation ############
@@ -1207,6 +1206,17 @@ from .ops_picker_face import (
     Operator_Tongue_3_IK,
     Operator_Tongue_Mstr
     )
+
+####### Load BlenRig 5 Layers Schemes Operators
+from .blenrig_biped.ops_biped_layers_scheme import (
+    Operator_BlenRig_Layers_Scheme_Compact,
+    Operator_BlenRig_Layers_Scheme_Expanded
+)
+
+####### Load BlenRig 5 Rig Updater Operators
+from .ops_rig_updater import (
+    Operator_Biped_Updater
+)
   
 ####### Load BlenRig 5 Rig Presets Operators
 from .blenrig_biped.ops_blenrig_biped_add import (
@@ -1290,6 +1300,15 @@ alignment_classes = [
     Operator_BlenRig_Store_Roll_Angles,
     Operator_BlenRig_Restore_Roll_Angles,
     Operator_BlenRig_Reset_Dynamic
+]
+# BlenRig Layers Schemes Operators
+schemes_classes = [
+    Operator_BlenRig_Layers_Scheme_Compact,
+    Operator_BlenRig_Layers_Scheme_Expanded
+]
+# BlenRig Rig Updater Operators
+rig_updater_classes = [
+    Operator_Biped_Updater
 ]
 # BlenRig IK/FK Snapping Operators
 snapping_classes = [
@@ -1764,6 +1783,10 @@ def register():
         bpy.utils.register_class(c)
     for c in alignment_classes:
         bpy.utils.register_class(c)
+    for c in schemes_classes:
+        bpy.utils.register_class(c)   
+    for c in rig_updater_classes:
+        bpy.utils.register_class(c)                
     for c in snapping_classes:
         bpy.utils.register_class(c)
     for c in body_picker_biped_classes:
@@ -1793,6 +1816,10 @@ def unregister():
         bpy.utils.unregister_class(c)
     for c in alignment_classes:
         bpy.utils.unregister_class(c)
+    for c in schemes_classes:
+        bpy.utils.unregister_class(c)  
+    for c in rig_updater_classes:
+        bpy.utils.unregister_class(c)                  
     for c in snapping_classes:
         bpy.utils.unregister_class(c)
     for c in body_picker_biped_classes:

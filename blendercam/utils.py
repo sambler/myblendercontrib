@@ -65,22 +65,27 @@ SHAPELY=True
 	
 def positionObject(operation):
 	ob=bpy.data.objects[operation.object_name]
-	minx,miny,minz,maxx,maxy,maxz=getBoundsWorldspace([ob]) 
+	minx,miny,minz,maxx,maxy,maxz=getBoundsWorldspace([ob], operation.use_modifiers) 
 	ob.location.x-=minx
 	ob.location.y-=miny
 	ob.location.z-=maxz
 
-def getBoundsWorldspace(obs):
+def getBoundsWorldspace(obs, use_modifiers = False):
 	#progress('getting bounds of object(s)')
 	t=time.time()
 		
 	maxx=maxy=maxz=-10000000
 	minx=miny=minz=10000000
 	for ob in obs:
-		bb=ob.bound_box
+		#bb=ob.bound_box
 		mw=ob.matrix_world
 		if ob.type=='MESH':
-			for c in ob.data.vertices:
+			if use_modifiers:
+				mesh = ob.to_mesh(bpy.context.scene, True, 'RENDER')
+			else:
+				mesh = ob.data
+				
+			for c in mesh.vertices:
 				coord=c.co
 				worldCoord = mw * Vector((coord[0], coord[1], coord[2]))
 				minx=min(minx,worldCoord.x)
@@ -89,6 +94,9 @@ def getBoundsWorldspace(obs):
 				maxx=max(maxx,worldCoord.x)
 				maxy=max(maxy,worldCoord.y)
 				maxz=max(maxz,worldCoord.z)
+				
+			if use_modifiers:
+				bpy.data.meshes.remove(mesh)
 		else:
 			 
 			#for coord in bb:
@@ -207,7 +215,7 @@ def getBounds(o):
 	#print('kolikrat sem rpijde')
 	if o.geometry_source=='OBJECT' or o.geometry_source=='GROUP':
 		if o.material_from_model:
-			minx,miny,minz,maxx,maxy,maxz=getBoundsWorldspace(o.objects)
+			minx,miny,minz,maxx,maxy,maxz=getBoundsWorldspace(o.objects, o.use_modifiers)
 
 			o.min.x=minx-o.material_radius_around_model
 			o.min.y=miny-o.material_radius_around_model
@@ -1032,6 +1040,15 @@ def chunksToMesh(chunks,o):
 	ob.location=(0,0,0)
 	o.path_object_name=oname
 	
+	# parent the path object to source object if object mode
+	if o.geometry_source=='OBJECT':
+		activate(o.objects[0])
+		ob.select = True
+		bpy.ops.object.parent_set(type='OBJECT', keep_transform=True)
+	else:
+		ob.select = True
+
+	
 		
 def exportGcodePath(filename,vertslist,operations):
 	'''exports gcode with the heeks nc adopted library.'''
@@ -1208,6 +1225,7 @@ def exportGcodePath(filename,vertslist,operations):
 		fadjust=False
 		if o.do_simulation_feedrate and mesh.shape_keys!= None and  mesh.shape_keys.key_blocks.find('feedrates')!=-1:
 			shapek =  mesh.shape_keys.key_blocks['feedrates']
+			
 			fadjust=True
 		
 		if m.use_position_definitions:# dhull 
@@ -1223,6 +1241,7 @@ def exportGcodePath(filename,vertslist,operations):
 		downvector= Vector((0,0,-1))
 		plungelimit=(pi/2-o.plunge_angle)
 		
+		scale_graph=0.05 #warning this has to be same as in export in utils!!!!
 		
 		#print('2')
 		for vi,vert in enumerate(verts):
@@ -1267,8 +1286,8 @@ def exportGcodePath(filename,vertslist,operations):
 			
 			
 			if fadjust:
-				fadjustval = shapek.data[vi].co.z
-			
+				fadjustval = shapek.data[vi].co.z / scale_graph
+				
 				
 			
 			#v=(v.x*unitcorr,v.y*unitcorr,v.z*unitcorr)
@@ -1361,8 +1380,8 @@ def exportGcodePath(filename,vertslist,operations):
 	c.file_close()
 	print(time.time()-t)
 
-def curveToShapely(cob):
-	chunks=curveToChunks(cob)
+def curveToShapely(cob, use_modifiers = False):
+	chunks=curveToChunks(cob, use_modifiers)
 	polys=chunksToShapely(chunks)
 	return polys
 #separate function in blender, so you can offset any curve.
@@ -1664,16 +1683,11 @@ def getOperationSilhouete(operation):
 		if stype=='OBJECTS':
 			for ob in operation.objects:
 				if ob.type=='MESH':
-					if operation.use_modifiers:
-						mesh = ob.to_mesh(bpy.context.scene, True, 'RENDER')
-						totfaces += len(mesh.polygons)
-						bpy.data.meshes.remove(mesh)
-					else:
-						totfaces+=len(ob.data.polygons)
+					totfaces+=len(ob.data.polygons)
 			
 		
 			
-		if (stype == 'OBJECTS' and totfaces>200000) or stype=='IMAGE':
+		if (stype == 'OBJECTS' and totfaces>200000) or stype=='IMAGE' or operation.use_modifiers:
 			print('image method')
 			samples = renderSampleImage(operation)
 			if stype=='OBJECTS':
@@ -1687,7 +1701,7 @@ def getOperationSilhouete(operation):
 			#this conversion happens because we need the silh to be oriented, for milling directions.
 		else:
 			print('object method for retrieving silhouette')#
-			operation.silhouete=getObjectSilhouete(stype, objects = operation.objects, use_modifiers = operation.use_modifiers)
+			operation.silhouete=getObjectSilhouete(stype, objects = operation.objects)
 				
 		operation.update_silhouete_tag=False
 	return operation.silhouete
@@ -1749,7 +1763,6 @@ def getObjectSilhouete(stype, objects=None, use_modifiers = False):
 						id+=1
 				if use_modifiers:
 					bpy.data.meshes.remove(m)	
-	
 			#print(polys
 			if totfaces<20000:
 				p=sops.unary_union(polys)
@@ -1899,6 +1912,10 @@ def addMachineAreaObject():
 	if s.objects.get('CAM_machine')!=None:
 	   o=s.objects['CAM_machine']
 	else:
+		oldunits = s.unit_settings.system
+		# need to be in metric units when adding machine mesh object
+		# in order for location to work properly
+		s.unit_settings.system = 'METRIC'
 		bpy.ops.mesh.primitive_cube_add(view_align=False, enter_editmode=False, location=(1, 1, -1), rotation=(0, 0, 0))
 		o=bpy.context.active_object
 		o.name='CAM_machine'
@@ -1919,6 +1936,7 @@ def addMachineAreaObject():
 		o.hide_render = True
 		o.hide_select = True
 		o.select=False
+		s.unit_settings.system = oldunits
 	#bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
 	   
 	o.dimensions=bpy.context.scene.cam_machine.working_area
@@ -2043,7 +2061,7 @@ def getBridgesPoly(o):
 		bpy.ops.object.duplicate();
 		bpy.ops.object.join()
 		ob = bpy.context.active_object
-		shapes.extend(curveToShapely(ob))
+		shapes.extend(curveToShapely(ob, o.use_bridge_modifiers))
 		ob.select=True
 		bpy.ops.object.delete(use_global=False)
 		bridgespoly=sops.unary_union(shapes)
@@ -2199,7 +2217,7 @@ def strategy_cutout( o ):
 		print('separate')
 		chunksFromCurve=[]
 		for ob in o.objects:
-			chunksFromCurve.extend(curveToChunks(ob))
+			chunksFromCurve.extend(curveToChunks(ob, o.use_modifiers))
 		for ch in chunksFromCurve:
 			#print(ch.points)
 			
@@ -2663,7 +2681,7 @@ def strategy_medial_axis( o ):
 		#angle = o.cutter_tip_angle
 		maxdepth = o.cutter_diameter/2
 	else:
-		o.warnings+='Only Ballnose, Ball and V-carve cutters\n are supported \n'
+		o.warnings+='Only Ballnose, Ball and V-carve cutters\n are supported'
 		return
 	#remember resolutions of curves, to refine them, 
 	#otherwise medial axis computation yields too many branches in curved parts

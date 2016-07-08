@@ -19,8 +19,8 @@
 bl_info = {
     'name': 'Reference Desk',
     'author': 'Chris Webber, Bassam Kurdali',
-    'version': '0.95',
-    'blender': (2, 7, 6),
+    'version': '0.96',
+    'blender': (2, 7, 7),
     'location': 'View3D > Toolbar > Assets > Reference Desk',
     'description': 'Project Asset Linker',
     'url': 'http://urchn.org',

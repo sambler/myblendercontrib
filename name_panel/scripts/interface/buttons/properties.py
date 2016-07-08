@@ -17,9 +17,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
 # imports
-import bpy
 from .constraints import ConstraintButtons
 from .modifiers import ModifierButtons
 

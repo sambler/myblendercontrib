@@ -737,8 +737,125 @@ def chunksToShapely(chunks):#this does more cleve chunks to Poly with hierarchie
 			print('addparent')
 			#polygon_utils_cam.shapelyToCurve('crust',ch.parents[0].poly,0)
 			#polygon_utils_cam.shapelyToCurve('hole',ch.poly,0)
-			ch.parents[0].poly = ch.parents[0].poly.difference(ch.poly)#sgeometry.Polygon( ch.parents[0].poly, ch.poly)
-			
+			try:
+				ch.parents[0].poly = ch.parents[0].poly.difference(ch.poly)#sgeometry.Polygon( ch.parents[0].poly, ch.poly)
+			except:
+				
+				
+				print('chunksToShapely oops!')
+				
+				lastPt = False
+				tolerance = 0.0000003
+				newPoints = []
+				
+				for pt in ch.points:
+					toleranceXok = True
+					toleranceYok = True
+					#print( '{0:.9f}, {1:.9f}, {2:.9f}'.format(pt[0], pt[1], pt[2]) )
+					#print(pt)
+					if lastPt:
+						#print( 'Distance Vector: {0:.9f}, {1:.9f}'.format(abs(pt[0] - lastPt[0]), abs(pt[1] - lastPt[1])) )
+						#print( 'pt[0] is {} tolerance'.format( 'OUT of' if abs( pt[0] - lastPt[0] ) < tolerance else 'IN' ) )
+						#print( 'pt[1] is {} tolerance'.format( 'OUT of' if abs( pt[1] - lastPt[1] ) < tolerance else 'IN' ) )
+						if ( abs( pt[0] - lastPt[0] ) < tolerance ):
+							toleranceXok = False
+						if ( abs( pt[1] - lastPt[1] ) < tolerance ):
+							toleranceYok = False
+							
+						if ( toleranceXok or toleranceYok ):
+							#print('point ok, including')
+							#ch.points.remove( pt )
+							newPoints.append( pt )
+							lastPt = pt
+					else:
+						newPoints.append( pt )
+						lastPt = pt
+					
+				toleranceXok = True
+				toleranceYok = True
+				if ( abs( newPoints[0][0] - lastPt[0] ) < tolerance ):
+					toleranceXok = False
+				if ( abs( newPoints[0][1] - lastPt[1] ) < tolerance ):
+					toleranceYok = False
+					
+				if ( not toleranceXok and not toleranceYok ):
+					newPoints.pop()
+					#print('starting and ending points too close, removing ending point')
+					
+				#if ( abs( lastPt[0] - ch.points[0][0] ) < tolerance ):
+					#if ( abs( lastPt[1] - ch.points[0][1] ) < tolerance ):
+						#newPoints.pop()
+						#print('starting and ending points too close, removing ending point')
+							
+				ch.points = newPoints
+				ch.poly = sgeometry.Polygon(ch.points)
+				
+				try:
+					ch.parents[0].poly = ch.parents[0].poly.difference(ch.poly)#sgeometry.Polygon( ch.parents[0].poly, ch.poly)
+					
+				except:
+				
+					#print('chunksToShapely double oops!')
+					
+					lastPt = False
+					tolerance = 0.0000003
+					newPoints = []
+					
+					for pt in ch.parents[0].points:
+						toleranceXok = True
+						toleranceYok = True
+						#print( '{0:.9f}, {0:.9f}, {0:.9f}'.format(pt[0], pt[1], pt[2]) )
+						#print(pt)
+						if lastPt:
+							#print( 'Distance Vector: {0:.9f}, {0:.9f}'.format((pt[0] - lastPt[0]), (pt[1] - lastPt[1])) )
+							if ( abs( pt[0] - lastPt[0] ) < tolerance ):
+								toleranceXok = False
+							if ( abs( pt[1] - lastPt[1] ) < tolerance ):
+								toleranceYok = False
+								
+							if ( toleranceXok or toleranceYok ):
+								#print('point ok, including')
+								#ch.points.remove( pt )
+								newPoints.append( pt )
+								lastPt = pt
+						else:
+							newPoints.append( pt )
+							lastPt = pt
+							
+					
+					toleranceXok = True
+					toleranceYok = True
+					if ( abs( newPoints[0][0] - lastPt[0] ) < tolerance ):
+						toleranceXok = False
+					if ( abs( newPoints[0][1] - lastPt[1] ) < tolerance ):
+						toleranceYok = False
+						
+					if ( not toleranceXok and not toleranceYok ):
+						newPoints.pop()
+						#print('starting and ending points too close, removing ending point')
+						
+					#if ( abs( lastPt[0] - ch.parents[0].points[0][0] ) < tolerance ):
+						#if ( abs( lastPt[1] - ch.parents[0].points[0][1] ) < tolerance ):
+							#newPoints.pop()
+							#print('starting and ending points too close, removing ending point')
+								
+					ch.parents[0].points = newPoints
+					ch.parents[0].poly = sgeometry.Polygon(ch.parents[0].points)
+					
+					ch.parents[0].poly = ch.parents[0].poly.difference(ch.poly)#sgeometry.Polygon( ch.parents[0].poly, ch.poly)
+							
+				#p=spolygon.Polygon(ch.points)
+				#p.simplify(1.0, preserve_topology=False)
+				#sc=shapelyToChunks(p,0)
+				
+				#pParent=spolygon.Polygon(ch.parents[0].points)
+				#pParent.simplify(1.0, preserve_topology=False)
+				#scParent=shapelyToChunks(pParent,0)
+				
+				
+				#ch.parents[0].poly = scParent[0].poly.difference(sc[0].poly)
+				
+				#print('points dumped.!')
 			
 	returnpolys=[]
 
@@ -756,6 +873,7 @@ def chunksToShapely(chunks):#this does more cleve chunks to Poly with hierarchie
 	
 	
 	return returnpolys  
+
 		
 
 def meshFromCurveToChunk(object):
@@ -827,7 +945,7 @@ def restoreVisibility(o,storage):
 	for i in range(0,20):
 		o.layers[i]=storage[1][i]
 
-def meshFromCurve(o):
+def meshFromCurve(o, use_modifiers = False):
 	#print(o.name,o)
 	storage = makeVisible(o)#this is here because all of this doesn't work when object is not visible or on current layer
 	activate(o)
@@ -842,8 +960,18 @@ def meshFromCurve(o):
 	co.data.dimensions='3D'
 	co.data.bevel_depth=0
 	co.data.extrude=0
+
+
 	#first, convert to mesh to avoid parenting issues with hooks, then apply locrotscale.
 	bpy.ops.object.convert(target='MESH', keep_original=False)
+	
+	if use_modifiers:
+		newmesh = co.to_mesh(bpy.context.scene, True, 'RENDER')
+		oldmesh = co.data
+		co.modifiers.clear()
+		co.data = newmesh
+		bpy.data.meshes.remove(oldmesh)
+	
 	try:
 		bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
 		bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
@@ -858,8 +986,8 @@ def meshFromCurve(o):
 	restoreVisibility(o,storage)
 	return bpy.context.active_object
 	
-def curveToChunks(o):
-	co = meshFromCurve(o)
+def curveToChunks(o, use_modifiers = False):
+	co = meshFromCurve(o, use_modifiers)
 	#if co.type!='MESH':
 	#	return []
 	chunks=meshFromCurveToChunk(co)

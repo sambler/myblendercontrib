@@ -14,7 +14,7 @@ from mathutils.geometry import intersect_line_plane, intersect_point_line, dista
 
 #Cut Mesh imports
 from .bmesh_fns import face_neighbors, flood_selection_faces, grow_selection_to_find_face, edge_loops_from_bmedges, walk_non_man_edge
-
+from .common_utilities import bversion
 
 #basic utils
 def list_shift(seq, n):
@@ -286,7 +286,7 @@ def cross_section_walker_endpoints(bme, pt, no, f_ind_from, e_ind_from, co_from,
     if bver > '002.072.000':
         bme.edges.ensure_lookup_table();
 
-    f_cur = next(f for f in bme.edges[e_ind_from].link_faces if f.index != f_ind_from)
+    f_cur = next(f for f in bme.edges[e_ind_from].link_faces if f.index != f_ind_from) #There is occasionally error here
     find_current = f_cur.index
     
     #find the edges we might cross at the end, make sure where we are headed is valid
@@ -577,8 +577,13 @@ def path_between_2_points(bme, bvh, pt_a, pt_b,
     times = [time.time()]
 
     #snap and find nearest pt and face in local coords
-    loc_a, no_a, ind_a, d_a = bvh.find(pt_a)
-    loc_b, no_b, ind_b, d_b = bvh.find(pt_b)
+    if bversion() < "002.077.000":
+        loc_a, no_a, ind_a, d_a = bvh.find(pt_a)
+        loc_b, no_b, ind_b, d_b = bvh.find(pt_b)
+    
+    else:
+        loc_a, no_a, ind_a, d_a = bvh.find_nearest(pt_a)
+        loc_b, no_b, ind_b, d_b = bvh.find_nearest(pt_b)
     
     if use_limit:
         #grow selection from A to B and from B to A this way we get good connectivity

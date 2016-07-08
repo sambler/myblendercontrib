@@ -490,6 +490,7 @@ class CAM_OPERATION_PROPERTIES_Panel(CAMButtonsPanel, bpy.types.Panel):
 						layout.prop(ao,'bridges_height')
 						
 						layout.prop_search(ao, "bridges_group_name", bpy.data, "groups")
+						layout.prop(ao,'use_bridge_modifiers')
 						#layout.prop(ao,'bridges_group_name')
 						#if ao.bridges_placement == 'AUTO':
 						#	layout.prop(ao,'bridges_per_curve')
@@ -785,6 +786,7 @@ class VIEW3D_PT_tools_curvetools(bpy.types.Panel):
 		layout.operator("object.curve_boolean")
 		layout.operator("object.curve_intarsion")
 		layout.operator("object.curve_overcuts")
+		layout.operator("object.curve_overcuts_b")
 		layout.operator("object.silhouete")
 		layout.operator("object.silhouete_offset")
 		layout.operator("object.curve_remove_doubles")

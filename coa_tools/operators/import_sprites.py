@@ -96,6 +96,11 @@ class ImportSprite(bpy.types.Operator):
         tex_slot = mat.texture_slots.add()
         tex_slot.texture = tex
         tex_slot.use_map_alpha = True
+        
+        if img.source == "MOVIE":
+            tex.image_user.frame_duration = img.frame_duration
+            tex.image_user.frame_start = 0
+            tex.image_user.use_auto_refresh = True
     
     def execute(self,context):
         if os.path.exists(self.path):
@@ -156,6 +161,7 @@ class ImportSprites(bpy.types.Operator, ImportHelper):
          )
     
     filter_image = BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    filter_movie = BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
     filter_folder = BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
     filter_glob = StringProperty(default="*.json",options={'HIDDEN'})
 
@@ -174,11 +180,12 @@ class ImportSprites(bpy.types.Operator, ImportHelper):
             object.select = False
                 
         sprite_object = get_sprite_object(context.active_object)            
-        if ext in [".png",".jpg",".psd",".jpeg",".gif"]:
+        #if ext in [".png",".jpg",".psd",".jpeg",".gif"] or ext in [".avi",".wmv",".webm",".mpeg",".mp4",".mov"]:
+        if ext not in [".json"]:
             for i in self.files:
                 filepath = (os.path.join(folder, i.name))
                 bpy.ops.wm.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=get_addon_prefs(context).sprite_import_export_scale)
-        elif ext in [".json"]:
+        else:
             data_file = open(self.filepath)
             sprite_data = json.load(data_file)
             data_file.close()

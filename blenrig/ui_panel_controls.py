@@ -110,6 +110,31 @@ class BlenRig_5_Interface(bpy.types.Panel):
 ########### PANEL #############################################################################            
 
 ########### Armature Layers
+            if arm['rig_type'] == 'Biped':
+                if arm['rig_version'] < 1.005:    
+                    col = layout.column(align=1)
+                    row = col.row()
+                    row.alignment = 'CENTER'                                        
+                    row.label("Armature needs Update!")    
+                    row = col.row()
+                    row.alignment = 'CENTER'                      
+                    row.label("Current Ver. " + str(arm['rig_version']))   
+                    row = col.row()
+                    row.alignment = 'CENTER'                     
+                    row.label("Update to Ver. 1.005")         
+                    row = col.row()
+                    row.alignment = 'CENTER'                                       
+                    row.label('Backup the file!')
+                    row = col.row(align=1)
+                    row.alignment = 'CENTER'                    
+                    row.operator("blenrig5.biped_updater", text="UPDATE ", icon = "ERROR", emboss = 1)
+                    row = col.row()
+                    row.alignment = 'CENTER'    
+                    row.label('(To skip update, edit rig_version property in Armature Data)')                    
+                                        
+                
+
+########### Armature Layers
             if "gui_layers" in arm:
                 box = layout.column()
                 col = box.column()           

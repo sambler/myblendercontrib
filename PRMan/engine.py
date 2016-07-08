@@ -405,7 +405,7 @@ class RPass:
         if self.rm.do_denoise and not isProblem:
             base, ext = render_output.rsplit('.', 1)
             # denoise data has the name .denoise.exr
-            denoise_options = "-t%d" % self.rm.threads
+            denoise_options = ["-t%d" % self.rm.threads] if self.rm.threads != 0 else []
             denoise_data = base + '.denoise.' + 'exr'
             filtered_name = base + '.denoise_filtered.' + 'exr'
             if os.path.exists(denoise_data):

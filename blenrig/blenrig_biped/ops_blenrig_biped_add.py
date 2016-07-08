@@ -42,10 +42,11 @@ class Operator_BlenRig5_Add_Biped(bpy.types.Operator):
                     ob.layers = [(x in [12]) for x in range(20)]      
                 if ob.type == 'ARMATURE':
                     ob.layers = [(x in [10]) for x in range(20)] 
-                    if 'biped_blenrig' in ob.name:
-                        bpy.context.scene.layers[10] = True 
-                        bpy.context.scene.objects.active = ob
-                        bpy.ops.object.mode_set(mode='POSE')                 
+            bpy.context.scene.layers[10] = True 
+                    # Commented because it caused an error when in object local view and when lock_camera_and_layers is false    
+#                    if 'biped_blenrig' in ob.name:                        
+#                        bpy.context.scene.objects.active = ob
+#                        bpy.ops.object.mode_set(mode='POSE')                 
 
     def execute(self, context):
         self.import_blenrig_biped(context)

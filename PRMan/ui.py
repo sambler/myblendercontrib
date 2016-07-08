@@ -326,6 +326,10 @@ class RENDER_PT_renderman_advanced_settings(PRManButtonsPanel, Panel):
 
         layout.separator()
         row = layout.row()
+        row.prop(rm, "dark_falloff")
+
+        layout.separator()
+        row = layout.row()
         row.prop(rm, "bucket_shape")
         if rm.bucket_shape == 'SPIRAL':
             row = layout.row(align=True)

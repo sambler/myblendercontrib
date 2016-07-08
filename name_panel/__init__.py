@@ -21,7 +21,7 @@
 #
 #  Author: Trentin Frederick (a.k.a, proxe)
 #  Contact: trentin.shaun.frederick@gmail.com
-#  Version: 1.6.1
+#  Version: 1.6.5
 #
 # ##### END INFO BLOCK #####
 
@@ -29,9 +29,9 @@
 bl_info = {
   'name': 'Name Panel',
   'author': 'Trentin Frederick (proxe)',
-  'version': (1, 6, 1),
-  'blender': (2, 67, 0),
-  'location': '3D View → Tool or Property Shelf → Name',
+  'version': (1, 6, 5),
+  'blender': (2, 68, 0),
+  'location': '3D View \N{Rightwards Arrow} Tool or Property Shelf \N{Rightwards Arrow} Name',
   'description': 'In panel datablock name stack with batch name tools.',
   'wiki_url': 'https://cgcookiemarkets.com/all-products/name-panel/?view=docs',
   'tracker_url': 'https://github.com/trentinfrederick/name-panel/issues',
@@ -42,9 +42,11 @@ bl_info = {
 import bpy
 from bpy.types import AddonPreferences
 from bpy.props import *
-from .scripts import settings as PropertyGroup
+from .scripts import options as PropertyGroup
 from .scripts.interface import button, icon, menu, name, properties
-from .scripts.operator import auto, batch, copy, icon, settings, text
+from .scripts.interface.operator import auto, batch, copy, icon, options, shared, text
+from .scripts.interface.operator.preferences import auto, batch, copy
+from .scripts.interface.operator.preferences import name as nameDefaults
 
 # addon
 addon = bpy.context.user_preferences.addons.get(__name__)
@@ -55,13 +57,6 @@ class preferences(AddonPreferences):
     Add-on user preferences.
   '''
   bl_idname = __name__
-
-  # popups
-  popups = BoolProperty(
-    name = 'Pop-ups',
-    description = 'Enable settings pop-up for modifiers and constraints. (Experimental!)',
-    default = False
-  )
 
   # large popups
   largePopups = BoolProperty(
@@ -88,10 +83,28 @@ class preferences(AddonPreferences):
     layout = self.layout
 
     # row
-    row = layout.row()
+    row = layout.row(align=True)
+    row.scale_y = 1.5
 
-    # pop ups
-    row.prop(self, 'popups')
+    # name panel
+    row.operator('wm.name_panel_defaults', text='Panel')
+
+    # auto name
+    row.operator('wm.batch_auto_name_defaults', text='Auto Name')
+
+    # batch name
+    op = row.operator('wm.batch_name_defaults', text='Batch Name')
+    op.quickBatch = False
+
+    # batch name
+    op = row.operator('wm.batch_name_defaults', text='Quick Batch')
+    op.quickBatch = True
+
+    # batch name copy
+    row.operator('wm.batch_copy_name_defaults', text='Batch Name Copy')
+
+    # row
+    row = layout.row()
 
     # pop ups
     row.prop(self, 'largePopups')
@@ -101,6 +114,8 @@ class preferences(AddonPreferences):
 
     # row
     row = layout.row()
+
+    # location
     row.prop(self, 'location', expand=True)
 
     # label
@@ -126,6 +141,10 @@ class preferences(AddonPreferences):
     prop = split.operator('wm.url_open', text='Github')
     prop.url = 'https://github.com/trentinfrederick/name-panel'
 
+    # donate
+    prop = split.operator('wm.url_open', text='Donate')
+    prop.url = 'https://paypal.me/proxe'
+
 # register
 def register():
   '''
@@ -134,6 +153,13 @@ def register():
 
   # register module
   bpy.utils.register_module(__name__)
+
+  # batch shared setting
+  bpy.types.Scene.BatchShared = PointerProperty(
+    type = PropertyGroup.batch.shared,
+    name = 'Batch Shared Settings',
+    description = 'Storage location for shared settings between batch operators.'
+  )
 
   # batch auto name settings
   bpy.types.Scene.BatchAutoName = PointerProperty(

@@ -23,7 +23,7 @@
 bl_info = {
     "name": "Blendermada Client",
     "author": "Sergey Ozerov, <ozzyrov@gmail.com>",
-    "version": (0, 9, 7),
+    "version": (0, 9, 8),
     "blender": (2, 70, 0),
     "location": "Properties > Material > Blendermada Client",
     "description": "Browse and download materials from online material database.",
@@ -212,7 +212,10 @@ class Preview(object):
     def load_image(self, image_url):
         self.glImage = bpy.data.images.load(get_image(image_url))
         self.glImage.gl_load(bgl.GL_NEAREST, bgl.GL_NEAREST)
-        self.bindcode = self.glImage.bindcode
+        if bpy.app.version < (2, 77):
+            self.bindcode = self.glImage.bindcode
+        else:
+            self.bindcode = self.glImage.bindcode[0]
 
     def unload_image(self):
         if not self.glImage == None:

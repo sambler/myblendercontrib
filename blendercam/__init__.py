@@ -64,25 +64,32 @@ def updateMaterial(self,context):
 	print('update material')
 	utils.addMaterialAreaObject()
 	
-def selectObject(ob):
-	bpy.ops.object.select_all(action='DESELECT')
-	ob.select = True
-	
 def updateOperation(self, context):
 	scene = context.scene
 	ao = scene.cam_operations[scene.cam_active_operation]
+	# try highlighting the object in the 3d view and make it active
+	bpy.ops.object.select_all(action='DESELECT')
+	if ao.geometry_source=='OBJECT':
+		try:
+			ob = bpy.data.objects[ao.object_name]
+			simple.activate(ob)
+		except:
+			pass
+	elif ao.geometry_source=='GROUP':
+		try:
+			group = bpy.data.groups[ao.group_name]
+			for obj in group.objects:
+				obj.select = True
+		except:
+			pass
+
 	# highlight the cutting path if it exists
-	# if no cutting path then try highlighting the object in the 3d view
 	try:
 		ob = bpy.data.objects[ao.path_object_name]
-		selectObject(ob)
+		ob.select = True
 	except:
-		if ao.geometry_source=='OBJECT':
-			try:
-				ob = bpy.data.objects[ao.object_name]
-				selectObject(ob)
-			except:
-				pass
+		pass
+		
 	
 	
 	
@@ -221,6 +228,10 @@ def operationValid(self,context):
 	print('validity ')
 	#print(o.valid)
 	
+def updateOperationValid(self, context):
+	operationValid(self, context)
+	updateOperation(self, context)
+	
 #Update functions start here
 def updateChipload(self,context):
 	'''this is very simple computation of chip size, could be very much improved'''
@@ -327,8 +338,8 @@ class camOperation(bpy.types.PropertyGroup):
 	filename = bpy.props.StringProperty(name="File name", default="Operation", update = updateRest)
 	auto_export = bpy.props.BoolProperty(name="Auto export",description="export files immediately after path calculation", default=True)
 	#group = bpy.props.StringProperty(name='Object group', description='group of objects which will be included in this operation')
-	object_name = bpy.props.StringProperty(name='Object', description='object handled by this operation', update=operationValid)
-	group_name = bpy.props.StringProperty(name='Group', description='Object group handled by this operation', update=operationValid)
+	object_name = bpy.props.StringProperty(name='Object', description='object handled by this operation', update=updateOperationValid)
+	group_name = bpy.props.StringProperty(name='Group', description='Object group handled by this operation', update=updateOperationValid)
 	curve_object = bpy.props.StringProperty(name='Curve source', description='curve which will be sampled along the 3d object', update=operationValid)
 	curve_object1 = bpy.props.StringProperty(name='Curve target', description='curve which will serve as attractor for the cutter when the cutter follows the curve', update=operationValid)
 	source_image_name = bpy.props.StringProperty(name='image_source', description='image source', update=operationValid)
@@ -336,7 +347,7 @@ class camOperation(bpy.types.PropertyGroup):
 		items=(
 			('OBJECT','object', 'a'),('GROUP','Group of objects', 'a'),('IMAGE','Image', 'a')),
 		description='Geometry source',
-		default='OBJECT', update=operationValid)
+		default='OBJECT', update=updateOperationValid)
 	cutter_type = EnumProperty(name='Cutter',
 		items=(
 			('END', 'End', 'end - flat cutter'),
@@ -538,6 +549,7 @@ class camOperation(bpy.types.PropertyGroup):
 	bridges_width = bpy.props.FloatProperty(name = 'width of bridges', default=0.002, unit='LENGTH', precision=PRECISION, update = updateBridges)
 	bridges_height = bpy.props.FloatProperty(name = 'height of bridges', description="Height from the bottom of the cutting operation", default=0.0005, unit='LENGTH', precision=PRECISION, update = updateBridges)
 	bridges_group_name = bpy.props.StringProperty(name='Bridges Group', description='Group of curves used as bridges', update=operationValid)
+	use_bridge_modifiers = BoolProperty(name = "use bridge modifiers", description = "include bridge curve modifiers using render level when calculating operation, does not effect original bridge data", default = True, update=updateBridges)
 
 	'''commented this - auto bridges will be generated, but not as a setting of the operation
 	bridges_placement = bpy.props.EnumProperty(name='Bridge placement',
@@ -552,8 +564,7 @@ class camOperation(bpy.types.PropertyGroup):
 	bridges_per_curve = bpy.props.IntProperty(name="minimum bridges per curve", description="", default=4, min=1, max=512, update = updateBridges)
 	bridges_max_distance = bpy.props.FloatProperty(name = 'Maximum distance between bridges', default=0.08, unit='LENGTH', precision=PRECISION, update = updateBridges)
 	'''
-	group_name = bpy.props.StringProperty(name='Group', description='Object group handled by this operation', update=operationValid)
-	use_modifiers = BoolProperty(name = "use mesh modifiers", description = "include mesh modifiers using render level when calculating operation, does not effect original mesh", default = False)
+	use_modifiers = BoolProperty(name = "use mesh modifiers", description = "include mesh modifiers using render level when calculating operation, does not effect original mesh", default = True, update=operationValid)
 	#optimisation panel
 	
 	#material settings
@@ -737,7 +748,7 @@ class BLENDERCAM_ENGINE(bpy.types.RenderEngine):
 	bl_label = "Blender CAM"
 				
 def get_panels():#convenience function for bot register and unregister functions
-	types = bpy.types
+	#types = bpy.types
 	return (
 	ui.CAM_UL_operations,
 	#ui.CAM_UL_orientations,
@@ -797,6 +808,7 @@ def get_panels():#convenience function for bot register and unregister functions
 	ops.CamObjectSilhouete,
 	ops.CamCurveIntarsion,
 	ops.CamCurveOvercuts,
+	ops.CamCurveOvercutsB,
 	ops.CamCurveRemoveDoubles,
 	ops.CamMeshGetPockets,
 	

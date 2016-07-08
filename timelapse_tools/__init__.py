@@ -21,8 +21,8 @@
 bl_info = {
     "name": "Timelapse Toolbox",
     "author": "Bassam Kurdali",
-    "version": (1, 0, 2),
-    "blender": (2, 76, 0),
+    "version": (1, 0, 4),
+    "blender": (2, 77, 0),
     "location": "View3D > Ctrl F1, Add Menu",
     "description": "Tools to Help Timelapse Animators",
     "warning": "",

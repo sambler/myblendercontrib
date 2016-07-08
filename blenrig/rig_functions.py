@@ -1,5 +1,7 @@
 import bpy
 
+#### File to append to the rig via game logic when the intention is to use it in a system that doesn't have the BlenRig addon installed
+
 ####### Bones Hiding System #######
 
 from bpy.props import FloatProperty, IntProperty, BoolProperty
@@ -305,8 +307,8 @@ def reproportion_toggle(context):
                                 C.mute = True   
                                                    
                 else:
-                    bpy.context.active_object.data.layers[0] = True  
-#                    bpy.context.active_object.data.layers[31] = False   
+                    bpy.context.active_object.data.layers[0] = True
+                    bpy.context.active_object.data.layers[31] = False   
                     for b in p_bones:     
                         for C in b.constraints:
                             if ('REPROP' in C.name):
@@ -340,36 +342,41 @@ def rig_toggles(context):
                                 for bone in arm.bones:  
                                     if (bone.name in b['bones_fingers_def_1_L']):   
                                         if prop_fing == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                         else:
-                                            bone.layers[15] = 0 
+                                            bone.layers[27] = 0 
                                     if (bone.name in b['bones_fingers_def_2_L']):   
                                         if prop_fing == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                             bone.layers[31] = 1                                                
                                         else:
-                                            bone.layers[15] = 0  
+                                            bone.layers[27] = 0  
                                             bone.layers[31] = 0                                                
                                     if (bone.name in b['bones_fingers_str_L']):   
                                         if prop_fing == 1:
                                             bone.layers[31] = 1
                                         else:
-                                            bone.layers[31] = 0                                                                                        
-                                    if (bone.name in b['bones_fingers_ctrl_1_L']):  
-                                        if prop_fing == 1:
-                                            bone.layers[0] = 1
-                                        else:
-                                            bone.layers[0] = 0                                                
+                                            bone.layers[31] = 0                     
+                                    for b_prop in bpy.context.active_object.data.items():
+                                        if b_prop[0] == 'custom_layers' and b_prop[1] == 0:                                                                                                               
+                                            if (bone.name in b['bones_fingers_ctrl_1_L']):  
+                                                if prop_fing == 1:
+                                                    bone.layers[0] = 1
+                                                else:
+                                                    bone.layers[0] = 0                                                                                                   
+                                            if (bone.name in b['bones_fingers_ctrl_2_L']):  
+                                                if prop_fing == 1:
+                                                    bone.layers[2] = 1     
+                                                else:
+                                                    bone.layers[2] = 0                                                                                                 
                                     if (bone.name in b['bones_fingers_ctrl_2_L']):  
-                                        if prop_fing == 1:
-                                            bone.layers[2] = 1                                            
+                                        if prop_fing == 1:                                         
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_fingers_ctrl_2_L']):
                                                     for C in pbone.constraints:
                                                         if C.type == 'IK':
-                                                            C.mute = False           
+                                                            C.mute = False                                                                          
                                         else:
-                                            bone.layers[2] = 0  
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_fingers_ctrl_2_L']):
                                                     for C in pbone.constraints:
@@ -382,46 +389,51 @@ def rig_toggles(context):
                                 for bone in arm.bones:         
                                     if (bone.name in b['bones_toes_def_1_L']): 
                                         if prop_toes == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                         else:
-                                            bone.layers[15] = 0 
+                                            bone.layers[27] = 0 
                                     if (bone.name in b['bones_toes_def_2_L']): 
                                         if prop_toes == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                             bone.layers[31] = 1                                                
                                         else:
-                                            bone.layers[15] = 0    
+                                            bone.layers[27] = 0    
                                             bone.layers[31] = 0                                                                                       
                                     if (bone.name in b['bones_no_toes_def_L']): 
                                         if prop_toes == 1:
-                                            bone.layers[15] = 0
+                                            bone.layers[27] = 0
                                         else:
-                                            bone.layers[15] = 1   
+                                            bone.layers[27] = 1   
                                     if (bone.name in b['bones_toes_str_L']):   
                                         if prop_toes == 1:
                                             bone.layers[31] = 1
                                         else:
-                                            bone.layers[31] = 0                                                                                          
-                                    if (bone.name in b['bones_toes_ctrl_1_L']): 
-                                        if prop_toes == 1:
-                                            bone.layers[0] = 1
-                                        else:
-                                            bone.layers[0] = 0     
-                                    if (bone.name in b['bones_no_toes_ctrl_L']): 
-                                        if prop_toes == 1:
-                                            bone.layers[0] = 0
-                                        else:
-                                            bone.layers[0] = 1                                                                                       
+                                            bone.layers[31] = 0         
+                                    for b_prop in bpy.context.active_object.data.items():
+                                        if b_prop[0] == 'custom_layers' and b_prop[1] == 0:                                                                                                                                
+                                            if (bone.name in b['bones_toes_ctrl_1_L']): 
+                                                if prop_toes == 1:
+                                                    bone.layers[0] = 1
+                                                else:
+                                                    bone.layers[0] = 0     
+                                            if (bone.name in b['bones_no_toes_ctrl_L']): 
+                                                if prop_toes == 1:
+                                                    bone.layers[0] = 0
+                                                else:
+                                                    bone.layers[0] = 1    
+                                            if (bone.name in b['bones_toes_ctrl_2_L']): 
+                                                if prop_toes == 1:
+                                                    bone.layers[2] = 1    
+                                                else:
+                                                     bone.layers[2] = 0                                                                                                                                                                 
                                     if (bone.name in b['bones_toes_ctrl_2_L']): 
-                                        if prop_toes == 1:
-                                            bone.layers[2] = 1                                            
+                                        if prop_toes == 1:                                          
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_toes_ctrl_2_L']):
                                                     for C in pbone.constraints:
                                                         if C.type == 'IK':
                                                             C.mute = False           
                                         else:
-                                            bone.layers[2] = 0  
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_toes_ctrl_2_L']):
                                                     for C in pbone.constraints:
@@ -436,36 +448,41 @@ def rig_toggles(context):
                                 for bone in arm.bones:         
                                     if (bone.name in b['bones_fingers_def_1_R']):   
                                         if prop_fing == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                         else:
-                                            bone.layers[15] = 0
+                                            bone.layers[27] = 0
                                     if (bone.name in b['bones_fingers_def_2_R']):   
                                         if prop_fing == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                             bone.layers[31] = 1                                                
                                         else:
-                                            bone.layers[15] = 0
+                                            bone.layers[27] = 0
                                             bone.layers[31] = 0                                                
                                     if (bone.name in b['bones_fingers_str_R']):   
                                         if prop_fing == 1:
                                             bone.layers[31] = 1
                                         else:
-                                            bone.layers[31] = 0                                                                                            
-                                    if (bone.name in b['bones_fingers_ctrl_1_R']):  
-                                        if prop_fing == 1:
-                                            bone.layers[0] = 1
-                                        else:
-                                            bone.layers[0] = 0                                                
+                                            bone.layers[31] = 0     
+                                    for b_prop in bpy.context.active_object.data.items():
+                                        if b_prop[0] == 'custom_layers' and b_prop[1] == 0:                                                                                                                                     
+                                            if (bone.name in b['bones_fingers_ctrl_1_R']):  
+                                                if prop_fing == 1:
+                                                    bone.layers[0] = 1
+                                                else:
+                                                    bone.layers[0] = 0                                                
+                                            if (bone.name in b['bones_fingers_ctrl_2_R']):  
+                                                if prop_fing == 1:
+                                                    bone.layers[2] = 1     
+                                                else:
+                                                    bone.layers[2] = 0                                              
                                     if (bone.name in b['bones_fingers_ctrl_2_R']):  
-                                        if prop_fing == 1:
-                                            bone.layers[2] = 1                                            
+                                        if prop_fing == 1:                                        
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_fingers_ctrl_2_R']):
                                                     for C in pbone.constraints:
                                                         if C.type == 'IK':
-                                                            C.mute = False           
+                                                            C.mute = False                                                                      
                                         else:
-                                            bone.layers[2] = 0  
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_fingers_ctrl_2_R']):
                                                     for C in pbone.constraints:
@@ -478,46 +495,51 @@ def rig_toggles(context):
                                 for bone in arm.bones:         
                                     if (bone.name in b['bones_toes_def_1_R']): 
                                         if prop_toes == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                         else:
-                                            bone.layers[15] = 0
+                                            bone.layers[27] = 0
                                     if (bone.name in b['bones_toes_def_2_R']): 
                                         if prop_toes == 1:
-                                            bone.layers[15] = 1
+                                            bone.layers[27] = 1
                                             bone.layers[31] = 1
                                         else:
-                                            bone.layers[15] = 0
+                                            bone.layers[27] = 0
                                             bone.layers[31] = 0                                          
                                     if (bone.name in b['bones_no_toes_def_R']): 
                                         if prop_toes == 1:
-                                            bone.layers[15] = 0
+                                            bone.layers[27] = 0
                                         else:
-                                            bone.layers[15] = 1      
+                                            bone.layers[27] = 1      
                                     if (bone.name in b['bones_toes_str_R']):   
                                         if prop_toes == 1:
                                             bone.layers[31] = 1
                                         else:
-                                            bone.layers[31] = 0                                                                                        
-                                    if (bone.name in b['bones_toes_ctrl_1_R']): 
-                                        if prop_toes == 1:
-                                            bone.layers[0] = 1
-                                        else:
-                                            bone.layers[0] = 0     
-                                    if (bone.name in b['bones_no_toes_ctrl_R']): 
-                                        if prop_toes == 1:
-                                            bone.layers[0] = 0
-                                        else:
-                                            bone.layers[0] = 1                                                                                       
+                                            bone.layers[31] = 0     
+                                    for b_prop in bpy.context.active_object.data.items():
+                                        if b_prop[0] == 'custom_layers' and b_prop[1] == 0:                                                                                                                                
+                                            if (bone.name in b['bones_toes_ctrl_1_R']): 
+                                                if prop_toes == 1:
+                                                    bone.layers[0] = 1
+                                                else:
+                                                    bone.layers[0] = 0     
+                                            if (bone.name in b['bones_no_toes_ctrl_R']): 
+                                                if prop_toes == 1:
+                                                    bone.layers[0] = 0
+                                                else:
+                                                    bone.layers[0] = 1                                                                                       
+                                            if (bone.name in b['bones_toes_ctrl_2_R']): 
+                                                if prop_toes == 1:
+                                                    bone.layers[2] = 1
+                                                else:
+                                                    bone.layers[2] = 0                                                    
                                     if (bone.name in b['bones_toes_ctrl_2_R']): 
-                                        if prop_toes == 1:
-                                            bone.layers[2] = 1                                            
+                                        if prop_toes == 1:                                           
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_toes_ctrl_2_R']):
                                                     for C in pbone.constraints:
                                                         if C.type == 'IK':
-                                                            C.mute = False           
+                                                            C.mute = False                                                                    
                                         else:
-                                            bone.layers[2] = 0  
                                             for pbone in p_bones:
                                                 if (pbone.name in b['bones_toes_ctrl_2_R']):
                                                     for C in pbone.constraints:
@@ -762,4 +784,4 @@ def toggle_body_drivers(context):
                                     if prop == 1:
                                         C.mute = False
                                     else:
-                                        C.mute = True      
+                                        C.mute = True  

@@ -38,12 +38,6 @@ class toolsName(Panel):
   bl_region_type = 'TOOLS'
   bl_category = 'Name'
 
-  # # poll
-  # @classmethod
-  # def poll(self, cls):
-  #   try: return True if addon.preferences['location'] == 0 else False
-  #   except: return True
-
   # draw
   def draw(self, context):
     '''
@@ -62,12 +56,6 @@ class UIName(Panel):
   bl_space_type = 'VIEW_3D'
   bl_label = 'Name'
   bl_region_type = 'UI'
-
-  # # poll
-  # @classmethod
-  # def poll(self, cls):
-  #   try: return True if addon.preferences['location'] == 1 else False
-  #   except: return False
 
   # draw
   def draw(self, context):
@@ -212,10 +200,7 @@ def filters(self, context, layout, panel):
   row.scale_y = 1.25
 
   # icon toggle
-  if panel.filters:
-    iconToggle = 'RADIOBUT_ON'
-  else:
-    iconToggle = 'RADIOBUT_OFF'
+  iconToggle = 'RADIOBUT_ON' if panel.filters else 'RADIOBUT_OFF'
 
   # filters
   row.prop(panel, 'filters', text='Filters', icon=iconToggle, toggle=True)
@@ -578,10 +563,8 @@ def sort(context, member, object):
       if object.mode in {'POSE', 'EDIT'}:
 
         # constraints
-        try:
-          constraints = [item.name for item in context.active_pose_bone.constraints[:]]
-        except:
-          constraints = []
+        try: constraints = [item.name for item in context.active_pose_bone.constraints[:]]
+        except: constraints = []
 
         # search
         if search == '' or re.search(search, context.active_bone.name, re.I) or [re.search(search, item, re.I) for item in constraints if re.search(search, item, re.I) != None]:
@@ -1121,10 +1104,8 @@ class block:
         if object.mode in {'POSE', 'EDIT'}:
 
           # constraints
-          try:
-            constraints = [item.name for item in context.active_pose_bone.constraints[:]]
-          except:
-            constraints = []
+          try: constraints = [item.name for item in context.active_pose_bone.constraints[:]]
+          except: constraints = []
 
           # display bones
           if panel.displayBones:
@@ -1195,10 +1176,8 @@ class block:
               if bone[1] != context.active_bone:
 
                 # constraints
-                try:
-                  constraints = [item.name for item in object.pose.bones[bone[1].name].constraints[:]]
-                except:
-                  constraints = []
+                try: constraints = [item.name for item in object.pose.bones[bone[1].name].constraints[:]]
+                except: constraints = []
 
                 # search
                 if search == '' or re.search(search, bone[1].name, re.I) or [re.search(search, item, re.I) for item in constraints if re.search(search, item, re.I) != None]:
@@ -1405,40 +1384,11 @@ def Constraint(self, context, layout, datablock, object, bone, panel):
   # scale
   sub.scale_x = 1.6
 
-  try:
-
-    # popups
-    if addon.preferences['popups'] == 1:
-      if object.type in 'ARMATURE' and object.mode in 'POSE':
-
-        # icon
-        op = sub.operator('view3d.name_panel_constraint_settings', text='', icon='CONSTRAINT', emboss=False)
-        op.object = object.name
-        op.bone = bone.name
-        op.target = datablock.name
-
-      else:
-
-        # icon
-        op = sub.operator('view3d.name_panel_constraint_settings', text='', icon='CONSTRAINT', emboss=False)
-        op.object = object.name
-        op.target = datablock.name
-
-    else:
-
-      # icon
-      op = sub.operator('view3d.name_panel_icon', text='', icon='CONSTRAINT', emboss=False)
-      op.owner = object.name if not bone else bone.name
-      op.target = datablock.name
-      op.context = 'CONSTRAINT' if not bone else 'BONE_CONSTRAINT'
-
-  except:
-
-    # icon
-    op = sub.operator('view3d.name_panel_icon', text='', icon='CONSTRAINT', emboss=False)
-    op.owner = object.name if not bone else bone.name
-    op.target = datablock.name
-    op.context = 'CONSTRAINT' if not bone else 'BONE_CONSTRAINT'
+  # icon
+  op = sub.operator('view3d.name_panel_icon', text='', icon='CONSTRAINT', emboss=False)
+  op.owner = object.name if not bone else bone.name
+  op.target = datablock.name
+  op.context = 'CONSTRAINT' if not bone else 'BONE_CONSTRAINT'
 
   # name
   row.prop(datablock, 'name', text='')
@@ -1459,10 +1409,7 @@ def Constraint(self, context, layout, datablock, object, bone, panel):
       sub.prop(datablock, 'influence', text='')
 
     # icon view
-    if datablock.mute:
-      iconView = 'RESTRICT_VIEW_ON'
-    else:
-      iconView = 'RESTRICT_VIEW_OFF'
+    iconView = 'RESTRICT_VIEW_ON' if datablock.mute else 'RESTRICT_VIEW_OFF'
 
     # mute
     row.prop(datablock, 'mute', text='', icon=iconView)
@@ -1486,32 +1433,11 @@ def Modifier(self, context, layout, datablock, object, panel):
   # scale
   sub.scale_x = 1.6
 
-  # popups
-  try:
-
-    # pop ups
-    if addon.preferences['popups'] == 1:
-
-      # icon
-      op = sub.operator('view3d.name_panel_modifier_settings', text='', icon=icon.modifier(datablock), emboss=False)
-      op.object = object.name
-      op.target = datablock.name
-
-    else:
-
-      # icon
-      op = sub.operator('view3d.name_panel_icon', text='', icon=icon.modifier(datablock), emboss=False)
-      op.owner = object.name
-      op.target = datablock.name
-      op.context = 'MODIFIER'
-
-  except:
-
-    # icon
-    op = sub.operator('view3d.name_panel_icon', text='', icon=icon.modifier(datablock), emboss=False)
-    op.owner = object.name
-    op.target = datablock.name
-    op.context = 'MODIFIER'
+  # icon
+  op = sub.operator('view3d.name_panel_icon', text='', icon=icon.modifier(datablock), emboss=False)
+  op.owner = object.name
+  op.target = datablock.name
+  op.context = 'MODIFIER'
 
   # name
   row.prop(datablock, 'name', text='')
@@ -1521,19 +1447,13 @@ def Modifier(self, context, layout, datablock, object, panel):
     if datablock.type not in {'COLLISION', 'SOFT_BODY'}:
 
       # icon render
-      if datablock.show_render:
-        iconRender = 'RESTRICT_RENDER_OFF'
-      else:
-        iconRender = 'RESTRICT_RENDER_ON'
+      iconRender = 'RESTRICT_RENDER_OFF' if datablock.show_render else 'RESTRICT_RENDER_ON'
 
       # show render
       row.prop(datablock, 'show_render', text='', icon=iconRender)
 
       # icon view
-      if datablock.show_viewport:
-        iconView = 'RESTRICT_VIEW_OFF'
-      else:
-        iconView = 'RESTRICT_VIEW_ON'
+      iconView = 'RESTRICT_VIEW_OFF' if datablock.show_viewport else 'RESTRICT_VIEW_ON'
 
       # show viewport
       row.prop(datablock, 'show_viewport', text='', icon=iconView)
@@ -1611,10 +1531,7 @@ def VertexGroup(self, context, layout, datablock, object, panel):
   if panel.options:
 
     # icon lock
-    if datablock.lock_weight:
-      iconLock = 'LOCKED'
-    else:
-      iconLock = 'UNLOCKED'
+    iconLock = 'LOCKED' if datablock.lock_weight else 'UNLOCKED'
 
     # lock weight
     row.prop(datablock, 'lock_weight', text='', icon=iconLock)
@@ -1687,10 +1604,7 @@ def UV(self, context, layout, datablock, object, panel):
   if panel.options:
 
     # icon active
-    if datablock.active_render:
-      iconActive = 'RESTRICT_RENDER_OFF'
-    else:
-      iconActive = 'RESTRICT_RENDER_ON'
+    iconActive = 'RESTRICT_RENDER_OFF' if datablock.active_render else 'RESTRICT_RENDER_ON'
 
     # active render
     row.prop(datablock, 'active_render', text='', icon=iconActive)
@@ -1723,10 +1637,7 @@ def VertexColor(self, context, layout, datablock, object, panel):
   if panel.options:
 
     # icon active
-    if datablock.active_render:
-      iconActive = 'RESTRICT_RENDER_OFF'
-    else:
-      iconActive = 'RESTRICT_RENDER_ON'
+    iconActive = 'RESTRICT_RENDER_OFF' if datablock.active_render else 'RESTRICT_RENDER_ON'
 
     # active_render
     row.prop(datablock, 'active_render', text='', icon=iconActive)
@@ -1788,10 +1699,7 @@ def Texture(self, context, layout, datablock, object, panel):
     if hasattr(datablock, 'use'):
 
       # icon toggle
-      if datablock.use:
-        iconToggle = 'RADIOBUT_ON'
-      else:
-        iconToggle = 'RADIOBUT_OFF'
+      iconToggle = 'RADIOBUT_ON' if datablock.use else 'RADIOBUT_OFF'
 
       # use
       row.prop(datablock, 'use', text='', icon=iconToggle)
@@ -1825,10 +1733,7 @@ def MaskTexture(self, context, layout, datablock, object, panel):
     if hasattr(datablock, 'use'):
 
       # icon toggle
-      if datablock.use:
-        iconToggle = 'RADIOBUT_ON'
-      else:
-        iconToggle = 'RADIOBUT_OFF'
+      iconToggle = 'RADIOBUT_ON' if datablock.use else 'RADIOBUT_OFF'
 
       # use
       row.prop(datablock, 'use', text='', icon=iconToggle)
@@ -1958,19 +1863,13 @@ def Bone(self, context, layout, datablock, object, panel):
     if panel.options:
 
       # icon view
-      if datablock.hide:
-        iconView = 'RESTRICT_VIEW_ON'
-      else:
-        iconView = 'RESTRICT_VIEW_OFF'
+      iconView = 'RESTRICT_VIEW_ON' if datablock.hide else 'RESTRICT_VIEW_OFF'
 
       # hide
       row.prop(datablock, 'hide', text='', icon=iconView)
 
       # icon hide select
-      if datablock.hide_select:
-        iconSelect = 'RESTRICT_SELECT_ON'
-      else:
-        iconSelect = 'RESTRICT_SELECT_OFF'
+      iconSelect = 'RESTRICT_SELECT_ON' if datablock.hide_select else 'RESTRICT_SELECT_OFF'
 
       # hide select
       row.prop(datablock, 'hide_select', text='', icon=iconSelect)
@@ -1994,28 +1893,19 @@ def Bone(self, context, layout, datablock, object, panel):
     if panel.options:
 
       # icon view
-      if datablock.hide:
-        iconView = 'RESTRICT_VIEW_ON'
-      else:
-        iconView = 'RESTRICT_VIEW_OFF'
+      iconView = 'RESTRICT_VIEW_ON' if datablock.hide else 'RESTRICT_VIEW_OFF'
 
       # hide
       row.prop(datablock, 'hide', text='', icon=iconView)
 
       # icon select
-      if datablock.hide_select:
-        iconSelect = 'RESTRICT_SELECT_ON'
-      else:
-        iconSelect = 'RESTRICT_SELECT_OFF'
+      iconSelect = 'RESTRICT_SELECT_ON' if datablock.hide_select else 'RESTRICT_SELECT_OFF'
 
       # hide select
       row.prop(datablock, 'hide_select', text='', icon=iconSelect)
 
       # icon lock
-      if datablock.lock:
-        iconLock = 'LOCKED'
-      else:
-        iconLock = 'UNLOCKED'
+      iconLock = 'LOCKED' if datablock.lock else 'UNLOCKED'
 
       # lock
       row.prop(datablock, 'lock', text='', icon=iconLock)
