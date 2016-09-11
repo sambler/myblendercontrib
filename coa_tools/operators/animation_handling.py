@@ -75,7 +75,7 @@ class AddKeyframe(bpy.types.Operator):
                                         else:
                                             key.interpolation = self.default_interpolation    
                     else:
-                        create_action(context)
+                        create_action(context,obj=sprite)
                         if group != "":
                             sprite.keyframe_insert(data_path,group=group)
                         else:

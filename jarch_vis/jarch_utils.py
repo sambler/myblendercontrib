@@ -69,7 +69,7 @@ def object_rotation(obj):
 def object_dimensions(obj):
     from math import sqrt
     
-    verts = [(i.co).to_tuple() for i in obj.data.vertices]
+    verts = [(obj.matrix_world * i.co).to_tuple() for i in obj.data.vertices]
     sx, bx, sy, by, sz, bz = 0, 0, 0, 0, 0, 0
 
     for val in verts:
@@ -102,3 +102,47 @@ def round_tuple(tup, digits):
     for i in tup:
         temp.append(round(i, digits))
     return tuple(temp)
+
+def vertex_slope_rot(faces, obj):
+    from math import sqrt, asin
+    
+    face = faces[0]
+    
+    verts_indexs = []
+    
+    for i in face.vertices: #get positions
+        verts_indexs.append(i)        
+
+    p1, p2, p3, p4 = 0, 0, 0, 0
+        
+    for i in obj.data.edges:
+        #check and see if verts are in face
+        if i.vertices[0] in verts_indexs and i.vertices[1] in verts_indexs:            
+            p1_temp = obj.matrix_world * obj.data.vertices[i.vertices[0]].co
+            p2_temp = obj.matrix_world * obj.data.vertices[i.vertices[1]].co
+            
+            #check and see if this works for finding z_rot
+            if round(p1_temp[2], 5) == round(p2_temp[2], 5): #have same z value so horizontal edge
+                p1 = p1_temp
+                p2 = p2_temp                
+            else:
+                p3 = p1_temp
+                p4 = p2_temp 
+
+    x_dif = p2[0] - p1[0]
+    y_dif = p2[1] - p1[1]
+
+    long_side = sqrt(x_dif ** 2 + y_dif ** 2)
+        
+    z_rot = asin(y_dif / long_side)
+
+    #slope
+    
+    x_dif2 = p4[0] - p3[0]
+    y_dif2 = p4[1] - p3[1]
+    z_dif2 = p4[2] - p3[2]
+
+    slope = sqrt(x_dif2 ** 2 + y_dif2 ** 2)
+    y_rot = abs(round((12 / slope) * z_dif2, 2))
+    
+    return y_rot, z_rot

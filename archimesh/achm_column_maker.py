@@ -1,34 +1,32 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_column_maker.py
 # Automatic generation of columns
 # Author: Antonio Vazquez (antonioya)
 #
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-import math
-from achm_tools import *
+from math import cos, sin, radians, atan, sqrt
+from .achm_tools import *
 
 
 # ------------------------------------------------------------------
@@ -43,88 +41,197 @@ class AchmColumn(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     # Define properties
-    model = bpy.props.EnumProperty(items=(('1', "Circular", ""),
-                                          ('2', "Rectangular", "")),
-                                   name="Model",
-                                   description="Type of column")
-    keep_size = bpy.props.BoolProperty(name="Keep radius equal",
-                                       description="Keep all radius (top, mid and bottom) to the same size.",
-                                       default=True)
+    model = bpy.props.EnumProperty(
+            name="Model",
+            items=(
+                ('1', "Circular", ""),
+                ('2', "Rectangular", ""),
+                ),
+            description="Type of column",
+            )
+    keep_size = bpy.props.BoolProperty(
+            name="Keep radius equal",
+            description="Keep all radius (top, mid and bottom) to the same size",
+            default=True,
+            )
 
-    rad_top = bpy.props.FloatProperty(name='Top radius', min=0.001, max=10, default=0.15, precision=3,
-                                      description='Radius of the column in the top')
-    rad_mid = bpy.props.FloatProperty(name='Middle radius', min=0.001, max=10, default=0.15, precision=3,
-                                      description='Radius of the column in the middle')
-    shift = bpy.props.FloatProperty(name='', min=-1, max=1, default=0, precision=3, description='Middle displacement')
+    rad_top = bpy.props.FloatProperty(
+            name='Top radius',
+            min=0.001, max=10, default=0.15, precision=3,
+            description='Radius of the column in the top',
+            )
+    rad_mid = bpy.props.FloatProperty(
+            name='Middle radius',
+            min=0.001, max=10, default=0.15, precision=3,
+            description='Radius of the column in the middle',
+            )
+    shift = bpy.props.FloatProperty(
+            name='',
+            min=-1, max=1, default=0, precision=3,
+            description='Middle displacement',
+            )
 
-    rad_bottom = bpy.props.FloatProperty(name='Bottom radius', min=0.001, max=10, default=0.15, precision=3,
-                                         description='Radius of the column in the bottom')
+    rad_bottom = bpy.props.FloatProperty(
+            name='Bottom radius',
+            min=0.001, max=10, default=0.15, precision=3,
+            description='Radius of the column in the bottom',
+            )
 
-    col_height = bpy.props.FloatProperty(name='Total height', min=0.001, max=10, default=2.4, precision=3,
-                                         description='Total height of column, including bases and tops')
-    col_sx = bpy.props.FloatProperty(name='X size', min=0.001, max=10, default=0.30, precision=3,
-                                     description='Column size for x axis')
-    col_sy = bpy.props.FloatProperty(name='Y size', min=0.001, max=10, default=0.30, precision=3,
-                                     description='Column size for y axis')
+    col_height = bpy.props.FloatProperty(
+            name='Total height',
+            min=0.001, max=10, default=2.4, precision=3,
+            description='Total height of column, including bases and tops',
+            )
+    col_sx = bpy.props.FloatProperty(
+            name='X size',
+            min=0.001, max=10, default=0.30, precision=3,
+            description='Column size for x axis',
+            )
+    col_sy = bpy.props.FloatProperty(
+            name='Y size',
+            min=0.001, max=10, default=0.30, precision=3,
+            description='Column size for y axis',
+            )
 
-    cir_base = bpy.props.BoolProperty(name="Include circular base", description="Include a base with circular form.",
-                                      default=False)
-    cir_base_r = bpy.props.FloatProperty(name='Radio', min=0.001, max=10, default=0.08, precision=3,
-                                         description='Rise up radio of base')
-    cir_base_z = bpy.props.FloatProperty(name='Height', min=0.001, max=10, default=0.05, precision=3,
-                                         description='Size for z axis')
+    cir_base = bpy.props.BoolProperty(
+            name="Include circular base",
+            description="Include a base with circular form",
+            default=False,
+            )
+    cir_base_r = bpy.props.FloatProperty(
+            name='Radio',
+            min=0.001, max=10, default=0.08, precision=3,
+            description='Rise up radio of base',
+            )
+    cir_base_z = bpy.props.FloatProperty(
+            name='Height',
+            min=0.001, max=10, default=0.05, precision=3,
+            description='Size for z axis',
+            )
 
-    cir_top = bpy.props.BoolProperty(name="Include circular top", description="Include a top with circular form.",
-                                     default=False)
-    cir_top_r = bpy.props.FloatProperty(name='Radio', min=0.001, max=10, default=0.08, precision=3,
-                                        description='Rise up radio of top')
-    cir_top_z = bpy.props.FloatProperty(name='Height', min=0.001, max=10, default=0.05, precision=3,
-                                        description='Size for z axis')
+    cir_top = bpy.props.BoolProperty(
+            name="Include circular top",
+            description="Include a top with circular form",
+            default=False,
+            )
+    cir_top_r = bpy.props.FloatProperty(
+            name='Radio',
+            min=0.001, max=10, default=0.08, precision=3,
+            description='Rise up radio of top',
+            )
+    cir_top_z = bpy.props.FloatProperty(
+            name='Height',
+            min=0.001, max=10, default=0.05, precision=3,
+            description='Size for z axis',
+            )
 
-    box_base = bpy.props.BoolProperty(name="Include rectangular base",
-                                      description="Include a base with rectangular form.", default=True)
-    box_base_x = bpy.props.FloatProperty(name='X size', min=0.001, max=10, default=0.40, precision=3,
-                                         description='Size for x axis')
-    box_base_y = bpy.props.FloatProperty(name='Y size', min=0.001, max=10, default=0.40, precision=3,
-                                         description='Size for y axis')
-    box_base_z = bpy.props.FloatProperty(name='Height', min=0.001, max=10, default=0.05, precision=3,
-                                         description='Size for z axis')
+    box_base = bpy.props.BoolProperty(
+            name="Include rectangular base",
+            description="Include a base with rectangular form",
+            default=True,
+            )
+    box_base_x = bpy.props.FloatProperty(
+            name='X size',
+            min=0.001, max=10, default=0.40, precision=3,
+            description='Size for x axis',
+            )
+    box_base_y = bpy.props.FloatProperty(
+            name='Y size',
+            min=0.001, max=10, default=0.40, precision=3,
+            description='Size for y axis',
+            )
+    box_base_z = bpy.props.FloatProperty(
+            name='Height',
+            min=0.001, max=10, default=0.05, precision=3,
+            description='Size for z axis',
+            )
 
-    box_top = bpy.props.BoolProperty(name="Include rectangular top", description="Include a top with rectangular form.",
-                                     default=True)
-    box_top_x = bpy.props.FloatProperty(name='X size', min=0.001, max=10, default=0.40, precision=3,
-                                        description='Size for x axis')
-    box_top_y = bpy.props.FloatProperty(name='Y size', min=0.001, max=10, default=0.40, precision=3,
-                                        description='Size for y axis')
-    box_top_z = bpy.props.FloatProperty(name='Height', min=0.001, max=10, default=0.05, precision=3,
-                                        description='Size for z axis')
+    box_top = bpy.props.BoolProperty(
+            name="Include rectangular top",
+            description="Include a top with rectangular form",
+            default=True,
+            )
+    box_top_x = bpy.props.FloatProperty(
+            name='X size',
+            min=0.001, max=10, default=0.40, precision=3,
+            description='Size for x axis',
+            )
+    box_top_y = bpy.props.FloatProperty(
+            name='Y size',
+            min=0.001, max=10, default=0.40, precision=3,
+            description='Size for y axis',
+            )
+    box_top_z = bpy.props.FloatProperty(
+            name='Height',
+            min=0.001, max=10, default=0.05, precision=3,
+            description='Size for z axis',
+            )
 
-    arc_top = bpy.props.BoolProperty(name="Create top arch", description="Include an arch in the top of the column.",
-                                     default=False)
-    arc_radio = bpy.props.FloatProperty(name='Arc Radio', min=0.001, max=10, default=1, precision=1,
-                                        description='Radio of the arch')
-    arc_width = bpy.props.FloatProperty(name='Thickness', min=0.01, max=10, default=0.15, precision=2,
-                                        description='Thickness of the arch wall')
-    arc_gap = bpy.props.FloatProperty(name='Arc gap', min=0.01, max=10, default=0.25, precision=2,
-                                      description='Size of the gap in the arch sides')
+    arc_top = bpy.props.BoolProperty(
+            name="Create top arch",
+            description="Include an arch in the top of the column",
+            default=False,
+            )
+    arc_radio = bpy.props.FloatProperty(
+            name='Arc Radio',
+            min=0.001, max=10, default=1, precision=1,
+            description='Radio of the arch',
+            )
+    arc_width = bpy.props.FloatProperty(
+            name='Thickness',
+            min=0.01, max=10, default=0.15, precision=2,
+            description='Thickness of the arch wall',
+            )
+    arc_gap = bpy.props.FloatProperty(
+            name='Arc gap',
+            min=0.01, max=10, default=0.25, precision=2,
+            description='Size of the gap in the arch sides',
+            )
 
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.", default=True)
-    crt_array = bpy.props.BoolProperty(name="Create array of elements",
-                                       description="Create a modifier array for all elemnst.", default=False)
-    array_num_x = bpy.props.IntProperty(name='Count X', min=0, max=100, default=3,
-                                        description='Number of elements in array')
-    array_space_x = bpy.props.FloatProperty(name='Distance X', min=0.000, max=10, default=1, precision=3,
-                                            description='Distance between elements (only arc disabled)')
-    array_num_y = bpy.props.IntProperty(name='Count Y', min=0, max=100, default=0,
-                                        description='Number of elements in array')
-    array_space_y = bpy.props.FloatProperty(name='Distance Y', min=0.000, max=10, default=1, precision=3,
-                                            description='Distance between elements (only arc disabled)')
-    array_space_z = bpy.props.FloatProperty(name='Distance Z', min=-10, max=10, default=0, precision=3,
-                                            description='Combined X/Z distance between elements (only arc disabled)')
-    ramp = bpy.props.BoolProperty(name="Deform", description="Deform top base with Z displacement.", default=True)
-    array_space_factor = bpy.props.FloatProperty(name='Move Y center', min=0.00, max=1, default=0.0, precision=3,
-                                                 description='Move the center of the arch in Y axis. (0 centered)')
+    crt_mat = bpy.props.BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            )
+    crt_array = bpy.props.BoolProperty(
+            name="Create array of elements",
+            description="Create a modifier array for all elemnst",
+            default=False,
+            )
+    array_num_x = bpy.props.IntProperty(
+            name='Count X',
+            min=0, max=100, default=3,
+            description='Number of elements in array',
+            )
+    array_space_x = bpy.props.FloatProperty(
+            name='Distance X',
+            min=0.000, max=10, default=1, precision=3,
+            description='Distance between elements (only arc disabled)',
+            )
+    array_num_y = bpy.props.IntProperty(
+            name='Count Y',
+            min=0, max=100, default=0,
+            description='Number of elements in array',
+            )
+    array_space_y = bpy.props.FloatProperty(
+            name='Distance Y',
+            min=0.000, max=10, default=1, precision=3,
+            description='Distance between elements (only arc disabled)',
+            )
+    array_space_z = bpy.props.FloatProperty(
+            name='Distance Z',
+            min=-10, max=10, default=0, precision=3,
+            description='Combined X/Z distance between elements (only arc disabled)',
+            )
+    ramp = bpy.props.BoolProperty(
+            name="Deform",
+            description="Deform top base with Z displacement", default=True,
+            )
+    array_space_factor = bpy.props.FloatProperty(
+            name='Move Y center',
+            min=0.00, max=1, default=0.0, precision=3,
+            description='Move the center of the arch in Y axis. (0 centered)',
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -215,6 +322,8 @@ class AchmColumn(bpy.types.Operator):
                     row.prop(self, 'ramp')
 
             box = layout.box()
+            if not context.scene.render.engine == 'CYCLES':
+                box.enabled = False
             box.prop(self, 'crt_mat')
         else:
             row = layout.row()
@@ -273,7 +382,7 @@ def create_column_mesh(self):
         mycolumn = create_circular_column(self, "Column", radio_top, radio_mid, radio_bottom, height)
         mycolumn.select = True
         bpy.context.scene.objects.active = mycolumn
-        # Subsurf    
+        # Subsurf
         set_smooth(mycolumn)
         set_modifier_subsurf(mycolumn)
     # ------------------------
@@ -348,7 +457,7 @@ def create_column_mesh(self):
         box_top.location.z = height
 
     # ------------------------
-    # Create arc        
+    # Create arc
     # ------------------------
     if self.arc_top:
         myarc = create_arc("Column_arch", self.arc_radio, self.arc_gap, self.arc_width,
@@ -366,7 +475,7 @@ def create_column_mesh(self):
         else:
             myarc.location.z = height
     # ------------------------
-    # Create Array X       
+    # Create Array X
     # ------------------------
     if self.array_num_x > 0:
         if self.arc_top:
@@ -393,7 +502,7 @@ def create_column_mesh(self):
                 if self.array_num_x > 1:
                     set_modifier_array(myarc, "X", 1, self.array_num_x - 1)  # one arc minus
     # ------------------------
-    # Create Array Y       
+    # Create Array Y
     # ------------------------
     if self.array_num_y > 0:
         if self.arc_top:
@@ -419,9 +528,9 @@ def create_column_mesh(self):
                     set_modifier_array(myarc, "Y", 1, self.array_num_y - 1)  # one less
 
     # ------------------------
-    # Create materials        
+    # Create materials
     # ------------------------
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         # Column material
         mat = create_diffuse_material("Column_material", False, 0.748, 0.734, 0.392, 0.573, 0.581, 0.318)
         set_material(mycolumn, mat)
@@ -461,25 +570,25 @@ def create_circular_column(self, objname, radio_top, radio_mid, radio_bottom, he
 
     # Add bottom circle
     for pie in pies:
-        x = math.cos(math.radians(pie)) * radio_bottom
-        y = math.sin(math.radians(pie)) * radio_bottom
+        x = cos(radians(pie)) * radio_bottom
+        y = sin(radians(pie)) * radio_bottom
         mypoint = [(x, y, 0.0)]
         myvertex.extend(mypoint)
     # Add middle circle
     for pie in pies:
-        x = math.cos(math.radians(pie)) * radio_mid
-        y = math.sin(math.radians(pie)) * radio_mid
+        x = cos(radians(pie)) * radio_mid
+        y = sin(radians(pie)) * radio_mid
         mypoint = [(x, y, (height / 2) + ((height / 2) * self.shift))]
         myvertex.extend(mypoint)
     # Add top circle
     for pie in pies:
-        x = math.cos(math.radians(pie)) * radio_top
-        y = math.sin(math.radians(pie)) * radio_top
+        x = cos(radians(pie)) * radio_top
+        y = sin(radians(pie)) * radio_top
         mypoint = [(x, y, height)]
         myvertex.extend(mypoint)
-    # ------------------------------------- 
+    # -------------------------------------
     # Faces
-    # ------------------------------------- 
+    # -------------------------------------
     t = 1
     for n in range(0, len(pies) * 2):
         t += 1
@@ -515,43 +624,43 @@ def create_torus(objname, radio_inside, radio_outside, height):
     radio_mid = radio_outside + radio_inside - (height / 2)
     # Add internal circles Top
     for pie in pies:
-        x = math.cos(math.radians(pie)) * radio_inside
-        y = math.sin(math.radians(pie)) * radio_inside
+        x = cos(radians(pie)) * radio_inside
+        y = sin(radians(pie)) * radio_inside
         mypoint = [(x, y, height / 2)]
         myvertex.extend(mypoint)
     # Add external circles Top
     for pie in pies:
-        x = math.cos(math.radians(pie)) * radio_mid
-        y = math.sin(math.radians(pie)) * radio_mid
+        x = cos(radians(pie)) * radio_mid
+        y = sin(radians(pie)) * radio_mid
         mypoint = [(x, y, height / 2)]
         myvertex.extend(mypoint)
     # Add Intermediate lines
     for segment in segments:
         for pie in pies:
-            radio_externo = radio_mid + (height * math.cos(math.radians(segment)))
-            x = math.cos(math.radians(pie)) * radio_externo
-            y = math.sin(math.radians(pie)) * radio_externo
-            z = math.sin(math.radians(segment)) * (height / 2)
+            radio_externo = radio_mid + (height * cos(radians(segment)))
+            x = cos(radians(pie)) * radio_externo
+            y = sin(radians(pie)) * radio_externo
+            z = sin(radians(segment)) * (height / 2)
 
             mypoint = [(x, y, z)]
             myvertex.extend(mypoint)
 
     # Add internal circles Bottom
     for pie in pies:
-        x = math.cos(math.radians(pie)) * radio_inside
-        y = math.sin(math.radians(pie)) * radio_inside
+        x = cos(radians(pie)) * radio_inside
+        y = sin(radians(pie)) * radio_inside
         mypoint = [(x, y, height / 2 * -1)]
         myvertex.extend(mypoint)
     # Add external circles bottom
     for pie in pies:
-        x = math.cos(math.radians(pie)) * radio_mid
-        y = math.sin(math.radians(pie)) * radio_mid
+        x = cos(radians(pie)) * radio_mid
+        y = sin(radians(pie)) * radio_mid
         mypoint = [(x, y, height / 2 * -1)]
         myvertex.extend(mypoint)
 
-    # ------------------------------------- 
+    # -------------------------------------
     # Faces
-    # ------------------------------------- 
+    # -------------------------------------
     t = 1
     for n in range(0, len(pies) * len(segments) + (len(pies) * 2)):
         t += 1
@@ -583,12 +692,12 @@ def create_rectangular_base(self, objname, x, y, z, ramp=False):
     height = self.array_space_z * elements
     width = self.array_space_x * elements
     if width > 0:
-        angle = math.atan(height / width)
+        angle = atan(height / width)
     else:
         angle = 0
 
-    radio = math.sqrt((x * x) + (self.array_space_z * self.array_space_z))
-    disp = radio * math.sin(angle)
+    radio = sqrt((x * x) + (self.array_space_z * self.array_space_z))
+    disp = radio * sin(angle)
 
     if ramp is False or self.arc_top:
         addz1 = 0
@@ -642,7 +751,7 @@ def create_arc(objname, radio, gap, thickness, center):
         # Flat cuts
         angle = 13 * (180 / 16)
         for i in range(1, 4):
-            z = math.sin(math.radians(angle)) * radio
+            z = sin(radians(angle)) * radio
             mypoint = [(-radio - gap, pos_y, z)]
             myvertex.extend(mypoint)
             angle += 180 / 16
@@ -653,8 +762,8 @@ def create_arc(objname, radio, gap, thickness, center):
         # --------------------------------
         angle = 180
         for i in range(0, 9):
-            x = math.cos(math.radians(angle)) * radio
-            z = math.sin(math.radians(angle)) * radio
+            x = cos(radians(angle)) * radio
+            z = sin(radians(angle)) * radio
             mypoint = [(x, pos_y, z)]
             myvertex.extend(mypoint)
 
@@ -664,7 +773,7 @@ def create_arc(objname, radio, gap, thickness, center):
         # --------------------------------
         angle = 8 * (180 / 16)
         for i in range(1, 5):
-            x = math.cos(math.radians(angle)) * radio
+            x = cos(radians(angle)) * radio
             mypoint = [(x, pos_y, radio + radio / 10)]
             myvertex.extend(mypoint)
 

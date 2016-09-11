@@ -1,3 +1,18 @@
+bl_info = {
+    "name": "Driver Panels",
+    "author": "batFINGER",
+    "location": "Properties > Speaker > MIDI",
+    "description": "Display Drivers in TOOLS and PROPERTIES ",
+    "warning": "Still in Testing",
+    "wiki_url": "http://wiki.blender.org/index.php/\
+                User:BatFINGER/Addons/Sound_Drivers",
+    "version": (1, 0),
+    "blender": (2, 7, 6),
+    "tracker_url": "",
+    "icon": 'DRIVER',
+    "support": 'TESTING',
+    "category": "Animation",
+    }
 import bpy
 from bpy.utils import register_class, unregister_class
 from bpy.props import BoolProperty
@@ -292,7 +307,7 @@ class DriverCollectionPanel(DriverPanel):
     def poll(cls, context):
         scene = context.scene
         dm = context.driver_manager
-        do = getattr(scene, "driver_objects")
+        do = getattr(scene, "driver_objects", None)
         if do is None or dm is None:
             return False
         #return True
@@ -302,7 +317,8 @@ class DriverCollectionPanel(DriverPanel):
 
     def draw_header(self, context):
         #self.layout.prop(context.scene, "use_gravity", text="")
-        self.layout.label(icon=get_icon(self.collection), text=self.collection.title())
+        collection = getattr(self, "collection", "objects")
+        self.layout.label(icon=get_icon(collection), text=collection.title())
     
     
     def draw(self, context):
@@ -389,7 +405,6 @@ def register():
     
       
     def get_dm(self):
-        
         dns = bpy.app.driver_namespace
         return dns.get("DriverManager")
     

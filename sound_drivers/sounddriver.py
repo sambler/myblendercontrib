@@ -211,11 +211,11 @@ def speaker_channels(self, context):
     channels = []
     if hasattr(context.scene, "speaker"):
         channels = getattr(context.scene.speaker, "channels", [])
-    print(channels)
+    #print(channels)
     return[(ch, ch, "Drive with %s%d" % (ch, 2*i)) for i, ch in enumerate(channels)]
 
 def aget(self):
-    actions = [a.name for a in bpy.data.actions if "channel_name" in a.keys() and a.get("channel_name") == self.channel]
+    actions = [a.name for a in bpy.data.actions if "channel_name" in a.keys() and (a.get("channel_name") == self.channel or self.channel in a.get("channels", []))]
     if len(actions):
         return actions[0]
     else:
@@ -232,7 +232,7 @@ def gui_type_items(self, context):
     return gui_types
 
 def enum_up(self, context):
-    print("XXX", self.gui_types)
+    #print("XXX", self.gui_types)
     if 'ACTION' in self.gui_types:
         if 'SOUNDDRIVER' not in self.gui_types: # is subset
             print("ADDDDD SOUNDDRIVER")
@@ -438,6 +438,7 @@ def mat_driver_fix(scene):
                if hasattr(mat, "animation_data")
                and mat.animation_data is not None
                for fcurve in mat.animation_data.drivers]
+    #print("MDF", fcurves)
     for fcurve in fcurves:
         mat = fcurve.id_data
         attr = fcurve.data_path
@@ -450,8 +451,11 @@ def mat_driver_fix(scene):
         ob = mat.path_resolve(attr)
         if type(ob).__name__ in ["Vector", "Color", "bpy_props_array"]:
             ob[index] = value
+            print(ob, index, value)
         else:
+            print(mat.name, attr, value)
             setattr(mat, attr, value)
+        return None
 
 '''
 Operators
@@ -466,7 +470,7 @@ class DriverManager_DriverOp():
         dns = bpy.app.driver_namespace
         dm = dns.get("DriverManager")
         if dm is None:
-            return {'CANCELLED'}
+            return None
         return dm.find(self.dindex)
 
     driver = property(get_driver)
@@ -539,12 +543,15 @@ class AddDriverVar(DriverManager_DriverOp, Operator):
 
     def execute(self, context):
         d = self.driver
+        if not d:
+            return {'CANCELLED'}
         # check if var is in variables
         name = "var"
         i = 1
-        while name in d.fcurve.driver.variables.keys():
-            name = "var%d" % i
-            i += 1
+        if d:
+            while name in d.fcurve.driver.variables.keys():
+                name = "var%d" % i
+                i += 1
         v = d.fcurve.driver.variables.new()
         v.name = name
         gui = d.driver_gui(context.scene)
@@ -567,6 +574,12 @@ class EditTextFieldOperator(DriverManager_DriverOp, Operator):
         row.label("Driver Scripted Expression", icon='DRIVER')
         row = layout.row()
         row.prop(driver, "expression", text="")
+        for var in driver.variables:
+            row = layout.row()
+            row.label(var.name)
+
+    def check(self, context):
+        return True
 
     def invoke(self, context, event):
         wm = context.window_manager

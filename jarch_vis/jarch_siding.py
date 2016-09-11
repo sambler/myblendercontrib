@@ -5,7 +5,7 @@ from random import uniform, choice, random
 from mathutils import Euler, Vector
 from . jarch_materials import *
 import bmesh
-from . jarch_utils import object_rotation, object_dimensions
+from . jarch_utils import object_rotation, object_dimensions, point_rotation
 
 #manages sorting out which type of siding needs to be create, gets corner data for cutout objects
 def create_siding(context, mat, if_tin, if_wood, if_vinyl, is_slope, ow, oh, bw, slope, is_width_vary, width_vary, 
@@ -69,7 +69,7 @@ def create_siding(context, mat, if_tin, if_wood, if_vinyl, is_slope, ow, oh, bw,
     #Wood
     if mat == "1" and if_wood == "1": #Wood > Vertical
         data_back = wood_vertical(oh, ow, is_slope, slope, is_width_vary, width_vary, bw, verts, faces, bs, is_length_vary, length_vary, max_boards)
-        verts = data_back[0]; faces = data_back[1]                  
+        verts = data_back[0]; faces = data_back[1]              
     elif mat == "1" and if_wood == "2": #Wood > Vertical: Tongue & Groove
         data_back = wood_ton_gro(oh, ow, is_slope, slope, bw, verts, faces, is_length_vary, length_vary, max_boards)
         verts = data_back[0]; faces = data_back[1]
@@ -229,7 +229,7 @@ def wood_vertical(oh, ow, is_slope, slope, is_width_vary, width_vary, bw, verts,
                         bz = last_z
                         verts.append((cur_x, 0.0, bz)); verts.append((cur_x, -0.02539, bz)); cur_x += bw2; bz += z_dif #Top > Left
                         batten_pos.append([cur_x, bz])
-                        verts.append((cur_x, -0.02539, bz)); verts.append((cur_x, 0.0, bz)); cur_x -= bw2 #Top > Right    
+                        verts.append((cur_x, -0.02539, bz)); verts.append((cur_x, 0.0, bz)); cur_x -= bw2 #Top > Right  
                         bz += (slope * bs) / 12 #height gained over gap
                         if bz > oh:
                             bz = oh - ((slope * ((cur_x  + bw2 + bs) - (ow / 2))) / 12)
@@ -362,7 +362,7 @@ def wood_ton_gro(oh, ow, is_slope, slope, bw, verts, faces, is_length_vary, leng
                         verts.append((cur_x, -oi, cur_z)); verts.append((cur_x + hi, -oi, cur_z)); cur_x += bw
                         verts.append((cur_x, -oi, cur_z)); verts.append((cur_x, -hi, cur_z)); verts.append((cur_x + hi, -hi, cur_z))
                         cur_x -= bw; cur_z += 0.003175
-                    face_normal = True    
+                    face_normal = True  
                 #slope down
                 elif cur_x > ow / 2:
                     if cur_x + bw > ow:
@@ -403,7 +403,7 @@ def wood_ton_gro(oh, ow, is_slope, slope, bw, verts, faces, is_length_vary, leng
                             cur_x -= bw; cur_z += bl; verts.append((cur_x + hi, -fei, cur_z)); verts.append((cur_x, -fei, cur_z))
                             verts.append((cur_x, -oi, cur_z)); verts.append((cur_x + hi, -oi, cur_z)); cur_x += bw
                             verts.append((cur_x, -oi, cur_z)); verts.append((cur_x, -hi, cur_z)); verts.append((cur_x + hi, -hi, cur_z))
-                            cur_z += 0.003175; face_normal = True; cur_x -= bw        
+                            cur_z += 0.003175; face_normal = True; cur_x -= bw    
                     elif cur_x + hi > c: #center is in first half inch
                         if cur_z < last_z - 0.25 and is_length_vary == True and counter != max_boards:
                             verts.append((cur_x + hi, -fei, cur_z)); verts.append((cur_x, -fei, cur_z))
@@ -417,12 +417,12 @@ def wood_ton_gro(oh, ow, is_slope, slope, bw, verts, faces, is_length_vary, leng
                             verts.append((cur_x, -oi, cur_z)); verts.append((cur_x, -hi, cur_z)); verts.append((cur_x + hi, -hi, cur_z))
                             cur_x -= bw; cur_z = last_z
                             verts.append((c, -fei, oh)); verts.append((cur_x, -fei, cur_z))
-                            verts.append((cur_x, -oi, cur_z)); verts.append((c, -oi, oh)); b_l = (cur_x + hi) - c                 
+                            verts.append((cur_x, -oi, cur_z)); verts.append((c, -oi, oh)); b_l = (cur_x + hi) - c               
                             cur_z = oh - ((slope * b_l) / 12); verts.append((cur_x + hi, -oi, cur_z)); verts.append((cur_x + hi, -hi, cur_z))
                             #figure right edge top height
                             cur_z = oh - ((slope * (bw - hi)) / 12); cur_x += bw; verts.append((cur_x, -oi, cur_z))
                             verts.append((cur_x, -hi, cur_z)); verts.append((cur_x + hi, -hi, cur_z - h_dif))
-                            cur_z -= (slope * 0.006350) / 12; cur_x -= bw; last_z = cur_z; face_normal = "not_middle"                                     
+                            cur_z -= (slope * 0.006350) / 12; cur_x -= bw; last_z = cur_z; face_normal = "not_middle"                                   
             counter += 1
             #faces
             if is_slope == False or face_normal == True:
@@ -501,8 +501,8 @@ def wood_lap(oh, ow, is_slope, slope, bw, verts, faces, is_length_vary, length_v
                         l = (last_x - x_dif) - (cur_x + x_dif)
                         v = l * (length_vary * 0.49)
                         bl = uniform((l / 2) - v, (l / 2) + v); bl += x_dif 
-                    if is_length_vary == True:                                           
-                        if cur_x == start_x: #left side board              
+                    if is_length_vary == True:                                       
+                        if cur_x == start_x: #left side board            
                             verts.append((cur_x, -y_dif, cur_z)); verts.append((cur_x, -y_dif - th, cur_z)) #Bottom > Left
                             verts.append((cur_x + bl, -y_dif - th, cur_z)); verts.append((cur_x + bl, -y_dif, cur_z)) #Bottom > Right
                             cur_z += b_z; cur_x += x_dif; bl -= x_dif; start_x = cur_x; 
@@ -589,7 +589,7 @@ def wood_lap(oh, ow, is_slope, slope, bw, verts, faces, is_length_vary, length_v
             #faces
             if is_slope == False or face_normal == True:
                 a = ((p, p + 1, p + 5, p + 4), (p + 1, p + 2, p + 6, p + 5), (p + 2, p + 3, p + 7, p + 6),
-                        (p, p + 3, p + 2, p + 1), (p + 4, p + 5, p + 6, p + 7), (p, p + 4, p + 7, p + 3))             
+                        (p, p + 3, p + 2, p + 1), (p + 4, p + 5, p + 6, p + 7), (p, p + 4, p + 7, p + 3))           
                 for i in a:
                     faces.append(i)
             elif face_normal == "split board":
@@ -666,7 +666,7 @@ def wood_lap_bevel(oh, ow, is_slope, slope, bw, is_length_vary, length_vary, fac
                     cur_x = last_x
                     if cur_z < oh:
                         cur_z -= oi
-                else:          
+                else:        
                     if cur_x < ow:
                         cur_z -= bw; cur_x += 0.003175
                     elif cur_x >= ow and cur_z < oh:
@@ -674,7 +674,7 @@ def wood_lap_bevel(oh, ow, is_slope, slope, bw, is_length_vary, length_vary, fac
                 for i in v:
                     verts.append(i) 
             elif cur_z < square and cur_z + bw > square: #middle board  
-                if is_length_vary == False: #single board          
+                if is_length_vary == False: #single board        
                     v = ((cur_x, -ohi, cur_z), (cur_x, -oi, cur_z), (last_x, -oi, cur_z), (last_x, -ohi, cur_z)) #Bottom Row
                     cur_z += tb
                     if cur_z > square:
@@ -798,7 +798,7 @@ def wood_lap_bevel(oh, ow, is_slope, slope, bw, is_length_vary, length_vary, fac
                             cur_z -= bw; cur_x += bl + 0.003175; face_normal = True
                             for i in v:
                                 verts.append(i)
-                        elif cur_x + bl > last_x - x_dif or counter == max_boards or max_boards == 2: #right board     
+                        elif cur_x + bl > last_x - x_dif or counter == max_boards or max_boards == 2: #right board   
                             v = ((cur_x, -ohi, cur_z), (cur_x, -oi, cur_z), (last_x, -oi, cur_z), (last_x, -ohi, cur_z)) #Bottom Row
                             cur_z += tb; last_x -= tb_dif; v += ((cur_x, 0.0, cur_z), (cur_x, -oi, cur_z), (last_x, -oi, cur_z), (last_x, 0.0, cur_z)) #Second Row
                             cur_z += bw - (2 * tb); last_x -= m_dif; v += ((cur_x, 0.0, cur_z), (cur_x, -oi, cur_z), (last_x, -oi, cur_z), (last_x, 0.0, cur_z)) #Third Row
@@ -809,7 +809,7 @@ def wood_lap_bevel(oh, ow, is_slope, slope, bw, is_length_vary, length_vary, fac
             elif cur_z + bw > oh: #top triangle board
                 v = ((cur_x, -ohi, cur_z), (cur_x, -oi, cur_z), (last_x, -oi, cur_z), (last_x, -ohi, cur_z)) #Bottom Row
                 cur_z += tb
-                if cur_z > oh: #If currently higher than overall height make triangle          
+                if cur_z > oh: #If currently higher than overall height make triangle        
                     cur_z -= tb; s = (12 * (oh - cur_z)) / slope; cur_z = oh; cur_x += s; last_x -= s
                     v += ((ow / 2, 0.0, cur_z), (ow / 2, -oi, cur_z)); cur_x = last_x; face_normal = "tri_lev_one" #Top Row
                 else: #not yet
@@ -820,8 +820,8 @@ def wood_lap_bevel(oh, ow, is_slope, slope, bw, is_length_vary, length_vary, fac
                         v += ((ow / 2, 0.0, cur_z), (ow / 2, -oi, cur_z)); cur_x = last_x; face_normal = "tri_lev_two" #Top Row
                     else: #not yet
                         cur_x += m_dif; last_x -= m_dif; v += ((cur_x, 0.0, cur_z), (cur_x, -oi, cur_z), (last_x, -oi, cur_z), (last_x, 0.0, cur_z)) #Third Row
-                        cur_z = oh; v += ((ow / 2, 0.0, cur_z), (ow / 2, -hi, cur_z)); face_normal = "tri_lev_three"; cur_x = ow #Top Row              
-                cur_x = last_x; cur_z = oh                       
+                        cur_z = oh; v += ((ow / 2, 0.0, cur_z), (ow / 2, -hi, cur_z)); face_normal = "tri_lev_three"; cur_x = ow #Top Row            
+                cur_x = last_x; cur_z = oh                   
                 for i in v:
                     verts.append(i)   
             counter += 1                 
@@ -856,7 +856,7 @@ def wood_lap_bevel(oh, ow, is_slope, slope, bw, is_length_vary, length_vary, fac
                             (p + 4, p + 5, p + 9, p + 8), (p + 5, p + 6, p + 10, p + 9), (p + 6, p + 7, p + 11, p + 10), (p + 4, p + 8, p + 11, p + 7)); p += 8
                 f += ((p, p + 1, p + 5, p + 4), (p + 1, p + 2, p + 5), (p + 2, p + 3, p + 4, p + 5), (p, p + 4, p + 3))
                 for i in f:
-                   faces.append(i)
+                    faces.append(i)
     return (verts, faces)
 
 def vinyl_vertical(oh, ow, is_slope, slope, is_length_vary, length_vary, bw, baw, faces, verts, max_boards):
@@ -980,7 +980,7 @@ def vinyl_vertical(oh, ow, is_slope, slope, is_length_vary, length_vary, bw, baw
                         elif cur_x + lsx >= ow:
                             del v[6:10]; del v[12: len(v)]; v.insert(6, (ow, 0.0, bottom)); v.insert(len(v), (ow, 0.0, top)); face_normal = "lev_three"
                         elif cur_x + bw > ow:
-                            del v[8:10]; del v[16: len(v)]; v.insert(8, (ow, -hi, bottom)); v.insert(len(v), (ow, -hi, top)); face_normal = "lev_four"                        
+                            del v[8:10]; del v[16: len(v)]; v.insert(8, (ow, -hi, bottom)); v.insert(len(v), (ow, -hi, top)); face_normal = "lev_four"                    
                     else: face_normal = True
                     if l_b == "slope": cur_x += bw - ei; last_z -= z_dif - eiz; cur_z = last_z
                     elif l_b == "flat": cur_z += ei
@@ -1055,7 +1055,7 @@ def vinyl_lap(oh, ow, is_slope, slope, is_length_vary, length_vary, bw, faces, v
                         v = ((cur_x, 0.0, cur_z), (cur_x, -tqi, cur_z), (cur_x, -y, square), (cur_x + s, 0.0, cur_z + bw)); start_x = cur_x + s; cur_x += bl - s
                         v += ((cur_x, 0.0, cur_z), (cur_x, -tqi, cur_z), (cur_x, -y, square), (cur_x, 0.0, cur_z + bw)); cur_x += 0.003175
                         for i in v: verts.append(i) 
-                    elif cur_x + bl < last_x - x_dif and max_boards != 2: #middle              
+                    elif cur_x + bl < last_x - x_dif and max_boards != 2: #middle            
                         v = ((cur_x, 0.0, cur_z), (cur_x, -tqi, cur_z) (cur_x, 0.0, cur_z + bw)); cur_x += bl - 0.003175
                         v += ((cur_x, 0.0, cur_z), (cur_x, -tqi, cur_z), (cur_x, 0.0, cur_z + bw)); cur_x += 0.003175; face_normal = True
                         for i in v: verts.append(i) 
@@ -1079,7 +1079,7 @@ def vinyl_lap(oh, ow, is_slope, slope, is_length_vary, length_vary, bw, faces, v
                 else:
                     v = ((cur_x, 0.0, cur_z), (cur_x, -tqi, cur_z), (cur_x + x_dif, 0.0, cur_z + bw), (last_x, 0.0, cur_z), (last_x, -tqi, cur_z), (last_x - x_dif, 0.0, cur_z + bw))
                     for i in v: verts.append(i)
-                    start_x = cur_x + x_dif; last_x -= x_dif; cur_x = last_x; face_normal = True; cur_z += bw                              
+                    start_x = cur_x + x_dif; last_x -= x_dif; cur_x = last_x; face_normal = True; cur_z += bw                            
             elif cur_z + bw >= oh and is_slope == True: #triangle
                 v = ((cur_x, 0.0, cur_z), (cur_x, -tqi, cur_z), (last_x, 0.0, cur_z), (last_x, -tqi, cur_z), (ow / 2, 0.0, oh))
                 for i in v: verts.append(i)
@@ -1120,7 +1120,7 @@ def vinyl_dutch_lap(oh, ow, is_slope, slope, is_length_vary, length_vary, bw, fa
                     v += ((cur_x, -hi, cur_z), (cur_x + bl, -hi, cur_z)); cur_z += bt
                     if cur_z > oh: y = (cur_z - oh) * y_step; cur_z = oh; v += ((cur_x, -y, cur_z), (cur_x + bl, -y, cur_z))
                     else: v += ((cur_x, 0.0, cur_z), (cur_x + bl, 0.0, cur_z))
-                    face_normal = True                
+                    face_normal = True            
                 for i in v: verts.append(i)
                 cur_x += bl + 0.003175
                 if cur_x < ow: cur_z -= bw
@@ -1189,7 +1189,7 @@ def vinyl_dutch_lap(oh, ow, is_slope, slope, is_length_vary, length_vary, bw, fa
                      v += ((cur_x + bb_dif, -hi, cur_z), (last_x - bb_dif, -hi, cur_z)); cur_z += bt; y = (cur_z - oh) * y_step
                      v.append((ow / 2, -y, oh)); face_normal = "tri_lev_two"
                 cur_x = last_x; cur_z = oh
-                for i in v: verts.append(i)                 
+                for i in v: verts.append(i)           
             counter += 1           
             #faces
             if face_normal == True:
@@ -1218,7 +1218,7 @@ def tin_normal(oh, ow, is_slope, slope, faces, verts):
         p = len(verts); face_normal = False
         #verts  
         if is_slope == False: #flat
-            v2 = []; a_e = False #verts holder 2, at_edge for putting in last set of verts    
+            v2 = []; a_e = False #verts holder 2, at_edge for putting in last set of verts  
             for i in range(4):
                 if i == 0: y = -osi
                 else: y = 0.0
@@ -1302,9 +1302,9 @@ def tin_normal(oh, ow, is_slope, slope, faces, verts):
                         b_o = i; f_o = v2[counter + 1]; dif_x = f_o[0] - b_o[0]; dif_y = f_o[1] - b_o[1]; r_r = dif_y / dif_x; b = b_o[1] - (r_r * b_o[0])
                         y2 = ((ow / 2)* r_r) + b; vts.append((ow / 2, y2, 0.0)); vts.append((ow / 2, y2, oh))
                     counter += 1  
-                f_t = int((len(vts) / 2) - 1)          
+                f_t = int((len(vts) / 2) - 1)        
             else: vts = v2; f_t = 71              
-            for set in vts: verts.append(set)              
+            for set in vts: verts.append(set)            
         #faces
         if face_normal == True:
             for i in range(f_t):
@@ -1398,7 +1398,7 @@ def tin_angular(oh, ow, is_slope, slope, faces, verts):
                     counter += 1  
                 f_t = int((len(vts) / 2) - 1) 
             else: vts = v2; f_t = 38                    
-            for i in vts: verts.append(i)        
+            for i in vts: verts.append(i)      
         #faces
         if face_normal == True:
             for i in range(f_t):
@@ -1406,40 +1406,67 @@ def tin_angular(oh, ow, is_slope, slope, faces, verts):
     return (verts, faces)
 
 def tin_screws(oh, ow, is_slope, slope): #screw heads
-    cur_x = 0.05715; verts = []; faces = []
-    if is_slope == True:
-        square = oh - ((slope * (ow / 2)) / 12) #z height where slope starts
-        if square <= 0: #recalculate slope if it would put the edges below zero
-            slope = ((24 * oh) / ow) - 0.01 
-    z1 = 0.00604; z2 = 0.00302; z3 = 0.00426; z4 = 0.00221; x1 = 0.00523; x2 = 0.00383; y1 = 0.00128    
-    while cur_x < ow:
-        cur_z = 0.0381
-        if is_slope == True:
-            if cur_x < ow / 2:  
-                height = oh - ((((ow / 2) - cur_x) * slope) / 12)
-            else:
-                height = oh + ((((ow / 2) - cur_x) * slope) / 12) 
-        else:
-            height = oh 
-        while cur_z < height:
-            y = 0.0; v = []; p = len(verts)
-            for i in range(2):
-                v += ((cur_x, y, cur_z - z1), (cur_x + x1, y, cur_z - z2), (cur_x + x1, y, cur_z + z2), (cur_x, y, cur_z + z1), (cur_x - x1, y, cur_z + z2),
-                        (cur_x - x1, y, cur_z - z2))
-                y -= y1
-            y += y1
-            for i in range(2):
-                v += ((cur_x, y, cur_z - z3), (cur_x + x2, y, cur_z - z4), (cur_x + x2, y, cur_z + z4), (cur_x, y, cur_z + z3), (cur_x - x2, y, cur_z + z4),
-                        (cur_x - x2, y, cur_z - z4))
-                y -= 0.0031216
-            for i in v: verts.append(i)
-            cur_z += 0.6095; f = []
-            for i in range(3):
-                f += ((p, p + 1, p + 7, p + 6), (p + 1, p + 2, p + 8, p + 7), (p + 2, p + 3, p + 9, p + 8), (p + 3, p + 4, p + 10, p + 9), (p + 4, p + 5, p + 11, p + 10),
-                        (p + 5, p, p + 6, p + 11)); p += 6
-            for face in f: faces.append(face)
-            p -= 18; faces.append((p + 18, p + 19, p + 20, p + 21)); faces.append((p + 18, p + 21, p + 22, p + 23))
-        cur_x += 0.22859
+    verts, faces = [], []
+    #for each row determine row start, row end
+    #determine correct number of rows
+    MI = 39.3701 #metric_inch    
+    rows = int((oh - 4 / MI) / (16 / MI))
+    
+    row_offset = (oh - 4 / MI) / rows
+    column_offset = 9 / MI
+    dia_w = 0.25 / MI
+    dia_s = 0.15 / MI
+    
+    x_off = 0.05715
+    cur_z = 2 / MI
+    
+    print(ow)
+    
+    while cur_z < oh:
+        cur_x = x_off
+        
+        while cur_x < ow:
+            #confirm if screw head exists
+            exists = True
+            
+            if is_slope:
+                #calculate height at current x value
+                cur_h = oh                
+                if cur_x < (ow / 2):
+                    if cur_z > ((slope / 12) * (cur_x - (ow / 2))) + oh:
+                        exists = False
+                else:
+                    if cur_z > ((-slope / 12) * (cur_x - (ow / 2))) + oh:
+                        exists = False   
+            
+            if exists:
+                p = len(verts)                            
+                #place screw
+                #step by a sixteenth of an inch each time
+                for i in range(2):
+                    for j in range(-30, 330, 60): #angle
+                        x, z = point_rotation((cur_x + dia_w, cur_z), (cur_x, cur_z), radians(j))
+                        verts += [(x, i * -((1 / 16) / MI), z)]   
+                for i in range(2):
+                    for j in range(-30, 330, 60): #angle
+                        x, z = point_rotation((cur_x + dia_s, cur_z), (cur_x, cur_z), radians(j))
+                        verts += [(x, -((1 / 16) / MI) + (i * -(0.2 / MI)), z)]  
+                        
+                #faces
+                for i in range(3):
+                    tp = p
+                    for j in range(5):
+                        faces += [(tp, tp + 1, tp + 7, tp + 6)]
+                        tp += 1
+                    faces += [(tp, tp - 5, tp + 1, tp + 6)]
+                    p += 6  
+                #top two faces
+                faces += [(p, p + 1, p + 2, p + 5), (p + 5, p + 2, p + 3, p + 4)]
+            
+            cur_x += column_offset
+            
+        cur_z += row_offset            
+    
     return (verts, faces)
 
 def bricks(oh, ow, is_slope, slope, b_w, b_h, b_offset, gap, ran_offset, b_vary, faces, verts, is_corner, is_invert, is_left, is_right): #bricks
@@ -1550,6 +1577,7 @@ def bricks_mortar(oh, ow, m_d, is_slope, slope, is_corner, is_left, is_right, co
 
 def bricks_soldier(corner_data, b_h, gap, b_w, oh): #creates top row of bricks
     verts = []; faces = []
+    d = 3.75 / 39.3701
     #corner data: x, z, far x, far z    
     for i in corner_data:
         cur_x = i[0] + gap; cur_z = i[3]; bw2 = b_w
@@ -1557,13 +1585,17 @@ def bricks_soldier(corner_data, b_h, gap, b_w, oh): #creates top row of bricks
         if cur_z < oh:  
             while cur_x < i[2]:
                 bh2 = b_h; p = len(verts)
+               
                 if cur_x + b_h + gap > i[2]: bh2 = i[2] - cur_x - gap 
+                
                 v = ((cur_x, 0.0, cur_z), (cur_x, -d, cur_z), (cur_x + bh2, -d, cur_z), (cur_x + bh2, 0.0, cur_z)); cur_z += bw2
                 v += ((cur_x, 0.0, cur_z), (cur_x, -d, cur_z), (cur_x + bh2, -d, cur_z), (cur_x + bh2, 0.0, cur_z)); cur_z -= bw2
                 cur_x += gap + bh2
+                
                 for i2 in v: verts.append(i2)
                 f = ((p, p + 3, p + 2, p + 1), (p, p + 1, p + 5, p + 4), (p + 1, p + 2, p + 6, p + 5), (p + 2, p + 3, p + 7, p + 6), (p, p + 4, p + 7, p + 3), (p + 4, p + 5, p + 6, p + 7))
                 for i2 in f: faces.append(i2)
+    
     return (verts, faces)
 
 def stone_sizes(num, columns, grid, total):
@@ -1577,7 +1609,7 @@ def stone_sizes(num, columns, grid, total):
             row = grid[rows * columns: (rows * columns) + columns]; pos = n + (rows * columns)  
             l = [pos - 3, pos - 2, pos - 1, pos, pos + 1, pos + 2, pos + 3]
             for i2 in l:
-                if i2 in row:             
+                if i2 in row:           
                     o.append(row[row.index(i2)])
                 else:
                     o.append(False)   
@@ -1781,12 +1813,14 @@ def stone_pos(num, columns, hh, hw, g):
 
 def UpdateSiding(self, context):    
     o = context.object; mats = []
-    print(o.location)
+    
     for i in o.data.materials:
         mats.append(i.name) 
     pre_scale = tuple(o.scale.copy())
-    if tuple(o.scale.copy()) != (1.0, 1.0, 1.0) and o.from_dims != "none": #apply scale     
+    
+    if tuple(o.scale.copy()) != (1.0, 1.0, 1.0) and o.from_dims != "none": #apply scale  
         bpy.ops.object.transform_apply(scale = True)              
+    
     #update from_dims
     if o.dims == "none":
         dim = object_dimensions(o)
@@ -1794,6 +1828,7 @@ def UpdateSiding(self, context):
     else:
         dim_temp = o.dims.split(",")
         dim = [float(dim_temp[0]), float(dim_temp[1])]
+    
     #caclculate dimensions based on vertex locations
     #create object
     if o.object_add == "add":
@@ -1802,12 +1837,12 @@ def UpdateSiding(self, context):
                 o.nc1, o.nc2, o.nc3, o.nc4, o.nc5, o.batten_width, o.board_space, o.is_length_vary, o.length_vary,
                 o.max_boards, o.b_width, o.b_height, o.b_offset, o.b_gap, o.m_depth, o.b_ran_offset, o.b_vary, o.is_corner, o.is_invert, 
                 o.is_soldier, o.is_left, o.is_right, o.av_width, o.av_height, o.s_random, o.b_random, o.x_offset)   
-    elif o.object_add == "convert":       
+    elif o.object_add == "convert": 
         #figure out whether the x axis or the y axis is the long side
         if o.from_dims == "none": 
             ow = dim[0]; oh = dim[1]
         else: ow = dim[0]; oh = dim[1]
-        o.from_dims = "something"       
+        o.from_dims = "something"     
         verts, faces, corner_data, corner_data_l, v, f = create_siding(context, o.mat, o.if_tin, o.if_wood, o.if_vinyl, o.is_slope, ow,
                 oh, o.board_width, o.slope, o.is_width_vary, o.width_vary, o.is_cutout, o.num_cutouts,
                 o.nc1, o.nc2, o.nc3, o.nc4, o.nc5, o.batten_width, o.board_space, o.is_length_vary, o.length_vary,
@@ -1924,7 +1959,7 @@ def UpdateSiding(self, context):
     if o.mat in ("5", "6"):
         if o.mat == "5": depth = round(o.m_depth, 5); bricks = True
         else: depth = round(o.s_mortar, 5); bricks = False
-        if o.object_add == "convert":          
+        if o.object_add == "convert":        
             verts3, faces3 = bricks_mortar(dim[0], dim[1], depth, o.is_slope, o.slope, o.is_corner, o.is_left, o.is_right, o.object_add, o.b_width, o.b_gap, bricks, o.x_offset)
         else:
             verts3, faces3 = bricks_mortar(o.over_height, o.over_width, depth, o.is_slope, o.slope, o.is_corner, o.is_left, o.is_right, o.object_add, o.b_width, o.b_gap, bricks, o.x_offset)
@@ -1948,7 +1983,7 @@ def UpdateSiding(self, context):
         if o.object_add == "convert":   
             verts2, faces2 = tin_screws(dim[1], dim[0], o.is_slope, o.slope)
         else:
-            verts2, faces2 = tin_screws(dim[1], dim[0], o.is_slope, o.slope)
+            verts2, faces2 = tin_screws(o.over_height, o.over_width, o.is_slope, o.slope)
         screws = bpy.data.meshes.new(name = "screws")
         screws.from_pydata(verts2, [], faces2)
         screwOb = bpy.data.objects.new("screws", screws)
@@ -1979,9 +2014,9 @@ def UpdateSiding(self, context):
             if o.mat == "5" and o.is_soldier == True:
                 bpy.context.object.modifiers[pos].object = bool_ob_l
             else:
-                bpy.context.object.modifiers[pos].object = bool_ob    
+                bpy.context.object.modifiers[pos].object = bool_ob  
             bpy.context.object.modifiers[pos].operation = "DIFFERENCE"
-            bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = o.modifiers[pos].name)     
+            bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = o.modifiers[pos].name)   
             for ob in context.scene.objects:
                 ob.select = False 
             #battens
@@ -1994,7 +2029,7 @@ def UpdateSiding(self, context):
             if o.mat in ("5", "6"):
                 mortar.select = True; bpy.context.scene.objects.active = mortar  
                 bpy.ops.object.modifier_add(type = "BOOLEAN"); pos = len(mortar.modifiers) - 1 
-                bpy.context.object.modifiers[pos].object = bool_ob    
+                bpy.context.object.modifiers[pos].object = bool_ob  
                 bpy.context.object.modifiers[pos].operation = "DIFFERENCE"
                 bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = mortar.modifiers[pos].name); mortar.select = False
             if "bool2" in bpy.data.objects: bool_ob_l.select = True
@@ -2010,7 +2045,7 @@ def UpdateSiding(self, context):
         if o.is_cut == "none":   
             cutter.select = True; bpy.context.scene.objects.active = cutter 
             bpy.ops.object.origin_set(type = "ORIGIN_CURSOR")
-            bpy.ops.object.move_to_layer(layers = (False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, True))          
+            bpy.ops.object.move_to_layer(layers = (False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, True))      
             cutter.select = False; o.is_cut = "cut"
         eur.rotate_axis("Z", -(float(o.angle_off)))
         o.select = True; bpy.context.scene.objects.active = o  
@@ -2058,7 +2093,7 @@ def UpdateSiding(self, context):
         for ob in context.scene.objects:
             ob.select = False
         #if soldier
-        if o.is_soldier == True:
+        if o.is_soldier == True and o.is_cutout == True:
             verts2, faces2 = bricks_soldier(corner_data, o.b_height, o.b_gap, o.b_width, o.over_height)
             p_mesh = bpy.data.meshes.new("soldier")
             p_mesh.from_pydata(verts2, [], faces2)
@@ -2105,7 +2140,7 @@ def SidingMaterial(self, context):
         if o.col_image == "": self.report({"ERROR"}, "No Color Image Entered"); error = True
         elif o.is_bump == True and o.norm_image == "": self.report({"ERROR"}, "No Normal Map Image Entered"); error = True
         if error == False:
-            mat = Image(bpy, context, o.im_scale, o.col_image, o.norm_image, o.bump_amo, o.is_bump, "siding_use", False, 1.0, 1.0, False, o.is_rotate)
+            mat = Image(bpy, context, o.im_scale, o.col_image, o.norm_image, o.bump_amo, o.is_bump, "siding_use", False, 1.0, 1.0, o.is_rotate, None)
             if mat != None:
                 if o.mat == "6" and len(o.data.materials) >= 2:
                     o.data.materials[0] = mat.copy(); o.data.materials[0].name = "siding_" + o.name
@@ -2189,7 +2224,7 @@ def RandomUV(self, context):
                         bpy.ops.mesh.select_all(action = "SELECT")
                         obj = bpy.context.object
                         me = obj.data
-                        bm = bmesh.from_edit_mesh(me)      
+                        bm = bmesh.from_edit_mesh(me)    
 
                         uv_layer = bm.loops.layers.uv.verify()
                         bm.faces.layers.tex.verify()
@@ -2294,7 +2329,7 @@ class SidingUpdate(bpy.types.Operator):
     bl_idname = "mesh.jarch_siding_update"
     bl_label = "Update Siding"
     bl_description = "Update Siding, Specifically For Updating Stone"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         UpdateSiding(self, context)
@@ -2304,7 +2339,7 @@ class SidingMesh(bpy.types.Operator):
     bl_idname = "mesh.jarch_siding_mesh" 
     bl_label = "Convert To Mesh"
     bl_description = "Converts Siding Object To Normal Object (No Longer Editable)"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object
@@ -2314,7 +2349,7 @@ class SidingMesh(bpy.types.Operator):
 class SidingDelete(bpy.types.Operator):
     bl_idname = "mesh.jarch_siding_delete"
     bl_label = "Delete Siding"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object; convert = False
@@ -2351,7 +2386,7 @@ class SidingDelete(bpy.types.Operator):
 class SidingMaterials(bpy.types.Operator):
     bl_idname = "mesh.jarch_siding_materials"
     bl_label = "Generate\\Update Materials"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         SidingMaterial(self, context)
@@ -2373,7 +2408,7 @@ class SidingPanel(bpy.types.Panel):
             o = context.object
             if o != None:
                 if o.type == "MESH":                    
-                    if o.f_object_add == "none" and o.s_object_add == "none" and o.ro_object_add == "none":                         
+                    if o.f_object_add == "none" and o.s_object_add == "none" and o.ro_object_add == "none":                   
                         if o.object_add in ("convert", "add"): 
                             layout.label("Material:"); layout.prop(o, "mat", icon = "MATERIAL"); layout.label("Type(s):")
                             if o.mat == "1": layout.prop(o, "if_wood", icon = "OBJECT_DATA")
@@ -2418,7 +2453,7 @@ class SidingPanel(bpy.types.Panel):
                                 layout.prop(o, "s_random"); layout.prop(o, "b_random"); layout.separator()
                                 layout.prop(o, "b_gap"); layout.prop(o, "s_mortar")
                             layout.separator()
-                            if o.object_add == "add":                                                
+                            if o.object_add == "add":                                              
                                 layout.prop(o, "is_slope", icon = "TRIA_UP")
                                 if o.is_slope == True:
                                     layout.label("Pitch x/12", icon = "LINCURVE"); layout.prop(o, "slope"); units = " m"
@@ -2432,7 +2467,7 @@ class SidingPanel(bpy.types.Panel):
                                         ht = round(o.over_height - ((o.slope * ((o.over_width + (2 * o.b_width)) / 2)) / 12), 2)
                                         if ht <= 0:
                                             slope = round(((24 * o.over_height) / o.over_width + (2 * o.b_width)) - 0.01, 2)
-                                            ht = round(o.over_height - ((slope * ((o.over_width + (2 * o.b_width)) / 2)) / 12), 2)                
+                                            ht = round(o.over_height - ((slope * ((o.over_width + (2 * o.b_width)) / 2)) / 12), 2)            
                                             layout.label("Max Slope: " + str(slope), icon = "ERROR")
                                     if context.scene.unit_settings.system == "IMPERIAL": ht = round(3.28084 * ht, 2); units = " ft"
                                     layout.label("Height At Edges: " + str(ht) + units, icon = "TEXT")
@@ -2456,7 +2491,7 @@ class SidingPanel(bpy.types.Panel):
                             if o.unwrap == True:
                                 layout.prop(o, "random_uv", icon = "RNDCURVE") 
                             layout.separator()
-                            #materials     
+                            #materials   
                             if context.scene.render.engine == "CYCLES": layout.prop(o, "is_material", icon = "MATERIAL")
                             else: layout.label("Materials Only Supported With Cycles", icon = "POTATO")
                             layout.separator()
@@ -2483,12 +2518,12 @@ class SidingPanel(bpy.types.Panel):
                             layout.operator("mesh.jarch_siding_mesh", icon = "OUTLINER_OB_MESH")               
                             layout.operator("mesh.jarch_siding_delete", icon = "CANCEL")
                         else:
-                            if o.f_object_add == "none" and o.s_object_add == "none":
+                            if o.f_object_add == "none" and o.s_object_add == "none" and o.ro_object_add == "none" and o.object_add != "mesh":
                                 layout.operator("mesh.jarch_siding_convert")
-                            else:
+                            elif o.object_add == "mesh":
                                 layout.label("This Is A Mesh JARCH Vis Object", icon = "INFO")
                     else:
-                        layout.label("This Is Already A JARCH Vis Object", icon = "POTATO")                    
+                        layout.label("This Is Already A JARCH Vis Object", icon = "POTATO")              
                 else:
                     layout.label("Only Mesh Objects Can Be Used", icon = "ERROR")
             else:
@@ -2510,9 +2545,9 @@ class SidingAdd(bpy.types.Operator):
 class SidingConvert(bpy.types.Operator):
     bl_idname = "mesh.jarch_siding_convert"
     bl_label = "Convert To Siding"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object
         o.object_add = "convert"
-        return {"FINISHED"}     
+        return {"FINISHED"}   

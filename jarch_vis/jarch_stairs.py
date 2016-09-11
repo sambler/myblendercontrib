@@ -7,28 +7,50 @@ from random import uniform
 from . jarch_materials import Image
 from . jarch_utils import convert, point_rotation
 
+#custom tread
+def custom_tread_placement(context, custom_tread_pos, custom_tread):
+    #custom treads
+    if custom_tread_pos != []:                                                                   
+        if custom_tread in bpy.data.objects:
+            tread_ob = bpy.data.objects[custom_tread]
+            ob = context.object
+            
+            #deselect all objects
+            for i in bpy.context.selected_objects:
+                i.select = False
+                
+            tread_names = []
+            
+            for i in custom_tread_pos:
+                #select tread_ob
+                tread_ob.select = True
+                context.scene.objects.active = tread_ob
+                
+                bpy.ops.object.duplicate()
+                context.object.location = i
+                context.object.hide = False                 
+                                
+                tread_names.append(context.object.name)
+                
+                context.object.select = False
+            
+            tread_ob.select = False
+            
+            for i in tread_names:
+                bpy.data.objects[i].select = True
+                
+            ob.select = True
+            context.scene.objects.active = ob
+            
+            bpy.ops.object.join() 
+
 #create stairs
-def create_stairs(self, context, style, overhang, steps, t_width, r_height, o_front, o_sides, width, n_landing, is_close, t_width0, r_height0,
-        l_depth0, l_rot0, o_front0, o_sides0, overhang0, is_back0, l_rot1, t_width1, r_height1, l_depth1, o_front1, o_sides1, overhang1, is_back1,
-        w_rot, stair_to_rot, rot, steps0, steps1, set_in, is_riser, is_landing, is_light, num_steps2, tread_res, pole_dia, pole_res):
+def create_stairs(self, context, style, overhang, steps, tw, rh, of,os, w, n_landing, is_close, tw0, rh0,
+        ld0, l_rot0, of0, os0, overhang0, is_back0, l_rot1, tw1, rh1, ld1, of1, os1, overhang1, is_back1,
+        w_rot, stair_to_rot, rot, steps0, steps1, set_in, is_riser, is_landing, is_light, num_steps2, tread_res, pd, pole_res,
+        is_custom_tread, custom_tread):
+    
     verts = []; faces = []; names = []
-    #convert variables
-    tw = t_width
-    rh = r_height
-    of = o_front
-    os = o_sides
-    w = width
-    tw0 = t_width0
-    rh0 = r_height0
-    ld0 = l_depth0
-    of0 = o_front0
-    os0 = o_sides0
-    tw1 = t_width1
-    rh1 = r_height1
-    ld1 = l_depth1
-    of1 = o_front1
-    os1 = o_sides1
-    pd = pole_dia
     
     #figure out what angle to use for winding stairs if them
     angles = [None, radians(-90), radians(-45), radians(45), radians(90)]    
@@ -53,17 +75,30 @@ def create_stairs(self, context, style, overhang, steps, t_width, r_height, o_fr
             elif i == 2: pass_in = [tw1, rh1, of1, os1, overhang1, steps1, l_rot1, ld1]
         
             #get step data                       
-            verts_temp, faces_temp, cx, cy, cz, verts1_temp, faces1_temp = normal_stairs(self, context, pass_in[0], pass_in[1], pass_in[2], pass_in[3], w, pass_in[4], pass_in[5], is_close, set_in, is_riser, is_light, i)
+            verts_temp, faces_temp, cx, cy, cz, verts1_temp, faces1_temp, custom_tread_pos = normal_stairs(self, context, pass_in[0], pass_in[1], pass_in[2], pass_in[3], w, pass_in[4], pass_in[5], is_close, set_in, is_riser, is_light, i, is_custom_tread)
             #temporary value for rot
             rot = 0
             
             #go head and create jacks, or wait till rotation and location values are figured out depending on which level you are on
             if i == 0:
+                m_ob = context.object
                 verts = verts_temp; faces = faces_temp
                 mesh4 = bpy.data.meshes.new("jacks_" + str(i))
                 mesh4.from_pydata(verts1_temp, [], faces1_temp)
                 ob3 = bpy.data.objects.new("jacks_" + str(i), mesh4)
-                context.scene.objects.link(ob3); ob3.rotation_euler = context.object.rotation_euler; ob3.location = context.object.location; names.append(ob3.name); ob3.scale = context.object.scale
+                context.scene.objects.link(ob3)
+                
+                m_ob.select = False
+                ob3.select = True
+                context.scene.objects.active = ob3
+                
+                custom_tread_placement(context, custom_tread_pos, custom_tread)
+                
+                ob3.select = False
+                m_ob.select = True
+                context.scene.objects.active = m_ob
+                
+                ob3.rotation_euler = context.object.rotation_euler; ob3.location = context.object.location; names.append(ob3.name); ob3.scale = context.object.scale
                 if context.scene.render.engine == "CYCLES":
                     if len(mats) >= 2:
                         mat = bpy.data.materials[mats[1]]; ob3.data.materials.append(mat)
@@ -138,7 +173,21 @@ def create_stairs(self, context, style, overhang, steps, t_width, r_height, o_fr
                 mesh2 = bpy.data.meshes.new("stair_" + str(i))
                 mesh2.from_pydata(verts_temp, [], faces_temp)
                 ob = bpy.data.objects.new("stair_" + str(i), mesh2)
-                context.scene.objects.link(ob); o = context.object; eur = o.rotation_euler.copy(); eur2 = Euler((0.0, 0.0, radians(rot))); eur.rotate(eur2)
+                context.scene.objects.link(ob) 
+                
+                m_ob = context.object
+                
+                m_ob.select = False
+                ob.select = True
+                context.scene.objects.active = ob
+                
+                custom_tread_placement(context, custom_tread_pos, custom_tread)
+                
+                ob.select = False
+                m_ob.select = True
+                context.scene.objects.active = m_ob                                  
+                
+                o = context.object; eur = o.rotation_euler.copy(); eur2 = Euler((0.0, 0.0, radians(rot))); eur.rotate(eur2)
                 matrix = o.matrix_world.inverted()
                 vpos = Vector(pre_pos) * matrix; pos = list(vpos); pos[0] += o.location[0]; pos[1] += o.location[1]; pos[2] += o.location[2]
                 names.append(ob.name); ob.rotation_euler = eur; ob.location = pos; ob.scale = o.scale
@@ -419,7 +468,7 @@ def stair_landing(self, context, w, depth, riser, type, set_in, rot):
     for face in f: faces.append(face)
     return (verts, faces) 
 
-def normal_stairs(self, context, tw, rh, of, os, w, overhang, steps, is_close, set_in, is_riser, is_light, landing):
+def normal_stairs(self, context, tw, rh, of, os, w, overhang, steps, is_close, set_in, is_riser, is_light, landing, is_custom_tread):
     tw -= of
     verts = []; faces = []; inch = 1 / 39.3701
     #figure number of jacks
@@ -571,7 +620,8 @@ def normal_stairs(self, context, tw, rh, of, os, w, overhang, steps, is_close, s
                 for face in f: faces.append(face)
         #update variables
         cx += space
-    verts1 = verts[:]; faces1 = faces[:]; verts = []; faces = []                  
+    verts1 = verts[:]; faces1 = faces[:]; verts = []; faces = []
+    custom_tread_pos = []                 
     #treads and risers
     ry = cy   
     cx = 0.0; cy = sy; cz = 0.0; hw = w / 2
@@ -590,6 +640,8 @@ def normal_stairs(self, context, tw, rh, of, os, w, overhang, steps, is_close, s
             if is_riser == False: e = 0.0
             else: e = inch
             p = len(verts)
+            
+            #risers
             if is_riser == True:
                 v = ((cx - hw, cy, cz), (cx - hw, cy - inch, cz), (cx - hw, cy, cz + riser), (cx - hw, cy - inch, cz + riser))
                 v += ((cx + hw, cy, cz + riser), (cx + hw, cy - inch, cz + riser), (cx + hw, cy, cz), (cx + hw, cy - inch, cz))
@@ -599,11 +651,16 @@ def normal_stairs(self, context, tw, rh, of, os, w, overhang, steps, is_close, s
                 p += 8
             cz += riser
             #treads
-            v = ((cx - left, cy - front, cz), (cx - left, cy - front, cz + inch), (cx - left, cy + tread - e, cz), (cx - left, cy + tread - e, cz + inch))
-            v += ((cx + right, cy + tread - e, cz), (cx + right, cy + tread - e, cz + inch), (cx + right, cy - front, cz), (cx + right, cy - front, cz + inch))
-            for vert in v: verts.append(vert)
-            f = ((p, p + 1, p + 3, p + 2), (p + 1, p + 7, p + 5, p + 3), (p + 4, p + 5, p + 7, p + 6), (p, p + 2, p + 4, p + 6), (p + 2, p + 3, p + 5, p + 4), (p, p + 6, p + 7, p + 1))
-            for face in f: faces.append(face) 
+            if is_custom_tread == False:
+                v = ((cx - left, cy - front, cz), (cx - left, cy - front, cz + inch), (cx - left, cy + tread - e, cz), (cx - left, cy + tread - e, cz + inch))
+                v += ((cx + right, cy + tread - e, cz), (cx + right, cy + tread - e, cz + inch), (cx + right, cy - front, cz), (cx + right, cy - front, cz + inch))
+                for vert in v: verts.append(vert)
+                f = ((p, p + 1, p + 3, p + 2), (p + 1, p + 7, p + 5, p + 3), (p + 4, p + 5, p + 7, p + 6), (p, p + 2, p + 4, p + 6), (p + 2, p + 3, p + 5, p + 4), (p, p + 6, p + 7, p + 1))
+                for face in f: faces.append(face)
+                
+            #custom tread
+            else:
+                custom_tread_pos.append([cx, cy + tread - e, cz]) 
             cy += tread
         ry -= inch
     elif jack_type == "set_in":
@@ -619,30 +676,42 @@ def normal_stairs(self, context, tw, rh, of, os, w, overhang, steps, is_close, s
             for face in f: faces.append(face) 
             cz += t + riser; cy += tread        
         t_height += t * t_steps + t - inch
-    return (verts, faces, 0.0, ry, t_height + riser, verts1, faces1)
+
+    return verts, faces, 0.0, ry, t_height + riser, verts1, faces1, custom_tread_pos
 
 def UpdateStairs(self, context):
     o = context.object; mats = []
+    
+    #collect materials to reapply after mesh update
     for i in o.data.materials:
         mats.append(i.name)
+    
+    #create stairs    
     verts, faces, names = create_stairs(self, context, o.s_style, o.s_overhang, o.s_num_steps, o.s_tread_width, o.s_riser_height, o.s_over_front, o.s_over_sides, o.s_width,
             o.s_num_land, o.s_is_close, o.s_tread_width0, o.s_riser_height0, o.s_landing_depth0, o.s_landing_rot0, o.s_over_front0, o.s_over_sides0, o.s_overhang0, o.s_is_back0,
             o.s_landing_rot1, o.s_tread_width1, o.s_riser_height1, o.s_landing_depth1, o.s_over_front1, o.s_over_sides1, o.s_overhang1, o.s_is_back1, o.s_w_rot, o.s_num_rot, o.s_rot,
-            o.s_num_steps0, o.s_num_steps1, o.s_is_set_in, o.s_is_riser, o.s_is_landing, o.s_is_light, o.s_num_steps2, o.s_tread_res, o.s_pole_dia, o.s_pole_res)
+            o.s_num_steps0, o.s_num_steps1, o.s_is_set_in, o.s_is_riser, o.s_is_landing, o.s_is_light, o.s_num_steps2, o.s_tread_res, o.s_pole_dia, o.s_pole_res,
+            o.s_is_custom_tread, o.s_custom_tread)
+    
+    #update mesh
     emesh = o.data
     mesh = bpy.data.meshes.new(name = "siding")
     mesh.from_pydata(verts, [], faces)
     mesh.update(calc_edges = True)
+    
     for i in bpy.data.objects:
         if i.data == emesh:
             i.data = mesh
+    
     emesh.user_clear()
     bpy.data.meshes.remove(emesh)
+    
     if context.scene.render.engine == "CYCLES":
         if len(mats) >= 1:
             mat = bpy.data.materials[mats[0]]; o.data.materials.append(mat)
         else:
-            mat = bpy.data.materials.new("stairs_temp"); mat.use_nodes = True; o.data.materials.append(mat)   
+            mat = bpy.data.materials.new("stairs_temp"); mat.use_nodes = True; o.data.materials.append(mat)
+              
     #join objects if needed
     if names != []:
         for name in names:
@@ -667,7 +736,7 @@ def StairsMaterials(self, context):
         if o.s_norm_image == "" and o.s_is_bump == True: error = True
         #check if first image is empty
         if error == False and len(o.data.materials) >= 1:
-            mat = Image(bpy, context, o.s_im_scale, o.s_col_image, o.s_norm_image, o.s_bump_amo, o.s_is_bump, "stairs_temp_" + o.name, True, 0.1, 0.05, o.s_is_rotate)
+            mat = Image(bpy, context, o.s_im_scale, o.s_col_image, o.s_norm_image, o.s_bump_amo, o.s_is_bump, "stairs_temp_" + o.name, True, 0.1, 0.05, o.s_is_rotate, None)
             if mat != None:
                 o.data.materials[0] = mat.copy(); o.data.materials[0].name = "stairs_" + o.name
             else: self.report({"ERROR"}, "Images Not Found, Make Sure Path Is Correct")
@@ -679,7 +748,7 @@ def StairsMaterials(self, context):
             if o.s_col_image2 == "": error2 = True
             if o.s_norm_image2 == "" and o.s_is_bump2 == True: error2 = True
             if error2 == False and len(o.data.materials) >= 2:
-                mat = Image(bpy, context, o.s_im_scale2, o.s_col_image2, o.s_norm_image2, o.s_bump_amo2, o.s_is_bump2, "second_temp_" + o.name, True, 0.1, 0.05, o.s_is_rotate2)
+                mat = Image(bpy, context, o.s_im_scale2, o.s_col_image2, o.s_norm_image2, o.s_bump_amo2, o.s_is_bump2, "second_temp_" + o.name, True, 0.1, 0.05, o.s_is_rotate2, None)
                 if mat != None:
                     o.data.materials[1] = mat.copy()
                     if o.s_style == "1": o.data.materials[1].name = "jacks_" + o.name
@@ -763,6 +832,8 @@ bpy.types.Object.s_over_front = FloatProperty(name = "Front Overhang", min = 0.0
 bpy.types.Object.s_over_sides = FloatProperty(name = "Side Overhang", min = 0.0, max = 2.0 / 39.3701, default = 1.0 / 39.3701, subtype = "DISTANCE", update = UpdateStairs)
 bpy.types.Object.s_width = FloatProperty(name = "Stair Width", min = 36.0 / 39.3701, max = 60.0 / 39.3701, default = 40.0 / 39.3701, subtype = "DISTANCE", update = UpdateStairs)
 bpy.types.Object.s_is_riser = BoolProperty(name = "Risers?", default = True, update = UpdateStairs)
+bpy.types.Object.s_is_custom_tread = BoolProperty(name = "Custom Treads?", default = False, update = UpdateStairs)
+bpy.types.Object.s_custom_tread = StringProperty(name = "Custom Tread", default = "", update = UpdateStairs)
 #normal style
 bpy.types.Object.s_num_land = IntProperty(name = "Number Of Landings", min = 0, max = 2, default = 0, update = UpdateStairs)
 bpy.types.Object.s_is_close = BoolProperty(name = "Close Sides?", default = False, update = UpdateStairs)
@@ -819,6 +890,7 @@ bpy.types.Object.s_is_rotate2 = BoolProperty(name = "Rotate Image?", default = F
 #uv
 bpy.types.Object.s_unwrap = BoolProperty(name = "UV Unwrap?", default = True, description = "UV Unwraps Siding", update = UnwrapStairs)
 bpy.types.Object.s_random_uv = BoolProperty(name = "Random UV's?", default = True, description = "Random UV's", update = UpdateStairs)
+
 #panel
 class StairsPanel(bpy.types.Panel):
     bl_idname = "OBJECT_PT_jarch_stairs"
@@ -839,11 +911,15 @@ class StairsPanel(bpy.types.Panel):
                     if o.s_object_add != "mesh":
                         if o.s_object_add == "add":
                             layout.label("Style:", icon = "OBJECT_DATA"); layout.prop(o, "s_style"); layout.separator(); layout.prop(o, "s_width"); layout.separator()                        
+                            
                             if o.s_style != "3": layout.prop(o, "s_num_steps")
                             else: layout.prop(o, "s_num_steps2")
+                            
+                            #if not spiral stairs
                             if o.s_style != "3": layout.prop(o, "s_tread_width")
-                            else: pass
-                            layout.prop(o, "s_riser_height"); 
+                            
+                            layout.prop(o, "s_riser_height");                                                        
+                            
                             #show height
                             h = round((o.s_num_steps * o.s_riser_height) + (1 / 39.3701), 2)
                             if context.scene.unit_settings.system == "IMPERIAL": layout.label("Height: " + str(round(((h * 39.3701) / 12), 2)) + " ft", icon = "INFO"); layout.separator()
@@ -851,6 +927,15 @@ class StairsPanel(bpy.types.Panel):
                             
                             if o.s_style == "1":
                                 layout.prop(o, "s_is_set_in", icon = "OOPS")
+                                
+                                #ask if you want custom treads
+                                if o.s_is_set_in == False:
+                                    layout.separator()
+                                    layout.prop(o, "s_is_custom_tread", icon = "OBJECT_DATAMODE")
+                                    if o.s_is_custom_tread == True:
+                                        layout.prop_search(o, "s_custom_tread", context.scene, "objects")
+                                    layout.separator()
+                                    
                                 if o.s_is_set_in == False: layout.prop(o, "s_is_close", icon = "AUTOMERGE_ON"); layout.prop(o, "s_is_light", icon = "OUTLINER_OB_LAMP")
                             if o.s_is_set_in == False and o.s_style != "3":                            
                                 layout.separator()
@@ -861,13 +946,21 @@ class StairsPanel(bpy.types.Panel):
                                     layout.separator(); layout.prop(o, "s_is_riser", icon = "TRIA_UP")
                                 layout.separator()
                             else: layout.prop(o, "s_over_front"); layout.separator()                                                
+                            
+                            #normal stairs
                             if o.s_style == "1": #normal stairs
                                 layout.separator(); layout.prop(o, "s_num_land")
                                 if o.s_num_land > 0: layout.prop(o, "s_is_landing", icon = "FULLSCREEN")
+                                
+                                #for each landing
                                 for i in range(int(o.s_num_land)):
                                     layout.separator(); layout.separator(); box = layout.box()
                                     box.label("Stair Set " + str(i + 2) + ":", icon = "MOD_ARRAY"); box.separator() 
-                                    box.prop(o, "s_num_steps" + str(i)); box.prop(o, "s_tread_width" + str(i)); box.prop(o, "s_riser_height" + str(i)) 
+                                    box.prop(o, "s_num_steps" + str(i))
+                                    
+                                    if o.s_is_custom_tread == True:
+                                        box.prop(o, "s_tread_width" + str(i)); box.prop(o, "s_riser_height" + str(i)) 
+                                    
                                     #display height
                                     if i == 0: 
                                         h2 = h + round((o.s_riser_height0 * o.s_num_steps0) + o.s_riser_height + (1 / 39.3701), 2); 
@@ -880,13 +973,17 @@ class StairsPanel(bpy.types.Panel):
                                     
                                     box.separator(); box.label("Landing " + str(i + 1) + " Rotation:")
                                     box.prop(o, "s_landing_rot" + str(i))
+                                                                       
                                     if (i == 0 and o.s_landing_rot0 != "1") or (i == 1 and o.s_landing_rot1 != "1"):
                                         box.prop(o, "s_is_back" + str(i), icon = "LOOP_BACK")
                                     box.prop(o, "s_landing_depth" + str(i))
+                                    
+                                    #if steps are not set in then allow adjustment of overhang and stuff
                                     if o.s_is_set_in == False:
                                         box.separator(); box.label("Overhang Style:", icon = "OUTLINER_OB_SURFACE"); box.prop(o, "s_overhang" + str(i))
                                         box.prop(o, "s_over_front" + str(i))
                                         if (i == 0 and o.s_overhang0 != "1") or (i == 1 and o.s_overhang1 != "1"): box.prop(o, "s_over_sides" + str(i))
+                            
                             elif o.s_style == "2": #winding stairs                            
                                 layout.prop(o, "s_num_rot"); row = self.layout.row(); row.label("Rotation: "); row.prop(o, "s_w_rot")                            
                             elif o.s_style == "3": #spiral stairs
@@ -925,7 +1022,7 @@ class StairsPanel(bpy.types.Panel):
                     else:
                         layout.label("This Is A Mesh JARCH Vis Object", icon = "INFO")
                 else:
-                    layout.label("This Is Already A JARCH Vis Object", icon = "POTATO")
+                    layout.operator("mesh.jarch_stairs_add", icon = "MOD_ARRAY")
             else:
                 layout.operator("mesh.jarch_stairs_add", icon = "MOD_ARRAY")
                 
@@ -946,7 +1043,7 @@ class StairsAdd(bpy.types.Operator):
 class StairsDelete(bpy.types.Operator):
     bl_idname = "mesh.jarch_stairs_delete"
     bl_label = "Delete Stairs"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object
@@ -958,7 +1055,7 @@ class StairsDelete(bpy.types.Operator):
 class StairsUpdate(bpy.types.Operator):
     bl_idname = "mesh.jarch_stairs_update"
     bl_label = "Update Stairs"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         UpdateStairs(self, context)
@@ -966,8 +1063,8 @@ class StairsUpdate(bpy.types.Operator):
     
 class StairsMaterial(bpy.types.Operator):
     bl_idname = "mesh.jarch_stairs_materials"
-    bl_label = "Update\\Generate Materials"
-    bl_options = {"UNDO"}
+    bl_label = "Generate\\Update Materials"
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         StairsMaterials(self, context)
@@ -977,9 +1074,9 @@ class StairsMesh(bpy.types.Operator):
     bl_idname = "mesh.jarch_stairs_mesh" 
     bl_label = "Convert To Mesh"
     bl_description = "Converts Stair Object To Normal Object (No Longer Editable)"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object
         o.s_object_add = "mesh"
-        return {"FINISHED"}              
+        return {"FINISHED"}      

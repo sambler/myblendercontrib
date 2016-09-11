@@ -1,22 +1,4 @@
 
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by the Free
-#  Software Foundation; either version 2 of the License, or (at your option)
-#  any later version.
-#
-#  This program is distributed in the hope that it will be useful, but WITHOUT
-#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-#  more details.
-#
-#  You should have received a copy of the GNU General Public License along with
-#  this program; if not, write to the Free Software Foundation, Inc.,
-#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
 # imports
 import bpy
 from bpy.types import PropertyGroup
@@ -27,7 +9,7 @@ from .defaults import defaults
 # name
 class name(PropertyGroup):
   '''
-    Properties that effect how name panel displays the datablocks within the users current selection.
+    Name panel options.
   '''
 
   # default
@@ -55,7 +37,48 @@ class name(PropertyGroup):
       ('OBJECT', 'Object', '', 'OBJECT_DATA', 0),
       ('GROUP', 'Group', '', 'GROUP', 1),
       ('ACTION', 'Action', '', 'ACTION', 2),
-      ('GREASE_PENCIL', 'Grease Pencil', '', 'GREASEPENCIL', 3),
+      # ('GREASE_PENCIL', 'Grease Pencil', '', 'GREASEPENCIL', 3),
+      ('CONSTRAINT', 'Constraint', '', 'CONSTRAINT', 4),
+      ('MODIFIER', 'Modifier', '', 'MODIFIER', 5),
+      ('OBJECT_DATA', 'Data', '', 'MESH_DATA', 6),
+      ('BONE_GROUP', 'Bone Group', '', 'GROUP_BONE', 7),
+      ('BONE', 'Bone', '', 'BONE_DATA', 8),
+      ('BONE_CONSTRAINT', 'Constraint', '', 'CONSTRAINT_BONE', 9),
+      ('VERTEX_GROUP', 'Vertex Group', '', 'GROUP_VERTEX', 10),
+      ('SHAPEKEY', 'Shapekey', '', 'SHAPEKEY_DATA', 11),
+      ('UV', 'UV Map', '', 'GROUP_UVS', 12),
+      ('VERTEX_COLOR', 'Vertex Colors', '', 'GROUP_VCOL', 13),
+      # ('MATERIAL', 'Material', '', 'MATERIAL', 14),
+      # ('TEXTURE', 'Texture', '', 'TEXTURE', 15),
+      # ('PARTICLE_SYSTEM', 'Particle System', '', 'PARTICLES', 16),
+      # ('PARTICLE_SETTING', 'Particle Settings', '', 'MOD_PARTICLES', 17)
+    ],
+    default = 'OBJECT'
+  )
+
+  # previous owner
+  previousOwner = StringProperty(
+    name = 'Previous Owner',
+    description = 'The previous owner\'s name of the target datablock.',
+    default = ''
+  )
+
+  # previous target
+  previousTarget = StringProperty(
+    name = 'Previous Target',
+    description = 'Previous datablock target\'s name belonging to the owner.',
+    default = ''
+  )
+
+  # previous context
+  previousContext = EnumProperty(
+    name = 'Previous Context',
+    description = 'The previous context the name panel was in.',
+    items = [
+      ('OBJECT', 'Object', '', 'OBJECT_DATA', 0),
+      ('GROUP', 'Group', '', 'GROUP', 1),
+      ('ACTION', 'Action', '', 'ACTION', 2),
+      # ('GREASE_PENCIL', 'Grease Pencil', '', 'GREASEPENCIL', 3),
       ('CONSTRAINT', 'Constraint', '', 'CONSTRAINT', 4),
       ('MODIFIER', 'Modifier', '', 'MODIFIER', 5),
       ('OBJECT_DATA', 'Object Data', '', 'MESH_DATA', 6),
@@ -66,26 +89,45 @@ class name(PropertyGroup):
       ('SHAPEKEY', 'Shapekey', '', 'SHAPEKEY_DATA', 11),
       ('UV', 'UV Map', '', 'GROUP_UVS', 12),
       ('VERTEX_COLOR', 'Vertex Colors', '', 'GROUP_VCOL', 13),
-      ('MATERIAL', 'Material', '', 'MATERIAL', 14),
-      ('TEXTURE', 'Texture', '', 'TEXTURE', 15),
-      ('PARTICLE_SYSTEM', 'Particle System', '', 'PARTICLES', 16),
-      ('PARTICLE_SETTING', 'Particle Settings', '', 'MOD_PARTICLES', 17)
+      # ('MATERIAL', 'Material', '', 'MATERIAL', 14),
+      # ('TEXTURE', 'Texture', '', 'TEXTURE', 15),
+      # ('PARTICLE_SYSTEM', 'Particle System', '', 'PARTICLES', 16),
+      # ('PARTICLE_SETTING', 'Particle Settings', '', 'MOD_PARTICLES', 17)
     ],
     default = 'OBJECT'
+  )
+
+  # location
+  location = EnumProperty(
+    name = 'Name Panel Location',
+    description = 'The 3D view shelf to use for the name panel.',
+    items = [
+      ('TOOLS', 'Tool Shelf', 'Places the name panel in the tool shelf under the tab labeled \'Name\''),
+      ('UI', 'Property Shelf', 'Places the name panel in the property shelf.')
+    ],
+    default = default['location']
   )
 
   # pin active object
   pinActiveObject = BoolProperty(
     name = 'Pin Active Object',
-    description = 'Keeps the active object at the top of the stack.',
+    description = 'Keeps the active object at the top of the name stack.',
     default = default['pin active object']
   )
 
-  # hide search
-  hideSearch = BoolProperty(
-    name = 'Hide Search',
-    description = 'Only display the search field in the name panel when the filters option is toggled on.',
-    default = default['hide search']
+
+  # pin active bone
+  pinActiveBone = BoolProperty(
+    name = 'Pin Active Bone',
+    description = 'Keeps the active bone at the top of the name stack.',
+    default = default['pin active bone']
+  )
+
+  # hide find & replace
+  hideFindReplace = BoolProperty(
+    name = 'Hide Find & Replace',
+    description = 'Only display the find & replace fields in the panel when the filters option is toggled on.',
+    default = default['hide find & replace']
   )
 
   # filters
@@ -95,11 +137,11 @@ class name(PropertyGroup):
     default = default['filters']
   )
 
-  # options
-  options = BoolProperty(
-    name = 'Options',
-    description = 'Show shortcut options next to datablock names.',
-    default = default['options']
+  # shortcuts
+  shortcuts = BoolProperty(
+    name = 'shortcuts',
+    description = 'Show shortcuts to settings next to the datablock names.',
+    default = default['shortcuts']
   )
 
   # display names
@@ -112,8 +154,15 @@ class name(PropertyGroup):
   # search
   search = StringProperty(
     name = 'Search',
-    description = 'Search filter.',
+    description = 'Find this text in names.',
     default = default['search']
+  )
+
+  # clear search
+  clearSearch = BoolProperty(
+  name = 'Clear Search',
+  description = 'Clear search after simple find and replace operations.',
+  default = default['clear search']
   )
 
   # regex
@@ -204,11 +253,11 @@ class name(PropertyGroup):
     default = default['uvs']
   )
 
-  # vertex color
+  # vertex colors
   vertexColors = BoolProperty(
     name = 'Vertex Colors',
     description = 'Display vertex color names.',
-    default = default['vertex color']
+    default = default['vertex colors']
   )
 
   # materials
@@ -253,16 +302,24 @@ class name(PropertyGroup):
 # properties
 class properties(PropertyGroup):
   '''
-    Properties that effect how properties panel displays the options.
+    Properties panel options.
   '''
 
-  # display active
-  displayActive = BoolProperty(
-    name = 'Display Active',
-    description = 'Prefer to display the active objects options instead of the last icon clicked when applicable.',
-    default = True
+  # default
+  default = defaults['properties panel']
+
+  # location
+  location = EnumProperty(
+    name = 'Property Panel Location',
+    description = 'The 3D view shelf to use for the properties panel.',
+    items = [
+      ('TOOLS', 'Tool Shelf', 'Places the properties panel in the tool shelf under the tab labeled \'Name\''),
+      ('UI', 'Property Shelf', 'Places the properties panel in the property shelf.')
+    ],
+    default = default['location']
   )
 
+# batch
 class batch:
   '''
     Contains Classes;
@@ -272,15 +329,69 @@ class batch:
   '''
   # shared
   class shared(PropertyGroup):
+    '''
+      Shared batch options.
+    '''
 
     # default
     default = defaults['shared']
 
+    # large popups
+    largePopups = BoolProperty(
+      name = 'Large Pop-ups',
+      description = 'Increase the size of pop-ups.',
+      default = default['large popups']
+    )
+
     # sort
     sort = BoolProperty(
       name = 'Sort',
-      description = 'Recount names that are identical with a trailing number.',
+      description = 'Sort names before applying any new names.',
       default = default['sort']
+    )
+
+    # type
+    type = EnumProperty(
+      name = 'Type',
+      description = 'Sorting method to use.',
+      items = [
+        ('ALPHABETICAL', 'Alphabetical', 'Sort names alphabetically.'),
+        ('POSITIONAL', 'Positional', 'Sort names using position.')
+      ],
+      default = default['type']
+    )
+
+    # axis
+    axis = EnumProperty(
+      name = 'Axis',
+      description = 'The positional axis to use for sorting.',
+      items = [
+        ('X', 'X', 'Sort from lowest to highest X axis position.'),
+        ('Y', 'Y', 'Sort from lowest to highest y axis position.'),
+        ('Z', 'Z', 'Sort from lowest to highest z axis position.')
+      ],
+      default = default['axis']
+    )
+
+    # invert
+    invert = BoolProperty(
+      name = 'Invert',
+      description = 'Sort in the opposite direction.',
+      default = default['invert']
+    )
+
+    # count
+    count = BoolProperty(
+      name = 'Count',
+      description = 'Recount names that are identical with a trailing number.',
+      default = default['count']
+    )
+
+    # link
+    link = BoolProperty(
+      name = 'Link Duplicates',
+      description = 'When possible link duplicate names to the original datablock.',
+      default = default['link']
     )
 
     # pad
@@ -307,18 +418,11 @@ class batch:
       default = default['step']
     )
 
-    # separator
+    # Separator
     separator = StringProperty(
       name = 'Separator',
       description = 'The separator to use between the name and number.',
       default = default['separator']
-    )
-
-    # link
-    link = BoolProperty(
-      name = 'Link Duplicates',
-      description = 'When possible link duplicate names to the original datablock.',
-      default = default['link']
     )
 
     # ignore
@@ -338,10 +442,10 @@ class batch:
         modifiers (PropertyGroup)
         objectData (PropertyGroup)
     '''
-    # options
+    # name
     class name(PropertyGroup):
       '''
-        Main properties that effect how the batch auto name operator is performed.
+        Auto name options
       '''
 
       # default
@@ -421,7 +525,7 @@ class batch:
     # object
     class objects(PropertyGroup):
       '''
-        Properties that effect the names used when auto naming objects.
+        Object name options
       '''
       # default
       default = defaults['auto name']['object names']
@@ -513,7 +617,7 @@ class batch:
     # constraints
     class constraints(PropertyGroup):
       '''
-        Properties that effect the names used when auto naming constraints.
+        Constraint name options.
       '''
 
       # default
@@ -718,7 +822,7 @@ class batch:
     # modifier
     class modifiers(PropertyGroup):
       '''
-        Properties that effect the names used when auto naming modifiers.
+        Modifier name options.
       '''
 
       # default
@@ -1077,7 +1181,7 @@ class batch:
     # object data
     class objectData(PropertyGroup):
       '''
-        Properties that effect the names used when auto naming objects.
+        Object data name options.
       '''
 
       # default
@@ -1163,7 +1267,7 @@ class batch:
   # name
   class name(PropertyGroup):
     '''
-      Properties that effect how the batch name operation is performed.
+      Batch name options.
     '''
 
     # default
@@ -1648,11 +1752,27 @@ class batch:
       default = default['ignore particle setting']
     )
 
-    # custom name
-    customName = StringProperty(
-      name = 'Custom Name',
+    # custom
+    custom = StringProperty(
+      name = 'Custom',
       description = 'Designate a new name.',
-      default = default['custom name']
+      default = default['custom']
+    )
+
+    # insert
+    insert = BoolProperty(
+      name = 'Insert',
+      description = 'Insert custom text into the name instead of replacing the name.',
+      default = default['insert']
+    )
+
+    # insert at
+    insertAt = IntProperty(
+      name = 'At',
+      description = 'Insert custom text at this character.',
+      min = -60,
+      max = 60,
+      default = default['insert at']
     )
 
     # find
@@ -1702,7 +1822,7 @@ class batch:
       name = 'Trim Start',
       description = 'Remove this many characters from the beginning of the name.',
       min = 0,
-      max = 63,
+      max = 60,
       default = default['trim start']
     )
 
@@ -1711,14 +1831,32 @@ class batch:
       name = 'Trim End',
       description = 'Remove this many characters from the end of the name.',
       min = 0,
-      max = 63,
+      max = 60,
       default = default['trim end']
+    )
+
+    # cut start
+    cutStart = IntProperty(
+      name = 'Start',
+      description = 'Begin the cut at this character.',
+      min = 0,
+      max = 60,
+      default = default['cut start']
+    )
+
+    # cut end
+    cutAmount = IntProperty(
+      name = 'Amount',
+      description = 'Number of characters to remove.',
+      min = 0,
+      max = 60,
+      default = default['cut amount']
     )
 
   # copy
   class copy(PropertyGroup):
     '''
-      Properties that effect how the batch copy name operation is performed.
+      Batch name copy options.
     '''
 
     # default

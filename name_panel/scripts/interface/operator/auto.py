@@ -1,28 +1,10 @@
 
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by the Free
-#  Software Foundation; either version 2 of the License, or (at your option)
-#  any later version.
-#
-#  This program is distributed in the hope that it will be useful, but WITHOUT
-#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-#  more details.
-#
-#  You should have received a copy of the GNU General Public License along with
-#  this program; if not, write to the Free Software Foundation, Inc.,
-#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
 # imports
 import bpy
 from bpy.props import IntProperty
 from bpy.types import Operator
 from . import shared
-from ...function import auto, options
+from ...function import auto
 
 # addon
 addon = bpy.context.user_preferences.addons.get(__name__.partition('.')[0])
@@ -32,7 +14,7 @@ class name(Operator):
   '''
     Automatically name datablocks based on type.
   '''
-  bl_idname = 'view3d.batch_auto_name'
+  bl_idname = 'view3d.auto_name'
   bl_label = 'Auto Name'
   bl_description = 'Automatically name datablocks based on type.'
   bl_options = {'UNDO'}
@@ -43,6 +25,39 @@ class name(Operator):
     description = 'Total number of names changed during the batch auto name process',
     default = 0
   )
+
+  # object
+  objects = []
+
+  # constraints
+  constraints = []
+
+  # modifiers
+  modifiers = []
+
+  # cameras
+  cameras = []
+
+  # meshes
+  meshes = []
+
+  # curves
+  curves = []
+
+  # lamps
+  lamps = []
+
+  # lattices
+  lattices = []
+
+  # metaballs
+  metaballs = []
+
+  # speakers
+  speakers = []
+
+  # armatures
+  armatures = []
 
   # poll
   @classmethod
@@ -66,7 +81,7 @@ class name(Operator):
     layout = self.layout
 
     # option
-    option = context.scene.BatchAutoName
+    option = context.window_manager.AutoName
 
     # label
     layout.label(text='Targets:')
@@ -77,7 +92,7 @@ class name(Operator):
     # mode
     row.prop(option, 'mode', expand=True)
 
-    # reset
+    # op: reset name panel settings
     op = row.operator('wm.reset_name_panel_settings', text='', icon='LOAD_FACTORY')
     op.panel = False
     op.auto = True
@@ -88,31 +103,65 @@ class name(Operator):
     # column
     column = layout.column(align=True)
 
-    # type row
+    # split
     split = column.split(align=True)
+
+    # objects
     split.prop(option, 'objects', text='', icon='OBJECT_DATA')
+
+    # constraints
     split.prop(option, 'constraints', text='', icon='CONSTRAINT')
+
+    # modifiers
     split.prop(option, 'modifiers', text='', icon='MODIFIER')
+
+    # object data
     split.prop(option, 'objectData', text='', icon='MESH_DATA')
+
+    # bone constraints
     split.prop(option, 'boneConstraints', text='', icon='CONSTRAINT_BONE')
 
-    # type filters
+    # column
     column = layout.column()
+
+    # object type
     column.prop(option, 'objectType', text='')
+
+    # constraint type
     column.prop(option, 'constraintType', text='')
+
+    # modifier type
     column.prop(option, 'modifierType', text='')
 
-    # settings
+    # column
     column = layout.column()
+
+    # label
     column.label(text='Name Settings:')
+
+    # split
     split = column.split(align=True)
-    split.operator('view3d.batch_auto_name_object_names', text='Objects')
-    split.operator('view3d.batch_auto_name_constraint_names', text='Constraints')
-    split.operator('view3d.batch_auto_name_modifier_names', text='Modifiers')
-    split.operator('view3d.batch_auto_name_object_data_names', text='Object Data')
+
+    # batch auto name object names
+    split.operator('view3d.auto_name_object_names', text='Objects')
+
+    # batch auto name constraint names
+    split.operator('view3d.auto_name_constraint_names', text='Constraints')
+
+    # batch auto name modifier names
+    split.operator('view3d.auto_name_modifier_names', text='Modifiers')
+
+    # batch auto name object data names
+    split.operator('view3d.auto_name_object_data_names', text='Object Data')
+
+    # column
+    column = layout.column(align=True)
 
     # sort
-    shared.sort(column, context.scene.BatchShared)
+    shared.sort(column, context.window_manager.BatchShared)
+
+    # count
+    shared.count(column, context.window_manager.BatchShared)
 
   # execute
   def execute(self, context):
@@ -122,9 +171,6 @@ class name(Operator):
 
     # main
     auto.main(self, context)
-
-    # transfer options
-    options.transfer(context, False, True, True, False, False)
 
     # report
     self.report({'INFO'}, 'Datablocks named: ' + str(self.count))
@@ -139,11 +185,7 @@ class name(Operator):
     '''
       Invoke the operator panel/menu, control its width.
     '''
-
-    # size
-    try: size = 330 if addon.preferences['largePopups'] == 0 else 460
-    except: size = 330
-
+    size = 330 if not context.window_manager.BatchShared.largePopups else 460
     context.window_manager.invoke_props_dialog(self, width=size)
     return {'RUNNING_MODAL'}
 
@@ -152,7 +194,7 @@ class objects(Operator):
   '''
     Invoke the auto name object names dialogue.
   '''
-  bl_idname = 'view3d.batch_auto_name_object_names'
+  bl_idname = 'view3d.auto_name_object_names'
   bl_label = 'Object Names:'
   bl_description = 'Change the names used for objects.'
   bl_options = {'UNDO'}
@@ -167,7 +209,7 @@ class objects(Operator):
     layout = self.layout
 
     # option
-    option = context.scene.BatchAutoName_ObjectNames
+    option = context.scene.ObjectNames
 
     # prefix
     layout.prop(option, 'prefix')
@@ -253,11 +295,7 @@ class objects(Operator):
     '''
       Invoke the operator panel/menu, control its width.
     '''
-
-    # size
-    try: size = 150 if addon.preferences['largePopups'] == 0 else 225
-    except: size = 150
-
+    size = 150 if not context.window_manager.BatchShared.largePopups else 225
     context.window_manager.invoke_props_dialog(self, width=size)
     return {'RUNNING_MODAL'}
 
@@ -266,7 +304,7 @@ class constraints(Operator):
   '''
     Invoke the auto name constraint names dialogue.
   '''
-  bl_idname = 'view3d.batch_auto_name_constraint_names'
+  bl_idname = 'view3d.auto_name_constraint_names'
   bl_label = 'Constraint Names:'
   bl_description = 'Change the names used for constraints.'
   bl_options = {'UNDO'}
@@ -281,7 +319,7 @@ class constraints(Operator):
     layout = self.layout
 
     # option
-    option = context.scene.BatchAutoName_ConstraintNames
+    option = context.scene.ConstraintNames
 
     # prefix
     layout.prop(option, 'prefix')
@@ -453,11 +491,7 @@ class constraints(Operator):
     '''
       Invoke the operator panel/menu, control its width.
     '''
-
-    # size
-    try: size = 600 if addon.preferences['largePopups'] == 0 else 900
-    except: size = 600
-
+    size = 600 if not context.window_manager.BatchShared.largePopups else 900
     context.window_manager.invoke_props_dialog(self, width=size)
     return {'RUNNING_MODAL'}
 
@@ -466,7 +500,7 @@ class modifiers(Operator):
   '''
     Invoke the auto name modifier names dialogue.
   '''
-  bl_idname = 'view3d.batch_auto_name_modifier_names'
+  bl_idname = 'view3d.auto_name_modifier_names'
   bl_label = 'Modifier Names:'
   bl_description = 'Change the names used for modifiers.'
   bl_options = {'UNDO'}
@@ -481,7 +515,7 @@ class modifiers(Operator):
     layout = self.layout
 
     # option
-    option = context.scene.BatchAutoName_ModifierNames
+    option = context.scene.ModifierNames
 
     # prefix
     layout.prop(option, 'prefix')
@@ -763,11 +797,7 @@ class modifiers(Operator):
     '''
       Invoke the operator panel/menu, control its width.
     '''
-
-    # size
-    try: size = 600 if addon.preferences['largePopups'] == 0 else 900
-    except: size = 600
-
+    size = 600 if not context.window_manager.BatchShared.largePopups else 900
     context.window_manager.invoke_props_dialog(self, width=size)
     return {'RUNNING_MODAL'}
 
@@ -776,7 +806,7 @@ class objectData(Operator):
   '''
     Invoke the auto name object data names dialogue.
   '''
-  bl_idname = 'view3d.batch_auto_name_object_data_names'
+  bl_idname = 'view3d.auto_name_object_data_names'
   bl_label = 'Object Data Names:'
   bl_description = 'Change the names used for objects data.'
   bl_options = {'UNDO'}
@@ -791,7 +821,7 @@ class objectData(Operator):
     layout = self.layout
 
     # option
-    option = context.scene.BatchAutoName_ObjectDataNames
+    option = context.scene.ObjectDataNames
 
     # prefix
     layout.prop(option, 'prefix')
@@ -871,10 +901,6 @@ class objectData(Operator):
     '''
       Invoke the operator panel/menu, control its width.
     '''
-
-    # size
-    try: size = 150 if addon.preferences['largePopups'] == 0 else 225
-    except: size = 150
-
+    size = 150 if not context.window_manager.BatchShared.largePopups else 225
     context.window_manager.invoke_props_dialog(self, width=size)
     return {'RUNNING_MODAL'}

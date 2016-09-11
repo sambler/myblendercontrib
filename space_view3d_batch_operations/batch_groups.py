@@ -61,6 +61,23 @@ class BatchOperations:
     clipbuffer = None
     
     @classmethod
+    def belongs(cls, obj, group, consider_dupli=False):
+        if not obj: return None
+        # Object is either IN some group or INSTANTIATES that group, never both
+        if obj.dupli_group == group:
+            consider_dupli |= ('CONSIDER_DUPLI' in get_options().group_options)
+            return ('DUPLI' if consider_dupli else None)
+        elif obj.name in group.objects:
+            return 'PART'
+        return None
+    
+    @classmethod
+    def group_objects(cls, group):
+        consider_dupli = ('CONSIDER_DUPLI' in get_options().group_options)
+        for obj in group.objects:
+            if consider_dupli or (obj.dupli_group != group): yield obj
+    
+    @classmethod
     def to_group(cls, group):
         if isinstance(group, Group): return group
         return bpy.data.groups.get(group)
@@ -69,13 +86,18 @@ class BatchOperations:
     def add_group_to_obj(cls, obj, idname):
         group = cls.to_group(idname)
         if not group: return
+        # if in dupli-group, can't link either (it would be a circular reference)
         if obj.name not in group.objects: group.objects.link(obj)
     
     @classmethod
     def clear_obj_groups(cls, obj, idnames=None, check_in=True):
         for group in bpy.data.groups:
             if (idnames is None) or ((group.name in idnames) == check_in):
-                if obj.name in group.objects: group.objects.unlink(obj)
+                belong = cls.belongs(obj, group)
+                if belong == 'PART':
+                    group.objects.unlink(obj)
+                elif belong == 'DUPLI':
+                    obj.dupli_group = None
     
     @classmethod
     def clean_name(cls, group):
@@ -84,18 +106,18 @@ class BatchOperations:
     @classmethod
     def iter_names(cls, obj):
         for group in bpy.data.groups:
-            if obj.name in group.objects: yield group.name
+            if cls.belongs(obj, group): yield group.name
     
     @classmethod
     def iter_idnames(cls, obj):
         for group in bpy.data.groups:
-            if obj.name in group.objects: yield group.name
+            if cls.belongs(obj, group): yield group.name
     
     @classmethod
     def iter_scene_objs_idnames(cls, scene):
         scene_objects = set(scene.objects)
         for group in bpy.data.groups:
-            for obj in group.objects:
+            for obj in cls.group_objects(group):
                 if obj in scene_objects: yield (obj, group.name)
     
     @classmethod
@@ -112,7 +134,7 @@ class BatchOperations:
         if search_in != 'FILE':
             for obj in cls.iterate_objects(search_in, context):
                 for group in bpy.data.groups:
-                    if obj.name in group.objects: yield group
+                    if cls.belongs(obj, group): yield group
         else:
             yield from bpy.data.groups
     
@@ -185,7 +207,7 @@ class BatchOperations:
                         _setattr(obj, name, value, **kwargs)
                 else:
                     for group in bpy.data.groups:
-                        if obj.name not in group.objects: continue
+                        if not cls.belongs(obj, group): continue
                         if group.name in idnames:
                             _setattr(ms.group, name, value, **kwargs)
     
@@ -210,17 +232,17 @@ class BatchOperations:
         idnames = cls.split_idnames(idnames)
         groups = [group for group in bpy.data.groups if group.name in idnames]
         for obj in cls.iterate_objects(search_in, context):
-            if any((obj.name in group.objects) for group in groups):
+            if any(bool(cls.belongs(obj, group)) for group in groups):
                 yield obj
     
     @classmethod
     def select(cls, context, idnames, operation='SET'):
         idnames = cls.split_idnames(idnames)
         groups = [group for group in bpy.data.groups if group.name in idnames]
-        data = {obj:"select" for obj in context.scene.objects if any((obj.name in group.objects) for group in groups)}
+        data = {obj:"select" for obj in context.scene.objects if any(bool(cls.belongs(obj, group)) for group in groups)}
         Selection(context).update(data, operation)
         #for obj in context.scene.objects:
-        #    obj.select = any((obj.name in group.objects) for group in groups)
+        #    obj.select = any(bool(cls.belongs(obj, group)) for group in groups)
     
     @classmethod
     def purge(cls, even_with_fake_users, idnames=None):
@@ -245,7 +267,7 @@ class BatchOperations:
             cls.clipbuffer = []
         else:
             cls.clipbuffer = [group.name for group in bpy.data.groups
-                if (group.name not in exclude) and (active_obj.name in group.objects)]
+                if (group.name not in exclude) and cls.belongs(active_obj, group)]
     
     @classmethod
     def paste(cls, objects, paste_mode):
@@ -320,7 +342,7 @@ class BatchOperations:
         elif assign_mode == 'FILTER':
             for obj in objects:
                 for group in bpy.data.groups:
-                    if obj.name not in group.objects: continue
+                    if not cls.belongs(obj, group): continue
                     if group.name not in dst_idnames:
                         group.objects.unlink(obj)
         else:
@@ -339,14 +361,22 @@ class BatchOperations:
                 
                 for obj in objects:
                     for group in bpy.data.groups:
-                        if obj.name not in group.objects: continue
+                        belong = cls.belongs(obj, group, True)
+                        if not belong: continue
                         
                         if should_replace(group):
-                            group.objects.unlink(obj)
-                            
-                            for dst_group in dst_groups:
-                                if (obj.name not in dst_group.objects):
-                                    dst_group.objects.link(obj)
+                            if belong == 'PART':
+                                group.objects.unlink(obj)
+                                
+                                for dst_group in dst_groups:
+                                    if not cls.belongs(obj, dst_group, True):
+                                        dst_group.objects.link(obj)
+                            elif belong == 'DUPLI':
+                                obj.dupli_group = None
+                                
+                                for dst_group in dst_groups:
+                                    if not cls.belongs(obj, dst_group, True):
+                                        obj.dupli_group = dst_group
             else:
                 def should_replace(group):
                     if (group.name not in dst_idnames):
@@ -356,13 +386,17 @@ class BatchOperations:
                 
                 for obj in objects:
                     for group in bpy.data.groups:
-                        if obj.name not in group.objects: continue
+                        belong = cls.belongs(obj, group, True)
+                        if not belong: continue
                         
                         if should_replace(group):
-                            group.objects.unlink(obj)
+                            if belong == 'PART':
+                                group.objects.unlink(obj)
+                            elif belong == 'DUPLI':
+                                obj.dupli_group = None
                     
                     for dst_group in dst_groups:
-                        if (obj.name not in dst_group.objects):
+                        if not cls.belongs(obj, dst_group, True):
                             dst_group.objects.link(obj)
             
             replaced_idnames.difference_update(dst_idnames)
@@ -375,4 +409,18 @@ class BatchOperations:
 
 #============================================================================#
 
-make_category(globals(), is_ID=True)
+class OptionsMixin:
+    # This property uses the update function defined in the final/descendant class. Luckily, AddonManager has a mechanism for that.
+    group_options = {'CONSIDER_DUPLI'} | prop("Group options", update="update", items=[
+        ('CONSIDER_DUPLI', "Consider dupli", "Take dupli-groups into account", 'COPY_ID'),
+    ])
+
+@addon.Menu(idname="VIEW3D_MT_batch_{}_options_group_options".format(category_name_plural), label="Group options")
+def Menu_GroupOptions(self, context):
+    """Group options"""
+    layout = NestedLayout(self.layout)
+    options = get_options()
+    layout.props_enum(options, "group_options")
+menu_options_extra = [("menu", dict(menu="VIEW3D_MT_batch_{}_options_group_options".format(category_name_plural), icon=category_icon))]
+
+make_category(globals(), is_ID=True, menu_options_extra=menu_options_extra, options_mixin=OptionsMixin)

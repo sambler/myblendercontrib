@@ -3,6 +3,8 @@ Created on Oct 11, 2015
 
 @author: Patrick
 '''
+from ..common_utilities import showErrorMessage
+
 class Polytrim_UI_ModalWait():
     
     def modal_wait(self,context,eventd):
@@ -35,25 +37,46 @@ class Polytrim_UI_ModalWait():
         if eventd['press'] == 'RIGHTMOUSE':
             self.knife.click_delete_point(mode = 'mouse')
             return 'main'
-        
-        if eventd['press'] == 'X':
-            self.knife.delete_selected(mode = 'selected')
-            return 'main'
-        
+                
         if eventd['press'] == 'C':
             self.knife.make_cut()
+            context.area.header_text_set("Red segments have cut failures, modify polyline to fix.  When ready press 'S' to set seed point")
+        
             return 'main' 
+        
         if eventd['press'] == 'D':
-            print('confirm cut')
+            if not self.knife.face_seed:
+                showErrorMessage('Must select seed point first')
+                return 'main'
+            
             if len(self.knife.new_cos) and len(self.knife.bad_segments) == 0 and not self.knife.split:
-                print('actually confirm cut')
-                self.knife.confirm_cut_to_mesh()
+                self.knife.confirm_cut_to_mesh_no_ops()
+                
+                context.area.header_text_set("X:delete, P:separate, SHIFT+D:duplicate, K:knife, Y:split")
+        
                 return 'main' 
             
-        if eventd['press'] == 'E':     
+        if eventd['press'] == 'K':     
             if self.knife.split and self.knife.face_seed and len(self.knife.ed_map):
-                self.knife.split_geometry()
+                self.knife.split_geometry(eventd['context'], mode = 'KNIFE')
                 return 'finish' 
+        
+        if eventd['press'] == 'P':
+            #self.knife.preview_mesh(eventd['context'])
+            self.knife.split_geometry(eventd['context'], mode = 'SEPARATE')
+            return 'finish'
+        
+        if eventd['press'] == 'X':
+            self.knife.split_geometry(eventd['context'], mode = 'DELETE')
+            return 'finish'
+        
+        if eventd['press'] == 'Y':
+            self.knife.split_geometry(eventd['context'], mode = 'SPLIT')
+            return 'finish'
+        
+        if eventd['press'] == 'SHIFT+D':
+            self.knife.split_geometry(eventd['context'], mode = 'DUPLICATE')
+            return 'finish'
             
         if eventd['press'] == 'S':
             return 'inner'
@@ -73,6 +96,7 @@ class Polytrim_UI_ModalWait():
         if eventd['press'] == 'LEFTMOUSE':
             #confirm location
             self.knife.grab_confirm()
+            self.knife.make_cut()
             return 'main'
         
         elif eventd['press'] in {'RIGHTMOUSE', 'ESC'}:

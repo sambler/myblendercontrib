@@ -45,7 +45,7 @@ bl_info = {
         "AgustinJB, Zeffii, Kosvor, "
         "Portnov, Elfnor"
     ),
-    "version": (0, 5, 4, 55),
+    "version": (0, 5, 6, 3),
     "blender": (2, 7, 2),
     "location": "Nodes > CustomNodesTree > Add user nodes",
     "description": "Parametric node-based geometry programming",
@@ -55,6 +55,7 @@ bl_info = {
         "http://www.blenderartists.org/forum/showthread.php?272679"
         "-Addon-WIP-Sverchok-parametric-tool-for-architects"),
     "category": "Node"}
+
 
 import sys
 import importlib
@@ -70,24 +71,37 @@ imported_modules = []
 
 # ugly hack, should make respective dict in __init__ like nodes
 # or parse it
-root_modules = ["menu", "node_tree", "data_structure", "core",
-                "utils", "ui", "nodes", "old_nodes"]
-core_modules = ["handlers", "update_system", "upgrade_nodes"]
+root_modules = [
+    "menu", "node_tree", "data_structure", "core",
+    "utils", "ui", "nodes", "old_nodes", "sockets",
+]
+
+core_modules = [
+    "handlers", "update_system", "upgrade_nodes", "upgrade_group", "monad",
+]
+
 utils_modules = [
     # non UI tools
     "cad_module", "sv_bmesh_utils", "sv_viewer_utils", "sv_curve_utils",
     "voronoi", "sv_script", "sv_itertools", "script_importhelper",
-    "csg_core", "csg_geom", "sv_easing_functions",
+    "csg_core", "csg_geom", "geom", "sv_easing_functions",
     # UI text editor ui
     "text_editor_submenu", "text_editor_plugins",
-    # UI operators
-    "sv_panels_tools", "sv_IO_panel_tools", "group_tools",
+    # UI operators and tools
+    "sv_panels_tools", "sv_gist_tools", "sv_IO_panel_tools",
+    "monad",
+    #"loadscript",
 ]
+
 ui_modules = [
-    "color_def", "sv_IO_panel", "sv_templates_menu", "sv_panels", "nodeview_space_menu",
+    "color_def", "sv_IO_panel", "sv_templates_menu",
+    "sv_panels", "nodeview_space_menu", "nodeview_keymaps",
+    "monad",
     # bgl modules
     "viewer_draw", "viewer_draw_mk2", "nodeview_bgl_viewer_draw",
-    "index_viewer_draw"
+    "index_viewer_draw",
+    # show git info
+    "development",
 ]
 
 # modules and pkg path, nodes are done separately.

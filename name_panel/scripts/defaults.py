@@ -1,12 +1,15 @@
 # Modified by scripts.function.preferences.generate.main
 defaults = {
   'name panel': {
+    'location': 'TOOLS',
     'pin active object': True,
-    'hide search': True,
+    'pin active bone': True,
+    'hide find & replace': True,
     'filters': False,
-    'options': False,
+    'shortcuts': False,
     'display names': False,
     'search': '',
+    'clear search': False,
     'regex': False,
     'mode': 'SELECTED',
     'groups': False,
@@ -19,7 +22,7 @@ defaults = {
     'vertex groups': False,
     'shapekeys': False,
     'uvs': False,
-    'vertex color': False,
+    'vertex colors': False,
     'materials': False,
     'textures': False,
     'particle systems': False,
@@ -27,8 +30,17 @@ defaults = {
     'display bones': False,
   },
 
+  'properties panel': {
+    'location': 'TOOLS'
+  },
+
   'shared': {
-    'sort': True,
+    'large popups': False,
+    'sort': False,
+    'type': 'ALPHABETICAL',
+    'axis': 'X',
+    'invert': False,
+    'count': False,
     'link': False,
     'pad': 0,
     'start': 1,
@@ -231,7 +243,9 @@ defaults = {
     'ignore texture': False,
     'ignore particle system': False,
     'ignore particle setting': False,
-    'custom name': '',
+    'custom': '',
+    'insert': False,
+    'insert at': 0,
     'find': '',
     'regex': False,
     'replace': '',
@@ -240,6 +254,8 @@ defaults = {
     'suffix last': False,
     'trim start': 0,
     'trim end': 0,
+    'cut start': 0,
+    'cut amount': 0,
   },
 
   'copy name': {

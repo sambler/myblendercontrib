@@ -1,41 +1,41 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_stairs_maker.py
 # Automatic generation of stairs
 # Author: Antonio Vazquez (antonioya)
 #
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-import math
-from achm_tools import *
+from math import radians, sin, cos
+from bpy.types import Operator
+from bpy.props import FloatProperty, BoolProperty, IntProperty, EnumProperty
+from .achm_tools import *
 
 
 # ------------------------------------------------------------------
 # Define UI class
 # Stairs
 # ------------------------------------------------------------------
-class AchmStairs(bpy.types.Operator):
+class AchmStairs(Operator):
     bl_idname = "mesh.archimesh_stairs"
     bl_label = "Stairs"
     bl_description = "Stairs Generator"
@@ -43,37 +43,97 @@ class AchmStairs(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     # Define properties
-    model = bpy.props.EnumProperty(items=(('1', "Rectangular", ""),
-                                          ('2', "Rounded", "")),
-                                   name="Model",
-                                   description="Type of steps")
-    radio = bpy.props.FloatProperty(name='', min=0.001, max=0.500, default=0.20, precision=3,
-                                    description='Radius factor for rounded')
-    curve = bpy.props.BoolProperty(name="Include deformation handles",
-                                   description="Include a curve to modify the stairs curve.", default=False)
+    model = EnumProperty(
+            items=(
+                ('1', "Rectangular", ""),
+                ('2', "Rounded", ""),
+                ),
+            name="Model",
+            description="Type of steps",
+            )
+    radio = FloatProperty(
+            name='',
+            min=0.001, max=0.500,
+            default=0.20, precision=3,
+            description='Radius factor for rounded',
+            )
+    curve = BoolProperty(
+            name="Include deformation handles",
+            description="Include a curve to modify the stairs curve",
+            default=False,
+            )
 
-    step_num = bpy.props.IntProperty(name='Number of steps', min=1, max=1000, default=3,
-                                     description='Number total of steps')
-    max_width = bpy.props.FloatProperty(name='Width', min=0.001, max=10, default=1, precision=3,
-                                        description='Step maximum width')
-    depth = bpy.props.FloatProperty(name='Depth', min=0.001, max=10, default=0.30, precision=3,
-                                    description='Depth of the step')
-    shift = bpy.props.FloatProperty(name='Shift', min=0.001, max=1, default=1, precision=3,
-                                    description='Step shift in Y axis')
-    thickness = bpy.props.FloatProperty(name='Thickness', min=0.001, max=10, default=0.03, precision=3,
-                                        description='Step thickness')
-    sizev = bpy.props.BoolProperty(name="Variable width", description="Steps are not equal in width.", default=False)
-    back = bpy.props.BoolProperty(name="Close sides", description="Close all steps side to make a solid structure.",
-                                  default=False)
-    min_width = bpy.props.FloatProperty(name='', min=0.001, max=10, default=1, precision=3,
-                                        description='Step minimum width')
+    step_num = IntProperty(
+            name='Number of steps',
+            min=1, max=1000,
+            default=3,
+            description='Number total of steps',
+            )
+    max_width = FloatProperty(
+            name='Width',
+            min=0.001, max=10,
+            default=1, precision=3,
+            description='Step maximum width',
+            )
+    depth = FloatProperty(
+            name='Depth',
+            min=0.001, max=10,
+            default=0.30, precision=3,
+            description='Depth of the step',
+            )
+    shift = FloatProperty(
+            name='Shift',
+            min=0.001, max=1,
+            default=1, precision=3,
+            description='Step shift in Y axis',
+            )
+    thickness = FloatProperty(
+            name='Thickness',
+            min=0.001, max=10,
+            default=0.03, precision=3,
+            description='Step thickness',
+            )
+    sizev = BoolProperty(
+            name="Variable width",
+            description="Steps are not equal in width",
+            default=False,
+            )
+    back = BoolProperty(
+            name="Close sides",
+            description="Close all steps side to make a solid structure",
+            default=False,
+            )
+    min_width = FloatProperty(
+            name='',
+            min=0.001, max=10,
+            default=1, precision=3,
+            description='Step minimum width',
+            )
 
-    height = bpy.props.FloatProperty(name='height', min=0.001, max=10, default=0.14, precision=3,
-                                     description='Step height')
-    front_gap = bpy.props.FloatProperty(name='Front', min=0, max=10, default=0.03, precision=3, description='Front gap')
-    side_gap = bpy.props.FloatProperty(name='Side', min=0, max=10, default=0, precision=3, description='Side gap')
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.", default=True)
+    height = FloatProperty(
+            name='height',
+            min=0.001, max=10,
+            default=0.14, precision=3,
+            description='Step height',
+            )
+    front_gap = FloatProperty(
+            name='Front',
+            min=0, max=10,
+            default=0.03,
+            precision=3,
+            description='Front gap',
+            )
+    side_gap = FloatProperty(
+            name='Side',
+            min=0, max=10,
+            default=0, precision=3,
+            description='Side gap',
+            )
+    crt_mat = BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -118,6 +178,8 @@ class AchmStairs(bpy.types.Operator):
                 row.prop(self, 'side_gap')
 
             box = layout.box()
+            if not context.scene.render.engine == 'CYCLES':
+                box.enabled = False
             box.prop(self, 'crt_mat')
         else:
             row = layout.row()
@@ -160,7 +222,7 @@ def create_stairs_mesh(self):
     set_normals(mystairs)
     set_modifier_mirror(mystairs, "X")
     # ------------------------
-    # Create curve handles        
+    # Create curve handles
     # ------------------------
     if self.curve:
         x = mystairs.location.x
@@ -176,9 +238,9 @@ def create_stairs_mesh(self):
         set_modifier_curve(mystairs, mycurve)
 
     # ------------------------
-    # Create materials        
+    # Create materials
     # ------------------------
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         # Stairs material
         mat = create_diffuse_material("Stairs_material", False, 0.8, 0.8, 0.8)
         set_material(mystairs, mat)
@@ -252,7 +314,7 @@ def create_rect_step(self, origin, myvertex, myfaces, index, step):
     # calculate width (side gap)
     width = width + self.side_gap
 
-    # Horizontal Rectangle 
+    # Horizontal Rectangle
     z = z + self.height
     myvertex.extend([(x, y - self.front_gap, z), (x, max_depth, z), (x + width, max_depth, z),
                      (x + width, y - self.front_gap, z)])
@@ -277,8 +339,8 @@ def create_round_step(self, origin, myvertex, myfaces, index, step):
     z = origin[2]
     pos_x = None
     i = index
-    li = [math.radians(270), math.radians(288), math.radians(306), math.radians(324), math.radians(342),
-          math.radians(0)]
+    li = [radians(270), radians(288), radians(306), radians(324), radians(342),
+          radians(0)]
 
     max_width = self.max_width
     max_depth = y + self.depth
@@ -291,21 +353,21 @@ def create_round_step(self, origin, myvertex, myfaces, index, step):
 
     half = max_width / 2
     # ------------------------------------
-    # Vertical 
+    # Vertical
     # ------------------------------------
-    # calculate width 
+    # calculate width
     width = half - (half * self.radio)
     myradio = half - width
 
     myvertex.extend([(x, y, z), (x, y, z + self.height)])
     # Round
     for e in li:
-        pos_x = (math.cos(e) * myradio) + x + width - myradio
-        pos_y = (math.sin(e) * myradio) + y + myradio
+        pos_x = (cos(e) * myradio) + x + width - myradio
+        pos_y = (sin(e) * myradio) + y + myradio
 
         myvertex.extend([(pos_x, pos_y, z), (pos_x, pos_y, z + self.height)])
 
-    # back point    
+    # back point
     myvertex.extend([(x + width, max_depth, z), (x + width, max_depth, z + self.height)])
 
     myfaces.extend([(i, i + 1, i + 3, i + 2), (i + 2, i + 3, i + 5, i + 4), (i + 4, i + 5, i + 7, i + 6),
@@ -314,22 +376,22 @@ def create_round_step(self, origin, myvertex, myfaces, index, step):
 
     i += 16
     # ------------------------------------
-    # Horizontal 
+    # Horizontal
     # ------------------------------------
     # calculate width gap
     width = half + self.front_gap - (half * self.radio)
 
     z = z + self.height
-    # Vertical 
+    # Vertical
     myvertex.extend([(x, y - self.front_gap, z), (x, y - self.front_gap, z + self.thickness)])
     # Round
     for e in li:
-        pos_x = (math.cos(e) * myradio) + x + width - myradio
-        pos_y = (math.sin(e) * myradio) + y + myradio - self.front_gap
+        pos_x = (cos(e) * myradio) + x + width - myradio
+        pos_y = (sin(e) * myradio) + y + myradio - self.front_gap
 
         myvertex.extend([(pos_x, pos_y, z), (pos_x, pos_y, z + self.thickness)])
 
-    # back points    
+    # back points
     myvertex.extend([(pos_x, max_depth, z), (pos_x, max_depth, z + self.thickness),
                      (x, max_depth, z), (x, max_depth, z + self.thickness)])
 
@@ -358,12 +420,12 @@ def create_bezier(objname, points, origin):
 
     myobject = bpy.data.objects.new(objname, curvedata)
     myobject.location = origin
-    myobject.rotation_euler[2] = math.radians(90)
+    myobject.rotation_euler[2] = radians(90)
 
     bpy.context.scene.objects.link(myobject)
 
     polyline = curvedata.splines.new('BEZIER')
-    polyline.bezier_points.add(len(points)-1)
+    polyline.bezier_points.add(len(points) - 1)
 
     for idx, (knot, h1, h2) in enumerate(points):
         point = polyline.bezier_points[idx]

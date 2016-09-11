@@ -1,23 +1,22 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
 # Author: Antonio Vazquez (antonioya)
@@ -27,14 +26,15 @@
 import bpy
 import math
 # noinspection PyUnresolvedReferences
-from bpy.props import *
-from achm_tools import *
+from bpy.types import Operator, PropertyGroup, Object, Panel
+from bpy.props import FloatProperty, BoolProperty, EnumProperty, FloatVectorProperty, CollectionProperty
+from .achm_tools import *
 
 
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
-class AchmDoor(bpy.types.Operator):
+class AchmDoor(Operator):
     bl_idname = "mesh.archimesh_door"
     bl_label = "Door"
     bl_description = "Door"
@@ -186,6 +186,8 @@ def shape_mesh(mainobject, tmp_mesh, update=False):
 #
 # ------------------------------------------------------------------------------
 # noinspection PyUnusedLocal
+
+
 def shape_children(mainobject, update=False):
     mp = mainobject.DoorObjectGenerator[0]
 
@@ -203,7 +205,7 @@ def shape_children(mainobject, update=False):
         mydoor = make_one_door(mp, mainobject, widthr + mp.frame_size, "1")
         mydoor.location.x = mp.frame_width / 2 - mp.frame_size
 
-    if mp.crt_mat:
+    if mp.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         mat = create_diffuse_material("Door_material", False, 0.8, 0.8, 0.8)
         set_material(mainobject, mat)
 
@@ -234,12 +236,13 @@ def shape_children(mainobject, update=False):
     myctrl.draw_type = 'BOUNDS'
     myctrl.hide = False
     myctrl.hide_render = True
-    myctrl.cycles_visibility.camera = False
-    myctrl.cycles_visibility.diffuse = False
-    myctrl.cycles_visibility.glossy = False
-    myctrl.cycles_visibility.transmission = False
-    myctrl.cycles_visibility.scatter = False
-    myctrl.cycles_visibility.shadow = False
+    if bpy.context.scene.render.engine == 'CYCLES':
+        myctrl.cycles_visibility.camera = False
+        myctrl.cycles_visibility.diffuse = False
+        myctrl.cycles_visibility.glossy = False
+        myctrl.cycles_visibility.transmission = False
+        myctrl.cycles_visibility.scatter = False
+        myctrl.cycles_visibility.shadow = False
 
     # Create control box for baseboard
     myctrlbase = create_control_box("CTRL_Baseboard",
@@ -256,16 +259,17 @@ def shape_children(mainobject, update=False):
     myctrlbase.draw_type = 'BOUNDS'
     myctrlbase.hide = False
     myctrlbase.hide_render = True
-    myctrlbase.cycles_visibility.camera = False
-    myctrlbase.cycles_visibility.diffuse = False
-    myctrlbase.cycles_visibility.glossy = False
-    myctrlbase.cycles_visibility.transmission = False
-    myctrlbase.cycles_visibility.scatter = False
-    myctrlbase.cycles_visibility.shadow = False
+    if bpy.context.scene.render.engine == 'CYCLES':
+        myctrlbase.cycles_visibility.camera = False
+        myctrlbase.cycles_visibility.diffuse = False
+        myctrlbase.cycles_visibility.glossy = False
+        myctrlbase.cycles_visibility.transmission = False
+        myctrlbase.cycles_visibility.scatter = False
+        myctrlbase.cycles_visibility.shadow = False
 
-    mat = create_transparent_material("hidden_material", False)
-    set_material(myctrl, mat)
-    set_material(myctrlbase, mat)
+        mat = create_transparent_material("hidden_material", False)
+        set_material(myctrl, mat)
+        set_material(myctrlbase, mat)
 
     # deactivate others
     for o in bpy.data.objects:
@@ -276,72 +280,123 @@ def shape_children(mainobject, update=False):
 # ------------------------------------------------------------------
 # Define property group class to create or modify
 # ------------------------------------------------------------------
-class ObjectProperties(bpy.types.PropertyGroup):
-    frame_width = bpy.props.FloatProperty(name='Frame width', min=0.25, max=10, default=1, precision=2,
-                                          description='Doorframe width', update=update_object)
-    frame_height = bpy.props.FloatProperty(name='Frame height', min=0.25, max=10, default=2.1, precision=2,
-                                           description='Doorframe height', update=update_object)
-    frame_thick = bpy.props.FloatProperty(name='Frame thickness', min=0.05, max=0.50, default=0.08, precision=2,
-                                          description='Doorframe thickness', update=update_object)
-    frame_size = bpy.props.FloatProperty(name='Frame size', min=0.05, max=0.25, default=0.08, precision=2,
-                                         description='Doorframe size', update=update_object)
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.", default=True,
-                                     update=update_object)
-    factor = bpy.props.FloatProperty(name='', min=0.2, max=1, default=0.5, precision=3, description='Door ratio',
-                                     update=update_object)
-    r = bpy.props.FloatProperty(name='Rotation', min=0, max=360, default=0, precision=1,
-                                description='Door rotation', update=update_object)
+class ObjectProperties(PropertyGroup):
+    frame_width = FloatProperty(
+            name='Frame width',
+            min=0.25, max=10,
+            default=1, precision=2,
+            description='Doorframe width', update=update_object,
+            )
+    frame_height = FloatProperty(
+            name='Frame height',
+            min=0.25, max=10,
+            default=2.1, precision=2,
+            description='Doorframe height', update=update_object,
+            )
+    frame_thick = FloatProperty(
+            name='Frame thickness',
+            min=0.05, max=0.50,
+            default=0.08, precision=2,
+            description='Doorframe thickness', update=update_object,
+            )
+    frame_size = FloatProperty(
+            name='Frame size',
+            min=0.05, max=0.25,
+            default=0.08, precision=2,
+            description='Doorframe size', update=update_object,
+            )
+    crt_mat = BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            update=update_object,
+            )
+    factor = FloatProperty(
+            name='',
+            min=0.2, max=1,
+            default=0.5, precision=3, description='Door ratio',
+            update=update_object,
+            )
+    r = FloatProperty(
+            name='Rotation', min=0, max=360,
+            default=0, precision=1,
+            description='Door rotation', update=update_object,
+            )
 
-    openside = bpy.props.EnumProperty(items=(('1', "Right open", ""),
-                                             ('2', "Left open", ""),
-                                             ('3', "Both sides", "")),
-                                      name="Open side",
-                                      description="Defines the direction for opening the door", update=update_object)
+    openside = EnumProperty(
+            name="Open side",
+            items=(
+                ('1', "Right open", ""),
+                ('2', "Left open", ""),
+                ('3', "Both sides", ""),
+                ),
+            description="Defines the direction for opening the door",
+            update=update_object,
+            )
 
-    model = bpy.props.EnumProperty(items=(('1', "Model 01", ""),
-                                          ('2', "Model 02", ""),
-                                          ('3', "Model 03", ""),
-                                          ('4', "Model 04", ""),
-                                          ('5', "Model 05", "Glass"),
-                                          ('6', "Model 06", "Glass")),
-                                   name="Model",
-                                   description="Door model", update=update_object)
+    model = EnumProperty(
+            name="Model",
+            items=(
+                ('1', "Model 01", ""),
+                ('2', "Model 02", ""),
+                ('3', "Model 03", ""),
+                ('4', "Model 04", ""),
+                ('5', "Model 05", "Glass"),
+                ('6', "Model 06", "Glass"),
+                ),
+            description="Door model",
+            update=update_object,
+            )
 
-    handle = bpy.props.EnumProperty(items=(('1', "Handle 01", ""),
-                                           ('2', "Handle 02", ""),
-                                           ('3', "Handle 03", ""),
-                                           ('4', "Handle 04", ""),
-                                           ('0', "None", "")),
-                                    name="Handle",
-                                    description="Handle model", update=update_object)
+    handle = EnumProperty(
+            name="Handle",
+            items=(
+                ('1', "Handle 01", ""),
+                ('2', "Handle 02", ""),
+                ('3', "Handle 03", ""),
+                ('4', "Handle 04", ""),
+                ('0', "None", ""),
+                ),
+            description="Handle model",
+            update=update_object,
+            )
 
     # opengl internal data
-    glpoint_a = bpy.props.FloatVectorProperty(name="glpointa",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_b = bpy.props.FloatVectorProperty(name="glpointb",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_c = bpy.props.FloatVectorProperty(name="glpointc",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_d = bpy.props.FloatVectorProperty(name="glpointc",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_e = bpy.props.FloatVectorProperty(name="glpointc",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
+    glpoint_a = FloatVectorProperty(
+            name="glpointa",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_b = FloatVectorProperty(
+            name="glpointb",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_c = FloatVectorProperty(
+            name="glpointc",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_d = FloatVectorProperty(
+            name="glpointc",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_e = FloatVectorProperty(
+            name="glpointc",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
 
 # Register
 bpy.utils.register_class(ObjectProperties)
-bpy.types.Object.DoorObjectGenerator = bpy.props.CollectionProperty(type=ObjectProperties)
+Object.DoorObjectGenerator = CollectionProperty(type=ObjectProperties)
 
 
 # ------------------------------------------------------------------
 # Define panel class to modify object
 # ------------------------------------------------------------------
-class AchmDoorObjectgeneratorpanel(bpy.types.Panel):
+class AchmDoorObjectgeneratorpanel(Panel):
     bl_idname = "OBJECT_PT_door_generator"
     bl_label = "Door"
     bl_space_type = 'VIEW_3D'
@@ -404,6 +459,8 @@ class AchmDoorObjectgeneratorpanel(bpy.types.Panel):
                 layout.prop(myobjdat, 'handle')
 
                 box = layout.box()
+                if not context.scene.render.engine == 'CYCLES':
+                    box.enabled = False
                 box.prop(myobjdat, 'crt_mat')
             else:
                 row = layout.row()
@@ -414,9 +471,9 @@ class AchmDoorObjectgeneratorpanel(bpy.types.Panel):
 # Create Doorframe
 # ------------------------------------------------------------------------------
 def create_doorframe(mp, mymesh):
-    tf = mp.frame_thick/3
+    tf = mp.frame_thick / 3
     sf = mp.frame_size
-    wf = (mp.frame_width/2) - sf
+    wf = (mp.frame_width / 2) - sf
     hf = mp.frame_height - sf
     gap = 0.02
     deep = mp.frame_thick * 0.50
@@ -486,7 +543,7 @@ def make_one_door(self, myframe, width, openside):
         set_smooth(handle2)
         set_modifier_subsurf(handle2)
     # Create materials
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         # Door material
         mat = create_diffuse_material("Door_material", False, 0.8, 0.8, 0.8)
         set_material(mydoor, mat)

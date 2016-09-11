@@ -2,12 +2,12 @@ import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty, IntProperty, FloatVectorProperty
 from random import uniform
 from mathutils import Euler, Vector
-from math import tan, radians, sqrt
+from math import tan, sin, cos, radians, sqrt
 import bmesh
 from . jarch_materials import Image, Mortar
 
 def create_flooring(mat, if_wood, if_tile, over_width, over_length, b_width, b_length, b_length2, is_length_vary, length_vary, num_boards, space_l, space_w,
-        spacing, t_width, t_length, is_offset, offset, is_ran_offset, offset_vary, t_width2, is_width_vary, width_vary, max_boards, is_ran_height, ran_height, th):
+        spacing, t_width, t_length, is_offset, offset, is_ran_offset, offset_vary, t_width2, is_width_vary, width_vary, max_boards, is_ran_height, ran_height, th, hb_dir):
     verts = []; faces = []
     #convert measurments
     ow = over_width
@@ -28,6 +28,10 @@ def create_flooring(mat, if_wood, if_tile, over_width, over_length, b_width, b_l
             verts, faces = wood_regular(ow, ol, bw, bl, s_l, s_w, is_length_vary, length_vary, is_width_vary, width_vary, max_boards, is_ran_height, ran_height, th)
         elif if_wood == "2": #Parquet
             verts, faces = wood_parquet(ow, ol, bw, s, num_boards, th)
+        elif if_wood == "3": #Herringbone Parquet
+            verts, faces = wood_herringbone(ow, ol, bw, bl2, s, th, hb_dir, True)
+        elif if_wood == "4": #Herringbone
+            verts, faces = wood_herringbone(ow, ol, bw, bl2, s, th, hb_dir, False)
     elif mat == "2": #Tile
         if if_tile == "1": #Regular
             verts, faces = tile_regular(ow, ol, tw, tl, s, is_offset, offset, is_ran_offset, offset_vary, th)
@@ -37,6 +41,197 @@ def create_flooring(mat, if_wood, if_tile, over_width, over_length, b_width, b_l
             verts, faces = tile_lms(ow, ol, tw, s, th)
         elif if_tile == "4": #Hexagonal
             verts, faces = tile_hexagon(ow, ol, tw2, s, th)
+    
+    return (verts, faces)
+
+#herringbone
+def wood_herringbone(ow, ol, bw, bl, s, th, hb_dir, stepped):
+    verts = []; faces = []
+    cur_x, cur_y, cur_z = 0.0, 0.0, 0.0
+    x_off, y_off = 0.0, 0.0 #used for finding farther forwards points when stepped
+    ang_s = s * sin(radians(45))
+    s45 = s / sin(radians(45))    
+    
+    #step variables
+    if stepped:
+        x_off = cos(radians(45)) * bw
+        y_off = sin(radians(45)) * bw
+        
+    wid_off = sin(radians(45)) * bl #offset from one end of the board to the other inline with width
+    len_off = cos(radians(45)) * bl #offset from one end of the board to the other inline with length
+    w = bw / cos(radians(45))  #width adjusted for 45 degree rotation     
+    
+    #figure out starting position
+    if hb_dir == "1":
+        cur_y = -wid_off    
+            
+    elif hb_dir == "2":
+        cur_x = ow
+        cur_y = ol + wid_off
+    
+    elif hb_dir == "3":
+        cur_y = ol
+        cur_x = -wid_off
+        
+    elif hb_dir == "4":
+        cur_x = ow + wid_off
+            
+    #loop going forwards
+    while (hb_dir == "1" and cur_y < ol + wid_off) or (hb_dir == "2" and cur_y > 0 - wid_off) or (hb_dir == "3" and cur_x < ow + wid_off) or (hb_dir == "4" and cur_x > 0 - wid_off):
+        going_forwards = True
+        
+        #loop going right
+        while (hb_dir == "1" and cur_x < ow) or (hb_dir == "2" and cur_x > 0) or (hb_dir == "3" and cur_y > 0) or (hb_dir == "4" and cur_y < ol):
+            p = len(verts)                        
+            
+            #add verts
+            #forwards
+            if hb_dir == "1":
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+                
+                if stepped and cur_x != 0:
+                    verts += [(cur_x - x_off, cur_y + y_off, cur_z), (cur_x - x_off, cur_y + y_off, cur_z + th)]
+                else:
+                    verts += [(cur_x, cur_y + w, cur_z), (cur_x, cur_y + w, cur_z + th)]
+                
+                if going_forwards:
+                    cur_y += wid_off
+                else:
+                    cur_y -= wid_off
+                cur_x += len_off
+                
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+                if stepped:
+                    verts += [(cur_x - x_off, cur_y + y_off, cur_z), (cur_x - x_off, cur_y + y_off, cur_z + th)]
+                    cur_x -= x_off - ang_s
+                    if going_forwards:                        
+                        cur_y += y_off + ang_s
+                    else:
+                        cur_y -= y_off + ang_s
+                else:
+                    verts += [(cur_x, cur_y + w, cur_z), (cur_x, cur_y + w, cur_z + th)]
+                    cur_x += s 
+                
+            #backwards    
+            elif hb_dir == "2":
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+                
+                if stepped and cur_x != ow:
+                    verts += [(cur_x + x_off, cur_y - y_off, cur_z), (cur_x + x_off, cur_y - y_off, cur_z + th)]
+                else:
+                    verts += [(cur_x, cur_y - w, cur_z), (cur_x, cur_y - w, cur_z + th)]
+                
+                if going_forwards:
+                    cur_y -= wid_off
+                else:
+                    cur_y += wid_off
+                cur_x -= len_off
+                
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+                if stepped:
+                    verts += [(cur_x + x_off, cur_y - y_off, cur_z), (cur_x + x_off, cur_y - y_off, cur_z + th)]
+                    cur_x += x_off - ang_s
+                    if going_forwards:                        
+                        cur_y -= y_off + ang_s
+                    else:
+                        cur_y += y_off + ang_s
+                else:
+                    verts += [(cur_x, cur_y - w, cur_z), (cur_x, cur_y - w, cur_z + th)]
+                    cur_x -= s 
+            #right    
+            elif hb_dir == "3":
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+
+                if stepped and cur_y != ol:
+                    verts += [(cur_x + y_off, cur_y + x_off, cur_z), (cur_x + y_off, cur_y + x_off, cur_z + th)]                 
+                else:
+                    verts += [(cur_x + w, cur_y, cur_z), (cur_x + w, cur_y, cur_z + th)]
+                    
+                if going_forwards:
+                    cur_x += wid_off
+                else:
+                    cur_x -= wid_off
+                cur_y -= len_off
+                
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+                if stepped:
+                    verts += [(cur_x + y_off, cur_y + x_off, cur_z), (cur_x + y_off, cur_y + x_off, cur_z + th)] 
+                    cur_y += x_off - ang_s
+                    if going_forwards:                        
+                        cur_x += y_off + ang_s
+                    else:
+                        cur_x -= y_off + ang_s
+                else:
+                    verts += [(cur_x + w, cur_y, cur_z), (cur_x + w, cur_y, cur_z + th)]
+                    cur_y -= s 
+            #left   
+            else:
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+                
+                if stepped and cur_y != 0:
+                    verts += [(cur_x - y_off, cur_y - x_off, cur_z), (cur_x - y_off, cur_y - x_off, cur_z + th)]
+                else:
+                    verts += [(cur_x - w, cur_y, cur_z), (cur_x - w, cur_y, cur_z + th)]
+                    
+                if going_forwards:
+                    cur_x -= wid_off
+                else:
+                    cur_x += wid_off
+                cur_y += len_off
+                
+                verts += [(cur_x, cur_y, cur_z), (cur_x, cur_y, cur_z + th)]
+                if stepped:
+                    verts += [(cur_x - y_off, cur_y - x_off, cur_z), (cur_x - y_off, cur_y - x_off, cur_z + th)]
+                    cur_y -= x_off - ang_s
+                    if going_forwards:                        
+                        cur_x -= y_off + ang_s
+                    else:
+                        cur_x += y_off + ang_s
+                else:
+                    verts += [(cur_x - w, cur_y, cur_z), (cur_x - w, cur_y, cur_z + th)]
+                    cur_y += s                    
+                
+            #faces
+            faces += [(p, p + 1, p + 3, p + 2), (p, p + 4, p + 5, p + 1), (p + 4, p + 6, p + 7, p + 5), (p + 6, p + 2, p + 3, p + 7), 
+                (p + 1, p + 5, p + 7, p + 3), (p, p + 2, p + 6, p + 4)]           
+        
+            #flip going_right
+            going_forwards = not going_forwards
+            x_off *= -1 
+            
+        #if not in forwards position, then move back before adjusting values for next row
+        if not going_forwards:
+            x_off = abs(x_off)
+            if hb_dir == "1":            
+                cur_y -= wid_off
+                if stepped:
+                    cur_y -= y_off + ang_s
+            elif hb_dir == "2":
+                cur_y += wid_off
+                if stepped:
+                    cur_y += y_off + ang_s
+            elif hb_dir == "3":
+                cur_x -= wid_off
+                if stepped:
+                    cur_x -= y_off + ang_s
+            else:
+                cur_x += wid_off
+                if stepped:
+                    cur_x += y_off + ang_s              
+        
+        #adjust forwards
+        if hb_dir == "1":
+            cur_y += w + s45
+            cur_x = 0
+        elif hb_dir == "2":
+            cur_y -= w + s45
+            cur_x = ow
+        elif hb_dir == "3":
+            cur_x += w + s45
+            cur_y = ol
+        else:
+            cur_x -= w + s45
+            cur_y = 0
     
     return (verts, faces)
 
@@ -296,19 +491,23 @@ def UpdateFlooring(self, context):
     dim = []  
     for i in tuple(o.dimensions.copy()):
         i += 0.1; i *= 3.28084; dim.append(i)
+    
+    #generate faces and vertices    
     if o.f_object_add == "add":
         verts, faces = create_flooring(o.f_mat, o.f_if_wood, o.f_if_tile, o.f_over_width, o.f_over_length, o.f_b_width, o.f_b_length, o.f_b_length2, o.f_is_length_vary, o.f_length_vary, o.f_num_boards, 
                 o.f_space_l, o.f_space_w, o.f_spacing, o.f_t_width, o.f_t_length, o.f_is_offset, o.f_offset, o.f_is_random_offset, 
-                o.f_offset_vary, o.f_t_width2, o.f_is_width_vary, o.f_width_vary, o.f_max_boards, o.f_is_ran_height, o.f_ran_height, o.f_thickness)
+                o.f_offset_vary, o.f_t_width2, o.f_is_width_vary, o.f_width_vary, o.f_max_boards, o.f_is_ran_height, o.f_ran_height, o.f_thickness, o.f_hb_direction)
     elif o.f_object_add == "convert":
         verts, faces = create_flooring(o.f_mat, o.f_if_wood, o.f_if_tile, dim[0], dim[1], o.f_b_width, o.f_b_length, o.f_b_length2, o.f_is_length_vary, o.f_length_vary, o.f_num_boards, 
                 o.f_space_l, o.f_space_w, o.f_spacing, o.f_t_width, o.f_t_length, o.f_is_offset, o.f_offset, o.f_is_random_offset, 
-                o.f_offset_vary, o.f_t_width2, o.f_is_width_vary, o.f_width_vary, o.f_max_boards, o.f_is_ran_height, o.f_ran_height, o.f_thickness)
+                o.f_offset_vary, o.f_t_width2, o.f_is_width_vary, o.f_width_vary, o.f_max_boards, o.f_is_ran_height, o.f_ran_height, o.f_thickness, o.f_hb_direction)
+   
     if o.f_object_add in ("convert", "add"):     
         emesh = o.data
         mesh = bpy.data.meshes.new(name = "flooring")
         mesh.from_pydata(verts, [], faces)
         mesh.update(calc_edges = True)
+        
     if o.f_object_add == "convert":
         if o.f_cut_name == "none": #create cutter object
             for ob in context.scene.objects:
@@ -339,12 +538,14 @@ def UpdateFlooring(self, context):
         if i.data == emesh:
             i.data = mesh
     emesh.user_clear(); bpy.data.meshes.remove(emesh)
+    
     #modifiers
     if o.f_is_bevel == True and o.f_mat == "1":
         bpy.ops.object.modifier_add(type = "BEVEL"); pos = len(o.modifiers) - 1
         o.modifiers[pos].segments = o.f_res
         o.modifiers[pos].width = o.f_bevel_amo
         bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = o.modifiers[pos].name)   
+    
     #set position
     if o.f_object_add == "convert":
         o.location = coords; cutter = bpy.data.objects[o.f_cut_name]
@@ -385,6 +586,7 @@ def UpdateFlooring(self, context):
         bpy.ops.object.modifier_add(type = "BOOLEAN"); pos = len(o.modifiers) - 1 
         bpy.context.object.modifiers[pos].object = bpy.data.objects[o.f_cut_name]
         bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = o.modifiers[0].name)        
+   
     #create grout
     if o.f_mat == "2":
         if o.f_object_add == "add":
@@ -402,8 +604,9 @@ def UpdateFlooring(self, context):
             bpy.context.object.modifiers[pos].object = bpy.data.objects[o.f_cut_name]
             bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = grout_ob.modifiers[0].name)
             grout_ob.select = False; o.select = True; context.scene.objects.active = o
-    #cut tile
-    if o.f_object_add == "add" and o.f_mat == "2" and o.f_if_tile in ("2", "4"):
+    
+    #cut tile or herringbone wood
+    if o.f_object_add == "add" and (o.f_mat == "2" and o.f_if_tile in ("2", "4")) or (o.f_mat == "1" and o.f_if_wood in ("3", "4")):
         verts3, faces3 = tile_cutter(o.f_over_width, o.f_over_length)
         cutter_me = bpy.data.meshes.new("cutter")
         cutter_me.from_pydata(verts3, [], faces3)
@@ -415,12 +618,19 @@ def UpdateFlooring(self, context):
         bpy.ops.object.modifier_add(type = "BOOLEAN"); pos = len(o.modifiers) - 1
         o.modifiers[pos].object = cutter_ob
         bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = o.modifiers[pos].name)
-        o.select = False; grout_ob.select = True; context.scene.objects.active = grout_ob
-        bpy.ops.object.modifier_add(type = "BOOLEAN"); pos = len(grout_ob.modifiers) - 1
-        grout_ob.modifiers[pos].object = cutter_ob
-        bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = grout_ob.modifiers[pos].name)
-        grout_ob.select = False; cutter_ob.select = True; context.scene.objects.active = cutter_ob; bpy.ops.object.delete()
+        o.select = False
+        
+        #cut grout if needed
+        if o.f_mat == "2":
+            grout_ob.select = True; context.scene.objects.active = grout_ob
+            bpy.ops.object.modifier_add(type = "BOOLEAN"); pos = len(grout_ob.modifiers) - 1
+            grout_ob.modifiers[pos].object = cutter_ob
+            bpy.ops.object.modifier_apply(apply_as = "DATA", modifier = grout_ob.modifiers[pos].name)
+            grout_ob.select = False
+        
+        cutter_ob.select = True; context.scene.objects.active = cutter_ob; bpy.ops.object.delete()
         o.select = True; context.scene.objects.active = o
+    
     #add materials
     if o.f_mat == "2": #grout material
         enter = True
@@ -430,6 +640,7 @@ def UpdateFlooring(self, context):
             mat = bpy.data.materials.new("grout_temp"); mat.use_nodes = True; grout_ob.data.materials.append(mat)
         elif enter == False:
             mat = bpy.data.materials.get(mats[1]); grout_ob.data.materials.append(mat)
+    
     if o.f_is_material == True or o.f_mat == "2":
         enter = True
         for i in mats:
@@ -438,6 +649,7 @@ def UpdateFlooring(self, context):
             mat = bpy.data.materials.new("flooring_" + o.name); mat.use_nodes = True; o.data.materials.append(mat)
         elif enter == False:
             mat = bpy.data.materials.get(mats[0]); o.data.materials.append(mat)
+            
     #join grout
     if o.f_mat == "2":
         VertexGroup(self, context)
@@ -447,6 +659,7 @@ def UpdateFlooring(self, context):
     for i in mats:
         if i not in o.data.materials:
             mat = bpy.data.materials.get(i); o.data.materials.append(mat)
+    
     #uv unwrap
     if o.f_unwrap == True: 
         UnwrapFlooring(self, context)
@@ -525,7 +738,11 @@ def FlooringMaterial(self, context):
     if o.f_col_image == "": self.report({"ERROR"}, "No Color Image Entered"); error = True
     if o.f_is_bump == True and o.f_norm_image == "": self.report({"ERROR"}, "No Normal Map Image Entered"); error = True
     if error == False:
-        mat = Image(bpy, context, o.f_im_scale, o.f_col_image, o.f_norm_image, o.f_bump_amo, o.f_is_bump, "flooring_use", True, 0.1, 0.05, o.f_is_rotate)
+        extra_rot = None
+        if o.f_mat == "1" and o.f_if_wood in ("3", "4"):
+            extra_rot = 45
+            
+        mat = Image(bpy, context, o.f_im_scale, o.f_col_image, o.f_norm_image, o.f_bump_amo, o.f_is_bump, "flooring_use", True, 0.1, 0.05, o.f_is_rotate, extra_rot)
         if mat != None:
             if len(o.data.materials) == 0:
                 o.data.materials.append(mat.copy())
@@ -547,7 +764,7 @@ bpy.types.Object.f_cut_name = StringProperty(default = "none")
 bpy.types.Object.f_is_cut = StringProperty(default = "none")
 #type/material
 bpy.types.Object.f_mat = EnumProperty(items = (("1", "Wood", ""), ("2", "Tile", "")), default = "1", description = "Material", update = UpdateFlooring, name = "")
-bpy.types.Object.f_if_wood = EnumProperty(items = (("1", "Regular", ""), ("2", "Parquet", "")), default = "1", description = "Wood Type", update = UpdateFlooring, name = "")
+bpy.types.Object.f_if_wood = EnumProperty(items = (("1", "Regular", ""), ("2", "Parquet", ""), ("3", "Herringbone Parquet", ""), ("4", "Herringbone", "")), default = "1", description = "Wood Type", update = UpdateFlooring, name = "")
 bpy.types.Object.f_if_tile = EnumProperty(items = (("1", "Regular", ""), ("2", "Large + Small", ""), ("3", "Large + Many Small", ""), ("4", "Hexagonal", "")), default = "1", description = "Tile Type", update = UpdateFlooring, name = "")
 #measurements
 bpy.types.Object.f_over_width = FloatProperty(name = "Overall Width", min = 2.00 / 3.28084, max = 100.00 / 3.28084, default = 8.00 / 3.28084, subtype = "DISTANCE", description = "Overall Width", update = UpdateFlooring)
@@ -555,6 +772,7 @@ bpy.types.Object.f_over_length = FloatProperty(name = "Overall Length", min = 2.
 bpy.types.Object.f_b_width = FloatProperty(name = "Board Width", min = 2.00 / 39.3701, max = 14.00 / 39.3701, default = 6.00 / 39.3701, subtype = "DISTANCE", description = "Board Width", update = UpdateFlooring)
 bpy.types.Object.f_b_length = FloatProperty(name = "Board Length", min = 4.00 / 3.28084, max = 20.00 / 3.28084, default = 8.00 / 3.28084, subtype = "DISTANCE", description = "Board Length", update = UpdateFlooring)
 bpy.types.Object.f_b_length2 = FloatProperty(name = "Board Length", min = 1.00 / 3.28084, max = 4.00 / 3.28084, default = 1.5 / 3.28084, subtype = "DISTANCE", description = "Board Length", update = UpdateFlooring)
+bpy.types.Object.f_hb_direction = EnumProperty(items = (("1", "Forwards (+y)", ""), ("2", "Backwards (-y)", ""), ("3", "Right (+x)", ""), ("4", "Left (-x)", "")), name = "Direction", description = "Herringbone Direction", update = UpdateFlooring)
 bpy.types.Object.f_thickness = FloatProperty(name = "Floor Thickness", min = 0.75 / 39.3701, max = 1.5 / 39.3701, default = 1 / 39.3701, subtype = "DISTANCE", description = "Thickness Of Flooring", update = UpdateFlooring)
 bpy.types.Object.f_is_length_vary = BoolProperty(name = "Vary Length?", default = False, description = "Vary Lengths?", update = UpdateFlooring)
 bpy.types.Object.f_length_vary = FloatProperty(name = "Length Varience", min = 1.00, max = 100.0, default = 50.0, subtype = "PERCENTAGE", description = "Length Varience", update = UpdateFlooring)
@@ -596,11 +814,11 @@ bpy.types.Object.f_random_uv = BoolProperty(name = "Random UV's?", default = Tru
 class FlooringMaterials(bpy.types.Operator):
     bl_idname = "mesh.jarch_flooring_materials"
     bl_label = "Generate\\Update Materials"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         FlooringMaterial(self, context)        
-        return {"FINISHED"}
+        return {"FINISHED", "INTERNAL"}
 
 class FlooringPanel(bpy.types.Panel):
     bl_idname = "OBJECT_PT_jarch_flooring"
@@ -631,8 +849,10 @@ class FlooringPanel(bpy.types.Panel):
                             
                             if o.f_mat == "1":
                                 layout.prop(o, "f_b_width")
+                                
                                 if o.f_if_wood == "1": layout.prop(o, "f_b_length")
                                 layout.separator()
+                                
                                 if o.f_if_wood == "1": 
                                     layout.prop(o, "f_is_length_vary", icon = "NLA")
                                     if o.f_is_length_vary == True: layout.prop(o, "f_length_vary"); layout.prop(o, "f_max_boards"); layout.separator()
@@ -643,9 +863,21 @@ class FlooringPanel(bpy.types.Panel):
                                     if o.f_is_ran_height == True: layout.prop(o, "f_ran_height")
                                     layout.separator()
                                     layout.prop(o, "f_space_w"); layout.prop(o, "f_space_l"); layout.separator()
-                                elif o.f_if_wood != "1": layout.prop(o, "f_spacing")
-                                if o.f_if_wood == "2": layout.prop(o, "f_num_boards"); layout.separator()
-                                layout.prop(o, "f_is_bevel", icon = "MOD_BEVEL")
+                                
+                                elif o.f_if_wood in ("3", "4"):
+                                    layout.prop(o, "f_b_length2")
+                                    layout.prop(o, "f_hb_direction")
+                                    layout.separator()   
+                                
+                                if o.f_if_wood != "1": 
+                                    layout.prop(o, "f_spacing")
+                                    layout.separator()
+                                if o.f_if_wood == "2": 
+                                    layout.prop(o, "f_num_boards")
+                                    layout.separator()
+                                
+                                #bevel
+                                layout.prop(o, "f_is_bevel", icon = "MOD_BEVEL")                                                                
                                 if o.f_is_bevel == True: layout.prop(o, "f_res", icon = "OUTLINER_DATA_CURVE"); layout.prop(o, "f_bevel_amo"); layout.separator()                                                
                             
                             elif o.f_mat == "2":
@@ -669,7 +901,7 @@ class FlooringPanel(bpy.types.Panel):
                             if context.scene.render.engine == "CYCLES": layout.prop(o, "f_is_material", icon = "MATERIAL")
                             else: layout.label("Materials Only Supported With Cycles", icon = "POTATO")
                             
-                            if o.f_is_material == True and context.render.engine == "CYCLES":
+                            if o.f_is_material == True and context.scene.render.engine == "CYCLES":
                                 layout.separator(); layout.prop(o, "f_col_image", icon = "COLOR"); layout.prop(o, "f_is_bump", icon = "SMOOTHCURVE")
                                 if o.f_is_bump == True: layout.prop(o, "f_norm_image", icon = "TEXTURE"); layout.prop(o, "f_bump_amo")
                                 layout.prop(o, "f_im_scale", icon = "MAN_SCALE"); layout.prop(o, "f_is_rotate", icon = "MAN_ROT")
@@ -681,9 +913,9 @@ class FlooringPanel(bpy.types.Panel):
                             layout.operator("mesh.jarch_flooring_mesh", icon = "OUTLINER_OB_MESH")
                             layout.operator("mesh.jarch_flooring_delete", icon = "CANCEL")
                         else:
-                            if o.f_object_add == "none":
+                            if o.f_object_add == "none" and o.s_object_add == "none" and o.ro_object_add == "none" and o.f_object_add != "mesh":
                                 layout.operator("mesh.jarch_flooring_convert")
-                            else:
+                            elif o.f_object_add == "mesh":
                                 layout.label("This Is A Mesh JARCH Vis Object", icon = "INFO")
                     else:
                         layout.label("This Is Already A JARCH Vis Object", icon = "POTATO")                    
@@ -708,7 +940,7 @@ class FlooringAdd(bpy.types.Operator):
 class FlooringConvert(bpy.types.Operator):
     bl_idname = "mesh.jarch_flooring_convert"
     bl_label = "Convert To Flooring"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object
@@ -718,7 +950,7 @@ class FlooringConvert(bpy.types.Operator):
 class FlooringUpdate(bpy.types.Operator):
     bl_idname = "mesh.jarch_flooring_update"
     bl_label = "Update Flooring"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         UpdateFlooring(self, context)
@@ -728,7 +960,7 @@ class FlooringMesh(bpy.types.Operator):
     bl_idname = "mesh.jarch_flooring_mesh"
     bl_label = "Convert To Mesh"
     bl_description = "Converts Flooring Object To Normal Object (No Longer Editable)"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object
@@ -738,7 +970,7 @@ class FlooringMesh(bpy.types.Operator):
 class FlooringDelete(bpy.types.Operator):
     bl_idname = "mesh.jarch_flooring_delete"
     bl_label = "Delete Flooring"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
     
     def execute(self, context):
         o = context.object; convert = False
@@ -770,4 +1002,4 @@ class FlooringDelete(bpy.types.Operator):
             if i.users == 0: bpy.data.materials.remove(i)
         if convert == True:
             bpy.data.objects[c_name].name = m_name         
-        return {"FINISHED"}                
+        return {"FINISHED"}               

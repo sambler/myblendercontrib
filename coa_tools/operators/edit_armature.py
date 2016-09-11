@@ -218,7 +218,7 @@ class QuickArmature(bpy.types.Operator):
         orig_armature.select = True     
         obj.select = True       
         
-        obj_orig_location = obj.location
+        obj_orig_location = Vector(obj.location)
         obj.location[1] = 0
         bpy.ops.object.parent_set(type='ARMATURE_AUTO')
         obj.location = obj_orig_location

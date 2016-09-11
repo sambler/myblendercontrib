@@ -1,41 +1,41 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_roof_maker.py
 # Automatic generation of roofs
 # Author: Antonio Vazquez (antonioya)
 #
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-import math
-from achm_tools import *
+from math import radians
+from bpy.types import Operator
+from bpy.props import IntProperty, FloatProperty, BoolProperty, EnumProperty
+from .achm_tools import *
 
 
 # ------------------------------------------------------------------
 # Define UI class
 # Rooms
 # ------------------------------------------------------------------
-class AchmRoof(bpy.types.Operator):
+class AchmRoof(Operator):
     bl_idname = "mesh.archimesh_roof"
     bl_label = "Roof"
     bl_description = "Roof Generator"
@@ -43,25 +43,46 @@ class AchmRoof(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     # Define properties
-    roof_width = bpy.props.IntProperty(name='Num tiles X', min=1, max=100, default=6, description='Tiles in X axis')
-    roof_height = bpy.props.IntProperty(name='Num tiles Y', min=1, max=100, default=3, description='Tiles in Y axis')
+    roof_width = IntProperty(
+            name='Num tiles X',
+            min=1, max=100, default=6,
+            description='Tiles in X axis',
+            )
+    roof_height = IntProperty(
+            name='Num tiles Y',
+            min=1, max=100, default=3,
+            description='Tiles in Y axis',
+            )
 
-    roof_thick = bpy.props.FloatProperty(name='Tile thickness', min=0.000, max=0.50, default=0.012, precision=3,
-                                         description='Thickness of the roof tile')
-    roof_angle = bpy.props.FloatProperty(name='Roof slope', min=0.0, max=70.0, default=0.0, precision=1,
-                                         description='Roof angle of slope')
-    roof_scale = bpy.props.FloatProperty(name='Tile scale', min=0.001, max=10, default=1, precision=3,
-                                         description='Scale of roof tile')
+    roof_thick = FloatProperty(
+            name='Tile thickness',
+            min=0.000, max=0.50, default=0.012, precision=3,
+            description='Thickness of the roof tile',
+            )
+    roof_angle = FloatProperty(
+            name='Roof slope', min=0.0, max=70.0, default=0.0, precision=1,
+            description='Roof angle of slope',
+            )
+    roof_scale = FloatProperty(
+            name='Tile scale', min=0.001, max=10, default=1, precision=3,
+            description='Scale of roof tile',
+            )
 
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.", default=True)
+    crt_mat = BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            )
 
-    model = bpy.props.EnumProperty(items=(('1', "Model 01", ""),
-                                          ('2', "Model 02", ""),
-                                          ('3', "Model 03", ""),
-                                          ('4', "Model 04", "")),
-                                   name="Model",
-                                   description="Roof tile model")
+    model = EnumProperty(
+            items=(
+                ('1', "Model 01", ""),
+                ('2', "Model 02", ""),
+                ('3', "Model 03", ""),
+                ('4', "Model 04", "")),
+            name="Model",
+            description="Roof tile model",
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -110,6 +131,8 @@ class AchmRoof(bpy.types.Operator):
             box.prop(self, 'roof_angle')
 
             box = layout.box()
+            if not context.scene.render.engine == 'CYCLES':
+                box.enabled = False
             box.prop(self, 'crt_mat')
         else:
             row = layout.row()
@@ -152,7 +175,7 @@ def create_roof_mesh(self):
     # Thicknes
     if self.roof_thick > 0.0:
         set_modifier_solidify(myroof, self.roof_thick)
-    # Subsurf    
+    # Subsurf
     set_modifier_subsurf(myroof)
     set_smooth(myroof)
 
@@ -179,10 +202,10 @@ def create_roof_mesh(self):
     set_modifier_array(myroof, "Y", a_y, self.roof_height)
 
     # Slope
-    myroof.rotation_euler = (math.radians(self.roof_angle), 0.0, 0.0)
+    myroof.rotation_euler = (radians(self.roof_angle), 0.0, 0.0)
 
-    # Create materials        
-    if self.crt_mat:
+    # Create materials
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         # material
         mat = create_diffuse_material("Roof_material", False, 0.482, 0.061, 0.003, 0.581, 0.105, 0.068, 0.01)
         set_material(myroof, mat)

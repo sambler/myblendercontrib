@@ -30,13 +30,17 @@ def get_soundspeaker_list(self):
 bpy.types.Scene.soundspeakers = property(get_soundspeaker_list)
 
 def get_channel_names(self):
-    channels = [ k[:-1] for k in self.keys() 
-                 if len(k) == 3
-                 and k.endswith('0')]
-    channels = [a['channel_name'] for a in bpy.data.actions 
+    channels = []
+    actions = [a for a in bpy.data.actions 
                 if 'channel_name' in a.keys()
                 #and a['channel_name'] in channels
+                and "wavfile" in a.keys()
                 and a['wavfile'] == self.sound.name]
+    for a in actions: # TODO
+        if "MIDI" in a.keys(): # midi file
+            channels.extend(a["channels"])
+        else:
+            channels.append(a["channel_name"])
     return list(set(channels))
 
 bpy.types.Speaker.channels = property(get_channel_names)
@@ -294,16 +298,66 @@ def toggle_context_speaker(self, context):
 
     #context.scene.speaker = self
 
+class ClosePopupWindow(Operator):
+    """Close Popup Window (and remove screen)"""
+    bl_idname = "wm.close_popup_window"
+    bl_label = "Close Popup Window"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        screen = context.screen
+        windows = [w for w in context.window_manager.windows if w != context.window]
+        c = {"screen": screen,
+             "window": context.window
+             }
+
+        if len(windows):
+            bpy.ops.wm.window_close('INVOKE_DEFAULT')
+            c["window"] = windows[0]
+            screen = windows[0].screen
+            print("GO BACK TO SCREEN ", screen.name)
+            bpy.ops.screen.delete(c, 'INVOKE_DEFAULT')
+            windows[0].screen = screen
+            print(windows[0].screen.name)
+
+        else:
+            bpy.ops.screen.delete(c)
+
+        return {'FINISHED'}
+
+def sd_popout(self, context):
+    screen = context.screen
+    space = context.space_data
+    layout = self.layout
+    if len(screen.areas) == 1:
+        layout.operator("wm.close_popup_window", icon='X')
+        for x in screen.sound_driver_areas:
+            layout.label(x.name)
+    if space.pin_id == context.scene.speaker and len(screen.areas) > 1:
+        
+        layout.operator("screen.area_dupli",
+                        text="Popout")
+    return None
+
+
+
 def register():
     bpy.types.Speaker.is_context_speaker = BoolProperty(name="ContextSpeaker",
                                            description="(Un)Set context Speaker",
                                            default=False,
                                            update=toggle_context_speaker)
+    bpy.types.PROPERTIES_HT_header.append(sd_popout)
+    register_class(ClosePopupWindow)
     register_class(OBJECT_OT_speaker_add)
     register_class(SpeakerDataPanel)
     register_class(SpeakerSelectorOperator)
 
 def unregister():
+    unregister_class(ClosePopupWindow)
     unregister_class(OBJECT_OT_speaker_add)
     unregister_class(SpeakerDataPanel)
     unregister_class(SpeakerSelectorOperator)
+    bpy.types.PROPERTIES_HT_header.remove(sd_popout)

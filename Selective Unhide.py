@@ -30,13 +30,25 @@ bl_info = {
 
 
 
-def getHiddenVertices():
+def getHiddenMeshElements(type=""):
     
     object = bpy.context.active_object                
         
     object.update_from_editmode()
     
-    return [vertex for vertex in object.data.vertices if vertex.hide]
+    hiddenVertices = [vertex for vertex in object.data.vertices if vertex.hide]
+
+    if type == "":
+
+        hiddenEdges = [edge for edge in object.data.edges if edge.hide]
+
+        hiddenFaces = [face for face in object.data.polygons if face.hide]
+        
+        return hiddenVertices + hiddenEdges + hiddenFaces
+    
+    elif type == "vertices":
+        
+        return hiddenVertices
 
 
 
@@ -46,7 +58,7 @@ def getHiddenVertexGroups():
                 
     hiddenVertexGroups = []
                     
-    for hiddenVertex in getHiddenVertices():
+    for hiddenVertex in getHiddenMeshElements("vertices"):
         
         for vertexGroup in hiddenVertex.groups:
             
@@ -178,9 +190,9 @@ class UnhideSearch(bpy.types.Operator):
 
 
 class UnhideObject(bpy.types.Operator):
-    """Unhide the object or group of objects"""
+    """Unhide the item or group of items"""
     bl_idname = "object.show"
-    bl_label = "Show a specific object or group"
+    bl_label = "Show a specific item or group"
     bl_options = {"INTERNAL"}
 
     itemName = bpy.props.StringProperty()
@@ -261,7 +273,7 @@ class UnhideObject(bpy.types.Operator):
             
             object = bpy.data.objects[self.object]
                                                         
-            for hiddenVertex in getHiddenVertices():
+            for hiddenVertex in getHiddenMeshElements("vertices"):
                 
                 for vertexGroup in hiddenVertex.groups:
                     
@@ -384,7 +396,7 @@ class UnhideMenu(bpy.types.Menu):
             
             hiddenGroups = getHiddenVertexGroups()
             hiddenObjects = [] #Edit mdoe doesn't have hidden objects
-            hiddenVertices = getHiddenVertices()
+            hiddenVertices = getHiddenMeshElements()
                                                    
                         
         row = col.row()
@@ -412,7 +424,7 @@ class UnhideMenu(bpy.types.Menu):
                 
             elif bpy.context.mode == "EDIT_MESH":
                 
-                row.operator("mesh.reveal", text="Unhide all vertices", icon="RESTRICT_VIEW_OFF")
+                row.operator("mesh.reveal", text="Unhide all", icon="RESTRICT_VIEW_OFF")
                 
                 if len(hiddenGroups) > 0:
                 
@@ -431,7 +443,7 @@ class UnhideMenu(bpy.types.Menu):
                 
             elif bpy.context.mode == "EDIT_MESH":
                 
-                row.label(text="No hidden vertices")
+                row.label(text="No hidden vertices, edges or faces")
                 
                             
         if len(hiddenGroups) > 0:

@@ -1,76 +1,61 @@
 
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by the Free
-#  Software Foundation; either version 2 of the License, or (at your option)
-#  any later version.
-#
-#  This program is distributed in the hope that it will be useful, but WITHOUT
-#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-#  this program; if not, write to the Free Software Foundation, Inc.,
-#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-#  more details.
-#
-#  You should have received a copy of the GNU General Public License along with
-#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
 # object icon
 def object(object):
   '''
     Returns a icon based on object type.
   '''
 
-  # mesh
-  if object.type == 'MESH':
-    icon = 'OUTLINER_OB_MESH'
+  # is object
+  if object:
 
-  # curve
-  elif object.type == 'CURVE':
-    icon = 'OUTLINER_OB_CURVE'
+    # mesh
+    if object.type == 'MESH':
+      icon = 'OUTLINER_OB_MESH'
 
-  # surface
-  elif object.type == 'SURFACE':
-    icon = 'OUTLINER_OB_SURFACE'
+    # curve
+    elif object.type == 'CURVE':
+      icon = 'OUTLINER_OB_CURVE'
 
-  # meta
-  elif object.type == 'META':
-    icon = 'OUTLINER_OB_META'
+    # surface
+    elif object.type == 'SURFACE':
+      icon = 'OUTLINER_OB_SURFACE'
 
-  # font
-  elif object.type == 'FONT':
-    icon = 'OUTLINER_OB_FONT'
+    # meta
+    elif object.type == 'META':
+      icon = 'OUTLINER_OB_META'
 
-  # armature
-  elif object.type == 'ARMATURE':
-    icon = 'OUTLINER_OB_ARMATURE'
+    # font
+    elif object.type == 'FONT':
+      icon = 'OUTLINER_OB_FONT'
 
-  # lattice
-  elif object.type == 'LATTICE':
-    icon = 'OUTLINER_OB_LATTICE'
+    # armature
+    elif object.type == 'ARMATURE':
+      icon = 'OUTLINER_OB_ARMATURE'
 
-  # empty
-  elif object.type == 'EMPTY':
-    icon = 'OUTLINER_OB_EMPTY'
+    # lattice
+    elif object.type == 'LATTICE':
+      icon = 'OUTLINER_OB_LATTICE'
 
-  # speaker
-  elif object.type == 'SPEAKER':
-    icon = 'OUTLINER_OB_SPEAKER'
+    # empty
+    elif object.type == 'EMPTY':
+      icon = 'OUTLINER_OB_EMPTY'
 
-  # camera
-  elif object.type == 'CAMERA':
-    icon = 'OUTLINER_OB_CAMERA'
+    # speaker
+    elif object.type == 'SPEAKER':
+      icon = 'OUTLINER_OB_SPEAKER'
 
-  # lamp
-  elif object.type == 'LAMP':
-    icon = 'OUTLINER_OB_LAMP'
+    # camera
+    elif object.type == 'CAMERA':
+      icon = 'OUTLINER_OB_CAMERA'
 
-  # default
-  else:
-    icon = 'OUTLINER_OB_MESH'
-  return icon
+    # lamp
+    elif object.type == 'LAMP':
+      icon = 'OUTLINER_OB_LAMP'
+
+    # default
+    else:
+      icon = 'OUTLINER_OB_MESH'
+    return icon
 
 # modifier icon
 def modifier(modifier):
@@ -285,47 +270,50 @@ def objectData(object):
     Returns a icon based on object type.
   '''
 
-  # mesh
-  if object.type == 'MESH':
-    icon = 'MESH_DATA'
+  # is object
+  if object:
 
-  # curve
-  elif object.type == 'CURVE':
-    icon = 'CURVE_DATA'
+    # mesh
+    if object.type == 'MESH':
+      icon = 'MESH_DATA'
 
-  # surface
-  elif object.type == 'SURFACE':
-    icon = 'SURFACE_DATA'
+    # curve
+    elif object.type == 'CURVE':
+      icon = 'CURVE_DATA'
 
-  # meta
-  elif object.type == 'META':
-    icon = 'META_DATA'
+    # surface
+    elif object.type == 'SURFACE':
+      icon = 'SURFACE_DATA'
 
-  # font
-  elif object.type == 'FONT':
-    icon = 'FONT_DATA'
+    # meta
+    elif object.type == 'META':
+      icon = 'META_DATA'
 
-  # armature
-  elif object.type == 'ARMATURE':
-    icon = 'ARMATURE_DATA'
+    # font
+    elif object.type == 'FONT':
+      icon = 'FONT_DATA'
 
-  # lattice
-  elif object.type == 'LATTICE':
-    icon = 'LATTICE_DATA'
+    # armature
+    elif object.type == 'ARMATURE':
+      icon = 'ARMATURE_DATA'
 
-  # speaker
-  elif object.type == 'SPEAKER':
-    icon = 'SPEAKER'
+    # lattice
+    elif object.type == 'LATTICE':
+      icon = 'LATTICE_DATA'
 
-  # camera
-  elif object.type == 'CAMERA':
-    icon = 'CAMERA_DATA'
+    # speaker
+    elif object.type == 'SPEAKER':
+      icon = 'SPEAKER'
 
-  # lamp
-  elif object.type == 'LAMP':
-    icon = 'LAMP_DATA'
+    # camera
+    elif object.type == 'CAMERA':
+      icon = 'CAMERA_DATA'
 
-  # default
-  else:
-    icon = 'MESH_DATA'
-  return icon
+    # lamp
+    elif object.type == 'LAMP':
+      icon = 'LAMP_DATA'
+
+    # default
+    else:
+      icon = 'MESH_DATA'
+    return icon

@@ -30,11 +30,12 @@ class SV_MT_layouts_templates(bpy.types.Menu):
     bl_label = "Templates"
     bl_description = "List of Sverchok Templates"
 
-    
+
     def avail_templates():
         fullpath = [sv_path, "json_examples"]
         templates_path = os.path.join(*fullpath)
         items = [[os.path.join(templates_path,t),t] for t in next(os.walk(templates_path))[2]]
+        items = [item for item in items if not item[0].endswith(".zip")]
         items.sort()
         return items
 
@@ -67,6 +68,11 @@ def node_templates_pulldown(self, context):
         row.scale_x = 1.3
         row.menu("SV_MT_layouts_templates",
                  icon="RNA")
+
+from sverchok.ui import sv_panels
+
+
+
 
 def register():
     bpy.utils.register_class(SV_MT_layouts_templates)

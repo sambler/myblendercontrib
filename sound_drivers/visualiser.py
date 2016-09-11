@@ -155,6 +155,10 @@ def revert_visualiser(handle, context):
     for o in sel_objs:
         o.select = True
     scene.objects.active = sel_objs[0]
+    # scene update and tag_redraw no good..
+    # hence this silly code.
+    for o in sel_objs:
+        o.location = o.location
 
 
 def delete_visualiser(handle, context):
@@ -201,6 +205,8 @@ class CreateSoundVisualiserPanel(Panel):
         layout = self.layout
 
         visualiser = context.scene.visualisers.grids.get(rna["name"])
+        if visualiser is None:
+            return
         row = layout.row()
         row.prop(visualiser, "from_channel")
         row.prop(visualiser, "to_channel")
@@ -225,6 +231,9 @@ class CreateSoundVisualiserPanel(Panel):
         cols = rna["cols"]
         # look for a grid
         grid = context.scene.visualisers.grids.get(rna["name"])
+        if grid is None:
+            layout.row().label("XXX")
+            return
         row = layout.row(align=True)
         wm = context.window_manager
         split = row.split(percentage=0.3, align=True)
@@ -397,7 +406,8 @@ def re_offset(self, context):
     cols = self.cols
     channels = rows * cols
     #dimensions = Vector((2,2,2))
-    dimensions = Vector([v for v in rna["dimensions"].values()])
+    dimensions = Vector([rna["dimensions"][axis] for axis in "xyz"])
+    print("REOFFSET", rna["dimensions"].items(), dimensions, self.offset)
     offset = Vector(self.offset)
 
     delta = Vector((rows * (dimensions.x + offset.x) / 2,
@@ -487,6 +497,9 @@ class CreateSoundVisualiser(Operator):
 
     def execute(self, context):
         scene = context.scene
+        sp = scene.speaker
+
+        scene_objects_set = set(scene.objects)
         obj = context.active_object
         #copy cursor location
 
@@ -498,36 +511,93 @@ class CreateSoundVisualiser(Operator):
 
         # bpy.context for testing. Use context from Op, Panel method.
 
-        object_list = context.selected_objects.copy()
+        originals = context.selected_objects.copy()
+         # has the selected objects in it.
+        c = {}
 
+        c["scene"] = scene
+        c["screen"] = context.screen
+        c["area"] = context.area
+        c["region"] = context.region
+        c["active_object"] = None
+        c["edit_object"] = None
+        c["window"] = context.window
+        #c["selected_bases"] = context.selected_bases.copy()
+        #c["selected_editable_objects"] = context.selected_editable_objects.copy()
+
+        #c["selected_bases"] = []
+        c["selected_objects"] = originals
         dimensions = bbdim(selected_bbox(context))
-
+        print("DIM", dimensions)
         # Location of original unit
         location = scene.cursor_location.copy()
 
         #scene.cursor_location = location
+        
+        st_handle = bpy.data.objects.new("ST_handle", None)
+        st_handle["channels"] = channels
+        scene.objects.link(st_handle)
 
-        bpy.ops.object.empty_add()
-        for i, obj in enumerate(object_list):
-            obj.select = True
-            obj['ST_Vis_idx'] = i  # add the object to selected objects
-        mt = context.active_object
-        mt.matrix_world.translation = location
-        mt["ST_Vis"] = 0
-
-        bpy.ops.object.parent_set()
-        #obj.parent = mt # set it as the parent.
-
-        handles = [mt]
-
+        st_handle.matrix_world.translation = location
+        st_handle["ST_Vis"] = 0
+        handles = []
+        new_objects = set(originals)
+        vis = []
         # make duplicates
-        for i in range(1,channels):
-            bpy.ops.object.duplicate(linked=True)
-            mt = context.object
-            mt["ST_Vis"] = i  #the channel to drive with.
-            handles.append(context.object)
+        for i in range(channels):
+            scene.update()
+            handle = bpy.data.objects.new("ch[%04d]" % i, None)
+            scene.objects.link(handle)
+            
+            handle["ST_Vis"] = i  #the channel to drive with.
+            handle.parent = st_handle
+            handles.append(handle)
+            # make the handle the objects parent if no parent else
+    
+            if i:
+                scene_objects_set = set(scene.objects)
+                bpy.ops.object.duplicate(c, 'INVOKE_DEFAULT', linked=False)
+                #print("CONTEXT", c)
+                scene.update()
+                new_objects = set(scene.objects) - scene_objects_set
+            vis.append((i, handle, new_objects))
+        for i, handle, new_objects in vis:
+            for o in new_objects:
+                print(o, o.parent)
+                #o = scene.objects.get(name)
+                if not o.parent or o.parent in handles:
+                    o.parent = handle
+                if not i or not o.animation_data:
+                    continue # drivers ok for ch0
 
+                # get the drivers of o
+                # have speaker as a var target
+                # have CH0 as a variable
+                print("HERE", o)
+                drivers = o.animation_data.drivers
+                drivers = [d for d in drivers for v in d.driver.variables for t in v.targets if t.id == sp]
+                for d in drivers:
+                    
+                    all_channels, args = get_driver_settings(d)
+                    print(i, d.id_data, all_channels, args)
+                    driver = d.driver
+                    expr = driver.expression
+                    for ch in all_channels:
+                        if len(ch) == 3 and ch.endswith("0"):
+                            print("CH", ch)
+                            all_channels.remove(ch)     
+                            newch = ch.replace("0", str(i))
+                            expr = expr.replace(ch, newch)                       
+                            all_channels.append(newch)
+                            var = driver.variables.get(ch)
+                            var.name = newch
+                            var.targets[0].data_path = var.targets[0].data_path.replace(ch, newch)
+                    driver.expression = driver_expr(expr,
+                                               all_channels,
+                                               args)
 
+                    
+        print(vis)
         #distribute
 
         # Properties
@@ -535,94 +605,19 @@ class CreateSoundVisualiser(Operator):
         cols = self.cols
 
         offset = Vector(self.offset)
-        offset.x =  obj.dimensions.x * offset.x
-        offset.y =  obj.dimensions.y * offset.y
-        offset.z =  obj.dimensions.z * offset.z
+        offset.x =  dimensions.x * offset.x
+        offset.y =  dimensions.y * offset.y
+        offset.z =  dimensions.z * offset.z
+        print(offset, self.offset)
 
-        '''
-        for i in range(min(channels, rows * cols)):
-            handle = handles[i]
-
-            row = i // cols
-            col = i % cols
-            v = Vector((row, col, 0))
-
-
-        '''
-        # XXX Fix for group / objects to find dimensions.
-        '''
-        #ok the unit object(s)/group can have multiple drivers with inputs
-        from multiple speakers.  Need to strip out all the driver vars that
-        match 0  
-        '''
-
-        for obj in object_list:
-            o_i = obj['ST_Vis_idx']
-            if obj.animation_data is None:
-                continue
-            drivers = obj.animation_data.drivers
-
-            for idx, fcurve in enumerate(drivers):
-                all_channels, args = get_driver_settings(fcurve)
-
-                objects = [(h["ST_Vis"], o) for h in handles if h["ST_Vis"] for o in scene.objects if hasparent(o,h) and o['ST_Vis_idx'] == o_i]
-                for i, o in objects:
-                    if not o.animation_data:
-                        continue
-                    d = o.animation_data.drivers[idx]
-                    expr = d.driver.expression
-                    vars = [v for v in d.driver.variables if v.name in all_channels]
-                    channel_list = []
-                    for var in vars:
-                        if not var.targets[0].id:
-                            continue
-                        spk = var.targets[0].id
-                        if type(spk) is not bpy.types.Speaker:
-                            continue
-                        name = var.name.replace("0",str(i))
-                        expr = expr.replace(var.name, name)
-                        #print(expr)
-                        #change the var name
-                        #name = "%s%d" % (channel_name,)
-                        var.name = name
-                        var.targets[0].data_path = '["%s"]' % name
-                        # could replace since not using leading zeros
-                        channel_list.append(name)
-
-                    if not len(channel_list):
-                        continue
-                    d.driver.expression = driver_expr(expr,
-                                               channel_list,
-                                               args)
-
-        bpy.ops.object.empty_add()
-        '''
-        loc = Vector((0,0,0))
-        '''
-
-        for handle in handles:
-            #loc += handle.location
-            handle.select = True
-
-        mt = context.active_object
-        mt.name = "ST_handle"
-        mt["channels"] = channels
-
-        #mt.location = loc / float(channels)
-        #mt.location.z += 2 * dimensions.z
-        self.handle = mt is not None
-        self.handle_name = mt.name
-        #resize = [self.scale for i in range(3)]
-        #bpy.ops.transform.resize(value=resize)
-
-        bpy.ops.object.parent_set()
-        mt.location = scene.cursor_location
-        #bpy.ops.transform.translate(value=self.translate)
         # deselect all
         bpy.ops.object.select_all(action='DESELECT')
-        context.scene.objects.active = mt
-        mt.select = True
-        mt["VIS"] = 'GRID'
+        self.handle = st_handle is not None
+        self.handle_name = st_handle.name
+        context.scene.objects.active = st_handle
+        st_handle.select = True
+        st_handle["VIS"] = 'GRID'
+        
         # make an rna and make a grid 
         vis_RNA = {
                    "name":self.handle_name,
@@ -641,13 +636,13 @@ class CreateSoundVisualiser(Operator):
                                 }
 
                   }
-        mt['_RNA_UI'] = {}
-        mt['_RNA_UI']["VIS"] = vis_RNA
+        st_handle['_RNA_UI'] = {}
+        st_handle['_RNA_UI']["VIS"] = vis_RNA
 
         #make a new edit item in the grids collection
 
         grid = context.scene.visualisers.grids.add()
-        grid.name = self.handle_name
+        grid.name = st_handle.name
         grid.rows = self.rows
         grid.cols = self.cols
         #grid.channels = channels
@@ -775,3 +770,6 @@ def unregister():
     # Menus
     unregister_class(VisualiserFuncMenu)
     unregister_class(VisualiserRowsColumns)
+    
+if __name__ == "__main__":
+    register()

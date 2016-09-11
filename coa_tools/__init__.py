@@ -205,7 +205,7 @@ def scene_update(dummy):
                 
     if hasattr(bpy.context,"active_object"):
         obj = bpy.context.active_object
-        if obj != None and not obj.coa_sprite_updated:
+        if obj != None and not obj.coa_sprite_updated and "coa_sprite" in obj:
             for thumb in preview_collections["coa_thumbs"]:
                 preview_collections["coa_thumbs"][thumb].reload()
             obj.coa_sprite_updated = True
@@ -233,9 +233,9 @@ def coa_startup(dummy):
             if "sprite" in obj:
                 obj["coa_sprite"] = True
                 del obj["sprite"]
-            obj.coa_sprite_updated = False
-            obj.coa_tiles_changed = True
             if "coa_sprite" in obj:
+                obj.coa_sprite_updated = False
+                obj.coa_tiles_changed = True
                 set_uv_default_coords(bpy.context,obj)
 
 

@@ -1,23 +1,22 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
 # Author: Antonio Vazquez (antonioya)
@@ -25,16 +24,17 @@
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-import math
-# noinspection PyUnresolvedReferences
-from bpy.props import *
-from achm_tools import *
+from math import pi, radians
+from bpy.types import Operator, PropertyGroup, Object, Panel
+from bpy.props import StringProperty, FloatProperty, BoolProperty, IntProperty, FloatVectorProperty, \
+    CollectionProperty, EnumProperty
+from .achm_tools import *
 
 
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
-class AchmWindows(bpy.types.Operator):
+class AchmWindows(Operator):
     bl_idname = "mesh.archimesh_window"
     bl_label = "Rail Windows"
     bl_description = "Rail Windows Generator"
@@ -175,9 +175,9 @@ def shape_mesh_and_create_children(mainobject, tmp_mesh, update=False):
     else:
         plus = 0
 
-    mp.glpoint_a = (-mp.width/2, 0, 0)
-    mp.glpoint_b = (-mp.width/2, 0, mp.height + plus)
-    mp.glpoint_c = (mp.width/2, 0, mp.height + plus)
+    mp.glpoint_a = (-mp.width / 2, 0, 0)
+    mp.glpoint_b = (-mp.width / 2, 0, mp.height + plus)
+    mp.glpoint_c = (mp.width / 2, 0, mp.height + plus)
 
     # Lock
     mainobject.lock_location = (True, True, True)
@@ -194,7 +194,7 @@ def shape_mesh_and_create_children(mainobject, tmp_mesh, update=False):
     parentobject(myempty, mainobject)
     mainobject["archimesh.hole_enable"] = True
     # Rotate Empty
-    myempty.rotation_euler.z = math.radians(mp.r)
+    myempty.rotation_euler.z = radians(mp.r)
     # Create control box to open wall holes
     gap = 0.002
     y = 0
@@ -214,20 +214,21 @@ def shape_mesh_and_create_children(mainobject, tmp_mesh, update=False):
     set_normals(myctrl)
     myctrl.parent = myempty
     myctrl.location.x = 0
-    myctrl.location.y = -mp.depth*3 / 2
+    myctrl.location.y = -mp.depth * 3 / 2
     myctrl.location.z = 0
     myctrl.draw_type = 'BOUNDS'
     myctrl.hide = False
     myctrl.hide_render = True
-    myctrl.cycles_visibility.camera = False
-    myctrl.cycles_visibility.diffuse = False
-    myctrl.cycles_visibility.glossy = False
-    myctrl.cycles_visibility.transmission = False
-    myctrl.cycles_visibility.scatter = False
-    myctrl.cycles_visibility.shadow = False
+    if bpy.context.scene.render.engine == 'CYCLES':
+        myctrl.cycles_visibility.camera = False
+        myctrl.cycles_visibility.diffuse = False
+        myctrl.cycles_visibility.glossy = False
+        myctrl.cycles_visibility.transmission = False
+        myctrl.cycles_visibility.scatter = False
+        myctrl.cycles_visibility.shadow = False
 
-    mat = create_transparent_material("hidden_material", False)
-    set_material(myctrl, mat)
+        mat = create_transparent_material("hidden_material", False)
+        set_material(myctrl, mat)
 
     # deactivate others
     for o in bpy.data.objects:
@@ -240,82 +241,188 @@ def shape_mesh_and_create_children(mainobject, tmp_mesh, update=False):
 # ------------------------------------------------------------------
 # Define property group class to create or modify
 # ------------------------------------------------------------------
-class ObjectProperties(bpy.types.PropertyGroup):
-    width = bpy.props.FloatProperty(name='Width', min=0.20, max=50, default=1.20, precision=3,
-                                    description='window width', update=update_object)
-    depth = bpy.props.FloatProperty(name='Depth', min=0.07, max=1, default=0.10, precision=3,
-                                    description='window depth', update=update_object)
-    height = bpy.props.FloatProperty(name='Height', min=0.20, max=50, default=1, precision=3,
-                                     description='window height', update=update_object)
-    r = bpy.props.FloatProperty(name='Rotation', min=0, max=360, default=0, precision=1,
-                                description='Window rotation', update=update_object)
+class ObjectProperties(PropertyGroup):
+    width = FloatProperty(
+            name='Width',
+            min=0.20, max=50,
+            default=1.20, precision=3,
+            description='window width',
+            update=update_object,
+            )
+    depth = FloatProperty(
+            name='Depth',
+            min=0.07, max=1,
+            default=0.10, precision=3,
+            description='window depth',
+            update=update_object,
+            )
+    height = FloatProperty(
+            name='Height',
+            min=0.20, max=50,
+            default=1, precision=3,
+            description='window height',
+            update=update_object,
+            )
+    r = FloatProperty(
+            name='Rotation', min=0, max=360, default=0, precision=1,
+            description='Window rotation',
+            update=update_object,
+            )
 
-    external = bpy.props.BoolProperty(name="External frame", description="Create an external front frame",
-                                      default=True, update=update_object)
-    frame = bpy.props.FloatProperty(name='External Frame', min=0.001, max=1, default=0.01, precision=3,
-                                    description='External Frame size', update=update_object)
+    external = BoolProperty(
+            name="External frame",
+            description="Create an external front frame",
+            default=True,
+            update=update_object,
+            )
+    frame = FloatProperty(
+            name='External Frame',
+            min=0.001, max=1,
+            default=0.01, precision=3,
+            description='External Frame size',
+            update=update_object,
+            )
 
-    frame_L = bpy.props.FloatProperty(name='Frame', min=0.02, max=1, default=0.06, precision=3,
-                                      description='Frame size', update=update_object)
-    wf = bpy.props.FloatProperty(name='WinFrame', min=0.001, max=1, default=0.05, precision=3,
-                                 description='Window Frame size', update=update_object)
-    leafratio = bpy.props.FloatProperty(name='Leaf ratio', min=0.001, max=0.999, default=0.50,
-                                        precision=3,
-                                        description='Leaf thickness ratio', update=update_object)
-    opentype = bpy.props.EnumProperty(items=(('1', "Rail window", ""),
-                                             ('2', "Two leaf", ""),
-                                             ('3', "Right leaf", ""),
-                                             ('4', "Left leaf", "")),
-                                      name="Type",
-                                      description="Defines type of window", update=update_object)
-    handle = bpy.props.BoolProperty(name="Create handles", description="Create default handle to the leaf",
-                                    default=True, update=update_object)
+    frame_L = FloatProperty(
+            name='Frame',
+            min=0.02, max=1,
+            default=0.06, precision=3,
+            description='Frame size',
+            update=update_object,
+            )
+    wf = FloatProperty(
+            name='WinFrame',
+            min=0.001, max=1,
+            default=0.05, precision=3,
+            description='Window Frame size',
+            update=update_object,
+            )
+    leafratio = FloatProperty(
+            name='Leaf ratio',
+            min=0.001, max=0.999,
+            default=0.50,
+            precision=3,
+            description='Leaf thickness ratio',
+            update=update_object,
+            )
+    opentype = EnumProperty(
+            items=(
+                ('1', "Rail window", ""),
+                ('2', "Two leaf", ""),
+                ('3', "Right leaf", ""),
+                ('4', "Left leaf", "")),
+            name="Type",
+            description="Defines type of window",
+            update=update_object,
+            )
+    handle = BoolProperty(
+            name="Create handles",
+            description="Create default handle to the leaf",
+            default=True,
+            update=update_object,
+            )
 
-    sill = bpy.props.BoolProperty(name="Sill", description="Add sill to window", default=True, update=update_object)
-    sill_thickness = bpy.props.FloatProperty(name='Thickness', min=0, max=50, default=0.01, precision=3,
-                                             description='Sill thickness', update=update_object)
-    sill_back = bpy.props.FloatProperty(name='Back', min=0, max=10, default=0.0, precision=3,
-                                        description='Extrusion in back side', update=update_object)
-    sill_front = bpy.props.FloatProperty(name='Front', min=0, max=10, default=0.12, precision=3,
-                                         description='Extrusion in front side', update=update_object)
+    sill = BoolProperty(
+            name="Sill",
+            description="Add sill to window",
+            default=True,
+            update=update_object,
+            )
+    sill_thickness = FloatProperty(
+            name='Thickness',
+            min=0, max=50,
+            default=0.01, precision=3,
+            description='Sill thickness',
+            update=update_object,
+            )
+    sill_back = FloatProperty(
+            name='Back',
+            min=0, max=10,
+            default=0.0, precision=3,
+            description='Extrusion in back side',
+            update=update_object,
+            )
+    sill_front = FloatProperty(
+            name='Front',
+            min=0, max=10,
+            default=0.12, precision=3,
+            description='Extrusion in front side',
+            update=update_object,
+            )
 
-    blind = bpy.props.BoolProperty(name="Blind", description="Create an external blind", default=False,
-                                   update=update_object)
-    blind_box = bpy.props.BoolProperty(name="Blind box", description="Create a box over frame for blind",
-                                       default=True, update=update_object)
-    blind_height = bpy.props.FloatProperty(name='Height', min=0.001, max=10, default=0.12, precision=3,
-                                           description='Blind box height', update=update_object)
-    blind_back = bpy.props.FloatProperty(name='Back', min=0.001, max=10, default=0.002, precision=3,
-                                         description='Extrusion in back side', update=update_object)
-    blind_rail = bpy.props.FloatProperty(name='Separation', min=0.001, max=10, default=0.10, precision=3,
-                                         description='Separation from frame', update=update_object)
-    blind_ratio = bpy.props.IntProperty(name='Extend', min=0, max=100, default=20,
-                                        description='% of extension (100 full extend)', update=update_object)
+    blind = BoolProperty(
+            name="Blind",
+            description="Create an external blind",
+            default=False,
+            update=update_object,
+            )
+    blind_box = BoolProperty(
+            name="Blind box", description="Create a box over frame for blind",
+            default=True,
+            update=update_object,
+            )
+    blind_height = FloatProperty(
+            name='Height',
+            min=0.001, max=10,
+            default=0.12, precision=3,
+            description='Blind box height',
+            update=update_object,
+            )
+    blind_back = FloatProperty(
+            name='Back',
+            min=0.001, max=10,
+            default=0.002, precision=3,
+            description='Extrusion in back side',
+            update=update_object,
+            )
+    blind_rail = FloatProperty(
+            name='Separation',
+            min=0.001, max=10,
+            default=0.10, precision=3,
+            description='Separation from frame',
+            update=update_object,
+            )
+    blind_ratio = IntProperty(
+            name='Extend',
+            min=0, max=100,
+            default=20,
+            description='% of extension (100 full extend)',
+            update=update_object,
+            )
 
     # Materials
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.",
-                                     default=True, update=update_object)
+    crt_mat = BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            update=update_object,
+            )
     # opengl internal data
-    glpoint_a = bpy.props.FloatVectorProperty(name="glpointa",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_b = bpy.props.FloatVectorProperty(name="glpointb",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_c = bpy.props.FloatVectorProperty(name="glpointc",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
+    glpoint_a = FloatVectorProperty(
+            name="glpointa",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_b = FloatVectorProperty(
+            name="glpointb",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_c = FloatVectorProperty(
+            name="glpointc",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
 
 # Register
 bpy.utils.register_class(ObjectProperties)
-bpy.types.Object.WindowObjectGenerator = bpy.props.CollectionProperty(type=ObjectProperties)
+Object.WindowObjectGenerator = CollectionProperty(type=ObjectProperties)
 
 
 # ------------------------------------------------------------------
 # Define panel class to modify object
 # ------------------------------------------------------------------
-class AchmWindowObjectgeneratorpanel(bpy.types.Panel):
+class AchmWindowObjectgeneratorpanel(Panel):
     bl_idname = "OBJECT_PT_window_generator"
     bl_label = "Window Rail"
     bl_space_type = 'VIEW_3D'
@@ -407,6 +514,8 @@ class AchmWindowObjectgeneratorpanel(bpy.types.Panel):
                         row.prop(myobjdat, 'blind_back')
 
                 box = layout.box()
+                if not context.scene.render.engine == 'CYCLES':
+                    box.enabled = False
                 box.prop(myobjdat, 'crt_mat')
             else:
                 row = layout.row()
@@ -420,7 +529,7 @@ def generate_rail_window(myframe, mp, mymesh):
     myloc = bpy.context.scene.cursor_location
 
     alummat = None
-    if mp.crt_mat:
+    if mp.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         alummat = create_diffuse_material("Window_material", False, 0.8, 0.8, 0.8, 0.6, 0.6, 0.6, 0.15)
 
     # Frame
@@ -436,7 +545,7 @@ def generate_rail_window(myframe, mp, mymesh):
     remove_doubles(myframe)
     set_normals(myframe)
 
-    # Window L    
+    # Window L
     width = (mp.width / 2) + 0.01
     mywin_l = create_rail_window_leaf("Window.L", "L",
                                       width, win_size, mp.height - 0.05,
@@ -451,7 +560,7 @@ def generate_rail_window(myframe, mp, mymesh):
     mywin_l.location.x = (-mp.width / 2) + 0.01
     mywin_l.location.y = p1 - 0.001
     mywin_l.location.z = 0.025
-    # Window R    
+    # Window R
     mywin_r = create_rail_window_leaf("Window.R", "R",
                                       width, win_size, mp.height - 0.05,
                                       mp.wf,
@@ -511,10 +620,10 @@ def generate_leaf_window(myframe, mp, mymesh):
     myloc = bpy.context.scene.cursor_location
 
     alummat = None
-    if mp.crt_mat:
+    if mp.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         alummat = create_diffuse_material("Window_material", False, 0.8, 0.8, 0.8, 0.6, 0.6, 0.6, 0.15)
 
-    # Frame    
+    # Frame
     win_size = create_leaf_window_frame(myframe, mymesh,
                                         mp.width, mp.depth, mp.height,
                                         mp.frame, mp.frame_L, mp.leafratio,
@@ -527,7 +636,7 @@ def generate_leaf_window(myframe, mp, mymesh):
 
     stepsize = 0.01
     # -----------------------------
-    # Window L   
+    # Window L
     # -----------------------------
     if mp.opentype == "2" or mp.opentype == "4":
         handle = mp.handle
@@ -551,7 +660,7 @@ def generate_leaf_window(myframe, mp, mymesh):
         mywin_l.location.y = -mp.depth
         mywin_l.location.z = mp.frame_L - (stepsize / 2) - 0.003
     # -----------------------------
-    # Window R   
+    # Window R
     # -----------------------------
     if mp.opentype == "2" or mp.opentype == "3":
         if mp.opentype == "2":
@@ -726,7 +835,7 @@ def create_rail_window_frame(mywindow, mymesh, sx, sy, sz, frame, mat, matdata, 
     x = sx - 0.005 - (sideb * 2)  # sideB + small gap
     y = y - m - thick - gap - p - rail - p - thick - p - rail - p
     z = sideb
-    # Bottom 
+    # Bottom
     myvertex.extend([(-x / 2, y - thick, 0.0),
                      (-x / 2, y, 0.0),
                      (x / 2, y, 0.0),
@@ -1102,7 +1211,7 @@ def create_rail_window_leaf(objname, hand, sx, sy, sz, f, px, py, pz, mat, matda
     mywindow.lock_location = (False, True, True)  # only X axis
     mywindow.lock_rotation = (True, True, True)
 
-    # Handle    
+    # Handle
     if handle:
         myhandle = create_rail_handle("Handle", mat)
         myhandle.parent = mywindow
@@ -1117,7 +1226,7 @@ def create_rail_window_leaf(objname, hand, sx, sy, sz, f, px, py, pz, mat, matda
         else:
             myhandle.location.z = 1
 
-    if mat is True:
+    if mat is True and bpy.context.scene.render.engine == 'CYCLES':
         set_material(mywindow, matdata)
         # Glass
         glass = create_glass_material("Glass_material", False)
@@ -1212,7 +1321,7 @@ def create_leaf_window_leaf(objname, hand, sx, sy, sz, f, px, py, pz, mat, matda
     if handle:
         myhandle = create_leaf_handle("Handle", mat)
         if hand == "L":
-            myhandle.rotation_euler = (0, math.pi, 0)
+            myhandle.rotation_euler = (0, pi, 0)
 
         myhandle.parent = mywindow
         if hand == "R":

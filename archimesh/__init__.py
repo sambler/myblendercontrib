@@ -1,56 +1,43 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: __init__.py
 # Author: Antonio Vazquez (antonioya)
 # ----------------------------------------------------------
- 
+
 # ----------------------------------------------
-# Define Addon info 
+# Define Addon info
 # ----------------------------------------------
 bl_info = {
     "name": "Archimesh",
     "author": "Antonio Vazquez (antonioya)",
     "location": "View3D > Add > Mesh > Archimesh",
-    "version": (1, 1, 2),
+    "version": (1, 1, 3),
     "blender": (2, 6, 8),
-    "description": "Generate rooms, doors, windows, kitchen cabinets, "
-                   "shelves, roofs, stairs and other architecture stuff.",
-    "category": "Add Mesh"}
+    "description": "Generate rooms, doors, windows, and other architecture objects",
+    "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Add_Mesh/Archimesh",
+    "category": "Add Mesh"
+    }
 
 import sys
 import os
-
-# ----------------------------------------------
-# Add to Phyton path (once only)
-# ----------------------------------------------
-path = sys.path
-flag = False
-for item in path:
-    if "archimesh" in item:
-        flag = True
-if flag is False:
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'archimesh'))
-    print("archimesh: added to phytonpath")
 
 # ----------------------------------------------
 # Import modules
@@ -73,34 +60,36 @@ if "bpy" in locals():
     imp.reload(achm_window_panel)
     print("archimesh: Reloaded multifiles")
 else:
-    import achm_books_maker
-    import achm_column_maker
-    import achm_curtain_maker
-    import achm_venetian_maker
-    import achm_door_maker
-    import achm_kitchen_maker
-    import achm_lamp_maker
-    import achm_main_panel
-    import achm_roof_maker
-    import achm_room_maker
-    import achm_shelves_maker
-    import achm_stairs_maker
-    import achm_window_maker
-    import achm_window_panel
+    from . import achm_books_maker
+    from . import achm_column_maker
+    from . import achm_curtain_maker
+    from . import achm_venetian_maker
+    from . import achm_door_maker
+    from . import achm_kitchen_maker
+    from . import achm_lamp_maker
+    from . import achm_main_panel
+    from . import achm_roof_maker
+    from . import achm_room_maker
+    from . import achm_shelves_maker
+    from . import achm_stairs_maker
+    from . import achm_window_maker
+    from . import achm_window_panel
 
     print("archimesh: Imported multifiles")
 
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.props import *
+from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, FloatProperty
+# noinspection PyUnresolvedReferences
+from bpy.types import Menu, Scene, INFO_MT_mesh_add, WindowManager
 
 # ----------------------------------------------------------
 # Decoration assets
 # ----------------------------------------------------------
 
 
-class AchmInfoMtMeshDecorationAdd(bpy.types.Menu):
+class AchmInfoMtMeshDecorationAdd(Menu):
     bl_idname = "INFO_MT_mesh_decoration_add"
     bl_label = "Decoration assets"
 
@@ -111,13 +100,13 @@ class AchmInfoMtMeshDecorationAdd(bpy.types.Menu):
         self.layout.operator("mesh.archimesh_roller", text="Add Roller curtains", icon="PLUGIN")
         self.layout.operator("mesh.archimesh_venetian", text="Add Venetian blind", icon="PLUGIN")
         self.layout.operator("mesh.archimesh_japan", text="Add Japanese curtains", icon="PLUGIN")
-    
+
 # ----------------------------------------------------------
 # Registration
 # ----------------------------------------------------------
 
 
-class AchmInfoMtMeshCustomMenuAdd(bpy.types.Menu):
+class AchmInfoMtMeshCustomMenuAdd(Menu):
     bl_idname = "INFO_MT_mesh_custom_menu_add"
     bl_label = "Archimesh"
 
@@ -138,9 +127,47 @@ class AchmInfoMtMeshCustomMenuAdd(bpy.types.Menu):
 # --------------------------------------------------------------
 # Register all operators and panels
 # --------------------------------------------------------------
+
+## Addons Preferences Update Panel
+from bpy.types import (
+        AddonPreferences,
+        )
+from bpy.props import (
+        StringProperty,
+        )
+
+def update_panel(self, context):
+    try:
+        bpy.utils.unregister_class(achm_main_panel.ArchimeshMainPanel)
+    except:
+        pass
+    achm_main_panel.ArchimeshMainPanel.bl_category = context.user_preferences.addons[__name__].preferences.category
+    bpy.utils.register_class(achm_main_panel.ArchimeshMainPanel)
+
+
+class Archi_Pref(AddonPreferences):
+    bl_idname = __name__
+
+    category = StringProperty(
+            name="Rename Tab Category",
+            description="Choose a name for the category of the panel",
+            default="Archimesh",
+            update=update_panel
+            )
+
+    def draw(self, context):
+        layout = self.layout
+        split_percent = 0.15
+
+        split = layout.split(percentage=split_percent)
+        col = split.column()
+        col.label(text="Rename Tab Category:")
+        col = split.column()
+        colrow = col.row()
+        colrow.alignment = 'LEFT'
+        colrow.prop(self, "category", text="")
+
 # Define menu
-
-
 # noinspection PyUnusedLocal
 def AchmMenu_func(self, context):
     self.layout.menu("INFO_MT_mesh_custom_menu_add", icon="PLUGIN")
@@ -175,66 +202,86 @@ def register():
     bpy.utils.register_class(achm_main_panel.AchmRunHintDisplayButton)
     bpy.utils.register_class(achm_window_panel.AchmWinPanel)
     bpy.utils.register_class(achm_window_panel.AchmWindowEditPanel)
-    bpy.types.INFO_MT_mesh_add.append(AchmMenu_func)
-    
+    bpy.utils.register_class(Archi_Pref)
+    INFO_MT_mesh_add.append(AchmMenu_func)
+
     # Define properties
-    bpy.types.Scene.archimesh_select_only = bpy.props.BoolProperty(name="Only selected",
-                                                                   description="Apply auto holes only to"
-                                                                               " selected objects",
-                                                                   default=False)
-    bpy.types.Scene.archimesh_ceiling = bpy.props.BoolProperty(name="Ceiling",
-                                                               description="Create a ceiling.",
-                                                               default=False)
-    bpy.types.Scene.archimesh_floor = bpy.props.BoolProperty(name="Floor",
-                                                             description="Create a floor automatically.",
-                                                             default=False)
+    Scene.archimesh_select_only = BoolProperty(
+            name="Only selected",
+            description="Apply auto holes only to selected objects",
+            default=False,
+            )
+    Scene.archimesh_ceiling = BoolProperty(
+            name="Ceiling",
+            description="Create a ceiling",
+            default=False,
+            )
+    Scene.archimesh_floor = BoolProperty(
+            name="Floor",
+            description="Create a floor automatically",
+            default=False,
+            )
 
-    bpy.types.Scene.archimesh_merge = bpy.props.BoolProperty(name="Close walls",
-                                                             description="Close walls to create a full closed room.",
-                                                             default=False)
+    Scene.archimesh_merge = BoolProperty(
+            name="Close walls",
+            description="Close walls to create a full closed room",
+            default=False,
+            )
 
-    bpy.types.Scene.archimesh_text_color = bpy.props.FloatVectorProperty(
-        name="Hint color",
-        description="Color for the text and lines",
-        default=(0.173, 0.545, 1.0, 1.0),
-        min=0.1,
-        max=1,
-        subtype='COLOR',
-        size=4)
-    bpy.types.Scene.archimesh_walltext_color = bpy.props.FloatVectorProperty(
-        name="Hint color",
-        description="Color for the wall label",
-        default=(1, 0.8, 0.1, 1.0),
-        min=0.1,
-        max=1,
-        subtype='COLOR',
-        size=4)
-    bpy.types.Scene.archimesh_font_size = bpy.props.IntProperty(
-        name="Text Size",
-        description="Text size for hints",
-        default=14, min=10, max=150)
-    bpy.types.Scene.archimesh_wfont_size = bpy.props.IntProperty(
-        name="Text Size",
-        description="Text size for wall labels",
-        default=16, min=10, max=150)
-    bpy.types.Scene.archimesh_hint_space = bpy.props.FloatProperty(name='Separation', min=0, max=5, default=0.1,
-                                                                   precision=2,
-                                                                   description='Distance from object to display hint')
-    bpy.types.Scene.archimesh_gl_measure = bpy.props.BoolProperty(name="Measures",
-                                                                  description="Display measures",
-                                                                  default=True)
-    bpy.types.Scene.archimesh_gl_name = bpy.props.BoolProperty(name="Names",
-                                                               description="Display names",
-                                                               default=True)
-    bpy.types.Scene.archimesh_gl_ghost = bpy.props.BoolProperty(name="All",
-                                                                description="Display measures for all objects,"
-                                                                            " not only selected",
-                                                                default=True)
+    Scene.archimesh_text_color = FloatVectorProperty(
+            name="Hint color",
+            description="Color for the text and lines",
+            default=(0.173, 0.545, 1.0, 1.0),
+            min=0.1,
+            max=1,
+            subtype='COLOR',
+            size=4,
+            )
+    Scene.archimesh_walltext_color = FloatVectorProperty(
+            name="Hint color",
+            description="Color for the wall label",
+            default=(1, 0.8, 0.1, 1.0),
+            min=0.1,
+            max=1,
+            subtype='COLOR',
+            size=4,
+            )
+    Scene.archimesh_font_size = IntProperty(
+            name="Text Size",
+            description="Text size for hints",
+            default=14, min=10, max=150,
+            )
+    Scene.archimesh_wfont_size = IntProperty(
+            name="Text Size",
+            description="Text size for wall labels",
+            default=16, min=10, max=150,
+            )
+    Scene.archimesh_hint_space = FloatProperty(
+            name='Separation', min=0, max=5, default=0.1,
+            precision=2,
+            description='Distance from object to display hint',
+            )
+    Scene.archimesh_gl_measure = BoolProperty(
+            name="Measures",
+            description="Display measures",
+            default=True,
+            )
+    Scene.archimesh_gl_name = BoolProperty(
+            name="Names",
+            description="Display names",
+            default=True,
+            )
+    Scene.archimesh_gl_ghost = BoolProperty(
+            name="All",
+            description="Display measures for all objects,"
+            " not only selected",
+            default=True,
+            )
 
     # OpenGL flag
-    wm = bpy.types.WindowManager
+    wm = WindowManager
     # register internal property
-    wm.archimesh_run_opengl = bpy.props.BoolProperty(default=False)
+    wm.archimesh_run_opengl = BoolProperty(default=False)
 
 
 def unregister():
@@ -266,21 +313,22 @@ def unregister():
     bpy.utils.unregister_class(achm_main_panel.AchmRunHintDisplayButton)
     bpy.utils.unregister_class(achm_window_panel.AchmWinPanel)
     bpy.utils.unregister_class(achm_window_panel.AchmWindowEditPanel)
-    bpy.types.INFO_MT_mesh_add.remove(AchmMenu_func)
-    
+    bpy.utils.unregister_class(Archi_Pref)
+    INFO_MT_mesh_add.remove(AchmMenu_func)
+
     # Remove properties
-    del bpy.types.Scene.archimesh_select_only
-    del bpy.types.Scene.archimesh_ceiling
-    del bpy.types.Scene.archimesh_floor
-    del bpy.types.Scene.archimesh_merge
-    del bpy.types.Scene.archimesh_text_color
-    del bpy.types.Scene.archimesh_walltext_color
-    del bpy.types.Scene.archimesh_font_size
-    del bpy.types.Scene.archimesh_wfont_size
-    del bpy.types.Scene.archimesh_hint_space
-    del bpy.types.Scene.archimesh_gl_measure
-    del bpy.types.Scene.archimesh_gl_name
-    del bpy.types.Scene.archimesh_gl_ghost
+    del Scene.archimesh_select_only
+    del Scene.archimesh_ceiling
+    del Scene.archimesh_floor
+    del Scene.archimesh_merge
+    del Scene.archimesh_text_color
+    del Scene.archimesh_walltext_color
+    del Scene.archimesh_font_size
+    del Scene.archimesh_wfont_size
+    del Scene.archimesh_hint_space
+    del Scene.archimesh_gl_measure
+    del Scene.archimesh_gl_name
+    del Scene.archimesh_gl_ghost
     # remove OpenGL data
     achm_main_panel.AchmRunHintDisplayButton.handle_remove(achm_main_panel.AchmRunHintDisplayButton, bpy.context)
     wm = bpy.context.window_manager

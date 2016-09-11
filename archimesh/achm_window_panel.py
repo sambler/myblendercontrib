@@ -1,26 +1,24 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_window_panel.py
 # Main panel for windows
 # Author: Antonio Vazquez (antonioya)
 #
@@ -30,10 +28,12 @@
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-import math
-# noinspection PyUnresolvedReferences
-import mathutils
-from achm_tools import *
+from math import cos, sin, radians, sqrt, pi
+from mathutils import Vector
+from bpy.types import Operator, PropertyGroup, Object, Panel
+from bpy.props import StringProperty, FloatProperty, BoolProperty, IntProperty, FloatVectorProperty, \
+    CollectionProperty, EnumProperty
+from .achm_tools import *
 
 
 def fitil(vr, fc, px, pz, x, y, z, zz, xx):
@@ -196,10 +196,10 @@ def set_defaults(s):
 # ------------------------------------------------------------------
 # Define operator class to create window panels
 # ------------------------------------------------------------------
-class AchmWinPanel(bpy.types.Operator):
+class AchmWinPanel(Operator):
     bl_idname = "mesh.archimesh_winpanel"
     bl_label = "Panel Window"
-    bl_description = "Generate editable flat windows."
+    bl_description = "Generate editable flat windows"
     bl_category = 'Archimesh'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -302,7 +302,7 @@ def update_window(self, context):
 
         myparent.select = True
         bpy.ops.object.delete()
-        
+
     # Finally create all that again
     tmp_mesh = bpy.data.meshes.new("temp")
     do_mesh(o, tmp_mesh, True)
@@ -350,10 +350,10 @@ def do_mesh(myobject, tmp_mesh, update=False):
         # saves OpenGL data
         # sum width
         totx = myobject.dimensions.x
-        op.glpoint_a = (-totx/2, 0, 0)
+        op.glpoint_a = (-totx / 2, 0, 0)
         top_a, top_b, top_c = get_high_points(myobject, totx, op.UST)
-        op.glpoint_b = (-totx/2, 0, top_a)
-        op.glpoint_c = (totx/2, 0, top_b)
+        op.glpoint_b = (-totx / 2, 0, top_a)
+        op.glpoint_c = (totx / 2, 0, top_b)
         op.glpoint_d = (0, 0, top_c)
 
         # Lock
@@ -382,7 +382,7 @@ def do_ctrl_box(myobject):
     parentobject(myempty, myobject)
     myobject["archimesh.hole_enable"] = True
     # Rotate Empty
-    myempty.rotation_euler.z = math.radians(op.r)
+    myempty.rotation_euler.z = radians(op.r)
     # Create control box to open wall holes
     myctrl = create_ctrl_box(myobject, "CTRL_Hole")
 
@@ -397,15 +397,16 @@ def do_ctrl_box(myobject):
     myctrl.draw_type = 'WIRE'
     myctrl.hide = False
     myctrl.hide_render = True
-    myctrl.cycles_visibility.camera = False
-    myctrl.cycles_visibility.diffuse = False
-    myctrl.cycles_visibility.glossy = False
-    myctrl.cycles_visibility.transmission = False
-    myctrl.cycles_visibility.scatter = False
-    myctrl.cycles_visibility.shadow = False
+    if bpy.context.scene.render.engine == 'CYCLES':
+        myctrl.cycles_visibility.camera = False
+        myctrl.cycles_visibility.diffuse = False
+        myctrl.cycles_visibility.glossy = False
+        myctrl.cycles_visibility.transmission = False
+        myctrl.cycles_visibility.scatter = False
+        myctrl.cycles_visibility.shadow = False
 
-    mat = create_transparent_material("hidden_material", False)
-    set_material(myctrl, mat)
+        mat = create_transparent_material("hidden_material", False)
+        set_material(myctrl, mat)
 
 
 # ------------------------------------------------------------------------------
@@ -681,16 +682,16 @@ def generate_vertex_data(op, myvertex, myfaces):
                 if h1 < 0.07:
                     h1 = 0.07
 
-                h = math.sqrt(u ** 2 + h1 ** 2) / 2
+                h = sqrt(u ** 2 + h1 ** 2) / 2
                 e = h * (u / h1)
-                c = math.sqrt(h ** 2 + e ** 2)
+                c = sqrt(h ** 2 + e ** 2)
                 t1 = zlist[-1] - h1
             elif op.DT2 == '2':
                 c = op.VL2 / 100
                 if c < u + 0.01:
                     c = u + 0.01
                     # op.VL2 = c * 100
-                t1 = math.sqrt(c ** 2 - u ** 2) + zlist[-1] - c
+                t1 = sqrt(c ** 2 - u ** 2) + zlist[-1] - c
             r = c - k1
             z = zlist[-1] - c
 
@@ -699,15 +700,15 @@ def generate_vertex_data(op, myvertex, myfaces):
             myvertex[son[0]][2] = t1
             myvertex[son[1]][2] = t1
             for i in alt:
-                myvertex[i][2] = math.sqrt(r ** 2 - myvertex[i][0] ** 2) + z
+                myvertex[i][2] = sqrt(r ** 2 - myvertex[i][0] ** 2) + z
 
             on = [son[0]]
             u1 = []
             for i in range(0, res):
-                a = i * math.pi / res
-                x = math.cos(a) * c
+                a = i * pi / res
+                x = cos(a) * c
                 if -u < x < u:
-                    myvertex.append([x, -k1 / 2, math.sin(a) * c + z])
+                    myvertex.append([x, -k1 / 2, sin(a) * c + z])
                     on.append(len(myvertex) - 1)
             u1.extend(on)
             u1.append(ust[0])
@@ -723,10 +724,10 @@ def generate_vertex_data(op, myvertex, myfaces):
                 t1 = [alt[i + 0]]
                 t2 = [alt[i + 1]]
                 for j in range(0, res):
-                    a = j * math.pi / res
-                    x = -math.cos(a) * r
+                    a = j * pi / res
+                    x = -cos(a) * r
                     if x1 < x < x2:
-                        myvertex.extend([[x, -k1 / 2, math.sin(a) * r + z], [x, k1 / 2, math.sin(a) * r + z]])
+                        myvertex.extend([[x, -k1 / 2, sin(a) * r + z], [x, k1 / 2, sin(a) * r + z]])
                         on.append(len(myvertex) - 2)
                         ar.append(len(myvertex) - 1)
                         t1.append(len(myvertex) - 2)
@@ -740,10 +741,10 @@ def generate_vertex_data(op, myvertex, myfaces):
             ar.append(son[1])
             u2 = [son[1]]
             for i in range(0, res):
-                a = i * math.pi / res
-                x = math.cos(a) * c
+                a = i * pi / res
+                x = cos(a) * c
                 if -u < x < u:
-                    myvertex.append([x, k1 / 2, math.sin(a) * c + z])
+                    myvertex.append([x, k1 / 2, sin(a) * c + z])
                     ar.append(len(myvertex) - 1)
                     u2.append(len(myvertex) - 1)
             ar.append(ust[1])
@@ -792,31 +793,31 @@ def generate_vertex_data(op, myvertex, myfaces):
                         [[n - 8, n - 7, n - 3, n - 4], [n - 7, n - 6, n - 2, n - 3], [n - 6, n - 5, n - 1, n - 2],
                          [n - 5, n - 8, n - 4, n - 1]])
                     alt = [n - 16, n - 15, n - 14, n - 13, n - 4, n - 3, n - 2, n - 1]
-                    myvertex[alt[0]][2] = math.sqrt(r ** 2 - myvertex[alt[0]][0] ** 2) + z
-                    myvertex[alt[1]][2] = math.sqrt(k ** 2 - myvertex[alt[1]][0] ** 2) + z
-                    myvertex[alt[2]][2] = math.sqrt(k ** 2 - myvertex[alt[2]][0] ** 2) + z
-                    myvertex[alt[3]][2] = math.sqrt(r ** 2 - myvertex[alt[3]][0] ** 2) + z
-                    myvertex[alt[4]][2] = math.sqrt(r ** 2 - myvertex[alt[4]][0] ** 2) + z
-                    myvertex[alt[5]][2] = math.sqrt(k ** 2 - myvertex[alt[5]][0] ** 2) + z
-                    myvertex[alt[6]][2] = math.sqrt(k ** 2 - myvertex[alt[6]][0] ** 2) + z
-                    myvertex[alt[7]][2] = math.sqrt(r ** 2 - myvertex[alt[7]][0] ** 2) + z
+                    myvertex[alt[0]][2] = sqrt(r ** 2 - myvertex[alt[0]][0] ** 2) + z
+                    myvertex[alt[1]][2] = sqrt(k ** 2 - myvertex[alt[1]][0] ** 2) + z
+                    myvertex[alt[2]][2] = sqrt(k ** 2 - myvertex[alt[2]][0] ** 2) + z
+                    myvertex[alt[3]][2] = sqrt(r ** 2 - myvertex[alt[3]][0] ** 2) + z
+                    myvertex[alt[4]][2] = sqrt(r ** 2 - myvertex[alt[4]][0] ** 2) + z
+                    myvertex[alt[5]][2] = sqrt(k ** 2 - myvertex[alt[5]][0] ** 2) + z
+                    myvertex[alt[6]][2] = sqrt(k ** 2 - myvertex[alt[6]][0] ** 2) + z
+                    myvertex[alt[7]][2] = sqrt(r ** 2 - myvertex[alt[7]][0] ** 2) + z
 
                     d1 = []
                     d2 = []
                     t1 = []
                     t2 = []
                     for i in range(0, res):
-                        a = i * math.pi / res
-                        y1 = math.cos(a) * r
-                        y2 = -math.cos(a) * k
+                        a = i * pi / res
+                        y1 = cos(a) * r
+                        y2 = -cos(a) * k
                         if x1 < y1 < x2:
-                            myvertex.extend([[y1, fr - k2 / 2, math.sin(a) * r + z], [y1, fr + k2 / 2,
-                                                                                      math.sin(a) * r + z]])
+                            myvertex.extend([[y1, fr - k2 / 2, sin(a) * r + z], [y1, fr + k2 / 2,
+                                                                                      sin(a) * r + z]])
                             t1.append(len(myvertex) - 2)
                             t2.append(len(myvertex) - 1)
                         if x1 + k2 < y2 < x2 - k2:
-                            myvertex.extend([[y2, fr - k2 / 2, math.sin(a) * k + z], [y2, fr + k2 / 2,
-                                                                                      math.sin(a) * k + z]])
+                            myvertex.extend([[y2, fr - k2 / 2, sin(a) * k + z], [y2, fr + k2 / 2,
+                                                                                      sin(a) * k + z]])
                             d1.append(len(myvertex) - 2)
                             d2.append(len(myvertex) - 1)
                     on = [alt[1], alt[0]]
@@ -889,29 +890,29 @@ def generate_vertex_data(op, myvertex, myfaces):
                 m = len(myfaces)
                 ftl.extend([m - 1, m - 2, m - 3, m - 4, m - 5, m - 6, m - 7, m - 8, m - 9])
                 alt = [n - 16, n - 15, n - 14, n - 13, n - 4, n - 3, n - 2, n - 1]
-                myvertex[alt[0]][2] = math.sqrt(r ** 2 - myvertex[alt[0]][0] ** 2) + z
-                myvertex[alt[1]][2] = math.sqrt(k ** 2 - myvertex[alt[1]][0] ** 2) + z
-                myvertex[alt[2]][2] = math.sqrt(k ** 2 - myvertex[alt[2]][0] ** 2) + z
-                myvertex[alt[3]][2] = math.sqrt(r ** 2 - myvertex[alt[3]][0] ** 2) + z
-                myvertex[alt[4]][2] = math.sqrt(r ** 2 - myvertex[alt[4]][0] ** 2) + z
-                myvertex[alt[5]][2] = math.sqrt(k ** 2 - myvertex[alt[5]][0] ** 2) + z
-                myvertex[alt[6]][2] = math.sqrt(k ** 2 - myvertex[alt[6]][0] ** 2) + z
-                myvertex[alt[7]][2] = math.sqrt(r ** 2 - myvertex[alt[7]][0] ** 2) + z
+                myvertex[alt[0]][2] = sqrt(r ** 2 - myvertex[alt[0]][0] ** 2) + z
+                myvertex[alt[1]][2] = sqrt(k ** 2 - myvertex[alt[1]][0] ** 2) + z
+                myvertex[alt[2]][2] = sqrt(k ** 2 - myvertex[alt[2]][0] ** 2) + z
+                myvertex[alt[3]][2] = sqrt(r ** 2 - myvertex[alt[3]][0] ** 2) + z
+                myvertex[alt[4]][2] = sqrt(r ** 2 - myvertex[alt[4]][0] ** 2) + z
+                myvertex[alt[5]][2] = sqrt(k ** 2 - myvertex[alt[5]][0] ** 2) + z
+                myvertex[alt[6]][2] = sqrt(k ** 2 - myvertex[alt[6]][0] ** 2) + z
+                myvertex[alt[7]][2] = sqrt(r ** 2 - myvertex[alt[7]][0] ** 2) + z
                 d1 = []
                 d2 = []
                 t1 = []
                 t2 = []
                 for i in range(0, res):
-                    a = i * math.pi / res
-                    y1 = math.cos(a) * r
-                    y2 = -math.cos(a) * k
+                    a = i * pi / res
+                    y1 = cos(a) * r
+                    y2 = -cos(a) * k
                     if x1 < y1 < x2:
-                        myvertex.extend([[y1, fr - k3, math.sin(a) * r + z], [y1, fr + k3, math.sin(a) * r + z]])
+                        myvertex.extend([[y1, fr - k3, sin(a) * r + z], [y1, fr + k3, sin(a) * r + z]])
                         t1.append(len(myvertex) - 2)
                         t2.append(len(myvertex) - 1)
                         ftl.extend([len(myfaces) - 1, len(myfaces) - 2])
                     if x1 + k3 * 2 < y2 < x2 - k3 * 2:
-                        myvertex.extend([[y2, fr - k3, math.sin(a) * k + z], [y2, fr + k3, math.sin(a) * k + z]])
+                        myvertex.extend([[y2, fr - k3, sin(a) * k + z], [y2, fr + k3, sin(a) * k + z]])
                         d1.append(len(myvertex) - 2)
                         d2.append(len(myvertex) - 1)
                         ftl.extend([len(myfaces) - 1, len(myfaces) - 2])
@@ -946,21 +947,21 @@ def generate_vertex_data(op, myvertex, myfaces):
                 on = []
                 ar = []
                 for i in range(0, res):
-                    a = i * math.pi / res
-                    y1 = -math.cos(a) * k
+                    a = i * pi / res
+                    y1 = -cos(a) * k
                     if x1 < y1 < x2:
-                        myvertex.extend([[y1, fr - 0.005, math.sin(a) * k + z], [y1, fr + 0.005, math.sin(a) * k + z]])
+                        myvertex.extend([[y1, fr - 0.005, sin(a) * k + z], [y1, fr + 0.005, sin(a) * k + z]])
                         n = len(myvertex)
                         on.append(n - 1)
                         ar.append(n - 2)
                 myvertex.extend(
-                    [[x1, fr - 0.005, math.sqrt(k ** 2 - x1 ** 2) + z], [x1, fr + 0.005,
-                                                                         math.sqrt(k ** 2 - x1 ** 2) + z]])
+                    [[x1, fr - 0.005, sqrt(k ** 2 - x1 ** 2) + z], [x1, fr + 0.005,
+                                                                         sqrt(k ** 2 - x1 ** 2) + z]])
                 myvertex.extend([[x1, fr - 0.005, zlist[-3] + ek + k3 * 2], [x1, fr + 0.005, zlist[-3] + ek + k3 * 2]])
                 myvertex.extend([[x2, fr - 0.005, zlist[-3] + ek + k3 * 2], [x2, fr + 0.005, zlist[-3] + ek + k3 * 2]])
                 myvertex.extend(
-                    [[x2, fr - 0.005, math.sqrt(k ** 2 - x2 ** 2) + z], [x2, fr + 0.005,
-                                                                         math.sqrt(k ** 2 - x2 ** 2) + z]])
+                    [[x2, fr - 0.005, sqrt(k ** 2 - x2 ** 2) + z], [x2, fr + 0.005,
+                                                                         sqrt(k ** 2 - x2 ** 2) + z]])
                 n = len(myvertex)
                 on.extend([n - 1, n - 3, n - 5, n - 7])
                 ar.extend([n - 2, n - 4, n - 6, n - 8])
@@ -976,10 +977,10 @@ def generate_vertex_data(op, myvertex, myfaces):
             elif op.DT3 == '2':
                 h1 = op.VL3 / 100
             elif op.DT3 == '3':
-                h1 = math.sin(op.VL4 * math.pi / 180) / math.cos(op.VL4 * math.pi / 180)
-            z = math.sqrt(k1 ** 2 + (k1 * h1) ** 2)
-            k = math.sqrt(k2 ** 2 + (k2 * h1) ** 2)
-            f = math.sqrt(k3 ** 2 + (k3 * h1) ** 2) * 2
+                h1 = sin(op.VL4 * pi / 180) / cos(op.VL4 * pi / 180)
+            z = sqrt(k1 ** 2 + (k1 * h1) ** 2)
+            k = sqrt(k2 ** 2 + (k2 * h1) ** 2)
+            f = sqrt(k3 ** 2 + (k3 * h1) ** 2) * 2
             myvertex[ust[0]][2] = zlist[-1] + myvertex[ust[0]][0] * h1
             myvertex[ust[1]][2] = zlist[-1] + myvertex[ust[1]][0] * h1
             for i in alt:
@@ -1050,10 +1051,10 @@ def generate_vertex_data(op, myvertex, myfaces):
             elif op.DT3 == '2':
                 h1 = op.VL3 / 100
             elif op.DT3 == '3':
-                h1 = math.sin(op.VL4 * math.pi / 180) / math.cos(op.VL4 * math.pi / 180)
-            z = math.sqrt(k1 ** 2 + (k1 * h1) ** 2)
-            k = math.sqrt(k2 ** 2 + (k2 * h1) ** 2)
-            f = math.sqrt(k3 ** 2 + (k3 * h1) ** 2) * 2
+                h1 = sin(op.VL4 * pi / 180) / cos(op.VL4 * pi / 180)
+            z = sqrt(k1 ** 2 + (k1 * h1) ** 2)
+            k = sqrt(k2 ** 2 + (k2 * h1) ** 2)
+            f = sqrt(k3 ** 2 + (k3 * h1) ** 2) * 2
             myvertex[ust[0]][2] = zlist[-1] + myvertex[ust[0]][0] * h1
             myvertex[ust[1]][2] = zlist[-1] + myvertex[ust[1]][0] * h1
             for i in alt:
@@ -1346,10 +1347,10 @@ def get_high_points(selobject, width, tip):
     # Recover all vertex
     # --------------------------
     for vertex in obverts:
-        if vertex.co[0] == -width/2:
+        if vertex.co[0] == -width / 2:
             if vertex.co[2] >= top_a:
                 top_a = vertex.co[2]
-        if vertex.co[0] == width/2:
+        if vertex.co[0] == width / 2:
             if vertex.co[2] >= top_b:
                 top_b = vertex.co[2]
         # top center
@@ -1367,6 +1368,7 @@ def get_high_points(selobject, width, tip):
 # Defines a point
 # ---------------------------------------------------------
 class Cpoint:
+
     def __init__(self, x, y):
         self.x = float(x)
         self.y = float(y)
@@ -1376,8 +1378,8 @@ class Cpoint:
 # Get angle between two vectors
 # ---------------------------------------------------------
 def get_angle(p1, p2):
-    v1 = mathutils.Vector((p1[0], 0.0, p1[1]))
-    v2 = mathutils.Vector((p2[0], 0.0, p2[1]))
+    v1 = Vector((p1[0], 0.0, p1[1]))
+    v2 = Vector((p2[0], 0.0, p2[1]))
 
     a = v1.angle(v2)
     return a
@@ -1408,7 +1410,7 @@ def get_circle_center(a, b, c):
         center = Cpoint(s2.x + l * d2.x, s2.y + l * d2.y)
         dx = center.x - a.x
         dy = center.y - a.y
-        radio = math.sqrt(dx * dx + dy * dy)
+        radio = sqrt(dx * dx + dy * dy)
 
         # angle
         v1 = (a.x - center.x, a.y - center.y)
@@ -1501,14 +1503,14 @@ def create_ctrl_box(parentobj, objname):
         cz = center.y
 
         sg = op.res
-        arc = ((math.pi / 2) + ang) - ((math.pi / 2) - ang)
+        arc = ((pi / 2) + ang) - ((pi / 2) - ang)
         step = arc / sg
-        a = (math.pi / 2) + ang
+        a = (pi / 2) + ang
 
         myvertex.extend([(lb, ypos, lt), (lb, -ypos, lt)])
         for x in range(0, sg):
-            myvertex.extend([(r * math.cos(a), ypos, r * math.sin(a) + cz),
-                             (r * math.cos(a), -ypos, r * math.sin(a) + cz)])
+            myvertex.extend([(r * cos(a), ypos, r * sin(a) + cz),
+                             (r * cos(a), -ypos, r * sin(a) + cz)])
             a -= step
 
         # close sides
@@ -1550,162 +1552,226 @@ def create_ctrl_box(parentobj, objname):
 # ------------------------------------------------------------------
 # Define property group class to create or modify
 # ------------------------------------------------------------------
-class GeneralPanelProperties(bpy.types.PropertyGroup):
-    prs = bpy.props.EnumProperty(items=(('1', "WINDOW 250X200", ""),
-                                        ('2', "WINDOW 200X200", ""),
-                                        ('3', "WINDOW 180X200", ""),
-                                        ('4', "WINDOW 180X160", ""),
-                                        ('5', "WINDOW 160X160", ""),
-                                        ('6', "WINDOW 50X50", ""),
-                                        ('7', "DOOR 80X250", ""),
-                                        ('8', "DOOR 80X230", "")),
-                                 name="",
-                                 description='Predefined types',
-                                 update=update_using_default)
+class GeneralPanelProperties(PropertyGroup):
+    prs = EnumProperty(
+            items=(
+                ('1', "WINDOW 250X200", ""),
+                ('2', "WINDOW 200X200", ""),
+                ('3', "WINDOW 180X200", ""),
+                ('4', "WINDOW 180X160", ""),
+                ('5', "WINDOW 160X160", ""),
+                ('6', "WINDOW 50X50", ""),
+                ('7', "DOOR 80X250", ""),
+                ('8', "DOOR 80X230", ""),
+                ),
+            name="",
+            description='Predefined types',
+            update=update_using_default,
+            )
     son = prs
-    gen = bpy.props.IntProperty(name='H Count', min=1, max=8, default=3, description='Horizontal Panes',
+    gen = IntProperty(
+            name='H Count', min=1, max=8, default=3,
+            description='Horizontal Panes',
+            update=update_window,
+            )
+    yuk = IntProperty(
+            name='V Count', min=1, max=5, default=1,
+            description='Vertical Panes',
+            update=update_window,
+            )
+    kl1 = IntProperty(
+            name='Outer Frame', min=2, max=50, default=5,
+            description='Outside Frame Thickness',
+            update=update_window,
+            )
+    kl2 = IntProperty(
+            name='Risers', min=2, max=50, default=5,
+            description='Risers Width',
+            update=update_window,
+            )
+    fk = IntProperty(
+            name='Inner Frame', min=1, max=20, default=2,
+            description='Inside Frame Thickness',
+            update=update_window,
+            )
+
+    mr = BoolProperty(name='Sill', default=True, description='Window Sill', update=update_window)
+    mr1 = IntProperty(name='', min=1, max=20, default=4, description='Height', update=update_window)
+    mr2 = IntProperty(name='', min=0, max=20, default=4, description='First Depth', update=update_window)
+    mr3 = IntProperty(name='', min=1, max=50, default=20, description='Second Depth', update=update_window)
+    mr4 = IntProperty(name='', min=0, max=50, default=0, description='Extrusion for Jamb',
                                 update=update_window)
-    yuk = bpy.props.IntProperty(name='V Count', min=1, max=5, default=1, description='Vertical Panes',
-                                update=update_window)
-    kl1 = bpy.props.IntProperty(name='Outer Frame', min=2, max=50, default=5, description='Outside Frame Thickness',
-                                update=update_window)
-    kl2 = bpy.props.IntProperty(name='Risers', min=2, max=50, default=5, description='Risers Width',
-                                update=update_window)
-    fk = bpy.props.IntProperty(name='Inner Frame', min=1, max=20, default=2, description='Inside Frame Thickness',
-                               update=update_window)
 
-    mr = bpy.props.BoolProperty(name='Sill', default=True, description='Window Sill', update=update_window)
-    mr1 = bpy.props.IntProperty(name='', min=1, max=20, default=4, description='Height', update=update_window)
-    mr2 = bpy.props.IntProperty(name='', min=0, max=20, default=4, description='First Depth', update=update_window)
-    mr3 = bpy.props.IntProperty(name='', min=1, max=50, default=20, description='Second Depth', update=update_window)
-    mr4 = bpy.props.IntProperty(name='', min=0, max=50, default=0, description='Extrusion for Jamb',
-                                update=update_window)
+    mt1 = EnumProperty(
+            items=(
+                ('1', "PVC", ""),
+                ('2', "WOOD", ""),
+                ('3', "Plastic", ""),
+                ),
+            name="",
+            default='1',
+            description='Material to use',
+            update=update_window,
+            )
+    mt2 = EnumProperty(
+            items=(
+                ('1', "PVC", ""),
+                ('2', "WOOD", ""),
+                ('3', "Plastic", ""),
+                ),
+            name="",
+            default='3',
+            description='Material to use',
+            update=update_window,
+            )
 
-    mt1 = bpy.props.EnumProperty(items=(('1', "PVC", ""), ('2', "WOOD", ""), ('3', "Plastic", "")), name="",
-                                 default='1',
-                                 description='Material to use',
+    r = FloatProperty(
+            name='Rotation',
+            min=0, max=360, default=0, precision=1,
+            description='Panel rotation',
+            update=update_window,
+            )
+
+    UST = EnumProperty(
+            items=(
+                ('1', "Flat", ""),
+                ('2', "Arch", ""),
+                ('3', "Inclined", ""),
+                ('4', "Triangle", ""),
+                ),
+            name="Top", default='1',
+            description='Type of window upper section',
+            update=update_window,
+            )
+    DT2 = EnumProperty(
+            items=(
+                ('1', "Difference", ""),
+                ('2', "Radius", ""),
+                ),
+            name="",
+            default='1',
+            update=update_window,
+            )
+    DT3 = EnumProperty(
+            items=(
+                ('1', "Difference", ""),
+                ('2', "Incline %", ""),
+                ('3', "Incline Angle", ""),
+                ),
+            name="",
+            default='1', update=update_window,
+            )
+
+    VL1 = IntProperty(name='', min=-10000, max=10000, default=30, update=update_window)  # Fark
+    VL2 = IntProperty(name='', min=1, max=10000, default=30, update=update_window)  # Cap
+    VL3 = IntProperty(name='', min=-100, max=100, default=30, update=update_window)  # Egim %
+    VL4 = IntProperty(name='', min=-45, max=45, default=30, update=update_window)  # Egim Aci
+
+    res = IntProperty(name='Resolution', min=2, max=360, default=36, update=update_window)  # Res
+
+    gnx0 = IntProperty(name='', min=1, max=300, default=60, description='1st Window Width',
                                  update=update_window)
-    mt2 = bpy.props.EnumProperty(items=(('1', "PVC", ""), ('2', "WOOD", ""), ('3', "Plastic", "")), name="",
-                                 default='3',
-                                 description='Material to use',
+    gnx1 = IntProperty(name='', min=1, max=300, default=110, description='2nd Window Width',
+                                 update=update_window)
+    gnx2 = IntProperty(name='', min=1, max=300, default=60, description='3rd Window Width',
+                                 update=update_window)
+    gnx3 = IntProperty(name='', min=1, max=300, default=60, description='4th Window Width',
+                                 update=update_window)
+    gnx4 = IntProperty(name='', min=1, max=300, default=60, description='5th Window Width',
+                                 update=update_window)
+    gnx5 = IntProperty(name='', min=1, max=300, default=60, description='6th Window Width',
+                                 update=update_window)
+    gnx6 = IntProperty(name='', min=1, max=300, default=60, description='7th Window Width',
+                                 update=update_window)
+    gnx7 = IntProperty(name='', min=1, max=300, default=60, description='8th Window Width',
                                  update=update_window)
 
-    r = bpy.props.FloatProperty(name='Rotation', min=0, max=360, default=0, precision=1,
-                                description='Panel rotation', update=update_window)
-
-    UST = bpy.props.EnumProperty(
-        items=(('1', "Flat", ""), ('2', "Arch", ""), ('3', "Inclined", ""), ('4', "Triangle", "")),
-        name="Top", default='1',
-        description='Type of window upper section',
-        update=update_window)
-    DT2 = bpy.props.EnumProperty(items=(('1', "Difference", ""), ('2', "Radius", "")), name="", default='1',
+    gny0 = IntProperty(name='', min=1, max=300, default=190, description='1st Row Height',
                                  update=update_window)
-    DT3 = bpy.props.EnumProperty(items=(('1', "Difference", ""), ('2', "Incline %", ""), ('3', "Incline Angle", "")),
-                                 name="",
-                                 default='1', update=update_window)
-
-    VL1 = bpy.props.IntProperty(name='', min=-10000, max=10000, default=30, update=update_window)  # Fark
-    VL2 = bpy.props.IntProperty(name='', min=1, max=10000, default=30, update=update_window)  # Cap
-    VL3 = bpy.props.IntProperty(name='', min=-100, max=100, default=30, update=update_window)  # Egim %
-    VL4 = bpy.props.IntProperty(name='', min=-45, max=45, default=30, update=update_window)  # Egim Aci
-
-    res = bpy.props.IntProperty(name='Resolution', min=2, max=360, default=36, update=update_window)  # Res
-
-    gnx0 = bpy.props.IntProperty(name='', min=1, max=300, default=60, description='1st Window Width',
+    gny1 = IntProperty(name='', min=1, max=300, default=45, description='2nd Row Height',
                                  update=update_window)
-    gnx1 = bpy.props.IntProperty(name='', min=1, max=300, default=110, description='2nd Window Width',
+    gny2 = IntProperty(name='', min=1, max=300, default=45, description='3rd Row Height',
                                  update=update_window)
-    gnx2 = bpy.props.IntProperty(name='', min=1, max=300, default=60, description='3rd Window Width',
+    gny3 = IntProperty(name='', min=1, max=300, default=45, description='4th Row Height',
                                  update=update_window)
-    gnx3 = bpy.props.IntProperty(name='', min=1, max=300, default=60, description='4th Window Width',
-                                 update=update_window)
-    gnx4 = bpy.props.IntProperty(name='', min=1, max=300, default=60, description='5th Window Width',
-                                 update=update_window)
-    gnx5 = bpy.props.IntProperty(name='', min=1, max=300, default=60, description='6th Window Width',
-                                 update=update_window)
-    gnx6 = bpy.props.IntProperty(name='', min=1, max=300, default=60, description='7th Window Width',
-                                 update=update_window)
-    gnx7 = bpy.props.IntProperty(name='', min=1, max=300, default=60, description='8th Window Width',
+    gny4 = IntProperty(name='', min=1, max=300, default=45, description='5th Row Height',
                                  update=update_window)
 
-    gny0 = bpy.props.IntProperty(name='', min=1, max=300, default=190, description='1st Row Height',
-                                 update=update_window)
-    gny1 = bpy.props.IntProperty(name='', min=1, max=300, default=45, description='2nd Row Height',
-                                 update=update_window)
-    gny2 = bpy.props.IntProperty(name='', min=1, max=300, default=45, description='3rd Row Height',
-                                 update=update_window)
-    gny3 = bpy.props.IntProperty(name='', min=1, max=300, default=45, description='4th Row Height',
-                                 update=update_window)
-    gny4 = bpy.props.IntProperty(name='', min=1, max=300, default=45, description='5th Row Height',
-                                 update=update_window)
+    k00 = BoolProperty(name='', default=True, update=update_window)
+    k01 = BoolProperty(name='', default=False, update=update_window)
+    k02 = BoolProperty(name='', default=True, update=update_window)
+    k03 = BoolProperty(name='', default=False, update=update_window)
+    k04 = BoolProperty(name='', default=False, update=update_window)
+    k05 = BoolProperty(name='', default=False, update=update_window)
+    k06 = BoolProperty(name='', default=False, update=update_window)
+    k07 = BoolProperty(name='', default=False, update=update_window)
 
-    k00 = bpy.props.BoolProperty(name='', default=True, update=update_window)
-    k01 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k02 = bpy.props.BoolProperty(name='', default=True, update=update_window)
-    k03 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k04 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k05 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k06 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k07 = bpy.props.BoolProperty(name='', default=False, update=update_window)
+    k10 = BoolProperty(name='', default=False, update=update_window)
+    k11 = BoolProperty(name='', default=False, update=update_window)
+    k12 = BoolProperty(name='', default=False, update=update_window)
+    k13 = BoolProperty(name='', default=False, update=update_window)
+    k14 = BoolProperty(name='', default=False, update=update_window)
+    k15 = BoolProperty(name='', default=False, update=update_window)
+    k16 = BoolProperty(name='', default=False, update=update_window)
+    k17 = BoolProperty(name='', default=False, update=update_window)
 
-    k10 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k11 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k12 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k13 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k14 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k15 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k16 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k17 = bpy.props.BoolProperty(name='', default=False, update=update_window)
+    k20 = BoolProperty(name='', default=False, update=update_window)
+    k21 = BoolProperty(name='', default=False, update=update_window)
+    k22 = BoolProperty(name='', default=False, update=update_window)
+    k23 = BoolProperty(name='', default=False, update=update_window)
+    k24 = BoolProperty(name='', default=False, update=update_window)
+    k25 = BoolProperty(name='', default=False, update=update_window)
+    k26 = BoolProperty(name='', default=False, update=update_window)
+    k27 = BoolProperty(name='', default=False, update=update_window)
 
-    k20 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k21 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k22 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k23 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k24 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k25 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k26 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k27 = bpy.props.BoolProperty(name='', default=False, update=update_window)
+    k30 = BoolProperty(name='', default=False, update=update_window)
+    k31 = BoolProperty(name='', default=False, update=update_window)
+    k32 = BoolProperty(name='', default=False, update=update_window)
+    k33 = BoolProperty(name='', default=False, update=update_window)
+    k34 = BoolProperty(name='', default=False, update=update_window)
+    k35 = BoolProperty(name='', default=False, update=update_window)
+    k36 = BoolProperty(name='', default=False, update=update_window)
+    k37 = BoolProperty(name='', default=False, update=update_window)
 
-    k30 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k31 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k32 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k33 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k34 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k35 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k36 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k37 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-
-    k40 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k41 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k42 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k43 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k44 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k45 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k46 = bpy.props.BoolProperty(name='', default=False, update=update_window)
-    k47 = bpy.props.BoolProperty(name='', default=False, update=update_window)
+    k40 = BoolProperty(name='', default=False, update=update_window)
+    k41 = BoolProperty(name='', default=False, update=update_window)
+    k42 = BoolProperty(name='', default=False, update=update_window)
+    k43 = BoolProperty(name='', default=False, update=update_window)
+    k44 = BoolProperty(name='', default=False, update=update_window)
+    k45 = BoolProperty(name='', default=False, update=update_window)
+    k46 = BoolProperty(name='', default=False, update=update_window)
+    k47 = BoolProperty(name='', default=False, update=update_window)
     # opengl internal data
-    glpoint_a = bpy.props.FloatVectorProperty(name="glpointa",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_b = bpy.props.FloatVectorProperty(name="glpointb",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_c = bpy.props.FloatVectorProperty(name="glpointc",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
-    glpoint_d = bpy.props.FloatVectorProperty(name="glpointc",
-                                              description="Hidden property for opengl",
-                                              default=(0, 0, 0))
+    glpoint_a = FloatVectorProperty(
+            name="glpointa",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_b = FloatVectorProperty(
+            name="glpointb",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_c = FloatVectorProperty(
+            name="glpointc",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
+    glpoint_d = FloatVectorProperty(
+            name="glpointc",
+            description="Hidden property for opengl",
+            default=(0, 0, 0),
+            )
 
 
 bpy.utils.register_class(GeneralPanelProperties)
-bpy.types.Object.WindowPanelGenerator = bpy.props.CollectionProperty(type=GeneralPanelProperties)
+Object.WindowPanelGenerator = CollectionProperty(type=GeneralPanelProperties)
 
 
 # ------------------------------------------------------------------
 # Define panel class to modify myobjects.
 # ------------------------------------------------------------------
-class AchmWindowEditPanel(bpy.types.Panel):
+class AchmWindowEditPanel(Panel):
     bl_idname = "window.edit_panel2"
     bl_label = "Window Panel"
     bl_space_type = 'VIEW_3D'

@@ -1,66 +1,67 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_shelves_maker.py
 # Automatic generation of shelves
 # Author: Antonio Vazquez (antonioya)
 #
 # ----------------------------------------------------------
 import bpy
-import copy
-from achm_tools import *
+from copy import copy
+from bpy.types import Operator, PropertyGroup
+from bpy.props import FloatProperty, BoolProperty, IntProperty, CollectionProperty, EnumProperty
+from .achm_tools import *
 
 
 # ------------------------------------------------------------------
 # Define property group class for shelves properties
 # ------------------------------------------------------------------
-class ShelvesProperties(bpy.types.PropertyGroup):
-    sX = bpy.props.FloatProperty(name='width', min=0.001, max=10, default=1, precision=3, description='Furniture width')
-    wY = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Modify y size')
-    wZ = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Modify z size')
-    # Cabinet position shift   
-    pX = bpy.props.FloatProperty(name='', min=0, max=10, default=0, precision=3, description='Position x shift')
-    pY = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Position y shift')
-    pZ = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Position z shift')
+class ShelvesProperties(PropertyGroup):
+    sX = FloatProperty(name='width', min=0.001, max=10, default=1,
+                       precision=3, description='Furniture width')
+    wY = FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Modify y size')
+    wZ = FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Modify z size')
+    # Cabinet position shift
+    pX = FloatProperty(name='', min=0, max=10, default=0, precision=3, description='Position x shift')
+    pY = FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Position y shift')
+    pZ = FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Position z shift')
 
     # Shelves
-    sNum = bpy.props.IntProperty(name='Shelves', min=0, max=12, default=6, description='Number total of shelves')
+    sNum = IntProperty(name='Shelves', min=0, max=12, default=6, description='Number total of shelves')
 
     # 12 shelves (shelf)
-    Z01 = bpy.props.FloatProperty(name='zS1', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z02 = bpy.props.FloatProperty(name='zS2', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z03 = bpy.props.FloatProperty(name='zS3', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z04 = bpy.props.FloatProperty(name='zS4', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z05 = bpy.props.FloatProperty(name='zS5', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z06 = bpy.props.FloatProperty(name='zS6', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z07 = bpy.props.FloatProperty(name='zS7', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z08 = bpy.props.FloatProperty(name='zS8', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z09 = bpy.props.FloatProperty(name='zS9', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z10 = bpy.props.FloatProperty(name='zS10', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z11 = bpy.props.FloatProperty(name='zS11', min=-10, max=10, default=0, precision=3, description='Position z shift')
-    Z12 = bpy.props.FloatProperty(name='zS12', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z01 = FloatProperty(name='zS1', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z02 = FloatProperty(name='zS2', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z03 = FloatProperty(name='zS3', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z04 = FloatProperty(name='zS4', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z05 = FloatProperty(name='zS5', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z06 = FloatProperty(name='zS6', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z07 = FloatProperty(name='zS7', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z08 = FloatProperty(name='zS8', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z09 = FloatProperty(name='zS9', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z10 = FloatProperty(name='zS10', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z11 = FloatProperty(name='zS11', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    Z12 = FloatProperty(name='zS12', min=-10, max=10, default=0, precision=3, description='Position z shift')
 
-    right = bpy.props.BoolProperty(name="Right", description="Create right side", default=True)
-    left = bpy.props.BoolProperty(name="Left", description="Create left side", default=True)
+    right = BoolProperty(name="Right", description="Create right side", default=True)
+    left = BoolProperty(name="Left", description="Create left side", default=True)
 
 bpy.utils.register_class(ShelvesProperties)
 
@@ -69,41 +70,72 @@ bpy.utils.register_class(ShelvesProperties)
 # Define UI class
 # Shelves
 # ------------------------------------------------------------------
-class AchmShelves(bpy.types.Operator):
+class AchmShelves(Operator):
     bl_idname = "mesh.archimesh_shelves"
     bl_label = "Shelves"
     bl_description = "Shelves Generator"
     bl_category = 'Archimesh'
     bl_options = {'REGISTER', 'UNDO'}
 
-    thickness = bpy.props.FloatProperty(name='Side Thickness', min=0.001, max=5, default=0.03, precision=3,
-                                        description='Board thickness')
-    sthickness = bpy.props.FloatProperty(name='Shelves Thickness', min=0.001, max=5, default=0.03, precision=3,
-                                         description='Board thickness')
-    depth = bpy.props.FloatProperty(name='Depth', min=0.001, max=50, default=0.28, precision=3,
-                                    description='Default unit depth')
-    height = bpy.props.FloatProperty(name='Height', min=0.001, max=50, default=2, precision=3,
-                                     description='Default unit height')
-    top = bpy.props.FloatProperty(name='Top', min=0, max=50, default=0.03, precision=3,
-                                  description='Default top shelf position')
-    bottom = bpy.props.FloatProperty(name='Bottom', min=0, max=50, default=0.07, precision=3,
-                                     description='Default bottom self position')
-    stype = bpy.props.EnumProperty(items=(('1', "Full side", ""),
-                                          ('4', "4 Legs", ""),
-                                          ('99', "None", "")),
-                                   name="Sides",
-                                   description="Type of side construction")
+    thickness = FloatProperty(
+            name='Side Thickness', min=0.001, max=5,
+            default=0.03, precision=3,
+            description='Board thickness',
+            )
+    sthickness = FloatProperty(
+            name='Shelves Thickness', min=0.001, max=5,
+            default=0.03, precision=3,
+            description='Board thickness',
+            )
+    depth = FloatProperty(
+            name='Depth', min=0.001, max=50,
+            default=0.28, precision=3,
+            description='Default unit depth',
+            )
+    height = FloatProperty(
+            name='Height', min=0.001, max=50,
+            default=2, precision=3,
+            description='Default unit height',
+            )
+    top = FloatProperty(
+            name='Top', min=0, max=50,
+            default=0.03, precision=3,
+            description='Default top shelf position',
+            )
+    bottom = FloatProperty(
+            name='Bottom', min=0, max=50,
+            default=0.07, precision=3,
+            description='Default bottom self position',
+            )
+    stype = EnumProperty(
+            items=(
+                ('1', "Full side", ""),
+                ('4', "4 Legs", ""),
+                ('99', "None", "")),
+            name="Sides",
+            description="Type of side construction",
+            )
 
-    fitZ = bpy.props.BoolProperty(name="Floor origin in Z=0",
-                                  description="Use Z=0 axis as vertical origin floor position", default=True)
+    fitZ = BoolProperty(
+            name="Floor origin in Z=0",
+            description="Use Z=0 axis as vertical origin floor position",
+            default=True,
+            )
 
-    shelves_num = bpy.props.IntProperty(name='Number of Units', min=1, max=10, default=1,
-                                        description='Number total of shelves units')
-    shelves = bpy.props.CollectionProperty(type=ShelvesProperties)
+    shelves_num = IntProperty(
+            name='Number of Units',
+            min=1, max=10,
+            default=1,
+            description='Number total of shelves units',
+            )
+    shelves = CollectionProperty(type=ShelvesProperties)
 
-    # Materials        
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.", default=True)
+    # Materials
+    crt_mat = BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -142,6 +174,8 @@ class AchmShelves(bpy.types.Operator):
                     add_shelves(self, box, idx + 1, self.shelves[idx])
 
             box = layout.box()
+            if not context.scene.render.engine == 'CYCLES':
+                box.enabled = False
             box.prop(self, 'crt_mat')
         else:
             row = layout.row()
@@ -154,10 +188,10 @@ class AchmShelves(bpy.types.Operator):
     def execute(self, context):
         if bpy.context.mode == "OBJECT":
             # Create all elements
-            for i in range(len(self.shelves)-1, self.shelves_num):
+            for i in range(len(self.shelves) - 1, self.shelves_num):
                 self.shelves.add()
 
-            # Create shelves    
+            # Create shelves
             create_shelves_mesh(self)
             return {'FINISHED'}
         else:
@@ -245,7 +279,7 @@ def generate_shelves(self):
 
     boxes = []
     location = bpy.context.scene.cursor_location
-    myloc = copy.copy(location)  # copy location to keep 3D cursor position
+    myloc = copy(location)  # copy location to keep 3D cursor position
     # Fit to floor
     if self.fitZ:
         myloc[2] = 0
@@ -283,8 +317,8 @@ def generate_shelves(self):
     boxes[0].select = True
     bpy.context.scene.objects.active = boxes[0]
 
-    # Create materials        
-    if self.crt_mat:
+    # Create materials
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         mat = create_diffuse_material("Shelves_material", False, 0.8, 0.8, 0.8)
         for box in boxes:
             set_material(box, mat)
@@ -324,7 +358,7 @@ def create_unit(stype, objname, thickness, sthickness, sx, sy, sz, px, py, pz, l
         thickness = 0
 
     # ------------------------------
-    # Left side 
+    # Left side
     # ------------------------------
     if left and stype != "99":
         # Full side
@@ -403,10 +437,10 @@ def create_unit(stype, objname, thickness, sthickness, sx, sy, sz, px, py, pz, l
     posz1 = bottom
 
     for x in range(shelves):
-        # bottom 
+        # bottom
         if x == 0:
             posz1 = bottom
-        # top 
+        # top
         if x == shelves - 1:
             posz1 = sz - top - sthickness
 

@@ -181,6 +181,43 @@ class BGLWidget(SupportedAreas):
         bgl.glVertex2f(x, y + amplitude)
         bgl.glEnd()
         
+    def draw_image(self, image, x, y, w, h, color=(0, 0, 0, 0.1)):
+        bgl.glColor4f(0.5,0.0,0.5,0.7)
+
+        #draw main line and handles
+        #bgl.glBegin(bgl.GL_LINES)
+        bgl.glRectf(x, y, x+w, y+h)
+        #bgl.glEnd()
+        x1 = x
+        y1 = y
+        x2 = x + w
+        y2 = y + h
+        color=[0.5,0.5,0.5,1]
+
+        idx = image.gl_load(bgl.GL_NEAREST, bgl.GL_NEAREST)
+        print([i for i in image.bindcode])
+            
+        bgl.glBindTexture(bgl.GL_TEXTURE_2D, image.bindcode[0])
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
+
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
+        bgl.glEnable(bgl.GL_TEXTURE_2D)
+        bgl.glEnable(bgl.GL_BLEND)
+        #bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
+        bgl.glColor4f(color[0], color[1], color[2], color[3])
+        bgl.glBegin(bgl.GL_QUADS)
+        bgl.glTexCoord2f(0,0)
+        bgl.glVertex2f(x1,y1)
+        bgl.glTexCoord2f(0,1)
+        bgl.glVertex2f(x1,y2)
+        bgl.glTexCoord2f(1,1)
+        bgl.glVertex2f(x2,y2)
+        bgl.glTexCoord2f(1,0)
+        bgl.glVertex2f(x2,y1)
+        bgl.glEnd()
+        bgl.glDisable(bgl.GL_BLEND)
+        bgl.glDisable(bgl.GL_TEXTURE_2D)
+
     def draw_box(self, x, y, w, h, color=(0.0, 0.0, 0.0, 1.0)):
         #bgl.glDepthRange (0.1, 1.0)
         bgl.glColor4f(*color)
@@ -269,7 +306,7 @@ class BGLWidget(SupportedAreas):
         white = (1.0, 1.0, 1.0, 1.0)
         black = (0.0, 0.0, 0.0, 1.0)
         # draw the white keys
-        fc_color = False
+        fc_color = True
         whitenotes = [0, 2, 4, 5, 7, 9, 11]
         blacknotes_1 = [1, 3]
         blacknotes_2 = [6, 8, 10]
@@ -278,9 +315,12 @@ class BGLWidget(SupportedAreas):
             for i in range(7):
                 col = white
                 if action:
-                    fc = action.fcurves.find('["%s%d"]' % (action["channel_name"], octave * 12 + whitenotes[i]))
-                    if fc:
+                    #print("XXXXXXXX", '%d"]' % (octave * 12 + whitenotes[i]))
+                    fcurves = [fc for fc in action.fcurves if (fc.group.select or fc.select) and fc.data_path.endswith('%d"]' % (octave * 12 + whitenotes[i]))]
+                    #fc = action.fcurves.find('["%s%d"]' % (action["channel_name"], octave * 12 + whitenotes[i]))
+                    for fc in fcurves:
                         if fc.evaluate(frame) > 0:
+                            debug.print("BGL",fc.data_path)
                             r, g, b = fc.color if fc_color else (1, 0, 0)
                             col = (r, g, b, 1.0)
                 self.draw_box(x, y, wkw, wkh, color=col)
@@ -310,6 +350,8 @@ class BGLWidget(SupportedAreas):
                 self.draw_box(x, by, bkw, bkh, color=col)
                 x += fgab + bkw + 1
             x += 1     
+        # test call works. TODO
+        #self.draw_image(bpy.data.images[0], mx, my, w, h)
 
     def draw_spectrum(self, context, x, y, speaker, action):
 
@@ -804,7 +846,10 @@ class ScreenAreaAction():
     def __init__(self, context):
         self.screen = context.screen
         #self.context = self.get_area(context.area)
-        self.context = getattr(self.get_area(context.area), context.area.type, None)
+        if getattr(context, "area", None):
+            self.context = getattr(self.get_area(context.area), context.area.type, None)
+        else:
+            self.context = None
 
 
     def create_area(self, key, index, area):
@@ -880,9 +925,6 @@ def reg_screen_action_bgl():
     def index(self):
         sp = self.name.split("_")
         return int(sp[-1])
-        print(self.name)
-        print("MMM")
-        return 2
 
     def area(self):
         return self.id_data.areas[self.area_index]
@@ -896,8 +938,7 @@ def reg_screen_action_bgl():
            
     action_bgl_props = type("ActionBGL", (PropertyGroup,), prop_dic)
     register_class(action_bgl_props)
-    bong = SupportedAreas()
-
+    #sa = SupportedAreas()
 
     propdic = {"area_index": property(index),
                "area": property(area),
@@ -910,7 +951,7 @@ def reg_screen_action_bgl():
                "GRAPH_EDITOR": PointerProperty(type=action_bgl_props),
                "NLA_EDITOR": PointerProperty(type=action_bgl_props),
                "SEQUENCE_EDITOR": PointerProperty(type=action_bgl_props),
-               "CONSOLE": PointerProperty(type=action_bgl_props), # for testing UI
+               #"CONSOLE": PointerProperty(type=action_bgl_props), # for testing UI
                "TIMELINE": PointerProperty(type=action_bgl_props),
                 }
 
@@ -923,6 +964,7 @@ def reg_screen_action_bgl():
     bpy.types.Screen.sound_driver_areas = CollectionProperty(type=SD_AreaSettings)
     bpy.types.Context.sound_vis_areas = property(get_sda_current)
     
+settings_panels = []
 
 def register():
     #bpy.types.
@@ -939,6 +981,7 @@ def register():
     for t in ['GRAPH_EDITOR', 'VIEW_3D', 'SEQUENCE_EDITOR', 'NLA_EDITOR']:
         propdic = {"bl_space_type": t}
         SettingsPanel = type("SD_SoundVis_PT_%s" % t, (SoundVisAreaPanel,), propdic)            
+        settings_panels.append(SettingsPanel)
         register_class(SettingsPanel)
 
 def unregister():
@@ -947,4 +990,7 @@ def unregister():
     unregister_class(BGL_Draw_VisualiserPanel)
     unregister_class(ScreenActionOperator)
     unregister_class(SelectScreenAreaOperator)
-    unregister_class(SettingsPanel)
+    for t in ['GRAPH_EDITOR', 'VIEW_3D', 'SEQUENCE_EDITOR', 'NLA_EDITOR']:
+        SettingsPanel = getattr(bpy.types, "SD_SoundVis_PT_%s" % t, None)
+        if SettingsPanel:
+            unregister_class(SettingsPanel)

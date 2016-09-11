@@ -262,6 +262,8 @@ class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         self.inputs.new('StringsSocket', 'faces', 'faces')
         self.inputs.new('MatrixSocket', 'matrix', 'matrix')
 
+        self.outputs.new('SvObjectSocket', "Objects")
+
     def draw_buttons(self, context, layout):
         view_icon = 'BLENDER' if self.activate else 'ERROR'
         sh = 'node.sv_callback_bmesh_viewer'
@@ -404,6 +406,9 @@ class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         if self.autosmooth:
             self.set_autosmooth(objs)
 
+        if self.outputs[0].is_linked:
+            self.outputs[0].sv_set(objs)
+
     def get_children(self):
         objects = bpy.data.objects
         objs = [obj for obj in objects if obj.type == 'MESH']
@@ -425,7 +430,7 @@ class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
             obj = objects[object_name]
             obj.hide_select = False
             scene.objects.unlink(obj)
-            objects.remove(obj)
+            objects.remove(obj, do_unlink=True)
 
         # delete associated meshes
         for object_name in objs:
@@ -436,7 +441,9 @@ class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         named = self.basemesh_name
 
         # alias group, or generate new group and alias that
-        group = groups.get(named, groups.new(named))
+        group = groups.get(named)
+        if not group:
+            group = groups.new(named)
 
         for obj in objs:
             if obj.name not in group.objects:

@@ -170,7 +170,9 @@ class COAModal(bpy.types.Operator):
                     set_modulate_color(obj,context,obj.coa_modulate_color)
                     obj.coa_modulate_color_last = obj.coa_modulate_color
             
-            if obj != None and "coa_sprite" in obj:        
+#            if obj != None and "coa_sprite" in obj:        
+#                if obj.mode == "EDIT":
+#                    hide_base_sprite(obj)
                 ### leaving object edit mode
                 if obj.type == "MESH" and self.obj_mode_hist == "EDIT" and obj.mode == "OBJECT":
                     set_uv_default_coords(context,obj)

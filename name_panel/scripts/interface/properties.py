@@ -1,26 +1,24 @@
 
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by the Free
-#  Software Foundation; either version 2 of the License, or (at your option)
-#  any later version.
-#
-#  This program is distributed in the hope that it will be useful, but WITHOUT
-#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-#  more details.
-#
-#  You should have received a copy of the GNU General Public License along with
-#  this program; if not, write to the Free Software Foundation, Inc.,
-#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
 # imports
 import bpy
 from bpy.types import Panel
-from .buttons import properties as Buttons
+from .buttons.object import Object
+from .buttons.group import Group
+from .buttons.greasepencil import GreasePencil
+from .buttons.action import Action
+from .buttons.constraint import Constraint
+from .buttons.modifier import Modifier
+from .buttons.objectdata import ObjectData
+from .buttons.bonegroup import BoneGroup
+from .buttons.bone import Bone
+from .buttons.vertexgroup import VertexGroup
+from .buttons.uv import UV
+from .buttons.shapekey import Shapekey
+from .buttons.vertexcolor import VertexColor
+from .buttons.material import Material
+from .buttons.texture import Texture
+from .buttons.particlesystem import ParticleSystem
+from .buttons.particlesettings import ParticleSettings
 
 # tools properties
 class toolsProperties(Panel):
@@ -33,78 +31,33 @@ class toolsProperties(Panel):
   bl_region_type = 'TOOLS'
   bl_category = 'Name'
 
-  # draw header
-  def draw_header(self, context):
-    '''
-      Properties panel header.
-    '''
-    # layout
-    layout = self.layout
-
-    # panel
-    panel = context.scene.PropertiesPanel
-
-    # display active
-    layout.prop(panel, 'displayActive', text='')
-
   # draw
   def draw(self, context):
     '''
       Properties panel body.
     '''
 
-    layout = self.layout
-
-    try:
-
-      # main
-      main(self, context)
-
-    except:
-
-      # label
-      layout.label(text='Nothing to show')
-
+    # main
+    main(self, context)
 
 # UI properties
 class UIProperties(Panel):
   '''
-    Name Panel context sensitive properties panel for the 3D View property shelf.
+    Name panel context sensitive properties panel for the 3D View property shelf.
   '''
   bl_idname = 'VIEW3D_PT_UI_properties'
   bl_space_type = 'VIEW_3D'
   bl_label = 'Properties'
   bl_region_type = 'UI'
 
-  # draw header
-  def draw_header(self, context):
-    '''
-      Properties panel header.
-    '''
-    # layout
-    layout = self.layout
-
-    # panel
-    panel = context.scene.PropertiesPanel
-
-    # display active
-    layout.prop(panel, 'displayActive', text='')
-
   # draw
   def draw(self, context):
     '''
       Properties panel body.
     '''
 
-    try:
-
-      # main
-      main(self, context)
-
-    except:
-
-      # label
-      layout.label(text='Nothing to show')
+    # main
+    main(self, context)
 
 # main
 def main(self, context):
@@ -115,129 +68,148 @@ def main(self, context):
   # panel
   panel = context.scene.NamePanel
 
-  # display active
-  displayActive = context.scene.PropertiesPanel.displayActive
-
   # layout
   layout = self.layout
 
+  # row
+  row = layout.row(align=True)
+
+  # back
+  row.operator('view3d.name_panel_previous', text='', icon='BACK')
+
   # context
-  layout.prop(panel, 'context', text='')
+  row.prop(panel, 'context', text='')
 
-  # object
-  if panel.context == 'OBJECT':
+  # to object
+  row.operator('view3d.name_panel_to_object', text='', icon='OBJECT_DATA')
 
-    # datablock
-    datablock = context.object if displayActive else bpy.data.objects[panel.target]
+  # to data
+  row.operator('view3d.name_panel_to_data', text='', icon='MESH_DATA')
+
+  # is context object
+  if context.active_object:
+
+    # is armature
+    if context.active_object.type == 'ARMATURE':
+
+      # to bone
+      row.operator('view3d.name_panel_to_bone', text='', icon='BONE_DATA')
 
     # object
-    Buttons.Object(self, context, layout, datablock)
+    if panel.context == 'OBJECT':
 
-  # group
-  elif panel.context == 'GROUP':
+        # object
+        Object(self, context, layout, context.active_object)
+
+
+    # object data
+    elif panel.context == 'OBJECT_DATA':
+
+      # object
+      ObjectData(self, context, layout, context.active_object)
+
+    # is active bone
+    if context.active_bone:
+
+      # bone
+      if panel.context == 'BONE':
+
+
+          # bone
+          Bone(self, context, layout)
+
+  # is owner
+  if panel.owner:
 
     # group
-    Buttons.Group(self, context, layout, bpy.data.groups[panel.target])
+    if panel.context == 'GROUP':
 
-  # action
-  elif panel.context == 'ACTION':
+      # group
+      Group(self, context, layout, bpy.data.groups[panel.target])
+
+    # # grease pencil
+    # elif panel.context == 'GREASE_PENCIL':
+    #
+    #   # grease pencil
+    #   GreasePencil(self, context, layout, bpy.data.grease_pencil[panel.target])
 
     # action
-    Buttons.Action(self, context, layout, bpy.data.actions[panel.target])
+    elif panel.context == 'ACTION':
 
-  # grease pencil
-  elif panel.context == 'GREASE_PENCIL':
+      # has action
+      if hasattr(bpy.data.objects[panel.owner].animation_data, 'action'):
 
-    # grease pencil
-    Buttons.GreasePencil(self, context, layout, bpy.data.grease_pencil[panel.target])
-
-  # constraint
-  elif panel.context == 'CONSTRAINT':
+        # action
+        Action(self, context, layout, bpy.data.objects[panel.owner], bpy.data.actions[panel.target])
 
     # constraint
-    Buttons.Constraint(self, context, layout, bpy.data.objects[panel.owner].constraints[panel.target])
+    elif panel.context == 'CONSTRAINT':
 
-  # modifier
-  elif panel.context == 'MODIFIER':
+      # constraint
+      Constraint.main(self, context, layout, bpy.data.objects[panel.owner].constraints[panel.target])
 
     # modifier
-    Buttons.Modifier(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].modifiers[panel.target])
+    elif panel.context == 'MODIFIER':
 
-  # object data
-  elif panel.context == 'OBJECT_DATA':
-
-    # datablock
-    datablock = context.object if displayActive else bpy.data.objects[panel.target]
-
-    # object
-    Buttons.ObjectData(self, context, layout, datablock)
-
-  # bone group
-  elif panel.context == 'BONE_GROUP':
+      # modifier
+      Modifier.main(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].modifiers[panel.target])
 
     # bone group
-    Buttons.BoneGroup(self, context, layout, bpy.data.objects[panel.target])
+    elif panel.context == 'BONE_GROUP':
 
-  # bone
-  elif panel.context == 'BONE':
-
-    # datablock
-    datablock = context.active_bone if displayActive else bpy.data.armatures[panel.owner].bones[panel.target] if context.mode == 'POSE' else bpy.data.armatures[panel.owner].editable_bones[panel.target]
-
-    # bone
-    Buttons.Bone(self, context, layout, datablock)
-
-
-  # bone constraint
-  elif panel.context == 'BONE_CONSTRAINT':
+      # bone group
+      BoneGroup(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].pose.bone_groups[panel.target])
 
     # bone constraint
-    Buttons.BoneConstraint(self, context, layout, bpy.data.objects[context.active_object.name].pose.bones[panel.owner].constraints[panel.target])
+    elif panel.context == 'BONE_CONSTRAINT':
 
-  # vertex group
-  elif panel.context == 'VERTEX_GROUP':
+      # bone constraint
+      Constraint.main(self, context, layout, context.active_object.pose.bones[panel.owner].constraints[panel.target])
 
     # vertex group
-    Buttons.VertexGroup(self, context, layout, bpy.data.objects[panel.owner].vertex_groups[panel.target])
+    elif panel.context == 'VERTEX_GROUP':
 
-  # shapekey
-  elif panel.context == 'SHAPEKEY':
+      # vertex group
+      VertexGroup(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].vertex_groups[panel.target])
 
     # shapekey
-    Buttons.Shapekey(self, context, layout, bpy.data.objects[panel.owner].data.shape_keys.key_blocks[panel.target])
+    elif panel.context == 'SHAPEKEY':
 
-  # uv
-  elif panel.context == 'UV':
+      # shapekey
+      Shapekey(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.shape_keys.key_blocks[panel.target])
 
     # uv
-    Buttons.UV(self, context, layout, bpy.data.objects[panel.owner].data.uv_textures[panel.target])
+    elif panel.context == 'UV':
 
-  # vertex color
-  elif panel.context == 'VERTEX_COLOR':
+      # uv
+      UV(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.uv_textures[panel.target])
 
     # vertex color
-    Buttons.VertexColor(self, context, layout, bpy.data.objects[panel.owner].data.vertex_colors[panel.target])
+    elif panel.context == 'VERTEX_COLOR':
 
-  # material
-  elif panel.context == 'MATERIAL':
+      # vertex color
+      VertexColor(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.vertex_colors[panel.target])
 
     # material
-    Buttons.Material(self, context, layout, bpy.data.materials[panel.target])
-
-  # texture
-  elif panel.context == 'TEXTURE':
+    # elif panel.context == 'MATERIAL':
+    #
+    #   # material
+    #   Material(self, context, layout, bpy.data.objects[panel.owner], bpy.data.materials[panel.target])
 
     # texture
-    Buttons.Texture(self, context, layout, bpy.data.textures[panel.target])
+    # elif panel.context == 'TEXTURE':
+    #
+    #   # texture
+    #   Texture(self, context, layout, owner, bpy.data.textures[panel.target])
 
-  # particle system
-  elif panel.context == 'PARTICLE_SYSTEM':
+    # particle system
+    # elif panel.context == 'PARTICLE_SYSTEM':
+    #
+    #   # particle systems
+    #   ParticleSystem(self, context, layout, bpy.data.objects[panel.owner].particle_systems[panel.target])
 
-    # particle systems
-    Buttons.ParticleSystem(self, context, layout, bpy.data.objects[panel.owner].particle_systems[panel.target])
-
-  # particle setting
-  elif panel.context == 'PARTICLE_SETTING':
-
-    # particle settings
-    Buttons.ParticleSettings(self, context, layout, bpy.data.particles[panel.target])
+    # particle setting
+    # elif panel.context == 'PARTICLE_SETTING':
+    #
+    #   # particle settings
+    #   ParticleSettings(self, context, layout, bpy.data.particles[panel.target])

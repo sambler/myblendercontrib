@@ -1,22 +1,4 @@
 
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by the Free
-#  Software Foundation; either version 2 of the License, or (at your option)
-#  any later version.
-#
-#  This program is distributed in the hope that it will be useful, but WITHOUT
-#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-#  more details.
-#
-#  You should have received a copy of the GNU General Public License along with
-#  this program; if not, write to the Free Software Foundation, Inc.,
-#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
 # imports
 import bpy
 
@@ -27,11 +9,11 @@ def main(context):
   '''
 
   # option
-  option = context.scene.BatchCopyName
+  option = context.window_manager.CopyName
 
   # mode
   if option.mode in {'SELECTED', 'OBJECTS'}:
-    for object in bpy.data.objects[:]:
+    for object in bpy.data.objects:
 
       # source object
       if option.source in 'OBJECT':
@@ -83,7 +65,7 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
 
                   # use active object
@@ -92,7 +74,7 @@ def main(context):
                   else:
                     material.material.name = object.name
           else:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
 
                 # use active object
@@ -107,9 +89,9 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
-                  for texture in material.material.texture_slots[:]:
+                  for texture in material.material.texture_slots:
                     if texture != None:
 
                       # use active object
@@ -118,9 +100,9 @@ def main(context):
                       else:
                         texture.texture.name = object.name
           else:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
-                for texture in material.material.texture_slots[:]:
+                for texture in material.material.texture_slots:
                   if texture != None:
 
                     # use active object
@@ -135,7 +117,7 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -143,7 +125,7 @@ def main(context):
                 else:
                   system.name = object.name
           else:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -157,7 +139,7 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -165,7 +147,7 @@ def main(context):
                 else:
                   system.settings.name = object.name
           else:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -223,7 +205,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
 
                     # use active object
@@ -232,7 +214,7 @@ def main(context):
                     else:
                       material.material.name = object.data.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
 
                   # use active object
@@ -247,9 +229,9 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
-                    for texture in material.material.texture_slots[:]:
+                    for texture in material.material.texture_slots:
                       if texture != None:
 
                         # use active object
@@ -258,9 +240,9 @@ def main(context):
                         else:
                           texture.texture.name = object.data.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
-                  for texture in material.material.texture_slots[:]:
+                  for texture in material.material.texture_slots:
                     if texture != None:
 
                       # use active object
@@ -275,7 +257,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -283,7 +265,7 @@ def main(context):
                   else:
                     system.name = object.data.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -297,7 +279,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -305,7 +287,7 @@ def main(context):
                   else:
                     system.settings.name = object.data.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -371,7 +353,7 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
 
                   # use active object
@@ -382,7 +364,7 @@ def main(context):
                     if hasattr(object.active_material, 'name'):
                       material.material.name = object.active_material.name
           else:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
 
                 # use active object
@@ -399,9 +381,9 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
-                  for texture in material.material.texture_slots[:]:
+                  for texture in material.material.texture_slots:
                     if texture != None:
 
                       # use active object
@@ -412,9 +394,9 @@ def main(context):
                         if hasattr(object.active_material, 'name'):
                           texture.texture.name = object.active_material.name
           else:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
-                for texture in material.material.texture_slots[:]:
+                for texture in material.material.texture_slots:
                   if texture != None:
 
                     # use active object
@@ -431,7 +413,7 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -441,7 +423,7 @@ def main(context):
                   if hasattr(object.active_material, 'name'):
                     system.name = object.active_material.name
           else:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -457,7 +439,7 @@ def main(context):
           # mode
           if option.mode in 'SELECTED':
             if object.select:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -467,7 +449,7 @@ def main(context):
                   if hasattr(object.active_material, 'name'):
                     system.settings.name = object.active_material.name
           else:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -544,7 +526,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
 
                     # use active object
@@ -557,7 +539,7 @@ def main(context):
                         if hasattr(object.active_material.active_texture, 'name'):
                           material.material.name = object.active_material.active_texture.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
 
                   # use active object
@@ -576,9 +558,9 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
-                    for texture in material.material.texture_slots[:]:
+                    for texture in material.material.texture_slots:
                       if texture != None:
 
                         # use active object
@@ -591,9 +573,9 @@ def main(context):
                             if hasattr(object.active_material.active_texture, 'name'):
                               texture.texture.name = object.active_material.active_texture.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
-                  for texture in material.material.texture_slots[:]:
+                  for texture in material.material.texture_slots:
                     if texture != None:
 
                       # use active object
@@ -612,7 +594,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -624,7 +606,7 @@ def main(context):
                       if hasattr(object.active_material.active_texture, 'name'):
                         system.name = object.active_material.active_texture.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -642,7 +624,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -654,7 +636,7 @@ def main(context):
                       if hasattr(object.active_material.active_texture, 'name'):
                         system.settings.name = object.active_material.active_texture.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -724,7 +706,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
 
                     # use active object
@@ -735,7 +717,7 @@ def main(context):
                       if hasattr(object.particle_systems.active, 'name'):
                         material.material.name = object.particle_systems.active.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
 
                   # use active object
@@ -752,9 +734,9 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
-                    for texture in material.material.texture_slots[:]:
+                    for texture in material.material.texture_slots:
                       if texture != None:
 
                         # use active object
@@ -765,9 +747,9 @@ def main(context):
                           if hasattr(object.particle_systems.active, 'name'):
                             texture.texture.name = object.particle_systems.active.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
-                  for texture in material.material.texture_slots[:]:
+                  for texture in material.material.texture_slots:
                     if texture != None:
 
                       # use active object
@@ -784,7 +766,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -794,7 +776,7 @@ def main(context):
                     if hasattr(object.particle_systems.active, 'name'):
                       system.name = object.particle_systems.active.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -810,7 +792,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -820,7 +802,7 @@ def main(context):
                     if hasattr(object.particle_systems.active, 'name'):
                       system.settings.name = object.particle_systems.active.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -888,7 +870,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
 
                     # use active object
@@ -899,7 +881,7 @@ def main(context):
                       if hasattr(object.particle_systems.active, 'settings'):
                         material.material.name = object.particle_systems.active.settings.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
 
                   # use active object
@@ -916,9 +898,9 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for material in object.material_slots[:]:
+                for material in object.material_slots:
                   if material.material != None:
-                    for texture in material.material.texture_slots[:]:
+                    for texture in material.material.texture_slots:
                       if texture != None:
 
                         # use active object
@@ -929,9 +911,9 @@ def main(context):
                           if hasattr(object.particle_systems.active, 'settings'):
                             texture.texture.name = object.particle_systems.active.settings.name
             else:
-              for material in object.material_slots[:]:
+              for material in object.material_slots:
                 if material.material != None:
-                  for texture in material.material.texture_slots[:]:
+                  for texture in material.material.texture_slots:
                     if texture != None:
 
                       # use active object
@@ -948,7 +930,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -958,7 +940,7 @@ def main(context):
                     if hasattr(object.particle_systems.active, 'settings'):
                       system.name = object.particle_systems.active.settings.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -974,7 +956,7 @@ def main(context):
             # mode
             if option.mode in 'SELECTED':
               if object.select:
-                for system in object.particle_systems[:]:
+                for system in object.particle_systems:
 
                   # use active object
                   if option.useActiveObject:
@@ -984,7 +966,7 @@ def main(context):
                     if hasattr(object.particle_systems.active, 'settings'):
                       system.settings.name = object.particle_systems.active.settings.name
             else:
-              for system in object.particle_systems[:]:
+              for system in object.particle_systems:
 
                 # use active object
                 if option.useActiveObject:
@@ -995,7 +977,7 @@ def main(context):
                     system.settings.name = object.particle_systems.active.settings.name
   # mode
   else:
-    for object in context.scene.objects[:]:
+    for object in context.scene.objects:
 
       # source object
       if option.source in 'OBJECT':
@@ -1021,7 +1003,7 @@ def main(context):
 
         # materials
         if option.materials:
-          for material in object.material_slots[:]:
+          for material in object.material_slots:
             if material.material != None:
 
               # use active object
@@ -1032,9 +1014,9 @@ def main(context):
 
         # textures
         if option.textures:
-          for material in object.material_slots[:]:
+          for material in object.material_slots:
             if material.material != None:
-              for texture in material.material.texture_slots[:]:
+              for texture in material.material.texture_slots:
                 if texture != None:
 
                   # use active object
@@ -1045,7 +1027,7 @@ def main(context):
 
         # particle systems
         if option.particleSystems:
-          for system in object.particle_systems[:]:
+          for system in object.particle_systems:
 
             # use active object
             if option.useActiveObject:
@@ -1055,7 +1037,7 @@ def main(context):
 
         # particle settings
         if option.particleSettings:
-          for system in object.particle_systems[:]:
+          for system in object.particle_systems:
 
             # use active object
             if option.useActiveObject:
@@ -1087,7 +1069,7 @@ def main(context):
 
           # materials
           if option.materials:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
 
                 # use active object
@@ -1098,9 +1080,9 @@ def main(context):
 
           # textures
           if option.textures:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
-                for texture in material.material.texture_slots[:]:
+                for texture in material.material.texture_slots:
                   if texture != None:
 
                     # use active object
@@ -1111,7 +1093,7 @@ def main(context):
 
           # particle systems
           if option.particleSystems:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -1121,7 +1103,7 @@ def main(context):
 
           # particle settings
           if option.particleSettings:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -1157,7 +1139,7 @@ def main(context):
 
         # materials
         if option.materials:
-          for material in object.material_slots[:]:
+          for material in object.material_slots:
             if material.material != None:
 
               # use active object
@@ -1170,9 +1152,9 @@ def main(context):
 
         # textures
         if option.textures:
-          for material in object.material_slots[:]:
+          for material in object.material_slots:
             if material.material != None:
-              for texture in material.material.texture_slots[:]:
+              for texture in material.material.texture_slots:
                 if texture != None:
 
                   # use active object
@@ -1185,7 +1167,7 @@ def main(context):
 
         # particle systems
         if option.particleSystems:
-          for system in object.particle_systems[:]:
+          for system in object.particle_systems:
 
             # use active object
             if option.useActiveObject:
@@ -1197,7 +1179,7 @@ def main(context):
 
         # particle settings
         if option.particleSettings:
-          for system in object.particle_systems[:]:
+          for system in object.particle_systems:
 
             # use active object
             if option.useActiveObject:
@@ -1240,7 +1222,7 @@ def main(context):
 
           # materials
           if option.materials:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
 
                 # use active object
@@ -1255,9 +1237,9 @@ def main(context):
 
           # textures
           if option.textures:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
-                for texture in material.material.texture_slots[:]:
+                for texture in material.material.texture_slots:
                   if texture != None:
 
                     # use active object
@@ -1272,7 +1254,7 @@ def main(context):
 
           # particle systems
           if option.particleSystems:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -1286,7 +1268,7 @@ def main(context):
 
           # particle settings
           if option.particleSettings:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -1326,7 +1308,7 @@ def main(context):
 
           # materials
           if option.materials:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
 
                 # use active object
@@ -1339,9 +1321,9 @@ def main(context):
 
           # textures
           if option.textures:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
-                for texture in material.material.texture_slots[:]:
+                for texture in material.material.texture_slots:
                   if texture != None:
 
                     # use active object
@@ -1354,7 +1336,7 @@ def main(context):
 
           # particle system
           if option.particleSystems:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -1366,7 +1348,7 @@ def main(context):
 
           # particle settings
           if option.particleSettings:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -1404,7 +1386,7 @@ def main(context):
 
           # materials
           if option.materials:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
 
                 # use active object
@@ -1417,9 +1399,9 @@ def main(context):
 
           # textures
           if option.textures:
-            for material in object.material_slots[:]:
+            for material in object.material_slots:
               if material.material != None:
-                for texture in material.material.texture_slots[:]:
+                for texture in material.material.texture_slots:
                   if texture != None:
 
                     # use active object
@@ -1432,7 +1414,7 @@ def main(context):
 
           # particle systems
           if option.particleSystems:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:
@@ -1444,7 +1426,7 @@ def main(context):
 
           # particle settings
           if option.particleSettings:
-            for system in object.particle_systems[:]:
+            for system in object.particle_systems:
 
               # use active object
               if option.useActiveObject:

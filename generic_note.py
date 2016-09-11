@@ -24,8 +24,8 @@ bl_info = {
     "name":        "Generic Note Node",
     "description": "A generic note node",
     "author":      "Linus Yng",
-    "version":     (0, 1, 5),
-    "blender":     (2, 7, 1),
+    "version":     (0, 2, 0),
+    "blender":     (2, 7, 7),
     "location":    "Node Editor, N-Panel or menu Layout",
     "category":    "Node",
     "warning":     "The note will not work for people without this addon",
@@ -57,7 +57,7 @@ def get_lines(text_file):
         yield line.body
 
 
-class NoteNode(bpy.types.Node):
+class GenericNoteNode(bpy.types.Node):
     ''' Note '''
     bl_idname = 'GenericNoteNode'
     bl_label = 'Note'
@@ -244,26 +244,26 @@ class GenericNotePreferences(bpy.types.AddonPreferences):
 
 
 #  code for registering menus. would like a proper interface for this
-
 # replacement layout categories
+
 menu_categories = {
-    "CMP_LAYOUT": CompositorNodeCategory("CMP_LAYOUT", "Layout", items=[
+    "CMP_LAYOUT": (CompositorNodeCategory, "CMP_LAYOUT", "Layout", [
         NodeItem("NodeFrame"),
         NodeItem("NodeReroute"),
         NodeItem("GenericNoteNode"),
         NodeItem("CompositorNodeSwitch"),
     ]),
-    "TEX_LAYOUT": TextureNodeCategory("TEX_LAYOUT", "Layout", items=[
+    "TEX_LAYOUT": (TextureNodeCategory, "TEX_LAYOUT", "Layout", [
         NodeItem("NodeFrame"),
         NodeItem("NodeReroute"),
         NodeItem("GenericNoteNode"),
     ]),
-    "SH_NEW_LAYOUT": ShaderNewNodeCategory("SH_NEW_LAYOUT", "Layout", items=[
+    "SH_NEW_LAYOUT": (ShaderNewNodeCategory, "SH_NEW_LAYOUT", "Layout", [
         NodeItem("NodeFrame"),
         NodeItem("NodeReroute"),
         NodeItem("GenericNoteNode"),
     ]),
-    "SH_LAYOUT": ShaderOldNodeCategory("SH_LAYOUT", "Layout", items=[
+    "SH_LAYOUT": (ShaderOldNodeCategory, "SH_LAYOUT", "Layout", [
         NodeItem("NodeFrame"),
         NodeItem("NodeReroute"),
         NodeItem("GenericNoteNode"),
@@ -289,8 +289,8 @@ def register_menus():
     for menu in menus:
         for index, node_cat in enumerate(menu):
             if node_cat.identifier in menu_categories:
-                new_menu = menu_categories[node_cat.identifier]
-                menu[index] = new_menu
+                cls, c_type, text, items = menu_categories[node_cat.identifier]
+                menu[index] = cls(c_type, text, items=items)
 
     nodeitems_builtins.register()
 
@@ -309,6 +309,7 @@ def unregister_menus():
 def register():
     bpy.utils.register_module(__name__)
     pref = bpy.context.user_preferences.addons[__name__].preferences
+
     if pref.register_menus:
         register_menus()
 

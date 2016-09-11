@@ -377,23 +377,29 @@ def in_core_dev_commands(context, m):
         ''' dispatch a threaded worker '''
         cmd_controller(m[1:])
 
-    elif m.startswith('obj='):
+    elif m.startswith('obj=') or m.startswith('n='):
         do_console_rewriter(context, m)
 
     elif m == 'git help':
         git_strings = (
-            "git pull --all",
-            "git push --all",
-            "git add --all",
+            "git pull (--all)",
+            "git push (--all)",
+            "git add (--all)",
             "git add <specify file>  # do this from inside the right directory",
             "git commit -am \"commit message here\"",
             "git checkout -b <branch_name>  # new_branch_name_based_on_current_branch",
             "git branch -D <branch_name> # deletes branch locally (you must be on a different branch first)",
             "git branch",
-            " ",
+            "   ",
             "-- be in master, or branch to merge into",
             "   git merge <branch_to_merge>",
-            "   git push --all"
+            "   git push --all",
+            "   ",
+            "   ",
+            "To reset unstaged things..:",
+            "  git fetch origin",
+            "  git reset --hard origin/master",
+            "  git clean -f"
         )
         for line in git_strings:
             add_scrollback(line, 'OUTPUT')

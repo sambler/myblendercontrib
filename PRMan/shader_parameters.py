@@ -191,7 +191,7 @@ def class_generate_properties(node, parent_name, shaderparameters):
                             setattr(node, Texname, optionsProps[Texname])
         else:
             if (parent_name == "PxrOSL" and i == 0) or (parent_name == "PxrSeExpr" and i == 0):
-                #Enum for internal, external type selection
+                # Enum for internal, external type selection
                 EnumName = "codetypeswitch"
                 EnumProp = EnumProperty(items=(('EXT', "External", ""),
                                                ('INT', "Internal", "")),
@@ -236,10 +236,10 @@ def class_generate_properties(node, parent_name, shaderparameters):
                     prop_names.append(name)
                     prop_meta[name] = meta
                     setattr(node, name, prop)
-                #else:
+                # else:
                  #   getLocation = bpy.context.scene.OSLProps
-                #    mataterial = 
-                #    for 
+                #    mataterial =
+                #    for
                 #    setattr(node, name, prop)
             else:
                 name, meta, prop = generate_property(sp)
@@ -271,9 +271,9 @@ def class_generate_properties(node, parent_name, shaderparameters):
 # send updates to ipr if running
 def update_func(self, context):
     from . import engine
-    if engine.ipr is not None and engine.ipr.is_interactive_running:
+    if engine.is_ipr_running():
         engine.ipr.issue_shader_edits(node=self)
-    
+
     if context and 'material' and hasattr(context, 'material'):
         mat = context.material
         if mat:
@@ -309,21 +309,18 @@ def generate_property(sp):
     if 'coshaderPort' in prop_meta and prop_meta['coshaderPort'] == 'True':
         param_type = 'shader'
 
-    # I guess multiline tooltips never worked
     for s in sp:
         if s.tag == 'help' and s.text:
-            lines = s.text.split('\n')
-            for line in lines:
-                param_help = param_help + line.strip(' \t\n\r')
+            param_help = s.text
 
     if 'float' in param_type:
         if 'arraySize' in sp.attrib.keys():
             if "," in sp.attrib['default']:
                 param_default = tuple(float(f) for f in
-                                  sp.attrib['default'].split(','))
+                                      sp.attrib['default'].split(','))
             else:
                 param_default = tuple(float(f) for f in
-                                  sp.attrib['default'].split())
+                                      sp.attrib['default'].split())
             prop = FloatVectorProperty(name=param_label,
                                        default=param_default, precision=3,
                                        size=len(param_default),
@@ -361,6 +358,9 @@ def generate_property(sp):
 
     elif param_type == 'int' or param_type == 'integer':
         param_default = int(param_default) if param_default else 0
+        # make invertT default 0
+        if param_name == 'invertT':
+            param_default = 0
         if param_widget == 'checkbox':
             prop = BoolProperty(name=param_label,
                                 default=bool(param_default),
@@ -458,42 +458,46 @@ def generate_txmake_options(parent_name):
     for option in txmake.index:
         optionObject = getattr(txmake, option)
         if optionObject['type'] == "bool":
-            optionsMeta[optionObject["name"]] = {'renderman_name' : 'filename', #Proxy Meta information for the UI system. DO NOT USE FOR ANYTHING!
-                                                 'name' : optionObject["name"], 
-                                                 'renderman_type' : 'bool' , 
-                                                 'default' : '', 
-                                                 'label' : optionObject["dispName"], 
-                                                 'type': 'bool', 
-                                                 'options': '', 
-                                                 'widget' : 'mapper', 
-                                                 'connectable' : 'false'}
-            optionsProps[optionObject["name"]] = bpy.props.BoolProperty(name = optionObject['dispName'], default = optionObject['default'], description = optionObject['help'])
+            optionsMeta[optionObject["name"]] = {'renderman_name': 'ishouldnotexport',  # Proxy Meta information for the UI system. DO NOT USE FOR ANYTHING!
+                                                 'name': optionObject["name"],
+                                                 'renderman_type': 'bool',
+                                                 'default': '',
+                                                 'label': optionObject["dispName"],
+                                                 'type': 'bool',
+                                                 'options': '',
+                                                 'widget': 'mapper',
+                                                 'connectable': 'false'}
+            optionsProps[optionObject["name"]] = bpy.props.BoolProperty(name=optionObject[
+                                                                        'dispName'], default=optionObject['default'], description=optionObject['help'])
         elif optionObject['type'] == "enum":
             optionsProps[optionObject["name"]] = EnumProperty(name=optionObject["dispName"],
-                                                              default=optionObject["default"], 
-                                                              description=optionObject["help"],
+                                                              default=optionObject[
+                                                                  "default"],
+                                                              description=optionObject[
+                                                                  "help"],
                                                               items=optionObject["items"])
-            optionsMeta[optionObject["name"]] = {'renderman_name': 'filename', 
+            optionsMeta[optionObject["name"]] = {'renderman_name': 'ishouldnotexport',
                                                  'name': optionObject["name"],
                                                  'renderman_type': 'enum',
                                                  'default': '',
                                                  'label': optionObject["dispName"],
-                                                 'type': 'enum', 
+                                                 'type': 'enum',
                                                  'options': '',
                                                  'widget': 'mapper',
                                                  'connectable': 'false'}
         elif optionObject['type'] == "float":
-            optionsMeta[optionObject["name"]] = {'renderman_name': 'filename', 
+            optionsMeta[optionObject["name"]] = {'renderman_name': 'ishouldnotexport',
                                                  'name': optionObject["name"],
                                                  'renderman_type': 'float',
                                                  'default': '',
                                                  'label': optionObject["dispName"],
-                                                 'type': 'float', 
+                                                 'type': 'float',
                                                  'options': '',
                                                  'widget': 'mapper',
                                                  'connectable': 'false'}
             optionsProps[optionObject["name"]] = FloatProperty(name=optionObject["dispName"],
-                                                               default=optionObject["default"],
+                                                               default=optionObject[
+                                                                   "default"],
                                                                description=optionObject["help"])
     return txmake.index, optionsMeta, optionsProps
 
@@ -512,8 +516,11 @@ socket_map = {
 
 # To add aditional options simply add an option name to index and then define it.
 # Supported types are bool, enum and float
+
+
 class txmake_options():
-    index = ["smode", "tmode", "format", "dataType", "resize", "pattern", "sblur", "tblur"]
+    index = ["smode", "tmode", "format", "dataType",
+             "resize", "pattern", "sblur", "tblur"]
     smode = {'name': "smode", 'type': "enum", "default": "periodic",
              "items": [("periodic", "Periodic", ""), ("clamp", "Clamp", "")],
              "dispName": "Smode", "help": "The X dimension tiling",
@@ -532,9 +539,9 @@ class txmake_options():
                 "items": [("float", "Float", ""), ("byte", "Byte", ""),
                           ("short", "Short", ""), ("half", "Half", "")],
                 "dispName": "Data Type",
-                "help": "The data storage txmake uses", 
+                "help": "The data storage txmake uses",
                 "exportType": "noname"}
-    resize = {'name': "resize", 'type':"enum", "default": "up-",
+    resize = {'name': "resize", 'type': "enum", "default": "up-",
               "items": [("up", "Up", ""), ("down", "Down", ""),
                         ("up-", "Up-(0-1)", ""), ("down-", "Down-(0-1)", ""),
                         ("round", "Round", ""), ("round-", "Round-(0-1)", ""),
@@ -543,20 +550,19 @@ class txmake_options():
               "help": "The type of resizing flag to pass to txmake",
               "exportType": "name"}
 
-
-    sblur = {'name': "sblur" , 'type': "float", 'default': 1.0, 'dispName': "Sblur",
+    sblur = {'name': "sblur", 'type': "float", 'default': 1.0, 'dispName': "Sblur",
              'help': "Amount of X blur applied to texture.",
              'exportType': "name"}
-    tblur = {'name': "tblur" , 'type': "float", 'default': 1.0, 'dispName': "Tblur",
+    tblur = {'name': "tblur", 'type': "float", 'default': 1.0, 'dispName': "Tblur",
              'help': "Amount of Y blur applied to texture.",
              'exportType': "name"}
     pattern = {'name': "pattern", 'type': "enum", 'default': "diagonal",
-               'items': [("diagonal","Diagonal",""), ("single","Single",""),
-                         ("all","All","")],
+               'items': [("diagonal", "Diagonal", ""), ("single", "Single", ""),
+                         ("all", "All", "")],
                'dispName': "Pattern Type",
                'help': "Used to control the set of filtered texture resolutions that are generation by txmake",
                "exportType": "name"}
-    
+
 
 # This option will conflict with the option in the args file do not enable unless needed.
 #   filter = {'name': "filter", 'type': "enum", 'default': "catmull-rom",
@@ -570,14 +576,14 @@ class txmake_options():
 #              'help': "Type of filter to use when resizing",
 #              'exportType': "name"}
 
-    
 
 # add input sockets
 def node_add_inputs(node, node_name, shaderparameters):
     for sp in shaderparameters:
         # if this is a page recursively add inputs
         if sp.tag == 'page':
-            node_add_inputs(node, node_name, sp.findall('param') + sp.findall('page'))
+            node_add_inputs(node, node_name, sp.findall(
+                'param') + sp.findall('page'))
             continue
         # if this is not connectable don't add socket
         tags = sp.find('tags')

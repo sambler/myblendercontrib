@@ -9,12 +9,28 @@ import sys
 
 from sound_drivers.presets import note_from_freq
 
+
 bpy_collections = ["scenes", "objects", "meshes", "materials", "textures",
         "speakers", "worlds", "curves", "armatures", "particles", "lattices",
         "shape_keys", "lamps", "cameras", "node_groups", "movie_clips", "metaballs"]
 
-icons = {'SCENE_DATA': ["scenes", "Scene"],
-         'OBJECT_DATA': ["objects", "Object"],
+'''
+# much nicer breaks Restricted Context TODO
+bpy_collections = [k.identifier
+                   for k in bpy.data.bl_rna.properties
+                   if k.type == 'COLLECTION']
+'''
+
+def get_collection_from_idobject(obj):
+    for col in bpy_collections:
+        collection = getattr(bpy.data, col, None)
+        if collection and obj.id_data in collection.values():
+            return col
+    return ""
+
+
+icons = {'SCENE_DATA': ["scenes", "Scene", 'SCENE'],
+         'OBJECT_DATA': ["objects", "Object", 'OBJECT'],
          'MESH_DATA': ["meshes"],
          'OUTLINER_OB_MESH': ["MESH"],
          'MATERIAL': ["materials"],
@@ -47,6 +63,8 @@ icons = {'SCENE_DATA': ["scenes", "Scene"],
          'LAMP_HEMI': ["HEMI"],
          'LAMP_POINT': ["POINT"],
          'LAMP_AREA': ["AREA"],
+         'MODIFIER': ["Modifier"],
+         'CONSTRAINT': ["Constraint"],
          'CAMERA_DATA': ["cameras"]}
 
 
@@ -117,6 +135,7 @@ def format_data_path(row, path, icon_only=False, padding=0):
 
 
 def icon_from_bpy_datapath(path):
+    #print("ICDP", path)
     icons = ['SCENE', 'OBJECT_DATA', 'OUTLINER_OB_MESH', 'MATERIAL',
             'TEXTURE', 'SPEAKER',
             'WORLD', 'OUTLINER_OB_CURVE', 'OUTLINER_OB_ARMATURE',
@@ -409,7 +428,6 @@ def selected_bbox(context):
     fmin = -sys.float_info.max
     fmax = sys.float_info.max
     sel = context.selected_objects
-
     if sel:
         bbox = [fmax, fmin, fmax, fmin, fmax, fmin]
         for ob in sel:
@@ -490,7 +508,6 @@ def copy_sound_action(speaker, newname):
 
 
 def nla_drop(obj, action, frame, name, multi=False):
-    print("nla_drop", name)
     if not multi:
         #check if there is already a strip with this action
         tracks = [s for t in obj.animation_data.nla_tracks
@@ -736,3 +753,11 @@ def split_path(data_path):
     props.reverse()
     return props
     
+def scale_actions(action1, action2):
+    if action1 is None or action2 is None:
+        return None
+    scale = action1.frame_range.length / action2.frame_range.length
+    print(scale)
+    for fcurve in action2.fcurves:
+        for kfp in fcurve.keyframe_points:
+            kfp.co.x *= scale

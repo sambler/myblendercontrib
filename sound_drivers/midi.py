@@ -1,8 +1,22 @@
+bl_info = {
+    "name": "Midi Support",
+    "author": "batFINGER",
+    "location": "Properties > Speaker > MIDI",
+    "description": "Midi support for Sound Drivers",
+    "warning": "Still in Testing",
+    "wiki_url": "http://wiki.blender.org/index.php/\
+                User:BatFINGER/Addons/Sound_Drivers",
+    "version": (1, 0),
+    "blender": (2, 7, 6),
+    "tracker_url": "",
+    "icon": 'MIDI',
+    "support": 'TESTING',
+    "category": "Animation"}
+
 import bpy
 
 import json
-
-from bpy.types import PropertyGroup
+from bpy.types import PropertyGroup, Operator, AddonPreferences
 from bpy.utils import register_class, unregister_class
 # make a midifiles collection property on sound
 from bpy_extras.io_utils import ImportHelper
@@ -13,10 +27,53 @@ from bpy.props import (StringProperty,
                        PointerProperty,
                        EnumProperty)
                        
-from bpy.types import Operator
+from sound_drivers.utils import(getSpeaker,
+                                set_channel_idprop_rna,
+                                unique_name,
+                                scale_actions,
+                                nla_drop)
 
-from sound_drivers.utils import getSpeaker, set_channel_idprop_rna, unique_name
 from sound_drivers.presets import note_items, midi_instruments
+
+# Using addonpreset system to save usersettings on a submodulare basis
+
+class MIDIAddonPreferences(AddonPreferences):
+    ''' MIDI Prefs '''
+    bl_idname = __name__
+
+    @property
+    def midi_support(self):
+        '''
+        check if there is smf midi support using importlib.util.find_spec
+        '''
+        import sys
+        if self.smf_dir and self.smf_dir not in sys.path:
+            sys.path.append(self.smf_dir)
+        from importlib.util import find_spec 
+        return find_spec("smf") is not None
+
+
+    smf_dir = StringProperty(
+            name="smf (midi) python path",
+            description="folder where smf is installed",
+            subtype='DIR_PATH',
+            )
+
+    def draw(self, context):
+        layout = self.layout
+        # check that automatic scripts are enabled
+        
+        # midi support
+        if True: # self.midi_support:
+            row = layout.row()
+            row.label("midi_support", icon='FILE_TICK' if self.midi_support else 'ERROR')
+            row = layout.row()
+            row.enabled = not self.midi_support
+            row.prop(self, "smf_dir")
+            row = layout.row()
+            op = row.operator("wm.url_open", icon='INFO', text="GitHub PySMF Project (Cython)")
+            op.url="https://github.com/dsacre/pysmf"
+
 
 notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 octaves = range(-1, 10)
@@ -135,14 +192,14 @@ def read_midi_file(context, filepath, use_some_setting):
         print(channels)
         channel_name = unique_name(channels, 'AA')
         channels.append(channel_name)
-        a["name"] = "MidiAction"
+        a["name"] = "%s Unknown (trk %d)" % (channel_name, t.track_number)
         a['wavfile'] = sp.sound.name
         a['start'] = 0
         a['end'] = len(midi_notes)
         a['row_height'] = 0.4
         a["Channels"] = 0
         a["channel_name"] = channel_name
-        a['MIDI'] = True
+        a['MIDI'] = filepath
         #sp.animation_data.action = a
         a["keyframe_points"] = {} # list of tups (dp, frame, value)
         
@@ -155,13 +212,13 @@ def read_midi_file(context, filepath, use_some_setting):
             #sp.keyframe_insert('["%s"]' % channel, frame = 0)
         '''
         for e in t.events:
-            #print(e.decode(), e.time_seconds)
             s = e.decode()
+            print("XXXXXXXX", s, e.time_seconds)
             #print(s.startswith("Note"))
             
             if s.startswith("Instrument"):
-                #print("INSTRUMENT", s)
-                a["name"] = "MIDI:%s (trk %d)" % (s.title(), t.track_number)
+                print("INSTRUMENT", s)
+                a["name"] = "%s:%s (trk %d)" % (channel_name, s.title(), t.track_number)
             elif s.startswith("Key Signature"):
                 print("KEYSIG", s)
             elif s.startswith("Program Change"):
@@ -169,7 +226,7 @@ def read_midi_file(context, filepath, use_some_setting):
                 # this could be instrument too
                 idx = int(s.split(" ")[-1])
                 #print(midi_instruments[idx])
-                a["name"] = "MIDI:%s (trk %d)" % (midi_instruments[idx].title(), t.track_number)
+                a["name"] = "%s:%s (trk %d)" % (channel_name, midi_instruments[idx].title(), t.track_number)
             elif s.startswith("Controller"):
                 continue
                 print("CONTROLLER", s)
@@ -186,12 +243,11 @@ def read_midi_file(context, filepath, use_some_setting):
                 v = int(c[3].replace(" velocity ", ""))
                 if c[0] == "On":
                     note = c[2].replace(" note ","")
-                    #print("ON key[%s] = %d @ %fs" % (note, v, e.time_seconds))
+                    print("ON key[%s] = %d @ %fs" % (note, v, e.time_seconds))
                 elif c[0] == "Off":
                     v = 0
                     note = c[2].replace(" note ","")
-                    #print("OFF key[%s] = %d @ %fs" % (note, v, e.time_seconds))
-                #print("NOTE>>>>", notesplit(note))
+                    print("OFF key[%s] = %d @ %fs" % (note, v, e.time_seconds))
                 if note not in midi_notes:
                     print("WARNING: unable to use note %s %d" % notesplit(note))
                     continue
@@ -212,30 +268,35 @@ def read_midi_file(context, filepath, use_some_setting):
     
     keys = ["name", "wavfile", "start", "end", "row_height", "Channels", "channel_name", "MIDI"]
     actions = []
-    for k in midifile.keys():
+    channels = []
+    action = bpy.data.actions.new("MidiAction")
+    sp.animation_data.action = action
+    for k, a in midifile.items():
         print("-"*77)
         print(midifile[k]["name"])
         
-        tracks = midifile[k]["keyframe_points"]
+        tracks = a["keyframe_points"]
 
-        action = bpy.data.actions.new("MidiAction")
-        sp.animation_data.action = action
+        #action = bpy.data.actions.new("MidiAction")
+        #sp.animation_data.action = action
         for key in keys:
-            action[key] = midifile[k][key]
-        channel = midifile[k]["channel_name"]
+            action[key] = a[key]
+        channel = a["channel_name"]
+        channels.append(channel)
         for t in tracks.keys():
             kfps = tracks[t]
             print(t)
             #fc = action.fcurves.new('["%s"]' % t)
             # make the fcurves
             sp[t] = 0
-            sp.keyframe_insert('["%s"]' % t, frame=1)        
+            sp.keyframe_insert('["%s"]' % t, frame=1, group=a["name"])        
             for kfp in kfps:
                 f, v = kfp
                 sp[t] = v
-                sp.keyframe_insert('["%s"]' % t, frame=f)        
+                sp.keyframe_insert('["%s"]' % t, frame=f, group=a["name"])        
             print("KFPS", t, len(tracks[t]))
-        actions.append(action)
+
+    actions.append(action)
 
     # would normally load the data here
 
@@ -259,6 +320,7 @@ def read_midi_file(context, filepath, use_some_setting):
 
             
         a["Channels"] = len(a.fcurves) 
+        a["channels"] = channels
         channel_name = a["channel_name"] 
 
         for fc in a.fcurves:
@@ -267,8 +329,8 @@ def read_midi_file(context, filepath, use_some_setting):
                 kp.interpolation = 'CONSTANT'
             fc_range, points = fc.minmax
             cn = fc.data_path.replace('["','').replace('"]', '')
-            #print(channel_name, cn)
-            n = int(cn.replace(channel_name, ''))
+            print(channel_name, cn)
+            n = int(cn[2:])
             f = pow(2, (n - 69) / 12.0) * 440
             high = low = f
             vals.extend(list(fc_range))
@@ -281,16 +343,20 @@ def read_midi_file(context, filepath, use_some_setting):
                                    fc_range,
                                    is_music=True)        
         
+            '''
             vcns = ["%s%d" % (channel_name, i) for i in
                     range(len(midi_notes))]
 
-            sp_rna = {k: sp['_RNA_UI'][k].to_dict()
-                      for k in sp['_RNA_UI'].keys()
-                      if k in vcns}
+            '''
+        sp_rna = {k: sp['_RNA_UI'][k].to_dict()
+                      for k in sp['_RNA_UI'].keys()}
+                      # if k in vcns}
 
         a['rna'] = str(sp_rna)
         a['min'] = min(vals)
         a['max'] = max(vals)
+
+        nla_drop(sp, action, 1, "%s %s" %(channel_name, channel_name))
 
     return {'FINISHED'}
 
@@ -379,7 +445,12 @@ class SD_MIDIFilesPanel(bpy.types.Panel):
     def poll(cls, context):
         pin_id = context.space_data.pin_id
         sp = pin_id if pin_id is not None else context.object.data
-        return getattr(sp, "sound", False)
+        return getattr(sp, "sound", False) and 'MIDI' in getattr(sp, "vismode", [])
+
+    def draw_header(self, context):
+        from sound_drivers.icons import get_icon
+        icon = get_icon("main", "midi")
+        self.layout.label("", icon_value=icon.icon_id)
 
     def draw(self, context):
         sp = getSpeaker(context)

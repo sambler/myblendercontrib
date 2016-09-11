@@ -1,12 +1,12 @@
 bl_info = {
     "name": "Dark Engine Static Model",
     "author": "nemyax",
-    "version": (0, 3, 20160511),
+    "version": (0, 4, 20160826),
     "blender": (2, 7, 4),
     "location": "File > Import-Export",
     "description": "Import and export Dark Engine static model .bin",
     "warning": "",
-    "wiki_url": "",
+    "wiki_url": "https://sourceforge.net/p/blenderbitsbobs/wiki/Dark%20Engine%20model%20importer-exporter/",
     "tracker_url": "",
     "category": "Import-Export"}
 
@@ -21,6 +21,7 @@ import glob
 from struct import pack, unpack
 from bpy.props import (
     StringProperty,
+    EnumProperty,
     BoolProperty)
 from bpy_extras.io_utils import (
     ExportHelper,
@@ -154,32 +155,6 @@ def prep_uvs(uvBytes):
         uvs.append(mu.Vector((u,v)))
     return uvs
 
-def prep_faces0(faceBytes, version):
-    garbage = 9 + version # magic 12 or 13: v4 has an extra byte at the end
-    faces = {}
-    faceAddr = 0
-    faceIndex = 0
-    while len(faceBytes):
-        matIndex = unpack('<H', faceBytes[2:4])[0]
-        type = faceBytes[4]
-        numVerts = faceBytes[5]
-        verts = get_ushorts(faceBytes[12:12+numVerts*2])
-        if type == 89:
-            faceEnd = garbage + numVerts * 4
-            uvs = []
-        else:
-            faceEnd = garbage + numVerts * 6
-            uvs = get_ushorts(faceBytes[12+numVerts*4:12+numVerts*6])
-        face = FaceImported()
-        face.binVerts = verts
-        face.binUVs = uvs
-        face.binMat = matIndex
-        faces[faceAddr] = face
-        faceAddr += faceEnd
-        faceIndex += 1
-        faceBytes = faceBytes[faceEnd:]
-    return faces
-
 def prep_faces(faceBytes, version):
     garbage = 9 + version # magic 12 or 13: v4 has an extra byte at the end
     faces = {}
@@ -188,14 +163,14 @@ def prep_faces(faceBytes, version):
     while len(faceBytes):
         matIndex = unpack('<H', faceBytes[2:4])[0]
         type = faceBytes[4] & 3
-        numVerts = faceBytes[5]
-        verts = get_ushorts(faceBytes[12:12+numVerts*2])
+        num_verts = faceBytes[5]
+        verts = get_ushorts(faceBytes[12:12+num_verts*2])
         uvs = []
         if type == 3:
-            faceEnd = garbage + numVerts * 6
-            uvs.extend(get_ushorts(faceBytes[12+numVerts*4:12+numVerts*6]))
+            faceEnd = garbage + num_verts * 6
+            uvs.extend(get_ushorts(faceBytes[12+num_verts*4:12+num_verts*6]))
         else:
-            faceEnd = garbage + numVerts * 4
+            faceEnd = garbage + num_verts * 4
             matIndex = None
         face = FaceImported()
         face.binVerts = verts
@@ -215,24 +190,24 @@ def node_vcall(bs):
 
 def node_call(bs):
     facesStart = 23
-    numFaces1 = unpack('<H', bs[17:19])[0]
-    numFaces2 = unpack('<H', bs[21:facesStart])[0]
-    facesEnd = facesStart + (numFaces1 + numFaces2) * 2
+    num_faces1 = unpack('<H', bs[17:19])[0]
+    num_faces2 = unpack('<H', bs[21:facesStart])[0]
+    facesEnd = facesStart + (num_faces1 + num_faces2) * 2
     faces = get_ushorts(bs[facesStart:facesEnd])
     return (faces,bs[facesEnd:])
 
 def node_split(bs):
     facesStart = 31
-    numFaces1 = unpack('<H', bs[17:19])[0]
-    numFaces2 = unpack('<H', bs[29:facesStart])[0]
-    facesEnd = facesStart + (numFaces1 + numFaces2) * 2
+    num_faces1 = unpack('<H', bs[17:19])[0]
+    num_faces2 = unpack('<H', bs[29:facesStart])[0]
+    facesEnd = facesStart + (num_faces1 + num_faces2) * 2
     faces = get_ushorts(bs[facesStart:facesEnd])
     return (faces,bs[facesEnd:])
 
 def node_raw(bs):
     facesStart = 19
-    numFaces = unpack('<H', bs[17:facesStart])[0]
-    facesEnd = facesStart + numFaces * 2
+    num_faces = unpack('<H', bs[17:facesStart])[0]
+    facesEnd = facesStart + num_faces * 2
     faces = get_ushorts(bs[facesStart:facesEnd])
     return (faces,bs[facesEnd:])
 
@@ -497,23 +472,62 @@ def do_import(file_path):
 
 # Classes
 
-class Kinematics(object):
-    def __init__(self, parm, matrix, mot_type,
-        min, max, rel):
-        self.parm     = parm
-        self.matrix   = matrix
-        self.mot_type = mot_type
-        self.min      = min
-        self.max      = max
-        self.child    = rel['child']
-        self.sibling  = rel['next']
-        self.call     = rel['call']
-        self.splits   = rel['splits']
+class Subobject(object):
+    def __init__(self,
+        name,
+        mesh,
+        matrix,
+        motion_type,
+        motion_min,
+        motion_max,
+        vhots):
+        self.name        = name
+        self.mesh        = mesh
+        self.matrix      = matrix
+        self.motion_type = motion_type
+        self.min         = motion_min
+        self.max         = motion_max
+        self.parent      = None
+        self.children    = []
+        self.index       = 0
+        self.next        = None
+        self.call        = None
+        self.vhots       = vhots
+    def get_root(self):
+        par = self.parent
+        if par:
+            return par.get_root()
+        return self
+    def list_subtree(self):
+        result = [self]
+        for c in self.children:
+            result.extend(c.list_subtree())
+        return result
+    def set_parent(self, new_par):
+        self.parent = new_par
+        new_par.children.append(self)
+        # Set "nexts"
+        kids = new_par.children
+        n = len(kids)
+        i = n - 1
+        new_par.next = kids[i]
+        while i:
+            kids[i].next = kids[i-1]
+            i -= 1
+        if n > 1: # "splits" instead of "call"
+            new_par.call = None
+        else: # no "splits"
+            new_par.call = kids[0]
+        # Reindex entire tree
+        flat_tree = self.get_root().list_subtree()
+        for s, i in zip(flat_tree, range(len(flat_tree))):
+            s.index = i
 
 class Model(object):
-    def __init__(self,
-        kinem, meshes, names, materials, vhots, bbox,
-        clear, bright):
+    def __init__(self, root_sub, materials, bbox, clear, bright):
+        subs   = root_sub.list_subtree()
+        meshes = [s.mesh for s in subs]
+        vhots  = [s.vhots for s in subs]
         num_vs = num_uvs = num_lts = num_fs = num_ns = 0
         for bm in meshes:
             bm.edges.ensure_lookup_table()
@@ -525,97 +539,214 @@ class Model(object):
             num_lts += num_lts0
             num_ns  += num_ns0
             num_fs  += num_fs0
-        self.meshes        = meshes
-        self.kinem         = kinem
-        self.names         = encode_names(names, 8)
-        self.materials     = materials
-        self.numVhots      = deep_count(vhots)
-        self.vhots         = vhots
-        self.numFaces      = num_fs
-        self.numVerts      = num_vs
-        self.numNormals    = num_ns
-        self.numUVs        = num_uvs
-        self.numLights     = num_lts
-        self.numMeshes     = len(meshes)
-        self.bbox          = bbox
-        self.maxPolyRadius = max([max_poly_radius(m) for m in meshes])
-        matFlags = 0
+        self.num_vhots       = deep_count(vhots)
+        self.num_faces       = num_fs
+        self.num_verts       = num_vs
+        self.num_normals     = num_ns
+        self.num_uvs         = num_uvs
+        self.num_lights      = num_lts
+        self.num_meshes      = len(meshes)
+        self.num_mats        = len(materials)
+        self.bbox            = bbox
+        self.max_poly_radius = max([max_poly_radius(m) for m in meshes])
+        mat_flags = 0
         if clear:
-            matFlags += 1
+            mat_flags += 1
         if bright:
-            matFlags += 2
-        self.matFlags = matFlags
-    def encodeVerts(self):
-        result = b''
-        for bm in self.meshes:
+            mat_flags += 2
+        self.mat_flags = mat_flags
+        # Encode verts
+        verts_bs = b''
+        for bm in meshes:
             ext_v = bm.verts.layers.string.active
-            result += concat_bytes([o[2:] for o
+            verts_bs += concat_bytes([o[2:] for o
                 in sorted(set([v[ext_v] for v in bm.verts]))])
-        return result
-    def encodeUVs(self):
-        result = b''
-        for bm in self.meshes:
+        self.verts_bs = verts_bs
+        # Encode UVs
+        uvs_bs = b''
+        for bm in meshes:
             ext_l = bm.loops.layers.string.active
             uv_set = set()
             for f in bm.faces:
                 for l in f.loops:
                     uv_set.add(l[ext_l][:10])
-            result += concat_bytes([o[2:] for o in sorted(uv_set)])
-        return result 
-    def encodeLights(self):
-        result = b''
-        for bm in self.meshes:
+            uvs_bs += concat_bytes([o[2:] for o in sorted(uv_set)])
+        self.uvs_bs = uvs_bs
+        # Encode lights 
+        lights_bs = b''
+        for bm in meshes:
             ext_l = bm.loops.layers.string.active
             lt_set = set()
             for f in bm.faces:
                 for l in f.loops:
                     lt_set.add(l[ext_l][10:])
-            result += concat_bytes([o[2:] for o in sorted(lt_set)])
-        return result 
-    def encodeVhots(self):
-        chunks = []
-        for mi in range(len(self.vhots)):
-            currentVhots = self.vhots[mi]
-            offset = deep_count(self.vhots[:mi])
+            lights_bs += concat_bytes([o[2:] for o in sorted(lt_set)])
+        self.lights_bs = lights_bs
+        # Encode vhots
+        vhot_list = []
+        for mi in range(len(vhots)):
+            currentVhots = vhots[mi]
+            offset = deep_count(vhots[:mi])
             for ai in range(len(currentVhots)):
                 id, coords = currentVhots[ai]
-                chunks.append(concat_bytes([
+                vhot_list.append(concat_bytes([
                     pack('<I', id),
                     encode_floats(coords[:])]))
-        return concat_bytes(chunks)
-    def encodeNormals(self):
-        result = b''
-        for bm in self.meshes:
+        self.vhots_bs = concat_bytes(vhot_list)
+        # Encode normals
+        normals_bs = b''
+        for bm in meshes:
             ext_f = bm.faces.layers.string.active
-            result += concat_bytes([o[2:] for o
+            normals_bs += concat_bytes([o[2:] for o
                 in sorted(set([f[ext_f][:14] for f in bm.faces]))])
-        return result
-    def encodeFaces(self):
-        result = []
-        for bm in self.meshes:
+        self.normals_bs = normals_bs
+        # Encode faces
+        face_lists = []
+        faces_bs = b''
+        for bm in meshes:
             ext_f = bm.faces.layers.string.active
-            result.append([f[ext_f][14:] for f in bm.faces])
-        return result
-    def encodeMaterials(self):
-        names = []
-        if self.materials:
-            for m in self.materials:
-                names.append(m.name)
+            fs = [f[ext_f][14:] for f in bm.faces]
+            face_lists.append(fs)
+            faces_bs += concat_bytes(fs)
+        self.faces_bs = faces_bs
+        # Encode nodes
+        addr        = 0
+        node_sizes  = []
+        addr_chunks = []
+        num_subs    = len(face_lists)
+        for s in subs:
+            bfl = face_lists[s.index]
+            node_sizes.append(precalc_node_size(s, bfl))
+            ext_face_addrs = b''
+            for bf in bfl:
+                ext_face_addrs += pack('<H', addr)
+                addr += len(bf)
+            addr_chunks.append(ext_face_addrs)
+        nodes = []
+        for s in subs:
+            node_bs = b''
+            si        = s.index
+            node_bs  += encode_sub_node(si)
+            sphere_bs = encode_sphere(get_local_bbox_data(meshes[si]))
+            call      = s.call
+            nbf       = len(face_lists[si])
+            if call:
+                node_bs += encode_call_node(
+                    nbf,
+                    sum(node_sizes[:call.index]),
+                    sphere_bs,
+                    addr_chunks[si])
+            elif len(s.children) > 1:
+                kids = s.children
+                node_offs = [sum(node_sizes[:a])
+                    for a in range(len(node_sizes))]
+                ns = len(kids)
+                if ns > 2: # need to reference split nodes
+                    offs1 = [node_offs[i.index] for i in kids]
+                    offs2 = []
+                    pos = node_offs[si] + 34 + nbf * 2
+                    for _ in range(ns - 2):
+                        offs2.append(pos)
+                        pos += 31
+                    offs2.append(offs1.pop())
+                    f_counts = [nbf] + [0] * (ns - 1)
+                    ac_list  = [addr_chunks[si]] + [b''] * (ns - 1)
+                    for nf, addr_chunk, off1, off2 in zip(
+                        f_counts, ac_list, offs1, offs2):
+                        node_bs += encode_split_node(
+                            nf, sphere_bs, off1, off2, addr_chunk)
+                else:
+                    off1, off2 = [node_offs[k.index] for k in kids]
+                    node_bs += encode_split_node(
+                        nbf, sphere_bs, off1, off2, addr_chunks[si])
+            else:
+                node_bs += encode_raw_node(nbf, sphere_bs, addr_chunks[si])
+            nodes.append(node_bs)
+        node_offs = [sum(node_sizes[:i+1]) for i in range(len(node_sizes))]
+        node_offs.insert(0, 0)
+        self.nodes_bs = concat_bytes(nodes)
+        self.node_offsets = node_offs
+        # Encode materials
+        mat_names = []
+        if materials:
+            for m in materials:
+                mat_names.append(m.name)
         else:
-            names.append("oh_bugger")
-        finalNames = encode_names(names, 16)
-        return concat_bytes(
-            [encode_material(finalNames[i], i) for i in range(len(names))])
-    def encodeMatAuxData(self):
-        if self.materials:
-            result = b''
-            for m in self.materials:
-                result += encode_floats([
+            mat_names.append("oh_bugger")
+        final_names = encode_names(mat_names, 16)
+        self.materials_bs = concat_bytes(
+            [encode_material(final_names[i], i)
+                for i in range(len(mat_names))])
+        # Encode auxiliary data
+        if materials:
+            aux_data_bs = b''
+            for m in materials:
+                aux_data_bs += encode_floats([
                     m.translucency,
                     min([1.0,m.emit])])
-            return result
+            self.aux_data_bs = aux_data_bs
         else:
-            return bytes(8)
+            self.aux_data_bs = bytes(8)
+        # Encode subobjects
+        subs_bs = b''
+        sub_names = encode_names([s.name for s in subs], 8)
+        self.names = sub_names
+        for sub in subs:
+            index = sub.index
+            vhot_off = deep_count(vhots[:index])
+            num_vhots = len(sub.vhots)
+            bm = sub.mesh
+            bm.edges.ensure_lookup_table()
+            ext_e = bm.edges.layers.string.active
+            num_vs, num_lts, num_ns = \
+                unpack('<HxxHHxx', bm.edges[0][ext_e])
+            v_off, lt_off, n_off = \
+                unpack('<3H', bm.edges[1][ext_e])
+            xform   = sub.matrix
+            if sub.children:
+                child = sub.children[0].index
+            else:
+                child = -1
+            if sub.next:
+                sibling = sub.next.index
+            else:
+                sibling = -1
+            if len(sub.children) > 1:
+                num_nodes = len(sub.children) - 1
+            else:
+                num_nodes = 1
+            subs_bs += concat_bytes([
+                sub_names[sub.index],
+                pack('b', sub.motion_type),
+                pack('<i', index),
+                encode_floats([
+                    sub.min,
+                    sub.max,
+                    xform[0][0],
+                    xform[1][0],
+                    xform[2][0],
+                    xform[0][1],
+                    xform[1][1],
+                    xform[2][1],
+                    xform[0][2],
+                    xform[1][2],
+                    xform[2][2],
+                    xform[0][3],
+                    xform[1][3],
+                    xform[2][3]]),
+                encode_shorts([child,sibling]),
+                encode_ushorts([
+                    vhot_off,
+                    num_vhots,
+                    v_off,
+                    num_vs,
+                    lt_off,
+                    num_lts,
+                    n_off,
+                    num_ns,
+                    node_offs[sub.index],
+                    num_nodes])])
+        self.subs_bs = subs_bs
 
 # Utilities
 
@@ -695,75 +826,27 @@ def calc_center(pts):
     z = sum([pt[2] for pt in pts]) / n
     return mu.Vector((x,y,z))
 
+def calc_bbox_center(pts):
+    max_xyz = mu.Vector((
+        max(a[0] for a in pts),
+        max(a[1] for a in pts),
+        max(a[2] for a in pts)))
+    min_xyz = mu.Vector((
+        min(a[0] for a in pts),
+        min(a[1] for a in pts),
+        min(a[2] for a in pts)))
+    return min_xyz + ((max_xyz - min_xyz) * 0.5)
+
 # Other functions
 
-def encode_nodes(ext_face_lists, model):
-    addr        = 0
-    node_sizes  = []
-    addr_chunks = []
-    num_subs    = len(ext_face_lists)
-    for bfli in range(num_subs):
-        bfl = ext_face_lists[bfli]
-        node_sizes.append(precalc_node_size(model.kinem[bfli], bfl))
-        ext_face_addrs = b''
-        for bf in bfl:
-            ext_face_addrs += pack('<H', addr)
-            addr += len(bf)
-        addr_chunks.append(ext_face_addrs)
-    result = b''
-    for bfli in range(num_subs):
-        result += encode_sub_node(bfli)
-        k         = model.kinem[bfli]
-        sphere_bs = encode_sphere(get_local_bbox_data(model.meshes[bfli]))
-        call      = k.call
-        splits    = k.splits
-        nbf       = len(ext_face_lists[bfli])
-        if call >= 0:
-            result += encode_call_node(
-                nbf,
-                sum(node_sizes[:call]),
-                sphere_bs,
-                addr_chunks[bfli])
-        elif splits:
-            ns = len(splits)
-            split_offs1, split_offs2 = \
-                calc_split_offsets(splits, nbf, node_sizes, bfli)
-            ac_list  = [addr_chunks[bfli]] + [b''] * (ns - 1)
-            f_counts = [nbf] + [0] * (ns - 1)
-            for n_back, n_front, nf, addr_chunk in zip(
-                split_offs1, split_offs2, f_counts, ac_list):
-                result += encode_split_node(
-                    nf, sphere_bs, n_back, n_front, addr_chunk)
-        else:
-            result += encode_raw_node(nbf, sphere_bs, addr_chunks[bfli])
-    node_offs = [sum(node_sizes[:i+1]) for i in range(len(node_sizes))]
-    node_offs.insert(0, 0)
-    return node_offs, result
-
-def calc_split_offsets(splits, nf, node_sizes, idx):
-    offs = [sum(node_sizes[:a]) for a in splits]
-    res1 = []
-    res2 = []
-    pos = offs[idx] + 34 + nf * 2
-    while offs:
-        o = offs.pop()
-        if len(offs) == 1:
-            res1.append(o)
-            res2.append(offs.pop())
-        else:
-            res1.append(pos)
-            pos += 31
-            res2.append(o)
-    return res1, res2
-
-def precalc_node_size(k, fl):
+def precalc_node_size(sub, fl):
     size_fs = len(fl) * 2
-    if k.call >= 0:
+    if sub.call: # subobject node (3), call node (23) and raw node (19+size_fs)
         return 26 + size_fs
-    splits = k.splits
-    if splits:
-        return 3 + size_fs + 31 * (len(splits) - 1)
-    return 22 + size_fs
+    nch = len(sub.children)
+    if nch > 1: # subobject node and some split nodes (31 each) + size_fs
+        return 3 + size_fs + 31 * (nch - 1)
+    return 22 + size_fs # subobject node and raw node
 
 def encode_sub_node(index):
     return pack('<BH', 4, index)
@@ -788,56 +871,6 @@ def pack_light(xyz):
         shift -= 10
     return pack('<I', result)
 
-def encode_subobject(model, index, node_off):
-    name = model.names[index]
-    vhot_off   = deep_count(model.vhots[:index])
-    num_vhots   = len(model.vhots[index])
-    bm = model.meshes[index]
-    bm.edges.ensure_lookup_table()
-    ext_e = bm.edges.layers.string.active
-    num_vs, num_lts, num_ns = \
-        unpack('<HxxHHxx', bm.edges[0][ext_e])
-    v_off, lt_off, n_off = \
-        unpack('<3H', bm.edges[1][ext_e])
-    kinem   = model.kinem[index]
-    xform   = kinem.matrix
-    splits  = kinem.splits
-    if splits:
-        num_nodes = len(splits) - 1
-    else:
-        num_nodes = 1
-    return concat_bytes([
-        name,
-        pack('b', kinem.mot_type),
-        pack('<i', kinem.parm),
-        encode_floats([
-            kinem.min,
-            kinem.max,
-            xform[0][0],
-            xform[1][0],
-            xform[2][0],
-            xform[0][1],
-            xform[1][1],
-            xform[2][1],
-            xform[0][2],
-            xform[1][2],
-            xform[2][2],
-            xform[0][3],
-            xform[1][3],
-            xform[2][3]]),
-        encode_shorts([kinem.child, kinem.sibling]),
-        encode_ushorts([
-            vhot_off,
-            num_vhots,
-            v_off,
-            num_vs,
-            lt_off,
-            num_lts,
-            n_off,
-            num_ns,
-            node_off,
-            num_nodes])])
-
 def encode_header(model, offsets):
     radius = (
         mu.Vector(model.bbox[max]) -\
@@ -846,19 +879,19 @@ def encode_header(model, offsets):
         b'LGMD\x04\x00\x00\x00',
         model.names[0],
         pack('<f', radius),
-        pack('<f', model.maxPolyRadius),
+        pack('<f', model.max_poly_radius),
         encode_floats(model.bbox[max]),
         encode_floats(model.bbox[min]),
         bytes(12), # relative centre
         encode_ushorts([
-            model.numFaces,
-            model.numVerts,
-            max(0, model.numMeshes - 1)]), # parms
+            model.num_faces,
+            model.num_verts,
+            max(0, model.num_meshes - 1)]), # parms
         encode_ubytes([
-            max(1, len(model.materials)), # can't be 0
+            max(1, model.num_mats), # can't be 0
             0, # vcalls
-            model.numVhots,
-            model.numMeshes]),
+            model.num_vhots,
+            model.num_meshes]),
         encode_uints([
             offsets['subs'],
             offsets['mats'],
@@ -870,7 +903,7 @@ def encode_header(model, offsets):
             offsets['faces'],
             offsets['nodes'],
             offsets['end'],
-            model.matFlags, # material flags
+            model.mat_flags, # material flags
             offsets['matsAux'],
             8, # bytes per aux material data chunk
             offsets['end'], # ??? mesh_off
@@ -912,20 +945,18 @@ def encode_material(binName, index):
         bytes(4)]) # ??? "uv/ipal"
 
 def build_bin(model):
-    binFaceLists = model.encodeFaces()
-    matsChunk    = model.encodeMaterials()
-    matsAuxChunk = model.encodeMatAuxData()
-    uvChunk      = model.encodeUVs()
-    vhotChunk    = model.encodeVhots()
-    vertChunk    = model.encodeVerts()
-    lightChunk   = model.encodeLights()
-    normalChunk  = model.encodeNormals()
-    nodeOffsets, nodeChunk = encode_nodes(binFaceLists, model)
-    faceChunk    = concat_bytes(
-        [concat_bytes(l) for l in binFaceLists])
-    subsChunk    = concat_bytes(
-        [encode_subobject(model, i, nodeOffsets[i])
-            for i in range(model.numMeshes)])
+    mats_chunk     = model.materials_bs
+    mats_aux_chunk = model.aux_data_bs
+    uv_chunk       = model.uvs_bs
+    vhot_chunk     = model.vhots_bs
+    vert_chunk     = model.verts_bs
+    light_chunk    = model.lights_bs
+    normal_chunk   = model.normals_bs
+    node_chunk     = model.nodes_bs
+    face_chunk     = model.faces_bs
+    node_offsets   = model.node_offsets
+    face_chunk     = model.faces_bs
+    subs_chunk     = model.subs_bs
     offsets = {}
     def offs(cs):
         return [sum([len(c) for c in cs[:i+1]]) for i in range(len(cs))]
@@ -941,29 +972,29 @@ def build_bin(model):
     offsets['nodes'],\
     offsets['end'] = offs([
         bytes(132),
-        subsChunk,
-        matsChunk,
-        matsAuxChunk,
-        uvChunk,
-        vhotChunk,
-        vertChunk,
-        lightChunk,
-        normalChunk,
-        faceChunk,
-        nodeChunk])
+        subs_chunk,
+        mats_chunk,
+        mats_aux_chunk,
+        uv_chunk,
+        vhot_chunk,
+        vert_chunk,
+        light_chunk,
+        normal_chunk,
+        face_chunk,
+        node_chunk])
     header = encode_header(model, offsets)
     return concat_bytes([
         header,
-        subsChunk,
-        matsChunk,
-        matsAuxChunk,
-        uvChunk,
-        vhotChunk,
-        vertChunk,
-        lightChunk,
-        normalChunk,
-        faceChunk,
-        nodeChunk])
+        subs_chunk,
+        mats_chunk,
+        mats_aux_chunk,
+        uv_chunk,
+        vhot_chunk,
+        vert_chunk,
+        light_chunk,
+        normal_chunk,
+        face_chunk,
+        node_chunk])
 
 def get_local_bbox_data(mesh):
     xs = [v.co[0] for v in mesh.verts]
@@ -991,10 +1022,36 @@ def get_mesh(obj, materials): # and tweak materials
                 c[uvs].uv[1] = 1.0 - c[uvs].uv[1]
     return bm
 
+# def append_bmesh(bm1, bm2, matrix):
+    # bm2.transform(matrix)
+    # uvs = bm1.loops.layers.uv.verify()
+    # uvs_orig = bm2.loops.layers.uv.verify()
+    # vs_so_far = len(bm1.verts)
+    # for v in bm2.verts:
+        # bm1.verts.new(v.co)
+        # bm1.verts.index_update()
+    # for f in bm2.faces:
+        # try:
+            # bm1.verts.ensure_lookup_table()
+            # bm1.faces.ensure_lookup_table()
+            # nf = bm1.faces.new(
+                # [bm1.verts[vs_so_far+v.index] for v in f.verts])
+        # except ValueError:
+            # continue
+        # for i in range(len(f.loops)):
+            # nf.loops[i][uvs].uv = f.loops[i][uvs_orig].uv
+            # nf.material_index = f.material_index
+        # bm1.faces.index_update()
+    # bm2.free()
+    # bm1.normal_update()
+    # return bm1
+
 def append_bmesh(bm1, bm2, matrix):
     bm2.transform(matrix)
     uvs = bm1.loops.layers.uv.verify()
     uvs_orig = bm2.loops.layers.uv.verify()
+    ord = bm1.faces.layers.int.verify()
+    ord_orig = bm2.faces.layers.int.verify()
     vs_so_far = len(bm1.verts)
     for v in bm2.verts:
         bm1.verts.new(v.co)
@@ -1005,6 +1062,7 @@ def append_bmesh(bm1, bm2, matrix):
             bm1.faces.ensure_lookup_table()
             nf = bm1.faces.new(
                 [bm1.verts[vs_so_far+v.index] for v in f.verts])
+            nf[ord] = f[ord_orig]
         except ValueError:
             continue
         for i in range(len(f.loops)):
@@ -1013,44 +1071,13 @@ def append_bmesh(bm1, bm2, matrix):
         bm1.faces.index_update()
     bm2.free()
     bm1.normal_update()
-    return bm1
 
 def combine_meshes(bms, matrices):
     result = bmesh.new()
-    for bmi in range(len(bms)):
-        bm = bms[bmi]
-        matrix = matrices[bmi]
-        result = append_bmesh(result, bm, matrix)
+    for bm, mtx in zip(bms, matrices):
+        append_bmesh(result, bm, mtx)
     return result
     
-def build_rels(root, branches):
-    nb = len(branches)
-    hier = [[] for _ in range(nb + 1)]
-    for i in range(nb):
-        m = branches[i]
-        final_idx = i + 1
-        if m.parent in branches:
-            hier[branches.index(m.parent)+1].append(final_idx)
-        else:
-            hier[0].append(final_idx)
-    [l.append(-1) for l in hier]
-    ns = len(hier)
-    rels = [{'child':-1,'next':-1,'call':-1,'splits':[]}
-        for _ in range(ns)]
-    for i, r, ks in zip(range(ns), rels, hier):
-        n = len(ks)
-        for x in hier:
-            if i in x:
-                r['next'] = x[(x.index(i)+1)]
-                break
-        if n == 2:
-            r['call']   = ks[0]
-            r['child']  = ks[0]
-        elif n > 2:
-            r['splits'] = ks[:-1]
-            r['child']  = ks[0]
-    return rels
-
 def get_motion(obj):
     if not obj:
         mot_type = 0
@@ -1068,19 +1095,6 @@ def get_motion(obj):
             mot_type = 1
             min = max = 0.0
     return (mot_type,min,max)
-
-def init_kinematics(objs, rels, matrices):
-    kinem = []
-    for i in range(len(objs)):
-        motion_type, min, max = get_motion(objs[i])
-        kinem.append(Kinematics(
-            i - 1,
-            matrices[i],
-            motion_type,
-            min,
-            max,
-            rels[i]))
-    return kinem
 
 def categorize_objs(objs):
     custom_bboxes = [o for o in objs if o.name.lower().startswith("bbox")]
@@ -1125,18 +1139,50 @@ def tag_vhots(dl):
             l[i] = (ids[name], pos)
     return dl
 
-def prep_meshes(all_objs, materials, world_origin, bsp):
+def prep_vg_based_ordering(objs, bms):
+    lookup1 = {}
+    for o, oi in zip(objs, range(len(objs))):
+        for vg in o.vertex_groups:
+            n = vg.name
+            lookup1[(oi,vg.index)] = n
+    names = list(set(lookup1.values()))
+    names.sort()
+    lookup2 = dict(zip(names, range(1, len(names) + 1)))
+    for bm, bmi in zip(bms, range(len(bms))):
+        ord = bm.faces.layers.int.verify()
+        dfm = bm.verts.layers.deform.verify()
+        for f in bm.faces:
+            shared = set(f.verts[0][dfm].keys())
+            for v in f.verts[1:]:
+                shared &= set(v[dfm].keys())
+            if shared:
+                a = sorted(shared)[0]
+                if (bmi,a) in lookup1:
+                    mark = lookup2[lookup1[(bmi,a)]]
+                    f[ord] = mark
+
+def prep_subs(all_objs, materials, world_origin, sorting):
     bbox, root, gen2, gen3_plus = categorize_objs(all_objs)
+    obj_lookup = {}
+    root_meshes = [get_mesh(o, materials) for o in root]
     gen2_meshes = [get_mesh(o, materials) for o in gen2]
     gen3_plus_meshes = [get_mesh(o, materials) for o in gen3_plus]
-    branches = gen2 + gen3_plus
-    branch_meshes = gen2_meshes + gen3_plus_meshes
-    root_mesh = combine_meshes(
-        [get_mesh(o, materials) for o in root],
-        [o.matrix_world for o in root])
+    if sorting == 'vgs':
+        prep_vg_based_ordering(root, root_meshes)
+        for a, b in zip(gen2, gen2_meshes):
+            prep_vg_based_ordering([a], [b])
+            do_groups(b)
+        for a, b in zip(gen3_plus, gen3_plus_meshes):
+            prep_vg_based_ordering([a], [b])
+            do_groups(b)
+    root_mesh = combine_meshes(root_meshes, [o.matrix_world for o in root])
+    if sorting == 'vgs':
+        do_groups(root_mesh)
     real_bbox = find_common_bbox(
-        [mu.Matrix.Identity(4)] + [o.matrix_world for o in branches],
-        [root_mesh] + branch_meshes)
+        [mu.Matrix.Identity(4)] +
+        [o.matrix_world for o in gen2] +
+        [o.matrix_world for o in gen3_plus],
+        [root_mesh] + gen2_meshes + gen3_plus_meshes)
     if not bbox:
         bbox = real_bbox
     if world_origin:
@@ -1144,35 +1190,33 @@ def prep_meshes(all_objs, materials, world_origin, bsp):
     else:
         origin_shift = mu.Matrix.Translation(
             (mu.Vector(real_bbox[max]) + mu.Vector(real_bbox[min])) * -0.5)
-    names = [root[0].name]
-    names.extend([o.name for o in gen2])
-    names.extend([o.name for o in gen3_plus])
-    matrices = [mu.Matrix([[0]*4] * 4)]
     root_mesh.transform(origin_shift)
-    for i in range(len(gen2)):
-        o = gen2[i]
-        matrices.append(origin_shift * o.matrix_world)
-    for j in range(len(gen3_plus)):
-        o = gen3_plus[j]
-        matrices.append(o.matrix_local)
-    vhots = [[]]
-    for o in root:
-        for vhot in [e for e in o.children if e.type == 'EMPTY']:
+    if sorting == 'bsp':
+        for el in gen2_meshes + gen3_plus_meshes + [root_mesh]:
+            do_bsp(el)
+    root_sub = Subobject(
+        root[0].name, root_mesh, mu.Matrix([[0]*4] * 4), 0, 0.0, 0.0, [])
+    for ro in root:
+        for vhot in [e for e in ro.children if e.type == 'EMPTY']:
             mtx = origin_shift * vhot.matrix_world.translation
-            vhots[-1].append((vhot.name,mtx))
-    for o in branches:
-        vhots.append([])
-        for vhot in [e for e in o.children if e.type == 'EMPTY']:
-            vhots[-1].append((vhot.name,vhot.matrix_local.translation))
-    vhots = tag_vhots(vhots)
-    if bsp:
-        gen2_meshes = [do_bsp(m) for m in gen2_meshes]
-        gen3_plus_meshes = [do_bsp(m) for m in gen3_plus_meshes]
-        root_mesh = do_bsp(root_mesh)
-    rels = build_rels(root, branches)
-    kinem = init_kinematics([None] + branches, rels, matrices)
-    meshes = [root_mesh]+branch_meshes
-    return (names,meshes,vhots,kinem,shift_box(bbox, origin_shift))
+            root_sub.vhots.append((vhot.name,mtx))
+    for g2o, g2m in zip(gen2, gen2_meshes):
+        mtx = origin_shift * g2o.matrix_world
+        m_type, m_min, m_max = get_motion(g2o)
+        sub = Subobject(g2o.name, g2m, mtx, m_type, m_min, m_max, [])
+        for vhot in [e for e in g2o.children if e.type == 'EMPTY']:
+            sub.vhots.append((vhot.name,vhot.matrix_local.translation))
+        sub.set_parent(root_sub)
+        obj_lookup[g2o] = sub
+    for g3po, g3pm in zip(gen3_plus, gen3_plus_meshes):
+        mtx = g3po.matrix_world
+        m_type, m_min, m_max = get_motion(g3po)
+        sub = Subobject(g3po.name, g3pm, mtx, m_type, m_min, m_max)
+        for vhot in [e for e in g3po.children if e.type == 'EMPTY']:
+            sub.vhots.append((vhot.name,vhot.matrix_local.translation))
+        sub.set_parent(obj_lookup[g3po.parent])
+        obj_lookup[g3po] = sub
+    return root_sub, shift_box(bbox, origin_shift)
 
 # Each bmesh is extended with custom bytestring data used by the exporter.
 # Edges #0 and #1 carry custom mesh-level attributes.
@@ -1202,10 +1246,11 @@ def prep_meshes(all_objs, materials, world_origin, bsp):
 # e1[ext_e][2:4]   : light offset as '<H'
 # e1[ext_e][4:6]   : normal offset as '<H'
 
-def extend_verts(off, bm):
+def extend_verts(offs, bm):
     ext_v = bm.verts.layers.string.verify()
     ext_e = bm.edges.layers.string.verify()
     v_set = set()
+    v_off = offs.v_off
     for v in bm.verts:
         xyz = v.co
         xyz_bs = pack('<3f', xyz.x, xyz.y, xyz.z)
@@ -1215,14 +1260,14 @@ def extend_verts(off, bm):
     v_dict = dict(zip(v_set, range(num_vs)))
     for v in bm.verts:
         xyz_bs = v[ext_v]
-        v_idx = pack('>H', off + v_dict[xyz_bs])
+        v_idx = pack('>H', v_off + v_dict[xyz_bs])
         v[ext_v] = v_idx + xyz_bs
     bm.edges.ensure_lookup_table()
     bm.edges[0][ext_e] = pack('<H', num_vs)
-    bm.edges[1][ext_e] = pack('<H', off)
-    return num_vs + off, bm
+    bm.edges[1][ext_e] = pack('<H', v_off)
+    offs.v_off += num_vs
 
-def extend_loops(uv_off, lt_off, bm):
+def extend_loops(offs, bm):
     ext_l = bm.loops.layers.string.verify()
     ext_v = bm.verts.layers.string.active
     ext_e = bm.edges.layers.string.verify()
@@ -1238,6 +1283,8 @@ def extend_loops(uv_off, lt_off, bm):
             lt_set.add(lt)
             l[ext_l] = lt
             uv_set.add(l[uv].uv[:])
+    lt_off  = offs.lt_off
+    uv_off  = offs.uv_off
     num_lts = len(lt_set)
     num_uvs = len(uv_set)
     lt_dict = dict(zip(lt_set, range(num_lts)))
@@ -1253,13 +1300,16 @@ def extend_loops(uv_off, lt_off, bm):
     bm.edges.ensure_lookup_table()
     bm.edges[0][ext_e] += pack('<HH', num_uvs, num_lts)
     bm.edges[1][ext_e] += pack('<H', lt_off)
-    return num_uvs + uv_off, num_lts + lt_off, bm
+    offs.uv_off += num_uvs
+    offs.lt_off += num_lts
 
-def extend_faces(n_off, f_off, bm):
+def extend_faces(offs, bm):
     ext_f = bm.faces.layers.string.verify()
     ext_v = bm.verts.layers.string.active
     ext_l = bm.loops.layers.string.active
     ext_e = bm.edges.layers.string.active
+    f_off = offs.f_off
+    n_off = offs.n_off
     n_set = set()
     for f in bm.faces:
         n = f.normal
@@ -1286,7 +1336,8 @@ def extend_faces(n_off, f_off, bm):
     bm.edges.ensure_lookup_table()
     bm.edges[0][ext_e] += pack('<HH', num_ns, num_fs)
     bm.edges[1][ext_e] += pack('<H', n_off)
-    return n_off + num_ns, f_off + num_fs, bm
+    offs.n_off += num_ns
+    offs.f_off += num_fs
 
 def gather_materials(objs):
     ms = set()
@@ -1302,32 +1353,43 @@ def gather_materials(objs):
                 pass
     return list(ms)
 
-def do_export(file_path, clear, bright, world_origin, bsp):
-    objs = [o for o in bpy.data.objects if o.type == 'MESH' and not o.hide]
+class OffsetWrapper(object):
+    def __init__(self):
+        self.v_off  = 0
+        self.uv_off = 0
+        self.lt_off = 0
+        self.n_off  = 0
+        self.f_off  = 0
+
+def do_export(file_path, options):
+    if options['vis_layers']:
+        check_layers = set(
+            [i for (b,i) in zip(bpy.context.scene.layers, range(20)) if b])
+    else:
+        check_layers = set(range(20))
+    objs = [o for o in bpy.data.objects if
+        o.type == 'MESH' and
+        not o.hide and
+        set([i for (b,i) in zip(o.layers, range(20)) if b]) & check_layers]
     if not objs:
         return ("Nothing to export.",{'CANCELLED'})
     materials = gather_materials(objs)
-    names, meshes, vhots, kinem, bbox = prep_meshes(
+    root_sub, bbox = prep_subs(
         objs,
         materials,
-        world_origin,
-        bsp)
-    v_off = uv_off = lt_off = n_off = f_off = 0
-    for i in range(len(meshes)):
-        bm = meshes[i]
-        v_off, bm = extend_verts(v_off, bm)
-        uv_off, lt_off, bm = extend_loops(uv_off, lt_off, bm)
-        n_off, f_off, bm = extend_faces(n_off, f_off, bm)
-        meshes[i] = bm
+        options['world_origin'],
+        options['sorting'])
+    offs = OffsetWrapper()
+    for s in root_sub.list_subtree():
+        extend_verts(offs, s.mesh)
+        extend_loops(offs, s.mesh)
+        extend_faces(offs, s.mesh)
     model = Model(
-        kinem,
-        meshes,
-        names,
+        root_sub,
         materials,
-        vhots,
         bbox,
-        clear,
-        bright)
+        options['clear'],
+        options['bright'])
     try:
         binBytes = build_bin(model)
         f = open(file_path, 'w+b')
@@ -1364,7 +1426,27 @@ def reorder_faces(bm, order):
         bm.faces.index_update()
     bm.normal_update()
     bm0.free()
-    return bm
+
+###
+### Sorting: by vertex group
+###
+
+def do_groups(bm):
+    ord = bm.faces.layers.int.verify()
+    lookup = {}
+    ordered = []
+    for f in bm.faces:
+        mark = f[ord]
+        if mark in lookup:
+            lookup[mark].append(f.index)
+        else:
+            lookup[mark] = [f.index]
+    for k in sorted(lookup):
+        if k > 0:
+            ordered.extend(lookup[k])
+    if 0 in lookup:
+        ordered.extend(lookup[0])
+    reorder_faces(bm, ordered)
 
 ###
 ### Sorting: BSP
@@ -1451,7 +1533,6 @@ def split_plane(fs, bm):
     return best_f, new_plane_n, plane_xyz
 
 def rate(f, c):
-    # return -find_d(f.normal, [(v.co - c) for v in f.verts])
     return (-find_d(f.normal, [(v.co - c) for v in f.verts]),-f.calc_area())
 
 ###
@@ -1465,9 +1546,8 @@ class ImportDarkBin(bpy.types.Operator, ImportHelper):
     bl_options = {'PRESET'}
     filename_ext = ".bin"
     filter_glob = StringProperty(
-        default="*.bin",
-        options={'HIDDEN'},
-        )
+        default="*.bin",    
+        options={'HIDDEN'})
     path_mode = path_reference_mode
     check_extension = True
     path_mode = path_reference_mode
@@ -1485,6 +1565,10 @@ class ExportDarkBin(bpy.types.Operator, ExportHelper):
     filter_glob = StringProperty(
         default="*.bin",
         options={'HIDDEN'})
+    vis_layers = BoolProperty(
+        name="Export only from visible layers",
+        default=True,
+        description="Objects on hidden layers will be ignored")
     clear = BoolProperty(
         name="Use Translucency",
         default=True,
@@ -1497,20 +1581,27 @@ class ExportDarkBin(bpy.types.Operator, ExportHelper):
         name="Model origin is at world origin",
         default=True,
         description="Otherwise, it is in the center of the geometry")
-    bsp = BoolProperty(
-        name="Use BSP sorting for polygons",
-        default=False,
-        description="May increase the polygon count unpredictably; use only if you need transparency support")
+    sorting = EnumProperty(
+        name="Polygon sorting method",
+        items=(
+            ("bsp","BSP","".join([
+                "May increase the polygon count unpredictably;",
+                " use only if you need transparency support"])),
+            ("vgs","By vertex group","".join([
+                "Follow the alphabetical order of vertex group names"])),
+            ("none","Don't sort","")),
+        default="vgs")
     path_mode = path_reference_mode
     check_extension = True
     path_mode = path_reference_mode
     def execute(self, context):
-        msg, result = do_export(
-            self.filepath,
-            self.clear,
-            self.bright,
-            self.world_origin,
-            self.bsp)
+        options = {
+            'clear'       :self.clear,
+            'bright'      :self.bright,
+            'world_origin':self.world_origin,
+            'sorting'     :self.sorting,
+            'vis_layers'  :self.vis_layers}
+        msg, result = do_export(self.filepath, options)
         if result == {'CANCELLED'}:
             self.report({'ERROR'}, msg)
         print(msg)

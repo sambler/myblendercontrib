@@ -1,73 +1,100 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_curtain_maker.py
 # Automatic generation of curtains
 # Author: Antonio Vazquez (antonioya)
 #
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-import colorsys
-import copy
-import math
-from achm_tools import *
+from copy import copy
+from math import cos, sin, radians
+from bpy.types import Operator
+from .achm_tools import *
 
 
 # ------------------------------------------------------------------
 # Define UI class
 # Japanese curtains
 # ------------------------------------------------------------------
-class AchmJapan(bpy.types.Operator):
+class AchmJapan(Operator):
     bl_idname = "mesh.archimesh_japan"
     bl_label = "Japanese curtains"
     bl_description = "Japanese curtains Generator"
     bl_category = 'Archimesh'
     bl_options = {'REGISTER', 'UNDO'}
 
-    width = bpy.props.FloatProperty(name='Width', min=0.30, max=4, default=1, precision=3,
-                                    description='Total width')
-    height = bpy.props.FloatProperty(name='Height', min=0.20, max=50, default=1.8, precision=3,
-                                     description='Total height')
-    num = bpy.props.IntProperty(name='Rails', min=2, max=5, default=2,
-                                description='Number total of rails')
-    palnum = bpy.props.IntProperty(name='Panels', min=1, max=2, default=1,
-                                   description='Panels by rail')
+    width = bpy.props.FloatProperty(
+            name='Width',
+            min=0.30, max=4, default=1, precision=3,
+            description='Total width',
+            )
+    height = bpy.props.FloatProperty(
+            name='Height',
+            min=0.20, max=50, default=1.8, precision=3,
+            description='Total height',
+            )
+    num = bpy.props.IntProperty(
+            name='Rails',
+            min=2, max=5, default=2,
+            description='Number total of rails',
+            )
+    palnum = bpy.props.IntProperty(
+            name='Panels',
+            min=1, max=2, default=1,
+            description='Panels by rail',
+            )
 
-    open01 = bpy.props.FloatProperty(name='Position 01', min=0, max=1, default=0, precision=3,
-                                     description='Position of the panel')
-    open02 = bpy.props.FloatProperty(name='Position 02', min=0, max=1, default=0, precision=3,
-                                     description='Position of the panel')
-    open03 = bpy.props.FloatProperty(name='Position 03', min=0, max=1, default=0, precision=3,
-                                     description='Position of the panel')
-    open04 = bpy.props.FloatProperty(name='Position 04', min=0, max=1, default=0, precision=3,
-                                     description='Position of the panel')
-    open05 = bpy.props.FloatProperty(name='Position 05', min=0, max=1, default=0, precision=3,
-                                     description='Position of the panel')
+    open01 = bpy.props.FloatProperty(
+            name='Position 01',
+            min=0, max=1, default=0, precision=3,
+            description='Position of the panel',
+            )
+    open02 = bpy.props.FloatProperty(
+            name='Position 02',
+            min=0, max=1, default=0, precision=3,
+            description='Position of the panel',
+            )
+    open03 = bpy.props.FloatProperty(
+            name='Position 03',
+            min=0, max=1, default=0, precision=3,
+            description='Position of the panel',
+            )
+    open04 = bpy.props.FloatProperty(
+            name='Position 04',
+            min=0, max=1, default=0, precision=3,
+            description='Position of the panel',
+            )
+    open05 = bpy.props.FloatProperty(
+            name='Position 05',
+            min=0, max=1, default=0, precision=3,
+            description='Position of the panel',
+            )
 
-    # Materials        
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.",
-                                     default=True)
+    # Materials
+    crt_mat = bpy.props.BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -107,6 +134,8 @@ class AchmJapan(bpy.types.Operator):
                 row.prop(self, 'open05', slider=True)
 
             box = layout.box()
+            if not context.scene.render.engine == 'CYCLES':
+                box.enabled = False
             box.prop(self, 'crt_mat')
             if self.crt_mat:
                 box.label("* Remember to verify fabric texture folder")
@@ -147,21 +176,30 @@ def create_japan_mesh(self):
 # Define UI class
 # Roller curtains
 # ------------------------------------------------------------------
-class AchmRoller(bpy.types.Operator):
+class AchmRoller(Operator):
     bl_idname = "mesh.archimesh_roller"
     bl_label = "Roller curtains"
     bl_description = "Roller_curtains Generator"
     bl_category = 'Archimesh'
     bl_options = {'REGISTER', 'UNDO'}
 
-    width = bpy.props.FloatProperty(name='Width', min=0.30, max=4, default=1, precision=3,
-                                    description='Total width')
-    height = bpy.props.FloatProperty(name='Height', min=0.01, max=50, default=1.7, precision=3,
-                                     description='Total height')
+    width = bpy.props.FloatProperty(
+            name='Width',
+            min=0.30, max=4, default=1, precision=3,
+            description='Total width',
+            )
+    height = bpy.props.FloatProperty(
+            name='Height',
+            min=0.01, max=50, default=1.7, precision=3,
+            description='Total height',
+            )
 
-    # Materials        
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.", default=True)
+    # Materials
+    crt_mat = bpy.props.BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -182,6 +220,8 @@ class AchmRoller(bpy.types.Operator):
             row.prop(self, 'height')
 
             box = layout.box()
+            if not context.scene.render.engine == 'CYCLES':
+                box.enabled = False
             box.prop(self, 'crt_mat')
             if self.crt_mat:
                 box.label("* Remember to verify fabric texture folder")
@@ -226,11 +266,11 @@ def generate_japan(self):
     panel = []
 
     location = bpy.context.scene.cursor_location
-    myloc = copy.copy(location)  # copy location to keep 3D cursor position
+    myloc = copy(location)  # copy location to keep 3D cursor position
 
-    # ------------------ 
+    # ------------------
     # Rail
-    # ------------------ 
+    # ------------------
     myrail = create_japan_rail("Rail",
                                self.width - 0.02, self.num,
                                myloc.x, myloc.y, myloc.z,
@@ -316,7 +356,7 @@ def generate_japan(self):
     posz = -0.008
     x = 1
     fabricmat = None
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         fabricmat = create_fabric_material("Fabric_material", False, 0.653, 0.485, 0.265,
                                            0.653, 0.485, 0.265)
 
@@ -332,7 +372,7 @@ def generate_japan(self):
         mypanel.location.z = posz
         x += 1
     # ------------------------
-    # Strings        
+    # Strings
     # ------------------------
     x = myrail.location.x
     y = myrail.location.y
@@ -356,7 +396,7 @@ def generate_japan(self):
     mycurve2.location.y = -0.01
     mycurve2.location.z = 0.005
 
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         mat = create_diffuse_material("String_material", False, 0.1, 0.1, 0.1,
                                       0.1, 0.1, 0.1, 0.01)
         set_material(mycurve1, mat)
@@ -585,13 +625,13 @@ def create_bezier(objname, points, origin, depth=0.001, fill='FULL'):
 # ------------------------------------------------------------------------------
 def generate_roller(self):
     location = bpy.context.scene.cursor_location
-    myloc = copy.copy(location)  # copy location to keep 3D cursor position
+    myloc = copy(location)  # copy location to keep 3D cursor position
 
-    # ------------------ 
+    # ------------------
     # Roller Top
-    # ------------------ 
+    # ------------------
     fabricsolid = None
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         fabricsolid = create_diffuse_material("Fabric_solid_material", False, 0.653, 0.485, 0.265)
 
     myroller = create_roller_rail("Roller",
@@ -607,7 +647,7 @@ def generate_roller(self):
     # Sides
     # --------------------------------------------------------------------------------
     plastic = None
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         plastic = create_diffuse_material("Plastic_roller_material", False, 0.653, 0.485, 0.265, 0.653, 0.485, 0.265,
                                           0.2)
 
@@ -629,7 +669,7 @@ def generate_roller(self):
     # Panel
     # --------------------------------------------------------------------------------
     fabricmat = None
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         fabricmat = create_fabric_material("Fabric_translucent_material", False, 0.653, 0.485, 0.265, 0.653, 0.485,
                                            0.265)
 
@@ -641,9 +681,9 @@ def generate_roller(self):
     mypanel.location.x = 0
     mypanel.location.y = 0.035
     mypanel.location.z = 0
-    # ------------------ 
+    # ------------------
     # Roller Bottom
-    # ------------------ 
+    # ------------------
     mybottom = create_roller_rail("Roller_bottom",
                                   self.width,
                                   0.001,
@@ -655,7 +695,7 @@ def generate_roller(self):
     set_normals(myroller)
 
     # ------------------------
-    # Strings        
+    # Strings
     # ------------------------
     myp = [((0.0000, -0.0328, -0.0000), (0.0000, -0.0403, -0.3327), (0.0000, -0.0293, 0.1528)),
            ((0.0000, 0.0000, 0.3900), (0.0000, -0.0264, 0.3900), (-0.0000, 0.0226, 0.3900)),
@@ -667,7 +707,7 @@ def generate_roller(self):
     mycurve.location.x = self.width + 0.015
     mycurve.location.y = 0
     mycurve.location.z = -0.38
-    if self.crt_mat:
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         mat = create_diffuse_material("String_material", False, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.01)
         set_material(mycurve, mat)
 
@@ -702,22 +742,22 @@ def create_roller_rail(objname, width, radio, px, py, pz, mat, mymaterial):
 
     # Add right circle
     for i in range(pies):
-        x = math.cos(math.radians(seg)) * radio
-        y = math.sin(math.radians(seg)) * radio
+        x = cos(radians(seg)) * radio
+        y = sin(radians(seg)) * radio
         mypoint = [(0.0, x, y)]
         myvertex.extend(mypoint)
         seg += 360 / pies
     # Add left circle
     seg = 0
     for i in range(pies):
-        x = math.cos(math.radians(seg)) * radio
-        y = math.sin(math.radians(seg)) * radio
+        x = cos(radians(seg)) * radio
+        y = sin(radians(seg)) * radio
         mypoint = [(width, x, y)]
         myvertex.extend(mypoint)
         seg += 360 / pies
-    # ------------------------------------- 
+    # -------------------------------------
     # Faces
-    # ------------------------------------- 
+    # -------------------------------------
     t = 1
     for n in range(0, pies):
         t += 1
@@ -752,7 +792,7 @@ def create_roller_rail(objname, width, radio, px, py, pz, mat, mymaterial):
 
 # ------------------------------------------------------------------------------
 # Create roller sides
-# 
+#
 # myRoller: Roller to add sides
 # side: Side of the cap R/L
 # pX: position X axis
@@ -780,7 +820,7 @@ def create_roller_sides(myroller, side, px, py, pz, mat, plastic):
     myside.location.z = pz
     # rotate
     if side == "L":
-        myside.rotation_euler = (0, 0, math.radians(180))
+        myside.rotation_euler = (0, 0, radians(180))
     # parent
     myside.parent = myroller
 

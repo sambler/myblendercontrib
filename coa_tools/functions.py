@@ -32,7 +32,44 @@ from bpy_extras.io_utils import ExportHelper, ImportHelper
 import json
 from bpy.app.handlers import persistent
 
-
+def hide_base_sprite(obj):
+    if "coa_sprite" in obj:
+        context = bpy.context
+        obj = context.active_object
+        orig_mode = obj.mode
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.ops.object.mode_set(mode="EDIT")
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+        bm.verts.ensure_lookup_table()
+        
+        vertex_idxs = []
+        if "coa_base_sprite" in obj.vertex_groups:
+            v_group_idx = obj.vertex_groups["coa_base_sprite"].index
+            for i,vert in enumerate(obj.data.vertices):
+                for g in vert.groups:
+                    if g.group == v_group_idx:
+                        vertex_idxs.append(i)
+                    
+        for idx in vertex_idxs:
+            vert = bm.verts[idx]
+            vert.hide = True
+            vert.select = False
+            for edge in vert.link_edges:
+                edge.hide = True
+                edge.select = False
+            for face in vert.link_faces:
+                face.hide = obj.coa_hide_base_sprite
+                face.select = False
+                
+        if "coa_base_sprite" in obj.modifiers:
+            mod = obj.modifiers["coa_base_sprite"]
+            mod.show_viewport = obj.coa_hide_base_sprite
+            mod.show_render = obj.coa_hide_base_sprite
+            
+        bmesh.update_edit_mesh(me)               
+        bpy.ops.object.mode_set(mode=orig_mode)                      
+    
 def get_uv_from_vert(uv_layer, v):
     for l in v.link_loops:
         if v.select:
@@ -52,7 +89,7 @@ def update_uv_unwrap(context):
         if uv_vert != None:
             pass
 
-    bmesh.update_edit_mesh(me)        
+    bmesh.update_edit_mesh(me)      
     
 
 
@@ -145,7 +182,7 @@ def check_name(name_array,name):
     else:
         return name
 
-def create_action(context,item=None):
+def create_action(context,item=None,obj=None):
     sprite_object = get_sprite_object(context.active_object)
     
     if len(sprite_object.coa_anim_collections) < 3:
@@ -153,8 +190,11 @@ def create_action(context,item=None):
     
     if item == None:
         item = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
-    obj = context.active_object
+    if obj == None:
+        obj = context.active_object
+        
     action_name = item.name + "_" + obj.name
+    print(action_name)
     
     if action_name not in bpy.data.actions:
         action = bpy.data.actions.new(action_name)

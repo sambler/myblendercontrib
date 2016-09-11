@@ -20,17 +20,20 @@ def GlossyDiffuse(bpy, dif_col, glos_col, rough, mix, name):
         mat.node_tree.links.new(o, i)
     return mat
 #wood
-def Image(bpy, context, im_scale, c_image, n_image, bump_amo, is_bump, name, is_gloss, glossy, mix, rotate):
+def Image(bpy, context, im_scale, c_image, n_image, bump_amo, is_bump, name, is_gloss, glossy, mix, rotate, extra_rot):
     enter = False; enter2 = False; over_error = False
+    
     for i in bpy.data.images:
         if i.filepath == c_image and enter == False: col_im = i; enter = True #check if color image already loaded
         elif i.filepath == n_image and enter2 == False and is_bump == True: norm_im = i; enter2 = True #check if normal image already loaded
+    
     if enter == False: #load the images otherwise
         try: col_im = bpy.data.images.load(c_image)
         except: over_error = True
     if enter2 == False and is_bump == True:
         try: norm_im = bpy.data.images.load(n_image)
         except: over_error = True
+    
     if over_error == False:
         mat = bpy.data.materials.new(name); mat.use_nodes = True
         nodes = mat.node_tree.nodes
@@ -39,6 +42,9 @@ def Image(bpy, context, im_scale, c_image, n_image, bump_amo, is_bump, name, is_
         node.location = -500, 0; node.name = "scale"; node.scale = (im_scale, im_scale, im_scale)
         if rotate == True:
             node.rotation = (0.0, 0.0, radians(90))
+        if extra_rot != None:
+            node.rotation = (0.0, 0.0, node.rotation[2] + radians(extra_rot))
+        
         node = nodes.new("ShaderNodeTexImage")
         node.location = -100, 150; node.name = "color_image"; node.image = col_im
         node = nodes.new("ShaderNodeTexImage")

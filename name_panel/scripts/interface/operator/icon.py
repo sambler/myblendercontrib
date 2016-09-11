@@ -1,32 +1,9 @@
 
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by the Free
-#  Software Foundation; either version 2 of the License, or (at your option)
-#  any later version.
-#
-#  This program is distributed in the hope that it will be useful, but WITHOUT
-#  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-#  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-#  more details.
-#
-#  You should have received a copy of the GNU General Public License along with
-#  this program; if not, write to the Free Software Foundation, Inc.,
-#  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
 # imports
 import bpy
 import bmesh
 from bpy.types import Operator
 from bpy.props import BoolProperty, StringProperty, EnumProperty
-from ..buttons.constraints import ConstraintButtons
-from ..buttons.modifiers import ModifierButtons
-
-# addon
-addon = bpy.context.user_preferences.addons.get(__name__.partition('.')[0])
 
 # operator
 class operator(Operator):
@@ -36,7 +13,7 @@ class operator(Operator):
   bl_idname = 'view3d.name_panel_icon'
   bl_label = 'Name Panel Icon'
   bl_description = 'Changes active object.'
-  bl_options = {'UNDO'}
+  bl_options = {'UNDO', 'INTERNAL'}
 
   # active
   active = BoolProperty(
@@ -81,7 +58,7 @@ class operator(Operator):
       ('OBJECT', 'Object', '', 'OBJECT_DATA', 0),
       ('GROUP', 'Group', '', 'GROUP', 1),
       ('ACTION', 'Action', '', 'ACTION', 2),
-      ('GREASE_PENCIL', 'Grease Pencil', '', 'GREASEPENCIL', 3),
+      # ('GREASE_PENCIL', 'Grease Pencil', '', 'GREASEPENCIL', 3),
       ('CONSTRAINT', 'Constraint', '', 'CONSTRAINT', 4),
       ('MODIFIER', 'Modifier', '', 'MODIFIER', 5),
       ('OBJECT_DATA', 'Object Data', '', 'MESH_DATA', 6),
@@ -92,10 +69,10 @@ class operator(Operator):
       ('SHAPEKEY', 'Shapekey', '', 'SHAPEKEY_DATA', 11),
       ('UV', 'UV Map', '', 'GROUP_UVS', 12),
       ('VERTEX_COLOR', 'Vertex Colors', '', 'GROUP_VCOL', 13),
-      ('MATERIAL', 'Material', '', 'MATERIAL', 14),
-      ('TEXTURE', 'Texture', '', 'TEXTURE', 15),
-      ('PARTICLE_SYSTEM', 'Particle System', '', 'PARTICLES', 16),
-      ('PARTICLE_SETTING', 'Particle Settings', '', 'DOT', 17)
+      # ('MATERIAL', 'Material', '', 'MATERIAL', 14),
+      # ('TEXTURE', 'Texture', '', 'TEXTURE', 15),
+      # ('PARTICLE_SYSTEM', 'Particle System', '', 'PARTICLES', 16),
+      # ('PARTICLE_SETTING', 'Particle Settings', '', 'DOT', 17)
     ],
     default = 'OBJECT'
   )
@@ -134,6 +111,9 @@ class operator(Operator):
 
     # panel
     panel = context.scene.NamePanel
+    panel.previousOwner = panel.owner
+    panel.previousTarget = panel.target
+    panel.previousContext = panel.context
     panel.owner = self.owner
     panel.target = self.target
     panel.context = self.context
@@ -165,6 +145,10 @@ class operator(Operator):
     # object
     if panel.context not in {'BONE', 'BONE_CONSTRAINT'}: # temporary
 
+      # is hide
+      if bpy.data.objects[panel.owner].hide: # preferable for objects, not bones
+        bpy.data.objects[panel.owner].hide = False
+
       # extend
       if self.extend:
 
@@ -193,7 +177,7 @@ class operator(Operator):
       else:
 
         # deselect all
-        for object in context.scene.objects[:]:
+        for object in context.scene.objects:
           object.select = False
 
         # active object
@@ -241,7 +225,7 @@ class operator(Operator):
 
       else:
 
-        for bone in context.selected_pose_bones[:]:
+        for bone in context.selected_pose_bones:
           bone.bone.select = False
 
         # target
@@ -308,7 +292,7 @@ class operator(Operator):
 
         # extend
         else:
-          for bone in context.selected_editable_bones[:]:
+          for bone in context.selected_editable_bones:
 
             # deselect
             bone.select = False
@@ -361,7 +345,7 @@ class operator(Operator):
         # extend
         else:
 
-          for bone in context.selected_pose_bones[:]:
+          for bone in context.selected_pose_bones:
             bone.bone.select = False
 
           # target
@@ -396,7 +380,7 @@ class operator(Operator):
     #     else:
     #
     #       # object
-    #       for object in context.scene.objects[:]:
+    #       for object in context.scene.objects:
     #
     #         # deselect
     #         object.select = False

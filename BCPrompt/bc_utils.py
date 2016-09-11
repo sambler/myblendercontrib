@@ -173,7 +173,11 @@ def get_sv_times_all():
 
 
 def github_commits(url, num_items):
-    found_json = urlopen(url).readall().decode()
+    found_ref = found_json = urlopen(url)
+    try:
+        found_json = found_ref.readall().decode()
+    except:
+        found_json = found_ref.read().decode()
 
     wfile = json.JSONDecoder()
     wjson = wfile.decode(found_json)

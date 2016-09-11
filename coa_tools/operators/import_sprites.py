@@ -47,14 +47,7 @@ class ImportSprite(bpy.types.Operator):
     parent = StringProperty(name="Parent Object",default="None")
     
     
-    def create_mesh(self,context,name="Sprite",width=100,height=100,pos=Vector((0,0,0))):
-        me = bpy.data.meshes.new(name)
-        me.show_double_sided = True
-        obj = bpy.data.objects.new(name,me)
-        context.scene.objects.link(obj)
-        context.scene.objects.active = obj
-        obj.select = True
-        
+    def create_verts(self,width,height,pos,me,tag_hide=False):
         bpy.ops.object.mode_set(mode="EDIT")
         bm = bmesh.from_edit_mesh(me)
         vert1 = bm.verts.new(Vector((0,0,-height))*self.scale)
@@ -63,9 +56,41 @@ class ImportSprite(bpy.types.Operator):
         vert4 = bm.verts.new(Vector((0,0,0))*self.scale)
         
         bm.faces.new([vert1,vert2,vert3,vert4])
+                
+        bmesh.update_edit_mesh(me)
+        
+        if tag_hide:
+            for vert in bm.verts:
+                vert.hide = True    
+                
+            for edge in bm.edges:
+                edge.hide = True    
         
         bmesh.update_edit_mesh(me)
         bpy.ops.object.mode_set(mode="OBJECT")
+    
+    def create_mesh(self,context,name="Sprite",width=100,height=100,pos=Vector((0,0,0))):
+        me = bpy.data.meshes.new(name)
+        me.show_double_sided = True
+        obj = bpy.data.objects.new(name,me)
+        context.scene.objects.link(obj)
+        context.scene.objects.active = obj
+        obj.select = True
+        
+        self.create_verts(width,height,pos,me,tag_hide=False)
+        v_group = obj.vertex_groups.new("coa_base_sprite")
+        v_group.add([0,1,2,3],1.0,"REPLACE")
+        v_group.lock_weight = True
+        mod = obj.modifiers.new("coa_base_sprite","MASK")
+        mod.vertex_group = "coa_base_sprite"
+        mod.invert_vertex_group = True
+        mod.show_in_editmode = True
+        mod.show_render = False
+        mod.show_viewport = False
+        mod.show_on_cage = True
+        obj.coa_hide_base_sprite = False
+        
+        
         obj.data.uv_textures.new("UVMap")
         set_uv_default_coords(context,obj)
         

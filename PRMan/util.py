@@ -66,14 +66,14 @@ def readOSO(filePath):
     line_number = 0
     shader_meta = {}
     prop_names = []
+    shader_meta["shader"] = os.path.splitext(os.path.basename(filePath))[0]
     with open(filePath, encoding='utf-8') as osofile:
         for line in osofile:
-            if line.startswith("surface") or line.startswith("shader"):
-                line_number += 1
-                listLine = line.split()
-                # print("SHADER: ", listLine[1])
-                shader_meta["shader"] = listLine[1]
-            elif line.startswith("param"):
+            # if line.startswith("surface") or line.startswith("shader"):
+            #    line_number += 1
+            #    listLine = line.split()
+            #    shader_meta["shader"] = listLine[1]
+            if line.startswith("param"):
                 line_number += 1
                 listLine = line.split()
                 name = listLine[2]
@@ -95,8 +95,8 @@ def readOSO(filePath):
                         x += 1
                 elif type == "closure":
                     debug('error', "Closure types are not supported")
-                    type = "void"
-                    name = listLine[3]
+                    #type = "void"
+                    #name = listLine[3]
                 else:
                     default = listLine[3]
                 prop_names.append(name)
@@ -128,7 +128,6 @@ def readOSO(filePath):
                 prop_names.append(name)
                 prop_meta = {"type": type, "default":  default, "IO": "out"}
                 shader_meta[name] = prop_meta
-                # print("SHADER: ", shader_meta)
             else:
                 line_number += 1
     return prop_names, shader_meta
@@ -153,6 +152,22 @@ def debug(warningLevel, *output):
                 print("DEBUG: ", output)
         else:
             pass
+
+
+def get_Selected_Objects(scene):
+    objectNames = []
+    for obj in scene.objects:
+        if(obj.select == True):
+            objectNames.append(obj.name)
+    return objectNames
+
+
+def get_Files_in_Directory(path):
+    files = []
+    #files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    files = [f for f in os.listdir(path)]
+    return files
+
 
 # -------------------- Path Handling -----------------------------
 
@@ -183,16 +198,12 @@ def get_path_list(rm, type):
         paths.append('@')
         # here for getting args
         if type == 'args':
-            paths.append(os.path.join(guess_rmantree(), 'lib', 'RIS',
+            rmantree = guess_rmantree()
+            paths.append(os.path.join(rmantree, 'lib', 'RIS',
                                       'pattern'))
-            paths.append(os.path.join(guess_rmantree(), 'lib', 'RIS', 'bxdf'))
-            paths.append(os.path.join(guess_rmantree(), 'lib', 'rsl',
+            paths.append(os.path.join(rmantree, 'lib', 'RIS', 'bxdf'))
+            paths.append(os.path.join(rmantree, 'lib', 'rsl',
                                       'shaders'))
-            paths.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                         'shaders'))
-        if type == 'shader':
-            paths.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                         'shaders'))
         # we need this for bxdf blend for now.
         if type == 'rixplugin':
             paths.append(os.path.join(guess_rmantree(), 'lib', 'RIS', 'r19',
@@ -276,7 +287,7 @@ def get_sequence_path(path, blender_frame, anim):
     return make_frame_path(path, frame)
 
 
-def user_path(path, scene=None, ob=None):
+def user_path(path, scene=None, ob=None, display_driver=None, layer_name=None, pass_name=None):
     '''
     # bit more complicated system to allow accessing scene or object attributes.
     # let's stay simple for now...
@@ -310,12 +321,21 @@ def user_path(path, scene=None, ob=None):
         path = path.replace('{blend}', blendpath)
     if scene is not None:
         path = path.replace('{scene}', scene.name)
-        if scene.renderman.display_driver == "tiff":
-            path = path.replace('{file_type}', scene.renderman.display_driver[-4:])
+
+    if display_driver is not None:
+        if display_driver == "tiff":
+            path = path.replace('{file_type}', display_driver[-4:])
         else:
-            path = path.replace('{file_type}', scene.renderman.display_driver[-3:])
+            path = path.replace('{file_type}', display_driver[-3:])
+
     if ob is not None:
         path = path.replace('{object}', ob.name)
+
+    if layer_name is not None:
+        path = path.replace('{layer}', layer_name)
+
+    if pass_name is not None:
+        path = path.replace('{pass}', pass_name)
 
     # convert ### to frame number
     if scene is not None:
@@ -407,20 +427,129 @@ def set_rmantree(rmantree):
 def set_path(paths):
     for path in paths:
         if path is not None:
-            os.environ['PATH'] = os.environ['PATH'] + os.pathsep + path
+            os.environ['PATH'] = path + os.pathsep + os.environ['PATH']
 
+
+def check_valid_rmantree(rmantree):
+    prman = 'prman.exe' if platform.system() == 'Windows' else 'prman'
+
+    if os.path.exists(rmantree) and \
+       os.path.exists(os.path.join(rmantree, 'bin')) and \
+       os.path.exists(os.path.join(rmantree, 'bin', prman)):
+        return True
+    return False
+
+# return the major, minor rman version
+def get_rman_version(rmantree):
+    vstr = rmantree.split('-')[1]
+    vstr = vstr.strip('/\\')
+    major_vers, minor_vers = vstr.split('.')
+    vers_modifier = ''
+    for v in ['b', 'rc']:
+        if v in minor_vers:
+            i = minor_vers.find(v)
+            vers_modifier = minor_vers[i:]
+            minor_vers = minor_vers[:i]
+            break
+    return int(major_vers), int(minor_vers), vers_modifier
+
+def get_addon_prefs():
+    addon = bpy.context.user_preferences.addons[__name__.split('.')[0]]
+    return addon.preferences
 
 def guess_rmantree():
-    guess = rmantree_from_env()
-    if guess != '':
-        vstr = guess.split('-')[1]
-        vf = float(vstr[:4])
+    prefs = get_addon_prefs()
+    rmantree_method = prefs.rmantree_method
 
-        # if this is < 20.0 they have misconfigured their RMANTREE
-        # so lets find one
-        if vf >= 20.0:
-            return guess
+    if rmantree_method == 'MANUAL':
+        rmantree = prefs.path_rmantree
+    elif rmantree_method == 'ENV':
+        rmantree = rmantree_from_env()
+    else:
+        # get from detected installed
+        if platform.system() == 'Windows':
+            # default installation path
+            # or base = 'C:/Program Files/Pixar'
+            base = r'C:\Program Files\Pixar'
 
+        elif platform.system() == 'Darwin':
+            base = '/Applications/Pixar'
+
+        elif platform.system() == 'Linux':
+            base = '/opt/pixar'
+
+        choice = prefs.rmantree_choice
+
+        if choice == 'NEWEST':
+            l_vers_major, l_vers_minor, l_vers_mod  = 0, 0, ''
+            for d in os.listdir(base):
+                if "RenderManProServer" in d:
+                    vers_major, vers_minor, vers_mod = get_rman_version(d)
+                    if vers_major >= l_vers_major and \
+                        vers_major == 20 and \
+                        (vers_minor > l_vers_minor or \
+                        (vers_minor == l_vers_minor and \
+                        vers_mod >= l_vers_mod)):
+                        l_vers_major, l_vers_minor, l_vers_mod = \
+                            vers_major, vers_minor, vers_mod
+                        rmantree = os.path.join(base, d)
+        else:
+            rmantree = choice
+
+    # check rmantree valid
+    if not check_valid_rmantree(rmantree):
+        print("ERROR!!! See RenderMan location in User Preferences.")
+        print("RenderMan Location is set to %s which does not appear valid." % rmantree)
+        return None
+    # check that it's > 20
+    vers_major, vers_minor, vers_mod = get_rman_version(rmantree)
+    #vf = float(vstr.strip('/\\'))
+    if vers_major != 20:
+        print('ERROR!!!  You need RenderMan version 20.0 or above.')
+        print('Correct in User Preferences.')
+        return None
+
+    return rmantree
+
+# we need this for populating preferences
+
+
+def guess_rmantree_initial():
+    # get from detected installed
+    if platform.system() == 'Windows':
+        # default installation path
+        # or base = 'C:/Program Files/Pixar'
+        base = r'C:\Program Files\Pixar'
+
+    elif platform.system() == 'Darwin':
+        base = '/Applications/Pixar'
+
+    elif platform.system() == 'Linux':
+        base = '/opt/pixar'
+
+    rmantree = rmantree_from_env()
+    if rmantree != '':
+        vers_major, vers_minor, vers_mod = get_rman_version(rmantree)
+        if vers_major == 20:
+            return rmantree
+
+    l_vers_major, l_vers_minor, l_vers_mod = 0,0,''
+    for d in os.listdir(base):
+        if "RenderManProServer" in d:
+            vers_major, vers_minor, vers_mod = get_rman_version(d)
+            if vers_major >= l_vers_major and \
+                vers_major == 20 and \
+                (vers_minor > l_vers_minor or \
+                (vers_minor == l_vers_minor and \
+                vers_mod >= l_vers_mod)):
+                l_vers_major, l_vers_minor, l_vers_mod = \
+                    vers_major, vers_minor, vers_mod
+                rmantree = os.path.join(base, d)
+    
+    return rmantree
+
+
+def get_installed_rendermans():
     base = ""
     if platform.system() == 'Windows':
         # default installation path
@@ -433,22 +562,13 @@ def guess_rmantree():
     elif platform.system() == 'Linux':
         base = '/opt/pixar'
 
-    latestver = 0.0
+    rendermans = []
     for d in os.listdir(base):
         if "RenderManProServer" in d:
             vstr = d.split('-')[1]
-            vf = float(vstr[:4])
-            if vf >= latestver:
-                latestver = vf
-                guess = os.path.join(base, d)
+            rendermans.append((vstr, os.path.join(base, d)))
 
-    if not guess:
-        print('ERROR!!!  No RMANTREE found.  Did you install \
-            RenderMan Pro Server?  Or set your RMANTREE environment variable?')
-    elif latestver < 20.0:
-        print('ERROR!!!  You need RenderMan version 20.0 or above.')
-
-    return guess
+    return rendermans
 
 
 # return true if an archive is older than the timestamp
@@ -499,6 +619,82 @@ def find_it_path():
             it_path = os.path.join(rmstree, 'it')
         if os.path.exists(it_path):
             return it_path
+        else:
+            return None
+
+
+def find_local_queue():
+    rmstree = os.environ['RMSTREE'] if 'RMSTREE' in os.environ.keys() else ''
+
+    if rmstree == '':
+        base = ""
+        if platform.system() == 'Windows':
+            # default installation path
+            base = r'C:\Program Files\Pixar'
+
+        elif platform.system() == 'Darwin':
+            base = '/Applications/Pixar'
+
+        elif platform.system() == 'Linux':
+            base = '/opt/pixar'
+
+        latestver = 0.0
+        guess = ''
+        for d in os.listdir(base):
+            if "RenderManStudio" in d:
+                vstr = d.split('-')[1]
+                vf = float(vstr[:4])
+                if vf >= latestver:
+                    latestver = vf
+                    guess = os.path.join(base, d)
+        rmstree = guess
+
+    if rmstree == '':
+        return None
+    else:
+        rmstree = os.path.join(rmstree, 'bin')
+        if platform.system() == 'Windows':
+            lq = os.path.join(rmstree, 'LocalQueue.exe')
+        elif platform.system() == 'Darwin':
+            lq = os.path.join(
+                rmstree, 'LocalQueue.app', 'Contents', 'MacOS', 'launch_LocalQueue')
+        elif platform.system() == 'Linux':
+            lq = os.path.join(rmstree, 'LocalQueue')
+        if os.path.exists(lq):
+            return lq
+        else:
+            return None
+
+
+def find_tractor_spool():
+    base = ""
+    if platform.system() == 'Windows':
+        # default installation path
+        base = r'C:\Program Files\Pixar'
+
+    elif platform.system() == 'Darwin':
+        base = '/Applications/Pixar'
+
+    elif platform.system() == 'Linux':
+        base = '/opt/pixar'
+
+    latestver = 0.0
+    guess = ''
+    for d in os.listdir(base):
+        if "Tractor" in d:
+            vstr = d.split('-')[1]
+            vf = float(vstr)
+            if vf >= latestver:
+                latestver = vf
+                guess = os.path.join(base, d)
+    tractor_dir = guess
+
+    if tractor_dir == '':
+        return None
+    else:
+        spool_name = os.path.join(tractor_dir, 'bin', 'tractor-spool')
+        if os.path.exists(spool_name):
+            return spool_name
         else:
             return None
 

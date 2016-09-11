@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Animation:Master Import",
     "author": "nemyax",
-    "version": (0, 1, 20160701),
+    "version": (0, 1, 20160815),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Import Animation:Master .mdl",
@@ -96,7 +96,8 @@ class MDLBone(object):
         name="Bone",
         parent=None,
         start=(0.0,0.0,0.0),
-        end=(0.0,0.0,0.0),
+        end=None,
+        length=1.0,
         rotate=None,
         chained=False,
         abs_weights=[],
@@ -105,6 +106,7 @@ class MDLBone(object):
         self.parent      = parent
         self.start       = start
         self.end         = end
+        self.length      = length
         self.rotate      = rotate
         self.chained     = chained
         self.abs_weights = abs_weights
@@ -340,6 +342,7 @@ def do_segments(mdl):
         'rel'          :re.compile("(\d+)\s+(\S+).*"),
         'start'        :re.compile("Start=(\S+)\s+(\S+)\s+(\S+)"),
         'end'          :re.compile("End=(\S+)\s+(\S+)\s+(\S+)"),
+        'length'       :re.compile("Length=(.+)"),
         'name'         :re.compile("Name=(.+)"),
         'rotate'       :re.compile("Rotate=(\S+)\s+(\S+)\s+(\S+)\s+(\S+)"),
         'chained'      :re.compile("Chained=(TRUE|FALSE)")}
@@ -387,6 +390,7 @@ def do_segment(mdl, bones, res, par):
     name_re  = res['name']
     start_re = res['start']
     end_re   = res['end']
+    len_re   = res['length']
     rot_re   = res['rotate']
     ch_re    = res['chained']
     abss_re  = res['noskins_start']
@@ -404,6 +408,7 @@ def do_segment(mdl, bones, res, par):
         ch_m    = ch_re.match(l)
         s_m     = s_re.match(l)
         e_m     = e_re.match(l)
+        len_m   = len_re.match(l)
         abss_m  = abss_re.match(l)
         rels_m  = rels_re.match(l)
         if name_m:
@@ -412,6 +417,8 @@ def do_segment(mdl, bones, res, par):
             bone.start = [float(a) for a in start_m.groups()]
         elif end_m:
             bone.end = [float(a) for a in end_m.groups()]
+        elif len_m:
+            bone.length = float(len_m.group(1))
         elif rot_m:
             x, y, z, w = [float(a) for a in rot_m.groups()] # A:M uses XYZW
             bone.rotate = (w,x,y,z) # Blender uses WXYZ
@@ -689,10 +696,13 @@ def segments_to_armature(bones):
         mu.Matrix.Rotation(math.radians(-90), 4, 'X')
     for b in bones:
         s_vec = mu.Vector(b.start)
-        e_vec = mu.Vector(b.end)
+        if not b.end:
+            b_len = b.length
+        else:
+            b_len = (mu.Vector(b.end) - s_vec).magnitude
         eb = ebs.new(b.name)
         eb.head = (0.0,0.0,0.0)
-        eb.tail = (0.0,0.0,(e_vec-s_vec).magnitude)
+        eb.tail = (0.0,0.0,b_len)
         brm = mu.Quaternion(b.rotate).to_matrix().to_4x4()
         btm = mu.Matrix.Translation(s_vec)
         eb.matrix = btm * brm * bcm

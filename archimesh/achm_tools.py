@@ -1,38 +1,36 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_tools.py
 # support routines and general functions
 # Author: Antonio Vazquez (antonioya)
 #
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-import os
+from os import path
 
 
 # --------------------------------------------------------------------
 # Get length Blender units
-# --------------------------------------------------------------------            
+# --------------------------------------------------------------------
 def get_blendunits(units):
     if bpy.context.scene.unit_settings.system == "IMPERIAL":
         return units * 0.3048
@@ -202,7 +200,7 @@ def set_modifier_boolean(myobject, bolobject):
 
 # --------------------------------------------------------------------
 # Set material to object
-# --------------------------------------------------------------------            
+# --------------------------------------------------------------------
 def set_material(myobject, mymaterial):
     bpy.context.scene.objects.active = myobject
     if bpy.context.scene.objects.active.name == myobject.name:
@@ -226,7 +224,7 @@ def set_material_faces(myobject, idx):
 
 # --------------------------------------------------------------------
 # Select faces
-# --------------------------------------------------------------------            
+# --------------------------------------------------------------------
 def select_faces(myobject, selface, clear):
     myobject.select = True
     bpy.context.scene.objects.active = myobject
@@ -243,7 +241,7 @@ def select_faces(myobject, selface, clear):
 
 # --------------------------------------------------------------------
 # Select vertices
-# --------------------------------------------------------------------            
+# --------------------------------------------------------------------
 def select_vertices(myobject, selvertices, clear=True):
     myobject.select = True
     bpy.context.scene.objects.active = myobject
@@ -253,7 +251,7 @@ def select_vertices(myobject, selvertices, clear=True):
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='DESELECT')
 
-        # Select Vertices 
+        # Select Vertices
         bpy.ops.object.mode_set(mode='EDIT', toggle=False)
         sel_mode = bpy.context.tool_settings.mesh_select_mode
 
@@ -270,7 +268,7 @@ def select_vertices(myobject, selvertices, clear=True):
 
 # --------------------------------------------------------------------
 # Mark Seam
-# --------------------------------------------------------------------            
+# --------------------------------------------------------------------
 def mark_seam(myobject):
     # noinspection PyBroadException
     try:
@@ -286,14 +284,14 @@ def mark_seam(myobject):
 
 # --------------------------------------------------------------------
 # Unwrap mesh
-# --------------------------------------------------------------------            
+# --------------------------------------------------------------------
 def unwrap_mesh(myobject, allfaces=True):
     # noinspection PyBroadException
     try:
         myobject.select = True
         bpy.context.scene.objects.active = myobject
         if bpy.context.scene.objects.active.name == myobject.name:
-            # Unwrap 
+            # Unwrap
             bpy.ops.object.mode_set(mode='EDIT', toggle=False)
             if allfaces is True:
                 bpy.ops.mesh.select_all(action='DESELECT')
@@ -329,11 +327,6 @@ def create_diffuse_material(matname, replace, r, g, b, rv=0.8, gv=0.8, bv=0.8, m
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.diffuse_color = (rv, gv, bv)  # viewport color
     mat.use_nodes = True
@@ -418,11 +411,6 @@ def create_translucent_material(matname, replace, r, g, b, rv=0.8, gv=0.8, bv=0.
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.diffuse_color = (rv, gv, bv)  # viewport color
     mat.use_nodes = True
@@ -475,11 +463,6 @@ def create_glass_material(matname, replace, rv=0.333, gv=0.342, bv=0.9):
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.use_nodes = True
     mat.diffuse_color = (rv, gv, bv)
@@ -559,11 +542,6 @@ def create_transparent_material(matname, replace, r=1, g=1, b=1, alpha=0):
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.use_nodes = True
     mat.diffuse_color = (r, g, b)
@@ -600,11 +578,6 @@ def create_glossy_material(matname, replace, r, g, b, rv=0.578, gv=0.555, bv=0.7
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.use_nodes = True
     mat.diffuse_color = (rv, gv, bv)
@@ -642,11 +615,6 @@ def create_emission_material(matname, replace, r, g, b, energy):
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.use_nodes = True
     nodes = mat.node_tree.nodes
@@ -683,11 +651,6 @@ def create_old_glass_material(matname, replace, rv=0.352716, gv=0.760852, bv=0.9
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.use_nodes = True
     mat.diffuse_color = (rv, gv, bv)
@@ -761,11 +724,6 @@ def create_brick_material(matname, replace, r, g, b, rv=0.8, gv=0.636, bv=0.315)
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.use_nodes = True
     mat.diffuse_color = (rv, gv, bv)
@@ -822,11 +780,6 @@ def create_fabric_material(matname, replace, r, g, b, rv=0.8, gv=0.636, bv=0.315
             if m.name == matname:
                 return m
     # Create material
-    scn = bpy.context.scene
-    # Set cycles render engine if not selected
-    if not scn.render.engine == 'CYCLES':
-        scn.render.engine = 'CYCLES'
-
     mat = bpy.data.materials.new(matname)
     mat.use_nodes = True
     mat.diffuse_color = (rv, gv, bv)
@@ -855,11 +808,11 @@ def create_fabric_material(matname, replace, r, g, b, rv=0.8, gv=0.636, bv=0.315
     node.scale[2] = 1000
 
     # ===========================================================================
-    # Image texture 
+    # Image texture
     # ===========================================================================
     # Load image file.
 
-    realpath = os.path.join(os.path.dirname(__file__), "images", "fabric_diffuse.png")
+    realpath = path.join(path.dirname(__file__), "images", "fabric_diffuse.png")
     print("Loading: " + realpath)
     try:
         img = bpy.data.images.load(realpath)
@@ -923,7 +876,7 @@ def copy_binfile(fromfile, tofile):
                 if mybytes:
                     f2.write(mybytes)
                 else:
-                    break    
+                    break
 
 
 # --------------------------------------------------------------------
@@ -1043,4 +996,3 @@ def check_mesh_errors(myvertices, myfaces):
         f += 1
 
     return myfaces
-

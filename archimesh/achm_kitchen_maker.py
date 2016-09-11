@@ -1,38 +1,38 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
-# File: achm_kitchen_maker.py
 # Automatic generation of kitchen cabinet
 # Author: Antonio Vazquez (antonioya)
 #
 # ----------------------------------------------------------
 import bpy
-import math
-import copy
-import sys
-import datetime
-import time
-from achm_tools import *
+from math import pi, fabs
+from copy import copy
+from sys import exc_info
+from datetime import datetime
+from time import time
+from bpy.types import Operator, PropertyGroup
+from bpy.props import StringProperty, EnumProperty, FloatProperty, IntProperty, BoolProperty, CollectionProperty
 from bpy_extras.io_utils import ExportHelper
+from .achm_tools import *
 
 # ----------------------------------------------------------
 #  Define rotation types
@@ -46,20 +46,24 @@ RotationType_R180 = 3
 # ----------------------------------------------------------
 #    Export menu UI
 # ----------------------------------------------------------
-class AchmExportInventory(bpy.types.Operator, ExportHelper):
+class AchmExportInventory(Operator, ExportHelper):
     bl_idname = "io_export.kitchen_inventory"
     bl_description = 'Export kitchen inventory (.txt)'
     bl_category = 'Archimesh'
     bl_label = "Export"
- 
+
     # From ExportHelper. Filter filenames.
     filename_ext = ".txt"
-    filter_glob = bpy.props.StringProperty(default="*.txt", options={'HIDDEN'})
- 
-    filepath = bpy.props.StringProperty(
-        name="File Path", 
-        description="File path used for exporting room data file", 
-        maxlen=1024, default="")
+    filter_glob = StringProperty(
+            default="*.txt",
+            options={'HIDDEN'},
+            )
+
+    filepath = StringProperty(
+            name="File Path",
+            description="File path used for exporting room data file",
+            maxlen=1024, default="",
+            )
 
 # ----------------------------------------------------------
 # Execute
@@ -69,7 +73,7 @@ class AchmExportInventory(bpy.types.Operator, ExportHelper):
         # noinspection PyBroadException
         try:
             # -------------------------------
-            # extract path and filename 
+            # extract path and filename
             # -------------------------------
             (filepath, filename) = os.path.split(self.properties.filepath)
             print('Exporting %s' % filename)
@@ -78,18 +82,18 @@ class AchmExportInventory(bpy.types.Operator, ExportHelper):
             # -------------------------------
             realpath = os.path.realpath(os.path.expanduser(self.properties.filepath))
             fout = open(realpath, 'w')
-                
-            st = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
+
+            st = datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S')
             fout.write("# Archimesh kitchen inventory\n")
             fout.write("# " + st + "\n")
             mylist = getinventory()
             for e in mylist:
                 fout.write(e + "\n")
-    
+
             fout.close()
             self.report({'INFO'}, realpath + "successfully exported")
         except:
-            e = sys.exc_info()[0]
+            e = exc_info()[0]
             self.report({'ERROR'}, "Unable to export inventory " + e)
 
         return {'FINISHED'}
@@ -105,7 +109,7 @@ def getinventory():
         # noinspection PyBroadException
         try:
             if obj["archimesh.sku"] is not None:
-                    unitobj.extend([obj["archimesh.sku"]])
+                unitobj.extend([obj["archimesh.sku"]])
         except:
             pass
     # ----------------------------------------
@@ -136,8 +140,8 @@ def getinventory():
             sz = float(u[22:28])
             gap = 0.001
             dist = sz - (gap * int(u[2:4]))
-            space = dist / int(u[2:4]) 
-            key = u[1:2] + u[8:15] + "%06.3f" % space 
+            space = dist / int(u[2:4])
+            key = u[1:2] + u[8:15] + "%06.3f" % space
 
         n = int(u[2:4])
         # handles
@@ -156,19 +160,19 @@ def getinventory():
     shelvestot = []
     for u in unitobj:
         if int(u[5:7]) > 0:
-            w = float(u[8:14]) 
+            w = float(u[8:14])
             n = int(u[5:7])
             th = float(u[29:35])
 
             key = "%0.2f x %0.2f x %0.3f" % (w - (th * 2), float(u[15:21]) - th, th)  # subtract board thickness
-            
+
             if key not in shelves:
                 shelves.extend([key])
                 shelvestot.extend([n])
             else:
                 x = shelves.index(key)
                 shelvestot[x] += n
-                 
+
     # ----------------------------------------
     # Get Countertop size
     # "T%06.3fx%06.3fx%06.3f-%06.3f"
@@ -184,7 +188,7 @@ def getinventory():
                 z += float(u[22:28])
         except:
             pass
-             
+
     # ----------------------------------------
     # Get Baseboard size
     # ----------------------------------------
@@ -199,7 +203,7 @@ def getinventory():
                 btxt = "%0.3f x %0.3f" % (float(u[8:14]), float(u[15:21]))
         except:
             pass
-             
+
     # ----------------------------------------
     # Prepare output data
     # ----------------------------------------
@@ -245,57 +249,105 @@ def getinventory():
 # Define property group class for cabinet properties
 # This is managed as an array of objects
 # ------------------------------------------------------------------
-class CabinetProperties(bpy.types.PropertyGroup):
-    # Cabinet width    
-    sX = bpy.props.FloatProperty(name='width', min=0.001, max=10, default=0.60, precision=3,
-                                 description='Cabinet width')
-    wY = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Modify depth size')
-    wZ = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Modify height size')
+class CabinetProperties(PropertyGroup):
+    # Cabinet width
+    sX = FloatProperty(
+            name='width', min=0.001, max=10, default=0.60, precision=3,
+            description='Cabinet width',
+            )
+    wY = FloatProperty(
+            name='', min=-10, max=10, default=0, precision=3,
+            description='Modify depth size',
+            )
+    wZ = FloatProperty(
+            name='', min=-10, max=10, default=0, precision=3,
+            description='Modify height size',
+            )
 
-    # Cabinet position shift   
-    pX = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Position x shift')
-    pY = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Position y shift')
-    pZ = bpy.props.FloatProperty(name='', min=-10, max=10, default=0, precision=3, description='Position z shift')
+    # Cabinet position shift
+    pX = FloatProperty(
+            name='', min=-10, max=10, default=0, precision=3,
+            description='Position x shift',
+            )
+    pY = FloatProperty(
+            name='', min=-10, max=10, default=0, precision=3,
+            description='Position y shift',
+            )
+    pZ = FloatProperty(
+            name='', min=-10, max=10, default=0, precision=3,
+            description='Position z shift',
+            )
 
     # Door type
-    dType = bpy.props.EnumProperty(items=(('1', "Single R", ""),
-                                          ('2', "Single L", ""),
-                                          ('3', "Single T", ""),
-                                          ('4', "Glass R", ""),
-                                          ('5', "Glass L", ""),
-                                          ('6', "Glass T", ""),
-                                          ('7', "Drawers", ""),
-                                          ('8', "Double", ""),
-                                          ('11', "Double Glass", ""),
-                                          ('10', "Corner R", ""),
-                                          ('9', "Corner L", ""),
-                                          ('99', "None", "")),
-                                   name="Door",
-                                   description="Type of front door or drawers")
+    dType = EnumProperty(
+            items=(
+                ('1', "Single R", ""),
+                ('2', "Single L", ""),
+                ('3', "Single T", ""),
+                ('4', "Glass R", ""),
+                ('5', "Glass L", ""),
+                ('6', "Glass T", ""),
+                ('7', "Drawers", ""),
+                ('8', "Double", ""),
+                ('11', "Double Glass", ""),
+                ('10', "Corner R", ""),
+                ('9', "Corner L", ""),
+                ('99', "None", "")),
+            name="Door",
+            description="Type of front door or drawers",
+            )
 
     # Shelves
-    sNum = bpy.props.IntProperty(name='Shelves', min=0, max=10, default=1, description='Number total of shelves')
+    sNum = IntProperty(
+            name='Shelves', min=0, max=10, default=1,
+            description='Number total of shelves',
+            )
     # Drawers
-    dNum = bpy.props.IntProperty(name='Num', min=1, max=10, default=3, description='Number total of drawers')
+    dNum = IntProperty(
+            name='Num', min=1, max=10, default=3,
+            description='Number total of drawers',
+            )
     # Glass Factor
-    gF = bpy.props.FloatProperty(name='', min=0.001, max=1, default=0.1, precision=3, description='Glass ratio')
+    gF = FloatProperty(
+            name='', min=0.001, max=1, default=0.1, precision=3,
+            description='Glass ratio',
+            )
     # Handle flag
-    hand = bpy.props.BoolProperty(name="Handle", description="Create a handle", default=True)
+    hand = BoolProperty(
+            name="Handle",
+            description="Create a handle", default=True,
+            )
     # Left baseboard
-    bL = bpy.props.BoolProperty(name="Left Baseboard", description="Create a left baseboard", default=False)
+    bL = BoolProperty(
+            name="Left Baseboard",
+            description="Create a left baseboard", default=False,
+            )
     # Right baseboard
-    bR = bpy.props.BoolProperty(name="Right Baseboard", description="Create a left baseboard", default=False)
+    bR = BoolProperty(
+            name="Right Baseboard",
+            description="Create a left baseboard", default=False,
+            )
     # Fill countertop spaces
-    tC = bpy.props.BoolProperty(name="Countertop fill", description="Fill empty spaces with countertop", default=True)
+    tC = BoolProperty(
+            name="Countertop fill",
+            description="Fill empty spaces with countertop", default=True,
+            )
     # Add countertop edge
-    tE = bpy.props.BoolProperty(name="Countertop edge", description="Add edge to countertop", default=True)
+    tE = BoolProperty(
+            name="Countertop edge",
+            description="Add edge to countertop", default=True,
+            )
     # cabinet rotation
-    rotate = bpy.props.EnumProperty(items=(('9', "Default", ""),
-                                           ('1', "90 CW", ""),
-                                           ('2', "90 CCW", ""),
-                                           ('3', "180", "")),
-                                    name="Rot",
-                                    description="Rotate cabinet relative to previous one")
+    rotate = EnumProperty(
+            items=(
+                ('9', "Default", ""),
+                ('1', "90 CW", ""),
+                ('2', "90 CCW", ""),
+                ('3', "180", ""),
+                ),
+            name="Rot",
+            description="Rotate cabinet relative to previous one",
+            )
 
 
 bpy.utils.register_class(CabinetProperties)
@@ -305,7 +357,7 @@ bpy.utils.register_class(CabinetProperties)
 # Define UI class
 # Kitchens
 # ------------------------------------------------------------------
-class AchmKitchen(bpy.types.Operator):
+class AchmKitchen(Operator):
     bl_idname = "mesh.archimesh_kitchen"
     bl_label = "Cabinets"
     bl_description = "Cabinet Generator"
@@ -313,60 +365,108 @@ class AchmKitchen(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     # Define properties
-    type_cabinet = bpy.props.EnumProperty(items=(('1', "Floor", ""),
-                                                 ('2', "Wall", "")),
-                                          name="Type",
-                                          description="Type of cabinets")
+    type_cabinet = EnumProperty(
+            items=(('1', "Floor", ""),
+                ('2', "Wall", "")),
+            name="Type",
+            description="Type of cabinets",
+            )
     oldtype = type_cabinet
 
-    thickness = bpy.props.FloatProperty(name='Thickness', min=0.001, max=5, default=0.018, precision=3,
-                                        description='Board thickness')
-    depth = bpy.props.FloatProperty(name='Depth', min=0.001, max=50, default=0.59, precision=3,
-                                    description='Default cabinet depth')
-    height = bpy.props.FloatProperty(name='Height', min=0.001, max=50, default=0.70, precision=3,
-                                     description='Default cabinet height')
-    handle = bpy.props.EnumProperty(items=(('1', "Model 1", ""),
-                                           ('2', "Model 2", ""),
-                                           ('3', "Model 3", ""),
-                                           ('4', "Model 4", ""),
-                                           ('5', "Model 5", ""),
-                                           ('6', "Model 6", ""),
-                                           ('7', "Model 7", ""),
-                                           ('8', "Model 8", ""),
-                                           ('9', "None", "")),
-                                    name="Handle",
-                                    description="Type of handle")
-    handle_x = bpy.props.FloatProperty(name='', min=0.001, max=10, default=0.05, precision=3,
-                                       description='Displacement in X relative position (limited to door size)')
-    handle_z = bpy.props.FloatProperty(name='', min=0.001, max=10, default=0.05, precision=3,
-                                       description='Displacement in Z relative position (limited to door size)')
+    thickness = FloatProperty(
+            name='Thickness', min=0.001, max=5, default=0.018, precision=3,
+            description='Board thickness',
+            )
+    depth = FloatProperty(
+            name='Depth', min=0.001, max=50, default=0.59, precision=3,
+            description='Default cabinet depth',
+            )
+    height = FloatProperty(
+            name='Height', min=0.001, max=50, default=0.70, precision=3,
+            description='Default cabinet height',
+            )
+    handle = EnumProperty(
+            items=(
+                ('1', "Model 1", ""),
+                ('2', "Model 2", ""),
+                ('3', "Model 3", ""),
+                ('4', "Model 4", ""),
+                ('5', "Model 5", ""),
+                ('6', "Model 6", ""),
+                ('7', "Model 7", ""),
+                ('8', "Model 8", ""),
+                ('9', "None", ""),
+                ),
+            name="Handle",
+            description="Type of handle",
+            )
+    handle_x = FloatProperty(
+            name='', min=0.001, max=10,
+            default=0.05, precision=3,
+            description='Displacement in X relative position (limited to door size)',
+            )
+    handle_z = FloatProperty(
+            name='', min=0.001, max=10,
+            default=0.05, precision=3,
+            description='Displacement in Z relative position (limited to door size)',
+            )
 
-    baseboard = bpy.props.BoolProperty(name="Baseboard", description="Create a baseboard automatically", default=True)
-    baseheight = bpy.props.FloatProperty(name='height', min=0.001, max=10, default=0.16, precision=3,
-                                         description='Baseboard height')
-    basefactor = bpy.props.FloatProperty(name='sink', min=0, max=1, default=0.90, precision=3,
-                                         description='Baseboard sink')
+    baseboard = BoolProperty(
+            name="Baseboard",
+            description="Create a baseboard automatically",
+            default=True,
+            )
+    baseheight = FloatProperty(
+            name='height', min=0.001, max=10,
+            default=0.16, precision=3,
+            description='Baseboard height',
+            )
+    basefactor = FloatProperty(
+            name='sink', min=0, max=1,
+            default=0.90, precision=3,
+            description='Baseboard sink',
+            )
 
-    countertop = bpy.props.BoolProperty(name="Countertop",
-                                        description="Create a countertop automatically (only default cabinet height)",
-                                        default=True)
-    counterheight = bpy.props.FloatProperty(name='height', min=0.001, max=10, default=0.02, precision=3,
-                                            description='Countertop height')
-    counterextend = bpy.props.FloatProperty(name='extend', min=0.001, max=10, default=0.03, precision=3,
-                                            description='Countertop extent')
+    countertop = BoolProperty(
+            name="Countertop",
+            description="Create a countertop automatically (only default cabinet height)",
+            default=True,
+            )
+    counterheight = FloatProperty(
+            name='height', min=0.001, max=10,
+            default=0.02, precision=3,
+            description='Countertop height',
+            )
+    counterextend = FloatProperty(
+            name='extend', min=0.001, max=10,
+            default=0.03, precision=3,
+            description='Countertop extent',
+            )
 
-    fitZ = bpy.props.BoolProperty(name="Floor origin in Z=0",
-                                  description="Use Z=0 axis as vertical origin floor position", default=True)
-    moveZ = bpy.props.FloatProperty(name='Z position', min=0.001, max=10, default=1.5, precision=3,
-                                    description='Wall cabinet Z position from floor')
+    fitZ = BoolProperty(
+            name="Floor origin in Z=0",
+            description="Use Z=0 axis as vertical origin floor position",
+            default=True,
+            )
+    moveZ = FloatProperty(
+            name='Z position', min=0.001, max=10,
+            default=1.5, precision=3,
+            description='Wall cabinet Z position from floor',
+            )
 
-    cabinet_num = bpy.props.IntProperty(name='Number of Cabinets', min=1, max=30, default=1,
-                                        description='Number total of cabinets in the Kitchen')
-    cabinets = bpy.props.CollectionProperty(type=CabinetProperties)
+    cabinet_num = IntProperty(
+            name='Number of Cabinets', min=1, max=30,
+            default=1,
+            description='Number total of cabinets in the Kitchen',
+            )
+    cabinets = CollectionProperty(type=CabinetProperties)
 
-    # Materials        
-    crt_mat = bpy.props.BoolProperty(name="Create default Cycles materials",
-                                     description="Create default materials for Cycles render.", default=True)
+    # Materials
+    crt_mat = BoolProperty(
+            name="Create default Cycles materials",
+            description="Create default materials for Cycles render",
+            default=True,
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -422,11 +522,13 @@ class AchmKitchen(bpy.types.Operator):
                     add_cabinet(self, box, idx + 1, self.cabinets[idx])
 
             box = layout.box()
+            if not context.scene.render.engine == 'CYCLES':
+                box.enabled = False
             box.prop(self, 'crt_mat')
         else:
             row = layout.row()
             row.label("Warning: Operator does not work in local view mode", icon='ERROR')
-        
+
     # -----------------------------------------------------
     # Execute
     # -----------------------------------------------------
@@ -510,7 +612,7 @@ def create_kitchen_mesh(self):
     bpy.ops.object.select_all(False)
     # Create cabinets
     generate_cabinets(self)
-          
+
     return
 
 
@@ -523,17 +625,17 @@ def generate_cabinets(self):
     boxes = []
     bases = []
     location = bpy.context.scene.cursor_location
-    myloc = copy.copy(location)  # copy location to keep 3D cursor position
+    myloc = copy(location)  # copy location to keep 3D cursor position
     # Fit to floor
     if self.fitZ:
         myloc[2] = 0
     # Move to wall position
     if self.type_cabinet == "2":  # wall
         myloc[2] = myloc[2] + self.moveZ
-    # Baseboard 
+    # Baseboard
     if self.type_cabinet == "1" and self.baseboard:  # floor
         myloc[2] = myloc[2] + self.baseheight  # add baseboard position for bottom
-    
+
     # Create cabinets
     lastx = myloc[0]
     lasty = myloc[1]
@@ -544,10 +646,10 @@ def generate_cabinets(self):
     # By default all cabinets are created in X axis and later are rotated if needed
     # the default rotation means keep last rotation, not 0, so if the previous
     # cabinet is 90CW, the next one will be the same. To back to 0, you must select
-    # 90 CCW. 
+    # 90 CCW.
     # ------------------------------------------------------------------------------
     for i in range(0, self.cabinet_num):
-        mydata = create_box(self.type_cabinet, "Cabinet" + str(i+1),
+        mydata = create_box(self.type_cabinet, "Cabinet" + str(i + 1),
                             self.thickness,
                             self.cabinets[i].sX, self.depth + self.cabinets[i].wY, self.height + self.cabinets[i].wZ,
                             self.cabinets[i].pX + lastx,
@@ -562,14 +664,14 @@ def generate_cabinets(self):
         # add SKU property
         sku = createunitsku(self, self.cabinets[i])
         mydata[0]["archimesh.sku"] = sku
-        
+
         # Save rotation type
         myrotationtype = int(self.cabinets[i].rotate)
-        
-        # --------------------------------------------------------- 
+
+        # ---------------------------------------------------------
         # Calculate new rotation angle
         #
-        # --------------------------------------------------------- 
+        # ---------------------------------------------------------
         myrot = lastrot
         # ----------
         # Default
@@ -580,21 +682,21 @@ def generate_cabinets(self):
         # 90 CW
         # ----------
         if myrotationtype == RotationType_R90CW:
-            myrot += -math.pi / 2
+            myrot += -pi / 2
         # ----------
         # 90 CCW
         # ----------
         if myrotationtype == RotationType_R90CCW:
-            myrot += math.pi / 2
+            myrot += pi / 2
         # ----------
         # 180
         # ----------
         if myrotationtype == RotationType_R180:
-            myrot = myrot + math.pi
-            
+            myrot = myrot + pi
+
         # Save the rotation for next cabinet
         lastrot = myrot
-        angle = myrot - ((2 * math.pi) * (myrot // (2 * math.pi)))  # clamp one revolution
+        angle = myrot - ((2 * pi) * (myrot // (2 * pi)))  # clamp one revolution
 
         # -------------------------------------------
         # Countertop (only default height cabinet)
@@ -605,13 +707,13 @@ def generate_cabinets(self):
             # fill (depend on orientation)
             if self.cabinets[i].tC:
                 # 0 or 180 degrees
-                if angle == 0 or angle == math.pi:
-                    w += math.fabs(self.cabinets[i].pX)
+                if angle == 0 or angle == pi:
+                    w += fabs(self.cabinets[i].pX)
                 # 90 or 270 degrees
-                if angle == (3 * math.pi) / 2 or angle == math.pi / 2:
-                    w += math.fabs(self.cabinets[i].pY)
-                
-            mycountertop = create_countertop("Countertop" + str(i+1),
+                if angle == (3 * pi) / 2 or angle == pi / 2:
+                    w += fabs(self.cabinets[i].pY)
+
+            mycountertop = create_countertop("Countertop" + str(i + 1),
                                              w,
                                              self.depth + self.cabinets[i].wY,
                                              self.counterheight, self.counterextend,
@@ -622,28 +724,28 @@ def generate_cabinets(self):
             # -------------------------------
             if self.cabinets[i].tC:
                 # Default
-                if angle == 0: 
+                if angle == 0:
                     if self.cabinets[i].pX >= 0:
                         mycountertop.location[0] = -self.cabinets[i].pX
                     else:
                         mycountertop.location[0] = 0
-                            
-                # 90CW    
-                if angle == (3 * math.pi) / 2: 
+
+                # 90CW
+                if angle == (3 * pi) / 2:
                     if self.cabinets[i].pY >= 0:
                         mycountertop.location[0] = 0
                     else:
                         mycountertop.location[0] = self.cabinets[i].pY
-                # 90CCW    
-                if angle == math.pi / 2: 
+                # 90CCW
+                if angle == pi / 2:
                     if self.cabinets[i].pY >= 0:
                         mycountertop.location[0] = self.cabinets[i].pY * -1
                     else:
                         mycountertop.location[0] = 0
-                # 180        
-                if angle == math.pi: 
+                # 180
+                if angle == pi:
                     mycountertop.location[0] = 0
-                
+
             mycountertop.location[2] = self.height
             mycountertop.parent = mydata[0]
             # --------------------
@@ -659,9 +761,9 @@ def generate_cabinets(self):
                                                                                       i].wY + self.counterextend,
                                                                                   self.counterheight,
                                                                                   w)
-        # ----------------  
+        # ----------------
         # Baseboard
-        # ----------------  
+        # ----------------
         if self.baseboard and self.type_cabinet == "1":
             gap = (self.depth + self.cabinets[i].wY) - ((self.depth + self.cabinets[i].wY) * self.basefactor)
             mybase = create_baseboard("Baseboard" + str(i + 1),
@@ -681,10 +783,10 @@ def generate_cabinets(self):
                 t = t + (self.depth + self.cabinets[i].wY) * self.basefactor
             if self.cabinets[i].bL is True:
                 t = t + (self.depth + self.cabinets[i].wY) * self.basefactor
-            
+
             mybase["archimesh.base_sku"] = "B%06.3fx%06.3fx%06.3f" % (t, self.thickness, self.baseheight)
 
-        # Rotate    
+        # Rotate
         mybox.rotation_euler = (0, 0, myrot)
 
         # -----------------------------------------
@@ -698,26 +800,26 @@ def generate_cabinets(self):
             lastx = lastx
             lasty = lasty
         # 90 degrees
-        if angle == math.pi / 2:
+        if angle == pi / 2:
             ym = -self.cabinets[i].sX
             lastx = lastx - self.cabinets[i].sX - self.cabinets[i].pX
             lasty = lasty + self.cabinets[i].sX + self.cabinets[i].pY
         # 180 degrees
-        if angle == math.pi:
+        if angle == pi:
             lastx -= 2 * (self.cabinets[i].sX + self.cabinets[i].pX)
         # 270 degrees
-        if angle == (3 * math.pi) / 2:
+        if angle == (3 * pi) / 2:
             xm = self.depth - self.counterextend
             lastx = lastx - self.cabinets[i].sX - self.cabinets[i].pX
             lasty = lasty - self.cabinets[i].sX - self.cabinets[i].pX + self.cabinets[i].pY
-            
+
         myl = mybox.location
         # noinspection PyUnresolvedReferences
         mybox.location = (myl.x + xm, myl.y + ym, myl.z)
-        
-        # --------------------------------------- 
+
+        # ---------------------------------------
         # Save box
-        # ---------------------------------------  
+        # ---------------------------------------
         boxes.extend([mybox])
 
     # refine cabinets
@@ -730,12 +832,12 @@ def generate_cabinets(self):
         remove_doubles(base)
         set_normals(base)
 
-    # Create materials        
-    if self.crt_mat:
+    # Create materials
+    if self.crt_mat and bpy.context.scene.render.engine == 'CYCLES':
         mat = create_diffuse_material("Cabinet_material", False, 0.8, 0.8, 0.8)
         for box in boxes:
             set_material(box, mat)
-            
+
     return
 
 
@@ -810,7 +912,7 @@ def create_box(type_cabinet, objname, thickness, sx, sy, sz, px, py, pz, doortyp
 
     mymesh.from_pydata(myvertex, [], myfaces)
     mymesh.update(calc_edges=True)
-    
+
     # ---------------------------------------
     # Drawers
     # ---------------------------------------
@@ -818,7 +920,7 @@ def create_box(type_cabinet, objname, thickness, sx, sy, sz, px, py, pz, doortyp
         # calculate separation
         gap = 0.001
         dist = sz - (gap * drawers)
-        space = dist / drawers 
+        space = dist / drawers
         posz1 = 0
 
         for x in range(drawers):
@@ -830,7 +932,7 @@ def create_box(type_cabinet, objname, thickness, sx, sy, sz, px, py, pz, doortyp
             remove_doubles(mydrawer)
             set_normals(mydrawer)
             posz1 = posz1 + space + gap  # gap
-        
+
     # ---------------------------------------
     # Doors
     # ---------------------------------------
@@ -850,8 +952,8 @@ def create_box(type_cabinet, objname, thickness, sx, sy, sz, px, py, pz, doortyp
                 if doortype != "11":
                     typ = "2"
                 else:
-                    typ = "5"    
-                
+                    typ = "5"
+
                 # Adjust corner doors
                 dwidth = sx / 2
                 if doortype == "10":
@@ -870,7 +972,7 @@ def create_box(type_cabinet, objname, thickness, sx, sy, sz, px, py, pz, doortyp
                 if doortype != "11":
                     typ = "1"
                 else:
-                    typ = "4"    
+                    typ = "4"
 
                 # Adjust corner doors
                 dwidth = sx / 2
@@ -885,7 +987,7 @@ def create_box(type_cabinet, objname, thickness, sx, sy, sz, px, py, pz, doortyp
                 mydoor2.parent = myobject
                 remove_doubles(mydoor2)
                 set_normals(mydoor2)
-    
+
     return myobject, px + sx
 
 
@@ -957,7 +1059,7 @@ def create_baseboard(objname, sx, sy, sz, mat, bl, br, depth, doortype, gap):
     if mat:
         mat = create_diffuse_material("Baseboard_material", False, 0.8, 0.8, 0.8)
         set_material(mybaseboard, mat)
-    
+
     return mybaseboard
 
 
@@ -997,27 +1099,27 @@ def create_countertop(objname, sx, sy, sz, over, mat, doortype, depth, edge):
     # Back
     ts = 0
     tx = sx
-    
+
     if doortype == "9":
         ts = oy
-        
+
     if doortype == "10":
         tx -= oy
-    # Add edge    
+    # Add edge
     if edge is True:
         myvertex.extend([(ts, 0, sz), (ts, -oy, sz), (ts, -oy, oz), (ts, 0, oz),
                          (tx, 0, sz), (tx, -oy, sz), (tx, -oy, oz), (tx, 0, oz)])
         myfaces.extend(
             [(8, 9, 10, 11), (12, 13, 14, 15), (8, 12, 15, 11), (8, 9, 13, 12), (11, 10, 14, 15), (9, 13, 14, 10)])
-    
+
     mymesh = bpy.data.meshes.new(objname)
     mycountertop = bpy.data.objects.new(objname, mymesh)
-    
+
     mycountertop.location[0] = 0
     mycountertop.location[1] = 0
     mycountertop.location[2] = 0
     bpy.context.scene.objects.link(mycountertop)
-    
+
     mymesh.from_pydata(myvertex, [], myfaces)
     mymesh.update(calc_edges=True)
 
@@ -1025,7 +1127,7 @@ def create_countertop(objname, sx, sy, sz, over, mat, doortype, depth, edge):
     if mat:
         mat = create_diffuse_material("countertop_material", False, 0, 0, 0, 0.2, 0.2, 0.2, 0.15)
         set_material(mycountertop, mat)
-    
+
     return mycountertop
 
 
@@ -1052,15 +1154,15 @@ def create_door(type_cabinet, objname, thickness, sx, sz, doortype, gf, mat, han
 
     myvertex = []
     myfaces = []
-    
+
     # Left open
     f = -1  # right
     if doortype == "2" or doortype == "5" or doortype == "10":
         f = 1
-    # add small gap in width  
-    sx = sx - gapx    
-    # add small gap in top zone  
-    sz -= 0.002    
+    # add small gap in width
+    sx = sx - gapx
+    # add small gap in top zone
+    sz -= 0.002
     # External Frame
     myvertex.extend([(0, 0, 0), (0, -thickness, 0), (0, -thickness, sz), (0, 0, sz), (sx * f, 0, 0),
                      (sx * f, -thickness, 0), (sx * f, -thickness, sz), (sx * f, 0, sz)])
@@ -1084,18 +1186,18 @@ def create_door(type_cabinet, objname, thickness, sx, sz, doortype, gf, mat, han
         myfaces.extend([(8, 9, 10, 11), (12, 13, 14, 15), (8, 11, 15, 12), (10, 11, 15, 14), (8, 12, 13, 9),
                         (1, 9, 10, 2), (5, 13, 14, 6), (6, 2, 10, 14), (5, 1, 9, 13),
                         (0, 3, 11, 8), (12, 15, 7, 4), (4, 0, 8, 12), (11, 3, 7, 15)])
-        
+
     mymesh = bpy.data.meshes.new(objname)
     mydoor = bpy.data.objects.new(objname, mymesh)
     if f == -1:
         mydoor.location[0] = sx
-    else:    
+    else:
         mydoor.location[0] = 0
-        
+
     mydoor.location[1] = 0
     mydoor.location[2] = 0
     bpy.context.scene.objects.link(mydoor)
-    
+
     mymesh.from_pydata(myvertex, [], myfaces)
     mymesh.update(calc_edges=True)
 
@@ -1116,7 +1218,7 @@ def create_door(type_cabinet, objname, thickness, sx, sz, doortype, gf, mat, han
         # -----------------
         # Floor units
         # -----------------
-        if type_cabinet == "1": 
+        if type_cabinet == "1":
             if doortype == "1" or doortype == "4" or doortype == "9":  # Right
                 hpos = "LT"
             if doortype == "2" or doortype == "5" or doortype == "10":  # Left
@@ -1126,7 +1228,7 @@ def create_door(type_cabinet, objname, thickness, sx, sz, doortype, gf, mat, han
         # -----------------
         # Wall units
         # -----------------
-        if type_cabinet == "2": 
+        if type_cabinet == "2":
             if doortype == "1" or doortype == "4" or doortype == "9":  # Right
                 hpos = "LB"
             if doortype == "2" or doortype == "5" or doortype == "10":  # Left
@@ -1135,7 +1237,7 @@ def create_door(type_cabinet, objname, thickness, sx, sz, doortype, gf, mat, han
                 hpos = "B"
 
         create_handle(handle_model, mydoor, thickness, hpos, mat, handle_x, handle_z)
-    
+
     if mat:
         # Door material
         mat = create_diffuse_material("Door_material", False, 0.8, 0.8, 0.8, 0.279, 0.337, 0.6, 0.2)
@@ -1146,11 +1248,11 @@ def create_door(type_cabinet, objname, thickness, sx, sz, doortype, gf, mat, han
             mydoor.data.materials.append(mat)
             select_faces(mydoor, 6, True)
             set_material_faces(mydoor, 1)
-            
+
     # Limit rotation axis
     if hpos != "T" and hpos != "TM" and hpos != "B":
         mydoor.lock_rotation = (True, True, False)
-            
+
     return mydoor
 
 
@@ -1227,18 +1329,18 @@ def create_drawer(objname, thickness, sx, sy, sz, mat, handle, handle_model, han
         set_material(mydrawer, mat)
 
     # Lock transformation
-    mydrawer.lock_location = (True, False, True)  # only Y axis    
+    mydrawer.lock_location = (True, False, True)  # only Y axis
 
     return mydrawer
 
 
 # ------------------------------------------------------------------------------
 # Create Handles
-# 
+#
 # model: handle model
 # myDoor: Door that has the handle
 # thickness: thickness of board
-# handle_position: position of the handle 
+# handle_position: position of the handle
 #    RT: Put handle in right side top
 #    LT: Put handle in left side top
 #    RB: Put handle in right side bottom
@@ -1282,7 +1384,7 @@ def create_handle(model, mydoor, thickness, handle_position, mat, handle_x, hand
     mymesh.from_pydata(myvertex, [], myfaces)
     mymesh.update(calc_edges=True)
 
-    # Position handle    
+    # Position handle
     myhandle.location.y = -thickness
     # Calculate dimensions
     if model == "1" or model == "4" or model == "5" or model == "6":
@@ -1332,13 +1434,13 @@ def create_handle(model, mydoor, thickness, handle_position, mat, handle_x, hand
     if handle_position != "T" and handle_position != "B" and handle_position != "TM":
         yrot = 0
         if model == "1":
-            yrot = math.pi / 2
+            yrot = pi / 2
 
         if model == "4":
             if handle_position == "LT" or handle_position == "LB":
-                yrot = -math.pi / 2
+                yrot = -pi / 2
             else:
-                yrot = math.pi / 2
+                yrot = pi / 2
 
         myhandle.rotation_euler = (0, yrot, 0.0)  # radians PI=180
 
@@ -1567,7 +1669,7 @@ def handle_model_02():
     maxy = 0
     minz = -0.018363870680332184
     maxz = 0.0015741242095828056
-    
+
     # Vertex
     myvertex = [(maxx, maxy, maxz - 9.313225746154785e-10),
                 (maxx, maxy, maxz - 0.0031482474878430367),
@@ -1605,7 +1707,7 @@ def handle_model_02():
                 (minx, -0.021415365859866142, minz + 0.002603583037853241),
                 (maxx - 0.0907932324437013, -0.02141536772251129, minz),
                 (minx, -0.02141536772251129, minz)]
-    
+
     # Faces
     myfaces = [(2, 5, 7, 6), (13, 3, 0, 21), (3, 2, 1, 0), (7, 27, 31, 9), (23, 21, 0, 1),
                (5, 22, 27, 7), (4, 5, 2, 3), (2, 12, 23, 1), (20, 4, 3, 13), (5, 4, 20, 22),
@@ -1615,7 +1717,7 @@ def handle_model_02():
                (20, 13, 17, 18), (19, 22, 20, 18), (22, 27, 24, 12), (12, 24, 25, 16), (30, 29, 28, 31),
                (25, 29, 30, 26), (27, 31, 28, 24), (28, 34, 32, 24), (32, 34, 35, 33), (25, 33, 35, 29),
                (29, 35, 34, 28), (24, 32, 33, 25)]
-        
+
     return myvertex, myfaces
 
 
@@ -1631,7 +1733,7 @@ def handle_model_05():
     maxy = 6.581399869531879e-10
     minz = -0.012873317115008831
     maxz = 0.012873315252363682
-    
+
     # Vertex
     myvertex = [(maxx - 0.01287331552838386, maxy, maxz - 0.008879524189978838),
                 (maxx - 0.01287331552838386, -0.004451401997357607, maxz - 0.008879524189978838),
@@ -1825,7 +1927,7 @@ def handle_model_05():
                 (minx + 0.010766008868813515, -0.012252329848706722, maxz - 0.011465252609923482),
                 (minx + 0.011903432314284146, -0.012252329848706722, maxz - 0.01053179637528956),
                 (minx + 0.01237887580646202, -0.012252329848706722, maxz - 0.010387573391199112)]
-    
+
     # Faces
     myfaces = [(0, 1, 3, 2), (2, 3, 5, 4), (4, 5, 7, 6), (6, 7, 9, 8), (8, 9, 11, 10),
                (10, 11, 13, 12), (12, 13, 15, 14), (14, 15, 17, 16), (16, 17, 19, 18), (18, 19, 21, 20),
@@ -1873,7 +1975,7 @@ def handle_model_05():
                (137, 136, 178, 179),
                (175, 191, 190, 174, 173, 189, 172, 188, 171, 187, 170, 169, 186, 168, 185, 167, 184, 183, 166, 182, 165,
                 181, 180, 179, 178, 177, 164, 163, 162, 161, 176, 160)]
-            
+
     return myvertex, myfaces
 
 
@@ -1889,7 +1991,7 @@ def handle_model_06():
     maxy = 6.581399869531879e-10
     minz = -0.021158462390303612
     maxz = 0.021158454939723015
-    
+
     # Vertex
     myvertex = [(maxx - 0.021158457078388343, maxy, maxz - 0.01716466387733817),
                 (maxx - 0.021158457078388343, -0.004451401997357607, maxz - 0.01716466387733817),
@@ -2131,7 +2233,7 @@ def handle_model_06():
                (137, 136, 178, 179),
                (175, 191, 190, 174, 173, 189, 172, 188, 171, 187, 170, 169, 186, 168, 185, 167, 184, 183, 166, 182, 165,
                 181, 180, 179, 178, 177, 164, 163, 162, 161, 176, 160)]
-                
+
     return myvertex, myfaces
 
 

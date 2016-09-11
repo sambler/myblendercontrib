@@ -200,13 +200,18 @@ class SOUND_MT_Music_Notes(Menu):
 class SPEAKER_MT_Presets(Menu):
     bl_idname = "speaker.preset_menu"
     bl_label = "Choose a preset"
+    preset_operator = "script.execute_preset"
+    preset_subdir = "sound_drivers.bake_settings"
+    draw = bpy.types.Menu.draw_preset
 
+    '''
     def draw(self, context):
         def icon(type):
             if type == 'SFX':
                 return 'SOUND'
             else:
                 return 'SPEAKER'
+
         sound = getattr(context.object.data, 'sound', None)
         count = 0
         layout = self.layout
@@ -227,20 +232,14 @@ class SPEAKER_MT_Presets(Menu):
                 layout.operator('speaker.visualise', text=pres).preset = pres
         if count == 0:
             layout.label("None")
+    '''
 
 
 class AddPresetSoundToolOperator(AddPresetBase, Operator):
     '''Add an Application Interaction Preset'''
     bl_idname = "wm.soundtool_operator_preset_add"
     bl_label = "Operator Preset"
-    preset_menu = "WM_MT_operator_presets"
-
-    operator = bpy.props.StringProperty(
-            name="Operator",
-            maxlen=64,
-            options={'HIDDEN'},
-            default="SPEAKER_OT_visualise"
-            )
+    preset_menu = "speaker.preset_menu"
 
     name = bpy.props.StringProperty(
         name="Name",
@@ -250,39 +249,32 @@ class AddPresetSoundToolOperator(AddPresetBase, Operator):
         )
 
     preset_defines = [
-        "op = bpy.types.Scene.soundtool_op",
+        "scene = bpy.context.scene",
+        "speaker = bpy.context.speaker",
+        "sound = speaker.sound",
+        "bakeoptions = sound.bakeoptions",
+        "bake_op = bakeoptions.bake_operator",
     ]
 
-    @property
-    def preset_subdir(self):
-        import os
-        op = bpy.types.Scene.soundtool_op
-        type = op.type
-        return os.path.join('operator', 'speaker.visualise', type)
+    preset_subdir = "sound_drivers.bake_settings"
 
-    @property
-    def preset_values(self):
-        properties_blacklist = Operator.bl_rna.properties.keys()
-
-        prefix, suffix = self.operator.split("_OT_", 1)
-        op = getattr(getattr(bpy.ops, prefix.lower()), suffix)
-        operator_rna = op.get_rna().bl_rna
-        del op
-
-        ret = []
-        for prop_id, prop in operator_rna.properties.items():
-            if not (prop.is_hidden or prop.is_skip_save):
-                if prop_id not in properties_blacklist:
-                    ret.append("op.%s" % prop_id)
-
-        return ret
-
-    @staticmethod
-    def operator_path(operator):
-        import os
-        op = bpy.types.Scene.soundtool_op
-        type = op.type
-        return os.path.join('operator', 'speaker.visualise', type)
+    preset_values = [
+            "bakeoptions.sound_type",
+            "bakeoptions.channels",
+            "bakeoptions.minf",
+            "bakeoptions.maxf",
+            "bakeoptions.use_log",
+            "bakeoptions.auto_adjust",
+            "bakeoptions.music_start_note",
+            "bakeoptions.music_end_note",
+            "bake_op.threshold",
+            "bake_op.release",
+            "bake_op.attack",
+            "bake_op.use_additive",
+            "bake_op.use_accumulate",
+            "bake_op.use_square",
+            "bake_op.sthreshold",
+            ]
 
 
 def note_items():

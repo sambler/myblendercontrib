@@ -131,6 +131,7 @@ def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
     remove_disabled = ('REMOVE_DISABLED' in options)
     delete_operands = ('DELETE_OPERANDS' in options)
     apply_shape_keys = ('APPLY_SHAPE_KEYS' in options)
+    visible_only = ('VISIBLE_ONLY' in options)
     
     objects_to_delete = set()
     
@@ -159,14 +160,18 @@ def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
             
             successfully_applied = False
             is_disabled = False
-            try:
-                bpy.ops.object.modifier_apply(modifier=md.name, apply_as=apply_as) # not type or idname!
-                successfully_applied = True
-            except RuntimeError as exc:
-                #print(repr(exc))
-                exc_msg = exc.args[0].lower()
-                # "Error: Modifier is disabled, skipping apply"
-                is_disabled = ("disab" in exc_msg) or ("skip" in exc_msg)
+            
+            if visible_only and not md.show_viewport:
+                is_disabled = True
+            else:
+                try:
+                    bpy.ops.object.modifier_apply(modifier=md.name, apply_as=apply_as) # not type or idname!
+                    successfully_applied = True
+                except RuntimeError as exc:
+                    #print(repr(exc))
+                    exc_msg = exc.args[0].lower()
+                    # "Error: Modifier is disabled, skipping apply"
+                    is_disabled = ("disab" in exc_msg) or ("skip" in exc_msg)
             
             if is_disabled and remove_disabled:
                 obj.modifiers.remove(md)
@@ -249,7 +254,7 @@ class Operator_batch_repeat_actions:
         bpy.ops.ed.undo_push(message="Batch Repeat")
         
         for obj in IndividuallyActiveSelected(selected_objs):
-            for i in range(len(self.operations)-1, 0, -1):
+            for i in range(len(self.operations)-1, -1, -1):
                 item = self.operations[i]
                 if not item.value: continue
                 code = compiled[i]

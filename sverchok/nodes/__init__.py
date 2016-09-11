@@ -19,6 +19,7 @@ nodes_dict = {
         'bmesh_props',
         'closest_point_on_mesh',
         'colors',
+        'colors2',
         # 'bvh_raycast',
         # 'bvh_overlap',
         # 'bvh_nearest'
@@ -46,7 +47,8 @@ nodes_dict = {
         'obj_remote',
         'dupli_instances',
         'instancer',  # this is the mesh instancer (can I rename it? 'mesh_instances')
-        'group',
+        'group', # old group
+        'monad',
         'cache',
         'getsetprop',
         'node_remote',
@@ -92,7 +94,8 @@ nodes_dict = {
         'basic_spline',
         'basic_3pt_arc',
         'profile',
-        'generative_art'
+        'generative_art',
+        'script3',
     ],
 
     'list_basic': [
@@ -154,6 +157,7 @@ nodes_dict = {
         'bevel',
         'objects_along_edge',
         'randomize',
+        'limited_dissolve',
         'extrude_separate',
         'extrude_edges',
         'iterate',

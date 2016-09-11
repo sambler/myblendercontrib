@@ -1,23 +1,22 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ***** END GPL LICENCE BLOCK *****
+# ##### END GPL LICENSE BLOCK #####
 
-# PEP8 compliant (https://www.python.org/dev/peps/pep-0008)
+# <pep8 compliant>
 
 # ----------------------------------------------------------
 # File: measureit_main.py
@@ -27,15 +26,16 @@
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
-# noinspection PyUnresolvedReferences
-import bmesh
+from bmesh import from_edit_mesh
 # noinspection PyUnresolvedReferences
 import bgl
-# noinspection PyUnresolvedReferences
+from bpy.types import PropertyGroup, Panel, Object, Operator, SpaceView3D
+from bpy.props import IntProperty, CollectionProperty, FloatVectorProperty, BoolProperty, StringProperty, FloatProperty, \
+    EnumProperty
 from bpy.app.handlers import persistent
 # noinspection PyUnresolvedReferences
-from measureit_geometry import *
-from measureit_render import *
+from .measureit_geometry import *
+from .measureit_render import *
 
 
 # ------------------------------------------------------
@@ -85,8 +85,8 @@ bpy.app.handlers.save_pre.append(save_handler)
 # ------------------------------------------------------------------
 # Define property group class for measureit faces index
 # ------------------------------------------------------------------
-class MeasureitIndex(bpy.types.PropertyGroup):
-    glidx = bpy.props.IntProperty(name="index",
+class MeasureitIndex(PropertyGroup):
+    glidx = IntProperty(name="index",
                                   description="vertex index")
 
 # Register
@@ -96,11 +96,11 @@ bpy.utils.register_class(MeasureitIndex)
 # ------------------------------------------------------------------
 # Define property group class for measureit faces
 # ------------------------------------------------------------------
-class MeasureitFaces(bpy.types.PropertyGroup):
-    glface = bpy.props.IntProperty(name="glface",
+class MeasureitFaces(PropertyGroup):
+    glface = IntProperty(name="glface",
                                    description="Face number")
     # Array of index
-    measureit_index = bpy.props.CollectionProperty(type=MeasureitIndex)
+    measureit_index = CollectionProperty(type=MeasureitIndex)
 
 # Register
 bpy.utils.register_class(MeasureitFaces)
@@ -109,80 +109,80 @@ bpy.utils.register_class(MeasureitFaces)
 # ------------------------------------------------------------------
 # Define property group class for measureit data
 # ------------------------------------------------------------------
-class MeasureitProperties(bpy.types.PropertyGroup):
-    gltype = bpy.props.IntProperty(name="gltype",
+class MeasureitProperties(PropertyGroup):
+    gltype = IntProperty(name="gltype",
                                    description="Measure type (1-Segment, 2-Label, etc..)", default=1)
-    glpointa = bpy.props.IntProperty(name="glpointa",
+    glpointa = IntProperty(name="glpointa",
                                      description="Hidden property for opengl")
-    glpointb = bpy.props.IntProperty(name="glpointb",
+    glpointb = IntProperty(name="glpointb",
                                      description="Hidden property for opengl")
-    glpointc = bpy.props.IntProperty(name="glpointc",
+    glpointc = IntProperty(name="glpointc",
                                      description="Hidden property for opengl")
-    glcolor = bpy.props.FloatVectorProperty(name="glcolor",
+    glcolor = FloatVectorProperty(name="glcolor",
                                             description="Color for the measure",
                                             default=(0.173, 0.545, 1.0, 1.0),
                                             min=0.1,
                                             max=1,
                                             subtype='COLOR',
                                             size=4)
-    glview = bpy.props.BoolProperty(name="glview",
+    glview = BoolProperty(name="glview",
                                     description="Measure visible/hide",
                                     default=True)
-    glspace = bpy.props.FloatProperty(name='glspace', min=-100, max=100, default=0.1,
+    glspace = FloatProperty(name='glspace', min=-100, max=100, default=0.1,
                                       precision=3,
                                       description='Distance to display measure')
-    glwidth = bpy.props.IntProperty(name='glwidth', min=1, max=10, default=1,
+    glwidth = IntProperty(name='glwidth', min=1, max=10, default=1,
                                     description='line width')
-    glfree = bpy.props.BoolProperty(name="glfree",
+    glfree = BoolProperty(name="glfree",
                                     description="This measure is free and can be deleted",
                                     default=False)
-    gltxt = bpy.props.StringProperty(name="gltxt", maxlen=256,
+    gltxt = StringProperty(name="gltxt", maxlen=256,
                                      description="Short description (use | for line break)")
-    gladvance = bpy.props.BoolProperty(name="gladvance",
+    gladvance = BoolProperty(name="gladvance",
                                        description="Advanced options as line width or position",
                                        default=False)
-    gldefault = bpy.props.BoolProperty(name="gldefault",
+    gldefault = BoolProperty(name="gldefault",
                                        description="Display measure in position calculated by default",
                                        default=True)
-    glnormalx = bpy.props.FloatProperty(name="glnormalx",
+    glnormalx = FloatProperty(name="glnormalx",
                                         description="Change orientation in X axis",
                                         default=1, min=-1, max=1, precision=2)
-    glnormaly = bpy.props.FloatProperty(name="glnormaly",
+    glnormaly = FloatProperty(name="glnormaly",
                                         description="Change orientation in Y axis",
                                         default=0, min=-1, max=1, precision=2)
-    glnormalz = bpy.props.FloatProperty(name="glnormalz",
+    glnormalz = FloatProperty(name="glnormalz",
                                         description="Change orientation in Z axis",
                                         default=0, min=-1, max=1, precision=2)
-    glfont_size = bpy.props.IntProperty(name="Text Size",
+    glfont_size = IntProperty(name="Text Size",
                                         description="Text size",
                                         default=14, min=6, max=150)
-    gllink = bpy.props.StringProperty(name="gllink",
+    gllink = StringProperty(name="gllink",
                                       description="linked object for linked measures")
-    glocwarning = bpy.props.BoolProperty(name="glocwarning",
+    glocwarning = BoolProperty(name="glocwarning",
                                          description="Display a warning if some axis is not used in distance",
                                          default=True)
-    glocx = bpy.props.BoolProperty(name="glocx",
+    glocx = BoolProperty(name="glocx",
                                    description="Include changes in X axis for calculating the distance",
                                    default=True)
-    glocy = bpy.props.BoolProperty(name="glocy",
+    glocy = BoolProperty(name="glocy",
                                    description="Include changes in Y axis for calculating the distance",
                                    default=True)
-    glocz = bpy.props.BoolProperty(name="glocz",
+    glocz = BoolProperty(name="glocz",
                                    description="Include changes in Z axis for calculating the distance",
                                    default=True)
-    glfontx = bpy.props.IntProperty(name="glfontx",
+    glfontx = IntProperty(name="glfontx",
                                     description="Change font position in X axis",
                                     default=0, min=-3000, max=3000)
-    glfonty = bpy.props.IntProperty(name="glfonty",
+    glfonty = IntProperty(name="glfonty",
                                     description="Change font position in Y axis",
                                     default=0, min=-3000, max=3000)
-    gldist = bpy.props.BoolProperty(name="gldist",
+    gldist = BoolProperty(name="gldist",
                                     description="Display distance for this measure",
                                     default=True)
-    glnames = bpy.props.BoolProperty(name="glnames",
+    glnames = BoolProperty(name="glnames",
                                      description="Display text for this measure",
                                      default=True)
-    gltot = bpy.props.EnumProperty(items=(('99', "-", "Select a group for sum"),
+    gltot = EnumProperty(items=(('99', "-", "Select a group for sum"),
                                           ('0', "A", ""),
                                           ('1', "B", ""),
                                           ('2', "C", ""),
@@ -211,74 +211,74 @@ class MeasureitProperties(bpy.types.PropertyGroup):
                                           ('25', "Z", "")),
                                    name="Sum in Group",
                                    description="Add segment length in selected group")
-    glorto = bpy.props.EnumProperty(items=(('99', "None", ""),
+    glorto = EnumProperty(items=(('99', "None", ""),
                                            ('0', "A", "Point A must use selected point B location"),
                                            ('1', "B", "Point B must use selected point A location")),
                                     name="Orthogonal",
                                     description="Display point selected as orthogonal (select axis to copy)")
-    glorto_x = bpy.props.BoolProperty(name="ox",
+    glorto_x = BoolProperty(name="ox",
                                       description="Copy X location",
                                       default=False)
-    glorto_y = bpy.props.BoolProperty(name="oy",
+    glorto_y = BoolProperty(name="oy",
                                       description="Copy Y location",
                                       default=False)
-    glorto_z = bpy.props.BoolProperty(name="oz",
+    glorto_z = BoolProperty(name="oz",
                                       description="Copy Z location",
                                       default=False)
-    glarrow_a = bpy.props.EnumProperty(items=(('99', "--", "No arrow"),
+    glarrow_a = EnumProperty(items=(('99', "--", "No arrow"),
                                               ('1', "Line", "The point of the arrow are lines"),
                                               ('2', "Triangle", "The point of the arrow is triangle"),
                                               ('3', "TShape", "The point of the arrow is a T")),
                                        name="A end",
                                        description="Add arrows to point A")
-    glarrow_b = bpy.props.EnumProperty(items=(('99', "--", "No arrow"),
+    glarrow_b = EnumProperty(items=(('99', "--", "No arrow"),
                                               ('1', "Line", "The point of the arrow are lines"),
                                               ('2', "Triangle", "The point of the arrow is triangle"),
                                               ('3', "TShape", "The point of the arrow is a T")),
                                        name="B end",
                                        description="Add arrows to point B")
-    glarrow_s = bpy.props.IntProperty(name="Size",
+    glarrow_s = IntProperty(name="Size",
                                       description="Arrow size",
                                       default=15, min=6, max=500)
 
-    glarc_full = bpy.props.BoolProperty(name="arcfull",
+    glarc_full = BoolProperty(name="arcfull",
                                         description="Create full circunference",
                                         default=False)
-    glarc_extrad = bpy.props.BoolProperty(name="arcextrad",
+    glarc_extrad = BoolProperty(name="arcextrad",
                                           description="Adapt radio lengh to arc line",
                                           default=True)
-    glarc_rad = bpy.props.BoolProperty(name="arc rad",
+    glarc_rad = BoolProperty(name="arc rad",
                                        description="Show arc radius",
                                        default=True)
-    glarc_len = bpy.props.BoolProperty(name="arc len",
+    glarc_len = BoolProperty(name="arc len",
                                        description="Show arc length",
                                        default=True)
-    glarc_ang = bpy.props.BoolProperty(name="arc ang",
+    glarc_ang = BoolProperty(name="arc ang",
                                        description="Show arc angle",
                                        default=True)
 
-    glarc_a = bpy.props.EnumProperty(items=(('99', "--", "No arrow"),
+    glarc_a = EnumProperty(items=(('99', "--", "No arrow"),
                                             ('1', "Line", "The point of the arrow are lines"),
                                             ('2', "Triangle", "The point of the arrow is triangle"),
                                             ('3', "TShape", "The point of the arrow is a T")),
                                      name="Ar end",
                                      description="Add arrows to point A")
-    glarc_b = bpy.props.EnumProperty(items=(('99', "--", "No arrow"),
+    glarc_b = EnumProperty(items=(('99', "--", "No arrow"),
                                             ('1', "Line", "The point of the arrow are lines"),
                                             ('2', "Triangle", "The point of the arrow is triangle"),
                                             ('3', "TShape", "The point of the arrow is a T")),
                                      name="Br end",
                                      description="Add arrows to point B")
-    glarc_s = bpy.props.IntProperty(name="Size",
+    glarc_s = IntProperty(name="Size",
                                     description="Arrow size",
                                     default=15, min=6, max=500)
-    glarc_txradio = bpy.props.StringProperty(name="txradio",
+    glarc_txradio = StringProperty(name="txradio",
                                              description="Text for radius", default="r=")
-    glarc_txlen = bpy.props.StringProperty(name="txlen",
+    glarc_txlen = StringProperty(name="txlen",
                                            description="Text for length", default="L=")
-    glarc_txang = bpy.props.StringProperty(name="txang",
+    glarc_txang = StringProperty(name="txang",
                                            description="Text for angle", default="A=")
-    glcolorarea = bpy.props.FloatVectorProperty(name="glcolorarea",
+    glcolorarea = FloatVectorProperty(name="glcolorarea",
                                                 description="Color for the measure of area",
                                                 default=(0.1, 0.1, 0.1, 1.0),
                                                 min=0.1,
@@ -287,7 +287,7 @@ class MeasureitProperties(bpy.types.PropertyGroup):
                                                 size=4)
 
     # Array of faces
-    measureit_faces = bpy.props.CollectionProperty(type=MeasureitFaces)
+    measureit_faces = CollectionProperty(type=MeasureitFaces)
 
 # Register
 bpy.utils.register_class(MeasureitProperties)
@@ -297,22 +297,22 @@ bpy.utils.register_class(MeasureitProperties)
 # Define object class (container of segments)
 # Measureit
 # ------------------------------------------------------------------
-class MeasureContainer(bpy.types.PropertyGroup):
-    measureit_num = bpy.props.IntProperty(name='Number of measures', min=0, max=1000, default=0,
+class MeasureContainer(PropertyGroup):
+    measureit_num = IntProperty(name='Number of measures', min=0, max=1000, default=0,
                                           description='Number total of measureit elements')
     # Array of segments
-    measureit_segments = bpy.props.CollectionProperty(type=MeasureitProperties)
+    measureit_segments = CollectionProperty(type=MeasureitProperties)
 
 
 bpy.utils.register_class(MeasureContainer)
-bpy.types.Object.MeasureGenerator = bpy.props.CollectionProperty(type=MeasureContainer)
+Object.MeasureGenerator = CollectionProperty(type=MeasureContainer)
 
 
 # ------------------------------------------------------------------
 # Define UI class
 # Measureit
 # ------------------------------------------------------------------
-class MeasureitEditPanel(bpy.types.Panel):
+class MeasureitEditPanel(Panel):
     bl_idname = "measureit.editpanel"
     bl_label = "Measureit"
     bl_space_type = 'VIEW_3D'
@@ -404,7 +404,7 @@ class MeasureitEditPanel(bpy.types.Panel):
                     for idx in range(0, mp.measureit_num):
                         ms = mp.measureit_segments[idx]
                         if (ms.gltype == 1 or ms.gltype == 12
-                           or ms.gltype == 13 or ms.gltype == 14) and ms.gltot != '99' \
+                            or ms.gltype == 13 or ms.gltype == 14) and ms.gltot != '99' \
                                 and ms.glfree is False:  # only segments
                             if ms.glpointa <= len(obverts) and ms.glpointb <= len(obverts):
                                 p1 = get_point(obverts[ms.glpointa].co, myobj)
@@ -532,11 +532,11 @@ def add_item(box, idx, segment):
                 row.prop(segment, 'glocwarning', text="Warning")
                 # ortogonal (only segments)
                 if segment.gltype == 1:
-                        if segment.glorto != "99":
-                            row = box.row(True)
-                            row.prop(segment, 'glorto_x', text="X", toggle=True)
-                            row.prop(segment, 'glorto_y', text="Y", toggle=True)
-                            row.prop(segment, 'glorto_z', text="Z", toggle=True)
+                    if segment.glorto != "99":
+                        row = box.row(True)
+                        row.prop(segment, 'glorto_x', text="X", toggle=True)
+                        row.prop(segment, 'glorto_y', text="Y", toggle=True)
+                        row.prop(segment, 'glorto_z', text="Z", toggle=True)
 
         # Arc special
         if segment.gltype == 11:
@@ -568,7 +568,7 @@ def add_item(box, idx, segment):
 # ------------------------------------------------------------------
 # Define panel class for main functions.
 # ------------------------------------------------------------------
-class MeasureitMainPanel(bpy.types.Panel):
+class MeasureitMainPanel(Panel):
     bl_idname = "measureit_main_panel"
     bl_label = "Tools"
     bl_space_type = 'VIEW_3D'
@@ -602,6 +602,7 @@ class MeasureitMainPanel(bpy.types.Panel):
 
         # Tools
         box = layout.box()
+        box.label("Add Measures")
         row = box.row()
         row.operator("measureit.addsegmentbutton", text="Segment", icon="ALIGN")
         row.prop(scene, "measureit_sum", text="Sum")
@@ -636,10 +637,10 @@ class MeasureitMainPanel(bpy.types.Panel):
         box = layout.box()
         row = box.row(False)
         if scene.measureit_debug is False:
-            row.prop(scene, "measureit_debug", icon="TRIA_RIGHT", icon_only=True,
+            row.prop(scene, "measureit_debug", icon="TRIA_RIGHT",
                      text="Mesh Debug", emboss=False)
         else:
-            row.prop(scene, "measureit_debug", icon="TRIA_DOWN", icon_only=True,
+            row.prop(scene, "measureit_debug", icon="TRIA_DOWN",
                      text="Mesh Debug", emboss=False)
 
             row = box.row()
@@ -665,7 +666,7 @@ class MeasureitMainPanel(bpy.types.Panel):
 # ------------------------------------------------------------------
 # Define panel class for conf functions.
 # ------------------------------------------------------------------
-class MeasureitConfPanel(bpy.types.Panel):
+class MeasureitConfPanel(Panel):
     bl_idname = "measureit_conf_panel"
     bl_label = "Configuration"
     bl_space_type = 'VIEW_3D'
@@ -699,7 +700,7 @@ class MeasureitConfPanel(bpy.types.Panel):
 # ------------------------------------------------------------------
 # Define panel class for render functions.
 # ------------------------------------------------------------------
-class MeasureitRenderPanel(bpy.types.Panel):
+class MeasureitRenderPanel(Panel):
     bl_idname = "measureit_render_panel"
     bl_label = "Render"
     bl_space_type = 'VIEW_3D'
@@ -734,7 +735,7 @@ class MeasureitRenderPanel(bpy.types.Panel):
 # Defines button for add a measure segment
 #
 # -------------------------------------------------------------
-class AddSegmentButton(bpy.types.Operator):
+class AddSegmentButton(Operator):
     bl_idname = "measureit.addsegmentbutton"
     bl_label = "Add"
     bl_description = "(EDITMODE only) Add a new measure segment between 2 vertices (select 2 vertices or more)"
@@ -821,7 +822,7 @@ class AddSegmentButton(bpy.types.Operator):
 # Defines button for add area measure
 #
 # -------------------------------------------------------------
-class AddAreaButton(bpy.types.Operator):
+class AddAreaButton(Operator):
     bl_idname = "measureit.addareabutton"
     bl_label = "Area"
     bl_description = "(EDITMODE only) Add a new measure for area (select 1 o more faces)"
@@ -907,13 +908,13 @@ class AddAreaButton(bpy.types.Operator):
 # Defines button for add a measure segment to x/y/z origin
 #
 # -------------------------------------------------------------
-class AddSegmentOrtoButton(bpy.types.Operator):
+class AddSegmentOrtoButton(Operator):
     bl_idname = "measureit.addsegmentortobutton"
     bl_label = "Add"
     bl_description = "(EDITMODE only) Add a new measure segment from vertex to object origin for one " \
                      "axis (select 1 vertex)"
     bl_category = 'Measureit'
-    tag = bpy.props.IntProperty()
+    tag = IntProperty()
 
     # ------------------------------
     # Poll
@@ -996,7 +997,7 @@ class AddSegmentOrtoButton(bpy.types.Operator):
 # Defines button for add a angle
 #
 # -------------------------------------------------------------
-class AddAngleButton(bpy.types.Operator):
+class AddAngleButton(Operator):
     bl_idname = "measureit.addanglebutton"
     bl_label = "Angle"
     bl_description = "(EDITMODE only) Add a new angle measure (select 3 vertices, 2nd is angle vertex)"
@@ -1075,7 +1076,7 @@ class AddAngleButton(bpy.types.Operator):
 # Defines button for add a arc
 #
 # -------------------------------------------------------------
-class AddArcButton(bpy.types.Operator):
+class AddArcButton(Operator):
     bl_idname = "measureit.addarcbutton"
     bl_label = "Angle"
     bl_description = "(EDITMODE only) Add a new arc measure (select 3 vertices of the arc," \
@@ -1158,7 +1159,7 @@ class AddArcButton(bpy.types.Operator):
 # Defines button for add a label segment
 #
 # -------------------------------------------------------------
-class AddLabelButton(bpy.types.Operator):
+class AddLabelButton(Operator):
     bl_idname = "measureit.addlabelbutton"
     bl_label = "Add"
     bl_description = "(EDITMODE only) Add a new measure label (select 1 vertex)"
@@ -1239,7 +1240,7 @@ class AddLabelButton(bpy.types.Operator):
 # Defines button for add a link
 #
 # -------------------------------------------------------------
-class AddLinkButton(bpy.types.Operator):
+class AddLinkButton(Operator):
     bl_idname = "measureit.addlinkbutton"
     bl_label = "Add"
     bl_description = "(OBJECT mode only) Add a new measure between objects (select 2 " \
@@ -1384,7 +1385,7 @@ class AddLinkButton(bpy.types.Operator):
 # Defines button for add a origin segment
 #
 # -------------------------------------------------------------
-class AddOriginButton(bpy.types.Operator):
+class AddOriginButton(Operator):
     bl_idname = "measureit.addoriginbutton"
     bl_label = "Add"
     bl_description = "(OBJECT mode only) Add a new measure to origin (select object and optionally 1 vertex)"
@@ -1481,12 +1482,12 @@ class AddOriginButton(bpy.types.Operator):
 # Defines button for delete a measure segment
 #
 # -------------------------------------------------------------
-class DeleteSegmentButton(bpy.types.Operator):
+class DeleteSegmentButton(Operator):
     bl_idname = "measureit.deletesegmentbutton"
     bl_label = "Delete"
     bl_description = "Delete a measure"
     bl_category = 'Measureit'
-    tag = bpy.props.IntProperty()
+    tag = IntProperty()
 
     # ------------------------------
     # Execute button action
@@ -1515,12 +1516,12 @@ class DeleteSegmentButton(bpy.types.Operator):
 # Defines button for delete all measure segment
 #
 # -------------------------------------------------------------
-class DeleteAllSegmentButton(bpy.types.Operator):
+class DeleteAllSegmentButton(Operator):
     bl_idname = "measureit.deleteallsegmentbutton"
     bl_label = "Delete"
     bl_description = "Delete all measures (it cannot be undone)"
     bl_category = 'Measureit'
-    tag = bpy.props.IntProperty()
+    tag = IntProperty()
 
     # ------------------------------
     # Execute button action
@@ -1550,12 +1551,12 @@ class DeleteAllSegmentButton(bpy.types.Operator):
 # Defines button for delete all measure segment
 #
 # -------------------------------------------------------------
-class DeleteAllSumButton(bpy.types.Operator):
+class DeleteAllSumButton(Operator):
     bl_idname = "measureit.deleteallsumbutton"
     bl_label = "Delete"
     bl_description = "Delete all sum groups"
     bl_category = 'Measureit'
-    tag = bpy.props.IntProperty()
+    tag = IntProperty()
 
     # ------------------------------
     # Execute button action
@@ -1576,12 +1577,12 @@ class DeleteAllSumButton(bpy.types.Operator):
 # Defines button for render
 #
 # -------------------------------------------------------------
-class RenderSegmentButton(bpy.types.Operator):
+class RenderSegmentButton(Operator):
     bl_idname = "measureit.rendersegmentbutton"
     bl_label = "Render"
     bl_description = "Create a render image with measures. Use UV/Image editor to view image generated"
     bl_category = 'Measureit'
-    tag = bpy.props.IntProperty()
+    tag = IntProperty()
 
     # ------------------------------
     # Execute button action
@@ -1712,12 +1713,12 @@ class RenderSegmentButton(bpy.types.Operator):
 # Defines a new note
 #
 # -------------------------------------------------------------
-class AddNoteButton(bpy.types.Operator):
+class AddNoteButton(Operator):
     bl_idname = "measureit.addnotebutton"
     bl_label = "Note"
     bl_description = "(OBJECT mode only) Add a new annotation"
     bl_category = 'Measureit'
-    tag = bpy.props.IntProperty()
+    tag = IntProperty()
 
     # ------------------------------
     # Poll
@@ -1780,7 +1781,7 @@ class AddNoteButton(bpy.types.Operator):
 # Defines button for enable/disable the tip display
 #
 # -------------------------------------------------------------
-class RunHintDisplayButton(bpy.types.Operator):
+class RunHintDisplayButton(Operator):
     bl_idname = "measureit.runopenglbutton"
     bl_label = "Display hint data manager"
     bl_description = "Main control for enabling or disabling the display of measurements in the viewport"
@@ -1794,7 +1795,7 @@ class RunHintDisplayButton(bpy.types.Operator):
     @staticmethod
     def handle_add(self, context):
         if RunHintDisplayButton._handle is None:
-            RunHintDisplayButton._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_px, (self, context),
+            RunHintDisplayButton._handle = SpaceView3D.draw_handler_add(draw_callback_px, (self, context),
                                                                                   'WINDOW',
                                                                                   'POST_PIXEL')
             context.window_manager.measureit_run_opengl = True
@@ -1806,7 +1807,7 @@ class RunHintDisplayButton(bpy.types.Operator):
     @staticmethod
     def handle_remove(self, context):
         if RunHintDisplayButton._handle is not None:
-            bpy.types.SpaceView3D.draw_handler_remove(RunHintDisplayButton._handle, 'WINDOW')
+            SpaceView3D.draw_handler_remove(RunHintDisplayButton._handle, 'WINDOW')
         RunHintDisplayButton._handle = None
         context.window_manager.measureit_run_opengl = False
 
@@ -1947,7 +1948,7 @@ def get_selected_vertex(myobject):
         bpy.ops.object.mode_set(mode='EDIT')
         flag = True
 
-    bm = bmesh.from_edit_mesh(myobject.data)
+    bm = from_edit_mesh(myobject.data)
     tv = len(bm.verts)
     for v in bm.verts:
         if v.select:
@@ -1983,7 +1984,7 @@ def get_selected_vertex_history(myobject):
         bpy.ops.object.mode_set(mode='EDIT')
         flag = True
 
-    bm = bmesh.from_edit_mesh(myobject.data)
+    bm = from_edit_mesh(myobject.data)
     for v in bm.select_history:
         mylist.extend([v.index])
 
@@ -2013,7 +2014,7 @@ def get_smart_selected(myobject):
         bpy.ops.object.mode_set(mode='EDIT')
         flag = True
 
-    bm = bmesh.from_edit_mesh(myobject.data)
+    bm = from_edit_mesh(myobject.data)
     for e in bm.edges:
         if e.select is True:
             mylist.extend([e.verts[0].index])
@@ -2045,7 +2046,7 @@ def get_selected_faces(myobject):
         bpy.ops.object.mode_set(mode='EDIT')
         flag = True
 
-    bm = bmesh.from_edit_mesh(myobject.data)
+    bm = from_edit_mesh(myobject.data)
     for e in bm.faces:
         myface = []
         if e.select is True:

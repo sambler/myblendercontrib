@@ -1,3 +1,39 @@
+v0.9.0 7/13/16
+* Many minor bug fixes
+* Texture sequences should work correctly. (use $F4 in texture name)
+* Linking files will pull in the material node tree from other files now automatically.  Appending you still must attach the node tree.
+* RMANTREE setting is more sensible and user friendly.  Set RMANTREE in addon preferences.  No need to worry about environment variables.
+* RIB archiving works.  Create a rib archive of your geometry to bake rib gen or export rib for other uses. (thanks to rgordon)
+* In the View3D toolbar now is a RenderMan toolbar tab, allowing many quick operations for convenience
+* Motion Blur now uses a shutter angle instead of 0-1
+* Default settings now match RenderMan for Maya
+* Light and object panels (in the scene properties)
+	* Here you can create and edit light and object groups
+	* Light and object groups can then be used in trace set settings (on lights etc) and in AOVs
+	* Also this is a convenient place to do all the light linking (works in IPR)
+	* During IPR light properties can be edited en masse here.  Also mute and solo lights
+* Render Selected button - quickly lets you render only a set of objects selected
+* Sampling presets to quickly change sampling settings (thanks rgordon)
+* Incremental rendering can now be disabled (it's on by default)
+* Rib generation should be more stable 
+* default OUT directory is now /tmp
+* cache sizes options are now available in advanced scene settings
+* curves can render as ribbons now or round curves (default)
+* hair width correctly uses the Cycles settings rather than duplicating
+* High resolution smoke is supported (finally)
+* Darkfalloff is supported (thanks jdent) PRMan 20.9 feature
+* Openexr renders can go to multilayer exrs for compositing (thanks Jdent)
+* some example files are provided - accesible though toolbar
+* Inline RIB boxes can now be inserted into the rib stream in various places (scene, world, object settings)
+* Major Render settings and workflow overhaul and simplification!
+	* Regular renders can be sent to Blender or 'it' as before, no need to set display driver
+	* External Renders are now an option for rendering outside of Blender.  These renders will NOT load results back into blender.  This allows users to spool batch renders to Pixar's LocalQueue or Tractor for network rendering.  See settings in Scene properties.
+	* When externally rendering crossframe denoise is supported.
+* Overhaul of layers UI, simple version, then switch to RenderMan passes for more advanced options.
+* DeepExr and multilayer outputs are supported.
+
+
+
 v0.8.0 03/22/2016
 * Lots of bug fixes!
 * Fix an issue with artifacts in denoise

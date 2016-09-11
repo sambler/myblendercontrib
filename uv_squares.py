@@ -17,7 +17,7 @@ bl_info = {
     "name": "UV Squares",
     "description": "UV Editor tool for reshaping selection to grid.",
     "author": "Reslav Hollos",
-    "version": (1, 4, 21),
+    "version": (1, 5, 0),
     "blender": (2, 71, 0),
     "category": "Mesh",
     #"location": "UV Image Editor > UVs > UVs to grid of squares",
@@ -39,6 +39,11 @@ precision = 3
 #todo: rip different vertex on each press
 
 def main(context, operator, square = False, snapToClosest = False):
+    if context.scene.tool_settings.use_uv_select_sync:
+        operator.report({'ERROR'}, "Please disable 'Keep UV and edit mesh in sync'")
+        # context.scene.tool_settings.use_uv_select_sync = False
+        return
+
     startTime = time.clock()
     obj = context.active_object
     me = obj.data
