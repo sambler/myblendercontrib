@@ -60,6 +60,9 @@ class QuickArmature(bpy.types.Operator):
         self.alt_hist = False
         self.selected_objects = []
         self.active_object = None
+        self.armature = None
+        
+        self.created_bones = []
         
     def project_cursor(self, event):
         coord = mathutils.Vector((event.mouse_region_x, event.mouse_region_y))
@@ -121,9 +124,15 @@ class QuickArmature(bpy.types.Operator):
                             
     def create_bones(self,context,armature):
         if armature != None:
+            
             bpy.ops.object.mode_set(mode='EDIT')
             bone = armature.data.edit_bones.new("Bone")
-            bone.head = self.sprite_object.matrix_world.inverted() * context.scene.cursor_location
+            
+            ### store newly created editbone names -> for locking z scale for posebones later. Posebones are not available at this point yet
+            if bone.name not in self.created_bones:
+                self.created_bones.append(bone.name)
+            
+            bone.head = self.armature.matrix_world.inverted() * context.scene.cursor_location
             bone.hide = True
             bone.bbone_x = .05
             bone.bbone_z = .05
@@ -154,11 +163,12 @@ class QuickArmature(bpy.types.Operator):
     def drag_bone(self,context, event ,bone=None):
         ### math.atan2(0.5, 0.5)*180/math.pi
         if bone != None:
+            
             bone.hide = False
             mouse_vec_norm = (context.scene.cursor_location - self.mouse_click_vec).normalized()
             mouse_vec = (context.scene.cursor_location - self.mouse_click_vec)
             angle = (math.atan2(mouse_vec_norm[0], mouse_vec_norm[2])*180/math.pi)
-            cursor_local = self.sprite_object.matrix_world.inverted() * context.scene.cursor_location   
+            cursor_local = self.armature.matrix_world.inverted() * context.scene.cursor_location   
             if event.shift:
                 if angle > -22.5 and angle < 22.5:
                     ### up
@@ -177,7 +187,7 @@ class QuickArmature(bpy.types.Operator):
                     bone.tail = Vector((bone.head[0],0,cursor_local[2]))
                 elif angle > -157.5 and angle < -112.5:
                     ### down left
-                    bone.tail = (bone.head +  Vector((mouse_vec[0],0,mouse_vec[0])))
+                        bone.tail = (bone.head +  Vector((mouse_vec[0],0,mouse_vec[0])))
                 elif angle > -112.5 and angle < -67.5:
                     ### left
                     bone.tail = Vector((cursor_local[0],0,bone.head[2]))
@@ -185,7 +195,7 @@ class QuickArmature(bpy.types.Operator):
                     ### left up
                     bone.tail = (bone.head +  Vector((mouse_vec[0],0,-mouse_vec[0])))
             else:
-                bone.tail = self.sprite_object.matrix_world.inverted() * context.scene.cursor_location
+                bone.tail = self.armature.matrix_world.inverted() * context.scene.cursor_location
                  
     def set_parent(self,context,obj):
         obj.select = True
@@ -266,6 +276,14 @@ class QuickArmature(bpy.types.Operator):
         scene = context.scene
         ob = context.active_object
         
+        
+        ### lock posebone scale z value and then remove bone name from list
+        for bone_name in self.created_bones:
+            if bone_name in ob.pose.bones:
+                pose_bone = ob.pose.bones[bone_name]
+                pose_bone.lock_scale[2] = True
+                self.created_bones.remove(bone_name)
+        
         if self.in_view_3d:
             self.mouse_press_hist = self.mouse_press
             mouse_button = None
@@ -282,7 +300,7 @@ class QuickArmature(bpy.types.Operator):
             #print(event.value,"-----------",event.type)
             ### Cast Ray from mousePosition and set Cursor to hitPoint
             rayStart,rayEnd, ray = self.project_cursor(event)
-
+            
             if ray[0] == True and ray[1] != None:
                 bpy.context.scene.cursor_location = ray[3]
             elif rayEnd != None:
@@ -405,7 +423,7 @@ class QuickArmature(bpy.types.Operator):
         self.sprite_object = get_sprite_object(context.active_object)
         self.sprite_object.coa_edit_armature = True
         lock_sprites(context,get_sprite_object(context.active_object),False)
-        armature = self.create_armature(context)
+        self.armature = self.create_armature(context)
             
         self.armature_mode = context.active_object.mode
         bpy.ops.object.mode_set(mode='EDIT')
@@ -443,6 +461,7 @@ class SetStretchBone(bpy.types.Operator):
         stretch_to_constraint.target = context.active_object
         stretch_to_constraint.subtarget = bone_name
         stretch_to_constraint.keep_axis = "PLANE_Z" 
+        stretch_to_constraint.volume = "VOLUME_X"
         set_bone_group(self, context.active_object, context.active_object.pose.bones[bone_name],group="stretch_to",theme = "THEME07")
         return{'FINISHED'}
 

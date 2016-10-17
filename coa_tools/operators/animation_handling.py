@@ -112,31 +112,24 @@ class AddKeyframe(bpy.types.Operator):
                 else:
                     data_path = data_path.replace(".rotation",".rotation_euler")
                     
-                self.create_keyframe(context,event,data_path,group=pose_bone.name)     
+                self.create_keyframe(context,event,data_path,group=pose_bone.name)
+                
     
     def invoke(self,context,event):
         wm = context.window_manager
         if event.ctrl:
             return wm.invoke_props_dialog(self)
         else:
-            if self.prop_name in ["location","rotation","scale","LocRotScale"]:
-                if self.prop_name == "LocRotScale":
-                    data_path = "location"
-                    self.create_bone_keyframe(context,event,data_path)
-                    
-                    data_path = "rotation"
-                    self.create_bone_keyframe(context,event,data_path)
-                    
-                    data_path = "scale"
-                    self.create_bone_keyframe(context,event,data_path)
-                else:
-                    self.create_bone_keyframe(context,event,self.prop_name)
-            else:
-                self.create_keyframe(context,event,self.prop_name)
-            return {"FINISHED"}
+            self.execute(context)
+            return {'FINISHED'}
+            
         
     def execute(self,context):
         event = None
+        obj = context.active_object
+        sprite_object = get_sprite_object(obj)
+        anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        
         if self.prop_name in ["location","rotation","scale","LocRotScale"]:
             if self.prop_name == "LocRotScale":
                 data_path = "location"
@@ -150,7 +143,7 @@ class AddKeyframe(bpy.types.Operator):
             else:
                 self.create_bone_keyframe(context,event,self.prop_name)
         else:
-            self.create_keyframe(context,event,self.prop_name) 
+            self.create_keyframe(context,event,self.prop_name)
         return {"FINISHED"}   
 
 class AddAnimationCollection(bpy.types.Operator):
@@ -381,4 +374,110 @@ class CreateNlaTrack(bpy.types.Operator):
                     
                     
         return {"FINISHED"}
-                        
+    
+    
+class BatchRender(bpy.types.Operator):
+    bl_idname = "coa_tools.batch_render"
+    bl_label = "Batch Render"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        ### open render path
+        path = context.scene.render.filepath.replace("\\","/")
+        dirpath = path[:path.rfind("/")]
+        dirpath = dirpath.replace("/","")
+        basename = os.path.basename(bpy.data.filepath)
+        blend_path = bpy.data.filepath.partition(basename)[0]
+        output = os.path.join(blend_path,dirpath)
+        print(blend_path,dirpath)
+        bpy.ops.wm.path_open(filepath = output)    
+        
+        
+        scene = context.scene
+        obj = context.active_object
+        sprite_object = get_sprite_object(obj)
+        if sprite_object != None:
+            idx = int(sprite_object.coa_anim_collections_index)
+            
+            for i in range(len(sprite_object.coa_anim_collections)):
+                anim_name = sprite_object.coa_anim_collections[i].name
+                if anim_name not in ["NO ACTION","Restpose"]:
+                    sprite_object.coa_anim_collections_index = i
+                    set_action(context,item= sprite_object.coa_anim_collections[i])
+                    bpy.context.scene.frame_start = 0
+                    bpy.context.scene.frame_end = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index].frame_end
+                    
+                    path = context.scene.render.filepath.replace("\\","/")
+                    dirpath = path[:path.rfind("/")]
+                    final_path = dirpath + "/" + anim_name + "_"
+                    context.scene.render.filepath = final_path
+                    
+                    bpy.ops.render.render(animation=True,write_still=False,use_viewport=True,scene=context.scene.name)
+
+            sprite_object.coa_anim_collections_index = idx
+        return {"FINISHED"}
+    
+    
+    
+### Add Timeline Event -> Dragonbones
+class AddTimelineEvent(bpy.types.Operator):
+    bl_idname = "coa_tools.add_timeline_event"
+    bl_label = "Add Timeline Event"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        scene = context.scene
+        obj = context.active_object
+        sprite_object = get_sprite_object(obj)
+        
+        anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        
+        for event in anim.event:
+            if event.frame == context.scene.frame_current:
+                self.report({'INFO'},"Event exists on current frame already")
+                return {"FINISHED"}
+        
+        
+        
+        event = anim.event.add()
+        event.frame = context.scene.frame_current
+        return {"FINISHED"}
+    
+        
+class RemoveTimelineEvent(bpy.types.Operator):
+    bl_idname = "coa_tools.remove_timeline_event"
+    bl_label = "Remove Timeline Event"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+    
+    index = IntProperty(default=-1)
+    
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        scene = context.scene
+        obj = context.active_object
+        sprite_object = get_sprite_object(obj)
+        
+        anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        
+        if self.index != -1:
+            index = self.index
+        else:
+            index = anim.event_index    
+        
+        anim.event.remove(index)
+        return {"FINISHED"}
+    

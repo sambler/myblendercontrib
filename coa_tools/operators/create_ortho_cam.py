@@ -60,7 +60,7 @@ class CreateOrtpographicCamera(bpy.types.Operator):
         scene = context.scene
         if self.create:
             context.scene.objects.active = None
-            bpy.ops.object.camera_add(view_align=True, enter_editmode=False, location=(0, -10, 0), rotation=(radians(90), 0, 0))
+            bpy.ops.object.camera_add(view_align=True, enter_editmode=False, location=(0, -self.resolution[0] * get_addon_prefs(context).sprite_import_export_scale, 0), rotation=(radians(90), 0, 0))
         cam = context.active_object
         context.scene.objects.active = cam
         cam.data.type = "ORTHO"
@@ -73,8 +73,106 @@ class CreateOrtpographicCamera(bpy.types.Operator):
             
             scene.render.resolution_x = self.resolution[0]
             scene.render.resolution_y = self.resolution[1]
+            cam.location[1] = -self.resolution[0] * get_addon_prefs(context).sprite_import_export_scale
             scene.render.resolution_percentage = 100
         scene.camera = cam
         if bpy.context.space_data.region_3d.view_perspective != "CAMERA":
             bpy.ops.view3d.viewnumpad(type="CAMERA")
         return{"FINISHED"}
+    
+
+class AlignCamera(bpy.types.Operator):
+    bl_idname = "coa_tools.align_camera"
+    bl_label = "Align 2D Camera"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+    
+    
+    align = EnumProperty(name="Align Position",description="Align Position",items=(
+                                ("BOTTOM_RIGHT","Bottom Right","Bottom Right"),
+                                ("BOTTOM_CENTER","Bottom Center","Bottom Center"),
+                                ("BOTTOM_LEFT","Bottom Left","Bottom Left"),
+                                ("CENTER_RIGHT","Center Right","Center Right"),
+                                ("CENTER_CENTER","Center Center","Center Center"),
+                                ("CENTER_LEFT","Center Left","Center Left"),
+                                ("TOP_RIGHT","Top Right","Top Right"),
+                                ("TOP_CENTER","Top Center","Top Center"),
+                                ("TOP_LEFT","Top Left","Top Left"),
+                                ))
+    
+    x_multiplier = 1
+    y_multiplier = 1
+    offset_x = 0.0
+    offset_y = 0.0
+        
+    @classmethod
+    def poll(cls, context):
+        return True
+    
+    def invoke(self,context,event):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+    
+    def draw(self,context):
+        layout = self.layout
+        row = layout.row()
+        
+        row.prop(self,"align",text="Align Position")
+    
+    def execute(self, context):
+        cam = context.active_object
+        if cam.type == "CAMERA":
+            print(self.align)
+            if self.align == "TOP_LEFT":
+                self.x_multiplier = -1
+                self.y_multiplier = 1
+                self.offset_x = 0.5
+                self.offset_y = 0.5
+            elif self.align == "TOP_CENTER":
+                self.x_multiplier = -1
+                self.y_multiplier = 1
+                self.offset_x = 0.0
+                self.offset_y = 0.5
+            elif self.align == "TOP_RIGHT":
+                self.x_multiplier = 1
+                self.y_multiplier = 1
+                self.offset_x = 0.5
+                self.offset_y = 0.5
+                print("baam")
+            elif self.align == "CENTER_LEFT":
+                self.x_multiplier = -1
+                self.y_multiplier = -1
+                self.offset_x = 0.5
+                self.offset_y = 0.0
+            elif self.align == "CENTER_RIGHT":
+                self.x_multiplier = 1
+                self.y_multiplier = -1
+                self.offset_x = 0.5
+                self.offset_y = 0.0
+            elif self.align == "CENTER_CENTER":
+                self.x_multiplier = 0
+                self.y_multiplier = 0
+                self.offset_x = 0.0
+                self.offset_y = 0.0
+            elif self.align == "BOTTOM_LEFT":
+                self.x_multiplier = -1
+                self.y_multiplier = -1
+                self.offset_x = 0.5
+                self.offset_y = 0.5
+            elif self.align == "BOTTOM_RIGHT":
+                self.x_multiplier = 1
+                self.y_multiplier = -1
+                self.offset_x = 0.5
+                self.offset_y = 0.5
+            elif self.align == "BOTTOM_CENTER":
+                self.x_multiplier = 1
+                self.y_multiplier = -1
+                self.offset_x = 0.0
+                self.offset_y = 0.5
+            
+            cam.location[0] = self.x_multiplier * context.scene.render.resolution_x * get_addon_prefs(context).sprite_import_export_scale * self.offset_x
+            cam.location[1] = -self.x_multiplier * context.scene.render.resolution_x * get_addon_prefs(context).sprite_import_export_scale
+            cam.location[2] = self.y_multiplier * context.scene.render.resolution_y * get_addon_prefs(context).sprite_import_export_scale * self.offset_y   
+            
+        return {"FINISHED"}
+            

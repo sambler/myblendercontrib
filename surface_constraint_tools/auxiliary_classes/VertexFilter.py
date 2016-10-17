@@ -208,8 +208,12 @@ class VertexFilter():
                         )
                     ray_origin = co + ray_direction * offset
                     ray_target = co + ray_direction * distance
-                    location, normal, face_index =\
-                        mesh_object.ray_cast(ray_origin, ray_target)
+                    if bpy.app.version < (2, 77, 0):
+                        location, normal, face_index =\
+                            mesh_object.ray_cast(ray_origin, ray_target)
+                    else:
+                        hit, location, normal, face_index =\
+                            mesh_object.ray_cast(ray_origin, ray_direction)
                     if face_index == -1:
                         unoccluded.append(index)
 
@@ -223,8 +227,12 @@ class VertexFilter():
                     co = object_space_map[index]
                     ray_origin = co + ray_direction * offset
                     ray_target = co + ray_direction * 1000
-                    location, normal, face_index =\
-                        mesh_object.ray_cast(ray_origin, ray_target)
+                    if bpy.app.version < (2, 77, 0):
+                        location, normal, face_index =\
+                            mesh_object.ray_cast(ray_origin, ray_target)
+                    else:
+                        hit, location, normal, face_index =\
+                            mesh_object.ray_cast(ray_origin, ray_direction)
                     if face_index == -1:
                         unoccluded.append(index)
 

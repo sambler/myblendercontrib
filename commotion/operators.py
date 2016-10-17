@@ -487,22 +487,24 @@ class SK_DRIVERS_DISTANCE_SET(Operator):
 	bl_idname = 'commotion.sk_drivers_distance_set'
 
 	def execute(self, context):
-		if context.active_object.type != 'EMPTY':
+		obj = context.active_object
+
+		if obj.type != 'EMPTY':
 			scene = context.scene
 			empty = bpy.data.objects.new('Distance Target', None)
 			scene.objects.link(empty)
 			empty.location = scene.cursor_location
 			empty.select = True
 			empty.empty_draw_type = 'SPHERE'
+		else:
+			empty = obj
 
 		for ob in context.selected_objects:
-
 			if (ob.data and ob.data.shape_keys):
 
 				sk = ob.data.shape_keys
 
-				if (sk.animation_data and sk.animation_data.drivers):
-					continue
+				sk.driver_remove('eval_time')
 
 				kb = int(sk.key_blocks[1].frame)
 				kb_last = str(int(sk.key_blocks[-1].frame) + 5)
@@ -579,9 +581,13 @@ class SK_DRIVERS_TARGET_REMAP(Operator):
 
 
 def dis_trig(var, name):
-	etm = bpy.context.scene.objects[name].data.shape_keys.eval_time
+	scene = bpy.context.scene
+	etm = scene.objects[name].data.shape_keys.eval_time
 
-	if var > etm:
+	if scene.frame_current <= scene.frame_start:
+		etm = 0
+
+	elif var > etm:
 		etm = var
 
 	return etm

@@ -107,6 +107,8 @@ def register():
     
     bpy.types.Object.coa_anim_collections = bpy.props.CollectionProperty(type=AnimationCollections)
     bpy.types.Object.coa_uv_default_state = bpy.props.CollectionProperty(type=UVData)
+    bpy.types.Object.coa_slot = bpy.props.CollectionProperty(type=SlotData)
+    
     bpy.types.Scene.coa_ticker = bpy.props.IntProperty()
     bpy.types.WindowManager.coa_update_uv = bpy.props.BoolProperty(default=False)
     kc = bpy.context.window_manager.keyconfigs.addon
@@ -168,6 +170,8 @@ def update_sprites(dummy):
             if obj.coa_modulate_color != obj.coa_modulate_color_last:
                 set_modulate_color(obj,context,obj.coa_modulate_color)
                 obj.coa_modulate_color_last = obj.coa_modulate_color
+            if obj.coa_type == "SLOT":
+                change_slot_mesh(obj,context,obj.coa_slot_index)    
 
         if update_scene:
             bpy.context.scene.update()

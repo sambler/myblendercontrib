@@ -498,7 +498,7 @@ def add_groups(groups_to_import):
     for name in groups_to_import:
         group_ng = bpy.data.node_groups.new(name, 'SverchGroupTreeType')
         if group_ng.name != name:
-            group_name_remap[name] = ng.name
+            group_name_remap[name] = group_ng.name
         import_tree(group_ng, '', groups_to_import[name])
     return group_name_remap
 
@@ -766,6 +766,9 @@ class SvNodeTreeImportFromGist(bpy.types.Operator):
             ng = bpy.data.node_groups.new(**ng_params)
         else:
             ng = bpy.data.node_groups[self.id_tree]
+
+        if self.gist_id == 'clipboard':
+            self.gist_id = context.window_manager.clipboard
 
         nodes_json = self.obtain_json(self.gist_id.strip())
         import_tree(ng, nodes_json=nodes_json)

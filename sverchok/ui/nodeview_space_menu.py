@@ -30,9 +30,7 @@ import sverchok
 from sverchok.menu import make_node_cats
 
 node_cats = make_node_cats()
-
 addon_name = sverchok.__name__
-
 menu_prefs = {}
 
 
@@ -46,24 +44,32 @@ def get_icon_switch():
 def layout_draw_categories(layout, node_details):
     show_icons = menu_prefs.get('show_icons')
 
+    def icon(display_icon):
+        '''returns empty dict if show_icons is False, else the icon passed'''
+        return {'icon': display_icon for i in [1] if show_icons and display_icon}
+
+    def get_icon(node_ref):
+        # some nodes don't declare a bl_icon, but most do so try/except is fine.
+        try:
+            _icon = getattr(node_ref, 'bl_icon')
+            if _icon == 'OUTLINER_OB_EMPTY':
+                _icon = None
+        except:
+            _icon = None
+        return _icon
+
     add_n_grab = 'node.add_node'
     for node_info in node_details:
-        num_items = len(node_info)
-        if not num_items in {2, 3}:
+
+        if not node_info:
             print(repr(node_info), 'is incomplete, or unparsable')
             continue
 
-        if show_icons:
-            if num_items == 3:
-                bl_idname, shortname, icon = node_info
-                layout_params = dict(text=shortname, icon=icon)
-            else:
-                bl_idname, shortname = node_info
-                layout_params = dict(text=shortname)
-        else:
-            # explicit chop of icon data
-            bl_idname, shortname = node_info[:2]
-            layout_params = dict(text=shortname)
+        bl_idname = node_info[0]
+        node_ref = getattr(bpy.types, bl_idname)
+
+        display_icon = get_icon(node_ref)
+        layout_params = dict(text=node_ref.bl_label, **icon(display_icon))
 
         node_op = layout.operator(add_n_grab, **layout_params)
         node_op.type = bl_idname
@@ -100,42 +106,37 @@ class NODEVIEW_MT_Dynamic_Menu(bpy.types.Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        s = layout.operator("node.add_search", text="Search", icon='VIEWZOOM')
+        s = layout.operator("node.add_search", text="Search", icon='OUTLINER_DATA_FONT')
         s.use_transform = True
 
         show_icons = menu_prefs.get('show_icons')
 
+        def icon(display_icon):
+            '''returns empty dict if show_icons is False, else the icon passed'''
+            return {'icon': display_icon for i in [1] if show_icons}
+
         layout.separator()
-        if show_icons:
-            layout.menu("NODEVIEW_MT_AddGenerators", icon='OBJECT_DATAMODE')
-            layout.menu("NODEVIEW_MT_AddTransforms", icon='MANIPUL')
-            layout.menu("NODEVIEW_MT_AddAnalyzers", icon='BORDERMOVE')
-            layout.menu("NODEVIEW_MT_AddModifiers", icon='MODIFIER')
-        else:
-            layout.menu("NODEVIEW_MT_AddGenerators")
-            layout.menu("NODEVIEW_MT_AddTransforms")
-            layout.menu("NODEVIEW_MT_AddAnalyzers")
-            layout.menu("NODEVIEW_MT_AddModifiers")
+
+        layout.menu("NODEVIEW_MT_AddGenerators", **icon('OBJECT_DATAMODE'))
+        layout.menu("NODEVIEW_MT_AddTransforms", **icon('MANIPUL'))
+        layout.menu("NODEVIEW_MT_AddAnalyzers", **icon('VIEWZOOM'))
+        layout.menu("NODEVIEW_MT_AddModifiers", **icon('MODIFIER'))
 
         layout.separator()
         layout.menu("NODEVIEW_MT_AddNumber")
         layout.menu("NODEVIEW_MT_AddVector")
         layout.menu("NODEVIEW_MT_AddMatrix")
         layout.menu("NODEVIEW_MT_AddLogic")
-        layout.menu("NODEVIEW_MT_AddListOps")
+        layout.menu("NODEVIEW_MT_AddListOps", **icon('NLA'))
         layout.separator()
-        layout.menu("NODEVIEW_MT_AddViz")
+        layout.menu("NODEVIEW_MT_AddViz", **icon('RESTRICT_VIEW_OFF'))
         layout.menu("NODEVIEW_MT_AddText")
         layout.menu("NODEVIEW_MT_AddScene")
         layout.menu("NODEVIEW_MT_AddLayout")
         layout.separator()
         layout.menu("NODEVIEW_MT_AddNetwork")
-        if show_icons:
-            layout.menu("NODEVIEW_MT_AddBetas", icon='OUTLINER_DATA_POSE')
-            layout.menu("NODEVIEW_MT_AddAlphas", icon='ERROR')
-        else:
-            layout.menu("NODEVIEW_MT_AddBetas")
-            layout.menu("NODEVIEW_MT_AddAlphas")
+        layout.menu("NODEVIEW_MT_AddBetas", **icon('OUTLINER_DATA_POSE'))
+        layout.menu("NODEVIEW_MT_AddAlphas", **icon('ERROR'))
 
 
 class NODEVIEW_MT_AddGenerators(bpy.types.Menu):
@@ -167,6 +168,7 @@ class NODEVIEW_MT_AddListOps(bpy.types.Menu):
         layout.menu("NODEVIEW_MT_AddListmain")
         layout.menu("NODEVIEW_MT_AddListstruct")
         layout_draw_categories(self.layout, node_cats["List Masks"])
+        layout_draw_categories(self.layout, node_cats["List Mutators"])
 
 
 classes = [
@@ -176,15 +178,15 @@ classes = [
     NODEVIEW_MT_AddGenerators,
     # like magic.
     # make | NODEVIEW_MT_Add + class name , menu name
-    make_class('GeneratorsExt', "Extended Generators"),
+    make_class('GeneratorsExt', "Generators Extended"),
     make_class('Transforms', "Transforms"),
     make_class('Analyzers', "Analyzers"),
     make_class('Viz', "Viz"),
     make_class('Text', "Text"),
     make_class('Scene', "Scene"),
     make_class('Layout', "Layout"),
-    make_class('Listmain', "List main"),
-    make_class('Liststruct', "List struct"),
+    make_class('Listmain', "List Main"),
+    make_class('Liststruct', "List Struct"),
     make_class('Number', "Number"),
     make_class('Vector', "Vector"),
     make_class('Matrix', "Matrix"),

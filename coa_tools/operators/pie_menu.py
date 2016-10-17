@@ -92,7 +92,7 @@ def add_remove_keyframe(pie,add):
         op.default_interpolation = "CONSTANT"
         
         op = pie.operator("my_operator.add_keyframe",text="Sprite Alpha",icon="RESTRICT_VIEW_OFF")
-        op.prop_name = "coa_alpha"
+        op.prop_name = "coa_alpha"        
         op.add_keyframe = add
         op.default_interpolation = "BEZIER"
         

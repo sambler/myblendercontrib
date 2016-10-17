@@ -123,7 +123,6 @@ class COAModal(bpy.types.Operator):
                         material.diffuse_color = bone_group.colors.normal
     
             
-            
     def modal(self,context,event):
         ### execute only if an event pressed is triggered
         active_object = context.active_object
@@ -133,8 +132,9 @@ class COAModal(bpy.types.Operator):
             self.sprite_object = get_sprite_object(context.active_object)
             
             self.set_scaling(active_object,event)
-            if self.sprite_object != None and context.scene.coa_nla_mode == "ACTION":
-                self.set_frame_bounds_and_actions(context)
+            
+#            if self.sprite_object != None and context.scene.coa_nla_mode == "ACTION":
+#                self.set_frame_bounds_and_actions(context)
             
             screen = context.screen
             if screen.coa_view == "2D":
@@ -169,23 +169,22 @@ class COAModal(bpy.types.Operator):
                 if obj.coa_modulate_color != obj.coa_modulate_color_last:
                     set_modulate_color(obj,context,obj.coa_modulate_color)
                     obj.coa_modulate_color_last = obj.coa_modulate_color
-            
-#            if obj != None and "coa_sprite" in obj:        
-#                if obj.mode == "EDIT":
-#                    hide_base_sprite(obj)
+                
                 ### leaving object edit mode
                 if obj.type == "MESH" and self.obj_mode_hist == "EDIT" and obj.mode == "OBJECT":
                     set_uv_default_coords(context,obj)
-                ### Store sprite dimension in coa_sprite_dimension when mesh is rescaled
+                    ### Store sprite dimension in coa_sprite_dimension when mesh is rescaled
                     for obj in context.selected_objects:
                         if obj != None and "coa_sprite":
                             obj.coa_sprite_dimension = Vector((get_local_dimension(obj)[0],0,get_local_dimension(obj)[1]))
-                ### entering object edit mode
-                elif obj.type == "MESH" and self.obj_mode_hist == "OBJECT" and obj.mode == "EDIT":
-                    #obj.coa_sprite_frame = 0
-                    pass
-                    
-                self.obj_mode_hist = obj.mode
+            
+            ### will be executed when leaving armature edit mode                
+            if get_sprite_object(obj)!= None and obj.type == "ARMATURE" and self.obj_mode_hist == "EDIT" and obj.mode != "EDIT":
+                ### fix bone roll to properly export
+                fix_bone_roll(obj)
+            
+            if obj != None:        
+                self.obj_mode_hist = str(obj.mode)
                 
         if active_object != None and (self.check_event_value(event) in ["JUST_PRESSED","PRESSED"] and event.type == "G") and active_object.type == "ARMATURE" and active_object.mode == "POSE":
             bpy.context.window_manager.coa_update_uv = True

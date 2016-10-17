@@ -25,8 +25,8 @@ class Sv3DviewPropsNode(bpy.types.Node, SverchCustomTreeNode):
 
     ''' Sv 3Dview Props Node '''
     bl_idname = 'Sv3DviewPropsNode'
-    bl_label = 'Sv 3Dview Props Node'
-    bl_icon = 'OUTLINER_OB_EMPTY'
+    bl_label = '3dview Props'
+    bl_icon = 'SETTINGS'
 
     def draw_buttons(self, context, layout):
         context = bpy.context

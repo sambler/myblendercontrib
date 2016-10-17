@@ -1010,7 +1010,7 @@ class block:
               if search == '' or re.search(search, layer.info, re.I):
 
                 # pencil layer
-                PencilLayer(self, context, layout, layer, object, panel)
+                PencilLayer(self, context, layout, object.grease_pencil, layer, object, panel)
 
     # action
     def action(self, context, layout, object, panel):
@@ -1780,7 +1780,7 @@ def GreasePencil(self, context, layout, datablock, object, panel):
   row.prop(datablock, 'name', text='')
 
 # pencil layer
-def PencilLayer(self, context, layout, datablock, object, panel):
+def PencilLayer(self, context, layout, owner, datablock, object, panel):
   '''
     The object pencil layer name row.
   '''
@@ -1792,13 +1792,16 @@ def PencilLayer(self, context, layout, datablock, object, panel):
   sub = row.row(align=True)
 
   # scale x
-  sub.scale_x = 0.085
+  sub.scale_x = 1.6
 
-  # color
-  sub.prop(datablock, 'color', text='')
+  # # color
+  # sub.prop(datablock, 'color', text='')
+  #
+  # # fill color
+  # sub.prop(datablock, 'fill_color', text='')
 
-  # fill color
-  sub.prop(datablock, 'fill_color', text='')
+  # label
+  sub.label(icon='DOT')
 
   # info
   row.prop(datablock, 'info', text='')

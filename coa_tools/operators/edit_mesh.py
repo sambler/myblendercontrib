@@ -203,6 +203,7 @@ class Fill(bpy.types.Operator):
             triangulate(bm,obj)
             smooth_verts(bm,obj)
             
+            
             bm.verts.index_update()
             bmesh.update_edit_mesh(obj.data) 
             bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
