@@ -1,6 +1,6 @@
 <a name="sound_drivers"></a>
 <img src="https://github.com/batFINGER/sound-bake-drivers/wiki/images/anim.gif"  width="100%" height="150" padding="10" align="center"/>
-<h1 padding="10">Sound Drivers</h1>
+<h1 padding="10">Sound Drivers v3.1.0</h1>
 **Blender Addon Drive animation with sound**
 ---
 

@@ -1,3 +1,23 @@
+v21.2.0 11/8/16
+* NOTE SIGNIFICANT CHANGE - Nodetrees are moved to use the built in cycles nodetree!
+  * This will help file linking and allow node groups.
+  * However you will have to redo your nodetrees.
+  * Cycles nodes can be used with Renderman shaders.
+     * this is still a work in progress.  Some Cycles nodes will not function properly (or at all) with Renderman.
+  * Using "add renderman nodetree" will attempt to convert and hook up your cycles nodetree.
+     * this is still a work in progress and won't give you an exact conversion.
+* New PxrSurface lobe AOV's.  Due to changes in codebase you will have to reassign any existing AOV's to avoid export errors.
+* Support for PRMan 21 features - specifically new shaders and lights.
+* Portal lights are supported.
+* Light filters are added - using a light and set it to "Filter type", then link the filters to your lights. 
+* Sample and display filters are now under the scene properties.
+* Support for all Projection plugins (VR rendering with OmniDirectional!) under the camera props.
+* Icons are updated to renderman 21 icons.
+* Render checkpointing and recovery are now supported with external rendering.
+* Fix for external rendering with spaces in the filename.
+* Thanks to rgordon, aek, jdent02, jdbener for contributions.
+
+
 v0.9.0 7/13/16
 * Many minor bug fixes
 * Texture sequences should work correctly. (use $F4 in texture name)

@@ -30,6 +30,7 @@ from shutil import copyfile
 
 db_json = OrderedDict()
 db_json = {
+                    "info":"Generated with COA Tools",
                     "frameRate": 24,
                     "isGlobal": 0,
                     "name": "Project Name",
@@ -87,11 +88,201 @@ display = [
         ]
 
 
-bone_default_states = {}
+bone_default_pos = {}
+bone_default_rot = {}
 default_vert_coords = {}
 texture_pathes = {}
 ignore_bones = []
-### get objs and bones that are keyed on given frame         
+
+
+def get_uv_bounds(uv):
+    top = 0
+    left = 1
+    right = 0
+    bottom = 1
+    for vert in uv.data:
+        if vert.uv.x < left:
+            left = float(vert.uv.x)
+        if vert.uv.x > right:
+            right = float(vert.uv.x)
+        if vert.uv.y > top:
+            top = float(vert.uv.y)
+        if vert.uv.y < bottom:
+            bottom = float(vert.uv.y)
+    scale_x = 1/(right-left)
+    scale_y = 1/(top-bottom)
+    return ((left,top),(right,bottom)),(scale_x,scale_y)
+
+def generate_texture_atlas(context,objs,atlas_name,width,height,atlas_size,unwrap_method,island_margin):
+    ### create new atlas Image
+    atlas = bpy.data.images.new(atlas_name,width,height,alpha=True)
+    
+    ### deselect objects
+    for obj in context.scene.objects:
+        obj.select = False
+        
+    ### select given objects    
+    for obj in objs:
+        mesh_data = []
+        ### get all mesh names if from type slot. Otherwise just append the obj mesh name 
+        if obj.coa_type == "MESH":
+            mesh_data.append(obj.data.name)
+        elif obj.coa_type == "SLOT":
+            for slot in obj.coa_slot:
+                mesh_data.append(slot.name)
+        ### loop over all mesh names        
+        for i,name in enumerate(mesh_data):
+            obj.data = bpy.data.meshes[name]
+            ob_data = obj.data.copy()
+            name = obj.name+"_atlas"
+            new_ob = obj.copy()
+            new_ob.data = ob_data
+            new_ob.name = name
+            new_ob.matrix_world = obj.matrix_world
+            context.scene.objects.link(new_ob)
+            
+            new_ob.select = True
+            context.scene.objects.active = new_ob
+            
+            
+            for group in new_ob.vertex_groups:
+                new_ob.vertex_groups.remove(group)
+            
+            ### generate vertex group with containing vertices    
+            group_name = obj.name + "_coa_slot_"+obj.data.name ### append vertex group with object and meshname
+            new_ob.vertex_groups.new(name=group_name)
+            bpy.ops.object.mode_set(mode="EDIT")  
+            bpy.ops.mesh.reveal()
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.object.vertex_group_assign()
+            bpy.ops.object.mode_set(mode="OBJECT")
+            if new_ob.active_shape_key != None:#new_ob.data.shape_keys != None and len(new_ob.data.shape_keys.key_blocks) > 0:
+                bpy.ops.object.shape_key_remove(all=True)  
+                
+            ### set active uv as default uv
+            for mat in obj.data.materials:
+                for tex_slot in mat.texture_slots:
+                    if tex_slot != None:
+                        if tex_slot.texture != None:
+                            tex_slot.uv_layer = new_ob.data.uv_textures.active.name
+                    
+    
+    ### join all selected objects into one 
+    bpy.ops.object.join()
+    obj = context.active_object
+    
+    ### generate new uv map item
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.reveal()
+    uv_map = obj.data.uv_textures.new(name="COA_ATLAS")
+    uv_map.active_render = True
+    obj.data.uv_textures.active = uv_map
+    
+    ### create uv layout
+    bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=island_margin)
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+    
+    for vert in obj.data.uv_textures["COA_ATLAS"].data:
+        vert.image = atlas
+        
+    bpy.ops.object.mode_set(mode="EDIT")
+    if unwrap_method == "ANGLE_BASED":
+        bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=island_margin)
+    elif unwrap_method == "SMART_UV":
+        bpy.ops.uv.smart_project(island_margin=island_margin,use_aspect=True, stretch_to_bounds=False)
+
+    
+    bpy.ops.object.mode_set(mode="OBJECT")
+    
+    ### separate mesh parts into single objects and copy uv data to original sprites
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action='DESELECT')
+    bpy.ops.object.mode_set(mode="OBJECT")
+    
+    tmp_sprites = []
+    for i,group in enumerate(obj.vertex_groups):
+        tmp_sprite = None
+        for vert in obj.data.vertices:
+            for group2 in vert.groups:
+                if group2.group == group.index:
+                    vert.select = True
+        ### separate mesh
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.separate(type='SELECTED')
+        bpy.ops.object.mode_set(mode="OBJECT")
+        
+        ### set proper selection to copy uv data
+        obj.select = False
+        tmp_sprite = bpy.context.selected_objects[0]
+        tmp_sprites.append(tmp_sprite)
+        context.scene.objects.active = tmp_sprite
+        sprite = bpy.data.objects[group.name.split("_coa_slot_")[0]]
+        sprite.data = bpy.data.meshes[group.name.split("_coa_slot_")[1]]
+        sprite.select = True
+        
+        ### calc autoatic texture size
+        if i == 0 and atlas_size == "AUTOMATIC":
+            bounds,atlas_scale = get_uv_bounds(tmp_sprite.data.uv_layers["COA_ATLAS"])
+            image_size = tmp_sprite.data.uv_textures[0].data[0].image.size
+            width = image_size[0] * atlas_scale[0]
+            height = image_size[1] * atlas_scale[1]
+            atlas.generated_width = width
+            atlas.generated_height = height
+        
+        ### generate new atlas uv layout and make it active for final sprites
+        if "COA_ATLAS" in sprite.data.uv_textures:
+            uv_map = sprite.data.uv_textures["COA_ATLAS"]
+        else:    
+            uv_map = sprite.data.uv_textures.new(name="COA_ATLAS")
+        sprite.data.uv_textures.active = uv_map
+        
+        ### copy uv data from tmp sprites to original sprite
+        bpy.ops.object.join_uvs()
+        
+        ### assign atlas texture to verts in edit mode
+        for vert in sprite.data.uv_textures.active.data:
+            vert.image = atlas
+        
+        ### restore selections
+        context.scene.objects.active = obj
+        obj.select = True
+        tmp_sprite.select = False
+        sprite.select = False
+        
+        
+        
+        ### delete tmp sprite
+        #bpy.context.scene.objects.unlink(tmp_sprite)
+        #bpy.data.objects.remove(tmp_sprite)
+    
+    obj = context.active_object
+    bpy.context.scene.objects.unlink(obj)
+    bpy.data.objects.remove(obj)
+    
+    ####
+    for obj in context.scene.objects:
+        obj.select = False
+    for obj in tmp_sprites:
+        obj.select = True
+        context.scene.objects.active = obj
+    
+    
+    bpy.ops.object.join()
+    obj = context.active_object
+    
+    ### bake texture into new uv layout
+    for vert in obj.data.uv_textures["COA_ATLAS"].data:
+        vert.image = atlas
+        
+    context.scene.render.bake_type = "TEXTURE"
+    bpy.ops.object.bake_image()
+    bpy.context.scene.update()
+    
+    bpy.context.scene.objects.unlink(obj)
+    bpy.data.objects.remove(obj)
+    
+        
 
 
 def get_shapekey_driver(obj):
@@ -108,6 +299,22 @@ def get_shapekey_driver(obj):
                         bone = armature.data.bones[bone_target]
                         bone_drivers.append(bone)           
     return armature, bone_drivers
+
+def get_sprite_driver(obj):
+    bone_drivers = []
+    armature = None
+    if obj.animation_data != None:
+        for driver in obj.animation_data.drivers:
+            if driver.data_path in ["coa_slot_index","coa_alpha","coa_modulate_color"]:
+                for var in driver.driver.variables:
+                    armature = var.targets[0].id
+                    if armature != None:
+                        bone_target = var.targets[0].bone_target
+                        if bone_target in armature.data.bones:
+                            bone = armature.data.bones[bone_target]
+                            bone_drivers.append(bone)
+    return armature, bone_drivers
+
 
 def get_bone_keyframe_pos(armature, bones):
     action = None
@@ -126,7 +333,7 @@ def get_bone_keyframe_pos(armature, bones):
         keyframes = sorted(keyframes)
     return keyframes
     
-    
+### get objs and bones that are keyed on given frame    
 def bone_key_on_frame(bone,frame,action):
     for fcurve in action.fcurves:
         if bone.name in fcurve.data_path:
@@ -140,9 +347,9 @@ def sprite_key_on_frame(sprite,frame,action):
         for keyframe in fcurve.keyframe_points:
             if keyframe.co[0] == frame:
                 return True
-    return False        
+    return False
 
-def get_animation_data(context,sprite_object,armature,bake_anim):
+def get_animation_data(context,sprite_object,armature,bake_anim,bake_interval):
     m = Matrix() ### inverted posebone origin matrix
     m.row[0] = [0,0,1,0]
     m.row[1] = [1,0,0,0]
@@ -160,7 +367,6 @@ def get_animation_data(context,sprite_object,armature,bake_anim):
         anim_data["bone"] = []
         anim_data["slot"] = []
         anim_data["ffd"] = []
-        
         if anim.name not in ["NO ACTION"]:
             set_action(context,item=anims[1])
             context.scene.update()
@@ -169,12 +375,15 @@ def get_animation_data(context,sprite_object,armature,bake_anim):
             context.scene.update()
             objs = get_children(context,sprite_object,ob_list=[])
             for obj in objs:
-                if obj.animation_data != None and obj.animation_data.action != None:
-                    action = obj.animation_data.action
+                if obj.animation_data != None:# and obj.animation_data.action != None:
+                    action = None
+                    if obj.animation_data.action != None:
+                        action = obj.animation_data.action
                     ### get keyframes for Bones (Position, Rotation, Scale)
                     if obj.type == "ARMATURE":
                         ### loop over all bones and get data
                         for bone in obj.data.bones:
+                                
                             pose_bone = armature.pose.bones[bone.name]
                             if bone.name not in ignore_bones:
                                 bone_data = {}
@@ -184,7 +393,7 @@ def get_animation_data(context,sprite_object,armature,bake_anim):
                                 for f in range(0,anim.frame_end+1):
                                     bpy.context.scene.frame_set(f)
                                     ### if bone has a keyframe on frame -> store data
-                                    if (bone_key_on_frame(bone,f,action) or bake_anim or f == 0):
+                                    if (action != None and (bone_key_on_frame(bone,f,action)) or (bake_anim and f%bake_interval == 0) or f == 0):
                                         
                                         frame_data = {}
                                         frame_data["duration"] = f
@@ -197,18 +406,14 @@ def get_animation_data(context,sprite_object,armature,bake_anim):
                                         ### get bone position
                                         
                                         pos = get_bone_pos(armature,bone,scale)
-                                        pos -= bone_default_states[bone.name]
+                                        pos -= bone_default_pos[bone.name]
                                         if pos != Vector((0,0)):
                                             frame_data["transform"]["x"] = pos[0]
                                             frame_data["transform"]["y"] = pos[1]
                                         
                                         ### get bone angle    
-                                        loc,rot,sca = pose_bone.matrix_basis.decompose()
-                                        
-                                        angle = rot.to_euler().z  # negate angle to fit dragonbones angle
-                                        angle = round(math.degrees(angle),2)
-                
-                                        #angle = get_bone_angle(armature,bone,relative=False)
+                                        angle = get_bone_angle(armature,bone)
+                                        angle -= bone_default_rot[bone.name]
                                         if angle != 0:
                                             frame_data["transform"]["skY"] = angle
                                             frame_data["transform"]["skX"] = angle
@@ -227,11 +432,27 @@ def get_animation_data(context,sprite_object,armature,bake_anim):
                         slot_data = {}
                         slot_data["name"] = obj.name
                         slot_data["frame"] = []
+                        
+                        ### get sprite property driver bones
+                        arm, bones = get_sprite_driver(obj)
+                        arm_action = None
+                        if arm != None and arm.animation_data != None:
+                            arm_action = arm.animation_data.action
+                        
                         ### loop over action framerange
                         for f in range(0,anim.frame_end+1):
                             bpy.context.scene.frame_set(f)
+                            
+                            ### check if property is manipulated by a bone driver
+                            bone_key = False
+                            if arm != None and arm_action != None:
+                                for bone in bones:
+                                    if bone_key_on_frame(bone,f,arm_action):
+                                        bone_key = True
+                                        break    
+                                    
                             ### if slot has keyframe on frame -> store data
-                            if sprite_key_on_frame(obj,f,action) or bake_anim or f == 0:
+                            if (action != None and sprite_key_on_frame(obj,f,action)) or (bake_anim and f%bake_interval == 0) or f == 0 or bone_key:
                                 frame_data = {}
                                 frame_data["duration"] = f
                                 if len(slot_data["frame"]) > 0:
@@ -243,7 +464,7 @@ def get_animation_data(context,sprite_object,armature,bake_anim):
                                 #frame_data["curve"] = [0.5, 0.0, 0.5, 1.0]
                                 
                                 color_data = get_modulate_color(obj)
-                                #print(color_data)
+
                                 if color_data["rM"] != 100:
                                     frame_data["color"]["rM"] = color_data["rM"]
                                 if color_data["gM"] != 100:
@@ -272,7 +493,7 @@ def get_animation_data(context,sprite_object,armature,bake_anim):
                     for f in range(0,anim.frame_end+1):
                         bpy.context.scene.frame_set(f)
                         
-                        if f in keyframes or f == 0 or bake_anim:
+                        if f in keyframes or f == 0 or (bake_anim and f%bake_interval == 0 and len(keyframes)>0):
                             ffd_frame_data = {}
                             ffd_frame_data["duration"] = f
                             ffd_frame_data["tweenEasing"] = 0
@@ -332,7 +553,12 @@ def get_ik_data(armature,bone,const):
     return data
  
 def get_bone_index(armature,bone_name):
-    for i,bone in enumerate(armature.data.bones):
+    armature_bones = []
+    for bone in armature.data.bones:
+        if bone.name not in ignore_bones:
+            armature_bones.append(bone)
+    
+    for i,bone in enumerate(armature_bones):#enumerate(armature.data.bones):
         if bone_name == bone.name:
             return i
 
@@ -357,7 +583,13 @@ def get_weight_data(obj,armature):
             
             if group["group_name"] not in bone_names:
                 bone_names.append(group["group_name"])
-    for i,bone in enumerate(armature.data.bones):
+    
+    armature_bones = []
+    for bone in armature.data.bones:
+        if bone.name not in ignore_bones:
+            armature_bones.append(bone)   
+                
+    for i,bone in enumerate(armature_bones):#enumerate(armature.data.bones):
         if bone.name in bone_names:
             bone = armature.data.bones[bone.name]            
             bones.append({"index":i,"bone":bone})
@@ -366,7 +598,7 @@ def get_weight_data(obj,armature):
                 
     
 ### get skin data
-def get_skin_data(obj,tex_path,scale,armature):
+def get_skin_data(obj,tex_path,scale,armature,texture_atlas=False):
     context = bpy.context
     obj.select = True
     context.scene.objects.active = obj
@@ -380,8 +612,12 @@ def get_skin_data(obj,tex_path,scale,armature):
     d["type"] = "mesh"
     d["name"] = tex_path
     d["user_edges"] = []
-    d["width"] = get_img_tex(obj).size[0]
-    d["height"] = get_img_tex(obj).size[1]
+    if not texture_atlas:
+        d["width"] = get_img_tex(obj).size[0]
+        d["height"] = get_img_tex(obj).size[1]
+    else:
+        d["width"] = bpy.data.images[tex_path.split("/")[1]].size[0]
+        d["height"] = bpy.data.images[tex_path.split("/")[1]].size[1]
     
     verts = get_mixed_vertex_data(obj,store_tmp=True)
     d["vertices"] = convert_vertex_data(verts)
@@ -571,13 +807,14 @@ def get_bone_data(armature,bone,scale):
     
     ### get bone position
     pos = get_bone_pos(armature,bone,scale)
-    bone_default_states[bone.name] = Vector(pos)
+    bone_default_pos[bone.name] = Vector(pos)
     if pos != Vector((0,0)):
         data["transform"]["x"] = pos[0]
         data["transform"]["y"] = pos[1]
     
     ### get bone angle    
     angle = get_bone_angle(armature,bone)
+    bone_default_rot[bone.name] = angle
     if angle != 0:
         data["transform"]["skX"] = angle
         data["transform"]["skY"] = angle
@@ -634,17 +871,14 @@ def save_texture(obj,texture_path):
         
         file_name = src_path[src_path.rfind("/")+1:]
         dst_path = os.path.join(texture_path, file_name)
+        if os.path.isfile(dst_path):
+            os.remove(dst_path)
+            
         if os.path.isfile(src_path):
-            if os.path.isfile(dst_path):
-                os.remove(dst_path)
             copyfile(src_path,dst_path)
         else:
             img.save_render(dst_path)
-                
 
-            
-        
-        
         rel_path = os.path.join("sprites",file_name[:file_name.rfind(".")])
         rel_path = rel_path.replace("\\","/")
         return rel_path
@@ -659,7 +893,13 @@ class DragonBonesExport(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
 
     filter_glob = StringProperty(default="*.json",options={'HIDDEN'},)
     bake_anim = BoolProperty(name="Bake Animation", description="If checked, keyframes will be set for each frame. This is good if the Animation has to look exactly as in Blender.",default=False)
+    bake_interval = IntProperty(name="Bake Interval",default=1,min=1)
     reduce_size = BoolProperty(name="Reduce Export Size", description="Reduces the export size by writing all data into one row.",default=True)
+    generate_atlas = BoolProperty(name="Generate Texture Atlas",description="Generates a Texture Atlas to reduce size and bundle all graphics in one Image",default=True)
+    atlas_size = EnumProperty(name="Atlas Size",items=(("AUTOMATIC","Automatic","Automatic"),("MANUAL","Manual","Manual")))
+    atlas_dimension = IntVectorProperty(name="Dimension",size=2,default=(512,512))
+    unwrap_method = EnumProperty(name="Unwrap Method",items=(("SMART_UV","Smart UV","Smart UV"),("ANGLE_BASED","Angle Based","Angle Based")))
+    island_margin = FloatProperty(default=.01,min=0.0,step=.1)
     
     sprite_object = None
     armature = None
@@ -668,7 +908,31 @@ class DragonBonesExport(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     @classmethod
     def poll(cls, context):
         return True
-
+    
+    def draw(self,context):
+        layout = self.layout
+        col = layout.column()
+        col.prop(self,"bake_anim",text="Bake Animation")
+        if self.bake_anim:
+            col.prop(self,"bake_interval",text="Bake Interval")
+        col.prop(self,"reduce_size",text="Reduce Export Size")
+        
+        if self.generate_atlas:
+            box = col.box()
+        else:
+            box = col    
+        box.prop(self,"generate_atlas",text="Generate Texture Atlas")
+        if self.generate_atlas:
+            row = box.row()
+            row.prop(self,"atlas_size",text="Atlas Size",expand=True)
+            if self.atlas_size == "MANUAL":
+                row = box.row()
+                row.prop(self,"atlas_dimension",text="")
+            row = box.row()    
+            row.prop(self,"unwrap_method",text="Unwrap Method",expand=True)  
+            row = box.row()
+            row.prop(self,"island_margin",text="Sprite Margin")  
+    
     def execute(self, context):
         bpy.ops.ed.undo_push(message="Export Undo")
         self.scale = 1/get_addon_prefs(context).sprite_import_export_scale
@@ -682,6 +946,8 @@ class DragonBonesExport(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
         
         set_action(context,item=self.sprite_object.coa_anim_collections[1]) # set animation to restpose
         
+        create_texture_dir(texture_path)
+        
         ### delete base sprite if hidden for export
         for sprite in self.sprites:
             if sprite.type == "MESH":
@@ -690,11 +956,17 @@ class DragonBonesExport(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
                     sprite.select = True
                     remove_base_mesh(sprite)
         
-        
-        create_texture_dir(texture_path)
+        ### if generate atlas is toggled a texture atlas is generated
+        if self.generate_atlas:            
+            sprites = []            
+            for sprite in self.sprites:
+                if sprite.type == "MESH":
+                    sprites.append(sprite)
+            name = self.sprite_object.name+"_atlas"
+            generate_texture_atlas(context,sprites,name,self.atlas_dimension[0],self.atlas_dimension[1],self.atlas_size,self.unwrap_method,self.island_margin)
+            bpy.data.images[name].save_render(os.path.join(texture_path,name+".png"))
         
         armature["slot"] = []
-        
         
         skin = OrderedDict()
         skin = {
@@ -705,22 +977,25 @@ class DragonBonesExport(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
         
         for sprite in self.sprites:
             if sprite.type == "MESH":
-                ### find export bones that have to be ignored
-                bones = get_shapekey_driver(sprite)[1]
-                for bone in bones:
-                    if bone.name not in ignore_bones:
-                        ignore_bones.append(bone.name)
-                
+#                ### find export bones that have to be ignored
+#                bones = get_shapekey_driver(sprite)[1]
+#                for bone in bones:
+#                    if bone.name not in ignore_bones:
+#                        ignore_bones.append(bone.name)
                 
                 armature["slot"].append(get_slot_data(sprite))
-                
                 
                 display = {"name":sprite.name,"display":[]}
                 
                 ### export mesh directly when of type "MESH"
                 if sprite.coa_type == "MESH":
-                    tex_path = save_texture(sprite,texture_path)
-                    display["display"].append(get_skin_data(sprite,tex_path,self.scale,self.armature))
+                    if not self.generate_atlas:
+                        tex_path = save_texture(sprite,texture_path)
+                    else:
+                        
+                        tex_path = os.path.join("sprites",self.sprite_object.name+"_atlas")
+                        tex_path = tex_path.replace("\\","/")
+                    display["display"].append(get_skin_data(sprite,tex_path,self.scale,self.armature,texture_atlas=self.generate_atlas))
                     
                 ### loop over all slots if of type "SLOT"    
                 elif sprite.coa_type == "SLOT":
@@ -730,8 +1005,13 @@ class DragonBonesExport(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
                         data = bpy.data.meshes[slot.name]
                         sprite.data = data
                         
-                        tex_path = save_texture(sprite,texture_path)
-                        display["display"].append(get_skin_data(sprite,tex_path,self.scale,self.armature))
+                        if not self.generate_atlas:
+                            tex_path = save_texture(sprite,texture_path)
+                        else:
+                            
+                            tex_path = os.path.join("sprites",self.sprite_object.name+"_atlas")
+                            tex_path = tex_path.replace("\\","/")
+                        display["display"].append(get_skin_data(sprite,tex_path,self.scale,self.armature,texture_atlas=self.generate_atlas))
                     sprite.data = bpy.data.meshes[data_name]
                     
                 armature["skin"][0]["slot"].append(display)
@@ -744,17 +1024,20 @@ class DragonBonesExport(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
             armature["bone"].append({"name":self.armature.name,"transform":{}})
 
             for bone in self.armature.data.bones:
-                armature["bone"].append(get_bone_data(self.armature,bone,self.scale))
-                
-                for const in self.armature.pose.bones[bone.name].constraints:
-                    if const.type == "IK" and const.subtarget != "":
-                        armature["ik"].append(get_ik_data(self.armature,bone,const))
+                pose_bone = self.armature.pose.bones[bone.name]
+
+                if bone.name not in ignore_bones:
+                    armature["bone"].append(get_bone_data(self.armature,bone,self.scale))
+                    
+                    for const in self.armature.pose.bones[bone.name].constraints:
+                        if const.type == "IK" and const.subtarget != "":
+                            armature["ik"].append(get_ik_data(self.armature,bone,const))
         
         
         ### get animation data
         if len(self.sprite_object.coa_anim_collections)>0:
             armature["animation"] = []
-            armature["animation"] = get_animation_data(context,self.sprite_object,self.armature,self.bake_anim)
+            armature["animation"] = get_animation_data(context,self.sprite_object,self.armature,self.bake_anim,self.bake_interval)
             
         db_json["armature"] = []
         db_json["armature"].append(armature)

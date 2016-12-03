@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Spaceship Generator",
     "author": "Michael Davies",
-    "version": (1, 0, 0),
+    "version": (1, 1, 2),
     "blender": (2, 76, 0),
     "location": "View3D > Add > Mesh",
     "description": "Procedurally generate 3D spaceships from a random seed.",
@@ -42,15 +42,16 @@ class GenerateSpaceship(Operator):
     def execute(self, context):
         spaceship_generator.generate_spaceship(
             self.random_seed,
-            self.num_asymmetry_segments_min,
-            self.num_asymmetry_segments_max,
+            self.num_hull_segments_min,
+            self.num_hull_segments_max,
             self.create_asymmetry_segments,
             self.num_asymmetry_segments_min,
             self.num_asymmetry_segments_max,
             self.create_face_detail,
             self.allow_horizontal_symmetry,
             self.allow_vertical_symmetry,
-            self.apply_bevel_modifier)
+            self.apply_bevel_modifier,
+            self.assign_materials)
         return {'FINISHED'}
 
 def menu_func(self, context):

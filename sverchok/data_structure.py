@@ -920,6 +920,8 @@ def changable_sockets(node, inputsocketname, outputsocketname):
             return
         outputs = node.outputs
         s_type = in_other.bl_idname
+        if s_type == 'SvDummySocket':
+            return #
         if outputs[outputsocketname[0]].bl_idname != s_type:
             node.id_data.freeze(hard=True)
             to_links = {}

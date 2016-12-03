@@ -2,7 +2,6 @@ import bpy
 
 # leave untracked!
 
-
 def do_nodeview_theme():
     current_theme = bpy.context.user_preferences.themes.items()[0][0]
     node_editor = bpy.context.user_preferences.themes[current_theme].node_editor

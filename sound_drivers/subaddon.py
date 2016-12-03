@@ -32,6 +32,14 @@ class SubAddon:
             return None
         return register
 
+    def _get_classes(self, blenderclassname):
+        import inspect
+        classtype = getattr(bpy.types, blenderclassname, None)
+
+        classes = [(name, cls) for name, cls in vars(self.module).items()
+                if inspect.isclass(cls) and issubclass(cls, classtype) and cls != classtype]
+        return classes
+
     def _get_pref_class(self):
         import inspect
         for obj in vars(self.module).values():
@@ -110,7 +118,50 @@ class SubAddon:
             except:
                 pass
 
+    def draw_menus(self, layout, context):
+        if not self.menus:
+            return
+        layout.label("Menus")
+        for name, panel in self.panels:
+            row = layout.row()
+
+            row.label("   %s" % name, icon='BLANK1')
+            #row.label("Registered: %s" % hasattr(panel, "bl_rna"))
+            #row.label("Registered: %s" % hasattr(bpy.types, name))
+            if hasattr(panel, "bl_category"):
+                row.label("bl_category: %s" % getattr(panel, "bl_category"))
+
+    def draw_operators(self, layout, context):
+        if not self.operators:
+            return
+        layout.label("Operators")
+        for name, operator in self.operators:
+            row = layout.row()
+
+            row.label("   %s" % name, icon='BLANK1')
+            #row.label("Registered: %s" % hasattr(operator, "bl_rna"))
+            row.label("Registered: %s" % getattr(operator, "is_registered", False))
+            #row.label("Registered: %s" % hasattr(bpy.types, operator.bl_rna.name))
+            row.label(operator.bl_idname)
+            if hasattr(operator, "bl_category"):
+                row.label("bl_category: %s" % getattr(operator, "bl_category"))
+
+    def draw_panels(self, layout, context):
+        if not self.panels:
+            return
+        layout.label("Panels")
+        for name, panel in self.panels:
+            row = layout.row()
+
+            row.label("   %s" % name, icon='BLANK1')
+            row.label("Registered: %s" % getattr(panel, "is_registered", False))
+            #row.label("Registered: %s" % hasattr(bpy.types, panel.bl_rna.name))
+            if hasattr(panel, "bl_category"):
+                row.label("bl_category: %s" % getattr(panel, "bl_category"))
+
     def draw_info(self, layout, context):
+        if not self.info:
+            return
         store = self._store
         '''
         # sanitize info dic STUPID IDEA, blanked out everything maybe __name__ for bl_idname at least
@@ -171,7 +222,9 @@ class SubAddon:
 
         store = self._store
         row.prop(store, "expand", icon='TRIA_DOWN' if store.expand else 'TRIA_RIGHT', icon_only=True, emboss=False)
-        row.prop(store, "enabled", icon='CHECKBOX_HLT' if self.enabled else 'CHECKBOX_DEHLT', icon_only=True, emboss=False)
+        sub = row.row()
+        sub.prop(store, "enabled", icon='CHECKBOX_HLT' if self.enabled else 'CHECKBOX_DEHLT', icon_only=True, emboss=False)
+        sub.enabled = not store.is_required # can't turn off if required
         sub = row.row()
         sub.enabled = store.enabled
         sub.label(self.info.get("description", self.name))
@@ -185,19 +238,36 @@ class SubAddon:
                 pref = getattr(store, "preferences")
                 pref.layout = modbox
                 pref.draw(context)
+            self.draw_panels(layout.column(), context)
+            self.draw_operators(layout.column(), context)
 
+
+    @property
+    def panels(self):
+        return self._get_classes("Panel")
+
+    @property
+    def addon_preferences(self):
+        return self._get_classes("AddonPreferences")
+
+    @property
+    def operators(self):
+        return self._get_classes("Operator")
 
     def __init__(self, name):
         self.name = name
         #module = __import__("%s.%s" % (__package__, name), {}, {}, name)
         print("INIT", __package__, name)
         module = import_module(".%s" % name, package=__package__)
-        global reload_flag
         if reload_flag:
             import_reload(module)
         self.module = module
         self.info = getattr(self.module, "bl_info", {})
         self.prefsclass = self._get_pref_class()
+        '''
+        print("VARS", vars(module))
+        print("GLOBALS", module.__spec__)
+        '''
 
 addons = {}
 def create_addon_prefs(bl_idname, sub_modules_names, subaddonprefs={ "bl_idname": "",                 
@@ -206,7 +276,7 @@ def create_addon_prefs(bl_idname, sub_modules_names, subaddonprefs={ "bl_idname"
                                         }, addons={}):
 
     subaddonprefs["bl_idname"] = bl_idname
-    for name, default_enabled in sub_modules_names:
+    for name, default_enabled, is_required in sub_modules_names:
         subaddon = SubAddon(name)
         mod = subaddon.module
         prefsclass = subaddon.prefsclass
@@ -214,6 +284,7 @@ def create_addon_prefs(bl_idname, sub_modules_names, subaddonprefs={ "bl_idname"
 
         props["enabled"] = BoolProperty(update=subaddon.register_submodule(), default=default_enabled, description="Enable %s" % name)
         props["expand"] = BoolProperty(default=False)
+        props["is_required"] = is_required
         if subaddon.info:
             props["info_expand"] = BoolProperty(default=False)
 

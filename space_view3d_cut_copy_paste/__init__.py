@@ -19,7 +19,7 @@ bl_info = {
     "name": "Cut/Copy/Paste objects and elements",
     "description": "Cut/Copy/Paste objects and elements",
     "author": "dairin0d",
-    "version": (0, 6, 4),
+    "version": (0, 6, 5),
     "blender": (2, 7, 0),
     "location": "View3D -> Ctrl+X, Ctrl+C, Ctrl+V, Shift+Delete, Ctrl+Insert, Shift+Insert",
     "warning": "",
@@ -42,6 +42,7 @@ from bpy_extras.view3d_utils import (region_2d_to_vector_3d,
                                      location_3d_to_region_2d)
 
 import os
+import shutil
 import glob
 import time
 import json
@@ -95,6 +96,17 @@ It can paste even in a different file, but it will always append everything
 # Surface copy/paste is quite limited, since only whole patches can
 # be safely pasted.
 copy_paste_modes = {'OBJECT', 'EDIT_MESH', 'EDIT_CURVE', 'EDIT_SURFACE', 'EDIT_ARMATURE', 'EDIT_METABALL'}
+
+blender_tempdir = bpy.app.tempdir
+if (blender_tempdir[-1] in "\\/"): blender_tempdir = blender_tempdir[:-1]
+blender_tempdir = os.path.dirname(blender_tempdir)
+# LOCAL is blender's executable location,
+# and Blender must always start from ASCII path
+# (at least until non-ASCII problems are fixed)
+#blender_tempdir = bpy.utils.resource_path('LOCAL') # USER SYSTEM
+def get_clipboards_dir():
+    clipboards_path = os.path.normcase(os.path.join(blender_tempdir, "blender_clipboards"))
+    return clipboards_path
 
 def compress_b64(b):
     # Somewhat strangely, compresslevel=1 not just works twice as fast
@@ -169,13 +181,16 @@ def def_read_funcs(_stream):
         else:
             pass # TODO
     
-    def deserializer_skin(value):
+    def deserializer_skin(elem, layer):
         elem[layer].radius = unpack('!ff', read(8))
         elem[layer].use_loose = unpack('!?', read(1))[0]
         elem[layer].use_root = unpack('!?', read(1))[0]
     
-    def deserializer_freestyle(value):
+    def deserializer_freestyle(elem, layer):
         pass # Not implemented as of Blender 2.74
+    
+    def deserializer_paint_mask(elem, layer):
+        elem[layer].value = unpack('!f', read(4))[0]
     
     return {k:v for k, v in locals().items() if not k.startswith("_")}
 
@@ -232,6 +247,9 @@ def def_write_funcs(_stream):
     
     def serializer_freestyle(value):
         pass # Not implemented as of Blender 2.74
+    
+    def serializer_paint_mask(value):
+        write(pack('!f', value.value))
     
     return {k:v for k, v in locals().items() if not k.startswith("_")}
 
@@ -312,11 +330,7 @@ def get_view_rotation(context):
 # to a library after appending from it (-> forbids to save files with
 # that filepath).
 def make_clipboard_path():
-    # LOCAL is blender's executable location,
-    # and Blender must always start from ASCII path
-    # (at least until non-ASCII problems are fixed)
-    #resource_path = bpy.utils.resource_path('LOCAL') # USER SYSTEM
-    resource_path = bpy.app.tempdir
+    clipboards_path = get_clipboards_dir()
     
     lib_paths = set(os.path.normcase(bpy.path.abspath(lib.filepath))
                     for lib in bpy.data.libraries)
@@ -325,32 +339,37 @@ def make_clipboard_path():
     i = 0
     while True:
         name = "clipboard.%s.blend" % (startkey + str(i))
-        path = os.path.normcase(os.path.join(resource_path, name))
-        if path not in lib_paths:
+        path = os.path.normcase(os.path.join(clipboards_path, name))
+        if (path not in lib_paths) and (not os.path.exists(path)):
             return path
         i += 1
 
 def remove_clipboard_files():
-    resource_path = bpy.utils.resource_path('LOCAL') # USER SYSTEM
+    clipboards_path = get_clipboards_dir()
     
-    filemask = os.path.join(resource_path, "clipboard.*.blend")
+    filemask = os.path.join(clipboards_path, "clipboard.*.blend")
     for path in glob.glob(filemask):
         os.remove(path)
 
 def is_clipboard_path(path):
-    resource_path = bpy.utils.resource_path('LOCAL') # USER SYSTEM
+    clipboards_path = get_clipboards_dir()
     
-    resource_path = os.path.normcase(resource_path)
     path = os.path.normcase(bpy.path.abspath(path))
     
-    if path.startswith(resource_path):
-        path = path[len(resource_path):]
+    if path.startswith(clipboards_path):
+        path = path[len(clipboards_path):]
         if path.startswith(os.path.sep):
             path = path[1:]
         if path.startswith("clipboard.") and path.endswith(".blend"):
             return True
     
     return False
+
+def save_clipboard_file(filepath):
+    remove_clipboard_files()
+    dir_path = os.path.dirname(filepath)
+    if not os.path.exists(dir_path): os.makedirs(dir_path)
+    bpy.ops.wm.save_as_mainfile(filepath=filepath, check_existing=False, copy=True)
 
 def data_clipboard_path():
     resource_path = bpy.utils.resource_path('LOCAL') # USER SYSTEM
@@ -379,7 +398,7 @@ class VIEW3D_PT_copy_paste:
 
 @addon.Operator(idname="view3d.copy", label="Copy objects/elements", description="Copy objects/elements")
 class OperatorCopy:
-    force_copy = False | -prop()
+    force_copy = True | -prop()
     
     @classmethod
     def poll(cls, context):
@@ -396,7 +415,7 @@ class OperatorCopy:
         # so we have to store them somewhere else (-> force_copy=True).
         if opts.external or self.force_copy:
             path = bpy.data.filepath
-            if (not path) or self.force_copy:
+            if ((not path) or self.force_copy) and opts.append:
                 path = make_clipboard_path()
                 self_is_clipboard = True
             self_library = path
@@ -441,12 +460,16 @@ class OperatorCopy:
         
         if self_library and (self_library in libraries):
             if self_is_clipboard:
+                save_clipboard_file(self_library)
+            """
+            if self_is_clipboard:
                 remove_clipboard_files()
                 bpy.ops.wm.save_as_mainfile(filepath=self_library,
                     check_existing=False, copy=True)
             else:
                 # make sure the file is up-to-date
                 bpy.ops.wm.save_mainfile(check_existing=False)
+            """
     
     def write_mesh(self, obj, stream):
         iofuncs = def_write_funcs(stream)
@@ -465,6 +488,7 @@ class OperatorCopy:
         serializer_tex = iofuncs["serializer_tex"]
         serializer_skin = iofuncs["serializer_skin"]
         serializer_freestyle = iofuncs["serializer_freestyle"]
+        serializer_paint_mask = iofuncs["serializer_paint_mask"]
         
         serializers = {}
         serializers["verts.float"] = serializer_float
@@ -474,6 +498,7 @@ class OperatorCopy:
         serializers["verts.deform"] = serializer_deform
         serializers["verts.shape"] = serializer_vector
         serializers["verts.skin"] = serializer_skin
+        serializers["verts.paint_mask"] = serializer_paint_mask
         
         serializers["edges.float"] = serializer_float
         serializers["edges.int"] = serializer_int
@@ -799,6 +824,15 @@ class OperatorCopy:
         
         wm.clipboard = json.dumps(json_data, separators=(',',':'))
         
+        if json_data["type"] == 'OBJECT':
+            objs = json_data["objects"]
+            if len(objs) > 1:
+                self.report({'INFO'}, "Copy: {} objects".format(len(objs)))
+            else:
+                self.report({'INFO'}, "Copy: {}".format(tuple(objs)[0]))
+        else:
+            self.report({'INFO'}, "Copy: {} data".format(json_data["type"]))
+        
         return {'FINISHED'}
 
 @addon.Operator(idname="view3d.paste", label="Paste objects/elements", description="Paste objects/elements")
@@ -879,6 +913,8 @@ class OperatorPaste:
                 # TODO: see what actual exceptions can appear
                 print(exc)
                 raise ValueError
+        
+        return json_data
     
     def add_pivot(self, p, active):
         p = p.to_3d()
@@ -994,6 +1030,7 @@ class OperatorPaste:
             # (to circumvent the [intentional] Blender behavior reported in https://developer.blender.org/T44890)
             for group in bpy.data.groups:
                 for obj in group.objects:
+                    if not obj: continue # apparently this can happen
                     if obj.users_scene: continue
                     scene.objects.link(obj)
     
@@ -1195,6 +1232,7 @@ class OperatorPaste:
         deserializer_tex = iofuncs["deserializer_tex"]
         deserializer_skin = iofuncs["deserializer_skin"]
         deserializer_freestyle = iofuncs["deserializer_freestyle"]
+        deserializer_paint_mask = iofuncs["deserializer_paint_mask"]
         
         deserializers = {}
         deserializers["verts.float"] = deserializer_float
@@ -1204,6 +1242,7 @@ class OperatorPaste:
         deserializers["verts.deform"] = deserializer_deform
         deserializers["verts.shape"] = deserializer_vector
         deserializers["verts.skin"] = deserializer_skin
+        deserializers["verts.paint_mask"] = deserializer_paint_mask
         
         deserializers["edges.float"] = deserializer_float
         deserializers["edges.int"] = deserializer_int
@@ -1368,10 +1407,10 @@ class OperatorPaste:
     
     def execute(self, context):
         try:
-            self.read_clipboard(context)
+            json_data = self.read_clipboard(context)
         except (TypeError, KeyError, ValueError, AssertionError):
             self.report({'WARNING'}, "Incompatible format of clipboard data")
-            return True
+            return {'CANCELLED'}
         
         opts = addon.preferences
         
@@ -1432,7 +1471,9 @@ class OperatorPaste:
         elif pivot_mode == 'CURSOR':
             pivot = self.cursor
         
-        if is_view3d(context) and opts.append:
+        do_transform = opts.append or ("" in self.libraries)
+        
+        if is_view3d(context) and do_transform:
             if opts.paste_at_cursor:
                 v3d = context.space_data
                 cursor = v3d.cursor_location
@@ -1454,7 +1495,16 @@ class OperatorPaste:
         
         bpy.ops.ed.undo_push(message="Paste")
         
-        if opts.append:
+        if json_data["type"] == 'OBJECT':
+            objs = json_data["objects"]
+            if len(objs) > 1:
+                self.report({'INFO'}, "Paste: {} objects".format(len(objs)))
+            else:
+                self.report({'INFO'}, "Paste: {}".format(tuple(objs)[0]))
+        else:
+            self.report({'INFO'}, "Paste: {} data".format(json_data["type"]))
+        
+        if do_transform:
             return bpy.ops.transform.transform('INVOKE_DEFAULT')
         else:
             return {'FINISHED'}

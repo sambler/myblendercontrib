@@ -36,19 +36,19 @@ def parse_to_path(p):
     attr - attribute to get using getattr(obj,attr)
     key - key for accesing via obj[key]
     '''
-    
+
     if isinstance(p, ast.Attribute):
         return parse_to_path(p.value)+[("attr", p.attr)] 
     elif isinstance(p, ast.Subscript):
         if isinstance(p.slice.value, ast.Num):
-            return  parse_to_path(p.value) + [("key",p.slice.value.n)]
+            return  parse_to_path(p.value) + [("key", p.slice.value.n)]
         elif isinstance(p.slice.value, ast.Str):
-            return parse_to_path(p.value) + [("key", p.slice.value.s)] 
+            return parse_to_path(p.value) + [("key", p.slice.value.s)]
     elif isinstance(p, ast.Name):
         return [("name", p.id)]
     else:
         raise NameError
-        
+
 def get_object(path):
     '''
     access the object speciefed from a path
@@ -57,9 +57,9 @@ def get_object(path):
     '''
     curr_object = globals()[path[0][1]]
     for t, value in path[1:]:
-        if t=="attr":
+        if t == "attr":
             curr_object = getattr(curr_object, value)
-        elif t=="key":
+        elif t == "key":
             curr_object = curr_object[value]
     return curr_object
 
@@ -82,7 +82,7 @@ def wrap_output_data(tvar):
     create valid sverchok socket data from an object
     from ek node
     '''
-    if isinstance(tvar, Vector):
+    if isinstance(tvar, (Vector, Color)):
         data = [[tvar[:]]]
     elif isinstance(tvar, Matrix):
         data = [[r[:] for r in tvar[:]]]
@@ -131,15 +131,16 @@ aliases = {
     "mats": "bpy.data.materials",
     "meshes": "bpy.data.meshes",
     "texts": "bpy.data.texts"
-}  
+}
 
 types = {
     int: "StringsSocket",
     float: "StringsSocket",
     str: "StringsSocket", # I WANT A PROPER TEXT SOCKET!!!
-    mathutils.Vector:"VerticesSocket",
-    mathutils.Matrix: "MatrixSocket",        
-    mathutils.Euler: "MatrixSocket", 
+    mathutils.Vector: "VerticesSocket",
+    mathutils.Color: "VerticesSocket",
+    mathutils.Matrix: "MatrixSocket",
+    mathutils.Euler: "MatrixSocket",
     mathutils.Quaternion: "MatrixSocket",
 }
 
@@ -148,14 +149,14 @@ class SvGetPropNode(bpy.types.Node, SverchCustomTreeNode):
     bl_idname = 'SvGetPropNode'
     bl_label = 'Get property'
     bl_icon = 'FORCE_VORTEX'
-    
+
     bad_prop = BoolProperty(default=False)
-    
+
     def verify_prop(self, context):
         try:
             obj = self.obj
         except:
-            traceback.print_exc()        
+            traceback.print_exc()
             self.bad_prop = True
             return
         self.bad_prop = False
@@ -165,8 +166,8 @@ class SvGetPropNode(bpy.types.Node, SverchCustomTreeNode):
             replace_socket(outputs[0], s_type)
         elif s_type:
             outputs.new(s_type, "Data")
-        
-        
+
+
     prop_name = StringProperty(name='', update=verify_prop)
 
     @property
@@ -181,20 +182,19 @@ class SvGetPropNode(bpy.types.Node, SverchCustomTreeNode):
         layout.prop(self, "prop_name", text="")
 
     def process(self):
-        self.outputs[0].sv_set(wrap_output_data(self.obj))        
-  
+        self.outputs[0].sv_set(wrap_output_data(self.obj))
+
 
 class SvSetPropNode(bpy.types.Node, SverchCustomTreeNode):
     ''' Set property '''
     bl_idname = 'SvSetPropNode'
     bl_label = 'Set property'
     bl_icon = 'FORCE_VORTEX'
-    
-    
+
     ok_prop = BoolProperty(default=False)
     bad_prop = BoolProperty(default=False)
 
-    
+
     @property
     def obj(self):
         eval_str = apply_alias(self.prop_name)
@@ -206,7 +206,7 @@ class SvSetPropNode(bpy.types.Node, SverchCustomTreeNode):
         try:
             obj = self.obj
         except:
-            traceback.print_exc()        
+            traceback.print_exc()
             self.bad_prop = True
             return
         self.bad_prop = False
@@ -247,7 +247,7 @@ class SvSetPropNode(bpy.types.Node, SverchCustomTreeNode):
         else:
             assign_data(obj, data)
 
-            
+
 def register():
     bpy.utils.register_class(SvSetPropNode)
     bpy.utils.register_class(SvGetPropNode)
@@ -256,4 +256,3 @@ def register():
 def unregister():
     bpy.utils.unregister_class(SvSetPropNode)
     bpy.utils.unregister_class(SvGetPropNode)
-

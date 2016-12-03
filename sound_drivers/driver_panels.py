@@ -1,22 +1,48 @@
 bl_info = {
     "name": "Driver Panels",
     "author": "batFINGER",
-    "location": "Properties > Speaker > MIDI",
-    "description": "Display Drivers in TOOLS and PROPERTIES ",
+    "location": "3D View Tools",
+    "description": "Driver Panel Settings",
     "warning": "Still in Testing",
     "wiki_url": "http://wiki.blender.org/index.php/\
                 User:BatFINGER/Addons/Sound_Drivers",
     "version": (1, 0),
-    "blender": (2, 7, 6),
+    "blender": (2, 7, 7),
     "tracker_url": "",
     "icon": 'DRIVER',
     "support": 'TESTING',
     "category": "Animation",
     }
+
 import bpy
 from bpy.utils import register_class, unregister_class
-from bpy.props import BoolProperty
+from bpy.props import BoolProperty, IntProperty, StringProperty
+# TODO move all icon "stuff" to icons.py
 from sound_drivers.utils import get_icon, bpy_collections, icon_from_bpy_datapath
+from bpy.types import AddonPreferences
+
+# dummy AddonPrefs (used for top level)
+
+class DriverPanelsAddonPreferences(AddonPreferences):
+    ''' Driver Manager Prefs '''
+    bl_idname = __name__
+
+    # toggle to view drivers
+    view_drivers = BoolProperty(default=False)
+    toolbar_category = StringProperty(default="Drivers")
+
+    def draw(self, context):
+        def icon(test):
+            if test:
+                icon = 'FILE_TICK'
+            else:
+                icon = 'ERROR'
+            return icon
+
+        layout = self.layout
+        row = layout.row()
+        # TODO make this change the category of all panels
+        row.prop(self, "toolbar_category")
 
 
 class DRIVER_UL_driven_objects(bpy.types.UIList):    
@@ -86,17 +112,12 @@ class DRIVER_UL_driven_objects(bpy.types.UIList):
         return flt_flags, flt_neworder
 
 
-
 class DriversManagerPanel(bpy.types.Panel):
     """Driver Tool Panel"""
     bl_label = "Driver Manager"
     bl_idname = "VIEW3D_PT_DriversManager"
-    #bl_space_type = 'PROPERTIES'
     bl_space_type = "VIEW_3D"
-    #bl_region_type = 'WINDOW'
     bl_region_type = "TOOLS"
-    #bl_context = "object"
-    #bl_options = {'DEFAULT_CLOSED'}
     bl_category = 'Drivers'
 
     @classmethod

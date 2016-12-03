@@ -9,9 +9,9 @@ class name(Operator):
   '''
     Transfer names from some types of datablocks to others.
   '''
-  bl_idname = 'view3d.copy_name'
-  bl_label = 'Copy Name'
-  bl_description = 'Copy names from some types of datablocks to others.'
+  bl_idname = 'view3d.transfer_name'
+  bl_label = 'Transfer Names'
+  bl_description = 'Transfer names from some types of datablocks to others.'
   bl_options = {'UNDO'}
 
   # poll
@@ -56,13 +56,13 @@ class name(Operator):
     column = layout.column(align=True)
 
     # source
-    column.label(text='Copy:', icon='COPYDOWN')
+    column.label(text='From:', icon='COPYDOWN')
     column = layout.column(align=True)
     column.prop(option, 'source', expand=True)
     column = layout.column(align=True)
 
     # targets
-    column.label(text='Paste:', icon='PASTEDOWN')
+    column.label(text='To:', icon='PASTEDOWN')
     column = layout.column(align=True)
     split = column.split(align=True)
     split.prop(option, 'objects', text='', icon='OBJECT_DATA')
@@ -91,6 +91,9 @@ class name(Operator):
     '''
       Invoke the operator panel/menu, control its width.
     '''
+
+    self.check(context)
+
     size = 210 if not context.window_manager.BatchShared.largePopups else 340
     context.window_manager.invoke_props_dialog(self, width=size)
     return {'RUNNING_MODAL'}

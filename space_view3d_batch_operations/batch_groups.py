@@ -72,6 +72,13 @@ class BatchOperations:
         return None
     
     @classmethod
+    def remove_group(cls, group, do_unlink=True):
+        if bpy.app.version >= (2, 78, 0):
+            bpy.data.groups.remove(group, do_unlink=do_unlink)
+        else:
+            bpy.data.groups.remove(group)
+    
+    @classmethod
     def group_objects(cls, group):
         consider_dupli = ('CONSIDER_DUPLI' in get_options().group_options)
         for obj in group.objects:
@@ -252,14 +259,14 @@ class BatchOperations:
                 cls.set_attr("use_fake_user", False, None, fake_idnames)
             for group in tuple(bpy.data.groups):
                 if group.users > 0: continue
-                bpy.data.groups.remove(group)
+                cls.remove_group(group)
         else:
             cls.remove(None, idnames, True)
             cls.set_attr("use_fake_user", False, None, idnames)
             idnames = cls.split_idnames(idnames)
             for group in tuple(bpy.data.groups):
                 if group.name in idnames:
-                    bpy.data.groups.remove(group)
+                    cls.remove_group(group)
     
     @classmethod
     def copy(cls, active_obj, exclude=()):
@@ -405,7 +412,7 @@ class BatchOperations:
                 cls.set_attr("use_fake_user", False, None, replaced_idnames)
                 for group in tuple(bpy.data.groups):
                     if group.name in replaced_idnames:
-                        bpy.data.groups.remove(group)
+                        cls.remove_group(group)
 
 #============================================================================#
 

@@ -27,7 +27,7 @@ def sort(layout, option):
   subsub.scale_x = 5
 
   # type
-  subsub.prop(option, 'type', toggle=True, expand=True)
+  subsub.prop(option, 'type', text='')
 
   # sub sub sub
   subsubsub = subsub.row(align=True)
@@ -35,8 +35,14 @@ def sort(layout, option):
   # active
   subsubsub.active = option.type == 'POSITIONAL'
 
+  ## tmp
+  # subsubsub.prop(option, 'invert', icon='CURSOR', text='')
+
+  # sub sub sub sub
+  # subsubsubsub = subsubsub.row(align=True)
+
   # scale x
-  subsubsub.scale_x = 0.2
+  subsubsub.scale_x = 0.3
 
   # axis
   subsubsub.prop(option, 'axis', expand=True)
@@ -48,10 +54,12 @@ def sort(layout, option):
   subsub.active = option.sort
 
   # scale x
-  subsub.scale_x = 2.2
+  subsub.scale_x = 5.5
+
+  toggle = 'FULLSCREEN_ENTER' if option.invert else 'FULLSCREEN_EXIT'
 
   # dummy 9
-  subsub.prop(option, 'invert', toggle=True)
+  subsub.prop(option, 'invert', text='', icon=toggle, toggle=True)
 
 # count
 def count(layout, option):

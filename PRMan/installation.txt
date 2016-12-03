@@ -1,20 +1,29 @@
 PRMan for Blender Installation Instructions
 ------------------------------------------
 
-First, get and install the Non-Commercial Version of RenderMan from Pixar.  You MUST install
-RenderMan before loading the addon.  Package and 
-installation instructions at: http://rendermansite.pixar.com/view/get-renderman 
-You need to install at a minimum RenderMan Pro Server 20.0
+1.  Install Blender if not already (2.78 recommended)
 
-Unpack and move the PRMan folder into your blender addons folder. 
-You can then enable the addon in the Addons tab of blender user preferences. 
-The addon will by default use the Documents (or My Documents on windows)
-in your home directory to render to and create textures.  
+2.  Register for the free Non-Commercial Version of RenderMan from Pixar.
+https://renderman.pixar.com/view/non-commercial-renderman
+
+3.  Download and install RenderMan Pro Server Package and 
+installation instructions at: http://rendermansite.pixar.com/view/get-renderman 
+You need to install at a minimum RenderMan Pro Server 21.0
+It is recommended to install RenderMan Pro Server in the default location (or see advanced instructions below)
+
+3.A If on Windows, be sure to restart after installing RenderMan Pro Server
+
+4.  Download the latest release of the RenderMan for Blender addon 
+https://github.com/bsavery/PRMan-for-Blender/releases save the zip file somewhere.
+
+5.  Start Blender, and from the File->User Preferences->Add-ons install the zip file from step 4.  
+
+6.  Change your renderer to RenderMan and start rendering!
 
 
 ADVANCED:
 RenderMan normally bases everything off a variable RMANTREE which is set to your installation
-folder, eg /Applications/Pixar/RenderManProServer-20.0 on OSX and C:\Program Files\Pixar\RenderManProServer-20.0 on Windows.
+folder, eg /Applications/Pixar/RenderManProServer-21.0 on OSX and C:\Program Files\Pixar\RenderManProServer-21.0 on Windows.
 
 PRMan for Blender will try and guess the appropriate RenderMan version to use and the location of
 the RMANTREE folder.  If you are installing PRMan to the standard location you shouldn't have to do anything!
@@ -22,8 +31,5 @@ the RMANTREE folder.  If you are installing PRMan to the standard location you s
 However, if you installed in a non-standard location, set the RMANTREE 
 environment variable before starting blender.
 
-This step should not be nessacery in newer versions of the plugin but if you have trouble with the plugin than 
-you should set your pythonpath variable to $RMANTREE/bin
-
-Brian Savery, March 24, 2015
-(based on orignial plugin written by Matt Ebb for 3Delight)
+Furthermore, advanced options for finding the RenderMan Pro Server location 
+are in the addon preferences.

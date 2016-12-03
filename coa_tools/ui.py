@@ -49,7 +49,6 @@ class SlotData(bpy.types.PropertyGroup):
         self["active"] = True
         if self.active:
             #obj.data = bpy.data.meshes[self.name]
-            print(obj.name)
             obj.coa_slot_index = self.index
             for slot in obj.coa_slot:
                 if slot != self:
@@ -264,20 +263,9 @@ class CutoutAnimationObjectProperties(bpy.types.Panel):
         hide_base_sprite(self)            
     
     def change_slot_mesh(self,context):
-        slot_len = len(self.coa_slot)-1
-        if self.coa_slot_index > slot_len:
-            self.coa_slot_index = min(self.coa_slot_index,len(self.coa_slot)-1)
-        else:    
-            slot = self.coa_slot[self.coa_slot_index]
-            obj = slot.id_data
-            mesh_name = obj.coa_slot[self.coa_slot_index].name
-            obj.data = bpy.data.meshes[mesh_name]
-            set_alpha(obj,context,obj.coa_alpha)
-            for slot2 in obj.coa_slot:
-                if slot != slot2:
-                    slot2["active"] = False
-                else:
-                    slot2["active"] = True
+        self.coa_slot_index_last = -1
+        self.coa_slot_index_last = self.coa_slot_index
+        change_slot_mesh_data(context,self)
         
     bpy.types.Object.coa_dimensions_old = FloatVectorProperty()
     bpy.types.Object.coa_sprite_dimension = FloatVectorProperty()
@@ -315,6 +303,7 @@ class CutoutAnimationObjectProperties(bpy.types.Panel):
     bpy.types.Object.coa_modulate_color_last = FloatVectorProperty(default=(1.0,1.0,1.0),min=0.0,max=1.0,soft_min=0.0,soft_max=1.0,size=3,subtype="COLOR")
     bpy.types.Object.coa_type = EnumProperty(name="Object Type",default="MESH",items=(("SPRITE","Sprite","Sprite"),("MESH","Mesh","Mesh"),("SLOT","Slot","Slot")))
     bpy.types.Object.coa_slot_index = bpy.props.IntProperty(default=0,update=change_slot_mesh,min=0)
+    bpy.types.Object.coa_slot_index_last = bpy.props.IntProperty()
     bpy.types.Object.coa_slot_reset_index = bpy.props.IntProperty(default=0,min=0)
     bpy.types.Object.coa_slot_show = bpy.props.BoolProperty(default=False)
     
@@ -470,16 +459,26 @@ class CutoutAnimationTools(bpy.types.Panel):
     bpy.types.Scene.coa_lock_to_bounds = BoolProperty(default=True,description="Lock Cursor to Object Bounds")
     
     bpy.types.Screen.coa_view = EnumProperty(default="3D",items=(("3D","3D View","3D","MESH_CUBE",0),("2D","2D View","2D","MESH_PLANE",1)),update=lock_view)
+    bpy.types.WindowManager.coa_show_help = BoolProperty(default=False,description="Hide Help")
+    
     
     def draw(self, context):
+        wm = context.window_manager
         layout = self.layout
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
         scene = context.scene    
         screen = context.screen
         
+        pcoll = preview_collections["main"]
+        db_icon = pcoll["db_icon"]
+        
         row = layout.row(align=True)
         row.prop(screen,"coa_view",expand=True)
+        if not wm.coa_show_help:
+            row.operator("coa_tools.show_help",text="",icon="QUESTION")
+        else:
+            row.prop(wm,"coa_show_help",text="",icon="QUESTION")    
         
         if context.active_object == None or (context.active_object != None):
             row = layout.row(align=True)
@@ -500,24 +499,26 @@ class CutoutAnimationTools(bpy.types.Panel):
             row = layout.row(align=True)
             row.operator("wm.coa_create_sprite_object",text="Create new Sprite Object",icon="TEXTURE_DATA")
         
-            row = layout.row(align=True)
-            row.operator("coa_tools.batch_render",text="Batch Render Animations",icon="RENDER_ANIMATION")    
-        
         if context.active_object != None and get_sprite_object(context.active_object) != None:
             if sprite_object.coa_edit_weights == False:
                 if context.active_object.mode != "EDIT":
                     row = layout.row(align=True)
                     row.operator("import.coa_import_sprites",text="Import Sprites",icon="IMASEL")
-                    
+                    if context.active_object.type == "MESH":
+                        row.operator("import.coa_reimport_sprite",text="Reimport Sprite",icon="FILE_REFRESH")
+                        
                     if get_addon_prefs(context).json_export:
                         row = layout.row()
                         row.operator("object.export_to_json",text="Export Json",icon="EXPORT",emboss=True)
                     
                     row = layout.row()
-                    row.operator("coa_tools.export_dragon_bones",text="Export Dragonbones",icon="EXPORT",emboss=True)
+                    row.operator("coa_tools.create_slot_object",text="Merge to Slot Object",icon="IMASEL",emboss=True)
+                    
+                    row = layout.row(align=True)
+                    row.operator("coa_tools.batch_render",text="Batch Render Animations",icon="RENDER_ANIMATION")    
                     
                     row = layout.row()
-                    row.operator("coa_tools.create_slot_object",text="Merge to Slot Object",icon="IMASEL",emboss=True)
+                    row.operator("coa_tools.export_dragon_bones",text="Export Dragonbones",icon_value=db_icon.icon_id,emboss=True)
                     
                 row = layout.row(align=True)
                 row.label(text="Edit Operator:")
@@ -849,9 +850,10 @@ class CutoutAnimationCollections(bpy.types.Panel):
             row = layout.row()
             row.prop(scene,"coa_nla_mode",expand=True)
             
-            row = layout.row(align=True)
-            row.prop(scene,"coa_frame_start")
-            row.prop(scene,"coa_frame_end")
+            if scene.coa_nla_mode == "NLA":
+                row = layout.row(align=True)
+                row.prop(scene,"coa_frame_start")
+                row.prop(scene,"coa_frame_end")
             
             row = layout.row()
             row.template_list("UIListAnimationCollections","dummy",sprite_object, "coa_anim_collections", sprite_object, "coa_anim_collections_index",rows=1,maxrows=10,type='DEFAULT')

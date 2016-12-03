@@ -27,9 +27,10 @@ class toolsProperties(Panel):
   '''
   bl_idname = 'VIEW3D_PT_TOOLS_properties'
   bl_space_type = 'VIEW_3D'
-  bl_label = 'Properties'
+  bl_label = 'Datablock'
   bl_region_type = 'TOOLS'
   bl_category = 'Name'
+  bl_options = {'DEFAULT_CLOSED'}
 
   # draw
   def draw(self, context):
@@ -47,8 +48,9 @@ class UIProperties(Panel):
   '''
   bl_idname = 'VIEW3D_PT_UI_properties'
   bl_space_type = 'VIEW_3D'
-  bl_label = 'Properties'
+  bl_label = 'Datablock'
   bl_region_type = 'UI'
+  bl_options = {'DEFAULT_CLOSED'}
 
   # draw
   def draw(self, context):

@@ -14,7 +14,7 @@ bl_info = {
     "category": "Animation"}
 import bpy
 from bpy.types import AddonPreferences
-from bpy.props import IntProperty
+from bpy.props import IntProperty, BoolProperty
 from sound_drivers.utils import (bpy_collections,
                                  get_icon,
                                  format_data_path,
@@ -34,6 +34,8 @@ class DriverManagerAddonPreferences(AddonPreferences):
     ''' Driver Manager Prefs '''
     bl_idname = __name__
 
+    # toggle to view drivers
+    view_drivers = BoolProperty(default=False)
     driver_manager_update_speed = IntProperty(
                                   name="Driver Manager Update Speed",
                                   min=1,
@@ -41,8 +43,9 @@ class DriverManagerAddonPreferences(AddonPreferences):
                                   description="Update timer, lower value = faster updates, higher value slow self update use refresh",
                                   default=10)
 
-
     def draw_all_drivers(self, context):
+        if not self.view_drivers:
+            return
         layout = self.layout
         dm = context.driver_manager
         dic = dm.get_filter_dic()
@@ -78,6 +81,7 @@ class DriverManagerAddonPreferences(AddonPreferences):
             row = layout.row()
             dm = context.driver_manager
             row.label("There are %d drivers in blend" % len(dm.all_drivers_list))
+            row.prop(self, "view_drivers", toggle=True, text="View", emboss=False)
             self.draw_all_drivers(context)
 
 #icon_value = bpy.types.UILayout.icon 

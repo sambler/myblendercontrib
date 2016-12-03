@@ -28,6 +28,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 import time
+from mathutils import Vector
 
 from .util import guess_rmantree
 
@@ -41,46 +42,31 @@ from bpy.props import PointerProperty, StringProperty, BoolProperty, \
 from . import engine
 from bpy.app.handlers import persistent
 
+integrator_names = []
 
-# get the names of args files in rmantree/lib/ris/integrator/args
-def get_integrator_names():
-    rmantree = guess_rmantree()
-    args_path = os.path.join(rmantree, 'lib', 'RIS', 'integrator', 'Args')
-    return [(f.split('.')[0], f.split('.')[0][3:], '')
-            for f in os.listdir(args_path)]
-
-
-class RendermanIntegratorSettings(bpy.types.PropertyGroup):
-    pass
-
-
-def register_integrator_settings(scene_settings_cls):
-    rmantree = guess_rmantree()
-    args_path = os.path.join(rmantree, 'lib', 'RIS', 'integrator', 'Args')
-    items = []
-    for f in os.listdir(args_path):
-        name = f.split('.')[0]
-        typename = '%sIntegratorSettings' % name
-        ntype = type(typename, (RendermanIntegratorSettings,), {})
-        ntype.bl_label = name
-        ntype.typename = typename
-        # do some parsing and get props
-        args_xml = ET.parse(os.path.join(args_path, f)).getroot()
-        inputs = [p for p in args_xml.findall('./param')] + \
-            [p for p in args_xml.findall('./page')]
-        class_generate_properties(ntype, name, inputs)
-        # register and add to scene_settings
-        bpy.utils.register_class(ntype)
-        setattr(scene_settings_cls, "%s_settings" % name,
-                PointerProperty(type=ntype, name="%s Settings" % name)
-                )
+projection_names = [('none', 'None', 'None')]
 
 
 class RendermanCameraSettings(bpy.types.PropertyGroup):
     bl_label = "Renderman Camera Settings"
     bl_idname = 'RendermanCameraSettings'
+
+    def get_projection_name(self):
+        return self.projection_type.replace('_settings', '')
+
+    def get_projection_node(self):
+        return getattr(self, self.projection_type + '_settings')
+
+    projection_type = EnumProperty(
+        items=projection_names, name='Projection Plugin')
+
     use_physical_camera = BoolProperty(
         name="Use Physical Camera", default=False)
+
+    fstop = FloatProperty(
+        name="F-Stop",
+        description="Aperture size for depth of field.  Decreasing this value increases the blur on out of focus areas.",
+        default=4.0)
 
     dof_aspect = FloatProperty(
         name="DOF Aspect",  default=1,  max=2,  min=0,
@@ -103,51 +89,8 @@ class RendermanCameraSettings(bpy.types.PropertyGroup):
         description="The slope, between -1 and 1, of the (linearly varying) aperture density.  A value of zero gives uniform density.  Negative values make the aperture brighter near the center.  Positive values make it brighter near the rim.")
 
 
-def register_camera_settings():
-    rmantree = guess_rmantree()
-    camera_args_files = [os.path.join(rmantree, 'lib', 'RIS', 'projection',
-                                      'Args', 'PxrCamera.args')]
-    # do some parsing and get props
-    camera_classes = []
-    for f in camera_args_files:
-        name = os.path.basename(f).split('.')[0]
-        typename = '%sCameraSettings' % name
-        ntype = type(typename, (RendermanCameraSettings,), {})
-        ntype.bl_label = name
-        ntype.typename = typename
-        # do some parsing and get props
-        args_xml = ET.parse(f).getroot()
-        for page in args_xml.findall('page'):
-            page_name = page.get('name')
-            if page_name == 'Standard Perspective':
-                args_xml.remove(page)
-        inputs = [p for p in args_xml.findall('./param')] + \
-            [p for p in args_xml.findall('./page')]
-        class_generate_properties(ntype, name, inputs)
-        # add the use
-
-        # register and add to scene_settings
-        bpy.utils.register_class(ntype)
-        camera_classes.append(ntype)
-        setattr(RendermanCameraSettings, "%s_settings" % name,
-                PointerProperty(type=ntype, name="%s Settings" % name)
-                )
-
-
 # Blender data
 # --------------------------
-
-context_items = [(i.identifier, i.name, "")
-                 for i in bpy.types.SpaceProperties.bl_rna.properties['context'].enum_items]
-
-# hack! this is a bit of a hack in itself, but should really be in SpaceProperties.
-# However, can't be added there, it's non-ID data.
-bpy.types.WindowManager.prev_context = EnumProperty(
-    name="Previous Context",
-    description="Previous context viewed in properties editor",
-    items=context_items,
-    default=context_items[0][0])
-
 
 class RendermanPath(bpy.types.PropertyGroup):
     name = StringProperty(
@@ -179,153 +122,157 @@ class LightLinking(bpy.types.PropertyGroup):
                ('OFF', 'Off', '')])
 
 
-class TraceSet(bpy.types.PropertyGroup):
-
-    def groups_list_items(self, context):
-        items = [('No group chosen', 'Choose a trace set', '')]
-        for grp in context.scene.renderman.grouping_membership:
-            items.append((grp.name, grp.name, ''))
-        return items
-
-    def update_name(self, context):
-        self.name = self.mode + ' ' + self.group
-
-    group = EnumProperty(name="Group",
-                         update=update_name,
-                         items=groups_list_items
-                         )
-    mode = EnumProperty(name="Include/Exclude",
-                        update=update_name,
-                        items=[('included in', 'Include', ''),
-                               ('excluded from', 'Exclude', '')]
-                        )
-
-
-aov_mapping = [ 
-                 
-                 ("rgba", "Combined (rgba)", "Combined (rgba)"),
-                 ("z", "z", "z"),
-                 ("Nn", "Nn", "Nn"),
-                 ("dPdtime", "dPdtime", "dPdtime"),
-                 ("u", "u", "u"),
-                 ("v", "v", "v"),
-                 ("id", "id", "id"),
-                 ("lpe:C<.D%G>[S]+<L.%LG>", "Caustics", "Caustics"),
-                 ("lpe:shadows;C[<.D%G><.S%G>]<L.%LG>", "Shadows", "Shadows"),
-                 ("color lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;C(U2L)|O",
-                  "Albedo", "Albedo"),
-                 ("lpe:C<RS%G>([DS]+<L.%LG>)|([DS]*O)",
-                  "Reflection", "Reflection"),
-                 ("lpe:C<.D%G><L.%LG>", "Diffuse", "Diffuse"),
-                 ("lpe:(C<RD%G>[DS]+<L.%LG>)|(C<RD%G>[DS]*O)",
-                  "IndirectDiffuse", "IndirectDiffuse"),
-                 ("lpe:C<.S%G><L.%LG>", "Specular", "Specular"),
-                 ("lpe:(C<RS%G>[DS]+<L.%LG>)|(C<RS%G>[DS]*O)",
-                  "IndirectSpecular", "IndirectSpecular"),
-                 ("lpe:(C<TD%G>[DS]+<L.%LG>)|(C<TD%G>[DS]*O)",
-                  "Subsurface", "Subsurface"),
-                 ("lpe:(C<T[S]%G>[DS]+<L.%LG>)|(C<T[S]%G>[DS]*O)",
-                  "Refraction", "Refraction"),
-                 ("lpe:emission", "Emission", "Emission"),
-                 ("custom_lpe_string", "Custom lpe", "Custom lpe"),
-                 ("custom_aov_string",  "Custom AOV", "Custom AOV"), 
-                 ("built_in_aov", "Other Built in AOV", "Built in AOV"),
-                 ]
-
-
-
 class RendermanAOV(bpy.types.PropertyGroup):
 
-    def built_in_channel_types(self, context):
-        items = reversed(aov_mapping)
-        return items
-
-    def built_in_aovs(self, context):
+    def aov_list(self, context):
         items = [
-                 ("float a", "alpha", ""),
-                 ("float id", "id", "Returns the integer assigned via the 'identifier' attribute as the pixel value"),
-                 ("float z", "z_depth", "Depth from the camera in world space"),
-                 ("float zback", "z_back",
-                  "Depth at the back of volumetric objects in world space"),
-                 ("point P",  "P",  "Position of the point hit by the incident ray"),
-                 ("float PRadius", "PRadius",
-                  "Cross-sectional size of the ray at the hit point"),
-                 ("float cpuTime", "cpuTime", "The time taken to render a pixel"),
-                 ("float sampleCount", "sampleCount",
-                  "The number of samples taken for the resulting pixel"),
-                 ("normal Nn", "Nn", "Normalized shading normal"),
-                 ("normal Ngn", "Ngn", "Normalized geometric normal"),
-                 ("vector Tn", "Tn", "Normalized shading tangent"),
-                 ("vector Vn", "Vn", "Normalized view vector (reverse of ray direction)"),
-                 ("float VLen", "VLen", "Distance to hit point along the ray"),
-                 ("float curvature", "curvature", "Local surface curvature"),
-                 ("float incidentRaySpread", "incidentRaySpread",
-                  "Rate of spread of incident ray"),
-                 ("float mpSize", "mpSize", "Size of the micropolygon that the ray hit"),
-                 ("float u", "u", "The parametric coordinates on the primitive"),
-                 ("float v", "v", "The parametric coordinates on the primitive"),
-                 ("float w", "w", "The parametric coordinates on the primitive"),
-                 ("float du", "du", "Derivatives of u, v, and w to adjacent micropolygons"),
-                 ("float dv", "dv", "Derivatives of u, v, and w to adjacent micropolygons"),
-                 ("float dw", "dw", "Derivatives of u, v, and w to adjacent micropolygons"),
-                 ("vector dPdu", "dPdu", "Direction of maximal change in u, v, and w"),
-                 ("vector dPdv", "dPdv", "Direction of maximal change in u, v, and w"),
-                 ("vector dPdw", "dPdw", "Direction of maximal change in u, v, and w"),
-                 ("float dufp", "dufp", "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
-                 ("float dvfp", "dvfp", "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
-                 ("float dwfp", "dwfp", "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
-                 ("float time", "time", "Time sample of the ray"),
-                 ("vector dPdtime", "dPdtime", "Motion vector"),
-                 ("float id", "id", "Returns the integer assigned via the identifier attribute as the pixel value"),
-                 ("float outsideIOR", "outsideIOR",
-                  "Index of refraction outside this surface"),
-                 ("point __Pworld", "Pworld", "P in world-space"),
-                 ("normal __Nworld", "Nworld", "Nn in world-space"),
-                 ("float __depth", "depth", "Multi-purpose AOV\nr : depth from camera in world-space\ng : height in world-space\nb : geometric facing ratio : abs(Nn.V)"),
-                 ("float[2] __st", "st", "Texture coords"),
-                 ("point __Pref", "Pref", "Reference Position primvar (if available)"),
-                 ("normal __Nref", "Nref", "Reference Normal primvar (if available)"),
-                 ("point __WPref", "WPref", "Reference World Position primvar (if available)"),
-                 ("normal __WNref",  "WNref", "Reference World Normal primvar (if available)")]
+            # Basic lpe
+            ("", "Basic LPE's", "Basic LPE's", "", 0),
+            ("color rgba", "rgba", "Combined (beauty)", "", 1),
+            ("color lpe:C<.D%G><L.%LG>", "Diffuse", "Diffuse", "", 2),
+            ("color lpe:(C<R.D%G>[DS]+<L.%LG>)|(C<R.D%G>[DS]*O)",
+             "IndirectDiffuse", "IndirectDiffuse", "", 3),
+            ("color lpe:C<.S%G><L.%LG>", "Specular", "Specular", "", 4),
+            ("color lpe:(C<R.S%G>[DS]+<L.%LG>)|(C<R.S%G>[DS]*O)",
+             "IndirectSpecular", "IndirectSpecular", "", 5),
+            ("color lpe:(C<T.D%G>[DS]+<L.%LG>)|(C<T.D%G>[DS]*O)",
+             "Subsurface", "Subsurface", "", 6),
+            ("color lpe:C<R.S%G>([DS]+<L.%LG>)|([DS]*O)",
+             "Reflection", "Reflection", "", 7),
+            ("color lpe:(C<T[S]%G>[DS]+<L.%LG>)|(C<T[S]%G>[DS]*O)",
+             "Refraction", "Refraction", "", 8),
+            ("color lpe:emission", "Emission", "Emission", "", 9),
+            ("color lpe:shadows;C[<.D%G><.S%G>]<L.%LG>",
+             "Shadows", "Shadows", "", 10),
+            ("color lpe:nothruput;noinfinitecheck;noclamp;unoccluded;overwrite;C(U2L)|O",
+             "Albedo", "Albedo", "", 11),
+            ("color lpe:C<.D%G>[S]+<L.%LG>",
+             "Caustics", "Caustics", "", 12),
+            # PxrSurface lpe
+            ("", "PxrSurface lobe LPE's", "PxrSurface lobe LPE's", "", 0),
+            ("color lpe:C<.D2%G>[<L.%LG>O]",
+             "directDiffuseLobe", "", "", 13),
+            ("color lpe:C<.D2%G>[DS]+[<L.%LG>O]",
+             "indirectDiffuseLobe", "", "", 14),
+            ("color lpe:C<.D3%G>[DS]*[<L.%LG>O]",
+             "subsurfaceLobe", "", "", 15),
+            ("color lpe:C<.S2%G>[<L.%LG>O]",
+             "directSpecularPrimaryLobe", "", "", 16),
+            ("color lpe:C<.S2%G>[DS]+[<L.%LG>O]",
+             "indirectSpecularPrimaryLobe", "", "", 17),
+            ("color lpe:C<.S3%G>[<L.%LG>O]",
+             "directSpecularRoughLobe", "", "", 18),
+            ("color lpe:C<.S3%G>[DS]+[<L.%LG>O]",
+             "indirectSpecularRoughLobe", "", "", 19),
+            ("color lpe:C<.S4%G>[<L.%LG>O]",
+             "directSpecularClearcoatLobe", "", "", 20),
+            ("color lpe:C<.S4%G>[DS]+[<L.%LG>O]",
+             "indirectSpecularClearcoatLobe", "", "", 21),
+            ("color lpe:C<.S5%G>[<L.%LG>O]",
+             "directSpecularIridescenceLobe", "", "", 22),
+            ("color lpe:C<.S5%G>[DS]+[<L.%LG>O]",
+             "indirectSpecularIridescenceLobe", "", "", 23),
+            ("color lpe:C<.S6%G>[<L.%LG>O]",
+             "directSpecularFuzzLobe", "", "", 24),
+            ("color lpe:C<.S6%G>[DS]+[<L.%LG>O]",
+             "indirectSpecularFuzzLobe", "", "", 25),
+            ("color lpe:C<.S7%G>[DS]*[<L.%LG>O]",
+             "transmissiveSingleScatterLobe", "", "", 26),
+            ("color lpe:C<RS8%G>[<L.%LG>O]",
+             "directSpecularGlassLobe", "", "", 27),
+            ("color lpe:C<RS8%G>[DS]+[<L.%LG>O]",
+             "indirectSpecularGlassLobe", "", "", 28),
+            ("color lpe:C<TS8%G>[DS]*[<L.%LG>O]",
+             "transmissiveGlassLobe", "", "", 29),
+            # Data AOV's
+            ("", "Data AOV's", "Data AOV's", "", 0),
+            ("float a", "alpha", "", "", 30),
+            ("float id", "id", "Returns the integer assigned via the 'identifier' attribute as the pixel value", "", 31),
+            ("float z", "z_depth", "Depth from the camera in world space", "", 32),
+            ("float zback", "z_back",
+             "Depth at the back of volumetric objects in world space", "", 33),
+            ("point P",  "P",  "Position of the point hit by the incident ray", "", 34),
+            ("float PRadius", "PRadius",
+             "Cross-sectional size of the ray at the hit point", "", 35),
+            ("float cpuTime", "cpuTime",
+             "The time taken to render a pixel", "", 36),
+            ("float sampleCount", "sampleCount",
+             "The number of samples taken for the resulting pixel", "", 37),
+            ("normal Nn", "Nn", "Normalized shading normal", "", 38),
+            ("normal Ngn", "Ngn", "Normalized geometric normal", "", 39),
+            ("vector Tn", "Tn", "Normalized shading tangent", "", 40),
+            ("vector Vn", "Vn",
+             "Normalized view vector (reverse of ray direction)", "", 41),
+            ("float VLen", "VLen", "Distance to hit point along the ray", "", 42),
+            ("float curvature", "curvature", "Local surface curvature", "", 43),
+            ("float incidentRaySpread", "incidentRaySpread",
+             "Rate of spread of incident ray", "", 44),
+            ("float mpSize", "mpSize",
+             "Size of the micropolygon that the ray hit", "", 45),
+            ("float u", "u", "The parametric coordinates on the primitive", "", 46),
+            ("float v", "v", "The parametric coordinates on the primitive", "", 47),
+            ("float w", "w", "The parametric coordinates on the primitive", "", 48),
+            ("float du", "du",
+             "Derivatives of u, v, and w to adjacent micropolygons", "", 49),
+            ("float dv", "dv",
+             "Derivatives of u, v, and w to adjacent micropolygons", "", 50),
+            ("float dw", "dw",
+             "Derivatives of u, v, and w to adjacent micropolygons", "", 51),
+            ("vector dPdu", "dPdu",
+             "Direction of maximal change in u, v, and w", "", 52),
+            ("vector dPdv", "dPdv",
+             "Direction of maximal change in u, v, and w", "", 53),
+            ("vector dPdw", "dPdw",
+             "Direction of maximal change in u, v, and w", "", 54),
+            ("float dufp", "dufp",
+             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 55),
+            ("float dvfp", "dvfp",
+             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 56),
+            ("float dwfp", "dwfp",
+             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 57),
+            ("float time", "time", "Time sample of the ray", "", 58),
+            ("vector dPdtime", "dPdtime", "Motion vector", "", 59),
+            ("float id", "id", "Returns the integer assigned via the identifier attribute as the pixel value", "", 60),
+            ("float outsideIOR", "outsideIOR",
+             "Index of refraction outside this surface", "", 61),
+            ("point __Pworld", "Pworld", "P in world-space", "", 62),
+            ("normal __Nworld", "Nworld", "Nn in world-space", "", 63),
+            ("float __depth", "depth", "Multi-purpose AOV\nr : depth from camera in world-space\ng : height in world-space\nb : geometric facing ratio : abs(Nn.V)", "", 64),
+            ("float[2] __st", "st", "Texture coords", "", 65),
+            ("point __Pref", "Pref",
+             "Reference Position primvar (if available)", "", 66),
+            ("normal __Nref", "Nref",
+             "Reference Normal primvar (if available)", "", 67),
+            ("point __WPref", "WPref",
+             "Reference World Position primvar (if available)", "", 68),
+            ("normal __WNref",  "WNref",
+             "Reference World Normal primvar (if available)", "", 69),
+            # Custom lpe
+            ("", "Custom", "Custom", "", 0),
+            ("color custom_lpe", "Custom LPE", "Custom LPE", "", 70)
+        ]
         return items
 
     def update_type(self, context):
-        types = self.built_in_channel_types(context)
+        types = self.aov_list(context)
         for item in types:
-            if self.channel_type == item[0]:
-                if self.channel_type != 'custom_lpe_string' and self.channel_type != 'built_in_aov':
-                    self.name = item[1]
-                return
-
-    def update_aov_type(self, context):
-        types = self.built_in_aovs(context)
-        for item in types:
-            if self.aov_channel_type == item[0]:
+            if self.aov_name == item[0]:
                 self.name = item[1]
+                self.channel_name = item[1]
 
     show_advanced = BoolProperty(name='Advanced Options', default=False)
 
-    channel_type = EnumProperty(name="Channel type",
-                                description="The information type for this AOV.  Setting to one of the 'custom' options will allow a custom LPE or AOV",
-                                items=built_in_channel_types, update=update_type)
-
-    aov_channel_type = EnumProperty(name="AOV type",
-                                    description="The type of built in data AOV",
-                                    items=built_in_aovs,  update=update_aov_type)
-
-    name = StringProperty(
-        name="Channel Name",
-        description="Name for this Channel in the output file.  NOTE: Spaces must be represented by an underscore.  If this is not followed the channel will not output.")
+    name = StringProperty(name='Channel Name')
 
     channel_name = StringProperty()
+
+    aov_name = EnumProperty(name="AOV Type",
+                            description="",
+                            items=aov_list,  update=update_type)
 
     custom_lpe_string = StringProperty(
         name="lpe String",
         description="This is where you enter the custom lpe string")
-
-    custom_aov_string = StringProperty(
-        name="AOV name",
-        description="This is where you enter the name of the custom AOV pass")
 
     stats_type = EnumProperty(
         name="Statistics",
@@ -338,16 +285,6 @@ class RendermanAOV(bpy.types.PropertyGroup):
             ('even', 'Even', 'this image is created from half the total camera samples'),
             ('odd', 'Odd', 'this image is created from the other half of the camera samples')],
         default='none')
-
-    denoise_aov = BoolProperty(
-        name="Format for denoising",
-        description="If checked this pass will be properly formatted for use by the denoise utility",
-        default=False)
-
-    custom_aov_type = StringProperty(
-        name="AOV type",
-        description="Information type for the AOV (normal, float, vector or color)",
-        default="")
 
     exposure_gain = FloatProperty(
         name="Gain",
@@ -420,8 +357,8 @@ class RendermanRenderLayerSettings(bpy.types.PropertyGroup):
                                      name='Custom AOVs')
     custom_aov_index = IntProperty(min=-1, default=-1)
     camera = StringProperty()
-    object_group = StringProperty()
-    light_group = StringProperty()
+    object_group = StringProperty(name='Object Group')
+    light_group = StringProperty(name='Light Group')
 
     export_multilayer = BoolProperty(
         name="Export Multilayer",
@@ -439,7 +376,7 @@ class RendermanRenderLayerSettings(bpy.types.PropertyGroup):
 
     use_deep = BoolProperty(
         name="Use Deep Data",
-        description="The output file will contain extra 'deep' information that can aid with compositing.  This can increase file sizes dramatically.",
+        description="The output file will contain extra 'deep' information that can aid with compositing.  This can increase file sizes dramatically.  Z channels will automatically be generated so they do not need to be added to the AOV panel",
         default=False)
 
     exr_compression = EnumProperty(
@@ -464,7 +401,43 @@ class RendermanRenderLayerSettings(bpy.types.PropertyGroup):
             ('tiled', 'Tiled Storage', '')],
         default='scanline')
 
+
+displayfilter_names = []
+
+
+class RendermanDisplayFilterSettings(bpy.types.PropertyGroup):
+
+    def get_filter_name(self):
+        return self.filter_type.replace('_settings', '')
+
+    def get_filter_node(self):
+        return getattr(self, self.filter_type + '_settings')
+
+    filter_type = EnumProperty(items=displayfilter_names, name='Filter')
+
+
+samplefilter_names = []
+
+
+class RendermanSampleFilterSettings(bpy.types.PropertyGroup):
+
+    def get_filter_name(self):
+        return self.filter_type.replace('_settings', '')
+
+    def get_filter_node(self):
+        return getattr(self, self.filter_type + '_settings')
+
+    filter_type = EnumProperty(items=samplefilter_names, name='Filter')
+
+
 class RendermanSceneSettings(bpy.types.PropertyGroup):
+    display_filters = CollectionProperty(
+        type=RendermanDisplayFilterSettings, name='Display Filters')
+    display_filters_index = IntProperty(min=-1, default=-1)
+    sample_filters = CollectionProperty(
+        type=RendermanSampleFilterSettings, name='Sample Filters')
+    sample_filters_index = IntProperty(min=-1, default=-1)
+
     light_groups = CollectionProperty(type=RendermanGroup,
                                       name='Light Groups')
     light_groups_index = IntProperty(min=-1, default=-1)
@@ -496,8 +469,8 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         default='group', update=reset_ll_object_index)
 
     render_layers = CollectionProperty(type=RendermanRenderLayerSettings,
-                                   name='Custom AOVs')
-    
+                                       name='Custom AOVs')
+
     solo_light = BoolProperty(name="Solo Light", default=False)
 
     pixelsamples_x = IntProperty(
@@ -531,11 +504,6 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         name="Pixel Variance",
         description="If a pixel changes by less than this amount when updated, it will not receive further samples in adaptive mode.  Lower values lead to increased render times and higher quality images.",
         min=0, max=1, default=.01)
-
-    light_localization = BoolProperty(
-        name="Light Localized Sampling",
-        description="Localized sampling can lead to higher quality images without increasing render times.  This is especially useful in scenes with multiple lamp sources.",
-        default=True)
 
     dark_falloff = FloatProperty(
         name="Dark Falloff",
@@ -584,8 +552,8 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         default=False)
 
     shadingrate = FloatProperty(
-        name="Shading Rate",
-        description="Default maximum distance between displacement shading samples.  This can be left at 1 unless you need more detail on displaced objects.",
+        name="Micropolygon Length",
+        description="Default maximum distance between displacement samples.  This can be left at 1 unless you need more detail on displaced objects.",
         default=1.0)
 
     motion_blur = BoolProperty(
@@ -626,10 +594,6 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         name="Depth of Field",
         description="Enable depth of field blur",
         default=False)
-    fstop = FloatProperty(
-        name="F-Stop",
-        description="Aperture size for depth of field.  Decreasing this value increases the blur on out of focus areas.",
-        default=4.0)
 
     threads = IntProperty(
         name="Rendering Threads",
@@ -647,18 +611,6 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         name="Max Diffuse Depth",
         description="Maximum number of diffuse ray bounces",
         min=0, max=32, default=1)
-    use_separate_path_depths = BoolProperty(
-        name="Separate Diffuse//Specular Depths",
-        description="When using Path Tracing, this enables the renderer to track diffuse//specular bounce depths separately based on the BXDF lobe being sampled.  This can give a more realistic result but may also increase render times.",
-        default=False)
-    max_eye_splits = IntProperty(
-        name="Max Eye Splits",
-        description="Maximum number of times a primitive crossing the eye plane is split before being discarded",
-        min=0, max=32, default=6)
-    trace_approximation = FloatProperty(
-        name="Raytrace Approximation",
-        description="Threshold for using approximated geometry during ray tracing. Higher values use more approximated geometry.",
-        min=0.0, max=1024.0, default=10.0)
     use_statistics = BoolProperty(
         name="Statistics",
         description="Print statistics to stats.xml after render",
@@ -833,12 +785,42 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
                ('spool', 'Spool Job', 'Spool Job to queuing system')],
         default='spool')
 
+    custom_alfname = StringProperty(
+        name="Custom Spool Name",
+        description="Allows a custom name for the spool .alf file.  This would allow you to export multiple spool files for the same scene.",
+        default='spool')
+
     queuing_system = EnumProperty(
         name="Spool to",
         description="System to spool to.",
         items=[('lq', 'LocalQueue', 'LocalQueue, must have RMS installed'),
                ('tractor', 'tractor', 'Tractor, must have tractor setup')],
         default='lq')
+
+    recover = BoolProperty(
+        name="Enable Recovery",
+        description="Attempt to resume render from a previous checkpoint (if possible)",
+        default=False)
+
+    custom_cmd = StringProperty(
+        name="Custom Render Commands",
+        description="Inserts a string of custom command arguments into the render process.",
+        default='')
+
+    denoise_cmd = StringProperty(
+        name="Custom Denoise Commands",
+        description="Inserts a string of custom commands arguments into the denoising process, if selected.",
+        default='')
+
+    spool_denoise_aov = BoolProperty(
+        name="Process denoisable AOV's",
+        description="Denoises tagged AOV's",
+        default=False)
+
+    denoise_gpu = BoolProperty(
+        name="Use GPU for denoising",
+        description="The denoiser will attempt to use the GPU (if available)",
+        default=True)
 
     external_animation = BoolProperty(
         name="Render Animation",
@@ -869,6 +851,11 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         name="Limit",
         description="The maximum interval that will be reached before the render terminates.  0 will disable this option.",
         default=0)
+
+    asfinal = BoolProperty(
+        name="Final Image as Checkpoint",
+        description="Saves the final image as a checkpoint.  This allows you to resume it after raising the sample count.",
+        default=False)
 
     header_rib_boxes = StringProperty(
         name="External RIB File",
@@ -906,61 +893,15 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         description="When enabled every pixel is sampled once per render pass.  This allows the user to quickly see the entire image during rendering, and as each pass completes the image will become clearer.  NOTE-This mode is automatically enabled with some render integrators (PxrVCM)",
         default=True)
 
-    # Hider properties
-    hider = EnumProperty(
-        name="Hider",
-        description="Algorithm to use for determining hidden surfaces",
-        items=[('raytrace', 'Raytrace', 'Use ray tracing on the first hit'),
-
-               ],
-        default='raytrace')
-
-    hidden_depthfilter = EnumProperty(
-        name="Depth Filter",
-        description="Method used for determining sample depth",
-        items=[('min', 'Min',
-                'Minimum z value of all the sub samples in a given pixel'),
-               ('max', 'Max',
-                'Maximum z value of all the sub samples in a given pixel'),
-               ('average', 'Average',
-                'Average all sub samples’ z values in a given pixel'),
-               ('midpoint', 'Midpoint',
-                'For each sub sample in a pixel, the renderer takes the average z value of the two closest surfaces')],
-        default='min')
-
-    hidden_jitter = BoolProperty(
-        name="Jitter",
-        description="Use a jittered grid for sampling",
-        default=True)
-
-    hidden_samplemotion = BoolProperty(
-        name="Sample Motion",
-        description="Disabling this will not render motion blur, but still preserve motion vector information (dPdtime)",
-        default=True)
-
-    hidden_extrememotiondof = BoolProperty(
-        name="Extreme Motion/DoF",
-        description="Use a more accurate, but slower algorithm to sample motion blur and depth of field effects. This is useful to fix artifacts caused by extreme amounts of motion or DoF",
-        default=False)
-
-    hidden_midpointratio = FloatProperty(
-        name="Midpoint Ratio",
-        description="Amount of blending between the z values of the first two samples when using the midpoint depth filter",
-        default=0.5)
-
-    hidden_maxvpdepth = IntProperty(
-        name="Max Visible Point Depth",
-        description="The number of visible points to be composited in the hider or included in deep shadow map creation. Putting a limit on the number of visible points can accelerate deep shadow map creation for depth-complex scenes. The default value of -1 means no limit",
-        min=-1, max=1024, default=-1)
-
     raytrace_progressive = BoolProperty(
         name="Progressive Rendering",
         description="Enables progressive rendering (the entire image is refined at once).\nThis is only visible with some display drivers (such as it)",
         default=False)
+
     integrator = EnumProperty(
         name="Integrator",
         description="Integrator for rendering",
-        items=get_integrator_names(),
+        items=integrator_names,
         default='PxrPathTracer')
 
     show_integrator_settings = BoolProperty(
@@ -1017,11 +958,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
 
 class RendermanMaterialSettings(bpy.types.PropertyGroup):
-
-    nodetree = StringProperty(
-        name="Node Tree",
-        description="Name of the shader node tree for this material",
-        default="")
+    instance_num = IntProperty(name='Instance number for IPR', default=0)
 
     displacementbound = FloatProperty(
         name="Displacement Bound",
@@ -1035,11 +972,6 @@ class RendermanMaterialSettings(bpy.types.PropertyGroup):
         items=[('SPHERE', 'Sphere', ''),
                ('CUBE', 'Cube', '')],
         default='SPHERE')
-
-    preview_render_shadow = BoolProperty(
-        name="Display Shadow",
-        description="Render a raytraced shadow in the material preview",
-        default=True)
 
 
 class RendermanAnimSequenceSettings(bpy.types.PropertyGroup):
@@ -1205,68 +1137,445 @@ class RendermanTextureSettings(bpy.types.PropertyGroup):
         default=True)
 
 
+class RendermanLightFilter(bpy.types.PropertyGroup):
+
+    def get_filters(self, context):
+        obs = context.scene.objects
+        items = [('None', 'Not Set', 'Not Set')]
+        for o in obs:
+            if o.type == 'LAMP' and o.data.renderman.renderman_type == 'FILTER':
+                items.append((o.name, o.name, o.name))
+        return items
+
+    def update_name(self, context):
+        self.name = self.filter_name
+        from . import engine
+        if engine.is_ipr_running():
+            engine.ipr.reset_filter_names()
+            engine.ipr.issue_shader_edits()
+
+    name = StringProperty(default='SET FILTER')
+    filter_name = EnumProperty(
+        name="Linked Filter:", items=get_filters, update=update_name)
+
+
 class RendermanLightSettings(bpy.types.PropertyGroup):
+
+    def get_light_node(self):
+        if self.renderman_type == 'SPOT':
+            light_shader = 'PxrRectLight' if self.id_data.use_square else 'PxrDiskLight'
+            return getattr(self, light_shader + "_settings", None)
+        return getattr(self, self.light_node, None)
+
+    def get_light_node_name(self):
+        if self.renderman_type == 'SPOT':
+            return 'PxrRectLight' if self.id_data.use_square else 'PxrDiskLight'
+        else:
+            return self.light_node.replace('_settings', '')
+
+    light_node = StringProperty(
+        name="Light Node",
+        default='')
+
+    # thes are used for light filters
+    color_ramp_node = StringProperty(default='')
+    float_ramp_node = StringProperty(default='')
 
     # do this to keep the nice viewport update
     def update_light_type(self, context):
-        lamp = context.lamp
-        if lamp.renderman.renderman_type in ['SKY', 'ENV']:
-            lamp.type = 'HEMI'
-        elif lamp.renderman.renderman_type == 'DIST':
-            lamp.type = 'SUN'
-        else:
-            lamp.type = lamp.renderman.renderman_type
-
+        lamp = self.id_data
         light_type = lamp.renderman.renderman_type
+
+        if light_type in ['SKY', 'ENV']:
+            lamp.type = 'HEMI'
+        elif light_type == 'DIST':
+            lamp.type = 'SUN'
+        elif light_type == 'PORTAL':
+            lamp.type = 'AREA'
+        elif light_type == 'FILTER':
+            lamp.type = 'AREA'
+        else:
+            lamp.type = light_type
+
         # use pxr area light for everything but env, sky
-        light_shader = 'PxrStdAreaLightLightNode'
+        light_shader = 'PxrRectLight'
         if light_type == 'ENV':
-            light_shader = 'PxrStdEnvMapLightLightNode'
+            light_shader = 'PxrDomeLight'
         elif light_type == 'SKY':
-            light_shader = 'PxrStdEnvDayLightLightNode'
+            light_shader = 'PxrEnvDayLight'
+        elif light_type == 'PORTAL':
+            light_shader = 'PxrDomeLight'
+        elif light_type == 'POINT':
+            light_shader = 'PxrSphereLight'
+        elif light_type == 'DIST':
+            light_shader = 'PxrDistantLight'
+        elif light_type == 'FILTER':
+            light_shader = 'PxrBlockerLightFilter'
+        elif light_type == 'SPOT':
+            light_shader = 'PxrRectLight' if lamp.use_square else 'PxrDiskLight'
         elif light_type == 'AREA':
             try:
+                lamp.shape = 'RECTANGLE'
                 lamp.size = 1.0
                 lamp.size_y = 1.0
             except:
                 pass
 
-        # find the existing or make a new light shader node
-        nt = bpy.data.node_groups[lamp.renderman.nodetree]
-        output = None
-        for node in nt.nodes:
-            if node.renderman_node_type == 'output':
-                output = node
-                break
-        if output == None:
-            output = nt.nodes.new('RendermanOutputNode')
+        self.light_node = light_shader + "_settings"
+        if light_type == 'FILTER':
+            self.update_filter_type(context)
 
-        for node in nt.nodes:
-            if hasattr(node, 'typename') and node.typename == light_shader:
-                nt.links.remove(output.inputs['Light'].links[0])
-                nt.links.new(node.outputs[0], output.inputs['Light'])
-                break
-        else:
-            light = nt.nodes.new(light_shader)
-            light.location = output.location
-            light.location[0] -= 300
-            # nt.links.remove(output.inputs['Light'].links[0])
-            nt.links.new(light.outputs[0], output.inputs['Light'])
+        #setattr(node, 'renderman_portal', light_type == 'PORTAL')
 
     def update_area_shape(self, context):
-        lamp = context.lamp
+        lamp = self.id_data
+        area_shape = self.area_shape
+        # use pxr area light for everything but env, sky
+        light_shader = 'PxrRectLight'
 
-        # find the existing or make a new light shader node
-        nt = bpy.data.node_groups[lamp.renderman.nodetree]
-        output = None
-        for node in nt.nodes:
-            if node.renderman_node_type == 'output':
-                output = node
-                break
-        if output and output.inputs['Light'].is_linked:
-            light_shader = output.inputs['Light'].links[0].from_node
-            if hasattr(light_shader, 'rman__Shape'):
-                light_shader.rman__Shape = self.area_shape
+        if area_shape == 'disk':
+            lamp.shape = 'SQUARE'
+            light_shader = 'PxrDiskLight'
+        elif area_shape == 'sphere':
+            lamp.shape = 'SQUARE'
+            light_shader = 'PxrSphereLight'
+        else:
+            lamp.shape = 'RECTANGLE'
+
+        self.light_node = light_shader + "_settings"
+
+        from . import engine
+        if engine.is_ipr_running():
+            engine.ipr.issue_shader_edits()
+
+    def update_vis(self, context):
+        lamp = self.id_data
+
+        from . import engine
+        if engine.is_ipr_running():
+            engine.ipr.update_light_visibility(lamp)
+
+    # remove any filter control geo that might be on the lamp
+    def remove_filter_geo(self):
+        lamp_ob = bpy.context.scene.objects.active
+        for ob in lamp_ob.children:
+            if 'rman_filter_shape' in ob.name:
+                data = ob.data
+
+                for sc in ob.users_scene:
+                    sc.objects.unlink(ob)
+
+                try:
+                    bpy.data.objects.remove(ob)
+                except:
+                    pass
+
+                if data.users == 0:
+                    try:
+                        data.user_clear()
+                        bpy.data.meshes.remove(data)
+                    except:
+                        pass
+
+    def add_filter_geo(self, name):
+        lamp_ob = bpy.context.scene.objects.active
+        # here we add some geo
+        plugin_dir = os.path.dirname(os.path.realpath(__file__))
+        filter_file = os.path.join(plugin_dir, 'filters',
+                                   name + ".blend")
+        directory = '/Object/'
+        obj_name = name
+        bpy.ops.wm.append(filepath=filter_file + directory + obj_name,
+                          filename=obj_name,
+                          directory=filter_file + directory)
+        filter_geo_obj = bpy.context.selected_objects[0]
+        filter_geo_obj.select = False
+        filter_geo_obj.name = 'rman_filter_shape_' + name
+        filter_geo_obj.parent = lamp_ob
+        filter_geo_obj.hide_select = True
+        filter_geo_obj.lock_rotation = [True, True, True]
+        filter_geo_obj.lock_location = [True, True, True]
+        filter_geo_obj.lock_scale = [True, True, True]
+        bpy.context.scene.objects.active = lamp_ob
+        return filter_geo_obj
+
+    def get_filter_geo(self, name):
+        lamp_ob = bpy.context.scene.objects.active
+        for ob in lamp_ob.children:
+            if 'rman_filter_shape' in ob.name:
+                if name in ob.name:
+                    return ob
+                else:
+                    self.remove_filter_geo()
+                    return self.add_filter_geo(name)
+        return self.add_filter_geo(name)
+
+    def update_filter_type(self, context):
+        self.remove_filter_geo()
+
+        filter_name = 'IntMult' if self.filter_type == 'intmult' else self.filter_type.capitalize()
+        # set the lamp type
+
+        self.light_node = 'Pxr%sLightFilter_settings' % filter_name
+        if self.filter_type in ['gobo', 'cookie']:
+            self.id_data.id_data.type = 'AREA'
+            self.id_data.shape = 'RECTANGLE'
+        else:
+            self.id_data.id_data.type = 'POINT'
+            if self.filter_type != 'intmult':
+                self.update_filter_shape()
+        if self.filter_type in ['blocker', 'ramp', 'rod']:
+            lamp = context.lamp
+            if not lamp.use_nodes:
+                lamp.use_nodes = True
+            nt = lamp.node_tree
+            if self.color_ramp_node not in nt.nodes.keys():
+                # make a new color ramp node to use
+                self.color_ramp_node = nt.nodes.new('ShaderNodeValToRGB').name
+            if self.float_ramp_node not in nt.nodes.keys():
+                self.float_ramp_node = nt.nodes.new(
+                    'ShaderNodeVectorCurve').name
+
+    # updates the filter shape when a node params change
+    def update_filter_shape(self):
+        node = self.get_light_node()
+
+        if self.filter_type in ['gobo', 'cookie']:
+            self.id_data.size = node.width
+            self.id_data.size_y = node.height
+        else:
+            shape = 'rect'
+            if self.filter_type in ['blocker', 'rod']:
+                shape = 'cube'
+            if self.filter_type == 'ramp':
+                if node.rampType in ['0', '2']:
+                    shape = 'sphere'
+                elif node.rampType == '1':
+                    shape = 'rect'
+                else:
+                    shape = 'circle'
+
+            ob = self.get_filter_geo(shape)
+            if not ob:
+                return
+            else:
+                if self.filter_type == 'barn':
+                    width = node.width * node.scaleWidth
+                    height = node.height * node.scaleHeight
+                    mesh = ob.data
+                    mesh.vertices[0].co = Vector((0 - width - node.left,
+                                                  0 - height - node.bottom, 0.0))
+                    mesh.vertices[1].co = Vector((width + node.right,
+                                                  0 - height - node.bottom, 0.0))
+                    mesh.vertices[2].co = Vector((-width - node.left,
+                                                  height + node.top, 0.0))
+                    mesh.vertices[3].co = Vector((width + node.right,
+                                                  height + node.top, 0.0))
+                    left_edge = node.edge * node.leftEdge
+                    right_edge = node.edge * node.rightEdge
+                    top_edge = node.edge * node.topEdge
+                    bottom_edge = node.edge * node.bottomEdge
+
+                    mesh.vertices[4].co = Vector((0 - width - node.left - left_edge,
+                                                  0 - height - node.bottom - bottom_edge, 0.0))
+                    mesh.vertices[5].co = Vector((width + node.right + right_edge,
+                                                  0 - height - node.bottom - bottom_edge, 0.0))
+                    mesh.vertices[6].co = Vector((-width - node.left - left_edge,
+                                                  height + node.top + top_edge, 0.0))
+                    mesh.vertices[7].co = Vector((width + node.right + right_edge,
+                                                  height + node.top + top_edge, 0.0))
+                    ob.modifiers['bevel'].width = node.radius
+
+                if self.filter_type == 'blocker':
+                    width = node.width
+                    height = node.height
+                    depth = node.depth
+
+                    mesh = ob.data
+                    edge = node.edge
+                    # xy inner
+                    mesh.vertices[0].co = Vector((-width, -height, 0.0))
+                    mesh.vertices[1].co = Vector((width, -height, 0.0))
+                    mesh.vertices[2].co = Vector((-width, height, 0.0))
+                    mesh.vertices[3].co = Vector((width, height, 0.0))
+
+                    # xy outer
+                    mesh.vertices[4].co = Vector((-width - edge,
+                                                  -height - edge, 0.0))
+                    mesh.vertices[5].co = Vector((width + edge,
+                                                  -height - edge, 0.0))
+                    mesh.vertices[6].co = Vector((-width - edge,
+                                                  height + edge, 0.0))
+                    mesh.vertices[7].co = Vector((width + edge,
+                                                  height + edge, 0.0))
+
+                    # yz inner
+                    mesh.vertices[8].co = Vector((0.0, -height, depth))
+                    mesh.vertices[9].co = Vector((0.0, -height, -depth))
+                    mesh.vertices[10].co = Vector((0.0, height, depth))
+                    mesh.vertices[11].co = Vector((0.0, height, -depth))
+
+                    # yz outer
+                    mesh.vertices[12].co = Vector(
+                        (0.0, -height - edge, depth + edge))
+                    mesh.vertices[13].co = Vector(
+                        (0.0, -height - edge, -depth - edge))
+                    mesh.vertices[14].co = Vector(
+                        (0.0, height + edge, depth + edge))
+                    mesh.vertices[15].co = Vector(
+                        (0.0, height + edge, -depth - edge))
+
+                    # xz inner
+                    mesh.vertices[16].co = Vector((width, 0.0, depth))
+                    mesh.vertices[17].co = Vector((width, 0.0, -depth))
+                    mesh.vertices[18].co = Vector((-width, 0.0, depth))
+                    mesh.vertices[19].co = Vector((-width, 0.0, -depth))
+
+                    # xz outer
+                    mesh.vertices[20].co = Vector(
+                        (width + edge, 0.0, depth + edge))
+                    mesh.vertices[21].co = Vector(
+                        (width + edge, 0.0, -depth - edge))
+                    mesh.vertices[22].co = Vector(
+                        (-width - edge, 0.0, depth + edge))
+                    mesh.vertices[23].co = Vector(
+                        (-width - edge, 0.0, -depth - edge))
+                    ob.modifiers['bevel'].width = node.radius
+
+                if self.filter_type == 'rod':
+                    width = node.width * node.scaleWidth
+                    height = node.height * node.scaleHeight
+                    depth = node.depth * node.scaleDepth
+                    left_edge = node.edge * node.leftEdge
+                    right_edge = node.edge * node.rightEdge
+                    top_edge = node.edge * node.topEdge
+                    bottom_edge = node.edge * node.bottomEdge
+                    front_edge = node.edge * node.frontEdge
+                    back_edge = node.edge * node.backEdge
+
+                    mesh = ob.data
+
+                    # xy inner
+                    mesh.vertices[0].co = Vector((-width - node.left,
+                                                  -height - node.bottom, 0.0))
+                    mesh.vertices[1].co = Vector((width + node.right,
+                                                  -height - node.bottom, 0.0))
+                    mesh.vertices[2].co = Vector((-width - node.left,
+                                                  height + node.top, 0.0))
+                    mesh.vertices[3].co = Vector((width + node.right,
+                                                  height + node.top, 0.0))
+
+                    # xy outer
+                    mesh.vertices[4].co = Vector((-width - node.left - left_edge,
+                                                  -height - node.bottom - bottom_edge, 0.0))
+                    mesh.vertices[5].co = Vector((width + node.right + right_edge,
+                                                  -height - node.bottom - bottom_edge, 0.0))
+                    mesh.vertices[6].co = Vector((-width - node.left - left_edge,
+                                                  height + node.top + top_edge, 0.0))
+                    mesh.vertices[7].co = Vector((width + node.right + right_edge,
+                                                  height + node.top + top_edge, 0.0))
+
+                    # yz inner
+                    mesh.vertices[8].co = Vector((0.0, -height - node.bottom,
+                                                  depth + node.front))
+                    mesh.vertices[9].co = Vector((0.0, -height - node.bottom,
+                                                  -depth - node.back))
+                    mesh.vertices[10].co = Vector((0.0, height + node.top,
+                                                   depth + node.front))
+                    mesh.vertices[11].co = Vector((0.0, height + node.top,
+                                                   -depth - node.back))
+
+                    # yz outer
+                    mesh.vertices[12].co = Vector((0.0,
+                                                   -height - node.bottom - bottom_edge,
+                                                   depth + node.front + front_edge))
+                    mesh.vertices[13].co = Vector((0.0,
+                                                   -height - node.bottom - bottom_edge,
+                                                   -depth - node.back - back_edge))
+                    mesh.vertices[14].co = Vector((0.0,
+                                                   height + node.top + top_edge,
+                                                   depth + node.front + front_edge))
+                    mesh.vertices[15].co = Vector((0.0,
+                                                   height + node.top + top_edge,
+                                                   -depth - node.back - back_edge))
+
+                    # xz inner
+                    mesh.vertices[16].co = Vector((width + node.right, 0.0,
+                                                   depth + node.front))
+                    mesh.vertices[17].co = Vector((width + node.right, 0.0,
+                                                   -depth - node.back))
+                    mesh.vertices[18].co = Vector((-width - node.left, 0.0,
+                                                   depth + node.front))
+                    mesh.vertices[19].co = Vector((-width - node.left, 0.0,
+                                                   -depth - node.back))
+
+                    # xz outer
+                    mesh.vertices[20].co = Vector((width + node.right + right_edge,
+                                                   0.0, depth + node.front + front_edge))
+                    mesh.vertices[21].co = Vector((width + node.right + right_edge,
+                                                   0.0, -depth - node.back - back_edge))
+                    mesh.vertices[22].co = Vector((-width - node.left - left_edge,
+                                                   0.0, depth + node.front + front_edge))
+                    mesh.vertices[23].co = Vector((-width - node.left - left_edge,
+                                                   0.0, -depth - node.back - back_edge))
+
+                    ob.modifiers['bevel'].width = node.radius
+
+                if self.filter_type == 'ramp':
+                    if node.rampType in ['0', '2']:
+                        # set sphere radii
+                        mesh = ob.data
+                        len_outer = mesh.vertices[0].co.length
+                        len_inner = mesh.vertices[58].co.length
+                        # if len is 0 we can't scale stuff
+                        if len_inner == 0.0 or len_outer == 0.0:
+                            self.remove_filter_geo()
+                            mesh = self.add_filter_geo(shape).data
+                            len_outer = mesh.vertices[0].co.length
+                            len_inner = mesh.vertices[58].co.length
+
+                        for v in mesh.vertices[0:58]:
+                            v.co = v.co * node.endDist * (1.0 / len_outer)
+
+                        for v in mesh.vertices[58:]:
+                            v.co = v.co * node.beginDist * (1.0 / len_inner)
+
+                    elif node.rampType == '1':
+                        # one rect close, other far
+                        nearz = node.beginDist
+                        farz = node.endDist
+                        mesh = ob.data
+                        mesh.vertices[0].co = Vector((-.5, -.5, nearz))
+                        mesh.vertices[1].co = Vector((.5, -.5, nearz))
+                        mesh.vertices[2].co = Vector((-.5, .5, nearz))
+                        mesh.vertices[3].co = Vector((.5, .5, nearz))
+
+                        mesh.vertices[4].co = Vector((-.5, -.5, farz))
+                        mesh.vertices[5].co = Vector((.5, -.5, farz))
+                        mesh.vertices[6].co = Vector((-.5, .5, farz))
+                        mesh.vertices[7].co = Vector((.5, .5, farz))
+                    else:
+                        # set circle radii
+                        mesh = ob.data
+                        len_outer = mesh.vertices[0].co.length
+                        len_inner = mesh.vertices[58].co.length
+                        # if len is 0 we can't scale stuff
+                        if len_inner == 0.0 or len_outer == 0.0:
+                            self.remove_filter_geo()
+                            mesh = self.add_filter_geo(shape).data
+                            len_outer = mesh.vertices[0].co.length
+                            len_inner = mesh.vertices[58].co.length
+
+                        for v in mesh.vertices[0:32]:
+                            v.co = v.co * node.endDist * (1.0 / len_outer)
+
+                        for v in mesh.vertices[32:]:
+                            v.co = v.co * node.beginDist * (1.0 / len_inner)
+
+    use_renderman_node = BoolProperty(
+        name="Use RenderMans Light Node",
+        description="Will enable RenderMan light Nodes, opening more options",
+        default=False, update=update_light_type)
 
     renderman_type = EnumProperty(
         name="Light Type",
@@ -1276,7 +1585,9 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
                ('SKY', 'Sky', 'Simulated Sky'),
                ('DIST', 'Distant', 'Distant Light'),
                ('SPOT', 'Spot', 'Spot Light'),
-               ('POINT', 'Point', 'Point Light')],
+               ('POINT', 'Point', 'Point Light'),
+               ('PORTAL', 'Portal', 'Portal Light'),
+               ('FILTER', 'Filter', 'Light Filter')],
         default='AREA'
     )
 
@@ -1285,30 +1596,45 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
         update=update_area_shape,
         items=[('rect', 'Rectangle', 'Rectangle'),
                ('disk', 'Disk', 'Disk'),
-               ('sphere', 'Sphere', 'Sphere'),
-               ('cylinder', 'Cylinder', 'Cylinder')],
+               ('sphere', 'Sphere', 'Sphere'), ],
         default='rect'
     )
 
-    nodetree = StringProperty(
-        name="Node Tree",
-        description="Name of the shader node tree for this light.",
-        default="")
+    filter_type = EnumProperty(
+        name="Area Shape",
+        update=update_filter_type,
+        items=[('barn', 'Barn', 'Barn'),
+               ('blocker', 'Blocker', 'Blocker'),
+               #('combiner', 'Combiner', 'Combiner'),
+               ('cookie', 'Cookie', 'Cookie'),
+               ('gobo', 'Gobo', 'Gobo'),
+               ('intmult', 'Multiply', 'Multiply'),
+               ('ramp', 'Ramp', 'Ramp'),
+               ('rod', 'Rod', 'Rod')
+               ],
+        default='blocker'
+    )
+
+    light_filters = CollectionProperty(
+        type=RendermanLightFilter
+    )
+    light_filters_index = IntProperty(min=-1, default=-1)
 
     shadingrate = FloatProperty(
         name="Light Shading Rate",
         description="Shading Rate for lights.  Keep this high unless banding or pixellation occurs on detailed light maps.",
         default=100.0)
 
-    # Rib Box Properties
-    shd_inlinerib_texts = CollectionProperty(
-        type=RendermanInlineRIB, name='Shadow map pass Inline RIB')
-    shd_inlinerib_index = IntProperty(min=-1, default=-1)
-
     # illuminate
     illuminates_by_default = BoolProperty(
         name="Illuminates by default",
         description="The light illuminates objects by default.",
+        default=True)
+
+    light_primary_visibility = BoolProperty(
+        name="Light Primary Visibility",
+        description="Camera visibility for this light",
+        update=update_vis,
         default=True)
 
     def update_mute(self, context):
@@ -1322,7 +1648,7 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
         default=False)
 
     def update_solo(self, context):
-        lamp = context.lamp
+        lamp = self.id_data
         scene = context.scene
 
         # if the scene solo is on already find the old one and turn off
@@ -1336,8 +1662,7 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
             if engine.is_ipr_running():
                 engine.ipr.solo_light()
         elif engine.is_ipr_running():
-                engine.ipr.un_solo_light()
-
+            engine.ipr.un_solo_light()
 
         scene.renderman.solo_light = self.solo
 
@@ -1350,6 +1675,12 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
 
 class RendermanWorldSettings(bpy.types.PropertyGroup):
 
+    def get_light_node(self):
+        return getattr(self, self.light_node) if self.light_node else None
+
+    def get_light_node_name(self):
+        return self.light_node.replace('_settings', '')
+
     # do this to keep the nice viewport update
     def update_light_type(self, context):
         world = context.scene.world
@@ -1357,31 +1688,19 @@ class RendermanWorldSettings(bpy.types.PropertyGroup):
         if world_type == 'NONE':
             return
         # use pxr area light for everything but env, sky
-        light_shader = 'PxrStdEnvMapLightLightNode'
+        light_shader = 'PxrDomeLight'
         if world_type == 'SKY':
-            light_shader = 'PxrStdEnvDayLightLightNode'
+            light_shader = 'PxrEnvDayLight'
 
-        # find the existing or make a new light shader node
-        nt = bpy.data.node_groups[world.renderman.nodetree]
-        output = None
-        for node in nt.nodes:
-            if node.renderman_node_type == 'output':
-                output = node
-                break
-        if output == None:
-            output = nt.nodes.new('RendermanOutputNode')
+        self.light_node = light_shader + "_settings"
 
-        for node in nt.nodes:
-            if hasattr(node, 'typename') and node.typename == light_shader:
-                nt.links.remove(output.inputs['Light'].links[0])
-                nt.links.new(node.outputs[0], output.inputs['Light'])
-                break
-        else:
-            light = nt.nodes.new(light_shader)
-            light.location = output.location
-            light.location[0] -= 300
-            # nt.links.remove(output.inputs['Light'].links[0])
-            nt.links.new(light.outputs[0], output.inputs['Light'])
+
+    def update_vis(self, context):
+        lamp = context.scene.world
+
+        from . import engine
+        if engine.is_ipr_running():
+            engine.ipr.update_light_visibility(lamp)
 
     renderman_type = EnumProperty(
         name="World Type",
@@ -1394,10 +1713,20 @@ class RendermanWorldSettings(bpy.types.PropertyGroup):
         default='NONE'
     )
 
-    nodetree = StringProperty(
-        name="Node Tree",
-        description="Name of the shader node tree for this light.",
-        default="")
+    use_renderman_node = BoolProperty(
+        name="Use RenderMans World Node",
+        description="Will enable RenderMan World Nodes, opening more options",
+        default=False, update=update_light_type)
+
+    light_node = StringProperty(
+        name="Light Node",
+        default='')
+
+    light_primary_visibility = BoolProperty(
+        name="Light Primary Visibility",
+        description="Camera visibility for this light",
+        update=update_vis,
+        default=True)
 
     shadingrate = FloatProperty(
         name="Light Shading Rate",
@@ -1451,25 +1780,7 @@ class RendermanParticlePrimVar(bpy.types.PropertyGroup):
     )
 
 
-class oslProps(bpy.types.PropertyGroup):
-    shaderString = StringProperty(
-        name="Shader",
-        description="OSL shader to use",
-        default="")
-
-
 class RendermanParticleSettings(bpy.types.PropertyGroup):
-
-    material_id = IntProperty(
-        name="Material",
-        description="Material ID to use for particle shading.",
-        default=1)
-
-    use_object_material = BoolProperty(
-        name="Use Master Object's Material",
-        description="Use the master object's material for instancing.",
-        default=False
-    )
 
     particle_type_items = [('particle', 'Particle', 'Point primitive'),
                            ('blobby', 'Blobby',
@@ -1479,6 +1790,12 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
                            ('OBJECT', 'Object',
                             'Instanced objects at each point')
                            ]
+
+    use_object_material = BoolProperty(
+        name="Use Master Object's Material",
+        description="Use the master object's material for instancing.",
+        default=False
+    )
 
     particle_type = EnumProperty(
         name="Point Type",
@@ -1505,12 +1822,6 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
         description="With used for constant width across all particles.",
         precision=4,
         default=0.01)
-
-    width_offset = FloatProperty(
-        name="Width Offset",
-        description="Offset from the root to start the thickness variation.",
-        precision=4,
-        default=0.00)
 
     export_default_size = BoolProperty(
         name="Export Default size",
@@ -1562,6 +1873,15 @@ class RendermanCurveGeometrySettings(bpy.types.PropertyGroup):
     prim_vars_index = IntProperty(min=-1, default=-1)
 
 
+class OpenVDBChannel(bpy.types.PropertyGroup):
+    name = StringProperty(name="Channel Name")
+    type = EnumProperty(name="Channel Type", 
+                        items=[
+                            ('float', 'Float', ''),
+                            ('vector', 'Vector', ''),
+                            ('color', 'Color', ''),
+                        ])
+
 class RendermanObjectSettings(bpy.types.PropertyGroup):
 
     # for some odd reason blender truncates this as a float
@@ -1569,11 +1889,6 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
         name="Update Timestamp", default=int(time.time()),
         description="Used for telling if an objects rib archive is dirty", subtype='UNSIGNED'
     )
-
-    do_holdout = BoolProperty(
-        name="Holdout Object",
-        description="Collect holdout data for this object",
-        default=False)
 
     pre_object_rib_box = StringProperty(
         name="Pre Object RIB text",
@@ -1585,17 +1900,14 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
         description="Injects an RIB after this object's geometry.",
         default="")
 
-    lpe_group = StringProperty(
-        name="Holdout Group",
-        description="Group name for collecting holdouts.",
-        default="collector")
-
     geometry_source = EnumProperty(
         name="Geometry Source",
         description="Where to get the geometry data for this object",
         items=[('BLENDER_SCENE_DATA', 'Blender Scene Data', 'Exports and renders blender scene data directly from memory'),
                ('ARCHIVE', 'Archive',
                 'Renders a prevously exported RIB archive'),
+               ('OPENVDB', 'OpenVDB File',
+                'Renders a prevously exported OpenVDB file'),
                ('DELAYED_LOAD_ARCHIVE', 'Delayed Load Archive',
                 'Loads and renders geometry from an archive only when its bounding box is visible'),
                ('PROCEDURAL_RUN_PROGRAM', 'Procedural Run Program',
@@ -1604,6 +1916,10 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                 'Generates procedural geometry at render time from a dynamic shared object library')
                ],
         default='BLENDER_SCENE_DATA')
+
+    openvdb_channels = CollectionProperty(
+        type=OpenVDBChannel, name="OpenVDB Channels")
+    openvdb_channel_index = IntProperty(min=-1, default=-1)
 
     archive_anim_settings = PointerProperty(
         type=RendermanAnimSequenceSettings,
@@ -1734,8 +2050,8 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
         description="Override the default shading rate for this object.",
         default=False)
     shadingrate = FloatProperty(
-        name="Shading Rate",
-        description="Maximum distance between shading samples (lower = more detailed shading).",
+        name="Micropolygon Length",
+        description="Maximum distance between displacement samples (lower = more detailed shading).",
         default=1.0)
     geometric_approx_motion = FloatProperty(
         name="Motion Approximation",
@@ -1819,6 +2135,10 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
         name="Intersect Priority",
         description="Dictates a priority used when ray tracing overlapping materials",
         default=0)
+    raytrace_ior = FloatProperty(
+        name="Index of Refraction",
+        description="When using nested dielectrics (overlapping materials), this should be set to the same value as the ior of your material",
+        default=1.0)
 
     trace_displacements = BoolProperty(
         name="Trace Displacements",
@@ -1839,9 +2159,61 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
         description="Export a named coordinate system with this name",
         default="CoordSys")
 
-    # Trace Sets
-    trace_set = CollectionProperty(type=TraceSet, name='Trace Set')
-    trace_set_index = IntProperty(min=-1, default=-1)
+    MatteID0 = FloatVectorProperty(
+        name="Matte ID 0",
+        description="Matte ID 0 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
+
+    MatteID1 = FloatVectorProperty(
+        name="Matte ID 1",
+        description="Matte ID 1 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
+
+    MatteID2 = FloatVectorProperty(
+        name="Matte ID 2",
+        description="Matte ID 2 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
+
+    MatteID3 = FloatVectorProperty(
+        name="Matte ID 3",
+        description="Matte ID 3 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
+
+    MatteID4 = FloatVectorProperty(
+        name="Matte ID 4",
+        description="Matte ID 4 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
+
+    MatteID5 = FloatVectorProperty(
+        name="Matte ID 5",
+        description="Matte ID 5 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
+
+    MatteID6 = FloatVectorProperty(
+        name="Matte ID 6",
+        description="Matte ID 6 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
+
+    MatteID7 = FloatVectorProperty(
+        name="Matte ID 7",
+        description="Matte ID 7 Color, you also need to add the PxrMatteID node to your bxdf",
+        size=3,
+        subtype='COLOR',
+        default=[0.0, 0.0, 0.0])
 
 
 class Tab_CollectionGroup(bpy.types.PropertyGroup):
@@ -1892,50 +2264,148 @@ class Tab_CollectionGroup(bpy.types.PropertyGroup):
 
 
 initial_aov_channels = [("a", "alpha", ""),
-     ("id", "id", "Returns the integer assigned via the 'identifier' attribute as the pixel value"),
-     ("z", "z_depth", "Depth from the camera in world space"),
-     ("zback", "z_back",
-      "Depth at the back of volumetric objects in world space"),
-     ("P",  "P",  "Position of the point hit by the incident ray"),
-     ("PRadius", "PRadius",
-      "Cross-sectional size of the ray at the hit point"),
-     ("cpuTime", "cpuTime", "The time taken to render a pixel"),
-     ("sampleCount", "sampleCount",
-      "The number of samples taken for the resulting pixel"),
-     ("Nn", "Nn", "Normalized shading normal"),
-     ("Ngn", "Ngn", "Normalized geometric normal"),
-     ("Tn", "Tn", "Normalized shading tangent"),
-     ("Vn", "Vn", "Normalized view vector (reverse of ray direction)"),
-     ("VLen", "VLen", "Distance to hit point along the ray"),
-     ("curvature", "curvature", "Local surface curvature"),
-     ("incidentRaySpread", "incidentRaySpread",
-      "Rate of spread of incident ray"),
-     ("mpSize", "mpSize", "Size of the micropolygon that the ray hit"),
-     ("u", "u", "The parametric coordinates on the primitive"),
-     ("v", "v", "The parametric coordinates on the primitive"),
-     ("w", "w", "The parametric coordinates on the primitive"),
-     ("du", "du", "Derivatives of u, v, and w to adjacent micropolygons"),
-     ("dv", "dv", "Derivatives of u, v, and w to adjacent micropolygons"),
-     ("dw", "dw", "Derivatives of u, v, and w to adjacent micropolygons"),
-     ("dPdu", "dPdu", "Direction of maximal change in u, v, and w"),
-     ("dPdv", "dPdv", "Direction of maximal change in u, v, and w"),
-     ("dPdw", "dPdw", "Direction of maximal change in u, v, and w"),
-     ("dufp", "dufp", "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
-     ("dvfp", "dvfp", "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
-     ("dwfp", "dwfp", "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
-     ("time", "time", "Time sample of the ray"),
-     ("dPdtime", "dPdtime", "Motion vector"),
-     ("id", "id", "Returns the integer assigned via the identifier attribute as the pixel value"),
-     ("outsideIOR", "outsideIOR",
-      "Index of refraction outside this surface"),
-     ("__Pworld", "Pworld", "P in world-space"),
-     ("__Nworld", "Nworld", "Nn in world-space"),
-     ("__depth", "depth", "Multi-purpose AOV\nr : depth from camera in world-space\ng : height in world-space\nb : geometric facing ratio : abs(Nn.V)"),
-     ("__st", "st", "Texture coords"),
-     ("__Pref", "Pref", "Reference Position primvar (if available)"),
-     ("__Nref", "Nref", "Reference Normal primvar (if available)"),
-     ("__WPref", "WPref", "Reference World Position primvar (if available)"),
-     ("__WNref",  "WNref", "Reference World Normal primvar (if available)")]
+                        ("id", "id", "Returns the integer assigned via the 'identifier' attribute as the pixel value"),
+                        ("z", "z_depth", "Depth from the camera in world space"),
+                        ("zback", "z_back",
+                         "Depth at the back of volumetric objects in world space"),
+                        ("P",  "P",  "Position of the point hit by the incident ray"),
+                        ("PRadius", "PRadius",
+                         "Cross-sectional size of the ray at the hit point"),
+                        ("cpuTime", "cpuTime", "The time taken to render a pixel"),
+                        ("sampleCount", "sampleCount",
+                         "The number of samples taken for the resulting pixel"),
+                        ("Nn", "Nn", "Normalized shading normal"),
+                        ("Ngn", "Ngn", "Normalized geometric normal"),
+                        ("Tn", "Tn", "Normalized shading tangent"),
+                        ("Vn", "Vn", "Normalized view vector (reverse of ray direction)"),
+                        ("VLen", "VLen", "Distance to hit point along the ray"),
+                        ("curvature", "curvature", "Local surface curvature"),
+                        ("incidentRaySpread", "incidentRaySpread",
+                         "Rate of spread of incident ray"),
+                        ("mpSize", "mpSize",
+                         "Size of the micropolygon that the ray hit"),
+                        ("u", "u", "The parametric coordinates on the primitive"),
+                        ("v", "v", "The parametric coordinates on the primitive"),
+                        ("w", "w", "The parametric coordinates on the primitive"),
+                        ("du", "du", "Derivatives of u, v, and w to adjacent micropolygons"),
+                        ("dv", "dv", "Derivatives of u, v, and w to adjacent micropolygons"),
+                        ("dw", "dw", "Derivatives of u, v, and w to adjacent micropolygons"),
+                        ("dPdu", "dPdu", "Direction of maximal change in u, v, and w"),
+                        ("dPdv", "dPdv", "Direction of maximal change in u, v, and w"),
+                        ("dPdw", "dPdw", "Direction of maximal change in u, v, and w"),
+                        ("dufp", "dufp",
+                         "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
+                        ("dvfp", "dvfp",
+                         "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
+                        ("dwfp", "dwfp",
+                         "Multiplier to dPdu, dPdv, dPdw for ray differentials"),
+                        ("time", "time", "Time sample of the ray"),
+                        ("dPdtime", "dPdtime", "Motion vector"),
+                        ("id", "id", "Returns the integer assigned via the identifier attribute as the pixel value"),
+                        ("outsideIOR", "outsideIOR",
+                         "Index of refraction outside this surface"),
+                        ("__Pworld", "Pworld", "P in world-space"),
+                        ("__Nworld", "Nworld", "Nn in world-space"),
+                        ("__depth", "depth", "Multi-purpose AOV\nr : depth from camera in world-space\ng : height in world-space\nb : geometric facing ratio : abs(Nn.V)"),
+                        ("__st", "st", "Texture coords"),
+                        ("__Pref", "Pref", "Reference Position primvar (if available)"),
+                        ("__Nref", "Nref", "Reference Normal primvar (if available)"),
+                        ("__WPref", "WPref",
+                         "Reference World Position primvar (if available)"),
+                        ("__WNref",  "WNref", "Reference World Normal primvar (if available)")]
+
+
+class RendermanPluginSettings(bpy.types.PropertyGroup):
+    pass
+
+
+def prune_perspective_camera(args_xml, name):
+    for page in args_xml.findall('page'):
+        page_name = page.get('name')
+        if page_name == 'Standard Perspective':
+            args_xml.remove(page)
+
+    pretty_name = name.replace('Pxr', '')
+    projection_names.append((name, pretty_name, ''))
+    return args_xml
+
+
+# get the names of args files in rmantree/lib/ris/integrator/args
+def get_integrator_names(args_xml, name):
+    integrator_names.append((name, name[3:], ''))
+    return args_xml
+
+
+def get_samplefilter_names(args_xml, name):
+    if 'Combiner' in name:
+        return None
+    else:
+        samplefilter_names.append((name, name[3:], ''))
+        return args_xml
+
+
+def get_displayfilter_names(args_xml, name):
+    if 'Combiner' in name:
+        return None
+    else:
+        displayfilter_names.append((name, name[3:], ''))
+        return args_xml
+
+
+plugin_mapping = {
+    'integrator': (get_integrator_names, RendermanSceneSettings),
+    'projection': (prune_perspective_camera, RendermanCameraSettings),
+    'light': (None, RendermanLightSettings),
+    'lightfilter': (None, RendermanLightSettings),
+    'displayfilter': (get_displayfilter_names, RendermanDisplayFilterSettings),
+    'samplefilter': (get_samplefilter_names, RendermanSampleFilterSettings),
+}
+
+
+def register_plugin_to_parent(ntype, name, args_xml, plugin_type, parent):
+    # do some parsing and get props
+    inputs = [p for p in args_xml.findall('./param')] + \
+        [p for p in args_xml.findall('./page')]
+    class_generate_properties(ntype, name, inputs)
+    setattr(ntype, 'renderman_node_type', plugin_type)
+
+    # register and add to scene_settings
+    bpy.utils.register_class(ntype)
+    setattr(parent, "%s_settings" % name,
+            PointerProperty(type=ntype, name="%s Settings" % name)
+            )
+
+    # special case for world lights
+    if plugin_type == 'light' and name in ['PxrDomeLight', 'PxrEnvDayLight']:
+        setattr(RendermanWorldSettings, "%s_settings" % name,
+                PointerProperty(type=ntype, name="%s Settings" % name)
+                )
+
+
+def register_plugin_types():
+    rmantree = guess_rmantree()
+    args_path = os.path.join(rmantree, 'lib', 'plugins', 'Args')
+    items = []
+    for f in os.listdir(args_path):
+        args_xml = ET.parse(os.path.join(args_path, f)).getroot()
+        plugin_type = args_xml.find("shaderType/tag").attrib['value']
+        if plugin_type not in plugin_mapping:
+            continue
+        prune_method, parent = plugin_mapping[plugin_type]
+        name = f.split('.')[0]
+        typename = name + plugin_type.capitalize() + 'Settings'
+        ntype = type(typename, (RendermanPluginSettings,), {})
+        ntype.bl_label = name
+        ntype.typename = typename
+        ntype.bl_idname = typename
+        ntype.plugin_name = name
+
+        if prune_method:
+            args_xml = prune_method(args_xml, name)
+        if not args_xml:
+            continue
+
+        register_plugin_to_parent(ntype, name, args_xml, plugin_type, parent)
 
 
 @persistent
@@ -1955,22 +2425,25 @@ classes = [RendermanPath,
            RendermanInlineRIB,
            RendermanGroup,
            LightLinking,
-           TraceSet,
            RendermanMeshPrimVar,
            RendermanParticlePrimVar,
            RendermanMaterialSettings,
            RendermanAnimSequenceSettings,
            RendermanTextureSettings,
+           RendermanLightFilter,
            RendermanLightSettings,
            RendermanParticleSettings,
-           RendermanIntegratorSettings,
+           RendermanPluginSettings,
            RendermanWorldSettings,
            RendermanAOV,
            RendermanRenderLayerSettings,
            RendermanCameraSettings,
+           RendermanDisplayFilterSettings,
+           RendermanSampleFilterSettings,
            RendermanSceneSettings,
            RendermanMeshGeometrySettings,
            RendermanCurveGeometrySettings,
+           OpenVDBChannel,
            RendermanObjectSettings,
            Tab_CollectionGroup
            ]
@@ -1978,10 +2451,11 @@ classes = [RendermanPath,
 
 def register():
 
+    register_plugin_types()
     # dynamically find integrators from args
-    register_integrator_settings(RendermanSceneSettings)
+    # register_integrator_settings(RendermanSceneSettings)
     # dynamically find camera from args
-    register_camera_settings()
+    # register_camera_settings()
 
     for cls in classes:
         bpy.utils.register_class(cls)

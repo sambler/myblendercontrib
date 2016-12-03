@@ -1,12 +1,12 @@
 bl_info = {
     "name": "SMD: Valve studiomodel source format",
     "author": "nemyax",
-    "version": (0, 1, 20161012),
+    "version": (0, 1, 20161113),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Export Valve studiomodel sources",
     "warning": "",
-    "wiki_url": "",
+    "wiki_url": "https://sourceforge.net/p/blenderbitsbobs/wiki/SMD%20exporter",
     "tracker_url": "",
     "category": "Import-Export"}
 
@@ -111,7 +111,7 @@ def get_tri_items(bm, tx_lu, weighting=False):
             wts = vert[dl].items()
             pb = sorted([(b,a) for a, b in wts])[-1][1]
             vx, vy, vz = vert.co
-            nx, ny, nz = l.calc_normal()
+            nx, ny, nz = l.vert.normal
             u, v = l[uv].uv
             entry = template.format(pb, vx, vy, vz, nx, ny, nz, u, v)
             if weighting:
@@ -194,7 +194,6 @@ def write_batch(path, prerequisites, marker_filter, weighting, qc):
     bone_lu, tx_lu, bm = prerequisites
     write_smd_mesh(path, prerequisites, weighting)
     ranges = get_ranges(marker_filter)
-    print(ranges)
     if not ranges:
         ranges = {'idle':(1,1)}
     for r in ranges:
@@ -227,7 +226,16 @@ def get_prereqs(what):
         bone_lu = {"--base":(0,-1,None)}
     tx_lu = bm = None # not needed if anim only
     if what != 'anim':
-        tx_lu, bm = prep_bmesh(obj, bone_lu)
+        if arm:
+            states = dict([(m,m.show_viewport) for m in obj.modifiers
+                if m.type == 'ARMATURE'])
+            for m in states:
+                m.show_viewport = False
+            tx_lu, bm = prep_bmesh(obj, bone_lu)
+            for m in states:
+                m.show_viewport = states[m]
+        else:
+            tx_lu, bm = prep_bmesh(obj, bone_lu)
     return bone_lu, tx_lu, bm
 
 ###
@@ -277,8 +285,9 @@ def make_bone_lookup(bones):
 def prep_bmesh(obj, bone_lu):
     tx_lu = make_texture_lookup(obj.material_slots)
     bm = bmesh.new()
-    bm.from_mesh(obj.data)
+    bm.from_object(obj, bpy.context.scene)
     triangulate(strip_wires(bm))
+    bm.normal_update()
     v_groups = make_vert_group_lookup(obj, bone_lu)
     dl = bm.verts.layers.deform.verify()
     for v in bm.verts:

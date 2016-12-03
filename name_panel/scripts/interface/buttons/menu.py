@@ -22,7 +22,7 @@ def menu(self, context):
   op.quickBatch = False
 
   # batch copy
-  layout.operator('view3d.copy_name', icon='COPYDOWN')
+  layout.operator('view3d.transfer_name', icon='COPYDOWN')
 
   # is option.regex
   if option.regex or context.window_manager.BatchName.regex:
@@ -54,11 +54,20 @@ def menu(self, context):
       # pin active bone
       layout.prop(option, 'pinActiveBone')
 
-  # hide find and replace
-  layout.prop(option, 'hideFindReplace')
+  # hide find
+  layout.prop(option, 'hideFind')
 
-  # clear search
-  layout.prop(option, 'clearSearch')
+  # isnt hide find
+  if not option.hideFind:
+
+    # hide replace
+    layout.prop(option, 'hideReplace')
+
+  # isnt hide replace
+  if not option.hideFind and not option.hideReplace:
+
+    # clear search
+    layout.prop(option, 'clearSearch')
 
   # separate
   layout.separator()

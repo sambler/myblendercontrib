@@ -41,7 +41,8 @@ def name(context):
   default['location'] = option.location
   default['pin active object'] = option.pinActiveObject
   default['pin active bone'] = option.pinActiveObject
-  default['hide find & replace'] = option.hideFindReplace
+  default['hide find'] = option.hideFind
+  default['hide replace'] = option.hideReplace
   default['filters'] = option.filters
   default['shortcuts'] = option.shortcuts
   default['display names'] = option.displayNames

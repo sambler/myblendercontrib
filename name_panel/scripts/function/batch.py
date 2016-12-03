@@ -726,7 +726,6 @@ def main(self, context):
               # clear storage
               self.vertexGroups.clear()
 
-
       # shapekeys
       if option.shapekeys:
         for object in bpy.data.objects:
@@ -1007,13 +1006,30 @@ def main(self, context):
         # clear storage
         self.particleSettings.clear()
 
-    # sensors
-    if option.sensors:
-      for object in bpy.data.objects:
+      # sensors
+      if option.sensors:
+        for object in bpy.data.objects:
 
-        # mode
-        if option.mode in 'SELECTED':
-          if object.select:
+          # mode
+          if option.mode in 'SELECTED':
+            if object.select:
+
+              # object type
+              if option.objectType in 'ALL':
+
+                # populate
+                for sensor in object.game.sensors:
+                  populate(self, context, sensor)
+
+              # object type
+              elif option.objectType in object.type:
+
+                # populate
+                for sensor in object.game.sensors:
+                  populate(self, context, sensor)
+
+          # mode
+          else:
 
             # object type
             if option.objectType in 'ALL':
@@ -1029,36 +1045,36 @@ def main(self, context):
               for sensor in object.game.sensors:
                 populate(self, context, sensor)
 
-        # mode
-        else:
+          # process
+          process(self, context, self.sensors, option)
 
-          # object type
-          if option.objectType in 'ALL':
+          # clear storage
+          self.sensors.clear()
 
-            # populate
-            for sensor in object.game.sensors:
-              populate(self, context, sensor)
+      # controllers
+      if option.controllers:
+        for object in bpy.data.objects:
 
-          # object type
-          elif option.objectType in object.type:
+          # mode
+          if option.mode in 'SELECTED':
+            if object.select:
 
-            # populate
-            for sensor in object.game.sensors:
-              populate(self, context, sensor)
+              # object type
+              if option.objectType in 'ALL':
 
-        # process
-        process(self, context, self.sensors, option)
+                # populate
+                for controller in object.game.controllers:
+                  populate(self, context, controller)
 
-        # clear storage
-        self.sensors.clear()
+              # object type
+              elif option.objectType in object.type:
 
-    # controllers
-    if option.controllers:
-      for object in bpy.data.objects:
+                # populate
+                for controller in object.game.controllers:
+                  populate(self, context, controller)
 
-        # mode
-        if option.mode in 'SELECTED':
-          if object.select:
+          # mode
+          else:
 
             # object type
             if option.objectType in 'ALL':
@@ -1074,36 +1090,36 @@ def main(self, context):
               for controller in object.game.controllers:
                 populate(self, context, controller)
 
-        # mode
-        else:
+          # process
+          process(self, context, self.controllers, option)
 
-          # object type
-          if option.objectType in 'ALL':
+          # clear storage
+          self.controllers.clear()
 
-            # populate
-            for controller in object.game.controllers:
-              populate(self, context, controller)
+      # actuators
+      if option.actuators:
+        for object in bpy.data.objects:
 
-          # object type
-          elif option.objectType in object.type:
+          # mode
+          if option.mode in 'SELECTED':
+            if object.select:
 
-            # populate
-            for controller in object.game.controllers:
-              populate(self, context, controller)
+              # object type
+              if option.objectType in 'ALL':
 
-        # process
-        process(self, context, self.controllers, option)
+                # populate
+                for actuator in object.game.actuators:
+                  populate(self, context, actuator)
 
-        # clear storage
-        self.controllers.clear()
+              # object type
+              elif option.objectType in object.type:
 
-    # actuators
-    if option.actuators:
-      for object in bpy.data.objects:
+                # populate
+                for actuator in object.game.actuators:
+                  populate(self, context, actuator)
 
-        # mode
-        if option.mode in 'SELECTED':
-          if object.select:
+          # mode
+          else:
 
             # object type
             if option.objectType in 'ALL':
@@ -1119,27 +1135,10 @@ def main(self, context):
               for actuator in object.game.actuators:
                 populate(self, context, actuator)
 
-        # mode
-        else:
+          # process
+          process(self, context, self.actuators, option)
 
-          # object type
-          if option.objectType in 'ALL':
-
-            # populate
-            for actuator in object.game.actuators:
-              populate(self, context, actuator)
-
-          # object type
-          elif option.objectType in object.type:
-
-            # populate
-            for actuator in object.game.actuators:
-              populate(self, context, actuator)
-
-        # process
-        process(self, context, self.actuators, option)
-
-        # clear storage
+          # clear storage
         self.actuators.clear()
 
     # mode

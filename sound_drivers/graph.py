@@ -33,7 +33,6 @@ def get_view_action(bl, tr):
     
     return view_action
 
-
 def focus_areas(context):
     #obj = context.object
     #save_action = obj.animation_data.action
@@ -66,6 +65,9 @@ def focus_areas(context):
 
         bgl_area = s.get_area(area)
 
+
+        bpy.ops.anim.channels_expand(c, all=True)
+        bpy.ops.anim.channels_expand(c, all=True)
         if (bgl_area is None  or not wm.bgl_draw_speaker):
             bpy.ops.graph.view_all(c)
             continue
@@ -108,16 +110,15 @@ class FocusGraphView2BGL(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        return True
         return context.active_object is not None
 
     def execute(self, context):
         focus_areas(context)
         return {'FINISHED'}
 
-
 def register():
     bpy.utils.register_class(FocusGraphView2BGL)
-
 
 def unregister():
     bpy.utils.unregister_class(FocusGraphView2BGL)

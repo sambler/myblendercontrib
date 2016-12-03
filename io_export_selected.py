@@ -15,20 +15,16 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-# <pep8 compliant>
-
 bl_info = {
     "name": "Export Selected",
-    "author": "dairin0d, rking",
-    "version": (1, 5, 4),
+    "author": "dairin0d, rking, moth3r",
+    "version": (2, 0, 2),
     "blender": (2, 6, 9),
     "location": "File > Export > Selected",
     "description": "Export selected objects to a chosen format",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
-                "Scripts/Import-Export/Export_Selected",
-    "tracker_url": "http://projects.blender.org/tracker/"\
-                   "?func=detail&aid=30942",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/Export_Selected",
+    "tracker_url": "https://developer.blender.org/T30942",
     "category": "Import-Export"}
 #============================================================================#
 
@@ -39,10 +35,42 @@ from bpy_extras.io_utils import ExportHelper
 from mathutils import Vector, Matrix, Quaternion, Euler
 
 import os
+import json
+import re
 
-join_before_export = {
-    "export_mesh.ply",
-}
+def bpy_path_normslash(path):
+    return path.replace(os.path.sep, "/")
+
+def bpy_path_join(*paths):
+    # use os.path.join logic (it's not that simple)
+    return bpy_path_normslash(os.path.join(*paths))
+
+def bpy_path_splitext(path):
+    path = bpy_path_normslash(path)
+    i_split = path.rfind(".")
+    if i_split < 0: return (path, "")
+    return (path[:i_split], path[i_split:])
+
+# For some reason, when path contains "//", os.path.split ignores single slashes
+# When path ends with slash, return dir without slash, except when it's / or //
+def bpy_path_split(path):
+    path = bpy_path_normslash(path)
+    i_split = path.rfind("/") + 1
+    dir_part = path[:i_split]
+    file_part = path[i_split:]
+    dir_part_strip = dir_part.rstrip("/")
+    if dir_part_strip: dir_part = dir_part[:len(dir_part_strip)]
+    return (dir_part, file_part)
+
+def bpy_path_dirname(path):
+    return bpy_path_split(path)[0]
+
+def bpy_path_basename(path):
+    return bpy_path_split(path)[1]
+
+operator_presets_dir = bpy_path_join(bpy.utils.resource_path('USER'), "scripts", "presets", "operator")
+
+object_types = ['MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'ARMATURE', 'LATTICE', 'EMPTY', 'CAMERA', 'LAMP', 'SPEAKER']
 
 bpy_props = {
     bpy.props.BoolProperty,
@@ -58,27 +86,46 @@ bpy_props = {
 }
 
 def is_bpy_prop(value):
-    if isinstance(value, tuple) and (len(value) == 2):
-        if (value[0] in bpy_props) and isinstance(value[1], dict):
-            return True
-    return False
+    return (isinstance(value, tuple) and (len(value) == 2) and (value[0] in bpy_props) and isinstance(value[1], dict))
 
 def iter_public_bpy_props(cls, exclude_hidden=False):
     for key in dir(cls):
-        if key.startswith("_"):
-            continue
+        if key.startswith("_"): continue
         value = getattr(cls, key)
-        if is_bpy_prop(value):
-            if exclude_hidden:
-                options = value[1].get("options", "")
-                if 'HIDDEN' in options:
-                    continue
-            yield (key, value)
+        if not is_bpy_prop(value): continue
+        if exclude_hidden:
+            options = value[1].get("options", "")
+            if 'HIDDEN' in options: continue
+        yield (key, value)
 
 def get_op(idname):
     category_name, op_name = idname.split(".")
     category = getattr(bpy.ops, category_name)
     return getattr(category, op_name)
+
+def layers_intersect(a, b, name_a="layers", name_b=None):
+    return any(l0 and l1 for l0, l1 in zip(getattr(a, name_a), getattr(b, name_b or name_a)))
+
+def obj_root(obj):
+    while obj.parent:
+        obj = obj.parent
+    return obj
+
+def obj_parents(obj):
+    while obj.parent:
+        yield obj.parent
+        obj = obj.parent
+
+class PrimitiveLock(object):
+    "Primary use of such lock is to prevent infinite recursion"
+    def __init__(self):
+        self.count = 0
+    def __bool__(self):
+        return bool(self.count)
+    def __enter__(self):
+        self.count += 1
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.count -= 1
 
 class ToggleObjectMode:
     def __init__(self, mode='OBJECT', undo=False):
@@ -112,58 +159,67 @@ class ToggleObjectMode:
                 bpy.ops.object.mode_set(mode=self.prev_mode)
                 edit_preferences.use_global_undo = self.global_undo
 
-def iter_exporters():
-    #categories = dir(bpy.ops)
-    categories = ["export_anim", "export_curve", "export_mesh", "export_scene"]
-    for category_name in categories:
-        op_category = getattr(bpy.ops, category_name)
-        
-        for name in dir(op_category):
-            total_name = category_name + "." + name
-            
-            if total_name == ExportSelected.bl_idname:
-                continue
-            
-            if "export" in total_name:
-                op = getattr(op_category, name)
-                
-                yield total_name, op
+#============================================================================#
 
-class CurrentFormatProperties(bpy.types.PropertyGroup):
-    @classmethod
-    def _clear_props(cls):
-        keys_to_remove = list(cls._keys())
-        
-        for key in keys_to_remove:
-            delattr(cls, key)
-        
-        CurrentFormatProperties.__dict = None
+def replace_extension(path, ext):
+    name = bpy_path_basename(path)
+    if name and not name.lower().endswith(ext.lower()):
+        path = bpy_path_splitext(path)[0] + ext
+    return path
+
+forbidden_chars = "\x00-\x1f/" # on all OSes
+forbidden_chars += "<>:\"|?*\\\\" # on Windows/FAT/NTFS
+forbidden_chars = "["+forbidden_chars+"]"
+def clean_filename(filename, sub="-"):
+    return re.sub(forbidden_chars, sub, filename)
+
+def iter_exporters():
+    for category_name in dir(bpy.ops):
+        if "export" not in category_name: continue
+        op_category = getattr(bpy.ops, category_name)
+        for name in dir(op_category):
+            idname = category_name + "." + name
+            if idname == ExportSelected.bl_idname: continue
+            if "export" not in idname: continue
+            yield (idname, getattr(op_category, name))
+
+def iter_exporter_info():
+    # Special case: unconventional "exporter"
+    yield ('BLEND', "Blend", ".blend", "*.blend")
     
-    @classmethod
-    def _add_props(cls, template):
-        for key, value in iter_public_bpy_props(template):
-            setattr(cls, key, value)
-        
-        CurrentFormatProperties.__dict = {}
-        for key in dir(template):
-            value = getattr(template, key)
-            if is_bpy_prop(value): continue
-            CurrentFormatProperties.__dict[key] = value
+    # Special case: unconventional operator name, ext/glob aren't exposed
+    yield ('wm.collada_export', "Collada", ".dae", "*.dae")
     
-    @classmethod
-    def _keys(cls, exclude_hidden=False):
-        for kv in iter_public_bpy_props(cls, exclude_hidden):
-            yield kv[0]
+    # Special case: unconventional operator name, ext/glob aren't exposed
+    yield ('wm.alembic_export', "Alembic", ".abc", "*.abc")
     
-    def __getattr__(self, name):
-        return CurrentFormatProperties.__dict[name]
-    
-    def __setattr__(self, name, value):
-        if hasattr(self.__class__, name) and (not name.startswith("_")):
-            supercls = super(CurrentFormatProperties, self.__class__)
-            supercls.__setattr__(self, name, value)
-        else:
-            CurrentFormatProperties.__dict[name] = value
+    for idname, op in iter_exporters():
+        op_class = type(op.get_instance())
+        rna = op.get_rna()
+        name = rna.rna_type.name
+        if name.lower().startswith("export "): name = name[len("export "):]
+        filename_ext = getattr(op_class, "filename_ext", "")
+        filter_glob = getattr(rna, "filter_glob", "*"+filename_ext)
+        yield (idname, name, filename_ext, filter_glob)
+
+def get_exporter_name(idname):
+    if idname == 'BLEND': return "Blend"
+    op = get_op(idname)
+    rna = op.get_rna()
+    name = rna.rna_type.name
+    if name.lower().startswith("export "): name = name[len("export "):]
+    return name
+
+def get_exporter_class(idname):
+    if idname == 'BLEND':
+        return None
+    elif idname == 'wm.collada_export':
+        return ColladaEmulator
+    elif idname == 'wm.alembic_export':
+        return AlembicEmulator
+    else:
+        op = get_op(idname)
+        return type(op.get_instance())
 
 class ColladaEmulator:
     # Special case: Collada (built-in) -- has no explicitly defined Python properties
@@ -220,169 +276,527 @@ class ColladaEmulator:
         row.prop(self, "export_transformation_type_selection", text="")
         box.prop(self, "sort_by_name")
 
-class ExportSelected(bpy.types.Operator, ExportHelper):
+class AlembicEmulator:
+    # Special case: Alembic (built-in) -- has no explicitly defined Python properties
+    global_scale = bpy.props.FloatProperty(name="Scale", description="Value by which to enlarge or shrink the objects with respect to the world's origin", default=1.0, min=0.0001, max=1000.0, step=1, precision=3)
+    start = bpy.props.IntProperty(name="Start Frame", description="Start Frame", default=1)
+    end = bpy.props.IntProperty(name="End Frame", description="End Frame", default=1)
+    xsamples = bpy.props.IntProperty(name="Transform Samples", description="Number of times per frame transformations are sampled", default=1, min=1, max=128)
+    gsamples = bpy.props.IntProperty(name="Geometry Samples", description="Number of times per frame object data are sampled", default=1, min=1, max=128)
+    sh_open = bpy.props.FloatProperty(name="Shutter Open", description="Time at which the shutter is open", default=0.0, min=-1, max=1, step=1, precision=3)
+    sh_close = bpy.props.FloatProperty(name="Shutter Close", description="Time at which the shutter is closed", default=1.0, min=-1, max=1, step=1, precision=3)
+    selected = bpy.props.BoolProperty(name="Selected Objects Only", description="Export only selected objects", default=False)
+    renderable_only = bpy.props.BoolProperty(name="Renderable Objects Only", description="Export only objects marked renderable in the outliner", default=True)
+    visible_layers_only = bpy.props.BoolProperty(name="Visible Layers Only", description="Export only objects in visible layers", default=False)
+    flatten = bpy.props.BoolProperty(name="Flatten Hierarchy", description="Do not preserve objects' parent/children relationship", default=False)
+    uvs = bpy.props.BoolProperty(name="UVs", description="Export UVs", default=True)
+    packuv = bpy.props.BoolProperty(name="Pack UV Islands", description="Export UVs with packed island", default=True)
+    normals = bpy.props.BoolProperty(name="Normals", description="Export normals", default=True)
+    vcolors = bpy.props.BoolProperty(name="Vertex Colors", description="Export vertex colors", default=False)
+    face_sets = bpy.props.BoolProperty(name="Face Sets", description="Export per face shading group assignments", default=False)
+    subdiv_schema = bpy.props.BoolProperty(name="Use Subdivision Schema", description="Export meshes using Alembic's subdivision schema", default=False)
+    apply_subdiv = bpy.props.BoolProperty(name="Apply Subsurf", description="Export subdivision surfaces as meshes", default=False)
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        box = layout.box()
+        box.label(text="Manual Transform:")
+        box.prop(self, "global_scale")
+        
+        box = layout.box()
+        box.label(text="Scene Options:", icon='SCENE_DATA')
+        box.prop(self, "start")
+        box.prop(self, "end")
+        box.prop(self, "xsamples")
+        box.prop(self, "gsamples")
+        box.prop(self, "sh_open")
+        box.prop(self, "sh_close")
+        box.prop(self, "selected")
+        box.prop(self, "renderable_only")
+        box.prop(self, "visible_layers_only")
+        box.prop(self, "flatten")
+        
+        box = layout.box()
+        box.label(text="Object Options:", icon='OBJECT_DATA')
+        box.prop(self, "uvs")
+        box.prop(self, "packuv")
+        box.prop(self, "normals")
+        box.prop(self, "vcolors")
+        box.prop(self, "face_sets")
+        box.prop(self, "subdiv_schema")
+        box.prop(self, "apply_subdiv")
+
+#============================================================================#
+
+class CurrentExporterProperties(bpy.types.PropertyGroup):
+    __dict = {}
+    __exporter = None
+    
+    @classmethod
+    def _check(cls, exporter):
+        return (cls.__exporter == exporter)
+    
+    @classmethod
+    def _load_props(cls, exporter):
+        if (cls.__exporter == exporter): return
+        cls.__exporter = exporter
+        
+        CurrentExporterProperties.__dict = {}
+        for key in list(cls._keys()):
+            delattr(cls, key)
+        
+        template = get_exporter_class(exporter)
+        if template:
+            for key in dir(template):
+                value = getattr(template, key)
+                if is_bpy_prop(value):
+                    if not key.startswith("_"): setattr(cls, key, value)
+                else:
+                    CurrentExporterProperties.__dict[key] = value
+    
+    @classmethod
+    def _keys(cls, exclude_hidden=False):
+        for kv in iter_public_bpy_props(cls, exclude_hidden):
+            yield kv[0]
+    
+    def __getattr__(self, name):
+        return CurrentExporterProperties.__dict[name]
+    
+    def __setattr__(self, name, value):
+        if hasattr(self.__class__, name) and (not name.startswith("_")):
+            supercls = super(CurrentExporterProperties, self.__class__)
+            supercls.__setattr__(self, name, value)
+        else:
+            CurrentExporterProperties.__dict[name] = value
+    
+    def draw(self, context):
+        if not CurrentExporterProperties.__dict: return
+        
+        _draw = CurrentExporterProperties.__dict.get("draw")
+        if _draw:
+            try:
+                _draw(self, context)
+            except:
+                _draw = None
+                del CurrentExporterProperties.__dict["draw"]
+        
+        if not _draw:
+            ignore = {"filepath", "filename_ext", "filter_glob"}
+            for key in CurrentExporterProperties._keys(True):
+                if key in ignore: continue
+                self.layout.prop(self, key)
+
+class ExportSelected_Base(ExportHelper):
+    filename_ext = bpy.props.StringProperty(default="")
+    filter_glob = bpy.props.StringProperty(default="*.*")
+    
+    __strings = {}
+    __lock = PrimitiveLock()
+    
+    @staticmethod
+    def __add_item(items, idname, name, description):
+        # To avoid crash, references to Python strings must be kept alive
+        # Seems like id/name/description have to be DIFFERENT OBJECTS, otherwise there will be glitches
+        __strings = ExportSelected_Base.__strings
+        idname = __strings.setdefault(idname, idname)
+        name = __strings.setdefault(name, name)
+        description = __strings.setdefault(description, description)
+        items.append((idname, name, description))
+    
+    def get_preset_items(self, context):
+        items = []
+        preset_dir = bpy_path_join(operator_presets_dir, ExportSelected.bl_idname, "")
+        if os.path.exists(preset_dir):
+            for filename in os.listdir(preset_dir):
+                if not os.path.isfile(bpy_path_join(preset_dir, filename)): continue
+                name, ext = bpy_path_splitext(filename)
+                if ext.lower() != ".json": continue
+                ExportSelected_Base.__add_item(items, filename, name, name+" ")
+        if not items: ExportSelected_Base.__add_item(items, '/NO_PRESETS/', "(No presets)", "")
+        return items
+    
+    def update_preset(self, context):
+        if self.preset_select == '/NO_PRESETS/': return
+        
+        preset_dir = bpy_path_join(operator_presets_dir, ExportSelected.bl_idname, "")
+        preset_path = bpy_path_join(preset_dir, self.preset_select)
+        
+        if not os.path.isfile(preset_path): return
+        
+        try:
+            with open(preset_path, "r") as f:
+                json_data = json.loads(f.read())
+        except (IOError, json.decoder.JSONDecodeError):
+            self.preset_name = ""
+            try:
+                os.remove(preset_path)
+            except IOError:
+                pass
+            return
+        
+        self.preset_name = bpy_path_splitext(self.preset_select)[0]
+        
+        def value_convert(value):
+            if isinstance(value, list):
+                if not value: return set()
+                first_item = value[0]
+                return set(value) if isinstance(first_item, str) else tuple(value)
+            return value
+        
+        exporter_data = json_data.pop("exporter_props", {})
+        
+        for key, value in ExportSelected_Base.main_kwargs(self).items():
+            if key not in json_data: continue
+            setattr(self, key, value_convert(json_data[key]))
+        
+        self.exporter = self.exporter_str
+        
+        for key, value in ExportSelected_Base.exporter_kwargs(self).items():
+            if key not in exporter_data: continue
+            setattr(self.exporter_props, key, value_convert(exporter_data[key]))
+    
+    def update_preset_name(self, context):
+        clean_name = clean_filename(self.preset_name)
+        if self.preset_name != clean_name: self.preset_name = clean_name
+    
+    def save_preset(self, context):
+        if not self.preset_save: return
+        if not self.preset_name: return
+        
+        preset_dir = bpy_path_join(operator_presets_dir, ExportSelected.bl_idname, "")
+        if not os.path.exists(preset_dir): os.makedirs(preset_dir)
+        
+        preset_path = bpy_path_join(preset_dir, self.preset_name+".json")
+        
+        exclude_keys = {"filepath", "filename_ext", "filter_glob", "check_existing"}
+        
+        def value_convert(value):
+            if isinstance(value, set): return list(value)
+            return value
+        
+        exporter_data = {}
+        for key, value in ExportSelected_Base.exporter_kwargs(self).items():
+            if key in exclude_keys: continue
+            exporter_data[key] = value_convert(value)
+        
+        json_data = {"exporter_props":exporter_data}
+        for key, value in ExportSelected_Base.main_kwargs(self).items():
+            if key in exclude_keys: continue
+            json_data[key] = value_convert(value)
+        
+        with open(preset_path, "w") as f:
+            f.write(json.dumps(json_data, sort_keys=True, indent=4))
+    
+    def delete_preset(self, context):
+        if not self.preset_delete: return
+        if not self.preset_name: return
+        
+        preset_dir = bpy_path_join(operator_presets_dir, ExportSelected.bl_idname, "")
+        preset_path = bpy_path_join(preset_dir, self.preset_name+".json")
+        if os.path.isfile(preset_path): os.remove(preset_path)
+        
+        self.preset_name = ""
+    
+    preset_select = bpy.props.EnumProperty(name="Select preset", description="Select preset", items=get_preset_items, update=update_preset, options={'HIDDEN'})
+    preset_name = bpy.props.StringProperty(name="Preset name", description="Preset name", default="", update=update_preset_name, options={'HIDDEN'})
+    preset_save = bpy.props.BoolProperty(name="Save preset", description="Save preset", default=False, update=save_preset, options={'HIDDEN'})
+    preset_delete = bpy.props.BoolProperty(name="Delete preset", description="Delete preset", default=False, update=delete_preset, options={'HIDDEN'})
+    
+    include_hierarchy = bpy.props.EnumProperty(name="Include", description="What objects to include", default='CHILDREN', items=[
+        ('SELECTED', "Selected", "Selected objects", 'BONE_DATA', 0),
+        ('CHILDREN', "Children", "Selected objects + their children", 'GROUP_BONE', 1),
+        ('HIERARCHY', "Hierarchy", "Selected objects + their hierarchy", 'ARMATURE_DATA', 2),
+        ('ALL', "All", "All objects", 'WORLD', 3),
+    ])
+    include_invisible = bpy.props.BoolProperty(name="Invisible", description="Allow invisible objects", default=True)
+    
+    object_types = bpy.props.EnumProperty(name="Object types", description="Object type(s) to export", options={'ENUM_FLAG'}, default=set(object_types), items=[
+        ('MESH', "Mesh", "", 'OUTLINER_OB_MESH', 1 << 0),
+        ('CURVE', "Curve", "", 'OUTLINER_OB_CURVE', 1 << 1),
+        ('SURFACE', "Surface", "", 'OUTLINER_OB_SURFACE', 1 << 2),
+        ('META', "Meta", "", 'OUTLINER_OB_META', 1 << 3),
+        ('FONT', "Font", "", 'OUTLINER_OB_FONT', 1 << 4),
+        ('ARMATURE', "Armature", "", 'OUTLINER_OB_ARMATURE', 1 << 5),
+        ('LATTICE', "Lattice", "", 'OUTLINER_OB_LATTICE', 1 << 6),
+        ('EMPTY', "Empty", "", 'OUTLINER_OB_EMPTY', 1 << 7),
+        ('CAMERA', "Camera", "", 'OUTLINER_OB_CAMERA', 1 << 8),
+        ('LAMP', "Lamp", "", 'OUTLINER_OB_LAMP', 1 << 9),
+        ('SPEAKER', "Speaker", "", 'OUTLINER_OB_SPEAKER', 1 << 10),
+    ])
+    
+    centering_mode = bpy.props.EnumProperty(name="Centering", description="Centering", default='WORLD', items=[
+        ('WORLD', "World", "Center at world origin", 'MANIPUL', 0),
+        ('ACTIVE_ELEMENT', "Active", "Center at active object", 'ROTACTIVE', 1),
+        ('MEDIAN_POINT', "Average", "Center at the average position of exported objects", 'ROTATECENTER', 2),
+        ('BOUNDING_BOX_CENTER', "Bounding box", "Center at the bounding box center of exported objects", 'ROTATE', 3),
+        ('CURSOR', "Cursor", "Center at the 3D cursor", 'CURSOR', 4),
+        ('INDIVIDUAL_ORIGINS', "Individual", "Center each exported object", 'ROTATECOLLECTION', 5),
+    ])
+    
+    preserve_dupli_hierarchy = bpy.props.BoolProperty(name="Preserve dupli hierarchy", description="Preserve dupli hierarchy", default=True)
+    use_convert_dupli = bpy.props.BoolProperty(name="Dupli->real", description="Make duplicates real", default=False)
+    use_convert_mesh = bpy.props.BoolProperty(name="To meshes", description="Convert to mesh(es)", default=False)
+    
+    exporter_infos = {}
+    exporter_items = [('BLEND', "Blend", "")] # has to be non-empty
+    def get_exporter_items(self, context):
+        exporter_infos = ExportSelected_Base.exporter_infos
+        exporter_items = ExportSelected_Base.exporter_items
+        
+        if ExportSelected_Base.__lock: return exporter_items
+        with ExportSelected_Base.__lock:
+            exporter_infos.clear()
+            exporter_items.clear()
+            for idname, name, filename_ext, filter_glob in iter_exporter_info():
+                exporter_infos[idname] = {"name":name, "ext":filename_ext, "glob":filter_glob, "index":len(exporter_items)}
+                ExportSelected_Base.__add_item(exporter_items, idname, name, "Operator: "+idname)
+            
+            # If some exporter addon is enabled/disabled, the existing enum index must be updated
+            if self.exporter_str in exporter_infos:
+                if self.exporter_index != exporter_infos[self.exporter_str]["index"]:
+                    self.exporter = self.exporter_str
+            else:
+                self.exporter = exporter_items[0][0]
+        
+        return exporter_items
+    
+    def update_exporter(self, context):
+        exporter = self.exporter
+        is_same = (exporter == self.exporter_str)
+        
+        self.exporter_str = exporter
+        exporter_info = ExportSelected_Base.exporter_infos.get(self.exporter_str, {})
+        self.exporter_index = exporter_info.get("index", -1)
+        
+        CurrentExporterProperties._load_props(self.exporter_str)
+        self.filename_ext = exporter_info.get("ext", "")
+        self.filter_glob = exporter_info.get("glob", "*")
+        
+        # Note: in file-browser mode it's impossible to alter the filepath after the invoke()
+        self.filepath = replace_extension(self.filepath, self.filename_ext)
+    
+    exporter = bpy.props.EnumProperty(name="Exporter", description="Export format", items=get_exporter_items, update=update_exporter)
+    exporter_str = bpy.props.StringProperty(default="", options={'HIDDEN'}) # an actual string value (enum is int)
+    exporter_index = bpy.props.IntProperty(default=-1, options={'HIDDEN'}) # memorized index
+    exporter_props = bpy.props.PointerProperty(type=CurrentExporterProperties)
+    
+    single_mesh_exporters = {
+        "export_mesh.ply",
+        "export_mesh.stl",
+        "export_scene.autodesk_3ds",
+    }
+    
+    def generate_name(self, context=None):
+        if not context: context = bpy.context
+        file_dir = bpy_path_split(self.filepath)[0]
+        objs = self.gather_objects(context.scene)
+        roots = self.get_local_roots(objs)
+        if len(roots) == 1:
+            file_name = next(iter(roots)).name
+        else:
+            file_name = bpy_path_basename(context.blend_data.filepath or "untitled")
+            file_name = bpy_path_splitext(file_name)[0]
+        file_name = clean_filename(file_name)
+        self.filepath = bpy_path_join(file_dir, file_name+self.filename_ext)
+    
+    def get_local_roots(self, objs):
+        roots = set()
+        for obj in objs:
+            parents = set(obj_parents(obj))
+            if parents.isdisjoint(objs): roots.add(obj)
+        return roots
+    
+    def can_include(self, obj, scene):
+        return (obj.type in self.object_types) and (self.include_invisible or obj.is_visible(scene))
+    
+    def gather_objects(self, scene):
+        objs = set()
+        
+        def is_selected(obj):
+            return obj.select and (not obj.hide) and (not obj.hide_select) and layers_intersect(obj, scene) and obj.is_visible(scene)
+        
+        def add_obj(obj):
+            if obj in objs: return
+            
+            if self.can_include(obj, scene): objs.add(obj)
+            
+            if self.include_hierarchy in ('CHILDREN', 'HIERARCHY'):
+                for child in obj.children:
+                    add_obj(child)
+        
+        for obj in scene.objects:
+            if (self.include_hierarchy != 'ALL') and (not is_selected(obj)): continue
+            if self.include_hierarchy == 'HIERARCHY': obj = obj_root(obj)
+            add_obj(obj)
+        
+        return objs
+    
+    _main_kwargs_ignore = {
+        "filename_ext", "filter_glob", "exporter", "exporter_index", "exporter_props",
+        "preset_select", "preset_name", "preset_save", "preset_delete",
+    }
+    def main_kwargs(self):
+        kwargs = {}
+        for key, value in iter_public_bpy_props(ExportSelected_Base): # NOT self.__class__
+            if key in ExportSelected_Base._main_kwargs_ignore: continue
+            kwargs[key] = getattr(self, key)
+        return kwargs
+    
+    def exporter_kwargs(self):
+        kwargs = {key:getattr(self.exporter_props, key) for key in CurrentExporterProperties._keys()}
+        kwargs["filepath"] = self.filepath
+        return kwargs
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        if not CurrentExporterProperties._check(self.exporter_str): self.exporter = self.exporter_str
+        
+        row = layout.row(True)
+        row.prop(self, "preset_select", text="", icon_only=True, icon='DOWNARROW_HLT')
+        row.prop(self, "preset_name", text="")
+        row.prop(self, "preset_save", text="", icon_only=True, icon=('FILE_TICK' if not self.preset_save else 'SAVE_AS'), toggle=True)
+        row.prop(self, "preset_delete", text="", icon_only=True, icon=('X' if not self.preset_delete else 'PANEL_CLOSE'), toggle=True)
+        
+        row = layout.row(True)
+        for obj_type in object_types:
+            row.prop_enum(self, "object_types", obj_type, text="")
+        
+        row = layout.row(True)
+        row.prop(self, "include_invisible", toggle=True, icon_only=True, icon='GHOST_ENABLED')
+        row.prop(self, "include_hierarchy", text="")
+        row.prop(self, "centering_mode", text="")
+        
+        row = layout.row(True)
+        row.prop(self, "preserve_dupli_hierarchy", text="", icon='OOPS')
+        row.prop(self, "use_convert_dupli", toggle=True)
+        row.prop(self, "use_convert_mesh", toggle=True)
+        
+        box = layout.box()
+        box.enabled = False
+        
+        self.exporter_props.layout = layout
+        self.exporter_props.draw(context)
+        
+        if self.preset_save: self.preset_save = False
+        if self.preset_delete: self.preset_delete = False
+
+class ExportSelected(bpy.types.Operator, ExportSelected_Base):
     '''Export selected objects to a chosen format'''
     bl_idname = "export_scene.selected"
     bl_label = "Export Selected"
+    bl_options = {'REGISTER'}
     
-    filename_ext = bpy.props.StringProperty(
-        default="",
-        options={'HIDDEN'},
-        )
+    use_file_browser = bpy.props.BoolProperty(name="Use file browser", description="Use file browser", default=True)
     
-    filter_glob = bpy.props.StringProperty(
-        default="*.*",
-        options={'HIDDEN'},
-        )
-    
-    selection_mode = bpy.props.EnumProperty(
-        name="Selection Mode",
-        description="Limit/expand the selection",
-        default='SELECTED',
-        items=[
-            ('SELECTED', "Selected", ""),
-            ('VISIBLE', "Visible", ""),
-            ('ALL', "All", ""),
-        ],
-        )
-    
-    include_children = bpy.props.BoolProperty(
-        name="Include Children",
-        description="Keep children even if they're not selected",
-        default=True,
-        )
-    
-    # Seems like attempts at manual removal cause Blender to crash
-    """
-    remove_orphans = bpy.props.BoolProperty(
-        name="Remove Orphans",
-        description="Remove datablocks that have no users",
-        default=False,#True,
-        )
-    
-    keep_materials = bpy.props.BoolProperty(
-        name="Keep Materials",
-        description="Keep Materials",
-        default=True,
-        )
-    
-    keep_textures = bpy.props.BoolProperty(
-        name="Keep Textures",
-        description="Keep Textures",
-        default=True,
-        )
-    
-    keep_world_textures = bpy.props.BoolProperty(
-        name="Keep World Textures",
-        description="Keep World Textures",
-        default=True,#False,
-        )
-    """
-    
-    object_types = bpy.props.EnumProperty(
-        name="Object types",
-        description="Object type(s) to export",
-        default={'ALL'},
-        items=[
-            ('ALL', "All", ""),
-            ('MESH', "Mesh", ""),
-            ('CURVE', "Curve", ""),
-            ('SURFACE', "Surface", ""),
-            ('META', "Meta", ""),
-            ('FONT', "Font", ""),
-            ('ARMATURE', "Armature", ""),
-            ('LATTICE', "Lattice", ""),
-            ('EMPTY', "Empty", ""),
-            ('CAMERA', "Camera", ""),
-            ('LAMP', "Lamp", ""),
-            ('SPEAKER', "Speaker", ""),
-        ],
-        options={'ENUM_FLAG'},
-        )
-    
-    centering_mode = bpy.props.EnumProperty(
-        name="Centering",
-        description="Type of centering operation",
-        default='NONE',
-        items=[
-            ('NONE', "Centering: none", "No centering"),
-            ('ACTIVE_ELEMENT', "Centering: active", "Center at active object"),
-            ('MEDIAN_POINT', "Centering: average", "Center at the average position of exported objects"),
-            ('BOUNDING_BOX_CENTER', "Centering: bounding box", "Center at the bounding box center of exported objects"),
-            ('CURSOR', "Centering: cursor", "Center at the 3D cursor"),
-            ('INDIVIDUAL_ORIGINS', "Centering: individual", "Center each exported object"),
-            #('PIVOT', "Centering: pivot", "Center at the pivot point"), # getting SpaceView3D.pivot_point while in export space is complicated
-        ],
-        )
-    
-    visible_name = bpy.props.StringProperty(
-        name="Visible name",
-        description="Visible name",
-        options={'HIDDEN'},
-        )
-    
-    format = bpy.props.StringProperty(
-        name="Format",
-        description="Export format",
-        options={'HIDDEN'},
-        )
-    
-    format_props = bpy.props.PointerProperty(
-        type=CurrentFormatProperties,
-        options={'HIDDEN'},
-        )
-    
-    # Not a BPY property! (otherwise it gets memorized)
-    props_initialized = False
-    
-    try_use_cutsom_draw = True
-    
-    @classmethod
-    def poll(cls, context):
-        return len(context.scene.objects) != 0
-    
-    def fill_props(self):
-        if self.props_initialized: return
+    def center_objects(self, scene, objs):
+        if self.centering_mode == 'WORLD': return
+        if not objs: return
         
-        CurrentFormatProperties._clear_props()
+        if self.centering_mode == 'INDIVIDUAL_ORIGINS':
+            center_pos = None
+        elif self.centering_mode == 'CURSOR':
+            center_pos = Vector(scene.cursor_location)
+        elif self.centering_mode == 'ACTIVE_ELEMENT':
+            obj = scene.objects.active
+            center_pos = (Vector(obj.matrix_world.translation) if obj else None)
+        elif self.centering_mode == 'MEDIAN_POINT':
+            center_pos = Vector()
+            for obj in objs:
+                center_pos += obj.matrix_world.translation
+            center_pos *= (1.0 / len(objs))
+        elif self.centering_mode == 'BOUNDING_BOX_CENTER':
+            v_min, v_max = None, None
+            for obj in objs:
+                p = obj.matrix_world.translation
+                if v_min is None:
+                    v_min = (p[0], p[1], p[2])
+                    v_max = (p[0], p[1], p[2])
+                else:
+                    v_min = (min(p[0], v_min[0]), min(p[1], v_min[1]), min(p[2], v_min[2]))
+                    v_max = (max(p[0], v_max[0]), max(p[1], v_max[1]), max(p[2], v_max[2]))
+            center_pos = (Vector(v_min) + Vector(v_max)) * 0.5
         
-        if self.format:
-            op = get_op(self.format)
-            op_class = type(op.get_instance())
-            
-            if self.format == "wm.collada_export":
-                op_class = ColladaEmulator
-            
-            CurrentFormatProperties._add_props(op_class)
+        roots = [obj for obj in objs if not obj.parent]
+        for obj in roots:
+            if center_pos is None:
+                obj.matrix_world.translation = Vector()
+            else:
+                obj.matrix_world.translation -= center_pos
+        
+        scene.cursor_location = Vector() # just to tidy up
+    
+    def convert_dupli(self, scene, objs):
+        if not self.use_convert_dupli: return
+        if not objs: return
+        
+        del_objs = {obj for obj in scene.objects if obj not in objs}
+        
+        if not self.preserve_dupli_hierarchy:
+            for obj in scene.objects:
+                obj.hide_select = False
+                obj.select = obj in objs
+            bpy.ops.object.duplicates_make_real(use_base_parent=False, use_hierarchy=False)
         else:
-            self.visible_name = "Blend"
-            self.filename_ext = ".blend"
-            self.filter_glob = "*.blend"
+            roots0 = {obj for obj in scene.objects if not obj.parent}
+            
+            for obj0 in objs:
+                if obj0.dupli_type == 'NONE': continue
+                
+                for obj in scene.objects:
+                    obj.hide_select = False
+                    obj.select = False
+                
+                obj0.select = True
+                bpy.ops.object.duplicates_make_real(use_base_parent=False, use_hierarchy=True)
+                
+                roots = {obj for obj in scene.objects if not obj.parent}
+                new_objs = roots - roots0
+                for obj in new_objs:
+                    matrix = Matrix(obj.matrix_world)
+                    obj.parent = obj0
+                    obj.matrix_world = matrix
         
-        self.props_initialized = True
+        for obj in scene.objects:
+            if obj in del_objs: continue
+            if self.can_include(obj, scene): objs.add(obj)
     
-    def prepare_filepath(self, context):
-        obj = context.object
+    def convert_mesh(self, scene, objs):
+        if not self.use_convert_mesh: return
+        if not objs: return
         
-        if obj and obj.select:
-            name = obj.name
-        else:
-            name = bpy.context.blend_data.filepath
-            name = bpy.path.basename(name)
-            name = os.path.splitext(name)[0]
+        for obj in scene.objects:
+            obj.hide_select = False
+            obj.select = obj in objs
         
-        if len(name) == 0:
-            name = "untitled"
+        # For some reason object.convert() REQUIRES an active object to be present
+        if scene.objects.active not in objs: scene.objects.active = next(iter(objs))
         
-        self.filepath = name + self.filename_ext
+        bpy.ops.object.convert(target='MESH')
     
-    def invoke(self, context, event):
-        self.fill_props()
-        self.prepare_filepath(context)
-        return ExportHelper.invoke(self, context, event)
+    def delete_other_objects(self, scene, objs):
+        del_objs = {obj for obj in scene.objects if obj not in objs}
+        
+        for obj in del_objs:
+            scene.objects.unlink(obj)
+        
+        # For non-.blend exporters, this is not necessary and may actually cause crashes
+        if self.exporter == 'BLEND':
+            while True:
+                n = len(del_objs)
+                for obj in tuple(del_objs):
+                    try:
+                        bpy.data.objects.remove(obj)
+                        del_objs.discard(obj)
+                    except RuntimeError: # non-zero users
+                        pass
+                if len(del_objs) == n: break
     
     def clear_world(self, context):
-        bpy.ops.ed.undo_push(message="Delete unselected")
+        is_single_mesh = self.exporter in self.single_mesh_exporters
+        self.use_convert_dupli |= is_single_mesh
+        self.use_convert_mesh |= is_single_mesh
         
         for scene in bpy.data.scenes:
             if scene != context.scene:
@@ -390,216 +804,139 @@ class ExportSelected(bpy.types.Operator, ExportHelper):
         
         scene = context.scene
         
-        objs = set()
+        objs = self.gather_objects(scene)
         
-        def add_obj(obj):
-            if self.object_types.intersection({'ALL', obj.type}):
-                objs.add(obj)
-            
-            if self.include_children:
-                for child in obj.children:
-                    add_obj(child)
+        self.center_objects(scene, objs)
         
-        for obj in scene.objects:
-            if (self.selection_mode == 'SELECTED') and obj.select:
-                add_obj(obj)
-            elif (self.selection_mode == 'VISIBLE') and obj.is_visible(scene):
-                obj.hide_select = False
-                add_obj(obj)
-            elif (self.selection_mode == 'ALL'):
-                obj.hide_select = False
-                add_obj(obj)
+        self.convert_dupli(scene, objs)
         
-        centering_mode = self.centering_mode
-        if (centering_mode != 'NONE') and objs:
-            if centering_mode == 'INDIVIDUAL_ORIGINS':
-                center_pos = None
-            elif centering_mode == 'CURSOR':
-                center_pos = Vector(context.scene.cursor_location)
-            elif centering_mode == 'ACTIVE_ELEMENT':
-                obj = context.scene.objects.active
-                center_pos = (Vector(obj.matrix_world.translation) if obj else None)
-            elif centering_mode == 'MEDIAN_POINT':
-                center_pos = Vector()
-                for obj in objs:
-                    center_pos += obj.matrix_world.translation
-                center_pos *= (1.0 / len(objs))
-            elif centering_mode == 'BOUNDING_BOX_CENTER':
-                v_min, v_max = None, None
-                for obj in objs:
-                    p = obj.matrix_world.translation
-                    if v_min is None:
-                        v_min = (p[0], p[1], p[2])
-                        v_max = (p[0], p[1], p[2])
-                    else:
-                        v_min = (min(p[0], v_min[0]), min(p[1], v_min[1]), min(p[2], v_min[2]))
-                        v_max = (max(p[0], v_max[0]), max(p[1], v_max[1]), max(p[2], v_max[2]))
-                center_pos = (Vector(v_min) + Vector(v_max)) * 0.5
-            
-            for obj in objs:
-                if center_pos is None:
-                    obj.matrix_world.translation = Vector()
-                else:
-                    obj.matrix_world.translation -= center_pos
-            
-            context.scene.cursor_location = Vector() # just to tidy up
+        self.convert_mesh(scene, objs)
         
-        for obj in scene.objects:
-            if obj in objs:
-                obj.select = True
-            else:
-                scene.objects.unlink(obj)
-                try:
-                    bpy.data.objects.remove(obj)
-                except RuntimeError: # non-zero users
-                    pass
+        matrix_map = {obj:Matrix(obj.matrix_world) for obj in objs}
+        
+        self.delete_other_objects(scene, objs)
+        
+        for obj, matrix in matrix_map.items():
+            obj.hide_select = False
+            obj.select = True
+            obj.matrix_world = matrix
         
         scene.update()
         
-        # Seems like attempts at manual removal cause Blender to crash
-        """
-        if not self.format:
-            if not self.keep_materials:
-                for material in bpy.data.materials:
-                    material.user_clear()
-                    bpy.data.materials.remove(material)
-            
-            if not self.keep_textures:
-                for world in bpy.data.worlds:
-                    for i in range(len(world.texture_slots)):
-                        world.texture_slots.clear(i)
-                for material in bpy.data.materials:
-                    for i in range(len(material.texture_slots)):
-                        material.texture_slots.clear(i)
-                for brush in bpy.data.brushes:
-                    brush.texture = None
-                for texture in bpy.data.textures:
-                    texture.user_clear()
-                    bpy.data.textures.remove(texture)
-            elif not self.keep_world_textures:
-                for world in bpy.data.worlds:
-                    for i in range(len(world.texture_slots)):
-                        world.texture_slots.clear(i)
-            
-            if self.remove_orphans:
-                datablocks_cleanup_order = [
-                    #"window_managers",
-                    #"screens",
-                    "scenes",
-                    "worlds",
-                    
-                    "grease_pencil",
-                    "fonts",
-                    "scripts",
-                    "texts",
-                    "movieclips",
-                    "actions",
-                    "speakers",
-                    "sounds",
-                    "brushes",
-                    
-                    "node_groups",
-                    "groups",
-                    "objects",
-                    
-                    "armatures",
-                    "cameras",
-                    "lamps",
-                    "lattices",
-                    "shape_keys",
-                    "meshes",
-                    "metaballs",
-                    "particles",
-                    "curves",
-                    
-                    "materials",
-                    "textures",
-                    "images",
-                    
-                    "libraries",
-                ]
-                for datablocks_name in datablocks_cleanup_order:
-                    datablocks = getattr(bpy.data, datablocks_name)
-                    if type(datablocks).__name__ == "bpy_prop_collection":
-                        for datablock in datablocks:
-                            if datablock.users == 0:
-                                datablocks.remove(datablock)
-        """
-        
-        if self.format in join_before_export:
-            bpy.ops.object.convert()
-            bpy.ops.object.join()
+        if is_single_mesh: bpy.ops.object.join()
+    
+    def export(self, context):
+        self.filepath = bpy.path.abspath(self.filepath).replace("/", os.path.sep)
+        if self.exporter != 'BLEND':
+            op = get_op(self.exporter)
+            op(**self.exporter_kwargs())
+        else:
+            #bpy.ops.wm.save_as_mainfile(filepath=self.filepath, copy=True)
+            # Hopefully this does not save unused libraries:
+            bpy.data.libraries.write(self.filepath, {context.scene, *context.scene.objects})
+    
+    @classmethod
+    def poll(cls, context):
+        return len(context.scene.objects) != 0
+    
+    def invoke(self, context, event):
+        self.exporter = (self.exporter_str or self.exporter) # make sure properties are up-to-date
+        if self.use_file_browser:
+            self.filepath = context.blend_data.filepath or "untitled"
+            self.generate_name(context)
+            return ExportHelper.invoke(self, context, event)
+        else:
+            return self.execute(context)
     
     def execute(self, context):
         with ToggleObjectMode(undo=None):
+            bpy.ops.ed.undo_push(message="Delete unselected")
             self.clear_world(context)
-            
-            if self.format:
-                props = {}
-                for key in CurrentFormatProperties._keys():
-                    props[key] = getattr(self.format_props, key)
-                props["filepath"] = self.filepath
-                
-                op = get_op(self.format)
-                
-                op(**props)
-            else:
-                bpy.ops.wm.save_as_mainfile(
-                    filepath=self.filepath,
-                    copy=True,
-                )
-            
+            self.export(context)
             bpy.ops.ed.undo()
             bpy.ops.ed.undo_push(message="Export Selected")
-        
         return {'FINISHED'}
     
     def draw(self, context):
         layout = self.layout
         
-        layout.label("Export " + self.visible_name)
+        layout.prop(self, "exporter")
         
-        layout.prop(self, "selection_mode", text="")
-        layout.prop(self, "include_children")
-        layout.prop_menu_enum(self, "object_types")
-        layout.prop(self, "centering_mode", text="")
+        ExportSelected_Base.draw(self, context)
+
+class ExportSelectedPG(bpy.types.PropertyGroup, ExportSelected_Base):
+    # "//" is relative to current .blend file
+    filepath = bpy.props.StringProperty(default="//", subtype='FILE_PATH')
+    
+    def _get_filedir(self):
+        return bpy_path_split(self.filepath)[0]
+    def _set_filedir(self, value):
+        self.filepath = bpy_path_join(value, bpy_path_split(self.filepath)[1])
+    filedir = bpy.props.StringProperty(description="Export directory", get=_get_filedir, set=_set_filedir, subtype='DIR_PATH')
+    
+    def _get_filename(self):
+        if self.auto_name: self.generate_name()
+        return bpy_path_split(self.filepath)[1]
+    def _set_filename(self, value):
+        self.auto_name = False
+        value = replace_extension(value, self.filename_ext)
+        value = clean_filename(value)
+        self.filepath = bpy_path_join(bpy_path_split(self.filepath)[0], value)
+    filename = bpy.props.StringProperty(description="File name (red when already exists)", get=_get_filename, set=_set_filename, subtype='FILE_NAME')
+    
+    auto_name = bpy.props.BoolProperty(name="Auto name", description="Auto-generate file name", default=True)
+    
+    def draw_export(self, row):
+        row2 = row.row(True)
+        row2.enabled = bool(self.filename)
         
-        layout.box()
+        op_info = row2.operator(ExportSelected.bl_idname, text="Export", icon='EXPORT')
+        op_info.use_file_browser = False
         
-        if not self.format:
-            # Seems like attempts at manual removal cause Blender to crash
-            """
-            layout.prop(self, "remove_orphans")
-            layout.prop(self, "keep_materials")
-            layout.prop(self, "keep_textures")
-            sublayout = layout.row()
-            sublayout.enabled = self.keep_textures
-            sublayout.prop(self, "keep_world_textures")
-            """
-            return
+        for key, value in self.main_kwargs().items():
+            setattr(op_info, key, value)
         
-        op = get_op(self.format)
-        op_class = type(op.get_instance())
+        for key, value in self.exporter_kwargs().items():
+            setattr(op_info.exporter_props, key, value)
+    
+    def draw(self, context):
+        layout = self.layout
         
-        if self.format == "wm.collada_export":
-            op_class = ColladaEmulator
+        column = layout.column(True)
         
-        # hasattr returns true even if the name was defined in the superclass
-        #if self.try_use_cutsom_draw and hasattr(op_class, "draw"):
-        if self.try_use_cutsom_draw:
-            if ("draw" in op_class.__dict__):
-                self.format_props.layout = layout
-                try:
-                    op_class.draw(self.format_props, context)
-                except:
-                    self.try_use_cutsom_draw = False
-            else:
-                self.try_use_cutsom_draw = False
+        row = column.row(True)
+        row.prop(self, "filedir", text="")
         
-        if not self.try_use_cutsom_draw:
-            for key in CurrentFormatProperties._keys(True):
-                if key == 'filepath': continue
-                layout.prop(self.format_props, key)
+        row = column.row(True)
+        row2 = row.row(True)
+        row2.alert = os.path.exists(bpy.path.abspath(self.filepath))
+        row2.prop(self, "filename", text="")
+        row.prop(self, "auto_name", text="", icon='SCENE_DATA', toggle=True)
+        
+        row = column.row(True)
+        self.draw_export(row)
+        row.prop(self, "exporter", text="")
+        
+        ExportSelected_Base.draw(self, context)
+
+class ExportSelectedPanel(bpy.types.Panel):
+    bl_idname = "VIEW3D_PT_export_selected"
+    bl_label = "Export Selected"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    bl_category = "Export"
+    
+    @classmethod
+    def poll(cls, context):
+        addon_prefs = context.user_preferences.addons[__name__].preferences
+        if not addon_prefs: return False # can this happen?
+        return addon_prefs.show_in_shelf
+    
+    def draw(self, context):
+        layout = self.layout
+        internal = get_internal_storage()
+        internal.layout = layout
+        internal.draw(context)
 
 class OBJECT_MT_selected_export(bpy.types.Menu):
     bl_idname = "OBJECT_MT_selected_export"
@@ -607,62 +944,52 @@ class OBJECT_MT_selected_export(bpy.types.Menu):
     
     def draw(self, context):
         layout = self.layout
-        
-        def def_op(visible_name, total_name="", layout=layout):
-            if visible_name.lower().startswith("export "):
-                visible_name = visible_name[len("export "):]
-            
-            if total_name:
-                op = get_op(total_name)
-                if not op.poll():
-                    layout = layout.row()
-                    layout.enabled = False
-            
-            op_info = layout.operator(
-                ExportSelected.bl_idname,
-                text=visible_name,
-                )
-            op_info.format = total_name
-            op_info.visible_name = visible_name
-            
-            return op_info
-        
-        # Special case: export to .blend (the default)
-        def_op("Blend")
-        
-        # Special case: Collada is built-in, resides
-        # in an unconventional category, and has no
-        # explicit ext/glob properties defined
-        op_info = def_op("Collada", "wm.collada_export")
-        op_info.filename_ext = ".dae"
-        op_info.filter_glob = "*.dae"
-        
-        for total_name, op in iter_exporters():
-            op_class = type(op.get_instance())
-            rna = op.get_rna()
-            
-            op_info = def_op(rna.rna_type.name, total_name)
-            
-            if hasattr(op_class, "filename_ext"):
-                op_info.filename_ext = op_class.filename_ext
-            
-            if hasattr(rna, "filter_glob"):
-                op_info.filter_glob = rna.filter_glob
+        for idname, name, filename_ext, filter_glob in iter_exporter_info():
+            row = layout.row()
+            if idname != 'BLEND': row.enabled = get_op(idname).poll()
+            op_info = row.operator(ExportSelected.bl_idname, text=name)
+            op_info.exporter_str = idname
+            op_info.use_file_browser = True
+    
+    def menu(self, context):
+        self.layout.menu("OBJECT_MT_selected_export", text="Selected")
 
-def menu_func_export(self, context):
-    self.layout.menu("OBJECT_MT_selected_export", text="Selected")
+class ExportSelectedPreferences(bpy.types.AddonPreferences):
+    # this must match the addon name, use '__package__'
+    # when defining this in a submodule of a python package.
+    bl_idname = __name__
+    
+    show_in_shelf = bpy.props.BoolProperty(name="Show in shelf", default=False)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "show_in_shelf")
+
+storage_name_internal = "<%s-internal-storage>" % "io_export_selected"
+def get_internal_storage():
+    screens = bpy.data.screens
+    screen = screens["Default" if ("Default" in screens) else 0]
+    return getattr(screen, storage_name_internal)
 
 def register():
-    bpy.utils.register_class(CurrentFormatProperties)
+    bpy.utils.register_class(CurrentExporterProperties)
+    bpy.utils.register_class(ExportSelectedPreferences)
+    bpy.utils.register_class(ExportSelectedPG)
+    bpy.utils.register_class(ExportSelectedPanel)
     bpy.utils.register_class(ExportSelected)
     bpy.utils.register_class(OBJECT_MT_selected_export)
-    bpy.types.INFO_MT_file_export.prepend(menu_func_export)
+    bpy.types.INFO_MT_file_export.prepend(OBJECT_MT_selected_export.menu)
+    setattr(bpy.types.Screen, storage_name_internal, bpy.props.PointerProperty(type=ExportSelectedPG, options={'HIDDEN'}))
 
 def unregister():
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    delattr(bpy.types.Screen, storage_name_internal)
+    bpy.types.INFO_MT_file_export.remove(OBJECT_MT_selected_export.menu)
     bpy.utils.unregister_class(OBJECT_MT_selected_export)
     bpy.utils.unregister_class(ExportSelected)
-    bpy.utils.unregister_class(CurrentFormatProperties)
+    bpy.utils.unregister_class(ExportSelectedPanel)
+    bpy.utils.unregister_class(ExportSelectedPG)
+    bpy.utils.unregister_class(ExportSelectedPreferences)
+    bpy.utils.unregister_class(CurrentExporterProperties)
 
 if __name__ == "__main__":
     register()

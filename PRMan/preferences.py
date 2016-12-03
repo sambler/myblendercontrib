@@ -30,7 +30,7 @@ from bpy.types import AddonPreferences
 from bpy.props import CollectionProperty, BoolProperty, StringProperty
 from bpy.props import IntProperty, PointerProperty, EnumProperty
 
-from .util import guess_rmantree_initial, get_installed_rendermans,\
+from .util import get_installed_rendermans,\
     rmantree_from_env, guess_rmantree
 
 
@@ -132,7 +132,7 @@ class RendermanPreferences(AddonPreferences):
         name="RMANTREE Path",
         description="Path to RenderMan Pro Server installation folder",
         subtype='DIR_PATH',
-        default=guess_rmantree_initial())
+        default='')
     path_renderer = StringProperty(
         name="Renderer Path",
         description="Path to renderer executable",
@@ -154,6 +154,11 @@ class RendermanPreferences(AddonPreferences):
         subtype='FILE_PATH',
         default="txmake")
 
+    draw_ipr_text = BoolProperty(
+        name="Draw IPR Text",
+        description="Draw notice on View3D when IPR is active",
+        default=True)
+
     path_display_driver_image = StringProperty(
         name="Main Image path",
         description="Path for the rendered main image.",
@@ -166,26 +171,17 @@ class RendermanPreferences(AddonPreferences):
         subtype='FILE_PATH',
         default=os.path.join('$OUT', 'images', '{scene}.{layer}.{pass}.####.{file_type}'))
 
+    draw_ipr_text = BoolProperty(
+        name="Draw IPR Text",
+        description="Draw notice on View3D when IPR is active",
+        default=True)
+
     env_vars = PointerProperty(
         type=RendermanEnvVarSettings,
         name="Environment Variable Settings")
 
     def draw(self, context):
         layout = self.layout
-
-        '''
-        layout.prop(self, "use_default_paths")
-        layout.prop(self, "use_builtin_paths")
-        
-        self._draw_collection(context, layout, self, "Shader Paths:", "collection.add_remove",
-                                        "scene", "shader_paths", "shader_paths_index")
-        self._draw_collection(context, layout, self, "Texture Paths:", "collection.add_remove",
-                                        "scene", "texture_paths", "texture_paths_index")
-        self._draw_collection(context, layout, self, "Procedural Paths:", "collection.add_remove",
-                                        "scene", "procedural_paths", "procedural_paths_index")
-        self._draw_collection(context, layout, self, "Archive Paths:", "collection.add_remove",
-                                        "scene", "archive_paths", "archive_paths_index")
-        '''
         layout.prop(self, 'rmantree_method')
         if self.rmantree_method == 'DETECT':
             layout.prop(self, 'rmantree_choice')
@@ -193,31 +189,28 @@ class RendermanPreferences(AddonPreferences):
             layout.label(text="RMANTREE: %s " % rmantree_from_env())
         else:
             layout.prop(self, "path_rmantree")
-        try:
-            rmantree = guess_rmantree()
-            if rmantree == None:
-                layout.label("RMANTREE ERROR!!!", icon='ERROR')
-        except:
-            layout.label("RMANTREE ERROR!!!", icon='ERROR')
-        #layout.label(text="After changing RenderMan Location reload addon", icon="ERROR")
-        #layout.prop(self, "path_renderer")
-        #layout.prop(self, "path_shader_compiler")
-        #layout.prop(self, "path_shader_info")
-        #layout.prop(self, "path_texture_optimiser")
+        if guess_rmantree() is None:
+            row = layout.row()
+            row.alert = True
+            row.label('Error in RMANTREE. Reload addon to reset.', icon='ERROR')
 
         env = self.env_vars
         layout.prop(env, "out")
         layout.prop(self, 'path_display_driver_image')
         layout.prop(self, 'path_aov_image')
+        layout.prop(self, 'draw_ipr_text')
         #layout.prop(env, "shd")
         #layout.prop(env, "ptc")
         #layout.prop(env, "arc")
 
 
 def register():
-    bpy.utils.register_class(RendermanPreferencePath)
-    bpy.utils.register_class(RendermanEnvVarSettings)
-    bpy.utils.register_class(RendermanPreferences)
+    try:
+        bpy.utils.register_class(RendermanPreferencePath)
+        bpy.utils.register_class(RendermanEnvVarSettings)
+        bpy.utils.register_class(RendermanPreferences)
+    except:
+        pass  # allready registered
 
 
 def unregister():

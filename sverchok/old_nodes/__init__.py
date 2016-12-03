@@ -35,11 +35,15 @@ old_bl_idnames = {
     'SvReRouteNode': "reroute",
     'VoronoiNode': "voronoi",
     'ViewerNode': "viewer",
+    'ObjectsNode': "objects",
+    'RandomVectorNode': 'random_vector',
+    'ViewerNode_text': "viewer_text",
     'EvalKnievalNode': "eval_knieval",
     'FormulaNode': 'formula',
     'SvPointOnMeshNode': 'closest_point_on_mesh',
     'SvRayCastObjectNode': 'object_raycast',
     'SvRayCastSceneNode': 'scene_raycast',
+    'SvObjectToMeshNode': 'blenddata_to_svdata'
 }
 
 # we should add some functions to load things there

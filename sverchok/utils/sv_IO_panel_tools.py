@@ -21,6 +21,7 @@ import os
 import re
 import zipfile
 import traceback
+from time import gmtime, strftime
 from urllib.request import urlopen
 
 from os.path import basename
@@ -35,11 +36,13 @@ from sverchok import old_nodes
 from sverchok.utils import sv_gist_tools
 
 
-SCRIPTED_NODES = {'SvScriptNode', 'SvScriptNodeMK2'}
+SCRIPTED_NODES = {'SvScriptNode', 'SvScriptNodeMK2', 'SvScriptNodeLite'}
 
 _EXPORTER_REVISION_ = '0.062'
 
 '''
+0.062 (no revision change) - fixes import of sn texts that are present already in .blend
+0.062 (no revision change) - looks in multiple places for textmode param.
 0.062 monad export properly
 0.061 codeshuffle 76f04f9
 0.060 understands sockets with props <o/
@@ -235,7 +238,9 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
                         v = v[:]
 
                     node_items[prop_name] = v
-        
+
+        if node.bl_idname == 'SvScriptNodeLite':
+            node.storage_get_data(node_dict)
 
         # collect socket properties
         # inputs = node.inputs
@@ -335,6 +340,16 @@ def perform_scripted_node_inject(node, node_ref):
         if script_name and not (script_name in texts):
             new_text = texts.new(script_name)
             new_text.from_string(script_content)
+        elif script_name and (script_name in texts):
+            # This was added to fix existing texts with the same name but no / different content.
+            if texts[script_name].as_string() == script_content:
+                print('SN skipping text named', script_name, '- their content are the same')
+            else:
+                print('SN text named', script_name, 'already found in current, but content differs')
+                new_text = texts.new(script_name)
+                new_text.from_string(script_content)
+                script_name = new_text.name
+                print('SN text named replaced with', script_name)        
 
         node.script_name = script_name
         node.script_str = script_content
@@ -343,6 +358,11 @@ def perform_scripted_node_inject(node, node_ref):
         node.user_name = "templates"               # best would be in the node.
         node.files_popup = "sv_lang_template.sn"   # import to reset easy fix
         node.load()
+    elif node.bl_idname == 'SvScriptNodeLite':
+        node.load()
+        data_list = node_ref.get('snlite_ui')
+        if data_list:
+            node.storage_set_data(data_list)
     else:
         node.files_popup = node.avail_templates(None)[0][0]
         node.load()
@@ -363,7 +383,13 @@ def perform_svtextin_node_object(node, node_ref):
     texts = bpy.data.texts    
     params = node_ref.get('params')
     current_text = params['current_text']
-    node.textmode = params['textmode']
+
+    # it's not clear from the exporter code why textmode parameter isn't stored
+    # in params.. for now this lets us look in both places. ugly but whatever.
+    textmode = params.get('textmode')
+    if not textmode:
+        textmode = node_ref.get('textmode')
+    node.textmode = textmode
 
     if not current_text:
         print(node.name, "doesn't store a current_text in params")
@@ -676,8 +702,18 @@ class SvNodeTreeImporterSilent(bpy.types.Operator):
     id_tree = StringProperty()
 
     def execute(self, context):
-        ng = bpy.data.node_groups[self.id_tree]
+
+        # if triggered from a non-initialized tree, we first make a tree
+        if self.id_tree == '____make_new____':
+            ng_params = {
+                'name': basename(self.filepath),
+                'type': 'SverchCustomTreeType'}
+            ng = bpy.data.node_groups.new(**ng_params)
+        else:
+            ng = bpy.data.node_groups[self.id_tree]
+
         import_tree(ng, self.filepath)
+        context.space_data.node_tree = ng
         return {'FINISHED'}
 
 
@@ -799,6 +835,28 @@ class SvNodeTreeExportToGist(bpy.types.Operator):
             return {'FINISHED'}
 
 
+class SvBlendToZip(bpy.types.Operator):
+
+    bl_idname = "node.blend_to_zip"
+    bl_label = "Save Blend as Zip"
+
+    def execute(self, context):
+
+        raw_time_stamp = strftime("%Y_%m_%d_%H_%M", gmtime())
+
+        blendpath = bpy.data.filepath
+        blendname = os.path.basename(bpy.data.filepath)
+        blendbasename = blendname.split('.')[0]
+        zipname = blendbasename + '_' + raw_time_stamp + '.zip'
+        blendzippath = os.path.join(os.path.dirname(blendpath), zipname)
+        with zipfile.ZipFile(blendzippath, 'w', zipfile.ZIP_DEFLATED) as myzip:
+            myzip.write(blendpath, blendname)
+            context.window_manager.clipboard = blendzippath
+            print('saved: ', blendzippath)
+
+        return {'FINISHED'}
+
+
 class SvIOPanelProperties(bpy.types.PropertyGroup):
 
     new_nodetree_name = StringProperty(
@@ -828,7 +886,8 @@ classes = [
     SvNodeTreeExportToGist,
     SvNodeTreeImporter,
     SvNodeTreeImporterSilent,
-    SvNodeTreeImportFromGist
+    SvNodeTreeImportFromGist,
+    SvBlendToZip
 ]
 
 

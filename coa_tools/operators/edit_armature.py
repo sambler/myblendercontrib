@@ -61,8 +61,7 @@ class QuickArmature(bpy.types.Operator):
         self.selected_objects = []
         self.active_object = None
         self.armature = None
-        
-        self.created_bones = []
+        self.emulate_3_button = False
         
     def project_cursor(self, event):
         coord = mathutils.Vector((event.mouse_region_x, event.mouse_region_y))
@@ -127,10 +126,11 @@ class QuickArmature(bpy.types.Operator):
             
             bpy.ops.object.mode_set(mode='EDIT')
             bone = armature.data.edit_bones.new("Bone")
+            #print(bone.name)
             
-            ### store newly created editbone names -> for locking z scale for posebones later. Posebones are not available at this point yet
-            if bone.name not in self.created_bones:
-                self.created_bones.append(bone.name)
+            ### tag bones that will be locked
+            bone["lock_z"] = True
+            bone["lock_rot"] = True
             
             bone.head = self.armature.matrix_world.inverted() * context.scene.cursor_location
             bone.hide = True
@@ -265,6 +265,7 @@ class QuickArmature(bpy.types.Operator):
         
     
     def modal(self, context, event):
+        print(event.type)
         self.in_view_3d = check_region(context,event)
         if self.in_view_3d:
             if not event.alt:
@@ -277,18 +278,25 @@ class QuickArmature(bpy.types.Operator):
         ob = context.active_object
         
         
-        ### lock posebone scale z value and then remove bone name from list
-        for bone_name in self.created_bones:
-            if bone_name in ob.pose.bones:
-                pose_bone = ob.pose.bones[bone_name]
-                pose_bone.lock_scale[2] = True
-                self.created_bones.remove(bone_name)
+        ### lock posebone scale z value
+        for bone in self.armature.data.bones:
+            if "lock_z" in bone:
+                if bone.name in ob.pose.bones:
+                    pose_bone = ob.pose.bones[bone.name]
+                    pose_bone.lock_scale[2] = True
+                    del bone["lock_z"]
+            if "lock_rot" in bone:
+                if bone.name in ob.pose.bones:
+                    pose_bone = ob.pose.bones[bone.name]
+                    pose_bone.lock_rotation[0] = True
+                    pose_bone.lock_rotation[1] = True
+                    del bone["lock_rot"]        
         
         if self.in_view_3d:
             self.mouse_press_hist = self.mouse_press
             mouse_button = None
             if context.user_preferences.inputs.select_mouse == "RIGHT":
-                mouse_button = 'LEFTMOUSE'
+                mouse_button = 'LEFTMOUSE' 
             else:
                 mouse_button = 'RIGHTMOUSE'    
             ### Set Mouse click 
@@ -409,12 +417,15 @@ class QuickArmature(bpy.types.Operator):
                 for obj in self.selected_objects:
                     obj.select = True
                 context.scene.objects.active = self.active_object   
+                context.user_preferences.inputs.use_mouse_emulate_3_button = self.emulate_3_button
                 return{'CANCELLED'}
         return {'PASS_THROUGH'}
     
     def execute(self, context):
         #bpy.ops.wm.coa_modal() ### start coa modal mode if not running
-    
+        self.emulate_3_button = context.user_preferences.inputs.use_mouse_emulate_3_button
+        context.user_preferences.inputs.use_mouse_emulate_3_button = False
+        
         for obj in context.scene.objects:
             if obj.select:
                 self.selected_objects.append(obj)

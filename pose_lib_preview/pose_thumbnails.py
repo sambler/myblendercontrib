@@ -20,6 +20,20 @@ from bpy_extras.io_utils import ImportHelper
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 preview_collections = {}
+enum_items_cache = {}
+
+IMAGE_EXTENSIONS = (
+    '.jpeg', '.jpg', '.jpe',
+    '.png',
+    '.tga', '.tpic',
+    '.tiff', '.tif',
+    '.bmp', '.dib',
+    '.cin',
+    '.dpx',
+    '.psd',
+    '.exr',
+    '.hdr', '.pic',
+    )
 
 
 def get_pose_suffix_from_prefs():
@@ -58,6 +72,12 @@ def get_images_from_dir(directory, sort=True):
         if os.path.splitext(filename)[-1].lower() in image_extensions:
             valid_images.append(filename)
     return sorted(valid_images)
+
+
+def is_image_file(filepath):
+    '''Check if the file is an image file.'''
+    file_extension = os.path.splitext(filepath)[-1]
+    return file_extension.lower() in IMAGE_EXTENSIONS
 
 
 def get_thumbnail_from_pose(pose):
@@ -145,6 +165,7 @@ def get_placeholder_image(pcoll):
 
 def get_enum_items(poselib, pcoll):
     '''Return the enum items for the thumbnail previews.'''
+    global enum_items_cache
     enum_items = []
     wm = bpy.context.window_manager
     pose_thumbnail_options = wm.pose_thumbnails.options
@@ -167,7 +188,7 @@ def get_enum_items(poselib, pcoll):
                     image = get_no_thumbnail_image(pcoll)
                 else:
                     image = pcoll.load(
-                        thumbnail.filepath,
+                        thumbnail_path,
                         image_path,
                         'IMAGE',
                         )
@@ -176,9 +197,20 @@ def get_enum_items(poselib, pcoll):
         else:
             image = None
         if image is not None:
-            enum_items.append((
+            # Warning: There is a known bug with using a callback, Python must
+            # keep a reference to the strings returned or Blender will crash.
+            # That's why we have to 'cache' the items in a dict.
+            pose_frame = enum_items_cache.setdefault(
                 str(pose.frame),
+                str(pose.frame),
+                )
+            pose_name = enum_items_cache.setdefault(
                 clean_pose_name(pose.name),
+                clean_pose_name(pose.name),
+                )
+            enum_items.append((
+                pose_frame,
+                pose_name,
                 '',
                 image.icon_id,
                 i,
@@ -216,6 +248,35 @@ def get_current_pose():
     return pose
 
 
+def select_all_pose_bones(armature, deselect=False):
+    '''Select all the pose bones of the armature.'''
+    for pose_bone in armature.pose.bones:
+        pose_bone.bone.select = not(deselect)
+
+
+def auto_keyframe():
+    '''Set automatic keyframes (for the current armature).'''
+    auto_insert = bpy.context.scene.tool_settings.use_keyframe_insert_auto
+    if not auto_insert:
+        return
+    selected_pose_bones = bpy.context.selected_pose_bones
+    if not selected_pose_bones:
+        select_all_pose_bones(bpy.context.object)
+    scene = bpy.context.scene
+    user_preferences = bpy.context.user_preferences
+    use_active_keying_set = scene.tool_settings.use_keyframe_insert_keyingset
+    only_insert_available = user_preferences.edit.use_keyframe_insert_available
+    active_keying_set = scene.keying_sets_all.active
+    if use_active_keying_set and active_keying_set is not None:
+        bpy.ops.anim.keyframe_insert_menu(type=active_keying_set.bl_idname)
+    elif only_insert_available:
+        bpy.ops.anim.keyframe_insert_menu(type='Available')
+    else:
+        bpy.ops.anim.keyframe_insert_menu(type='WholeCharacterSelected')
+    if not selected_pose_bones:
+        select_all_pose_bones(bpy.context.object, deselect=True)
+
+
 def mix_to_pose(pose_a, pose_b, factor):
     '''Mixes pose_b over pose_a with the given factor.'''
 
@@ -242,9 +303,7 @@ def mix_to_pose(pose_a, pose_b, factor):
                     pose_bone[prop] = pose_a_value
                 else:
                     pose_bone[prop] = pose_b_value
-    auto_insert = bpy.context.scene.tool_settings.use_keyframe_insert_auto
-    if auto_insert:
-        bpy.ops.anim.keyframe_insert_menu(type='Available')
+    auto_keyframe()
 
 
 def update_pose(self, context):
@@ -345,7 +404,7 @@ class MixPose(bpy.types.Operator):
     '''Mix-apply the selected library pose on to the current pose.'''
     bl_idname = 'poselib.mix_pose'
     bl_label = 'Mix the pose with the current pose.'
-    bl_options = {'UNDO'}
+    bl_options = {'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
 
     factor = bpy.props.FloatProperty(
         name='Mix Factor',
@@ -416,10 +475,24 @@ class AddPoseThumbnail(bpy.types.Operator, ImportHelper):
     bl_label = 'Add thumbnail'
     bl_options = {'PRESET', 'UNDO'}
 
-    filename_ext = '.jpg;.jpeg;.png'
+    display_type = bpy.props.EnumProperty(
+        items=(('LIST_SHORT', 'Short List', '', 1),
+               ('LIST_LONG', 'Long List', '', 2),
+               ('THUMBNAIL', 'Thumbnail', '', 3)),
+        options={'HIDDEN', 'SKIP_SAVE'},
+        default='THUMBNAIL',
+        )
+    filter_image = bpy.props.BoolProperty(
+        default=True,
+        options={'HIDDEN', 'SKIP_SAVE'},
+        )
+    filter_folder = bpy.props.BoolProperty(
+        default=True,
+        options={'HIDDEN', 'SKIP_SAVE'},
+        )
     filter_glob = bpy.props.StringProperty(
-        default='*.jpg;*.jpeg;*.png',
-        options={'HIDDEN'},
+        default='',
+        options={'HIDDEN', 'SKIP_SAVE'},
         )
 
     use_relative_path = bpy.props.BoolProperty(
@@ -433,6 +506,11 @@ class AddPoseThumbnail(bpy.types.Operator, ImportHelper):
             filepath = self.filepath
         else:
             filepath = bpy.path.relpath(self.filepath)
+        if not is_image_file(filepath):
+            self.report({'ERROR_INVALID_INPUT'},
+                        'The selected file is not an image.')
+            logger.error(' File {0} is not an image.'.format(
+                os.path.basename(filepath)))
         poselib = context.object.pose_library
         pose = poselib.pose_markers.active
         pose.name = suffix_pose_name(pose.name)
@@ -453,7 +531,6 @@ class AddPoseThumbnailsFromDir(bpy.types.Operator, ImportHelper):
     bl_idname = 'poselib.add_thumbnails_from_dir'
     bl_label = 'Add Thumbnails from Directory'
     bl_options = {'PRESET', 'UNDO'}
-
     directory = bpy.props.StringProperty(
         maxlen=1024,
         subtype='DIR_PATH',
@@ -463,10 +540,24 @@ class AddPoseThumbnailsFromDir(bpy.types.Operator, ImportHelper):
         type=bpy.types.OperatorFileListElement,
         options={'HIDDEN', 'SKIP_SAVE'},
         )
-    filename_ext = '.jpg;.jpeg;.png'
+    display_type = bpy.props.EnumProperty(
+        items=(('LIST_SHORT', 'Short List', '', 1),
+               ('LIST_LONG', 'Long List', '', 2),
+               ('THUMBNAIL', 'Thumbnail', '', 3)),
+        options={'HIDDEN', 'SKIP_SAVE'},
+        default='THUMBNAIL',
+        )
+    filter_image = bpy.props.BoolProperty(
+        default=True,
+        options={'HIDDEN', 'SKIP_SAVE'},
+        )
+    filter_folder = bpy.props.BoolProperty(
+        default=True,
+        options={'HIDDEN', 'SKIP_SAVE'},
+        )
     filter_glob = bpy.props.StringProperty(
-        default='*.jpg;*.jpeg;*.png',
-        options={'HIDDEN'},
+        default='',
+        options={'HIDDEN', 'SKIP_SAVE'},
         )
     map_method_items = (
             ('NAME', 'Name', 'Match the file names with the pose names.'),
@@ -513,16 +604,22 @@ class AddPoseThumbnailsFromDir(bpy.types.Operator, ImportHelper):
         image_paths = []
         if files and not files[0]:
             image_files = os.listdir(directory)
+            report = False
         else:
             image_files = files
+            report = True
         for image_file in sorted(image_files):
-            ext = os.path.splitext(image_file)[-1].lower()
-            if ext and ext in self.filename_ext:
-                image_path = os.path.join(directory, image_file)
-                if self.use_relative_path:
-                    image_paths.append(bpy.path.relpath(image_path))
-                else:
-                    image_paths.append(image_path)
+            # ext = os.path.splitext(image_file)[-1].lower()
+            # if ext and ext in self.filename_ext:
+            image_path = os.path.join(directory, image_file)
+            if not is_image_file(image_path):
+                if not image_file.startswith('.') and report:
+                    logger.warning(' Skipping file {0} because it\'s not an image.'.format(image_file))
+                continue
+            if self.use_relative_path:
+                image_paths.append(bpy.path.relpath(image_path))
+            else:
+                image_paths.append(image_path)
         return image_paths
 
     def create_thumbnail(self, pose, image):

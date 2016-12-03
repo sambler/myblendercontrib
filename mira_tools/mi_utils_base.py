@@ -43,12 +43,12 @@ def get_obj_dup_meshes(obj_snap_mode, convert_instances, context):
 
 
 # mesh picking from screen
-def get_mouse_raycast(context, objects_list, coords_2d, ray_max):
+def get_mouse_raycast(context, objects_list, coords_2d, ray_max=10000.0):
     region = context.region
     rv3d = context.region_data
 
     best_obj, hit_normal, hit_position = None, None, None
-    best_length_squared = ray_max * ray_max
+    best_length_squared = 20000.0 * 20000.0
 
     # get the ray from the viewport and mouse
     view_vector = view3d_utils.region_2d_to_vector_3d(
@@ -68,9 +68,9 @@ def get_mouse_raycast(context, objects_list, coords_2d, ray_max):
 
 
 # mesh picking from 3d space
-def get_3dpoint_raycast(context, objects_list, vec_pos, vec_dir, ray_max):
+def get_3dpoint_raycast(context, objects_list, vec_pos, vec_dir, ray_max=10000.0):
     best_obj, hit_normal, hit_position = None, None, None
-    best_length_squared = ray_max * ray_max
+    best_length_squared = 20000.0 * 20000.0
 
     for obj, matrix in objects_list:
         # Do RayCast! t1,t2,t3,t4 - temp values
@@ -84,18 +84,20 @@ def get_3dpoint_raycast(context, objects_list, vec_pos, vec_dir, ray_max):
 
 
 # mesh picking
-def obj_raycast(obj, matrix, view_vector, ray_origin, ray_max):
+def obj_raycast(obj, matrix, view_vector, ray_origin, ray_max=10000.0):
     """Wrapper for ray casting that moves the ray into object space"""
-
-    ray_target = ray_origin + (view_vector * ray_max)
 
     # get the ray relative to the object
     matrix_inv = matrix.inverted()
+    ray_target = ray_origin + (view_vector * ray_max)
+
     ray_origin_obj = matrix_inv * ray_origin
+    ray_target_obj = matrix_inv * ray_target
+    ray_direction_obj = ray_target_obj - ray_origin_obj
     #ray_target_obj = matrix_inv * ray_target
 
     # cast the ray
-    hit_result, hit, normal, face_index = obj.ray_cast(ray_origin_obj, view_vector, ray_max)
+    hit_result, hit, normal, face_index = obj.ray_cast(ray_origin_obj, ray_direction_obj, ray_max)
 
     if hit_result:
         hit_world = matrix * hit

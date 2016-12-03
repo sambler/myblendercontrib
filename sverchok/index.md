@@ -19,7 +19,7 @@
     SphereNode
     BasicSplineNode
     svBasicArcNode
-    RandomVectorNode
+    RandomVectorNodeMK2
     SvBricksNode
     ImageNode
 
@@ -33,6 +33,7 @@
     SvImageComponentsNode
     SvScriptNode
     SvScriptNodeMK3
+    SvScriptNodeLite
 
 ## Analyzers
     SvBBoxNode
@@ -145,12 +146,14 @@
     VectorPolarOutNode
     VertsDelDoublesNode
     EvaluateLineNode
+    SvInterpolationStripesNode
     SvInterpolationNode
     SvInterpolationNodeMK2
     SvInterpolationNodeMK3
     SvVertSortNode
     SvNoiseNode
     svAxisInputNode
+    SvAxisInputNodeMK2
 
 ## Matrix
     MatrixGenNode
@@ -174,7 +177,7 @@
     Sv3DviewPropsNode
 
 ## Text
-    ViewerNode_text
+    ViewerNodeTextMK2
     SvTextInNode
     SvTextOutNode
     NoteNode
@@ -183,7 +186,7 @@
     SvStethoscopeNode
 
 ## Scene
-    ObjectsNode
+    ObjectsNodeMK2
     SvObjRemoteNode
     SvFrameInfoNode
     SvEmptyOutNode
@@ -191,9 +194,7 @@
     SvInstancerNode
     SvGetPropNode
     SvSetPropNode
-    SvVertexGroupNode
-    SvRayCastSceneNode
-    SvRayCastObjectNode
+    SvVertexGroupNodeMK2
     SvVertexColorNode
     SvVertexColorNodeMK2
 
@@ -213,6 +214,8 @@
     SvPointOnMeshNodeMK2
     SvOBJRayCastNodeMK2
     SvSCNRayCastNodeMK2
+    SvObjectToMeshNodeMK2
+    SvRndNumGen
 
 ## Alpha Nodes
     SvCurveViewerNode
@@ -224,16 +227,17 @@
     SvInsetSpecial
     SkinViewerNode
     SvCSGBooleanNode
+    SvParticlesNode
+    SvUVtextureNode
     SvNumpyArrayNode
     SvNodeRemoteNode
     SvGetDataObjectNode
     SvSetDataObjectNode
     SvSortObjsNode
-    SvObjectToMeshNode
     SvFilterObjsNode
-    SvPointOnMeshNode
     SvBMVertsNode
     SvBMOpsNode
     SvBMinputNode
     SvBMoutputNode
     SvBMtoElementNode
+    SvObjRemoteNodeMK2

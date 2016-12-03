@@ -2,6 +2,9 @@ import bpy
 from bpy.types import Menu
 from bpy.props import FloatProperty, IntProperty, BoolProperty, StringProperty, CollectionProperty, FloatVectorProperty, EnumProperty, IntVectorProperty
 from .. functions import *
+#from .. ui import preview_collections
+
+preview_collections_pie = {}
 
 class VIEW3D_PIE_coa_menu(Menu):
     # label is displayed at the center of the pie menu.
@@ -15,11 +18,14 @@ class VIEW3D_PIE_coa_menu(Menu):
         if context.area.type == "NLA_EDITOR ":
             return True
         
-        if (obj != None and "coa_sprite" in obj) or (sprite_object != None and obj.type == "ARMATURE"):
+        if (obj != None and ("coa_sprite" in obj or "sprite_object" in obj)) or (sprite_object != None and obj.type == "ARMATURE"):
             return True
     
     def draw(self, context):
         obj = context.active_object
+        
+        pcoll = preview_collections_pie["main"]
+        db_icon = pcoll["db_icon"]
         
         layout = self.layout
         pie = layout.menu_pie()
@@ -40,6 +46,11 @@ class VIEW3D_PIE_coa_menu(Menu):
                 pie.operator("scene.coa_quick_armature",text="Edit Armature",icon="ARMATURE_DATA")
                 pie.operator("bone.coa_set_stretch_bone",text="Create Stretch Bone",icon="CONSTRAINT_BONE")
                 pie.operator("wm.call_menu_pie", icon="SPACE3", text="Delete Keyframe(s)").name = "view3d.coa_pie_keyframe_menu_remove"
+            elif obj.type == "EMPTY":
+                pie.operator("import.coa_import_sprites",text="Import Sprites",icon="IMASEL")
+                pie.operator("coa_tools.export_dragon_bones",text="Export Dragonbones",icon_value=db_icon.icon_id)
+                pie.operator("wm.coa_create_ortho_cam",text="Create Ortho Camera",icon="CAMERA_DATA")
+                pie.operator("coa_tools.batch_render",text="Batch Render Animations",icon="CLIP")
 
 class VIEW3D_PIE_coa_keyframe_menu_01(Menu):
     # label is displayed at the center of the pie menu.

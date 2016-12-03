@@ -23,15 +23,15 @@ bl_info = {
     "location": "Properties > Speaker > Toolshelf",
     "description": "Drive Animations with baked sound files",
     "warning": "Still in Testing",
-    "wiki_url": "https://github.com/batFINGER/batFINGER-blender-addons/wiki/sound-drivers", 
-    "version": (3, 0),
+    "wiki_url": "https://github.com/batFINGER/batFINGER-blender-addons/wiki/sound-drivers",
+    "version": (3, 1, 0),
     "blender": (2, 7, 6),
     "tracker_url": "",
     "support": 'TESTING',
     "category": "Animation"}
 
 #reload_flag = "bpy" in locals()
-reload_flag = True
+reload_flag = True  # in test mode
 
 utilities_names = (
              "subaddon",
@@ -40,25 +40,27 @@ utilities_names = (
         )
 
 subaddon_names = (
-             ("sounddriver", True),
-             ("driver_panels", True),
-             ("driver_manager", True), 
-             ("speaker", True),
-             ("sound", True),
-             ("midi", True),
-             ("visualiser", True),
-             ("Equalizer", True),
-             ("EqMenu", True),
-             ("NLALipsync", True),
-             ("filter_playback", True),
-             ("graph", True),
-             ("BGL_draw_visualiser", True),
-             ("presets", True),
-             ("pie_menu_template", True),
-             ("icons", True),
+             ("sounddriver", True, True),
+             ("driver_panels", True, True),
+             ("driver_manager", True, True),
+             ("speaker", True, True),
+             ("sound", True, True),
+             ("midi", False, False),
+             ("visualiser", True, True),
+             ("sound_action", True, True),
+             ("soundaction_visualiser", False, False),
+             ("sound_bake", True, True),
+             ("sound_nla", True, True),
+             #("EqMenu", True, False), # GONE BABY GONE (orginal)
+             ("NLALipsync", True, True),
+             ("filter_playback", False, False),
+             ("graph", True, True),
+             ("BGL_draw_visualiser", False, False),
+             ("presets", True, True),
+             ("pie_menu_template", True, True),
+             ("icons", True, True),
              )
 
-#mods = [__import__("%s.%s" % (__name__, name), {}, {}, name) for name in submod_names]
 # use importlib for imports
 from importlib import import_module, reload as reload_module
 # dictionary of utilities modules
@@ -78,7 +80,7 @@ handle_registration = getattr(utilities["subaddon"], "handle_registration")
 
 import bpy
 from rna_keymap_ui import draw_kmi
-from bpy.types import  AddonPreferences
+from bpy.types import AddonPreferences, Operator
 from bpy.props import StringProperty, BoolProperty, IntProperty
 from bpy.utils import register_class, unregister_class
 
@@ -112,6 +114,7 @@ def draw(self, context):
     for subaddon in addons.values():
         module = subaddon.module
         info = subaddon.info
+        # make a debug switch or similar
         if not hasattr(module, "bl_info"):
             continue
         #TODO better name for mod
@@ -123,6 +126,7 @@ subaddonprefs = {"bl_idname": __package__,
                  "draw": draw,
                  "addons": {},
                  }
+
 class SpeakerToolsAddonPreferences(AddonPreferences):
 
     ''' Speaker Tools User Prefs '''
@@ -134,9 +138,9 @@ class SpeakerToolsAddonPreferences(AddonPreferences):
             )
 
     midi_support = BoolProperty(
-            name = "Midi Support",
-            description = "Enable Midi Support",
-            default = False,
+            name="Midi Support",
+            description="Enable Midi Support",
+            default=False,
             )
     smf_dir = StringProperty(
             name="smf (midi) python path",
@@ -192,14 +196,14 @@ class SpeakerToolsAddonPreferences(AddonPreferences):
             row.prop(self, "driver_manager_update_speed", slider=True)
         row = layout.row()
         row = layout.prop(self, "midi_support")
-        
+
         # midi support
         if self.midi_support:
             row = layout.row()
             row.prop(self, "smf_dir")
             row = layout.row()
             op = row.operator("wm.url_open", icon='INFO', text="GitHub PySMF Project (Cython)")
-            op.url="https://github.com/dsacre/pysmf"
+            op.url = "https://github.com/dsacre/pysmf"
             row = layout.row()
             if "smf" in locals():
                 row.label("SMF IMPORTED OK...", icon='FILE_TICK')
@@ -210,7 +214,7 @@ class SpeakerToolsAddonPreferences(AddonPreferences):
                     import smf
                     row.label("SMF IMPORTED OK", icon='FILE_TICK')
                 except:
-                    row.label("SMF FAILED", icon ='ERROR')
+                    row.label("SMF FAILED", icon='ERROR')
 
         # end midi support
         row = layout.row()
@@ -233,17 +237,45 @@ class SpeakerToolsAddonPreferences(AddonPreferences):
 
         for akm in pie_menu.addon_keymaps:
             row.label(str(akm))
-        ''' 
+        '''
+
+# Open addon prefs to here op.
+
+class SoundDriversShowPrefs(Operator):
+
+    bl_idname = "sound_drivers.pref_show"
+    bl_description = 'Display SoundDrivers addons preferences'
+    bl_label = "Preferences"
+    bl_options = {'INTERNAL'}
+
+    def execute(self, context):
+        wm = context.window_manager
+        #addon_utils.modules_refresh()
+        mod = importlib.import_module(__package__)
+        if mod is None:
+            print("Something is HORRIBLY WRONG...")
+            return {'CANCELLED'}
+        bl_info = getattr(mod, "bl_info", {})
+        mod.bl_info['show_expanded'] = True
+        context.user_preferences.active_section = 'ADDONS'
+        wm.addon_search = bl_info.get("name", __package__)
+        wm.addon_filter = bl_info.get("category", 'ALL')
+        wm.addon_support = wm.addon_support.union({bl_info.get("support", 'TESTING')})
+        #mod = addon_utils.addons_fake_modules.get("sound_drivers")
+
+        bpy.ops.screen.userpref_show('INVOKE_DEFAULT')
+        return {'FINISHED'}
+
 addonprefs = None
 def register():
-    print("SD REGO BABY")
     addonprefs = create_addon_prefs(__package__, subaddon_names, subaddonprefs=subaddonprefs, addons=addons)
     register_class(addonprefs)
-    print(addonprefs)
-    print(addonprefs.bl_idname)
+    register_class(SoundDriversShowPrefs)
     handle_registration(True, addons)
+    from addon_utils import check
 
 def unregister():
     if addonprefs:
         unregister_class(addonprefs)
+    unregister_class(SoundDriversShowPrefs)
     handle_registration(False, addons)

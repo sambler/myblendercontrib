@@ -45,8 +45,8 @@ bl_info = {
         "AgustinJB, Zeffii, Kosvor, "
         "Portnov, Elfnor"
     ),
-    "version": (0, 5, 6, 6),
-    "blender": (2, 7, 2),
+    "version": (0, 5, 8, 0),
+    "blender": (2, 7, 8),
     "location": "Nodes > CustomNodesTree > Add user nodes",
     "description": "Parametric node-based geometry programming",
     "warning": "",
@@ -86,12 +86,14 @@ utils_modules = [
     "cad_module", "sv_bmesh_utils", "sv_viewer_utils", "sv_curve_utils",
     "voronoi", "sv_script", "sv_itertools", "script_importhelper",
     "csg_core", "csg_geom", "geom", "sv_easing_functions",
+    "snlite_utils", "snlite_importhelper",
     # UI text editor ui
     "text_editor_submenu", "text_editor_plugins",
     # UI operators and tools
     "sv_panels_tools", "sv_gist_tools", "sv_IO_panel_tools",
-    "monad", "sv_help"
+    "monad", "sv_help",
     #"loadscript",
+    "debug_script"
 ]
 
 ui_modules = [

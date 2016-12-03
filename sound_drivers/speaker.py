@@ -1,9 +1,18 @@
-########################################################################
-'''
-Speaker
+bl_info = {
+    "name": "Speaker",
+    "author": "batFINGER",
+    "location": "View3D > Add > Speaker",
+    "description": "Speaker Settings",
+    "warning": "Still in Testing",
+    "wiki_url": "",
+    "version": (1, 0),
+    "blender": (2, 7, 7),
+    "tracker_url": "",
+    "icon": 'NONE',
+    "support": 'TESTING',
+    "category": "Animation",
+    }
 
-'''
-########################################################################
 import bpy
 
 from bpy.props import *
@@ -31,11 +40,14 @@ bpy.types.Scene.soundspeakers = property(get_soundspeaker_list)
 
 def get_channel_names(self):
     channels = []
+    if not self.sound:
+        return [] # TODO change bugfix
     actions = [a for a in bpy.data.actions 
                 if 'channel_name' in a.keys()
                 #and a['channel_name'] in channels
                 and "wavfile" in a.keys()
                 and a['wavfile'] == self.sound.name]
+
     for a in actions: # TODO
         if "MIDI" in a.keys(): # midi file
             channels.extend(a["channels"])
@@ -45,9 +57,7 @@ def get_channel_names(self):
 
 bpy.types.Speaker.channels = property(get_channel_names)
 
-
 def set_context_speaker(self, speaker):
-
     if speaker is not None and speaker.rna_type.identifier != "Speaker":
         raise TypeError("Context Speaker must be a Speaker type")
         return None
@@ -342,9 +352,77 @@ def sd_popout(self, context):
                         text="Popout")
     return None
 
+class ContextSpeakerSelectMenu(bpy.types.Menu):
+    bl_idname = "speaker.select_contextspeaker"
+    bl_label = "Choose speaker to drive"
+    driver = None
 
+    def draw(self, context):
+        # sounds in baked actions
+
+        for speaker in context.scene.soundspeakers:
+            text = "%s (%s)" % (speaker.name, speaker.sound.name)
+            self.layout.operator("speaker.select_context",
+                                 text=text).contextspeakername = speaker.name
+
+def vismode_panel_items(self, context):
+    # if is_baking then only show bake panel
+    #print("PANEL ITEMS", self, context.scene)
+    userprefs = context.user_preferences.addons[__package__].preferences
+    midiprefs = userprefs.addons["midi"].preferences
+    midi_support = userprefs.addons["midi"].enabled
+    filter_support = userprefs.addons["filter_playback"].enabled
+    ui_visualiser_support = userprefs.addons["soundaction_visualiser"].enabled
+    bgl_visualiser_support = userprefs.addons["BGL_draw_visualiser"].enabled
+    visualiser_support = bgl_visualiser_support or ui_visualiser_support
+    if bpy.types.BakeSoundPanel.baking:
+        return [("BAKE", "BAKE", "Bake Sound to FCurves", 'FCURVE', 64)]
+    
+    pv = [("SPEAKER", "SPEAKER", "Edit Speaker properties", 'SPEAKER', 1),
+          ("SOUND", "SOUND", "Edit sound properties", 'SOUND', 2)]
+
+    if midi_support and midiprefs.midi_support:
+        from sound_drivers.icons import get_icon
+        icon = get_icon("main", "midi")
+
+        pv.append(
+          ("MIDI", "MIDI", "Associate a midi file", icon.icon_id, 128))
+    if self.sound is not None:
+        pv.extend([("BAKE", "BAKE", "Bake Sound to FCurves", 'FCURVE', 64)])
+    if not getattr(self, "animation_data", None):
+        pass
+    else:
+        if self.animation_data.action is not None:
+            if visualiser_support:
+                pv.append(("VISUAL",
+                           "VISUAL",
+                           "Show sound visualiser",
+                           'SEQ_HISTOGRAM', 16))
+            pv.append(("ACTION", "ACTION", "Sound Action Properties", 'ACTION', 4))
+            if filter_support:
+                  pv.append(("OUT", "OUT", "Filter Output", 'FILTER', 32))
+
+        if len(self.animation_data.nla_tracks) > 1:
+            pv.extend([("NLA", "NLA", "NLA SoundTracks", 'NLA', 8)])
+        '''
+        pv = [("SPEAKER", "SPEAKER", "Edit Speaker properties",'SPEAKER',1),
+              ("SOUND", "SOUND", "Edit sound properties",'SOUND',2),
+              ("ACTION", "ACTION", "Sound Action Properties",'ACTION',4),
+              ("NLA", "NLA", "NLA SoundTracks",'NLA',8),
+              ("VISUAL", "VISUAL", "Show sound visualiser",'SEQ_HISTOGRAM',16),
+              ("OUT", "OUT", "Filter Output",'FILTER',32),
+              ("BAKE", "BAKE", "Bake Sound to FCurves",'FCURVE',64),]
+        '''
+    return pv
 
 def register():
+    bpy.types.Speaker.vismode = EnumProperty(items=vismode_panel_items,
+                                name="SoundDriver",
+                                description="Panel Filters",
+                                options={'HIDDEN', 'ENUM_FLAG'})
+
+
+
     bpy.types.Speaker.is_context_speaker = BoolProperty(name="ContextSpeaker",
                                            description="(Un)Set context Speaker",
                                            default=False,
@@ -354,10 +432,20 @@ def register():
     register_class(OBJECT_OT_speaker_add)
     register_class(SpeakerDataPanel)
     register_class(SpeakerSelectorOperator)
+    register_class(ContextSpeakerSelectMenu)
 
 def unregister():
     unregister_class(ClosePopupWindow)
     unregister_class(OBJECT_OT_speaker_add)
+    from bpy.types import OBJECT_OT_speaker_add as AddSpeaker
+    # re-register the old one
+    register_class(AddSpeaker)
     unregister_class(SpeakerDataPanel)
     unregister_class(SpeakerSelectorOperator)
+    unregister_class(ContextSpeakerSelectMenu)
     bpy.types.PROPERTIES_HT_header.remove(sd_popout)
+    # remove property defs
+    del(bpy.types.Speaker.vismode)
+    del(bpy.types.Speaker.channels)
+    del(bpy.types.Speaker.is_context_speaker)
+    del(bpy.types.Scene.soundspeakers)

@@ -1,7 +1,7 @@
 
 '''
 Name Panel Addon
-Copyright (C) 2016 Trentin Frederick
+Copyright (C) 2016 Trentin Frederick (proxe) All Rights Reserved
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -20,9 +20,9 @@ this program.  If not, see <http://www.gnu.org/licenses/>.
 bl_info = {
   'name': 'Name Panel',
   'author': 'Trentin Frederick (proxe)',
-  'version': (1, 6, 73),
+  'version': (1, 7, 455),
   'blender': (2, 68, 0),
-  'location': '3D View \N{Rightwards Arrow} Tool or Property Shelf \N{Rightwards Arrow} Name',
+  'location': '3D View \N{Rightwards Arrow} Property Shelf \N{Rightwards Arrow} Name',
   'description': 'In panel datablock name stack with shortcut and batch name tools.',
   'wiki_url': 'https://cgcookiemarkets.com/all-products/name-panel/?view=docs',
   'tracker_url': 'https://github.com/trentinfrederick/name-panel/issues',
@@ -212,13 +212,7 @@ class preferences(AddonPreferences):
     prop.url = 'https://cgcookiemarkets.com/all-products/name-panel/'
 
     # operator; url open
-    prop = split.operator('wm.url_open', text='Gumroad')
-
-    # gumroad
-    prop.url = 'https://gumroad.com/l/UyXd'
-
-    # operator; url open
-    prop = split.operator('wm.url_open', text='Blender Artists')
+    prop = split.operator('wm.url_open', text='Blender Artists Thread')
 
     # blender artists
     prop.url = 'http://blenderartists.org/forum/showthread.php?272086'
@@ -323,6 +317,7 @@ def register():
   # isnt location tools
   else:
     bpy.utils.unregister_class(name.toolsName)
+    bpy.utils.unregister_class(bpy.types.VIEW3D_PT_view3d_name)
 
   # location
   location = defaults['properties panel']['location']

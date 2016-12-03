@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Dark Engine Static Model",
     "author": "nemyax",
-    "version": (0, 4, 20160826),
+    "version": (0, 4, 20161124),
     "blender": (2, 7, 4),
     "location": "File > Import-Export",
     "description": "Import and export Dark Engine static model .bin",
@@ -505,19 +505,13 @@ class Subobject(object):
         return result
     def set_parent(self, new_par):
         self.parent = new_par
-        new_par.children.append(self)
-        # Set "nexts"
-        kids = new_par.children
-        n = len(kids)
-        i = n - 1
-        new_par.next = kids[i]
-        while i:
-            kids[i].next = kids[i-1]
-            i -= 1
-        if n > 1: # "splits" instead of "call"
+        if new_par.children:
+            self.next = new_par.children[0]
+        new_par.children.insert(0, self)
+        if len(new_par.children) > 1: # "splits" instead of "call"
             new_par.call = None
         else: # no "splits"
-            new_par.call = kids[0]
+            new_par.call = new_par.children[0]
         # Reindex entire tree
         flat_tree = self.get_root().list_subtree()
         for s, i in zip(flat_tree, range(len(flat_tree))):
@@ -1022,30 +1016,6 @@ def get_mesh(obj, materials): # and tweak materials
                 c[uvs].uv[1] = 1.0 - c[uvs].uv[1]
     return bm
 
-# def append_bmesh(bm1, bm2, matrix):
-    # bm2.transform(matrix)
-    # uvs = bm1.loops.layers.uv.verify()
-    # uvs_orig = bm2.loops.layers.uv.verify()
-    # vs_so_far = len(bm1.verts)
-    # for v in bm2.verts:
-        # bm1.verts.new(v.co)
-        # bm1.verts.index_update()
-    # for f in bm2.faces:
-        # try:
-            # bm1.verts.ensure_lookup_table()
-            # bm1.faces.ensure_lookup_table()
-            # nf = bm1.faces.new(
-                # [bm1.verts[vs_so_far+v.index] for v in f.verts])
-        # except ValueError:
-            # continue
-        # for i in range(len(f.loops)):
-            # nf.loops[i][uvs].uv = f.loops[i][uvs_orig].uv
-            # nf.material_index = f.material_index
-        # bm1.faces.index_update()
-    # bm2.free()
-    # bm1.normal_update()
-    # return bm1
-
 def append_bmesh(bm1, bm2, matrix):
     bm2.transform(matrix)
     uvs = bm1.loops.layers.uv.verify()
@@ -1123,20 +1093,23 @@ def shift_box(box_data, matrix):
 def tag_vhots(dl):
     ids = {}
     idx = 0
-    for l in dl:
-        for vhn, _ in l:
-            id_s = "".join(re.findall("\d", vhn))
-            if id_s:
-                id = int(id_s) % (2**32-1)
-                ids[vhn] = idx if id in ids.values() else id
-            else:
-                ids[vhn] = idx
-            while idx in ids.values():
-                idx += 1
-    for l in dl:
-        for i in range(len(l)):
-            name, pos = l[i]
-            l[i] = (ids[name], pos)
+    for gen in dl:
+        for l in gen:
+            for vhn, _ in l:
+                id_s = "".join(re.findall("\d", vhn))
+                if id_s:
+                    id = int(id_s) % (2**32-1)
+                    ids[vhn] = idx if id in ids.values() else id
+                else:
+                    ids[vhn] = idx
+                while idx in ids.values():
+                    idx += 1
+    for gen in dl:
+        for l in gen:
+            for i in range(len(l)):
+                if l[i]:
+                    name, pos = l[i]
+                    l[i] = (ids[name], pos)
     return dl
 
 def prep_vg_based_ordering(objs, bms):
@@ -1194,26 +1167,30 @@ def prep_subs(all_objs, materials, world_origin, sorting):
     if sorting == 'bsp':
         for el in gen2_meshes + gen3_plus_meshes + [root_mesh]:
             do_bsp(el)
+    vhots = tag_vhots([
+        [[(e.name,origin_shift*e.matrix_world.translation)
+            for e in o.children if e.type == 'EMPTY']
+                for o in root],
+        [[(e.name,e.matrix_local.translation)
+            for e in o.children if e.type == 'EMPTY']
+                for o in gen2],
+        [[(e.name,e.matrix_local.translation)
+            for e in o.children if e.type == 'EMPTY']
+                for o in gen3_plus]])
     root_sub = Subobject(
         root[0].name, root_mesh, mu.Matrix([[0]*4] * 4), 0, 0.0, 0.0, [])
-    for ro in root:
-        for vhot in [e for e in ro.children if e.type == 'EMPTY']:
-            mtx = origin_shift * vhot.matrix_world.translation
-            root_sub.vhots.append((vhot.name,mtx))
-    for g2o, g2m in zip(gen2, gen2_meshes):
+    for rvh in vhots[0]:
+        root_sub.vhots.extend(rvh)
+    for g2o, g2m, g2vh in zip(gen2, gen2_meshes, vhots[1]):
         mtx = origin_shift * g2o.matrix_world
         m_type, m_min, m_max = get_motion(g2o)
-        sub = Subobject(g2o.name, g2m, mtx, m_type, m_min, m_max, [])
-        for vhot in [e for e in g2o.children if e.type == 'EMPTY']:
-            sub.vhots.append((vhot.name,vhot.matrix_local.translation))
+        sub = Subobject(g2o.name, g2m, mtx, m_type, m_min, m_max, g2vh)
         sub.set_parent(root_sub)
         obj_lookup[g2o] = sub
-    for g3po, g3pm in zip(gen3_plus, gen3_plus_meshes):
-        mtx = g3po.matrix_world
+    for g3po, g3pm, g3pvh in zip(gen3_plus, gen3_plus_meshes, vhots[2]):
+        mtx = g3po.matrix_local
         m_type, m_min, m_max = get_motion(g3po)
-        sub = Subobject(g3po.name, g3pm, mtx, m_type, m_min, m_max)
-        for vhot in [e for e in g3po.children if e.type == 'EMPTY']:
-            sub.vhots.append((vhot.name,vhot.matrix_local.translation))
+        sub = Subobject(g3po.name, g3pm, mtx, m_type, m_min, m_max, g3pvh)
         sub.set_parent(obj_lookup[g3po.parent])
         obj_lookup[g3po] = sub
     return root_sub, shift_box(bbox, origin_shift)

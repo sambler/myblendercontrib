@@ -37,6 +37,7 @@ from sound_drivers.presets import note_items, midi_instruments
 
 # Using addonpreset system to save usersettings on a submodulare basis
 
+smf_paths = set()
 class MIDIAddonPreferences(AddonPreferences):
     ''' MIDI Prefs '''
     bl_idname = __name__
@@ -48,10 +49,10 @@ class MIDIAddonPreferences(AddonPreferences):
         '''
         import sys
         if self.smf_dir and self.smf_dir not in sys.path:
+            smf_paths.add(self.smf_dir)
             sys.path.append(self.smf_dir)
         from importlib.util import find_spec 
         return find_spec("smf") is not None
-
 
     smf_dir = StringProperty(
             name="smf (midi) python path",
@@ -81,7 +82,6 @@ octaves = range(-1, 10)
 midi_notes = ["%s%d" % (n, o) for o in octaves for n in notes]
 #pop off the last 4
 
-
 for i in range(4):
     midi_notes.pop()
     
@@ -97,8 +97,8 @@ midifile = {}
 def peek_midi_file(context, filepath, use_some_setting):
     print(filepath)
     prefs = context.user_preferences.addons["sound_drivers"].preferences
-    import sys
-    sys.path.append(prefs.smf_dir)
+    #import sys
+    #sys.path.append(prefs.smf_dir)
     import smf
     pin_id = getattr(context.space_data, "pin_id", None)
     sp = pin_id if pin_id is not None else context.object.data
@@ -174,8 +174,8 @@ def peek_midi_file(context, filepath, use_some_setting):
 def read_midi_file(context, filepath, use_some_setting):
     print(filepath)
     prefs = context.user_preferences.addons["sound_drivers"].preferences
-    import sys
-    sys.path.append(prefs.smf_dir)
+    #import sys
+    #sys.path.append(prefs.smf_dir)
     import smf
     pin_id = context.space_data.pin_id
     sp = pin_id if pin_id is not None else context.object.data
@@ -498,11 +498,17 @@ def register():
     register_class(BakeMIDI)
     register_class(SD_MIDIFilesPanel)
 
-
 def unregister():
     unregister_class(BakeMIDI)
     unregister_class(SD_MIDIFilesPanel)
-
+    # remove sfm from sys
+    if len(smf_paths):
+        from sys import path 
+        for p in smf_paths:
+            if p in path:
+                path.remove(p)
+                smf_paths.remove(p)
+            
 
 if __name__ == "__main__":
     register()

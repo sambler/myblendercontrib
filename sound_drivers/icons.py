@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Custom Icons",
     "author": "batFINGER",
-    "location": "Properties > Speaker > MIDI",
+    "location": "UserPrefs > Sound Drivers > Icons",
     "description": "Custom Icons",
     "warning": "Still in Testing",
     "wiki_url": "http://wiki.blender.org/index.php/\
@@ -24,14 +24,16 @@ enum_item_icon = UILayout.enum_item_icon
 icon_dir = path.join(path.dirname(__file__), "icons")
 subs =  [name for name in listdir(icon_dir)
                 if path.isdir(path.join(icon_dir, name))]
+
 preview_collections = {}
+
 def get_icon(collection, name):
     pcoll = preview_collections.get("main")
     if pcoll:
         return pcoll.get("%s_%s" % (collection, name))
     return None
 
-class MIDIAddonPreferences(AddonPreferences):
+class ICONAddonPreferences(AddonPreferences):
     ''' ICON Prefs '''
     bl_idname = __name__
     def enum_previews_from_directory_items(self, context):
@@ -74,6 +76,8 @@ class MIDIAddonPreferences(AddonPreferences):
     sd_icons = EnumProperty(
             items=enum_previews_from_directory_items,
             )
+
+
     def draw(self, context):
         layout = self.layout
         # icon support
@@ -119,8 +123,8 @@ def register():
 
     pcoll = bpy.utils.previews.new()
     pcoll.collections = subs
+
     for sub in subs:
-        print("SUBBBIEE", sub)
         pcoll.id = sub
         sub_dir = path.join(icon_dir, sub)
         
@@ -131,10 +135,6 @@ def register():
                 icons.append(("%s_%s" % (sub, path.splitext(fn)[0]), fn))
 
         for key, f in icons:
-            
-            if pcoll.get(key):
-                print("WTF>......", key)
-                continue
             pcoll.load(key, path.join(sub_dir, f), 'IMAGE')
 
     preview_collections["main"] = pcoll
@@ -142,4 +142,5 @@ def register():
 def unregister():
     for pcoll in preview_collections.values():
         bpy.utils.previews.remove(pcoll)
+
     preview_collections.clear()
