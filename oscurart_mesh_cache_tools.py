@@ -81,14 +81,16 @@ def CargaAutoLoadPC(dummy):
         if gr.use_auto_load:
             for ob in bpy.data.groups[gr.name].objects:
                 for MOD in ob.modifiers:
-                    if MOD.type == "MESH_CACHE":                    
-                        #MOD = ob.modifiers.new("TempPC","MESH_CACHE")
-                        MOD.filepath = "%s%s%s.pc2" % (bpy.context.scene.pc_pc2_folder, os.sep, ob.name)
+                    if MOD.type == "MESH_CACHE":                                       
                         MOD.cache_format = "PC2"
                         MOD.forward_axis = "POS_Y"
                         MOD.up_axis = "POS_Z"
                         MOD.flip_axis = set(())
-                        MOD.frame_start = bpy.context.scene.pc_pc2_start                
+                        MOD.frame_start = bpy.context.scene.pc_pc2_start  
+                        abspath = os.path.abspath(bpy.path.abspath("//"+bpy.context.scene.pc_pc2_folder))
+                        MOD.filepath = "%s/%s.pc2" % (abspath,ob.name)
+                         
+                        
                     
 bpy.app.handlers.load_post.append(CargaAutoLoadPC)  
 
@@ -161,8 +163,10 @@ class OscEPc2ExporterPanel(View3DMCPanel, bpy.types.Panel):
 
 def OscSetFolder(context, filepath):
     fp =  filepath if os.path.isdir(filepath) else  os.path.dirname(filepath)
+    os.chdir(os.path.dirname(bpy.data.filepath))
+    rfp = os.path.relpath(fp)
     for sc in bpy.data.scenes:
-        sc.pc_pc2_folder = fp
+        sc.pc_pc2_folder = rfp
     return {'FINISHED'}
 
 
@@ -269,7 +273,7 @@ class OscPc2iMporterBatch(bpy.types.Operator):
     def execute(self, context):
         for OBJ in bpy.context.selected_objects[:]:
             MOD = OBJ.modifiers.new("MeshCache", 'MESH_CACHE')
-            MOD.filepath = "%s%s%s.pc2" % (bpy.context.scene.pc_pc2_folder, os.sep, OBJ.name)
+            MOD.filepath = "//%s%s%s.pc2" % (bpy.context.scene.pc_pc2_folder, os.sep, OBJ.name)   
             MOD.cache_format = "PC2"
             MOD.forward_axis = "POS_Y"
             MOD.up_axis = "POS_Z"
