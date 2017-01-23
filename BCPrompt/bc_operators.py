@@ -51,6 +51,7 @@ v2rdim         |  sets render dimensions to current strip.
 fc             |  fcurrent -> end.frame
 gif dir        |  make animated gif of *.png sequence found in dir's path
 nodeview white |  set bg col of nodeview
+----------------------------------------------------------------------
 '''
 
     add_scrollback(content, 'OUTPUT')

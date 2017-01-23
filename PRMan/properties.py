@@ -65,16 +65,16 @@ class RendermanCameraSettings(bpy.types.PropertyGroup):
 
     fstop = FloatProperty(
         name="F-Stop",
-        description="Aperture size for depth of field.  Decreasing this value increases the blur on out of focus areas.",
+        description="Aperture size for depth of field.  Decreasing this value increases the blur on out of focus areas",
         default=4.0)
 
     dof_aspect = FloatProperty(
         name="DOF Aspect",  default=1,  max=2,  min=0,
-        description="The ratio of blur in the 'x' and 'y' directions. Changing this value from the default will simulate anamorphic lens bokeh effects.  Values less than 1 elongate the blur on the 'y' axis.  Values greater than 1 elongate the blur on the 'x' axis.")
+        description="The ratio of blur in the 'x' and 'y' directions. Changing this value from the default will simulate anamorphic lens bokeh effects.  Values less than 1 elongate the blur on the 'y' axis.  Values greater than 1 elongate the blur on the 'x' axis")
 
     aperture_sides = IntProperty(
         name="Aperture Blades", default=0, min=0,
-        description="The number of sides of the aperture.  If this value is less than 3 the aperture will appear circular.")
+        description="The number of sides of the aperture.  If this value is less than 3 the aperture will appear circular")
 
     aperture_angle = FloatProperty(
         name="Aperture Angle", default=0.0, max=180.0, min=-180.0,
@@ -82,11 +82,11 @@ class RendermanCameraSettings(bpy.types.PropertyGroup):
 
     aperture_roundness = FloatProperty(
         name="Aperture Roundness", default=0.0, max=1.0, min=-1.0,
-        description="A shape parameter, from -1 to 1.  When 0, the aperture is a regular polygon with straight sides.  Values between 0 and 1 give polygons with curved edges bowed out and values between 0 and -1 make the edges bow in.")
+        description="A shape parameter, from -1 to 1.  When 0, the aperture is a regular polygon with straight sides.  Values between 0 and 1 give polygons with curved edges bowed out and values between 0 and -1 make the edges bow in")
 
     aperture_density = FloatProperty(
         name="Aperture Density", default=0.0, max=1.0, min=-1.0,
-        description="The slope, between -1 and 1, of the (linearly varying) aperture density.  A value of zero gives uniform density.  Negative values make the aperture brighter near the center.  Positive values make it brighter near the rim.")
+        description="The slope, between -1 and 1, of the (linearly varying) aperture density.  A value of zero gives uniform density.  Negative values make the aperture brighter near the center.  Positive values make it brighter near the rim")
 
 
 # Blender data
@@ -130,14 +130,14 @@ class RendermanAOV(bpy.types.PropertyGroup):
             ("", "Basic LPE's", "Basic LPE's", "", 0),
             ("color rgba", "rgba", "Combined (beauty)", "", 1),
             ("color lpe:C<.D%G><L.%LG>", "Diffuse", "Diffuse", "", 2),
-            ("color lpe:(C<R.D%G>[DS]+<L.%LG>)|(C<R.D%G>[DS]*O)",
+            ("color lpe:(C<RD%G>[DS]+<L.%LG>)|(C<RD%G>[DS]*O)",
              "IndirectDiffuse", "IndirectDiffuse", "", 3),
             ("color lpe:C<.S%G><L.%LG>", "Specular", "Specular", "", 4),
-            ("color lpe:(C<R.S%G>[DS]+<L.%LG>)|(C<R.S%G>[DS]*O)",
+            ("color lpe:(C<RS%G>[DS]+<L.%LG>)|(C<RS%G>[DS]*O)",
              "IndirectSpecular", "IndirectSpecular", "", 5),
-            ("color lpe:(C<T.D%G>[DS]+<L.%LG>)|(C<T.D%G>[DS]*O)",
+            ("color lpe:(C<TD%G>[DS]+<L.%LG>)|(C<TD%G>[DS]*O)",
              "Subsurface", "Subsurface", "", 6),
-            ("color lpe:C<R.S%G>([DS]+<L.%LG>)|([DS]*O)",
+            ("color lpe:C<RS%G>([DS]+<L.%LG>)|([DS]*O)",
              "Reflection", "Reflection", "", 7),
             ("color lpe:(C<T[S]%G>[DS]+<L.%LG>)|(C<T[S]%G>[DS]*O)",
              "Refraction", "Refraction", "", 8),
@@ -148,108 +148,118 @@ class RendermanAOV(bpy.types.PropertyGroup):
              "Albedo", "Albedo", "", 11),
             ("color lpe:C<.D%G>[S]+<L.%LG>",
              "Caustics", "Caustics", "", 12),
+            # Matte ID
+            ("", "Matte ID's", "Matte ID's", "", 0),
+            ("color MatteID0", "MatteID0", "MatteID0", "", 13),
+            ("color MatteID1", "MatteID1", "MatteID1", "", 14),
+            ("color MatteID2", "MatteID2", "MatteID2", "", 15),
+            ("color MatteID3", "MatteID3", "MatteID3", "", 16),
+            ("color MatteID4", "MatteID4", "MatteID4", "", 17),
+            ("color MatteID5", "MatteID5", "MatteID5", "", 18),
+            ("color MatteID6", "MatteID6", "MatteID6", "", 19),
+            ("color MatteID7", "MatteID7", "MatteID7", "", 20),
             # PxrSurface lpe
             ("", "PxrSurface lobe LPE's", "PxrSurface lobe LPE's", "", 0),
             ("color lpe:C<.D2%G>[<L.%LG>O]",
-             "directDiffuseLobe", "", "", 13),
+             "directDiffuseLobe", "", "", 22),
             ("color lpe:C<.D2%G>[DS]+[<L.%LG>O]",
-             "indirectDiffuseLobe", "", "", 14),
+             "indirectDiffuseLobe", "", "", 23),
             ("color lpe:C<.D3%G>[DS]*[<L.%LG>O]",
-             "subsurfaceLobe", "", "", 15),
+             "subsurfaceLobe", "", "", 24),
             ("color lpe:C<.S2%G>[<L.%LG>O]",
-             "directSpecularPrimaryLobe", "", "", 16),
+             "directSpecularPrimaryLobe", "", "", 25),
             ("color lpe:C<.S2%G>[DS]+[<L.%LG>O]",
-             "indirectSpecularPrimaryLobe", "", "", 17),
+             "indirectSpecularPrimaryLobe", "", "", 26),
             ("color lpe:C<.S3%G>[<L.%LG>O]",
-             "directSpecularRoughLobe", "", "", 18),
+             "directSpecularRoughLobe", "", "", 27),
             ("color lpe:C<.S3%G>[DS]+[<L.%LG>O]",
-             "indirectSpecularRoughLobe", "", "", 19),
+             "indirectSpecularRoughLobe", "", "", 28),
             ("color lpe:C<.S4%G>[<L.%LG>O]",
-             "directSpecularClearcoatLobe", "", "", 20),
+             "directSpecularClearcoatLobe", "", "", 29),
             ("color lpe:C<.S4%G>[DS]+[<L.%LG>O]",
-             "indirectSpecularClearcoatLobe", "", "", 21),
+             "indirectSpecularClearcoatLobe", "", "", 30),
             ("color lpe:C<.S5%G>[<L.%LG>O]",
-             "directSpecularIridescenceLobe", "", "", 22),
+             "directSpecularIridescenceLobe", "", "", 31),
             ("color lpe:C<.S5%G>[DS]+[<L.%LG>O]",
-             "indirectSpecularIridescenceLobe", "", "", 23),
+             "indirectSpecularIridescenceLobe", "", "", 32),
             ("color lpe:C<.S6%G>[<L.%LG>O]",
-             "directSpecularFuzzLobe", "", "", 24),
+             "directSpecularFuzzLobe", "", "", 33),
             ("color lpe:C<.S6%G>[DS]+[<L.%LG>O]",
-             "indirectSpecularFuzzLobe", "", "", 25),
+             "indirectSpecularFuzzLobe", "", "", 34),
             ("color lpe:C<.S7%G>[DS]*[<L.%LG>O]",
-             "transmissiveSingleScatterLobe", "", "", 26),
+             "transmissiveSingleScatterLobe", "", "", 35),
             ("color lpe:C<RS8%G>[<L.%LG>O]",
-             "directSpecularGlassLobe", "", "", 27),
+             "directSpecularGlassLobe", "", "", 36),
             ("color lpe:C<RS8%G>[DS]+[<L.%LG>O]",
-             "indirectSpecularGlassLobe", "", "", 28),
+             "indirectSpecularGlassLobe", "", "", 37),
             ("color lpe:C<TS8%G>[DS]*[<L.%LG>O]",
-             "transmissiveGlassLobe", "", "", 29),
+             "transmissiveGlassLobe", "", "", 38),
             # Data AOV's
             ("", "Data AOV's", "Data AOV's", "", 0),
-            ("float a", "alpha", "", "", 30),
-            ("float id", "id", "Returns the integer assigned via the 'identifier' attribute as the pixel value", "", 31),
-            ("float z", "z_depth", "Depth from the camera in world space", "", 32),
+            ("float a", "alpha", "", "", 39),
+            ("float id", "id", "Returns the integer assigned via the 'identifier' attribute as the pixel value", "", 40),
+            ("float z", "z_depth", "Depth from the camera in world space", "", 41),
             ("float zback", "z_back",
-             "Depth at the back of volumetric objects in world space", "", 33),
-            ("point P",  "P",  "Position of the point hit by the incident ray", "", 34),
+             "Depth at the back of volumetric objects in world space", "", 42),
+            ("point P",  "P",  "Position of the point hit by the incident ray", "", 43),
             ("float PRadius", "PRadius",
-             "Cross-sectional size of the ray at the hit point", "", 35),
+             "Cross-sectional size of the ray at the hit point", "", 44),
             ("float cpuTime", "cpuTime",
-             "The time taken to render a pixel", "", 36),
+             "The time taken to render a pixel", "", 45),
             ("float sampleCount", "sampleCount",
-             "The number of samples taken for the resulting pixel", "", 37),
-            ("normal Nn", "Nn", "Normalized shading normal", "", 38),
-            ("normal Ngn", "Ngn", "Normalized geometric normal", "", 39),
-            ("vector Tn", "Tn", "Normalized shading tangent", "", 40),
+             "The number of samples taken for the resulting pixel", "", 46),
+            ("normal Nn", "Nn", "Normalized shading normal", "", 47),
+            ("normal Ngn", "Ngn", "Normalized geometric normal", "", 48),
+            ("vector Tn", "Tn", "Normalized shading tangent", "", 49),
             ("vector Vn", "Vn",
-             "Normalized view vector (reverse of ray direction)", "", 41),
-            ("float VLen", "VLen", "Distance to hit point along the ray", "", 42),
-            ("float curvature", "curvature", "Local surface curvature", "", 43),
+             "Normalized view vector (reverse of ray direction)", "", 50),
+            ("float VLen", "VLen", "Distance to hit point along the ray", "", 51),
+            ("float curvature", "curvature", "Local surface curvature", "", 52),
             ("float incidentRaySpread", "incidentRaySpread",
-             "Rate of spread of incident ray", "", 44),
+             "Rate of spread of incident ray", "", 53),
             ("float mpSize", "mpSize",
-             "Size of the micropolygon that the ray hit", "", 45),
-            ("float u", "u", "The parametric coordinates on the primitive", "", 46),
-            ("float v", "v", "The parametric coordinates on the primitive", "", 47),
-            ("float w", "w", "The parametric coordinates on the primitive", "", 48),
+             "Size of the micropolygon that the ray hit", "", 54),
+            ("float u", "u", "The parametric coordinates on the primitive", "", 55),
+            ("float v", "v", "The parametric coordinates on the primitive", "", 56),
+            ("float w", "w", "The parametric coordinates on the primitive", "", 57),
             ("float du", "du",
-             "Derivatives of u, v, and w to adjacent micropolygons", "", 49),
+             "Derivatives of u, v, and w to adjacent micropolygons", "", 58),
             ("float dv", "dv",
-             "Derivatives of u, v, and w to adjacent micropolygons", "", 50),
+             "Derivatives of u, v, and w to adjacent micropolygons", "", 59),
             ("float dw", "dw",
-             "Derivatives of u, v, and w to adjacent micropolygons", "", 51),
+             "Derivatives of u, v, and w to adjacent micropolygons", "", 60),
             ("vector dPdu", "dPdu",
-             "Direction of maximal change in u, v, and w", "", 52),
+             "Direction of maximal change in u, v, and w", "", 61),
             ("vector dPdv", "dPdv",
-             "Direction of maximal change in u, v, and w", "", 53),
+             "Direction of maximal change in u, v, and w", "", 62),
             ("vector dPdw", "dPdw",
-             "Direction of maximal change in u, v, and w", "", 54),
+             "Direction of maximal change in u, v, and w", "", 63),
             ("float dufp", "dufp",
-             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 55),
+             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 64),
             ("float dvfp", "dvfp",
-             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 56),
+             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 65),
             ("float dwfp", "dwfp",
-             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 57),
-            ("float time", "time", "Time sample of the ray", "", 58),
-            ("vector dPdtime", "dPdtime", "Motion vector", "", 59),
-            ("float id", "id", "Returns the integer assigned via the identifier attribute as the pixel value", "", 60),
+             "Multiplier to dPdu, dPdv, dPdw for ray differentials", "", 66),
+            ("float time", "time", "Time sample of the ray", "", 67),
+            ("vector dPdtime", "dPdtime", "Motion vector", "", 68),
+            ("float id", "id", "Returns the integer assigned via the identifier attribute as the pixel value", "", 69),
             ("float outsideIOR", "outsideIOR",
-             "Index of refraction outside this surface", "", 61),
-            ("point __Pworld", "Pworld", "P in world-space", "", 62),
-            ("normal __Nworld", "Nworld", "Nn in world-space", "", 63),
-            ("float __depth", "depth", "Multi-purpose AOV\nr : depth from camera in world-space\ng : height in world-space\nb : geometric facing ratio : abs(Nn.V)", "", 64),
-            ("float[2] __st", "st", "Texture coords", "", 65),
+             "Index of refraction outside this surface", "", 70),
+            ("point __Pworld", "Pworld", "P in world-space", "", 71),
+            ("normal __Nworld", "Nworld", "Nn in world-space", "", 72),
+            ("float __depth", "depth", "Multi-purpose AOV\nr : depth from camera in world-space\ng : height in world-space\nb : geometric facing ratio : abs(Nn.V)", "", 73),
+            ("float[2] __st", "st", "Texture coords", "", 74),
             ("point __Pref", "Pref",
-             "Reference Position primvar (if available)", "", 66),
+             "Reference Position primvar (if available)", "", 75),
             ("normal __Nref", "Nref",
-             "Reference Normal primvar (if available)", "", 67),
+             "Reference Normal primvar (if available)", "", 76),
             ("point __WPref", "WPref",
-             "Reference World Position primvar (if available)", "", 68),
+             "Reference World Position primvar (if available)", "", 77),
             ("normal __WNref",  "WNref",
-             "Reference World Normal primvar (if available)", "", 69),
+             "Reference World Normal primvar (if available)", "", 78),
             # Custom lpe
             ("", "Custom", "Custom", "", 0),
-            ("color custom_lpe", "Custom LPE", "Custom LPE", "", 70)
+            ("color custom_lpe", "Custom LPE", "Custom LPE", "", 79)
         ]
         return items
 
@@ -288,27 +298,27 @@ class RendermanAOV(bpy.types.PropertyGroup):
 
     exposure_gain = FloatProperty(
         name="Gain",
-        description="The gain of the exposure.  This is the overall brightness of the image.",
+        description="The gain of the exposure.  This is the overall brightness of the image",
         default=1.0)
 
     exposure_gamma = FloatProperty(
         name="Gamma",
-        description="The gamma of the exposure.  This determines how flat the brightness curve is.  Raising gamma leads to lighter shadows.",
+        description="The gamma of the exposure.  This determines how flat the brightness curve is.  Raising gamma leads to lighter shadows",
         default=1.0)
 
     remap_a = FloatProperty(
         name="a",
-        description="A value for remap.",
+        description="A value for remap",
         default=0.0)
 
     remap_b = FloatProperty(
         name="b",
-        description="B value for remap.",
+        description="B value for remap",
         default=0.0)
 
     remap_c = FloatProperty(
         name="c",
-        description="C value for remap.",
+        description="C value for remap",
         default=0.0)
 
     quantize_zero = IntProperty(
@@ -333,7 +343,7 @@ class RendermanAOV(bpy.types.PropertyGroup):
 
     aov_pixelfilter = EnumProperty(
         name="Pixel Filter",
-        description="Filter to use to combine pixel samples.  If 'default' is selected the aov will use the filter set in the render panel.",
+        description="Filter to use to combine pixel samples.  If 'default' is selected the aov will use the filter set in the render panel",
         items=[('default',  'Default',  ''),
                ('box', 'Box', ''),
                ('sinc', 'Sinc', ''),
@@ -367,7 +377,7 @@ class RendermanRenderLayerSettings(bpy.types.PropertyGroup):
 
     exr_format_options = EnumProperty(
         name="EXR Bit Depth",
-        description="Sets the bit depth of the .exr file.  Leaving at 'default' will use the Renderman defaults.",
+        description="Sets the bit depth of the .exr file.  Leaving at 'default' will use the Renderman defaults",
         items=[
             ('default',  'Default', ''),
             ('half',  'Half (16 bit)',  ''),
@@ -381,7 +391,7 @@ class RendermanRenderLayerSettings(bpy.types.PropertyGroup):
 
     exr_compression = EnumProperty(
         name="EXR Compression",
-        description="Determined the compression used on the EXR file.  Leaving at 'default' will use the Renderman defaults.",
+        description="Determined the compression used on the EXR file.  Leaving at 'default' will use the Renderman defaults",
         items=[
             ('default',  'Default',  ''),
             ('none',  'None',  ''),
@@ -395,7 +405,7 @@ class RendermanRenderLayerSettings(bpy.types.PropertyGroup):
 
     exr_storage = EnumProperty(
         name="EXR Storage Mode",
-        description="This determines how the EXR file is formatted.  Tile-based may reduce the amount of memory used by the display buffer.",
+        description="This determines how the EXR file is formatted.  Tile-based may reduce the amount of memory used by the display buffer",
         items=[
             ('scanline', 'Scanline Storage', ''),
             ('tiled', 'Tiled Storage', '')],
@@ -502,21 +512,21 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     pixel_variance = FloatProperty(
         name="Pixel Variance",
-        description="If a pixel changes by less than this amount when updated, it will not receive further samples in adaptive mode.  Lower values lead to increased render times and higher quality images.",
+        description="If a pixel changes by less than this amount when updated, it will not receive further samples in adaptive mode.  Lower values lead to increased render times and higher quality images",
         min=0, max=1, default=.01)
 
     dark_falloff = FloatProperty(
         name="Dark Falloff",
-        description="Deprioritizes adaptive sampling in dark areas. Raising this can potentially reduce render times but may increase noise in dark areas.",
+        description="Deprioritizes adaptive sampling in dark areas. Raising this can potentially reduce render times but may increase noise in dark areas",
         min=0, max=1, default=.025)
 
     min_samples = IntProperty(
         name="Min Samples",
-        description="The minimum number of camera samples per pixel.  If this is set to '0' then the min samples will be the square root of the max_samples.",
+        description="The minimum number of camera samples per pixel.  If this is set to '0' then the min samples will be the square root of the max_samples",
         min=0, default=4)
     max_samples = IntProperty(
         name="Max Samples",
-        description="The maximum number of camera samples per pixel.  This should be set in 'power of two' numbers (1, 2, 4, 8, 16, etc).",
+        description="The maximum number of camera samples per pixel.  This should be set in 'power of two' numbers (1, 2, 4, 8, 16, etc)",
         min=0, default=128)
 
     bucket_shape = EnumProperty(
@@ -548,13 +558,32 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     render_selected_objects_only = BoolProperty(
         name="Only Render Selected",
-        description="Render only the selected object(s).",
+        description="Render only the selected object(s)",
         default=False)
 
     shadingrate = FloatProperty(
         name="Micropolygon Length",
-        description="Default maximum distance between displacement samples.  This can be left at 1 unless you need more detail on displaced objects.",
+        description="Default maximum distance between displacement samples.  This can be left at 1 unless you need more detail on displaced objects",
         default=1.0)
+        
+    dicing_strategy = EnumProperty(
+        name="Dicing Strategy", 
+        description="Sets the method that PRMan uses to tessellate objects.  Spherical may help with volume rendering", 
+        items=[
+                ("planarprojection", "Planar Projection", "Tessellates using the screen space coordinates of a primitive projected onto a plane"),
+                ("sphericalprojection", "Spherical Projection", "Tessellates using the coordinates of a primitive projected onto a sphere"), 
+                ("worlddistance", "World Distance", "Tessellation is determined using distances measured in world space units compared to the current micropolygon length")], 
+        default="sphericalprojection")
+        
+    worlddistancelength = FloatProperty(
+        name="World Distance Length", 
+        description="If this is a value above 0, it sets the length of a micropolygon after tessellation", 
+        default=-1.0)
+        
+    instanceworlddistancelength = FloatProperty(
+        name="Instance World Distance Length", 
+        description="Set the length of a micropolygon for tessellated instanced meshes", 
+        default=1e30)
 
     motion_blur = BoolProperty(
         name="Motion Blur",
@@ -562,11 +591,11 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         default=False)
     sample_motion_blur = BoolProperty(
         name="Sample Motion Blur",
-        description="Determines if motion blur is rendered in the final image.  If this is disabled the motion vectors are still calculated and can be exported with the dPdTime AOV.  This allows motion blur to be added as a post process effect.",
+        description="Determines if motion blur is rendered in the final image.  If this is disabled the motion vectors are still calculated and can be exported with the dPdTime AOV.  This allows motion blur to be added as a post process effect",
         default=True)
     motion_segments = IntProperty(
         name="Motion Samples",
-        description="Number of motion samples to take for motion blur.  Set this higher if you notice segment artifacts in blurs.",
+        description="Number of motion samples to take for motion blur.  Set this higher if you notice segment artifacts in blurs",
         min=2, max=16, default=2)
     shutter_timing = EnumProperty(
         name="Shutter Timing",
@@ -578,16 +607,16 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     shutter_angle = FloatProperty(
         name="Shutter Angle",
-        description="Fraction of time that the shutter is open (360 is one full second).  180 is typical for North America 24fps cameras, 172.8 is typical in Europe.",
+        description="Fraction of time that the shutter is open (360 is one full second).  180 is typical for North America 24fps cameras, 172.8 is typical in Europe",
         default=180.0, min=0.0, max=360.0)
 
     shutter_efficiency_open = FloatProperty(
         name="Shutter open speed",
-        description="Shutter open efficiency - controls the speed of the shutter opening.  0 means instantaneous, > 0 is a gradual opening.",
+        description="Shutter open efficiency - controls the speed of the shutter opening.  0 means instantaneous, > 0 is a gradual opening",
         default=0.0)
     shutter_efficiency_close = FloatProperty(
         name="Shutter close speed",
-        description="Shutter close efficiency - controls the speed of the shutter closing.  1 means instantaneous, < 1 is a gradual closing.",
+        description="Shutter close efficiency - controls the speed of the shutter closing.  1 means instantaneous, < 1 is a gradual closing",
         default=1.0)
 
     depth_of_field = BoolProperty(
@@ -597,11 +626,11 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     threads = IntProperty(
         name="Rendering Threads",
-        description="Number of processor threads to use.  Note, 0 uses all cores, -1 uses all cores but one.",
+        description="Number of processor threads to use.  Note, 0 uses all cores, -1 uses all cores but one",
         min=-32, max=32, default=-1)
     max_trace_depth = IntProperty(
         name="Max Trace Depth",
-        description="Maximum number of times a ray can bounce before the path is ended.  Lower settings will render faster but may change lighting.",
+        description="Maximum number of times a ray can bounce before the path is ended.  Lower settings will render faster but may change lighting",
         min=0, max=32, default=10)
     max_specular_depth = IntProperty(
         name="Max Specular Depth",
@@ -656,21 +685,35 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         subtype='FILE_PATH',
         default="./shaders")
 
+    rib_format = EnumProperty(
+        name="RIB Format",
+        items=[
+            ("ascii", "ASCII", ""),
+            ("binary", "Binary", "")],
+        default="binary")
+
+    rib_compression = EnumProperty(
+        name="RIB Compression",
+        items=[
+            ("none", "None", ""),
+            ("gzip", "GZip", "")],
+        default="none")
+
     texture_cache_size = IntProperty(
         name="Texture Cache Size (MB)",
-        description="Maximum number of megabytes to devote to texture caching.",
+        description="Maximum number of megabytes to devote to texture caching",
         default=2048
     )
 
     geo_cache_size = IntProperty(
         name="Tesselation Cache Size (MB)",
-        description="Maximum number of megabytes to devote to tesselation cache for tracing geometry.",
+        description="Maximum number of megabytes to devote to tesselation cache for tracing geometry",
         default=2048
     )
 
     opacity_cache_size = IntProperty(
         name="Opacity Cache Size (MB)",
-        description="Maximum number of megabytes to devote to caching opacity and presence values.  0 turns this off.",
+        description="Maximum number of megabytes to devote to caching opacity and presence values.  0 turns this off",
         default=1000
     )
 
@@ -683,7 +726,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     lazy_rib_gen = BoolProperty(
         name="Cache Rib Generation",
-        description="On unchanged objects, don't re-emit rib.  Will result in faster spooling of renders.",
+        description="On unchanged objects, don't re-emit rib.  Will result in faster spooling of renders",
         default=True)
 
     always_generate_textures = BoolProperty(
@@ -693,7 +736,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
     # preview settings
     preview_pixel_variance = FloatProperty(
         name="Preview Pixel Variance",
-        description="If a pixel changes by less than this amount when updated, it will not receive further samples in adaptive mode.",
+        description="If a pixel changes by less than this amount when updated, it will not receive further samples in adaptive mode",
         min=0, max=1, default=.05)
 
     preview_bucket_order = EnumProperty(
@@ -719,7 +762,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         min=0, default=0)
     preview_max_samples = IntProperty(
         name="Preview Max Samples",
-        description="The maximum number of camera samples per pixel.  This should be set lower than the final render setting to imporove speed.",
+        description="The maximum number of camera samples per pixel.  This should be set lower than the final render setting to imporove speed",
         min=0, default=64)
 
     preview_max_specular_depth = IntProperty(
@@ -749,7 +792,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     exr_format_options = EnumProperty(
         name="Bit Depth",
-        description="Sets the bit depth of the main EXR file.  Leaving at 'default' will use the Renderman defaults.",
+        description="Sets the bit depth of the main EXR file.  Leaving at 'default' will use the Renderman defaults",
         items=[
             ('default',  'Default', ''),
             ('half',  'Half (16 bit)',  ''),
@@ -758,7 +801,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     exr_compression = EnumProperty(
         name="Compression",
-        description="Determined the compression used on the main EXR file.  Leaving at 'default' will use the Renderman defaults.",
+        description="Determined the compression used on the main EXR file.  Leaving at 'default' will use the Renderman defaults",
         items=[
             ('default',  'Default',  ''),
             ('none',  'None',  ''),
@@ -779,7 +822,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     external_action = EnumProperty(
         name="Action",
-        description="Action for rendering externally.",
+        description="Action for rendering externally",
         items=[('ribgen', 'Generate RIB only',
                 'Only Generate RIB and job file (no render)'),
                ('spool', 'Spool Job', 'Spool Job to queuing system')],
@@ -787,12 +830,12 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     custom_alfname = StringProperty(
         name="Custom Spool Name",
-        description="Allows a custom name for the spool .alf file.  This would allow you to export multiple spool files for the same scene.",
+        description="Allows a custom name for the spool .alf file.  This would allow you to export multiple spool files for the same scene",
         default='spool')
 
     queuing_system = EnumProperty(
         name="Spool to",
-        description="System to spool to.",
+        description="System to spool to",
         items=[('lq', 'LocalQueue', 'LocalQueue, must have RMS installed'),
                ('tractor', 'tractor', 'Tractor, must have tractor setup')],
         default='lq')
@@ -804,12 +847,12 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     custom_cmd = StringProperty(
         name="Custom Render Commands",
-        description="Inserts a string of custom command arguments into the render process.",
+        description="Inserts a string of custom command arguments into the render process",
         default='')
 
     denoise_cmd = StringProperty(
         name="Custom Denoise Commands",
-        description="Inserts a string of custom commands arguments into the denoising process, if selected.",
+        description="Inserts a string of custom commands arguments into the denoising process, if selected",
         default='')
 
     spool_denoise_aov = BoolProperty(
@@ -829,12 +872,12 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     enable_checkpoint = BoolProperty(
         name="Enable Checkpointing",
-        description="Allows partial images to be output at specific intervals while the renderer continued to run.  The user may also set a point at which the render will terminate.",
+        description="Allows partial images to be output at specific intervals while the renderer continued to run.  The user may also set a point at which the render will terminate",
         default=False)
 
     checkpoint_type = EnumProperty(
         name="Checkpoint Method",
-        description="Sets the method that the checkpointing will use.",
+        description="Sets the method that the checkpointing will use",
         items=[('i', 'Iterations', 'Number of samples per pixel'),
                ('s', 'Seconds', ''),
                ('m', 'Minutes', ''),
@@ -849,33 +892,33 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     render_limit = IntProperty(
         name="Limit",
-        description="The maximum interval that will be reached before the render terminates.  0 will disable this option.",
+        description="The maximum interval that will be reached before the render terminates.  0 will disable this option",
         default=0)
 
     asfinal = BoolProperty(
         name="Final Image as Checkpoint",
-        description="Saves the final image as a checkpoint.  This allows you to resume it after raising the sample count.",
+        description="Saves the final image as a checkpoint.  This allows you to resume it after raising the sample count",
         default=False)
 
     header_rib_boxes = StringProperty(
         name="External RIB File",
-        description="Injects an external RIB into the header of the output file.",
+        description="Injects an external RIB into the header of the output file",
         subtype='FILE_PATH',
         default="")
 
     do_denoise = BoolProperty(
         name="Denoise Post-Process",
-        description="Use PRMan's image denoiser to post process your render.  This allows you to use a higher pixel variance (and therefore faster render) while still producing a high quality image.",
+        description="Use PRMan's image denoiser to post process your render.  This allows you to use a higher pixel variance (and therefore faster render) while still producing a high quality image",
         default=False)
 
     external_denoise = BoolProperty(
         name="Denoise Post-Process",
-        description="Use PRMan's image denoiser to post process your render.  This allows you to use a higher pixel variance (and therefore faster render) while still producing a high quality image.",
+        description="Use PRMan's image denoiser to post process your render.  This allows you to use a higher pixel variance (and therefore faster render) while still producing a high quality image",
         default=False)
 
     crossframe_denoise = BoolProperty(
         name="Crossframe Denoise",
-        description="Only available when denoising an external render.\n  This is more efficient especially with motion blur.",
+        description="Only available when denoising an external render.\n  This is more efficient especially with motion blur",
         default=False)
 
     update_frequency = IntProperty(
@@ -885,7 +928,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
 
     import_images = BoolProperty(
         name="Import AOV's into Blender",
-        description="Imports all AOV's from the render session into Blender's image editor.",
+        description="Imports all AOV's from the render session into Blender's image editor",
         default=True)
 
     incremental = BoolProperty(
@@ -913,7 +956,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
     # Rib Box Properties
     frame_rib_box = StringProperty(
         name="Frame RIB box",
-        description="Injects RIB into the 'frame' block .",
+        description="Injects RIB into the 'frame' block",
         default="")
 
     # Trace Sets (grouping membership)
@@ -962,7 +1005,7 @@ class RendermanMaterialSettings(bpy.types.PropertyGroup):
 
     displacementbound = FloatProperty(
         name="Displacement Bound",
-        description="Maximum distance the displacement shader can displace vertices.  This should be increased if you notice raised details being sharply cut off.",
+        description="Maximum distance the displacement shader can displace vertices.  This should be increased if you notice raised details being sharply cut off",
         precision=4,
         default=0.5)
 
@@ -1622,13 +1665,13 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
 
     shadingrate = FloatProperty(
         name="Light Shading Rate",
-        description="Shading Rate for lights.  Keep this high unless banding or pixellation occurs on detailed light maps.",
+        description="Shading Rate for lights.  Keep this high unless banding or pixellation occurs on detailed light maps",
         default=100.0)
 
     # illuminate
     illuminates_by_default = BoolProperty(
         name="Illuminates by default",
-        description="The light illuminates objects by default.",
+        description="The light illuminates objects by default",
         default=True)
 
     light_primary_visibility = BoolProperty(
@@ -1644,7 +1687,7 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
     mute = BoolProperty(
         name="Mute",
         update=update_mute,
-        description="Turn off this light.",
+        description="Turn off this light",
         default=False)
 
     def update_solo(self, context):
@@ -1669,7 +1712,7 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
     solo = BoolProperty(
         name="Solo",
         update=update_solo,
-        description="Turn on only this light.",
+        description="Turn on only this light",
         default=False)
 
 
@@ -1730,28 +1773,28 @@ class RendermanWorldSettings(bpy.types.PropertyGroup):
 
     shadingrate = FloatProperty(
         name="Light Shading Rate",
-        description="Shading Rate for lights.  Keep this high unless banding or pixellation occurs on detailed light maps.",
+        description="Shading Rate for lights.  Keep this high unless banding or pixellation occurs on detailed light maps",
         default=100.0)
 
     world_rib_box = StringProperty(
         name="World RIB box",
-        description="Injects RIB into the 'world' block .",
+        description="Injects RIB into the 'world' block",
         default="")
 
     # illuminate
     illuminates_by_default = BoolProperty(
         name="Illuminates by default",
-        description="Illuminates objects by default.",
+        description="Illuminates objects by default",
         default=True)
 
 
 class RendermanMeshPrimVar(bpy.types.PropertyGroup):
     name = StringProperty(
         name="Variable Name",
-        description="Name of the exported renderman primitive variable.")
+        description="Name of the exported renderman primitive variable")
     data_name = StringProperty(
         name="Data Name",
-        description="Name of the Blender data to export as the primitive variable.")
+        description="Name of the Blender data to export as the primitive variable")
     data_source = EnumProperty(
         name="Data Source",
         description="Blender data type to export as the primitive variable",
@@ -1765,10 +1808,10 @@ class RendermanMeshPrimVar(bpy.types.PropertyGroup):
 class RendermanParticlePrimVar(bpy.types.PropertyGroup):
     name = StringProperty(
         name="Variable Name",
-        description="Name of the exported renderman primitive variable.")
+        description="Name of the exported renderman primitive variable")
     data_source = EnumProperty(
         name="Data Source",
-        description="Blender data type to export as the primitive variable.",
+        description="Blender data type to export as the primitive variable",
         items=[('SIZE', 'Size', ''),
                ('VELOCITY', 'Velocity', ''),
                ('ANGULAR_VELOCITY', 'Angular Velocity', ''),
@@ -1793,23 +1836,23 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
 
     use_object_material = BoolProperty(
         name="Use Master Object's Material",
-        description="Use the master object's material for instancing.",
+        description="Use the master object's material for instancing",
         default=False
     )
 
     particle_type = EnumProperty(
         name="Point Type",
-        description="Geometric primitive for points to be rendered as.",
+        description="Geometric primitive for points to be rendered as",
         items=particle_type_items,
         default='particle')
     particle_instance_object = StringProperty(
         name="Instance Object",
-        description="Object to instance on every particle.",
+        description="Object to instance on every particle",
         default="")
 
     round_hair = BoolProperty(
         name="Round Hair",
-        description="Render curves as round cylinders or ribbons.  Round is faster and recommended for hair.",
+        description="Render curves as round cylinders or ribbons.  Round is faster and recommended for hair",
         default=True)
 
     constant_width = BoolProperty(
@@ -1819,18 +1862,18 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
 
     width = FloatProperty(
         name="Width",
-        description="With used for constant width across all particles.",
+        description="With used for constant width across all particles",
         precision=4,
         default=0.01)
 
     export_default_size = BoolProperty(
         name="Export Default size",
-        description="Export the particle size as the default 'width' primitive variable.",
+        description="Export the particle size as the default 'width' primitive variable",
         default=True)
 
     export_scalp_st = BoolProperty(
         name="Export Emitter UV",
-        description="On hair, export the u/v from the emitter where the hair originates.  Use the variables 'scalpS' and 'scalpT' in your manifold node.",
+        description="On hair, export the u/v from the emitter where the hair originates.  Use the variables 'scalpS' and 'scalpT' in your manifold node",
         default=False
     )
 
@@ -1842,12 +1885,22 @@ class RendermanParticleSettings(bpy.types.PropertyGroup):
 class RendermanMeshGeometrySettings(bpy.types.PropertyGroup):
     export_default_uv = BoolProperty(
         name="Export Default UVs",
-        description="Export the active UV set as the default 'st' primitive variable.",
+        description="Export the active UV set as the default 'st' primitive variable",
         default=True)
     export_default_vcol = BoolProperty(
         name="Export Default Vertex Color",
-        description="Export the active Vertex Color set as the default 'Cs' primitive variable.",
+        description="Export the active Vertex Color set as the default 'Cs' primitive variable",
         default=True)
+    interp_boundary = IntProperty(
+        name="Subdivision Edge Interpolation Mode", 
+        description="Defines how a subdivided mesh interpolates its boundary edges", 
+        default=1, 
+        min=0, max=2)
+    face_boundary = IntProperty(
+        name="Subdivision UV Interpolation Mode", 
+        description="Defines how a subdivided mesh interpolates its UV coordinates", 
+        default=3, 
+        min=0, max=3)
 
     prim_vars = CollectionProperty(
         type=RendermanMeshPrimVar, name="Primitive Variables")
@@ -1857,15 +1910,15 @@ class RendermanMeshGeometrySettings(bpy.types.PropertyGroup):
 class RendermanCurveGeometrySettings(bpy.types.PropertyGroup):
     export_default_uv = BoolProperty(
         name="Export Default UVs",
-        description="Export the active UV set as the default 'st' primitive variable.",
+        description="Export the active UV set as the default 'st' primitive variable",
         default=True)
     export_default_vcol = BoolProperty(
         name="Export Default Vertex Color",
-        description="Export the active Vertex Color set as the default 'Cs' primitive variable.",
+        description="Export the active Vertex Color set as the default 'Cs' primitive variable",
         default=True)
     export_smooth_normals = BoolProperty(
         name="Export Smooth Normals",
-        description="Export smooth per-vertex normals for PointsPolygons Geometry.",
+        description="Export smooth per-vertex normals for PointsPolygons Geometry",
         default=True)
 
     prim_vars = CollectionProperty(
@@ -1892,12 +1945,12 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
 
     pre_object_rib_box = StringProperty(
         name="Pre Object RIB text",
-        description="Injects an RIB before this object's geometry.",
+        description="Injects an RIB before this object's geometry",
         default="")
 
     post_object_rib_box = StringProperty(
         name="Post Object RIB text",
-        description="Injects an RIB after this object's geometry.",
+        description="Injects an RIB after this object's geometry",
         default="")
 
     geometry_source = EnumProperty(
@@ -1976,6 +2029,7 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                ('POLYGON_MESH', 'Polygon Mesh', 'Mesh object'),
                ('SUBDIVISION_MESH', 'Subdivision Mesh',
                 'Smooth subdivision surface formed by mesh cage'),
+               ('RI_VOLUME', 'Volume', 'Volume primitive'), 
                ('POINTS', 'Points',
                 'Renders object vertices as single points'),
                ('SPHERE', 'Sphere', 'Parametric sphere primitive'),
@@ -2042,33 +2096,37 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
         default='particle')
     primitive_point_width = FloatProperty(
         name="Point Width",
-        description="Size of the rendered points.",
+        description="Size of the rendered points",
         default=0.1)
 
     shading_override = BoolProperty(
         name="Override Default Shading Rate",
-        description="Override the default shading rate for this object.",
+        description="Override the default shading rate for this object",
         default=False)
     shadingrate = FloatProperty(
         name="Micropolygon Length",
-        description="Maximum distance between displacement samples (lower = more detailed shading).",
+        description="Maximum distance between displacement samples (lower = more detailed shading)",
         default=1.0)
+    watertight = BoolProperty(
+        name="Watertight Dicing", 
+        description="Enables watertight dicing, which can solve cases where displacement causes visible seams in objects", 
+        default=False)
     geometric_approx_motion = FloatProperty(
         name="Motion Approximation",
-        description="Shading Rate is scaled up by motionfactor/16 times the number of pixels of motion.",
+        description="Shading Rate is scaled up by motionfactor/16 times the number of pixels of motion",
         default=1.0)
     geometric_approx_focus = FloatProperty(
         name="Focus Approximation",
-        description="Shading Rate is scaled proportionally to the radius of DoF circle of confusion, multiplied by this value.",
+        description="Shading Rate is scaled proportionally to the radius of DoF circle of confusion, multiplied by this value",
         default=-1.0)
 
     motion_segments_override = BoolProperty(
         name="Override Motion Samples",
-        description="Override the global number of motion samples for this object.",
+        description="Override the global number of motion samples for this object",
         default=False)
     motion_segments = IntProperty(
         name="Motion Samples",
-        description="Number of motion samples to take for multi-segment motion blur.  This should be raised if you notice segment artifacts in blurs.",
+        description="Number of motion samples to take for multi-segment motion blur.  This should be raised if you notice segment artifacts in blurs",
         min=2, max=16, default=2)
 
     shadinginterpolation = EnumProperty(
@@ -2080,28 +2138,28 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
 
     matte = BoolProperty(
         name="Matte Object",
-        description="Render the object as a matte cutout (alpha 0.0 in final frame).",
+        description="Render the object as a matte cutout (alpha 0.0 in final frame)",
         default=False)
     visibility_camera = BoolProperty(
         name="Visible to Camera Rays",
-        description="Object visibility to Camera Rays.",
+        description="Object visibility to Camera Rays",
         default=True)
     visibility_trace_indirect = BoolProperty(
         name="All Indirect Rays",
-        description="Sets all the indirect transport modes at once (specular & diffuse).",
+        description="Sets all the indirect transport modes at once (specular & diffuse)",
         default=True)
     visibility_trace_transmission = BoolProperty(
         name="Visible to Transmission Rays",
-        description="Object visibility to Transmission Rays (eg. shadow() and transmission()).",
+        description="Object visibility to Transmission Rays (eg. shadow() and transmission())",
         default=True)
 
     raytrace_override = BoolProperty(
         name="Ray Trace Override",
-        description="Override default Renderman ray tracing behavior. Recommended for advanced users only.",
+        description="Override default Renderman ray tracing behavior. Recommended for advanced users only",
         default=False)
     raytrace_pixel_variance = FloatProperty(
         name="Relative Pixel Variance",
-        description="Allows this object ot render to a different quality level than the main scene.  Actual pixel variance will be this number multiplied by the main pixel variance.",
+        description="Allows this object ot render to a different quality level than the main scene.  Actual pixel variance will be this number multiplied by the main pixel variance",
         default=1.0)
     raytrace_maxdiffusedepth = IntProperty(
         name="Max Diffuse Depth",
@@ -2164,56 +2222,56 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
         description="Matte ID 0 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
     MatteID1 = FloatVectorProperty(
         name="Matte ID 1",
         description="Matte ID 1 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
     MatteID2 = FloatVectorProperty(
         name="Matte ID 2",
         description="Matte ID 2 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
     MatteID3 = FloatVectorProperty(
         name="Matte ID 3",
         description="Matte ID 3 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
     MatteID4 = FloatVectorProperty(
         name="Matte ID 4",
         description="Matte ID 4 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
     MatteID5 = FloatVectorProperty(
         name="Matte ID 5",
         description="Matte ID 5 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
     MatteID6 = FloatVectorProperty(
         name="Matte ID 6",
         description="Matte ID 6 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
     MatteID7 = FloatVectorProperty(
         name="Matte ID 7",
         description="Matte ID 7 Color, you also need to add the PxrMatteID node to your bxdf",
         size=3,
         subtype='COLOR',
-        default=[0.0, 0.0, 0.0])
+        default=[0.0, 0.0, 0.0], soft_min=0.0, soft_max=1.0)
 
 
 class Tab_CollectionGroup(bpy.types.PropertyGroup):

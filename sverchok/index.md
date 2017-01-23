@@ -1,13 +1,13 @@
 > ### This file is parsed by menu.py
-> 
+>
 > The following strict rules apply to editing this file:
 >
 > - do not use tabs, anywhere
 > - indent the Node's line using 4 spaces
 > - use `>` to add a comment, place it at the start of the line.
 > - if you aren't sure, follow the existing convention
-> 
-> Failing to follow these points will break the node category parser. 
+>
+> Failing to follow these points will break the node category parser.
 
 ## Generators
     LineNode
@@ -33,7 +33,6 @@
     SvImageComponentsNode
     SvScriptNode
     SvScriptNodeMK3
-    SvScriptNodeLite
 
 ## Analyzers
     SvBBoxNode
@@ -45,7 +44,7 @@
     GetNormalsNode
     VectorNormalNode
     SvKDTreeNode
-    SvKDTreeEdgesNode
+    SvKDTreeEdgesNodeMK2
     SvMeshFilterNode
     SvEdgeAnglesNode
 
@@ -140,7 +139,7 @@
 ## Vector
     GenVectorsNode
     VectorsOutNode
-    VectorMathNode
+    SvVectorMathNodeMK2
     VectorDropNode
     VectorPolarInNode
     VectorPolarOutNode
@@ -151,7 +150,7 @@
     SvInterpolationNodeMK2
     SvInterpolationNodeMK3
     SvVertSortNode
-    SvNoiseNode
+    SvNoiseNodeMK2
     svAxisInputNode
     SvAxisInputNodeMK2
 
@@ -186,16 +185,17 @@
     SvStethoscopeNode
 
 ## Scene
-    ObjectsNodeMK2
-    SvObjRemoteNode
+    SvObjectsNodeMK3
+    SvObjRemoteNodeMK2
     SvFrameInfoNode
     SvEmptyOutNode
-    SvDupliInstancesMK3
     SvInstancerNode
+    SvDupliInstancesMK4
     SvGetPropNode
     SvSetPropNode
+
+## Objects
     SvVertexGroupNodeMK2
-    SvVertexColorNode
     SvVertexColorNodeMK2
 
 ## Layout
@@ -215,6 +215,8 @@
     SvOBJRayCastNodeMK2
     SvSCNRayCastNodeMK2
     SvObjectToMeshNodeMK2
+    SvObjInLite
+    SvScriptNodeLite
     SvRndNumGen
 
 ## Alpha Nodes
@@ -225,14 +227,15 @@
     SvJoinTrianglesNode
     SvCacheNode
     SvInsetSpecial
-    SkinViewerNode
+    SvSkinViewerNodeMK1b
     SvCSGBooleanNode
     SvParticlesNode
     SvUVtextureNode
     SvNumpyArrayNode
     SvNodeRemoteNode
     SvGetDataObjectNode
-    SvSetDataObjectNode
+    SvSetDataObjectNodeMK2
+    SvObjEdit
     SvSortObjsNode
     SvFilterObjsNode
     SvBMVertsNode
@@ -240,4 +243,5 @@
     SvBMinputNode
     SvBMoutputNode
     SvBMtoElementNode
-    SvObjRemoteNodeMK2
+    SvExecNodeMod
+    SvSeparateMeshNodeMK2

@@ -8,13 +8,33 @@ class Constraint:
   # main
   def main(self, context, layout, constraint):
 
+    # row
+    row = layout.row(align=True)
+
     # name
-    layout.prop(constraint, 'name', text='')
+    row.prop(constraint, 'name', text='')
+
+    # context pointer set
+    row.context_pointer_set('constraint', constraint)
+
+    # is not first
+    if constraint != constraint.id_data.constraints[0]:
+
+      # move up
+      row.operator('constraint.move_up', text='', icon='TRIA_UP')
+
+    # is not last
+    if constraint != constraint.id_data.constraints[len(constraint.id_data.constraints)-1]:
+
+      # move down
+      row.operator('constraint.move_down', text='', icon='TRIA_DOWN')
+
+    # delete
+    row.operator('constraint.delete', text='', icon='X')
 
     # column
     column = layout.column()
 
-    # match enum type to one of the functions below.
     getattr(Constraint, constraint.type)(Constraint, context, column, constraint)
 
     # is constraint has influence

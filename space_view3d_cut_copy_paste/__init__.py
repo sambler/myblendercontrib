@@ -24,7 +24,7 @@ bl_info = {
     "location": "View3D -> Ctrl+X, Ctrl+C, Ctrl+V, Shift+Delete, Ctrl+Insert, Shift+Insert",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/CutCopyPaste3D",
-    "tracker_url": "http://projects.blender.org/tracker/?func=detail&aid=31214",
+    "tracker_url": "https://github.com/dairin0d/cut-copy-paste/issues",
     "category": "3D View"}
 #============================================================================#
 

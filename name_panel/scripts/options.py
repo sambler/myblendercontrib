@@ -167,9 +167,9 @@ class name(PropertyGroup):
 
   # clear search
   clearSearch = BoolProperty(
-  name = 'Clear Search',
-  description = 'Clear search after simple find and replace operations.',
-  default = default['clear search']
+    name = 'Clear Search',
+    description = 'Clear search after simple find and replace operations.',
+    default = default['clear search']
   )
 
   # regex
@@ -223,6 +223,13 @@ class name(PropertyGroup):
     name = 'Modifiers',
     description = 'Display modifier names.',
     default = default['modifiers']
+  )
+
+  # user count
+  userCount = BoolProperty(
+    name = 'User Count',
+    description = 'Number of times this datablock is referenced.',
+    default = False
   )
 
   # bone groups

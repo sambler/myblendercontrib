@@ -28,6 +28,7 @@ import subprocess
 import bpy
 import re
 import sys
+from collections import OrderedDict
 
 from .util import init_env
 from .util import get_path_list
@@ -115,7 +116,7 @@ def generate_page(sp, node, parent_name, first_level=False):
 def class_generate_properties(node, parent_name, shaderparameters):
     prop_names = []
     prop_meta = {}
-    output_meta = {}
+    output_meta = OrderedDict()
 
     # pxr osl and seexpr need these to find the code
     if parent_name in ["PxrOSL", "PxrSeExpr"]:
@@ -239,6 +240,10 @@ def update_func_with_inputs(self, context):
         mat = context.material
         if mat:
             node.update_mat(mat)
+    elif context and hasattr(context, 'node'):
+        mat = context.space_data.id
+        if mat:
+            node.update_mat(mat)
 
     # update the conditional_vis_ops
     update_conditional_visops(node)
@@ -270,6 +275,10 @@ def update_func(self, context):
 
     if context and hasattr(context, 'material'):
         mat = context.material
+        if mat:
+            node.update_mat(mat)
+    elif context and hasattr(context, 'node'):
+        mat = context.space_data.id
         if mat:
             node.update_mat(mat)
 
@@ -411,6 +420,10 @@ def generate_property(sp):
         param_type = 'struct'
         prop_meta['is_vstruct'] = True
     renderman_type = param_type
+    
+    #correct for param_type mismatch with tag value
+    if param_type == 'vector' and tags and tags.find('tag').attrib['value'] == 'color':
+        param_type = 'color'
 
     update_function = update_func_with_inputs if 'enable' in param_name else update_func
 
@@ -437,7 +450,7 @@ def generate_property(sp):
 
     for s in sp:
         if s.tag == 'help' and s.text:
-            param_help = s.text
+            param_help = s.text.rstrip('.')
 
     if 'float' in param_type:
         if 'arraySize' in sp.attrib.keys():
@@ -575,7 +588,7 @@ def generate_property(sp):
         param_default = [float(v) for v in param_default.split()]
         prop = FloatVectorProperty(name=param_label,
                                    default=param_default, size=3,
-                                   subtype="EULER",
+                                   subtype="NONE",
                                    description=param_help, update=update_function)
     elif param_type == 'point':
         if param_default is None:
@@ -661,6 +674,7 @@ socket_map = {
     'struct': 'RendermanNodeSocketStruct',
     'normal': 'RendermanNodeSocketVector',
     'vector': 'RendermanNodeSocketVector',
+    'point': 'RendermanNodeSocketVector',
     'void': 'RendermanNodeSocketStruct',
     'vstruct': 'RendermanNodeSocketStruct',
 }
@@ -702,10 +716,10 @@ class txmake_options():
               "exportType": "name"}
 
     sblur = {'name': "sblur", 'type': "float", 'default': 1.0, 'dispName': "Sblur",
-             'help': "Amount of X blur applied to texture.",
+             'help': "Amount of X blur applied to texture",
              'exportType': "name"}
     tblur = {'name': "tblur", 'type': "float", 'default': 1.0, 'dispName': "Tblur",
-             'help': "Amount of Y blur applied to texture.",
+             'help': "Amount of Y blur applied to texture",
              'exportType': "name"}
     pattern = {'name': "pattern", 'type': "enum", 'default': "diagonal",
                'items': [("diagonal", "Diagonal", ""), ("single", "Single", ""),

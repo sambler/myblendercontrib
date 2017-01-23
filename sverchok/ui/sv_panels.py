@@ -17,14 +17,14 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from bpy.props import StringProperty, CollectionProperty, BoolProperty, FloatProperty
+from bpy.props import StringProperty, BoolProperty, FloatProperty
 
-# global variables in tools
+
 import sverchok
-from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.utils import sv_panels_tools
-from sverchok.core.update_system import process_from_node, process_from_nodes
+from sverchok.utils.sv_update_utils import version_and_sha
+from sverchok.core.update_system import process_from_nodes
 
+objects_nodes_set = {'ObjectsNode', 'ObjectsNodeMK2', 'SvObjectsNodeMK3'}
 
 
 
@@ -41,7 +41,7 @@ class SverchokUpdateObjectIn(bpy.types.Operator):
                 if ng.sv_process:
                     nodes = []
                     for n in ng.nodes:
-                        if n.bl_idname == 'ObjectsNode':
+                        if n.bl_idname in objects_nodes_set:
                             nodes.append(n)
                     if nodes:
                         obj_nodes.append(nodes)
@@ -79,7 +79,7 @@ class Sv3DViewObjInUpdater(bpy.types.Operator, object):
                 if ng.sv_process:
                     nodes = []
                     for n in ng.nodes:
-                        if n.bl_idname == 'ObjectsNode':
+                        if n.bl_idname in objects_nodes_set:
                             nodes.append(n)
                     if nodes:
                         obj_nodes.append(nodes)
@@ -123,7 +123,7 @@ class Sv3DPanel(bpy.types.Panel):
 
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
-    bl_label = "Sverchok " + sv_panels_tools.sv_version_local
+    bl_label = "Sverchok " + version_and_sha
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = 'SV'
 
@@ -201,11 +201,13 @@ class Sv3DPanel(bpy.types.Panel):
                         no = item.node_name
                         ver = item.prop_name
                         node = tree.nodes[no]
+
                         if node.label:
                             tex = node.label
                         else:
                             tex = no
-                        if node.bl_idname == "ObjectsNode":
+
+                        if node.bl_idname == "ObjectsNodeMK2":
                             row = col.row(align=True)
                             row.label(text=node.label if node.label else no)
                             colo = row.row(align=True)
@@ -215,6 +217,9 @@ class Sv3DPanel(bpy.types.Panel):
                             op.tree_name = tree.name
                             op.grup_name = node.groupname
                             op.sort = node.sort
+                        elif node.bl_idname == 'SvObjectsNodeMK3':
+                            node.draw_sv3dpanel_ob3(col, little_width)
+
                         elif node.bl_idname in {"IntegerNode", "FloatNode"}:
                             row = col.row(align=True)
                             row.prop(node, ver, text=tex)
@@ -226,7 +231,7 @@ class Sv3DPanel(bpy.types.Panel):
 
 class SverchokToolsMenu(bpy.types.Panel):
     bl_idname = "Sverchok_tools_menu"
-    bl_label = "SV " + sv_panels_tools.sv_version_local
+    bl_label = "SV " + version_and_sha
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
     bl_category = 'Sverchok'
@@ -320,9 +325,10 @@ class SverchokToolsMenu(bpy.types.Panel):
             row.operator(
                 "node.sverchok_update_addon", text='Upgrade Sverchok addon')
         else:
-            layout.row().operator(
-                "node.sverchok_check_for_upgrades", text='Check for new version')
-        #       row.prop(tree, 'sv_bake',text=' ')
+            sha_update = "node.sverchok_check_for_upgrades_wsha"
+            layout.row().operator(sha_update, text='Check for updates')
+
+        layout.row().operator('node.sv_show_latest_commits')
 
 
 sv_tools_classes = [

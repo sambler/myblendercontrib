@@ -160,7 +160,7 @@ def update_interactive(engine, context):
 @persistent
 def update_timestamp(scene):
     active = scene.objects.active
-    if active and active.is_updated_data:
+    if active and (active.is_updated_data or (active.data and active.data.is_updated)):
         # mark object for update
         now = int(time.time())
         active.renderman.update_timestamp = now
@@ -668,7 +668,17 @@ class RPass:
 
             for light_name in lights_deleted:
                 self.lights.pop(light_name, None)
-        
+
+        if active and active.type in  ['MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'LATTICE']:
+            
+            for mat_slot in active.material_slots:
+                if mat_slot.material not in self.material_dict:
+                    self.material_dict[mat_slot.material] = []
+                if active not in self.material_dict[mat_slot.material]:
+                    self.material_dict[mat_slot.material].append(active)
+                if mat_slot.material.is_updated:
+                    issue_shader_edits(self, self.ri, prman, nt=mat_slot.material.node_tree)
+
     def update_illuminates(self):
         update_illuminates(self, self.ri, prman)
 
@@ -736,6 +746,7 @@ class RPass:
         pass
 
     def gen_rib(self, engine=None, convert_textures=True):
+        rm = self.scene.renderman
         if self.scene.camera is None:
             debug('error', "ERROR no Camera.  \
                     Cannot generate rib.")
@@ -749,8 +760,12 @@ class RPass:
                           format_seconds_to_hhmmss(time.time() - time_start))
         self.scene.frame_set(self.scene.frame_current)
         time_start = time.time()
+        rib_options = {"string format": "binary"} if rm.rib_format == "binary" else {
+            "string format": "ascii", "string asciistyle": "indented,wide"}
+        if rm.rib_compression == "gzip":
+            rib_options["string compression"] = "gzip"
+        self.ri.Option("rib", rib_options)
         self.ri.Begin(self.paths['rib_output'])
-        self.ri.Option("rib", {"string asciistyle": "indented,wide"})
 
         # Check if rendering select objects only.
         if(self.scene.renderman.render_selected_objects_only):

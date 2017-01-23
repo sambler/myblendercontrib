@@ -25,7 +25,7 @@ import traceback
 import bpy
 from bpy.props import StringProperty, IntVectorProperty, FloatVectorProperty, BoolProperty
 
-from sverchok.utils.sv_panels_tools import sv_get_local_path
+from sverchok.utils.sv_update_utils import sv_get_local_path
 from sverchok.utils.snlite_importhelper import (
     UNPARSABLE, set_autocolor, parse_sockets, are_matched,
     get_rgb_curve, set_rgb_curve
@@ -33,7 +33,7 @@ from sverchok.utils.snlite_importhelper import (
 from sverchok.utils.snlite_utils import vectorize
 
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import updateNode, replace_socket
+from sverchok.data_structure import updateNode
 
 
 FAIL_COLOR = (0.8, 0.1, 0.1)
@@ -135,7 +135,7 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
 
             if len(sockets) > 0 and idx in set(range(len(sockets))):
                 if not are_matched(sockets[idx], socket_description):
-                    replace_socket(sockets[idx], *socket_description[:2])
+                    sockets[idx].replace_socket(*socket_description[:2])
             else:
                 sockets.new(*socket_description[:2])
 
@@ -338,23 +338,43 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
         col = layout.column()
         col.menu(SvScriptNodeLitePyMenu.bl_idname)
 
-        if hasattr(self, 'inject_params'):
-            row = layout.row()
-            row.prop(self, 'inject_params', text='inject parameters')
 
     # ---- IO Json storage is handled in this node locally ----
 
 
-    def storage_set_data(self, data_list):
-        # self.node_dict[hash(self)]['sockets']['snlite_ui'] = ui_elements
-        for data_json_str in data_list:
-            data_dict = json.loads(data_json_str)
-            if data_dict['bl_idname'] == 'ShaderNodeRGBCurve':
-                set_rgb_curve(data_dict)
+    def storage_set_data(self, node_ref):
+
+        texts = bpy.data.texts
+
+        data_list = node_ref.get('snlite_ui')
+        if data_list:
+            # self.node_dict[hash(self)]['sockets']['snlite_ui'] = ui_elements
+            for data_json_str in data_list:
+                data_dict = json.loads(data_json_str)
+                if data_dict['bl_idname'] == 'ShaderNodeRGBCurve':
+                    set_rgb_curve(data_dict)
+
+        includes = node_ref.get('includes')
+        if includes:
+            for include_name, include_content in includes.items():
+                new_text = texts.new(include_name)
+                new_text.from_string(include_content)
+
+                if include_name == new_text.name:
+                    continue
+
+                print('| in', node_ref.name, 'the importer encountered')
+                print('| an include called', include_name, '. While trying')
+                print('| to write this file to bpy.data.texts another file')
+                print('| with the same name was encountered. The importer')
+                print('| automatically made a datablock called', new_text.name)
 
 
     def storage_get_data(self, node_dict):
-        ui_info = self.node_dict[hash(self)]['sockets']['snlite_ui']
+
+        storage = self.node_dict[hash(self)]['sockets']
+
+        ui_info = storage['snlite_ui']
         node_dict['snlite_ui'] = []
         print(ui_info)
         for _, info in enumerate(ui_info):
@@ -366,6 +386,12 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
                 print(data)
                 data_json_str = json.dumps(data)
                 node_dict['snlite_ui'].append(data_json_str)
+
+        includes = storage['includes']
+        if includes:
+            node_dict['includes'] = {}
+            for k, v in includes.items():
+                node_dict['includes'][k] = v
 
 
 classes = [
@@ -382,3 +408,4 @@ def register():
 
 def unregister():
     _ = [bpy.utils.unregister_class(name) for name in classes]
+ 

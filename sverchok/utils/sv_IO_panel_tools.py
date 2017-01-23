@@ -38,9 +38,10 @@ from sverchok.utils import sv_gist_tools
 
 SCRIPTED_NODES = {'SvScriptNode', 'SvScriptNodeMK2', 'SvScriptNodeLite'}
 
-_EXPORTER_REVISION_ = '0.062'
+_EXPORTER_REVISION_ = '0.063'
 
 '''
+0.063 add support for obj_in_lite obj serialization \o/ .
 0.062 (no revision change) - fixes import of sn texts that are present already in .blend
 0.062 (no revision change) - looks in multiple places for textmode param.
 0.062 monad export properly
@@ -52,17 +53,7 @@ _EXPORTER_REVISION_ = '0.062'
       never have two files named the same which perform different operations.
       main fixes SN1, SN2, ProfileNode, TextInput (json-mode only verified)
 
-0.055 - (import) fix : SN reset (files_popup, username) params
-      - (import) add : deals with importing from gist id.
-
-0.054 group support, hash of text files
-0.053 support old_nodes on demand
-0.052 respect selection
-0.051 fake node removed, freeze and unfreeze used instead
-0.05 fake node inserted to stop updates
-0.043 remap dict for duplicates (when importing into existing tree)
-0.042 add fake user to imported layouts + switch to new tree.
-
+revisions below this are your own problem.
 
 '''
 
@@ -153,10 +144,15 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
         node_enums = find_enumerators(node)
 
         ObjectsNode = (node.bl_idname == 'ObjectsNode')
+        ObjectsNode3 = (node.bl_idname == 'SvObjectsNodeMK3')
+        ObjNodeLite = (node.bl_idname == 'SvObjInLite')
+
+        ScriptNodeLite = (node.bl_idname == 'SvScriptNodeLite')
         ProfileParamNode = (node.bl_idname == 'SvProfileNode')
         IsGroupNode = (node.bl_idname == 'SvGroupNode')
         IsMonadInstanceNode = (node.bl_idname.startswith('SvGroupNodeMonad'))
         TextInput = (node.bl_idname == 'SvTextInNode')
+        SvExecNodeMod = (node.bl_idname == 'SvExecNodeMod')
 
         for k, v in node.items():
 
@@ -169,11 +165,18 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
                 ''' these are reserved variables for changeable socks '''
                 continue
 
+            if k == 'dynamic_strings':
+                ''' reserved by exec node '''
+                continue
+
             if has_state_switch_protection(node, k):
                 continue
 
             # this silences the import error when items not found.
             if ObjectsNode and (k == "objects_local"):
+                continue
+            elif ObjectsNode3 and (k == 'object_names'):
+                node_dict['object_names'] = [o.name for o in node.object_names]
                 continue
 
             if TextInput and (k == 'current_text'):
@@ -239,8 +242,9 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
 
                     node_items[prop_name] = v
 
-        if node.bl_idname == 'SvScriptNodeLite':
+        if any([ScriptNodeLite, ObjNodeLite, SvExecNodeMod]):
             node.storage_get_data(node_dict)
+
 
         # collect socket properties
         # inputs = node.inputs
@@ -360,9 +364,7 @@ def perform_scripted_node_inject(node, node_ref):
         node.load()
     elif node.bl_idname == 'SvScriptNodeLite':
         node.load()
-        data_list = node_ref.get('snlite_ui')
-        if data_list:
-            node.storage_set_data(data_list)
+        node.storage_set_data(node_ref)
     else:
         node.files_popup = node.avail_templates(None)[0][0]
         node.load()
@@ -499,6 +501,15 @@ def add_node_to_tree(nodes, n, nodes_to_import, name_remap, create_texts):
 
     if create_texts:
         add_texts(node, node_ref)
+    
+    if bl_idname in {'SvObjInLite', 'SvExecNodeMod'}:
+        node.storage_set_data(node_ref)
+
+    if bl_idname == 'SvObjectsNodeMK3':
+        print(node_ref)
+        obj_names = node_ref.get('object_names', [])
+        for n in obj_names:
+            node.object_names.add().name = n
 
     gather_remapped_names(node, n, name_remap)
     apply_core_props(node, node_ref)
@@ -828,6 +839,7 @@ class SvNodeTreeExportToGist(bpy.types.Operator):
         try:
             gist_url = sv_gist_tools.main_upload_function(gist_filename, gist_description, gist_body, show_browser=False)
             context.window_manager.clipboard = gist_url   # full destination url
+            print(gist_url)
             self.report({'WARNING'}, "Copied gistURL to clipboad")
         except:
             self.report({'ERROR'}, "Error uploading the gist, check your internet connection!")

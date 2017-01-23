@@ -99,7 +99,7 @@ class Renderman_start_it(bpy.types.Operator):
 class Renderman_open_last_RIB(bpy.types.Operator):
     bl_idname = 'rman.open_rib'
     bl_label = "Open Last RIB Scene file."
-    bl_description = "Opens the last generated Scene.rib file in the system default text editor."
+    bl_description = "Opens the last generated Scene.rib file in the system default text editor"
 
     def invoke(self, context, event=None):
         rm = context.scene.renderman
@@ -202,9 +202,13 @@ class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
 
     def execute(self, context):
         idtype = self.properties.idtype
-        context_data = {'material': context.material,
-                        'lamp': context.lamp, 'world': context.scene.world}
-        idblock = context_data[idtype]
+        if idtype == 'node_editor':
+            idblock = context.space_data.id
+            idtype = 'material'
+        else:
+            context_data = {'material': context.material,
+                            'lamp': context.lamp, 'world': context.scene.world}
+            idblock = context_data[idtype]
 
         # nt = bpy.data.node_groups.new(idblock.name,
         #                              type='RendermanPatternGraph')
@@ -434,7 +438,7 @@ class StartInteractive(bpy.types.Operator):
 class ExportRIBObject(bpy.types.Operator):
     bl_idname = "export.export_rib_archive"
     bl_label = "Export Object as RIB Archive."
-    bl_description = "Export single object as a RIB archive for use in other blend files or for other uses."
+    bl_description = "Export single object as a RIB archive for use in other blend files or for other uses"
 
     export_mat = BoolProperty(
         name="Export Material",
@@ -1011,28 +1015,83 @@ class Add_bxdf(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def get_type_items(self, context):
-        items = []
+        items = [
+            ("PxrSurface", "PxrSurface", 'PxrSurface Uber shader. For most hard surfaces'),
+            ("PxrLayerSurface", "PxrLayerSurface", "PxrLayerSurface, creates a surface with two Layers"),
+            ("PxrMarschnerHair", "PxrMarschnerHair", "Hair Shader"),
+            ("PxrDisney", "PxrDisney", "Disney Bxdf, a simple uber shader with no layering"),
+            ("PxrVolume", "PxrVolume", "Volume Shader")
+        ]
         # for nodetype in RendermanPatternGraph.nodetypes.values():
         #    if nodetype.renderman_node_type == 'bxdf':
         #        items.append((nodetype.bl_label, nodetype.bl_label,
         #                      nodetype.bl_label))
-        items = sorted(items, key=itemgetter(1))
         return items
     bxdf_name = EnumProperty(items=get_type_items, name="Bxdf Name")
 
     def execute(self, context):
-        selection = bpy.context.selected_objects
+        selection = bpy.context.selected_objects if hasattr(bpy.context, 'selected_objects') else []
+        #selection = bpy.context.selected_objects
         bxdf_name = self.properties.bxdf_name
         mat = bpy.data.materials.new(bxdf_name)
 
-        bpy.ops.shading.add_renderman_nodetree(
-            {'lamp': None, 'material': mat}, idtype='material', bxdf_name=bxdf_name)
+        mat.use_nodes = True
+        nt = mat.node_tree
+
+        output = nt.nodes.new('RendermanOutputNode')
+        default = nt.nodes.new('%sBxdfNode' % bxdf_name)
+        default.location = output.location
+        default.location[0] -= 300
+        nt.links.new(default.outputs[0], output.inputs[0])
+
+        if bxdf_name == 'PxrLayerSurface':
+            mixer = nt.nodes.new("PxrLayerMixerPatternNode")
+            layer1 = nt.nodes.new("PxrLayerPatternNode")
+            layer2 = nt.nodes.new("PxrLayerPatternNode")
+
+            mixer.location = default.location
+            mixer.location[0] -= 300
+
+            layer1.location = mixer.location
+            layer1.location[0] -= 300            
+            layer1.location[1] += 300
+
+            layer2.location = mixer.location
+            layer2.location[0] -= 300            
+            layer2.location[1] -= 300
+
+            nt.links.new(mixer.outputs[0], default.inputs[0])
+            nt.links.new(layer1.outputs[0], mixer.inputs['baselayer'])
+            nt.links.new(layer2.outputs[0], mixer.inputs['layer1'])
+
 
         for obj in selection:
             if(obj.type not in EXCLUDED_OBJECT_TYPES):
                 bpy.ops.object.material_slot_add()
 
                 obj.material_slots[-1].material = mat
+
+        return {"FINISHED"}
+
+class New_bxdf(bpy.types.Operator):
+    bl_idname = "nodes.new_bxdf"
+    bl_label = "New RenderMan Material"
+    bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        ob = context.object
+        bxdf_name = 'PxrSurface'
+        mat = bpy.data.materials.new(bxdf_name)
+        ob.active_material = mat
+        mat.use_nodes = True
+        nt = mat.node_tree
+
+        output = nt.nodes.new('RendermanOutputNode')
+        default = nt.nodes.new('PxrSurfaceBxdfNode')
+        default.location = output.location
+        default.location[0] -= 300
+        nt.links.new(default.outputs[0], output.inputs[0])
 
         return {"FINISHED"}
 
@@ -1043,24 +1102,16 @@ class add_GeoLight(bpy.types.Operator):
     bl_description = ""
     bl_options = {"REGISTER", "UNDO"}
 
-    bxdf_name = StringProperty(name="Bxdf Name", default="PxrDisney")
-
     def execute(self, context):
         selection = bpy.context.selected_objects
-        bxdf_name = self.properties.bxdf_name
-        mat = bpy.data.materials.new(bxdf_name)
+        mat = bpy.data.materials.new("PxrMeshLight")
 
-        bpy.ops.shading.add_renderman_nodetree(
-            {'lamp': None, 'material': mat}, idtype='material')
 
-        matName = mat.name
-        nt = bpy.data.node_groups[matName]
-        output = None
-        for node in nt.nodes:
-            if(node.name == "Output"):
-                output = node
-        geoLight = nt.nodes.new('PxrRectLightLightNode')
-        geoLight["exposure"] = 5.0
+        mat.use_nodes = True
+        nt = mat.node_tree
+
+        output = nt.nodes.new('RendermanOutputNode')
+        geoLight = nt.nodes.new('PxrMeshLightLightNode')
         geoLight.location[0] -= 300
         geoLight.location[1] -= 420
         if(output is not None):
@@ -1267,7 +1318,7 @@ class AddCamera(bpy.types.Operator):
 class RM_restart_addon(bpy.types.Operator):
     bl_idname = "renderman.restartaddon"
     bl_label = "Restart Addon"
-    bl_description = "Restarts the RenderMan for Blender addon."
+    bl_description = "Restarts the RenderMan for Blender addon"
 
     def execute(self, context):
         bpy.ops.script.reload()

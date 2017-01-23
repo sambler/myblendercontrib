@@ -24,7 +24,7 @@ bl_info = {
     "location": "View3D > Batch category in Tools panel",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/BatchOperations",
-    "tracker_url": "",
+    "tracker_url": "https://github.com/dairin0d/batch-operations/issues",
     "category": "3D View"}
 #============================================================================#
 

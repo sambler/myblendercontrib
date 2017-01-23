@@ -29,7 +29,7 @@ bl_info = {
     "name": "RenderMan For Blender",
     "author": "Brian Savery",
     "version": (21, 2, 0),
-    "blender": (2, 77, 0),
+    "blender": (2, 78, 0),
     "location": "Info Header, render engine menu",
     "description": "RenderMan 21.2 integration",
     "warning": "",
@@ -73,15 +73,15 @@ class PRManRender(bpy.types.RenderEngine):
 
 
 def add_handlers(scene):
-    if engine.update_timestamp not in bpy.app.handlers.scene_update_pre:
-        bpy.app.handlers.scene_update_pre.append(engine.update_timestamp)
+    if engine.update_timestamp not in bpy.app.handlers.scene_update_post:
+        bpy.app.handlers.scene_update_post.append(engine.update_timestamp)
     if properties.initial_groups not in bpy.app.handlers.scene_update_post:
         bpy.app.handlers.load_post.append(properties.initial_groups)
 
 
 def remove_handlers():
-    if properties.initial_groups in bpy.app.handlers.scene_update_pre:
-        bpy.app.handlers.scene_update_pre.remove(properties.initial_groups)
+    if properties.initial_groups in bpy.app.handlers.scene_update_post:
+        bpy.app.handlers.scene_update_post.remove(properties.initial_groups)
     if engine.update_timestamp in bpy.app.handlers.scene_update_post:
         bpy.app.handlers.scene_update_post.remove(engine.update_timestamp)
 
@@ -123,7 +123,6 @@ def register():
 def unregister():
     from . import preferences
     remove_handlers()
-
     properties.unregister()
     operators.unregister()
     ui.unregister()

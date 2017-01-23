@@ -27,8 +27,7 @@ bl_info = {
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
                 "Scripts/Development/Macros_Recorder",
-    "tracker_url": "http://projects.blender.org/tracker/"\
-                   "?func=detail&aid=31325",
+    "tracker_url": "https://github.com/dairin0d/macros-recorder/issues",
     "category": "Development"}
 #============================================================================#
 
@@ -41,7 +40,6 @@ from mathutils import Vector, Matrix, Quaternion, Euler, Color
 """
 TODO:
 * analyze info log too (some lines may contain invalid syntax, though)
-* add recording mode to write commands without wrapping them in an operator
 
 Parametric modeling:
 * see Sverchok? (node-based) http://nikitron.cc.ua/sverch/html/nodes.html

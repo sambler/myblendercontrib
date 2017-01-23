@@ -68,6 +68,24 @@ class BGIS_PREFS(AddonPreferences):
 		items = listPredefCRS
 		)
 
+	def getProjEngine(self, context):
+		items = [ ('AUTO', 'Auto detect', 'Auto select the best library for reprojection tasks') ]
+		if HAS_GDAL:
+			items.append( ('GDAL', 'GDAL', 'Force GDAL as reprojection engine') )
+		if HAS_PYPROJ:
+			items.append( ('PYPROJ', 'pyProj', 'Force pyProj as reprojection engine') )
+		#if EPSGIO.ping(): #too slow
+		#	items.append( ('EPSGIO', 'epsg.io', '') )
+		items.append( ('EPSGIO', 'epsg.io', 'Force epsg.io as reprojection engine') )
+		items.append( ('BUILTIN', 'Built in', 'Force reprojection through built in Python functions') )
+		return items
+
+	projEngine = EnumProperty(
+		name = "Projection engine",
+		description = "Select projection engine",
+		items = getProjEngine
+		)
+
 	################
 	#OSM
 
@@ -106,6 +124,7 @@ class BGIS_PREFS(AddonPreferences):
 	zoomToMouse = BoolProperty(name="Zoom to mouse", description='Zoom towards the mouse pointer position', default=True)
 
 	lockOrigin = BoolProperty(name="Lock origin", description='Do not move scene origin when panning map', default=False)
+	lockObj = BoolProperty(name="Lock objects", description='Retain objects geolocation when moving map origin', default=True)
 
 	resamplAlg = EnumProperty(
 		name = "Resampling method",
@@ -127,13 +146,7 @@ class BGIS_PREFS(AddonPreferences):
 		row.operator("bgis.edit_predef_crs", icon='SCRIPTWIN')
 		row.operator("bgis.rmv_predef_crs", icon='ZOOMOUT')
 		row.operator("bgis.reset_predef_crs", icon='PLAY_REVERSE')
-		if HAS_GDAL:
-			projEngine = 'GDAL'
-		elif HAS_PYPROJ:
-			projEngine = 'PYPROJ'
-		else:
-			projEngine = 'BUILTIN / EPSG.IO'
-		box.label('Reprojection engine : ' + projEngine)
+		box.prop(self, "projEngine")
 
 		#Basemaps
 		box = layout.box()
@@ -141,6 +154,7 @@ class BGIS_PREFS(AddonPreferences):
 		box.prop(self, "cacheFolder")
 		row = box.row()
 		row.prop(self, "zoomToMouse")
+		row.prop(self, "lockObj")
 		row.prop(self, "lockOrigin")
 		row.label('Font color:')
 		row.prop(self, "fontColor", text='')

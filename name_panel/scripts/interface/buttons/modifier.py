@@ -12,13 +12,54 @@ class Modifier:
   # main
   def main(self, context, layout, object, modifier):
 
+    # context pointer set
+    layout.context_pointer_set('modifier', modifier)
+
+    # row
+    row = layout.row(align=True)
+
     # name
-    layout.prop(modifier, 'name', text='')
+    row.prop(modifier, 'name', text='')
+
+    # move up
+    if modifier != object.modifiers[0]:
+
+      row.operator('object.modifier_move_up', text='', icon='TRIA_UP')
+
+    # move down
+    if modifier != object.modifiers[len(object.modifiers)-1]:
+
+      row.operator('object.modifier_move_down', text='', icon='TRIA_DOWN')
+
+    # delete
+    row.operator('object.modifier_remove', text='', icon='X')
+
+    # row
+    row = layout.row()
+
+    # isnt collision, particle system
+    if modifier.type not in {'COLLISION', 'PARTICLE_SYSTEM'}:
+
+      # apply
+      op = row.operator('object.modifier_apply', text='Apply')
+      op.apply_as = 'DATA'
+
+      # is ...
+      if modifier.type in {'MESH_CACHE', 'ARMATURE', 'CAST', 'CORRECTIVE_SMOOTH', 'CURVE', 'DISPLACE', 'HOOK', 'LAPLACIANSMOOTH', 'LAPLACIANDEFORM', 'LATTICE', 'MESH_DEFORM', 'SHRINKWRAP', 'SIMPLE_DEFORM', 'SMOOTH', 'WARP', 'WAVE', 'CLOTH', 'SOFT_BODY'}:
+
+        # apply
+        op = row.operator('object.modifier_apply', text='Apply as Shape Key')
+        op.apply_as = 'SHAPE'
+
+      # isnt cloth, fluid simulation, smoke, soft body
+      if modifier.type not in {'CLOTH', 'FLUID_SIMULATION', 'SMOKE', 'SOFT_BODY'}:
+
+        # copy
+        row.operator('object.modifier_copy', text='Copy')
 
     # column
     column = layout.column()
 
-    # match enum type to one of the functions below
     getattr(Modifier, modifier.type)(Modifier, column, object, modifier)
 
   # armature
@@ -1157,6 +1198,9 @@ class Modifier:
 
   # multires
   def MULTIRES(self, layout, object, modifier):
+
+    layout.context_pointer_set('modifier', modifier)
+
     layout.row().prop(modifier, 'subdivision_type', expand=True)
 
     # split
@@ -1179,7 +1223,7 @@ class Modifier:
 
     # sub
     sub = column.column()
-    sub.enabled = False
+    # sub.enabled = False
 
     # object multires subdivide
     sub.operator('object.multires_subdivide', text='Subdivide')
@@ -1225,6 +1269,8 @@ class Modifier:
 
       # filepath
       row.prop(modifier, 'filepath', text='')
+
+    # isnt external
     else:
 
       # object multires external save

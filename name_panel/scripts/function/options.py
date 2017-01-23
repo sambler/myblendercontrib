@@ -25,8 +25,11 @@ def reset(context, panel, auto, names, name, copy):
     # pin active bone
     option.pinActiveBone = default['pin active bone']
 
-    # hide find & replace
-    option.hideFindReplace = default['hide find & replace']
+    # hide find
+    option.hideFind = default['hide find']
+
+    # hide replace
+    option.hideReplace = default['hide replace']
 
     # filters
     option.filters = default['filters']

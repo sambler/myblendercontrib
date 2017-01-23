@@ -25,8 +25,7 @@ bl_info = {
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"\
         "Scripts/System/Compact_Object_Panel",
-    "tracker_url": "http://projects.blender.org/tracker/"\
-        "index.php?func=detail&aid=35589",
+    "tracker_url": "https://github.com/dairin0d/compact-object-panel/issues",
     "category": "System"}
 #============================================================================#
 

@@ -37,6 +37,8 @@ from . import mi_utils_base as ut_base
 from . import mi_color_manager as col_man
 from . import mi_looptools as loop_t
 from . import mi_inputs
+from . import mi_widget_select as s_widget
+from . import mi_widget_curve as c_widget
 
 
 class MI_CurveStretchSettings(bpy.types.PropertyGroup):
@@ -51,8 +53,17 @@ class MI_CurveStretch(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     # curve tool mode
-    curve_tool_modes = ('IDLE', 'MOVE_POINT', 'SELECT_POINT')
+    curve_tool_modes = ('IDLE', 'MOVE_POINT', 'SELECT_POINT', 'SELECT_MULTI')
     curve_tool_mode = 'IDLE'
+
+    # Selection Tools Vaariables
+    select_radius = 16
+    select_coords = None
+    curve_tool_mult_modes = ('CIRCLE', 'BOX')
+    curve_tool_mult_mode = 'CIRCLE'
+    select_box_anchor = None
+    mouse_down = False
+    mmouse_down = False
 
     all_curves = None
     active_curve = None
@@ -117,6 +128,7 @@ class MI_CurveStretch(bpy.types.Operator):
 
                 self.mi_deform_handle_3d = bpy.types.SpaceView3D.draw_handler_add(mi_curve_draw_3d, args, 'WINDOW', 'POST_VIEW')
                 self.mi_deform_handle_2d = bpy.types.SpaceView3D.draw_handler_add(mi_curve_draw_2d, args, 'WINDOW', 'POST_PIXEL')
+                self.gh_circle_select_handle = bpy.types.SpaceView3D.draw_handler_add(gh_circle_draw_2d, args, 'WINDOW', 'POST_PIXEL')
                 context.window_manager.modal_handler_add(self)
 
                 bm.normal_update()
@@ -136,7 +148,7 @@ class MI_CurveStretch(bpy.types.Operator):
     def modal(self, context, event):
         context.area.tag_redraw()
 
-        context.area.header_text_set("NewPoint: Ctrl+Click, SelectAdditive: Shift+Click, DeletePoint: Del, SurfaceSnap: Shift+Tab, SelectLinked: L/Shift+L, SpreadMode: M")
+        context.area.header_text_set("NewPoint: Ctrl+Click, SelectAdditive: Shift+Click, DeletePoint: Del, SurfaceSnap: Shift+Tab, SelectLinked: L/Shift+L, SpreadMode: M, CircleSelect: C, BoxSelect: B")
 
         user_preferences = context.user_preferences
         addon_prefs = user_preferences.addons[__package__].preferences
@@ -149,6 +161,7 @@ class MI_CurveStretch(bpy.types.Operator):
         region = context.region
         rv3d = context.region_data
         m_coords = event.mouse_region_x, event.mouse_region_y
+        self.select_coords = m_coords
 
         keys_pass = mi_inputs.get_input_pass(mi_inputs.pass_keys, addon_prefs.key_inputs, event)
 
@@ -257,6 +270,36 @@ class MI_CurveStretch(bpy.types.Operator):
                 bm.normal_update()
                 bmesh.update_edit_mesh(active_obj.data)
 
+            # Set to Select Multy
+            elif event.type == 'C':
+                self.curve_tool_mode = 'SELECT_MULTI'
+                self.curve_tool_mult_mode = 'CIRCLE'
+
+            elif event.type == 'B':
+                self.curve_tool_mode = 'SELECT_MULTI'
+                self.curve_tool_mult_mode = 'BOX'
+
+        elif self.curve_tool_mode == 'SELECT_MULTI':
+            # Switch Selection tool off
+            if event.value == 'PRESS':
+                if self.curve_tool_mult_mode == 'CIRCLE' and event.type == 'C':
+                    self.curve_tool_mode = 'IDLE'
+                    self.mouse_down = False
+                    self.mmouse_down = False
+                    return {'RUNNING_MODAL'}
+
+                elif self.curve_tool_mult_mode == 'BOX' and event.type == 'B':
+                    self.curve_tool_mode = 'IDLE'
+                    self.mouse_down = False
+                    self.mmouse_down = False
+                    return {'RUNNING_MODAL'}
+            elif event.value == 'RELEASE':
+                if event.type in {'RIGHTMOUSE', 'ESC'}:
+                    self.curve_tool_mode = 'IDLE'
+                    self.mouse_down = False
+                    self.mmouse_down = False
+                    return {'RUNNING_MODAL'}
+
         # TOOLS WORK
         if self.curve_tool_mode == 'SELECT_POINT':
             if event.type in {'LEFTMOUSE', 'SELECTMOUSE'} and event.value == 'RELEASE':
@@ -317,13 +360,65 @@ class MI_CurveStretch(bpy.types.Operator):
 
                 return {'RUNNING_MODAL'}
 
-        #elif self.curve_tool_mode == 'ADD_POINT':
-            #self.curve_tool_mode = 'MOVE_POINT'
-            #return {'RUNNING_MODAL'}
+        elif self.curve_tool_mode == 'SELECT_MULTI':
+
+            # first check
+            if self.curve_tool_mult_mode == 'CIRCLE':
+                if event.type == 'WHEELDOWNMOUSE':
+                    self.select_radius *= 1.2
+
+                elif event.type == 'WHEELUPMOUSE':
+                    self.select_radius /= 1.2
+                    if self.select_radius < 4:
+                        self.select_radius = 4
+
+            # second check
+            if event.type in {'LEFTMOUSE', 'SELECTMOUSE'} and event.value == 'PRESS':
+                self.mouse_down = True
+                if self.curve_tool_mult_mode == 'CIRCLE':
+                    pts, lns, crvs = cur_main.pick_all_curves_points_radius(self.all_curves, context, m_coords, self.select_radius)
+                    cur_main.select_point_multi(self.all_curves, pts, True)
+                if self.curve_tool_mult_mode == 'BOX':
+                    self.select_box_anchor = m_coords
+
+            if event.type in {'LEFTMOUSE', 'SELECTMOUSE'} and event.value == 'RELEASE':
+                self.mouse_down = False
+                if self.curve_tool_mult_mode == 'BOX':
+                    pts, crvs = cur_main.pick_all_curves_points_box(self.all_curves, context, m_coords, self.select_box_anchor)
+                    cur_main.select_point_multi(self.all_curves, pts, True)
+
+            if event.type in {'MIDDLEMOUSE'} and event.value == 'PRESS':
+                self.mmouse_down = True
+                if self.curve_tool_mult_mode == 'CIRCLE':
+                    pts, lns, crvs = cur_main.pick_all_curves_points_radius(self.all_curves, context, m_coords, self.select_radius)
+                    cur_main.select_point_multi(self.all_curves, pts, False)
+                if self.curve_tool_mult_mode == 'BOX':
+                    self.select_box_anchor = m_coords
+
+            if event.type in {'MIDDLEMOUSE'} and event.value == 'RELEASE':
+                self.mmouse_down = False
+                if self.curve_tool_mult_mode == 'BOX':
+                    pts, crvs = cur_main.pick_all_curves_points_box(self.all_curves, context, m_coords, self.select_box_anchor)
+                    cur_main.select_point_multi(self.all_curves, pts, False)
+
+            if event.type in {'MOUSEMOVE'}:
+                if not self.mouse_down and not self.mmouse_down:
+                    return {'PASS_THROUGH'}
+                elif self.mouse_down:
+                    if self.curve_tool_mult_mode == 'CIRCLE':
+                        pts, lns, crvs = cur_main.pick_all_curves_points_radius(self.all_curves, context, m_coords, self.select_radius)
+                        cur_main.select_point_multi(self.all_curves,pts, True)
+
+                elif self.mmouse_down:
+                    if self.curve_tool_mult_mode == 'CIRCLE':
+                        pts, lns, crvs = cur_main.pick_all_curves_points_radius(self.all_curves, context, m_coords, self.select_radius)
+                        cur_main.select_point_multi(self.all_curves, pts, False)
+
+            return {'RUNNING_MODAL'}
 
         else:
             if event.value == 'RELEASE' and event.type in {'LEFTMOUSE', 'SELECTMOUSE'}:
-                self.curve_tool_mode = 'IDLE'            
+                self.curve_tool_mode = 'IDLE'
                 return {'RUNNING_MODAL'}
 
 
@@ -335,6 +430,8 @@ class MI_CurveStretch(bpy.types.Operator):
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             bpy.types.SpaceView3D.draw_handler_remove(self.mi_deform_handle_3d, 'WINDOW')
             bpy.types.SpaceView3D.draw_handler_remove(self.mi_deform_handle_2d, 'WINDOW')
+            bpy.types.SpaceView3D.draw_handler_remove(self.gh_circle_select_handle, 'WINDOW')
+
             finish_work(self, context)
 
             context.area.header_text_set()
@@ -373,6 +470,15 @@ def update_curve_line(active_obj, curve_to_update, loops, all_curves, bm, spread
         cur_main.verts_to_line(loop_verts, line, None, curve_to_update.closed)
 
 
+def gh_circle_draw_2d(self, context):
+    if self.all_curves:
+        if self.curve_tool_mult_mode == 'CIRCLE':
+            s_widget.draw_circle_select(self.select_coords, radius = self.select_radius, enabled = (self.curve_tool_mode == 'SELECT_MULTI'), sub = self.mmouse_down)
+        if self.curve_tool_mult_mode == 'BOX':
+            s_widget.draw_box_select(self.select_box_anchor, self.select_coords, context.region,
+                               enabled=(self.curve_tool_mode == 'SELECT_MULTI'), dragging=(self.mouse_down or self.mmouse_down), sub = self.mmouse_down)
+
+
 def mi_curve_draw_2d(self, context):
     active_obj = context.scene.objects.active
     if self.all_curves:
@@ -388,7 +494,7 @@ def mi_curve_draw_3d(self, context):
         for curve in self.all_curves:
             for cur_point in curve.curve_points:
                 if cur_point.point_id in curve.display_bezier:
-                    mi_curve_draw_3d_polyline(curve.display_bezier[cur_point.point_id], 2, col_man.cur_line_base, True)
+                    c_widget.draw_3d_polyline(curve.display_bezier[cur_point.point_id], 2, col_man.cur_line_base, True)
 
 
 def draw_curve_2d(curves, active_cur, context):
@@ -412,7 +518,7 @@ def draw_curve_2d(curves, active_cur, context):
                     p_col = col_man.cur_point_selected
                 if cu_point.point_id == curve.active_point and curve is active_cur:
                     p_col = col_man.cur_point_active
-                mi_draw_2d_point(point_pos_2d.x, point_pos_2d.y, 6, p_col)
+                c_widget.draw_2d_point(point_pos_2d.x, point_pos_2d.y, 6, p_col)
 
                 # Handlers
                 if curve_settings.draw_handlers:
@@ -420,58 +526,10 @@ def draw_curve_2d(curves, active_cur, context):
                     if cu_point.handle1:
                         handle_1_pos_2d = view3d_utils.location_3d_to_region_2d(region, rv3d, cu_point.handle1)
                         if handle_1_pos_2d:
-                            mi_draw_2d_point(handle_1_pos_2d.x, handle_1_pos_2d.y, 3, col_man.cur_handle_1_base)
+                            c_widget.draw_2d_point(handle_1_pos_2d.x, handle_1_pos_2d.y, 3, col_man.cur_handle_1_base)
                 #if curve.curve_points.index(cu_point) > 0:
                     if cu_point.handle2:
                         handle_2_pos_2d = view3d_utils.location_3d_to_region_2d(region, rv3d, cu_point.handle2)
                         if handle_2_pos_2d:
-                            mi_draw_2d_point(handle_2_pos_2d.x, handle_2_pos_2d.y, 3, col_man.cur_handle_2_base)
-
-
-# TODO MOVE TO UTILITIES
-def mi_draw_2d_point(point_x, point_y, p_size=4, p_col=(1.0,1.0,1.0,1.0)):
-    bgl.glEnable(bgl.GL_BLEND)
-    #bgl.glColor4f(1.0, 1.0, 1.0, 0.5)
-    #bgl.glLineWidth(2)
-
-    bgl.glPointSize(p_size)
-#    bgl.glBegin(bgl.GL_LINE_LOOP)
-    bgl.glBegin(bgl.GL_POINTS)
- #   bgl.glBegin(bgl.GL_POLYGON)
-    bgl.glColor4f(p_col[0], p_col[1], p_col[2], p_col[3])
-    bgl.glVertex2f(point_x, point_y)
-    bgl.glEnd()
-
-    # restore opengl defaults
-    bgl.glLineWidth(1)
-    bgl.glDisable(bgl.GL_BLEND)
-    bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
-
-
-# TODO MOVE TO UTILITIES
-def mi_curve_draw_3d_polyline(points, p_size, p_col, x_ray):
-    bgl.glEnable(bgl.GL_BLEND)
-    bgl.glLineWidth(1)
-
-    if x_ray is True:
-        bgl.glDisable(bgl.GL_DEPTH_TEST)
-
-    bgl.glPointSize(p_size)
-#    bgl.glBegin(bgl.GL_LINE_LOOP)
-    bgl.glBegin(bgl.GL_LINE_STRIP)
-    bgl.glColor4f(p_col[0], p_col[1], p_col[2], p_col[3])
- #   bgl.glBegin(bgl.GL_POLYGON)
-
-    for point in points:
-        bgl.glVertex3f(point[0], point[1], point[2])
-
-    if x_ray is True:
-        bgl.glEnable(bgl.GL_DEPTH_TEST)
-
-    bgl.glEnd()
-
-    # restore opengl defaults
-    bgl.glLineWidth(1)
-    bgl.glDisable(bgl.GL_BLEND)
-    bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
+                            c_widget.draw_2d_point(handle_2_pos_2d.x, handle_2_pos_2d.y, 3, col_man.cur_handle_2_base)
 

@@ -115,7 +115,7 @@ class RendermanPreferences(AddonPreferences):
 
     rmantree_choice = EnumProperty(
         name='RenderMan Version to use',
-        description='Leaving as "Newest" will automatically update when you install a new RenderMan version.',
+        description='Leaving as "Newest" will automatically update when you install a new RenderMan version',
         # default='NEWEST',
         items=find_installed_rendermans
     )
@@ -161,20 +161,15 @@ class RendermanPreferences(AddonPreferences):
 
     path_display_driver_image = StringProperty(
         name="Main Image path",
-        description="Path for the rendered main image.",
+        description="Path for the rendered main image",
         subtype='FILE_PATH',
         default=os.path.join('$OUT', 'images', '{scene}.####.{file_type}'))
 
     path_aov_image = StringProperty(
         name="AOV Image path",
-        description="Path for the rendered aov images.",
+        description="Path for the rendered aov images",
         subtype='FILE_PATH',
         default=os.path.join('$OUT', 'images', '{scene}.{layer}.{pass}.####.{file_type}'))
-
-    draw_ipr_text = BoolProperty(
-        name="Draw IPR Text",
-        description="Draw notice on View3D when IPR is active",
-        default=True)
 
     env_vars = PointerProperty(
         type=RendermanEnvVarSettings,

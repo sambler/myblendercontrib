@@ -18,13 +18,13 @@
 bl_info = {
     "name": "Export Selected",
     "author": "dairin0d, rking, moth3r",
-    "version": (2, 0, 2),
-    "blender": (2, 6, 9),
+    "version": (2, 1, 3),
+    "blender": (2, 7, 8),
     "location": "File > Export > Selected",
     "description": "Export selected objects to a chosen format",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/Export_Selected",
-    "tracker_url": "https://developer.blender.org/T30942",
+    "tracker_url": "https://github.com/dairin0d/export-selected/issues",
     "category": "Import-Export"}
 #============================================================================#
 
@@ -37,6 +37,7 @@ from mathutils import Vector, Matrix, Quaternion, Euler
 import os
 import json
 import re
+import hashlib
 
 def bpy_path_normslash(path):
     return path.replace(os.path.sep, "/")
@@ -116,6 +117,15 @@ def obj_parents(obj):
         yield obj.parent
         obj = obj.parent
 
+def belongs_to_group(obj, group, consider_dupli=False):
+    if not obj: return None
+    # Object is either IN some group or INSTANTIATES that group, never both
+    if obj.dupli_group == group:
+        return ('DUPLI' if consider_dupli else None)
+    elif obj.name in group.objects:
+        return 'PART'
+    return None
+
 class PrimitiveLock(object):
     "Primary use of such lock is to prevent infinite recursion"
     def __init__(self):
@@ -160,6 +170,34 @@ class ToggleObjectMode:
                 edit_preferences.use_global_undo = self.global_undo
 
 #============================================================================#
+
+# Adapted from https://gist.github.com/regularcoder/8254723
+def fletcher(data, n): # n should be 16, 32 or 64
+    nbytes = min(max(n // 16, 1), 4)
+    mod = 2 ** (8 * nbytes) - 1
+    sum1 = sum2 = 0
+    for i in range(0, len(data), nbytes):
+        block = int.from_bytes(data[i:i + nbytes], 'little')
+        sum1 = (sum1 + block) % mod
+        sum2 = (sum2 + sum1) % mod
+    return sum1 + (sum2 * (mod+1))
+
+def hashnames():
+    hashnames_codes = [chr(o) for o in range(ord("0"), ord("9")+1)]
+    hashnames_codes += [chr(o) for o in range(ord("A"), ord("Z")+1)]
+    n = len(hashnames_codes)
+    def _hashnames(names):
+        binary_data = "\0".join(sorted(names)).encode()
+        hash_value = fletcher(binary_data, 32)
+        result = []
+        while True:
+            k = hash_value % n
+            result.append(hashnames_codes[k])
+            hash_value = (hash_value - k) // n
+            if hash_value == 0: break
+        return "".join(result)
+    return _hashnames
+hashnames = hashnames()
 
 def replace_extension(path, ext):
     name = bpy_path_basename(path)
@@ -446,7 +484,7 @@ class ExportSelected_Base(ExportHelper):
         
         exporter_data = json_data.pop("exporter_props", {})
         
-        for key, value in ExportSelected_Base.main_kwargs(self).items():
+        for key, value in ExportSelected_Base.main_kwargs(self, True).items():
             if key not in json_data: continue
             setattr(self, key, value_convert(json_data[key]))
         
@@ -481,7 +519,7 @@ class ExportSelected_Base(ExportHelper):
             exporter_data[key] = value_convert(value)
         
         json_data = {"exporter_props":exporter_data}
-        for key, value in ExportSelected_Base.main_kwargs(self).items():
+        for key, value in ExportSelected_Base.main_kwargs(self, True).items():
             if key in exclude_keys: continue
             json_data[key] = value_convert(value)
         
@@ -502,6 +540,15 @@ class ExportSelected_Base(ExportHelper):
     preset_name = bpy.props.StringProperty(name="Preset name", description="Preset name", default="", update=update_preset_name, options={'HIDDEN'})
     preset_save = bpy.props.BoolProperty(name="Save preset", description="Save preset", default=False, update=save_preset, options={'HIDDEN'})
     preset_delete = bpy.props.BoolProperty(name="Delete preset", description="Delete preset", default=False, update=delete_preset, options={'HIDDEN'})
+    
+    bundle_mode = bpy.props.EnumProperty(name="Bundling", description="Export to multiple files", default='NONE', items=[
+        ('NONE', "Project", "No bundling (export to one file)", 'WORLD', 0),
+        ('INDIVIDUAL', "Object", "Export each object separately", 'ROTATECOLLECTION', 1),
+        ('ROOT', "Root", "Bundle by topmost parent", 'ARMATURE_DATA', 2),
+        ('GROUP', "Group", "Bundle by group", 'GROUP', 3),
+        ('LAYER', "Layer", "Bundle by layer", 'RENDERLAYERS', 4),
+        ('MATERIAL', "Material", "Bundle by material", 'MATERIAL', 5),
+    ])
     
     include_hierarchy = bpy.props.EnumProperty(name="Include", description="What objects to include", default='CHILDREN', items=[
         ('SELECTED', "Selected", "Selected objects", 'BONE_DATA', 0),
@@ -587,6 +634,10 @@ class ExportSelected_Base(ExportHelper):
         "export_scene.autodesk_3ds",
     }
     
+    def abspath(self, path):
+        format = self.exporter_infos[self.exporter]["name"]
+        return bpy.path.abspath(path.format(format=format))
+    
     def generate_name(self, context=None):
         if not context: context = bpy.context
         file_dir = bpy_path_split(self.filepath)[0]
@@ -594,11 +645,15 @@ class ExportSelected_Base(ExportHelper):
         roots = self.get_local_roots(objs)
         if len(roots) == 1:
             file_name = next(iter(roots)).name
+        elif len(roots) == 0:
+            file_name = ""
         else:
             file_name = bpy_path_basename(context.blend_data.filepath or "untitled")
             file_name = bpy_path_splitext(file_name)[0]
-        file_name = clean_filename(file_name)
-        self.filepath = bpy_path_join(file_dir, file_name+self.filename_ext)
+            if roots: file_name += "-"+hashnames(obj.name for obj in roots)
+        if file_name:
+            file_name = clean_filename(file_name) + self.filename_ext
+        self.filepath = bpy_path_join(file_dir, file_name)
     
     def get_local_roots(self, objs):
         roots = set()
@@ -636,10 +691,15 @@ class ExportSelected_Base(ExportHelper):
         "filename_ext", "filter_glob", "exporter", "exporter_index", "exporter_props",
         "preset_select", "preset_name", "preset_save", "preset_delete",
     }
-    def main_kwargs(self):
+    _main_kwargs_ignore_presets = {
+        "bundle_mode",
+    }
+    def main_kwargs(self, for_preset=False):
         kwargs = {}
         for key, value in iter_public_bpy_props(ExportSelected_Base): # NOT self.__class__
             if key in ExportSelected_Base._main_kwargs_ignore: continue
+            if for_preset:
+                if key in ExportSelected_Base._main_kwargs_ignore_presets: continue
             kwargs[key] = getattr(self, key)
         return kwargs
     
@@ -725,6 +785,8 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
             else:
                 obj.matrix_world.translation -= center_pos
         
+        scene.update() # required for children to actually update their matrices
+        
         scene.cursor_location = Vector() # just to tidy up
     
     def convert_dupli(self, scene, objs):
@@ -793,18 +855,16 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
                         pass
                 if len(del_objs) == n: break
     
-    def clear_world(self, context):
+    def clear_world(self, context, objs):
         is_single_mesh = self.exporter in self.single_mesh_exporters
         self.use_convert_dupli |= is_single_mesh
         self.use_convert_mesh |= is_single_mesh
         
         for scene in bpy.data.scenes:
             if scene != context.scene:
-                bpy.data.scenes.remove(scene)
+                bpy.data.scenes.remove(scene, do_unlink=True)
         
         scene = context.scene
-        
-        objs = self.gather_objects(scene)
         
         self.center_objects(scene, objs)
         
@@ -826,14 +886,73 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
         if is_single_mesh: bpy.ops.object.join()
     
     def export(self, context):
-        self.filepath = bpy.path.abspath(self.filepath).replace("/", os.path.sep)
+        dirpath = self.abspath(bpy_path_split(self.filepath)[0])
+        if not os.path.exists(dirpath): os.makedirs(dirpath)
+        
         if self.exporter != 'BLEND':
             op = get_op(self.exporter)
             op(**self.exporter_kwargs())
+            # NOTE: For some reason, Alembic prevents undoing the effects
+            # of clear_world(), at least in Blender 2.78a.
+            # The user can undo manually, but doing it from script appears impossible.
         else:
             #bpy.ops.wm.save_as_mainfile(filepath=self.filepath, copy=True)
             # Hopefully this does not save unused libraries:
             bpy.data.libraries.write(self.filepath, {context.scene, *context.scene.objects})
+    
+    def export_bundle(self, context, filepath, bundle):
+        self.filepath = filepath
+        with ToggleObjectMode(undo=None):
+            cursor_location = Vector(context.scene.cursor_location)
+            bpy.ops.ed.undo_push(message="Delete unselected")
+            self.clear_world(context, bundle)
+            self.export(context)
+            bpy.ops.ed.undo()
+            bpy.ops.ed.undo_push(message="Export Selected")
+            context.scene.cursor_location = cursor_location
+    
+    def get_bundle_keys_individual(self, obj):
+        return {obj.name}
+    def get_bundle_keys_root(self, obj):
+        return {"Root="+obj_root(obj).name}
+    def get_bundle_keys_group(self, obj):
+        keys = {"Group="+group.name for group in bpy.data.groups if belongs_to_group(obj, group, True)}
+        return (keys if keys else {"Group="})
+    def get_bundle_keys_layer(self, obj):
+        keys = {"Layer="+str(i) for i in range(len(obj.layers)) if obj.layers[i]}
+        return (keys if keys else {"Layer="})
+    def get_bundle_keys_material(self, obj):
+        keys = {"Material="+slot.material.name for slot in obj.material_slots if slot.material}
+        return (keys if keys else {"Material="})
+    
+    def resolve_key_conflicts(self, clean_keys):
+        fixed_keys = {ck for k, ck in clean_keys.items() if k == ck}
+        for k, ck in tuple((k, ck) for k, ck in clean_keys.items() if k != ck):
+            ck0 = ck
+            i = 1
+            while ck in fixed_keys:
+                ck = ck0 + "("+str(i)+")"
+                i += 1
+            fixed_keys.add(ck)
+            clean_keys[k] = ck
+    
+    def bundle_objects(self, objs):
+        basepath, ext = bpy_path_splitext(self.filepath)
+        if self.bundle_mode == 'NONE':
+            yield basepath+ext, objs
+        else:
+            keyfunc = getattr(self, "get_bundle_keys_"+self.bundle_mode.lower())
+            clean_keys = {}
+            bundles_dict = {}
+            for obj in objs:
+                for key in keyfunc(obj):
+                    clean_keys[key] = clean_filename(key)
+                    bundles_dict.setdefault(key, []).append(obj.name)
+            self.resolve_key_conflicts(clean_keys)
+            for key, bundle in bundles_dict.items():
+                # Due to Undo on export, object references will be invalid
+                bundle = [bpy.data.objects[obj_name] for obj_name in bundle]
+                yield basepath+"-"+clean_keys[key]+ext, bundle
     
     @classmethod
     def poll(cls, context):
@@ -849,18 +968,21 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
             return self.execute(context)
     
     def execute(self, context):
-        with ToggleObjectMode(undo=None):
-            bpy.ops.ed.undo_push(message="Delete unselected")
-            self.clear_world(context)
-            self.export(context)
-            bpy.ops.ed.undo()
-            bpy.ops.ed.undo_push(message="Export Selected")
+        objs = self.gather_objects(context.scene)
+        if not objs:
+            self.report({'ERROR_INVALID_CONTEXT'}, "No objects to export")
+            return {'CANCELLED'}
+        self.filepath = self.abspath(self.filepath).replace("/", os.path.sep)
+        for filepath, bundle in self.bundle_objects(objs):
+            self.export_bundle(context, filepath, bundle)
         return {'FINISHED'}
     
     def draw(self, context):
         layout = self.layout
         
-        layout.prop(self, "exporter")
+        row = layout.row(True)
+        row.prop(self, "exporter", text="")
+        row.prop(self, "bundle_mode", text="")
         
         ExportSelected_Base.draw(self, context)
 
@@ -872,7 +994,7 @@ class ExportSelectedPG(bpy.types.PropertyGroup, ExportSelected_Base):
         return bpy_path_split(self.filepath)[0]
     def _set_filedir(self, value):
         self.filepath = bpy_path_join(value, bpy_path_split(self.filepath)[1])
-    filedir = bpy.props.StringProperty(description="Export directory", get=_get_filedir, set=_set_filedir, subtype='DIR_PATH')
+    filedir = bpy.props.StringProperty(description="Export directory (red when does not exist)", get=_get_filedir, set=_set_filedir, subtype='DIR_PATH')
     
     def _get_filename(self):
         if self.auto_name: self.generate_name()
@@ -905,17 +1027,23 @@ class ExportSelectedPG(bpy.types.PropertyGroup, ExportSelected_Base):
         column = layout.column(True)
         
         row = column.row(True)
+        row.alert = not os.path.exists(self.abspath(self.filedir))
         row.prop(self, "filedir", text="")
         
         row = column.row(True)
         row2 = row.row(True)
-        row2.alert = os.path.exists(bpy.path.abspath(self.filepath))
+        row2.alert = os.path.exists(self.abspath(self.filepath))
         row2.prop(self, "filename", text="")
         row.prop(self, "auto_name", text="", icon='SCENE_DATA', toggle=True)
         
         row = column.row(True)
-        self.draw_export(row)
-        row.prop(self, "exporter", text="")
+        row2 = row.row(True)
+        self.draw_export(row2)
+        row2.prop(self, "exporter", text="")
+        row2 = row.row(True)
+        row2.alignment = 'RIGHT'
+        row2.scale_x = 0.55
+        row2.prop(self, "bundle_mode", text="", icon_only=True, expand=False)
         
         ExportSelected_Base.draw(self, context)
 

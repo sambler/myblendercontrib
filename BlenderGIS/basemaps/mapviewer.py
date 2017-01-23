@@ -39,7 +39,7 @@ from .mapservice import MapService
 from ..checkdeps import HAS_GDAL, HAS_PIL, HAS_IMGIO
 from ..geoscene import GeoScene, SK, georefManagerLayout
 from ..prefs import PredefCRS
-from ..utils.proj import reprojPt, reprojBbox
+from ..utils.proj import reprojPt, reprojBbox, dd2meters, meters2dd
 from ..utils.geom import BBOX
 #for export to mesh tool
 from ..utils.bpu import adjust3Dview, showTextures
@@ -61,6 +61,7 @@ class BaseMap(GeoScene):
 	def __init__(self, context, srckey, laykey, grdkey=None):
 
 		#Get context
+		self.context = context
 		self.scn = context.scene
 		GeoScene.__init__(self, self.scn)
 		self.area = context.area
@@ -167,20 +168,31 @@ class BaseMap(GeoScene):
 		#w, h = self.area.width, self.area.height
 		w, h = self.area3d.width, self.area3d.height
 
-		#Get area bbox coords (map origin is bottom lelf)
+		#Get area bbox coords in destination tile matrix crs (map origin is bottom lelf)
+
+		#Method 1 : Get bbox coords in scene crs and then reproject the bbox if needed
 		res = self.tm.getRes(self.zoom)
+		if self.crs == 'EPSG:4326':
+			res = meters2dd(res)
 		dx, dy, dz = self.reg3d.view_location
 		ox = self.crsx + (dx * self.scale)
 		oy = self.crsy + (dy * self.scale)
-		xmin = ox - w/2 * res
-		ymax = oy + h/2 * res
-		xmax = ox + w/2 * res
-		ymin = oy - h/2 * res
+		xmin = ox - w/2 * res * self.scale
+		ymax = oy + h/2 * res * self.scale
+		xmax = ox + w/2 * res * self.scale
+		ymin = oy - h/2 * res * self.scale
 		bbox = (xmin, ymin, xmax, ymax)
-
 		#reproj bbox to destination grid crs if scene crs is different
 		if self.crs != self.tm.CRS:
 			bbox = reprojBbox(self.crs, self.tm.CRS, bbox)
+
+		'''
+		#Method 2
+		bbox = BBOX.fromTopView(self.context) #ERROR context is None ????
+		bbox = bbox.toGeo(geoscn=self)
+		if self.crs != self.tm.CRS:
+			bbox = reprojBbox(self.crs, self.tm.CRS, bbox)
+		'''
 
 		#Stop thread if the request is same as previous
 		#TODO
@@ -435,6 +447,7 @@ class MAP_START(bpy.types.Operator):
 			#viewPrefs = context.user_preferences.view
 			#layout.prop(viewPrefs, "use_zoom_to_mouse")
 			layout.prop(addonPrefs, "zoomToMouse")
+			layout.prop(addonPrefs, "lockObj")
 			layout.prop(addonPrefs, "lockOrigin")
 
 		elif self.dialog == 'MAP':
@@ -562,6 +575,8 @@ class MAP_VIEWER(bpy.types.Operator):
 		self.moveFactor = 0.1
 
 		self.prefs = context.user_preferences.addons[PKG].preferences
+		#Option to adjust or not objects location when panning
+		self.updObjLoc = self.prefs.lockObj #if georef if locked then we need to adjust object location after each pan
 
 		#Add draw callback to view space
 		args = (self, context)
@@ -682,7 +697,7 @@ class MAP_VIEWER(bpy.types.Operator):
 								viewLoc += deltaVect
 							else:
 								dx, dy, dz = deltaVect
-								self.map.moveOrigin(dx, dy)
+								self.map.moveOrigin(dx, dy, updObjLoc=self.updObjLoc)
 						self.map.get()
 
 
@@ -730,7 +745,7 @@ class MAP_VIEWER(bpy.types.Operator):
 								viewLoc += deltaVect
 							else:
 								dx, dy, dz = deltaVect
-								self.map.moveOrigin(dx, dy)
+								self.map.moveOrigin(dx, dy, updObjLoc=self.updObjLoc)
 						self.map.get()
 
 
@@ -758,11 +773,12 @@ class MAP_VIEWER(bpy.types.Operator):
 						self.map.bkg.offset_x = self.offx1 - dlt.x
 						self.map.bkg.offset_y = self.offy1 - (dlt.y * ratio)
 					#Move existing objects (only top level parent)
-					topParents = [obj for obj in scn.objects if not obj.parent]
-					for i, obj in enumerate(topParents):
-						loc1 = self.objsLoc1[i]
-						obj.location.x = loc1.x - dlt.x
-						obj.location.y = loc1.y - dlt.y
+					if self.updObjLoc:
+						topParents = [obj for obj in scn.objects if not obj.parent]
+						for i, obj in enumerate(topParents):
+							loc1 = self.objsLoc1[i]
+							obj.location.x = loc1.x - dlt.x
+							obj.location.y = loc1.y - dlt.y
 
 
 		if event.type in {'LEFTMOUSE', 'MIDDLEMOUSE'}:
@@ -828,7 +844,7 @@ class MAP_VIEWER(bpy.types.Operator):
 				if self.prefs.lockOrigin:
 					context.region_data.view_location = loc
 				else:
-					self.map.moveOrigin(loc.x, loc.y)
+					self.map.moveOrigin(loc.x, loc.y, updObjLoc=self.updObjLoc)
 				self.map.zoom = z
 				self.map.get()
 
@@ -852,22 +868,22 @@ class MAP_VIEWER(bpy.types.Operator):
 				if event.ctrl or self.prefs.lockOrigin:
 					context.region_data.view_location += Vector( (-delta, 0, 0) )
 				else:
-					self.map.moveOrigin(-delta, 0)
+					self.map.moveOrigin(-delta, 0, updObjLoc=self.updObjLoc)
 			if event.type == 'NUMPAD_6':
 				if event.ctrl or self.prefs.lockOrigin:
 					context.region_data.view_location += Vector( (delta, 0, 0) )
 				else:
-					self.map.moveOrigin(delta, 0)
+					self.map.moveOrigin(delta, 0, updObjLoc=self.updObjLoc)
 			if event.type == 'NUMPAD_2':
 				if event.ctrl or self.prefs.lockOrigin:
 					context.region_data.view_location += Vector( (0, -delta, 0) )
 				else:
-					self.map.moveOrigin(0, -delta)
+					self.map.moveOrigin(0, -delta, updObjLoc=self.updObjLoc)
 			if event.type == 'NUMPAD_8':
 				if event.ctrl or self.prefs.lockOrigin:
 					context.region_data.view_location += Vector( (0, delta, 0) )
 				else:
-					self.map.moveOrigin(0, delta)
+					self.map.moveOrigin(0, delta, updObjLoc=self.updObjLoc)
 			if not event.ctrl:
 				self.map.get()
 
@@ -990,13 +1006,14 @@ class MAP_SEARCH(bpy.types.Operator):
 
 	def execute(self, context):
 		geoscn = GeoScene(context.scene)
+		prefs = context.user_preferences.addons[PKG].preferences
 		geocoder = Nominatim(base_url="http://nominatim.openstreetmap.org", referer="bgis")
 		results = geocoder.query(self.query)
 		if len(results) >= 1:
 			result = results[0]
 			lat, lon = float(result['lat']), float(result['lon'])
 			if geoscn.isGeoref:
-				geoscn.updOriginGeo(lon, lat)
+				geoscn.updOriginGeo(lon, lat, updObjLoc=prefs.lockObj)
 			else:
 				geoscn.setOriginGeo(lon, lat)
 		return {'FINISHED'}

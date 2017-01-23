@@ -39,7 +39,8 @@ class toolsProperties(Panel):
     '''
 
     # main
-    main(self, context)
+    try:  main(self, context)
+    except: pass
 
 # UI properties
 class UIProperties(Panel):
@@ -59,7 +60,8 @@ class UIProperties(Panel):
     '''
 
     # main
-    main(self, context)
+    try: main(self, context)
+    except: pass
 
 # main
 def main(self, context):
@@ -127,7 +129,8 @@ def main(self, context):
     if panel.context == 'GROUP':
 
       # group
-      Group(self, context, layout, bpy.data.groups[panel.target])
+      try: Group(self, context, layout, bpy.data.groups[panel.target])
+      except: pass
 
     # # grease pencil
     # elif panel.context == 'GREASE_PENCIL':
@@ -148,49 +151,57 @@ def main(self, context):
     elif panel.context == 'CONSTRAINT':
 
       # constraint
-      Constraint.main(self, context, layout, bpy.data.objects[panel.owner].constraints[panel.target])
+      try: Constraint.main(self, context, layout, bpy.data.objects[panel.owner].constraints[panel.target])
+      except: pass
 
     # modifier
     elif panel.context == 'MODIFIER':
 
       # modifier
-      Modifier.main(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].modifiers[panel.target])
+      try: Modifier.main(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].modifiers[panel.target])
+      except: pass
 
     # bone group
     elif panel.context == 'BONE_GROUP':
 
       # bone group
-      BoneGroup(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].pose.bone_groups[panel.target])
+      try: BoneGroup(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].pose.bone_groups[panel.target])
+      except: pass
 
     # bone constraint
     elif panel.context == 'BONE_CONSTRAINT':
 
       # bone constraint
-      Constraint.main(self, context, layout, context.active_object.pose.bones[panel.owner].constraints[panel.target])
+      try: Constraint.main(self, context, layout, context.active_object.pose.bones[panel.owner].constraints[panel.target])
+      except: pass
 
     # vertex group
     elif panel.context == 'VERTEX_GROUP':
 
       # vertex group
-      VertexGroup(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].vertex_groups[panel.target])
+      try: VertexGroup(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].vertex_groups[panel.target])
+      except: pass
 
     # shapekey
     elif panel.context == 'SHAPEKEY':
 
       # shapekey
-      Shapekey(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.shape_keys.key_blocks[panel.target])
+      try: Shapekey(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.shape_keys.key_blocks[panel.target])
+      except: pass
 
     # uv
     elif panel.context == 'UV':
 
       # uv
-      UV(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.uv_textures[panel.target])
+      try: UV(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.uv_textures[panel.target])
+      except: pass
 
     # vertex color
     elif panel.context == 'VERTEX_COLOR':
 
       # vertex color
-      VertexColor(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.vertex_colors[panel.target])
+      try: VertexColor(self, context, layout, bpy.data.objects[panel.owner], bpy.data.objects[panel.owner].data.vertex_colors[panel.target])
+      except: pass
 
     # material
     # elif panel.context == 'MATERIAL':

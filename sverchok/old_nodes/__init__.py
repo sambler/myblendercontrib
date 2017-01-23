@@ -28,22 +28,29 @@ old_bl_idnames = {
     'CircleNode' : "circle",
     'ListItemNode' : "list_item",
     'GenRangeNode' : "range",
+    'VectorMathNode' : "math",
     'GenSeriesNode' : "series",
+    'SvKDTreeEdgesNode': "kd_tree_edges",
 #    'Test1Node' : "test",
 #    'Test2Node' : "test",
 #    'ToolsNode' : "tools",
     'SvReRouteNode': "reroute",
     'VoronoiNode': "voronoi",
     'ViewerNode': "viewer",
+    'SkinViewerNode': 'viewer_skin',
     'ObjectsNode': "objects",
+    'ObjectsNodeMK2': "objects_mk2",
     'RandomVectorNode': 'random_vector',
     'ViewerNode_text': "viewer_text",
     'EvalKnievalNode': "eval_knieval",
     'FormulaNode': 'formula',
+    'SvNoiseNode': 'noise',
     'SvPointOnMeshNode': 'closest_point_on_mesh',
     'SvRayCastObjectNode': 'object_raycast',
     'SvRayCastSceneNode': 'scene_raycast',
-    'SvObjectToMeshNode': 'blenddata_to_svdata'
+    'SvObjectToMeshNode': 'blenddata_to_svdata',
+    'SvSetDataObjectNode': 'set_blenddata',
+    'SvVertexGroupNode': 'weights'
 }
 
 # we should add some functions to load things there

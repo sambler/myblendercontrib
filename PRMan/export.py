@@ -211,7 +211,7 @@ def is_subdmesh(ob):
 # Currently assumes too much is deforming when it isn't
 def is_deforming(ob):
     deforming_modifiers = ['ARMATURE', 'MESH_SEQUENCE_CACHE', 'CAST', 'CLOTH', 'CURVE', 'DISPLACE',
-                           'HOOK', 'LATTICE', 'MESH_DEFORM', 'SHRINKWRAP',
+                           'HOOK', 'LATTICE', 'MESH_DEFORM', 'SHRINKWRAP', 'EXPLODE',
                            'SIMPLE_DEFORM', 'SMOOTH', 'WAVE', 'SOFT_BODY',
                            'SURFACE', 'MESH_CACHE', 'FLUID_SIMULATION',
                            'DYNAMIC_PAINT']
@@ -261,7 +261,7 @@ def data_name(ob, scene):
     if ob.type == 'META':
         return fix_name(ob.name.split('.')[0])
 
-    if is_smoke(ob):
+    if is_smoke(ob) or ob.renderman.primitive == 'RI_VOLUME':
         return "%s-VOLUME" % fix_name(ob.name)
 
     if ob.data.users > 1 and (ob.is_modified(scene, "RENDER") or
@@ -640,7 +640,7 @@ def create_mesh(ob, scene):
     # elif is_subd_displace_last(ob):
     #    ob.modifiers[len(ob.modifiers)-2].show_render = False
     #    ob.modifiers[len(ob.modifiers)-1].show_render = False
-    mesh = ob.to_mesh(scene, True, 'RENDER', calc_tessface=True,
+    mesh = ob.to_mesh(scene, True, 'RENDER', calc_tessface=False,
                       calc_undeformed=True)
     if reset_subd_mod:
         ob.modifiers[len(ob.modifiers) - 1].show_render = True
@@ -666,15 +666,11 @@ def modify_light_matrix(m, ob):
         
     if ob.data.type in ['HEMI']:
         eul = m.to_euler()
-        eul = Euler([-eul[0], -eul[1], eul[2]], eul.order)
+        eul = Euler([eul[0], eul[1], eul[2]], eul.order)
         m = eul.to_matrix().to_4x4()
-        m2 = Matrix.Rotation(math.radians(180), 4, 'X')
-        m = m * m2
+        m = m * Matrix.Rotation(math.pi, 4, 'Z')
     elif ob.data.renderman.renderman_type != "FILTER":
         m = m * Matrix.Scale(-1.0, 4, (1, 0, 0))
-
-    if ob.data.type == 'HEMI':
-        m[2][2] *= -1
 
     return m
 
@@ -755,6 +751,8 @@ def export_light_shaders(ri, lamp, group_name=''):
         params = property_group_to_params(light_shader)
         params['__instanceid'] = handle
         params['string lightGroup'] = group_name
+        if hasattr(light_shader, 'iesProfile'):
+            params['string iesProfile'] = bpy.path.abspath(light_shader.iesProfile)
         if lamp.type == 'SPOT':
             params['float coneAngle'] = math.degrees(lamp.spot_size)
             params['float coneSoftness'] = lamp.spot_blend
@@ -1272,13 +1270,10 @@ def export_subdivision_mesh(ri, scene, ob, data=None):
         debug("error empty subdiv mesh %s" % ob.name)
         removeMeshFromMemory(mesh.name)
         return
-    tags = []
-    nargs = []
-    intargs = []
+    tags = ['interpolateboundary', 'facevaryinginterpolateboundary']
+    nargs = [1, 0, 1, 0]
+    intargs = [ob.data.renderman.interp_boundary, ob.data.renderman.face_boundary]
     floatargs = []
-
-    tags.append('interpolateboundary')
-    nargs.extend([0, 0])
 
     primvars = get_primvars(ob, mesh, "facevarying")
     primvars['P'] = P
@@ -1294,7 +1289,7 @@ def export_subdivision_mesh(ri, scene, ob, data=None):
         ri.SubdivisionMesh("catmull-clark", nverts, verts, tags, nargs,
                            intargs, floatargs, primvars)
     else:
-        nargs = [0, 0, 0]
+        nargs = [1, 0, 0, 1, 0, 0]
         if len(creases) > 0:
             for c in creases:
                 tags.append('crease')
@@ -1503,6 +1498,9 @@ def export_smoke(ri, ob):
     ri.Volume("box", rib_ob_bounds(ob.bound_box),
               smoke_res, params)
 
+def export_volume(ri,ob):
+    rm = ob.renderman
+    ri.Volume("box", rib_ob_bounds(ob.bound_box), [0, 0, 0])
 
 def export_sphere(ri, ob):
     rm = ob.renderman
@@ -1640,6 +1638,8 @@ def export_geometry_data(ri, scene, ob, data=None):
         export_disk(ri, ob)
     elif prim == 'TORUS':
         export_torus(ri, ob)
+    elif prim == 'RI_VOLUME':
+        export_volume(ri, ob)
 
     elif prim == 'META':
         export_blobby_family(ri, scene, ob)
@@ -1827,12 +1827,21 @@ def get_dupli_block(ob, rpass, do_mb):
     if hasattr(ob, 'dupli_type') and ob.dupli_type in SUPPORTED_DUPLI_TYPES:
         name = ob.name + '-DUPLI'
         # duplis aren't animated
-        archive_filename = get_archive_filename(name, rpass, False)
-        dbs = [DataBlock(name, "DUPLI", archive_filename, ob, dupli_data=True,
-                         do_export=file_is_dirty(rpass.scene, ob, archive_filename))]
+        dbs = []
+        deforming = False
         if ob.dupli_type == 'GROUP' and ob.dupli_group:
             for dupli_ob in ob.dupli_group.objects:
-                dbs.extend(get_dupli_block(dupli_ob, rpass, do_mb))
+                sub_dbs = get_dupli_block(dupli_ob, rpass, do_mb)
+                if not deforming:
+                    for db in sub_dbs:
+                        if db.deforming:
+                            deforming = True
+                            break
+                dbs.extend(sub_dbs)
+        archive_filename = get_archive_filename(name, rpass, deforming)
+        dbs.append(DataBlock(name, "DUPLI", archive_filename, ob, deforming=deforming,
+                             dupli_data=True, 
+                             do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
         return dbs
 
     else:
@@ -1884,7 +1893,7 @@ def get_data_blocks_needed(ob, rpass, do_mb):
                             get_dupli_block(dupli_ob, rpass, do_mb))
 
             mat = [ob.material_slots[psys.settings.material -
-                                     1].material] if psys.settings.material and len(ob.material_slots) else []
+                                     1].material] if psys.settings.material and psys.settings.material <= len(ob.material_slots) else []
             data_blocks.append(DataBlock(name, type, archive_filename, data,
                                          is_psys_animating(ob, psys, do_mb), material=mat,
                                          do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
@@ -1892,12 +1901,17 @@ def get_data_blocks_needed(ob, rpass, do_mb):
     if hasattr(ob, 'dupli_type') and ob.dupli_type in SUPPORTED_DUPLI_TYPES and not dupli_emitted:
         name = ob.name + '-DUPLI'
         # duplis aren't animated
-        archive_filename = get_archive_filename(name, rpass, False)
-        data_blocks.append(DataBlock(name, "DUPLI", archive_filename, ob,
-                                     do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
+        dupli_deforming = False
         if ob.dupli_type == 'GROUP' and ob.dupli_group:
             for dupli_ob in ob.dupli_group.objects:
-                data_blocks.extend(get_dupli_block(dupli_ob, rpass, do_mb))
+                sub_dbs = get_dupli_block(dupli_ob, rpass, do_mb)
+                if not dupli_deforming:
+                    dupli_deforming = any(db.deforming for db in sub_dbs)
+                data_blocks.extend(sub_dbs)
+        archive_filename = get_archive_filename(name, rpass, dupli_deforming)
+        data_blocks.append(DataBlock(name, "DUPLI", archive_filename, ob, dupli_deforming,
+                                     do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
+        
 
     # now the objects data
     if is_data_renderable(rpass.scene, ob) and emit_ob:
@@ -2231,9 +2245,12 @@ def export_object_attributes(ri, scene, ob, visible_objects):
 
     # This is a temporary hack until multiple lpe groups are introduced in 21.0
     obj_groups_str = "*"
+    do_holdout = False
     for obj_group in scene.renderman.object_groups:
         if ob.name in obj_group.members.keys():
             obj_groups_str += ',' + obj_group.name
+            if obj_group.name == 'collector':
+                do_holdout = True
     # add to trace sets
     ri.Attribute("grouping", {"string membership": obj_groups_str})
 
@@ -2245,15 +2262,18 @@ def export_object_attributes(ri, scene, ob, visible_objects):
                      "string lpegroup": obj_groups_str})
 
     if ob.renderman.shading_override:
-        ri.Attribute(
-            "dice", {"float micropolygonlength": ob.renderman.shadingrate})
         approx_params = {}
+        dice_params = {}
         # output motionfactor always, could not find documented default value?
-        approx_params[
-            "float motionfactor"] = ob.renderman.geometric_approx_motion
         if ob.renderman.geometric_approx_focus != -1.0:
-            approx_params[
-                "float focusfactor"] = ob.renderman.geometric_approx_focus
+            approx_params["float focusfactor"] = ob.renderman.geometric_approx_focus
+        if ob.renderman.geometric_approx_motion != 1.0:
+            approx_params["float motionfactor"] = ob.renderman.geometric_approx_motion
+        if ob.renderman.shadingrate != 1:
+            dice_params["float micropolygonlength"] = ob.renderman.shadingrate
+        if ob.renderman.watertight:
+            dice_params["int watertight"] = 1
+        ri.Attribute("dice", dice_params)
         ri.Attribute("Ri", approx_params)
 
     # visibility attributes
@@ -2270,6 +2290,8 @@ def export_object_attributes(ri, scene, ob, visible_objects):
     # ray tracing attributes
     trace_params = {}
     shade_params = {}
+    if do_holdout:
+        trace_params['int holdout'] = True
     if ob.renderman.raytrace_intersectpriority != 0:
         trace_params[
             "int intersectpriority"] = ob.renderman.raytrace_intersectpriority
@@ -2344,6 +2366,9 @@ def export_object_attributes(ri, scene, ob, visible_objects):
         if getattr(rm, name) != [0.0, 0.0, 0.0]:
             user_attr["color %s" % name] = rib(getattr(rm, name))
 
+    if hasattr(ob, 'color'):
+        user_attr["color Cs" ] = rib(ob.color[:3])
+
     if len(user_attr):
         ri.Attribute('user', user_attr)
     
@@ -2388,9 +2413,9 @@ def export_particle_archive(ri, scene, rpass, data_block, objectCorrectionMatrix
 
 def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
     ob = data_block.data
+    
     ob.dupli_list_create(scene, "RENDER")
-
-    if ob.dupli_type == 'GROUP':
+    if ob.dupli_type == 'GROUP' and ob.dupli_group:
         for dupob in ob.dupli_list:
             ri.AttributeBegin()
             dupli_name = "%s.DUPLI.%s.%d" % (ob.name, dupob.object.name,
@@ -2474,7 +2499,7 @@ def property_group_to_params(node, lamp=None):
             if 'arraySize' in meta:
                 params['%s[%d] %s' % (meta['renderman_type'], len(prop),
                                       meta['renderman_name'])] = rib(prop)
-            elif ('widget' in meta and meta['widget'] == 'assetIdInput'):
+            elif ('widget' in meta and meta['widget'] == 'assetIdInput' and prop_name != 'iesProfile'):
                 params['%s %s' % (meta['renderman_type'],
                                   meta['renderman_name'])] = \
                     rib(get_tex_file_name(prop),
@@ -2584,10 +2609,18 @@ def export_render_settings(ri, rpass, scene, preview=False):
         depths = {'int maxdiffusedepth': rm.preview_max_diffuse_depth,
                   'int maxspeculardepth': rm.preview_max_specular_depth,
                   'int displacements': 1}
+    
+    dicing_params = {"float micropolygonlength": rm.shadingrate,
+                    "string strategy": rm.dicing_strategy,
+                    "string instancestrategy": "worlddistance", 
+                    "float instanceworlddistancelength": rm.instanceworlddistancelength}
+                    
+    if rm.dicing_strategy is "worlddistance":
+        dicing_params["float worlddistancelength"] = rm.worlddistancelength
 
     # ri.PixelSamples(rm.pixelsamples_x, rm.pixelsamples_y)
     ri.PixelFilter(rm.pixelfilter, rm.pixelfilter_x, rm.pixelfilter_y)
-    ri.Attribute("dice", {"float micropolygonlength": rm.shadingrate})
+    ri.Attribute("dice", dicing_params)
     ri.Attribute("trace", depths)
     if rm.use_statistics:
         ri.Option("statistics", {'int endofframe': 1,
@@ -2741,6 +2774,19 @@ def export_options(ri, scene):
     ri.Option("searchpath", {"string procedural": [
               ".:${RMANTREE}/lib/plugins:@"]})
 
+    lpe_options = {
+        "string diffuse2": "Diffuse",
+        "string diffuse3": "Subsurface",
+        "string specular2": "Specular",
+        "string specular3": "RoughSpecular",
+        "string specular4": "Clearcoat",
+        "string specular5": "Iridescence",
+        "string specular6": "Fuzz",
+        "string specular7": "SingleScatter",
+        "string specular8": "Glass",
+    }
+
+    ri.Option('lpe', lpe_options)
 
 def export_searchpaths(ri, paths):
     ri.Option("ribparse", {"string varsubst": ["$"]})
@@ -3712,6 +3758,14 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
             mat = node.id_data
         elif mat is None and nt and nt.name == 'World':
             mat = bpy.context.scene.world
+        elif mat is None and bpy.context.object and bpy.context.object.type == 'CAMERA':
+            rpass.edit_num += 1
+            edit_flush(ri, rpass.edit_num, prman)
+
+            ri.EditBegin('option')
+            export_camera(ri, rpass.scene, [], camera_to_use=rpass.scene.camera)
+            ri.EditEnd()
+            return
         elif mat is None:
             return
         mat_name = mat.name
@@ -3731,5 +3785,5 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
         handle = mat.name
         if instance_num > 0:
             handle += "_%d" % instance_num
-        shader_node_rib(ri, node, mat.name)
+        shader_node_rib(ri, node, handle)
         ri.EditEnd()

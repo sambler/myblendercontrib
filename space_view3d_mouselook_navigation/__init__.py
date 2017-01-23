@@ -24,7 +24,7 @@ bl_info = {
     "location": "View3D > orbit/pan/dolly/zoom/fly/walk",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/3D_interaction/MouselookNavigation",
-    "tracker_url": "https://github.com/dairin0d/blender-scripts/issues",
+    "tracker_url": "https://github.com/dairin0d/mouselook-navigation/issues",
     "category": "3D View"}
 #============================================================================#
 

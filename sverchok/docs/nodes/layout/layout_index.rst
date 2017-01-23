@@ -6,4 +6,5 @@ Layout
    :maxdepth: 2
 
    converter
-   wifi
+   wifi_in
+   wifi_out

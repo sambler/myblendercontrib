@@ -55,6 +55,7 @@ import bl_ui.properties_scene as properties_scene
 properties_scene.SCENE_PT_scene.COMPAT_ENGINES.add('PRMAN_RENDER')
 properties_scene.SCENE_PT_unit.COMPAT_ENGINES.add('PRMAN_RENDER')
 properties_scene.SCENE_PT_physics.COMPAT_ENGINES.add('PRMAN_RENDER')
+properties_scene.SCENE_PT_rigid_body_world.COMPAT_ENGINES.add('PRMAN_RENDER')
 properties_scene.SCENE_PT_color_management.COMPAT_ENGINES.add('PRMAN_RENDER')
 del properties_scene
 
@@ -435,7 +436,7 @@ class RENDER_PT_renderman_sampling(PRManButtonsPanel, Panel):
 
         row = col.row()
         row.prop(rm, "show_integrator_settings", icon=icon, text=text,
-                 icon_only=True, emboss=False)
+                 emboss=False)
         if rm.show_integrator_settings:
             draw_props(integrator_settings,
                        integrator_settings.prop_names, col)
@@ -502,46 +503,56 @@ class RENDER_PT_renderman_advanced_settings(PRManButtonsPanel, Panel):
 
         layout.separator()
 
-        row = layout.row()
-        row.prop(rm, "shadingrate")
+        col = layout.column()
+        col.prop(rm, "shadingrate")
+        col.prop(rm, "dicing_strategy")
+        row = col.row()
+        row.enabled = rm.dicing_strategy == "worlddistance"
+        row.prop(rm, "worlddistancelength")
+        col.prop(rm, "instanceworlddistancelength")
 
         layout.separator()
 
-        row = layout.row()
-        row.prop(rm, "texture_cache_size")
-        row = layout.row()
-        row.prop(rm, "geo_cache_size")
-        row = layout.row()
-        row.prop(rm, "opacity_cache_size")
+        col = layout.column()
+        col.prop(rm, "texture_cache_size")
+        col.prop(rm, "geo_cache_size")
+        col.prop(rm, "opacity_cache_size")
 
         layout.separator()
-        row = layout.row()
+        col = layout.column()
+        row = col.row()
         row.label("Pixel Filter:")
         row.prop(rm, "pixelfilter", text="")
-        row = layout.row()
+        row = col.row(align=True)
         row.prop(rm, "pixelfilter_x", text="Size X")
         row.prop(rm, "pixelfilter_y", text="Size Y")
 
         layout.separator()
-        row = layout.row()
-        row.prop(rm, "dark_falloff")
+        col = layout.column()
+        col.prop(rm, "dark_falloff")
 
         layout.separator()
-        row = layout.row()
-        row.prop(rm, "bucket_shape")
+        col = layout.column()
+        col.prop(rm, "bucket_shape")
         if rm.bucket_shape == 'SPIRAL':
-            row = layout.row(align=True)
+            row = col.row(align=True)
             row.prop(rm, "bucket_sprial_x", text="X")
             row.prop(rm, "bucket_sprial_y", text="Y")
-
-        row = layout.row()
+        
+        layout.separator()
+        col = layout.column()
+        row = col.row()
         row.prop(rm, "use_statistics", text="Output stats")
         row.operator('rman.open_stats')
-
-        layout.separator()
-        row = layout.row()
+        row = col.row()
         row.operator('rman.open_rib')
         row.prop(rm, "editor_override")
+        row = layout.row()
+        row.label(text="RIB Format:")
+        row.label(text="RIB Compression")
+        row = layout.row()
+        row.prop(rm, "rib_format", text="")
+        row.prop(rm, "rib_compression", text="")
 
         layout.separator()
         layout.prop(rm, "always_generate_textures")
@@ -586,6 +597,8 @@ class MESH_PT_renderman_prim_vars(CollectionPanel, Panel):
 
         layout.prop(rm, "export_default_uv")
         layout.prop(rm, "export_default_vcol")
+        layout.prop(rm, "interp_boundary")
+        layout.prop(rm, "face_boundary")
 
 
 class MATERIAL_PT_renderman_preview(Panel):
@@ -1245,6 +1258,8 @@ class OBJECT_PT_renderman_object_render(CollectionPanel, Panel):
         colgroup = layout.column()
         colgroup.enabled = rm.shading_override
         row = colgroup.row()
+        row.prop(rm, "watertight")
+        row = colgroup.row()
         row.prop(rm, "shadingrate")
         row = colgroup.row()
         row.prop(rm, "geometric_approx_motion")
@@ -1367,7 +1382,7 @@ class RENDER_PT_layer_custom_aovs(CollectionPanel, Panel):
 
         row = col.row()
         row.prop(item, "show_advanced", icon=icon, text="Advanced",
-                 icon_only=True, emboss=False)
+                 emboss=False)
         if item.show_advanced:
             col.label("Exposure Settings")
             col.prop(item, "exposure_gain")
@@ -1574,6 +1589,23 @@ class DrawRenderHeaderInfo(bpy.types.Header):
             row.operator('lighting.start_interactive', text="Start IPR",
                          icon_value=rman_rerender_controls.icon_id)
 
+class DrawRenderHeaderNode(bpy.types.Header):
+    bl_space_type = "NODE_EDITOR"
+
+    def draw(self, context):
+        if context.scene.render.engine != "PRMAN_RENDER":
+            return
+        layout = self.layout
+        
+        row = layout.row(align=True)
+        
+        if hasattr(context.space_data, 'id') and \
+            type(context.space_data.id) == bpy.types.Material and \
+            not is_renderman_nodetree(context.space_data.id):
+            row.operator(
+                'shading.add_renderman_nodetree', text="Convert to RenderMan").idtype = "node_editor"
+
+        row.operator('nodes.new_bxdf')
 
 class DrawRenderHeaderImage(bpy.types.Header):
     bl_space_type = "IMAGE_EDITOR"
@@ -1970,7 +2002,7 @@ class Renderman_UI_Panel(bpy.types.Panel):
             row.operator('lighting.start_interactive',
                          text="Stop IPR", icon_value=rman_batch_cancel.icon_id)
             row.prop(context.scene, "rm_ipr", text="",
-                     icon='DISCLOSURE_TRI_UP' if context.scene.rm_ipr else 'DISCLOSURE_TRI_DOWN')
+                     icon='DISCLOSURE_TRI_DOWN' if context.scene.rm_ipr else 'DISCLOSURE_TRI_RIGHT')
             if context.scene.rm_ipr:
 
                 scene = context.scene
@@ -2033,7 +2065,7 @@ class Renderman_UI_Panel(bpy.types.Panel):
                          text="External Render", icon_value=rman_batch.icon_id)
 
             row.prop(context.scene, "rm_render_external", text="",
-                     icon='DISCLOSURE_TRI_UP' if context.scene.rm_render_external else 'DISCLOSURE_TRI_DOWN')
+                     icon='DISCLOSURE_TRI_DOWN' if context.scene.rm_render_external else 'DISCLOSURE_TRI_RIGHT')
             if context.scene.rm_render_external:
                 scene = context.scene
                 rd = scene.render
@@ -2174,7 +2206,7 @@ class Renderman_UI_Panel(bpy.types.Panel):
         if lamp_hemi:
 
             row.prop(context.scene, "rm_env", text="",
-                     icon='DISCLOSURE_TRI_UP' if context.scene.rm_env else 'DISCLOSURE_TRI_DOWN')
+                     icon='DISCLOSURE_TRI_DOWN' if context.scene.rm_env else 'DISCLOSURE_TRI_RIGHT')
 
             if context.scene.rm_env:
                 ob = bpy.context.object
@@ -2292,7 +2324,7 @@ class Renderman_UI_Panel(bpy.types.Panel):
         if lamp_sun:
 
             row.prop(context.scene, "rm_daylight", text="",
-                     icon='DISCLOSURE_TRI_UP' if context.scene.rm_daylight else 'DISCLOSURE_TRI_DOWN')
+                     icon='DISCLOSURE_TRI_DOWN' if context.scene.rm_daylight else 'DISCLOSURE_TRI_RIGHT')
 
             if context.scene.rm_daylight:
                 ob = bpy.context.object
@@ -2354,7 +2386,6 @@ class Renderman_UI_Panel(bpy.types.Panel):
             rman_archive = icons.get("archive_RIB")
             box.operator("export.export_rib_archive",
                          icon_value=rman_archive.icon_id)
-
         # Create Geo LightBlocker
 
         # Update Archive !! Not needed with current system.

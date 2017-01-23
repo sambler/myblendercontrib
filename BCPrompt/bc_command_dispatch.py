@@ -60,6 +60,12 @@ from .bc_CAD_utils import (
     do_bix2
 )
 
+from .bc_theme_utils import (
+    set_nodewhite,
+    set_3de,
+    set_theme
+)
+
 from .bc_operator_loaders import run_operator_register
 
 """
@@ -209,17 +215,20 @@ def in_scene_commands(context, m):
             output_type = 'ERROR'
         add_scrollback(msg, output_type)
 
+    elif m == 'bright':
+        set_theme(context, 'theme_3')
+        set_nodewhite(context, '')
+        set_3de(context, '')
+
     elif m in {'nodeview white', 'nv white', 'nv111'}:
-        current_theme = bpy.context.user_preferences.themes.items()[0][0]
-        editor = bpy.context.user_preferences.themes[current_theme].node_editor
-        editor.space.back = (1, 1, 1)
+        set_nodewhite(context, '')
+
+    elif m.startswith('theme') and '_' in m and len(m) > 6:
+        set_theme(context, m)        
 
     elif m in {'3dv easy', '3de', 'sde'}:
-        current_theme = bpy.context.user_preferences.themes.items()[0][0]
-        editor = bpy.context.user_preferences.themes[current_theme].view_3d
-        editor.grid = [0.533277, 0.533277, 0.533277]
-        editor.space.gradients.show_grad = False
-        editor.space.gradients.high_gradient = [0.701102, 0.701102, 0.701102]
+        set_3de(context, '')
+
     else:
         return False
 
@@ -383,7 +392,7 @@ def in_core_dev_commands(context, m):
         ''' dispatch a threaded worker '''
         cmd_controller(m[1:])
 
-    elif m.startswith('obj=') or m.startswith('n='):
+    elif m.startswith('obj=') or m.startswith('n=') or m.startswith('-fem'):
         do_console_rewriter(context, m)
 
     elif m == 'git help':
