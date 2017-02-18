@@ -46,8 +46,8 @@ def load_handler(dummy):
         bpy.types.SpaceView3D.draw_handler_remove(GafShowLightLabel._handle, 'WINDOW')
     bpy.context.scene.gaf_props.IsShowingRadius = False
     bpy.context.scene.gaf_props.IsShowingLabel = False
-    
 
+    
 class GafRename(bpy.types.Operator):
 
     'Rename this light'
@@ -78,7 +78,6 @@ class GafRename(bpy.types.Operator):
         refresh_light_list(context.scene)
         return {'FINISHED'}
 
-
 class GafSetTemp(bpy.types.Operator):
 
     'Set the color temperature to a preset'
@@ -98,7 +97,6 @@ class GafSetTemp(bpy.types.Operator):
         node.inputs[0].links[0].from_node.inputs[0].default_value = col_temp[self.temperature]
         return {'FINISHED'}
 
-
 class GafTempShowList(bpy.types.Operator):
 
     'Set the color temperature to a preset'
@@ -111,7 +109,6 @@ class GafTempShowList(bpy.types.Operator):
         context.scene.gaf_props.LightUIIndex = self.l_index
         return {'FINISHED'}
 
-
 class GafTempHideList(bpy.types.Operator):
 
     'Hide color temperature presets'
@@ -121,7 +118,6 @@ class GafTempHideList(bpy.types.Operator):
     def execute(self, context):
         context.scene.gaf_props.ColTempExpand = False
         return {'FINISHED'}
-
 
 class GafShowMore(bpy.types.Operator):
 
@@ -138,7 +134,6 @@ class GafShowMore(bpy.types.Operator):
         context.scene.gaf_props.MoreExpand = exp_list
         return {'FINISHED'}
 
-
 class GafHideMore(bpy.types.Operator):
 
     'Hide settings such as MIS, falloff, ray visibility...'
@@ -149,7 +144,6 @@ class GafHideMore(bpy.types.Operator):
     def execute(self, context):
         context.scene.gaf_props.MoreExpand = context.scene.gaf_props.MoreExpand.replace("_Light:_(" + self.light + ")_", "")
         return {'FINISHED'}
-
 
 class GafHideShowLight(bpy.types.Operator):
 
@@ -182,7 +176,6 @@ class GafHideShowLight(bpy.types.Operator):
                                 obj.hide = self.hide
                                 obj.hide_render = self.hide
         return {'FINISHED'}
-
 
 class GafSelectLight(bpy.types.Operator):
 
@@ -220,7 +213,6 @@ class GafSelectLight(bpy.types.Operator):
             context.scene.objects.active = bpy.data.objects[self.light]
 
         return {'FINISHED'}
-
 
 class GafSolo(bpy.types.Operator):
 
@@ -314,7 +306,6 @@ class GafSolo(bpy.types.Operator):
 
         return {'FINISHED'}
 
-
 class GafLampUseNodes(bpy.types.Operator):
 
     'Make this lamp use nodes'
@@ -328,7 +319,6 @@ class GafLampUseNodes(bpy.types.Operator):
             obj.data.use_nodes = True
         bpy.ops.gaffer.refresh_lights()
         return {'FINISHED'}
-
 
 class GafNodeSetStrength(bpy.types.Operator):
 
@@ -347,7 +337,6 @@ class GafNodeSetStrength(bpy.types.Operator):
         setGafferNode(context, 'STRENGTH')
         return {'FINISHED'}
 
-
 class GafRefreshLightList(bpy.types.Operator):
 
     'Refresh the list of lights'
@@ -364,7 +353,6 @@ class GafRefreshLightList(bpy.types.Operator):
             getHiddenStatus(scene, stringToNestedList(scene.gaf_props.Lights, True))
         refresh_bgl()  # update the radius/label as well
         return {'FINISHED'}
-
 
 class GafCreateEnviroWidget(bpy.types.Operator):
 
@@ -457,7 +445,6 @@ class GafCreateEnviroWidget(bpy.types.Operator):
 
         return {'FINISHED'}
 
-
 class GafLinkSkyToSun(bpy.types.Operator):
     bl_idname = "gaffer.link_sky_to_sun"
     bl_label = "Link Sky Texture:"
@@ -517,6 +504,84 @@ class GafLinkSkyToSun(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class GafAimLight(bpy.types.Operator):
+
+    "Point the selected lights at a target"
+    bl_idname = 'gaffer.aim'
+    bl_label = 'Aim'
+    target_type = bpy.props.StringProperty()
+
+    def aim (self, context, obj, target=[0,0,0]):
+        # Thanks to @kilbee for cleaning my crap up here :) See: https://github.com/gregzaal/Gaffer/commit/b920092
+        obj_loc = obj.matrix_world.to_translation()
+        direction = target - obj_loc
+        # point obj '-Z' and use its 'Y' as up
+        rot_quat = direction.to_track_quat('-Z', 'Y')
+        obj.rotation_euler = rot_quat.to_euler()
+
+    def execute(self, context):
+        if self.target_type == 'CURSOR':
+            # Aim all selected objects at cursor
+            objects = context.selected_editable_objects
+            if not objects:
+                self.report({'ERROR'}, "No selected objects!")
+                return {'CANCELLED'}
+            for obj in context.selected_editable_objects:
+                self.aim(context, obj, context.scene.cursor_location)
+
+            return {'FINISHED'}
+
+        elif self.target_type == 'SELECTED':
+            # Aim the active object at the average location of all other selected objects
+            active = context.scene.objects.active
+            objects = [obj for obj in context.selected_objects if obj != active]
+            num_objects = len(objects)
+
+            if not active:
+                self.report({'ERROR'}, "You need an active object!")
+                return {'CANCELLED'}
+            elif num_objects == 0:
+                if active.select:
+                    self.report({'ERROR'}, "Select more than one object!")
+                else:
+                    self.report({'ERROR'}, "No selected objects!")
+                return {'CANCELLED'}
+
+            total_x = 0
+            total_y = 0
+            total_z = 0
+
+            for obj in objects:
+                total_x += obj.location.x
+                total_y += obj.location.y
+                total_z += obj.location.z
+
+            avg_x = total_x / num_objects
+            avg_y = total_y / num_objects
+            avg_z = total_z / num_objects
+
+            self.aim(context, active, Vector((avg_x, avg_y, avg_z)))
+
+            return {'FINISHED'}
+
+        elif self.target_type == 'ACTIVE':
+            # Aim the selected objects at the active object
+            active = context.scene.objects.active
+            objects = [obj for obj in context.selected_objects if obj != active]
+            if not active:
+                self.report({'ERROR'}, "No active object!")
+                return {'CANCELLED'}
+            elif not objects:
+                self.report({'ERROR'}, "No selected objects!")
+                return {'CANCELLED'}
+
+            for obj in objects:
+                self.aim(context, obj, active.location)
+
+            return {'FINISHED'}
+
+        return {'CANCELLED'}
+
 
 class GafShowLightRadius(bpy.types.Operator):
 
@@ -541,6 +606,9 @@ class GafShowLightRadius(bpy.types.Operator):
     def draw_callback_radius(self, context):
         scene = context.scene
         region = context.region
+
+        if context.space_data.viewport_shade == 'RENDERED':
+            return
 
         for item in self.objects:
             obj = item[0]
@@ -667,7 +735,6 @@ class GafShowLightRadius(bpy.types.Operator):
             self.report({'WARNING'}, "View3D not found, cannot run operator")
             return {'CANCELLED'}
 
-
 class GafShowLightLabel(bpy.types.Operator):
 
     'Display the name of each light in the viewport'
@@ -709,6 +776,9 @@ class GafShowLightLabel(bpy.types.Operator):
 
     def draw_callback_label(self, context):
         scene = context.scene
+
+        if context.space_data.viewport_shade == 'RENDERED':
+            return
 
         # font_size_factor is used to scale the rectangles based on the font size and DPI, measured against a font size of 62
         font_size_factor = (scene.gaf_props.LabelFontSize/62) * (context.user_preferences.system.dpi/72)
@@ -855,7 +925,6 @@ class GafShowLightLabel(bpy.types.Operator):
             self.report({'WARNING'}, "View3D not found, cannot run operator")
             return {'CANCELLED'}
 
-
 class GafRefreshBGL(bpy.types.Operator):
 
     "Update the radius and label display to account for undetected changes"
@@ -869,7 +938,6 @@ class GafRefreshBGL(bpy.types.Operator):
     def execute(self, context):
         refresh_bgl()
         return {'FINISHED'}
-
 
 class GafAddBlacklisted(bpy.types.Operator):
 
@@ -891,7 +959,6 @@ class GafAddBlacklisted(bpy.types.Operator):
 
         context.scene.gaf_props.BlacklistIndex = len(context.scene.gaf_props.Blacklist) - 1
         return {'FINISHED'}
-
 
 class GafRemoveBlacklisted(bpy.types.Operator):
 
@@ -915,85 +982,6 @@ class GafRemoveBlacklisted(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class GafAimLight(bpy.types.Operator):
-
-    "Point the selected lights at a target"
-    bl_idname = 'gaffer.aim'
-    bl_label = 'Aim'
-    target_type = bpy.props.StringProperty()
-
-    def aim (self, context, obj, target=[0,0,0]):
-        # Thanks to @kilbee for cleaning my crap up here :) See: https://github.com/gregzaal/Gaffer/commit/b920092
-        obj_loc = obj.matrix_world.to_translation()
-        direction = target - obj_loc
-        # point obj '-Z' and use its 'Y' as up
-        rot_quat = direction.to_track_quat('-Z', 'Y')
-        obj.rotation_euler = rot_quat.to_euler()
-
-    def execute(self, context):
-        if self.target_type == 'CURSOR':
-            # Aim all selected objects at cursor
-            objects = context.selected_editable_objects
-            if not objects:
-                self.report({'ERROR'}, "No selected objects!")
-                return {'CANCELLED'}
-            for obj in context.selected_editable_objects:
-                self.aim(context, obj, context.scene.cursor_location)
-
-            return {'FINISHED'}
-
-        elif self.target_type == 'SELECTED':
-            # Aim the active object at the average location of all other selected objects
-            active = context.scene.objects.active
-            objects = [obj for obj in context.selected_objects if obj != active]
-            num_objects = len(objects)
-
-            if not active:
-                self.report({'ERROR'}, "You need an active object!")
-                return {'CANCELLED'}
-            elif num_objects == 0:
-                if active.select:
-                    self.report({'ERROR'}, "Select more than one object!")
-                else:
-                    self.report({'ERROR'}, "No selected objects!")
-                return {'CANCELLED'}
-
-            total_x = 0
-            total_y = 0
-            total_z = 0
-
-            for obj in objects:
-                total_x += obj.location.x
-                total_y += obj.location.y
-                total_z += obj.location.z
-
-            avg_x = total_x / num_objects
-            avg_y = total_y / num_objects
-            avg_z = total_z / num_objects
-
-            self.aim(context, active, Vector((avg_x, avg_y, avg_z)))
-
-            return {'FINISHED'}
-
-        elif self.target_type == 'ACTIVE':
-            # Aim the selected objects at the active object
-            active = context.scene.objects.active
-            objects = [obj for obj in context.selected_objects if obj != active]
-            if not active:
-                self.report({'ERROR'}, "No active object!")
-                return {'CANCELLED'}
-            elif not objects:
-                self.report({'ERROR'}, "No selected objects!")
-                return {'CANCELLED'}
-
-            for obj in objects:
-                self.aim(context, obj, active.location)
-
-            return {'FINISHED'}
-
-        return {'CANCELLED'}
-
-
 class GafDetectHDRIs(bpy.types.Operator):
 
     "Look for HDRIs in the chosen folder, matching different resolutions and variants together based on filename"
@@ -1014,26 +1002,59 @@ class GafHDRIThumbGen(bpy.types.Operator):
     # TODO render diffuse/gloss/plastic spheres instead of just the normal preview
     # TODO option to try to download sphere renders instead of rendering locally, as well as a separate option to upload local renders to help others skip rendering locally again
 
-    def downsample(self, img):
-        # TODO linear interoplation
+    def draw(self, context):
+        layout = self.layout
 
+        col = layout.column(align=True)
+        r = col.row(align=True)
+        r.alignment = 'CENTER'
+        r.label("This may take a while if you have large HDRIs and no", icon='ERROR')
+        r = col.row(align=True)
+        r.alignment = 'CENTER'
+        r.label("smaller resolution version for each one.")
+
+        col = layout.column(align=True)
+        r = col.row(align=True)
+        r.alignment = 'CENTER'
+        r.label("The only way to stop this process once you start it")
+        r = col.row(align=True)
+        r.alignment = 'CENTER'
+        r.label("is to forcibly close Blender.")
+
+        col = layout.column(align=True)
+        r = col.row(align=True)
+        r.alignment = 'CENTER'
+        r.label("This only has to be done once.")
+
+    def downsample(self, img, in_x, in_y, out_x, out_y):
         import numpy
-        out_x = 256
-        out_y = 128
-        in_x = img.size[0]
-        in_y = img.size[1]
 
-        if in_x < 256 or in_y < 128:
+        if in_x < out_x or in_y < out_y:
             return numpy.array(img.pixels)
-    
-        p = numpy.split(numpy.array(img.pixels), len(img.pixels)/4)  # Group by RGBA
-        rows = numpy.split(numpy.array(p), in_y)
         
-        new_cols = []
-        for r in [r[0] for r in numpy.array_split(rows,out_y)]:
-            new_cols.append([p[0] for p in numpy.array_split(r, out_x)])
-            
-        return numpy.array(new_cols).ravel()
+        p = numpy.array(img.pixels)
+        new_p = numpy.empty(out_x*out_y*4)
+        i = 0
+        ni = 0
+        r_y = in_y / out_y
+        inc = int(r_y)*4
+
+        for y in range(out_y):
+            v_jump = int(r_y * y)
+            i = in_x * v_jump * 4
+            for x in range(out_x):
+                i = int(i)
+                try:
+                    new_p[ni] = p[i]
+                except:
+                    break
+                new_p[ni+1] = p[i+1]
+                new_p[ni+2] = p[i+2]
+                new_p[ni+3] = p[i+3]
+                i += inc
+                ni += 4
+
+        return new_p
 
     def generate_thumb(self, name, files):
         import numpy
@@ -1048,24 +1069,22 @@ class GafHDRIThumbGen(bpy.types.Operator):
             chosen_file = files[0]
         else:
             # First check if there are really small versions
+            small_sizes = ['256p', '512p']
             for f in files:
-                if '256p' in f:
-                    chosen_file = f
-                    downsample = False  # Final thumb size is 256p, so no need to downsample
-                    break
-            if not chosen_file:
-                for f in files:
-                    if '512p' in f:
+                for s in small_sizes:
+                    if s in f:
                         chosen_file = f
                         break
-                if not chosen_file:
-                    # Otherwise pick smallest file, but not one that has 'env' at the end,
-                    # since those are usually blurred
-                    file_sizes = {}
-                    for f in files:
-                        if not os.path.splitext(f)[0].lower().endswith('env'):
-                            file_sizes[f] = os.path.getsize(os.path.join(prefs.hdri_path, f))
-                    chosen_file = min(file_sizes, key=file_sizes.get)
+                if chosen_file:
+                    break
+
+            # Otherwise pick smallest file
+            if not chosen_file:
+                file_sizes = {}
+                for f in files:
+                    if not os.path.splitext(f)[0].lower().endswith('env'):
+                        file_sizes[f] = os.path.getsize(os.path.join(prefs.hdri_path, f))
+                chosen_file = min(file_sizes, key=file_sizes.get)
         if not chosen_file:
             chosen_file = files[0]  # Safety fallback
 
@@ -1074,17 +1093,22 @@ class GafHDRIThumbGen(bpy.types.Operator):
         thumb_file = os.path.join(thumbnail_dir, name+"__thumb_preview.jpg")
         if not os.path.exists(thumb_file):
             img = bpy.data.images.load(fp, check_existing=False)
-            out_img = bpy.data.images.new("tmp_"+name+"__thumb", 256, 128, alpha=True)
+
+            in_x = img.size[0]
+            in_y = img.size[1]
+            out_x = 200
+            out_y = round(out_x * (in_y/in_x))  # Same aspect ratio as original
 
             pixels = []
             if downsample:
-                pixels = self.downsample(img)
+                pixels = self.downsample(img, in_x, in_y, out_x, out_y)
             else:
                 pixels = numpy.array(img.pixels)
 
             if img.colorspace_settings.name == 'Linear':
                 pixels = numpy.power(pixels, 1/2.2)
 
+            out_img = bpy.data.images.new("tmp_"+name+"__thumb", out_x, out_y, alpha=True)
             out_img.pixels = pixels
 
             save_image(context, out_img, thumb_file, 'JPEG')
@@ -1093,13 +1117,13 @@ class GafHDRIThumbGen(bpy.types.Operator):
             bpy.data.images.remove(out_img)
 
     def execute(self, context):
-        context.scene.gaf_props.RequestThumbGen = False
+        context.user_preferences.addons[__package__].preferences.RequestThumbGen = False
         hdris = get_hdri_list()
 
         progress_begin(context)
         num_hdris = len(hdris)
         for i, h in enumerate(hdris):
-            progress_update(context, i/num_hdris, "Generating thumbnail "+str(i+1)+' of '+str(num_hdris))
+            progress_update(context, i/num_hdris, "Generating thumbnail "+str(i+1)+' of '+str(num_hdris)+' ('+h+')')
             self.generate_thumb(h, hdris[h])
         progress_end(context)
 
@@ -1107,14 +1131,15 @@ class GafHDRIThumbGen(bpy.types.Operator):
 
         return {'FINISHED'}
 
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=300)
+
 class GafHDRIJPGGen(bpy.types.Operator):
 
     "Generate regular JPG and darkened JPG from HDRI"
     bl_idname = 'gaffer.generate_jpgs'
     bl_label = 'Generate JPGs'
     bl_options = {'INTERNAL'}
-
-    # TODO show progess
 
     def generate_jpgs(self, context, name):
         import numpy
@@ -1157,6 +1182,18 @@ class GafHDRIJPGGen(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class GafHDRIClearSearch(bpy.types.Operator):
+
+    "Clear the search, show all HDRIs"
+    bl_idname = 'gaffer.clear_search'
+    bl_label = 'Clear'
+    bl_options = {'INTERNAL'}
+
+    def execute(self, context):
+        context.scene.gaf_props.hdri_search = ""
+        
+        return {'FINISHED'}
+
 class GafHDRIPaddles(bpy.types.Operator):
 
     "Switch to the next/previous HDRI"
@@ -1167,7 +1204,7 @@ class GafHDRIPaddles(bpy.types.Operator):
 
     def execute(self, context):
         gaf_props = context.scene.gaf_props
-        hdris = get_hdri_list()
+        hdris = get_hdri_list(use_search=True)
         current_hdri = gaf_props.hdri
         current_index = -1
         list_hdris = list(hdris)
@@ -1185,6 +1222,20 @@ class GafHDRIPaddles(bpy.types.Operator):
             gaf_props.hdri = list_hdris[current_index+1] if self.do_next else list_hdris[current_index-1]
             return {'FINISHED'}
 
+class GafHDRIAddTag(bpy.types.Operator):
+
+    "Add this tag to the current HDRI"
+    bl_idname = 'gaffer.add_tag'
+    bl_label = 'Add Tag'
+    bl_options = {'INTERNAL'}
+    hdri = bpy.props.StringProperty()
+    tag = bpy.props.StringProperty()
+
+    def execute(self, context):
+        set_tag(self.hdri, self.tag)
+        
+        return {'FINISHED'}
+
 class GafHDRIRandom(bpy.types.Operator):
 
     "Switch to a random HDRI"
@@ -1194,7 +1245,11 @@ class GafHDRIRandom(bpy.types.Operator):
 
     def execute(self, context):
         gaf_props = context.scene.gaf_props
-        hdris = get_hdri_list()
+        hdris = get_hdri_list(use_search=True)
+
+        if len(hdris) <= 1:
+            self.report({'WARNING'}, "No more HDRIs found")
+            return {'FINISHED'}
 
         from random import choice
         random_hdri = gaf_props.hdri
@@ -1252,14 +1307,10 @@ class GafGetHDRIHaven(bpy.types.Operator):
         row.alignment='CENTER'
         row.label("If you already have some of them, those will be skipped")
 
-    def download_file(self, context, i, hh, h_list, num_hdris):
+    def download_file(self, context, i, hh, h_list, out_folder, num_hdris):
         from urllib.request import urlretrieve
 
-        prefs = bpy.context.user_preferences.addons[__package__].preferences
         filename = hh+'_1k.hdr'
-        out_folder = os.path.join(prefs.hdri_path, 'HDRI Haven')
-        if not os.path.exists(out_folder):
-            os.makedirs(out_folder)
         if hh not in h_list:
             filepath = os.path.join(out_folder, filename)
             print (str(i+1)+'/'+str(num_hdris), "Downloading:", filename)
@@ -1273,7 +1324,7 @@ class GafGetHDRIHaven(bpy.types.Operator):
             print ("Skipping " + filename + ", you already have it")
                     
     def execute(self, context):
-        hdrihaven_hdris = get_hdri_haven_list()
+        hdrihaven_hdris = get_hdri_haven_list(force_update=True)
         num_hdris = len(hdrihaven_hdris)
         success = False
         if hdrihaven_hdris:
@@ -1281,11 +1332,16 @@ class GafGetHDRIHaven(bpy.types.Operator):
 
             progress_begin(context)
 
+            prefs = bpy.context.user_preferences.addons[__package__].preferences
+            out_folder = os.path.join(prefs.hdri_path, 'HDRI Haven')
+            if not os.path.exists(out_folder):
+                os.makedirs(out_folder)
+
             from concurrent.futures import ThreadPoolExecutor
             executor = ThreadPoolExecutor(max_workers=12)
             threads = []
             for i, hh in enumerate(hdrihaven_hdris):
-                t = executor.submit(self.download_file, context, i, hh, hdri_list, num_hdris)
+                t = executor.submit(self.download_file, context, i, hh, hdri_list, out_folder, num_hdris)
                 threads.append(t)
 
             from time import sleep
@@ -1307,6 +1363,9 @@ class GafGetHDRIHaven(bpy.types.Operator):
                 success = True
 
             progress_end(context)
+        else:
+            self.report({'ERROR'}, "Cannot connect to HDRI Haven website, check your internet connection or try again later")
+            return {'CANCELLED'}
 
         if success:
             context.scene.gaf_props.ShowHDRIHaven = False
@@ -1338,4 +1397,26 @@ class GafOpenHDRIHaven(bpy.types.Operator):
 
     def execute(self, context):
         bpy.ops.wm.url_open(url=self.url)
+        return {'FINISHED'}
+
+class GafHDRIOpenDataFolder(bpy.types.Operator):
+
+    "Open Gaffer's data folder in your system file explorer"
+    bl_idname = 'gaffer.open_data_folder'
+    bl_label = 'Open Gaffer\'s Data Folder'
+
+    def execute(self, context):
+        import subprocess
+        import sys
+
+        try:
+            if sys.platform == 'darwin':
+                subprocess.check_call(['open', '--', data_dir])
+            elif sys.platform == 'linux2':
+                subprocess.check_call(['xdg-open', '--', data_dir])
+            elif sys.platform == 'win32':
+                subprocess.check_call(['explorer', data_dir])
+        except:
+            self.report({'WARNING'}, "This might not have worked :( Navigate to the path manually: "+data_dir)
+        
         return {'FINISHED'}

@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Zaloopok",
     "author": "nemyax",
-    "version": (0, 6, 20160629),
+    "version": (0, 6, 20170206),
     "blender": (2, 7, 6),
     "location": "",
     "description": "Adaptations of a few tools from Wings3D",
@@ -872,7 +872,10 @@ class ToEdges(bpy.types.Operator):
                 or sm == (False, False, True)))
 
     def execute(self, context):
-        bpy.ops.mesh.select_mode(use_expand=True, type='EDGE')
+        exp = False
+        if context.tool_settings.mesh_select_mode[0]:
+            exp = True
+        bpy.ops.mesh.select_mode(use_expand=exp, type='EDGE')
         context.tool_settings.mesh_select_mode = (False, True, False)
         context.space_data.pivot_point = 'INDIVIDUAL_ORIGINS'
         return {'FINISHED'}

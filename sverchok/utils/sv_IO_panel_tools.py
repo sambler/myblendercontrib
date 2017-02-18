@@ -22,6 +22,7 @@ import re
 import zipfile
 import traceback
 from time import gmtime, strftime
+import urllib
 from urllib.request import urlopen
 
 from os.path import basename
@@ -506,10 +507,8 @@ def add_node_to_tree(nodes, n, nodes_to_import, name_remap, create_texts):
         node.storage_set_data(node_ref)
 
     if bl_idname == 'SvObjectsNodeMK3':
-        print(node_ref)
-        obj_names = node_ref.get('object_names', [])
-        for n in obj_names:
-            node.object_names.add().name = n
+        for named_object in node_ref.get('object_names', []):
+            node.object_names.add().name = named_object
 
     gather_remapped_names(node, n, name_remap)
     apply_core_props(node, node_ref)
@@ -778,9 +777,20 @@ class SvNodeTreeImportFromGist(bpy.types.Operator):
     gist_id = StringProperty()
 
     def read_n_decode(self, url):
-        content_at_url = urlopen(url)
-        found_json = content_at_url.read().decode()
-        return found_json        
+        try:
+            content_at_url = urlopen(url)
+            found_json = content_at_url.read().decode()
+            return found_json        
+        except urllib.error.HTTPError as err:
+            if err.code == 404:
+                self.report({'ERROR'}, 'url: ' + str(url) + ' doesn\'t appear to be a valid url, copy it again from your source')
+            else:
+                self.report({'ERROR'}, 'url error:' + str(err.code))
+        except:
+            self.report({'ERROR'}, 'unspecified error, check your internet connection')
+
+        return
+
 
     def obtain_json(self, gist_id):
 
@@ -793,6 +803,8 @@ class SvNodeTreeImportFromGist(bpy.types.Operator):
             gist_id = str(gist_id)
             url = 'https://api.github.com/gists/' + gist_id
             found_json = self.read_n_decode(url)
+            if not found_json:
+                return
 
             wfile = json.JSONDecoder()
             wjson = wfile.decode(found_json)
@@ -818,9 +830,11 @@ class SvNodeTreeImportFromGist(bpy.types.Operator):
             self.gist_id = context.window_manager.clipboard
 
         nodes_json = self.obtain_json(self.gist_id.strip())
-        import_tree(ng, nodes_json=nodes_json)
+        if not nodes_json:
+            return {'CANCELLED'}
 
-        # set new node tree to active
+        # import tree and set new node tree to active
+        import_tree(ng, nodes_json=nodes_json)
         context.space_data.node_tree = ng
         return {'FINISHED'}
 
@@ -841,6 +855,9 @@ class SvNodeTreeExportToGist(bpy.types.Operator):
             context.window_manager.clipboard = gist_url   # full destination url
             print(gist_url)
             self.report({'WARNING'}, "Copied gistURL to clipboad")
+
+            sv_gist_tools.write_or_append_datafiles(gist_url, gist_filename)
+
         except:
             self.report({'ERROR'}, "Error uploading the gist, check your internet connection!")
         finally:

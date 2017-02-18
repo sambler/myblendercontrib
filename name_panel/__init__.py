@@ -313,7 +313,8 @@ def register():
   # isnt location tools
   else:
     bpy.utils.unregister_class(name.toolsName)
-    bpy.utils.unregister_class(bpy.types.VIEW3D_PT_view3d_name)
+    try: bpy.utils.unregister_class(bpy.types.VIEW3D_PT_view3d_name)
+    except: pass
 
   # location
   location = defaults['properties panel']['location']

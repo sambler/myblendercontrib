@@ -23,6 +23,9 @@ import bpy
 
 import mathutils
 
+from . import cm_timings
+import time
+
 
 class Neuron():
     """The representation of the nodes. Not to be used on own"""
@@ -40,6 +43,8 @@ class Neuron():
     def evaluate(self):
         """Called by any neurons that take this neuron as an input"""
         preferences = bpy.context.user_preferences.addons[__package__].preferences
+        if preferences.show_debug_options:
+            t = time.time()
         if self.result:
             # Return a cached version of the answer if possible
             return self.result
@@ -47,6 +52,9 @@ class Neuron():
         dep = True in [self.neurons[x].isCurrent for x in self.dependantOn]
         # Only output something if the node isn't dependant on a state
         #  or if one of it's dependancies is the current state
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.neuron["deps"] += time.time() - t
+
         if noDeps or dep:
             inps = []
             for i in self.inputs:
@@ -55,13 +63,20 @@ class Neuron():
                 input in not a dictionary then it is made into one"""
                 if got is not None:
                     inps.append(got)
+            if preferences.show_debug_options:
+                coreT = time.time()
             output = self.core(inps, self.settings)
+            if preferences.show_debug_options and preferences.show_debug_timings:
+                cm_timings.coreTimes[self.__class__.__name__] += time.time() - coreT
+                cm_timings.coreNumber[self.__class__.__name__] += 1
             if not (isinstance(output, dict) or output is None):
                 output = {"None": output}
         else:
             output = None
         self.result = output
 
+        if preferences.show_debug_options:
+            t = time.time()
         # Calculate the colour that would be displayed in the agent is selected
         total = 0
         if output:
@@ -92,6 +107,9 @@ class Neuron():
             sat = 0
             val = 0.5
         self.resultLog[-1] = (hue, sat, val)
+
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.neuron["colour"] += time.time() - t
 
         return output
 
@@ -128,6 +146,8 @@ class State:
         self.length = 0
         self.cycleState = False
         self.currentFrame = 0
+
+        self.syncState = False  # Set during compileBrain
 
         self.bpyNode = bpyNode
         self.resultLog = {0: (0, 0, 0), 1: (0, 0, 0)}
@@ -278,17 +298,38 @@ class Brain():
 
     def execute(self):
         """Called for each time the agents needs to evaluate"""
+        preferences = bpy.context.user_preferences.addons[__package__].preferences
+
         actv = bpy.context.active_object
         self.isActiveSelection = actv is not None and actv.name == self.userid
         self.reset()
         randstate = hash(self.userid) + self.sim.framelast
         random.seed(randstate)
+
+        if preferences.show_debug_options:
+            t = time.time()
+
         for name, var in self.lvars.items():
             var.setuser(self.userid)
+
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.brain["setUser"] += time.time() - t
+            t = time.time()
+
         for neur in self.neurons.values():
             neur.newFrame()
+
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.brain["newFrame"] += time.time() - t
+            t = time.time()
+
         for out in self.outputs:
             self.neurons[out].evaluate()
+
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.brain["evaluate"] += time.time() - t
+            t = time.time()
+
         if self.currentState:
             new, nextState = self.neurons[self.currentState].evaluateState()
             self.neurons[self.currentState].isCurrent = False
@@ -298,6 +339,9 @@ class Brain():
             self.neurons[self.currentState].isCurrent = True
             if new:
                 self.neurons[nextState].moveTo()
+
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.brain["evalState"] += time.time() - t
 
     def hightLight(self, frame):
         """This will be called for the agent that is the active selection"""

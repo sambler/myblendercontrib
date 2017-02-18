@@ -1,7 +1,7 @@
 bl_info = {
     "name": "SMD: Valve studiomodel source format",
     "author": "nemyax",
-    "version": (0, 1, 20161113),
+    "version": (0, 1, 20170124),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Export Valve studiomodel sources",
@@ -64,25 +64,36 @@ def get_node_items(bone_lu):
         result.append(template.format(a, b, c))
     return result
 
-def xf_from_rest_pose(bone):
+def reduce_to_scale(mtx):
+    sx, sy, sz = mtx.to_scale()
+    return mu.Matrix([
+        (sx,0.0,0.0,0.0),
+        (0.0,sy,0.0,0.0),
+        (0.0,0.0,sz,0.0),
+        (0.0,0.0,0.0,1.0)])
+
+def xf_from_rest_pose(bone, a_mtx):
     if not bone:
         return [0.0] * 6
     par = bone.parent
     if par:
-        mtx = par.bone.matrix_local.inverted() * bone.bone.matrix_local
+        mtx = \
+            reduce_to_scale(a_mtx) * \
+            par.bone.matrix_local.inverted() * \
+            bone.bone.matrix_local
     else:
-        mtx = bone.bone.matrix_local
+        mtx = a_mtx * bone.bone.matrix_local
     return mtx.to_translation()[:] + mtx.to_euler()[:]
 
-def xf_from_live_pose(bone):
+def xf_from_live_pose(bone, a_mtx):
     par = bone.parent
     if par:
-        mtx = par.matrix.inverted() * bone.matrix
+        mtx = reduce_to_scale(a_mtx) * par.matrix.inverted() * bone.matrix
     else:
-        mtx = bone.matrix
+        mtx = a_mtx * bone.matrix
     return mtx.to_translation()[:] + mtx.to_euler()[:]
 
-def get_xform_items(bones, frame=None):
+def get_xform_items(bones, a_mtx, frame=None):
     template = "{}" + " {:.6f}" * 6 + "\n"
     if frame == None:
         frame = 0
@@ -91,7 +102,7 @@ def get_xform_items(bones, frame=None):
         xf_query_fn = xf_from_live_pose
     result = ["time {}\n".format(frame)]
     for idx, bone in bones:
-        tx, ty, tz, rx, ry, rz = xf_query_fn(bone)
+        tx, ty, tz, rx, ry, rz = xf_query_fn(bone, a_mtx)
         result.append(template.format(idx, tx, ty, tz, rx, ry, rz))
     return result
 
@@ -123,7 +134,7 @@ def get_tri_items(bm, tx_lu, weighting=False):
     return result
 
 def write_smd_mesh(path, prerequisites, weighting):
-    bone_lu, tx_lu, bm = prerequisites
+    bone_lu, tx_lu, bm, a_mtx = prerequisites
     lines = ["version 1\n"]
     lines.append("nodes\n")
     lines.extend(get_node_items(bone_lu))
@@ -131,7 +142,7 @@ def write_smd_mesh(path, prerequisites, weighting):
     lines.append("skeleton\n")
     bones = [(a[0],a[2]) for a in bone_lu.values()]
     bones.sort()
-    lines.extend(get_xform_items(bones))
+    lines.extend(get_xform_items(bones, a_mtx))
     lines.append("end\n")
     lines.append("triangles\n")
     lines.extend(get_tri_items(bm, tx_lu, weighting))
@@ -142,7 +153,7 @@ def write_smd_mesh(path, prerequisites, weighting):
     f.close()
 
 def write_smd_anim(path, prerequisites, frame_range):
-    bone_lu, tx_lu, bm = prerequisites
+    bone_lu, tx_lu, bm, a_mtx = prerequisites
     go_back = bpy.context.scene.frame_current
     if frame_range == None:
         start_frame = bpy.context.scene.frame_start
@@ -162,7 +173,7 @@ def write_smd_anim(path, prerequisites, frame_range):
     else:
         for frame in range(start_frame, end_frame + 1):
             bpy.context.scene.frame_set(frame)
-            lines.extend(get_xform_items(bones, frame - start_frame))
+            lines.extend(get_xform_items(bones, a_mtx, frame - start_frame))
     lines.append("end\n")
     f = open(path, 'w')
     for line in lines:
@@ -191,7 +202,6 @@ def write_qc(path, ranges):
     f.close()
 
 def write_batch(path, prerequisites, marker_filter, weighting, qc):
-    bone_lu, tx_lu, bm = prerequisites
     write_smd_mesh(path, prerequisites, weighting)
     ranges = get_ranges(marker_filter)
     if not ranges:
@@ -208,12 +218,6 @@ def is_export_go():
     obj = bpy.context.active_object
     if not obj or obj.type != 'MESH':
         return 'no_obj', None
-    arm = obj.find_armature()
-    bones = get_bones(arm)
-    root_bones = [i for i in bones if i.parent not in bones]
-    if len(root_bones) > 1:
-        root_items = [" - {}\n".format(rb.name) for rb in root_bones]
-        return 'roots', root_items
     return 'ok', None
 
 def get_prereqs(what):
@@ -222,8 +226,10 @@ def get_prereqs(what):
     bones = get_bones(arm)
     if bones:
         bone_lu = make_bone_lookup(bones)
+        a_mtx = arm.matrix_world
     else:
         bone_lu = {"--base":(0,-1,None)}
+        a_mtx = mu.Matrix.Identity(4)
     tx_lu = bm = None # not needed if anim only
     if what != 'anim':
         if arm:
@@ -236,7 +242,7 @@ def get_prereqs(what):
                 m.show_viewport = states[m]
         else:
             tx_lu, bm = prep_bmesh(obj, bone_lu)
-    return bone_lu, tx_lu, bm
+    return bone_lu, tx_lu, bm, a_mtx
 
 ###
 ### Helper functions
@@ -273,14 +279,28 @@ def make_vert_group_lookup(obj, bone_lu):
     return result
 
 def make_bone_lookup(bones):
-    for b in bones:
-        if b.parent not in bones:
-            hier = [b] + [a for a in b.children_recursive if a in bones]
-            ilu = dict(zip(hier, range(len(hier))))
-            result = {b.name:(0,-1,b)}
-            for c in hier[1:]:
-                result[c.name] = (ilu[c],ilu[c.parent],c)
-            return result
+    b_set = set(bones)
+    hier = []
+    while b_set:
+        subset = set()
+        for b in b_set:
+            if b.parent not in b_set:
+                hier.append(b)
+                kids = [a for a in b.children_recursive if a in bones]
+                hier.extend(kids)
+                subset |= set(kids)
+                subset.add(b)
+        b_set -= subset
+    ilu = dict(zip(hier, range(len(hier))))
+    result = {}
+    for b in ilu:
+        par = b.parent
+        if par in bones:
+            pidx = ilu[par]
+        else:
+            pidx = -1
+        result[b.name] = (ilu[b],pidx,b)
+    return result
 
 def prep_bmesh(obj, bone_lu):
     tx_lu = make_texture_lookup(obj.material_slots)
@@ -288,6 +308,7 @@ def prep_bmesh(obj, bone_lu):
     bm.from_object(obj, bpy.context.scene)
     triangulate(strip_wires(bm))
     bm.normal_update()
+    bm.transform(obj.matrix_world)
     v_groups = make_vert_group_lookup(obj, bone_lu)
     dl = bm.verts.layers.deform.verify()
     for v in bm.verts:
@@ -324,17 +345,8 @@ def get_bones(arm):
 
 def message(id, *details):
     if id == 'no_obj':
-        return "".join([
-            "There is no active mesh in the scene.\n",
-            "Select a mesh, and retry export."])
-    elif id == 'roots':
-        return "".join([
-            "There are multiple root bones marked for export.",
-            " Either they have no parents",
-            " or their parents are excluded from export.\n",
-            "Make sure there's a single root or revise the membership",
-            " of the \"smd\" bone group, and retry export.\n",
-            "Offending bones:\n".join(details[0])])
+        return "There is no active mesh in the scene.\n" \
+            "Select a mesh, and retry export."
 
 ###
 ### Export UI
@@ -395,7 +407,7 @@ class ExportGSSMDMesh(bpy.types.Operator, ExportHelper):
     check_extension = True
     weighting = BoolProperty(
         name="Include vertex weights",
-        description="Supported by Source; not supported by GoldSrc or Xash3D",
+        description="Not supported by GoldSrc",
         default=False)
     path_mode = path_reference_mode
     check_extension = True
@@ -441,7 +453,7 @@ class ExportGSSMDBatch(bpy.types.Operator, ExportHelper):
             default="")
     weighting = BoolProperty(
         name="Include vertex weights",
-        description="Supported by Source; not supported by GoldSrc or Xash3D",
+        description="Not supported by GoldSrc",
         default=False)
     qc = BoolProperty(
         name="Write .qc stub",

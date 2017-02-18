@@ -22,6 +22,7 @@
     RandomVectorNodeMK2
     SvBricksNode
     ImageNode
+    SvTorusNode
 
 ## Generators Extended
     SvBoxRoundedNode
@@ -32,7 +33,7 @@
     SvGenerativeArtNode
     SvImageComponentsNode
     SvScriptNode
-    SvScriptNodeMK3
+    SvTorusKnotNode
 
 ## Analyzers
     SvBBoxNode
@@ -68,11 +69,13 @@
     SvFillsHoleNode
     SvLimitedDissolve
     SvIntersectEdgesNode
+    SvIntersectEdgesNodeMK2
     SvIterateNode
     SvBevelNode
     SvExtrudeEdgesNode
     SvOffsetNode
     SvTriangulateNode
+    SvFlipNormalsNode
     SvRecalcNormalsNode
 
 ## Modifier Make
@@ -145,12 +148,15 @@
     VectorPolarOutNode
     VertsDelDoublesNode
     EvaluateLineNode
+    SvVectorLerp
     SvInterpolationStripesNode
     SvInterpolationNode
     SvInterpolationNodeMK2
     SvInterpolationNodeMK3
     SvVertSortNode
     SvNoiseNodeMK2
+    SvVectorFractal
+    SvVectorRewire
     svAxisInputNode
     SvAxisInputNodeMK2
 
@@ -183,6 +189,7 @@
     GTextNode
     SvDebugPrintNode
     SvStethoscopeNode
+    SvStethoscopeNodeMK2
 
 ## Scene
     SvObjectsNodeMK3
@@ -209,7 +216,6 @@
 
 ## Beta Nodes
     SvFormulaShapeNode
-    SvScriptNodeMK2
     SvHeavyTriangulateNode
     SvPointOnMeshNodeMK2
     SvOBJRayCastNodeMK2

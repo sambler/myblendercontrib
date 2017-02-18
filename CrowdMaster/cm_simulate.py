@@ -25,6 +25,9 @@ from . import cm_channels as chan
 
 from .cm_agent import Agent
 from .cm_actions import getmotions
+from .cm_syncManager import syncManager
+
+from . import cm_timings
 
 
 class Simulation:
@@ -53,13 +56,19 @@ class Simulation:
         if preferences.show_debug_options:
             self.totalTime = 0
             self.totalFrames = 0
+            self.lastFrameTime = None
 
         self.actions = {}
         self.actionGroups = {}
 
+        self.syncManager = syncManager()
+
     def setupActions(self):
         """Set up the actions"""
         self.actions, self.actionGroups = getmotions()
+        for m in bpy.context.scene.cm_action_pairs.coll:
+            self.syncManager.actionPair(m.source, m.target)
+            self.syncManager.actionPair(m.target, m.source)
 
     def newagent(self, name, brain):
         """Set up an agent"""
@@ -84,6 +93,10 @@ class Simulation:
         if preferences.show_debug_options:
             t = time.time()
             print("NEWFRAME", bpy.context.scene.frame_current)
+            if preferences.show_debug_options and preferences.show_debug_timings:
+                if self.lastFrameTime is not None:
+                    between = time.time() - self.lastFrameTime
+                    cm_timings.simulation["betweenFrames"] += between
         for agent in self.agents.values():
             for tag in agent.access["tags"]:
                 for channel in self.lvars:
@@ -92,18 +105,26 @@ class Simulation:
                                                      agent.access["tags"][tag])
         # TODO registering channels would be much more efficient if done
         # straight after the agent is evaluated.
+
+        self.syncManager.newFrame()
+
         for a in self.agents.values():
             a.step()
         for a in self.agents.values():
             a.apply()
         for chan in self.lvars.values():
             chan.newframe()
-        if preferences.show_debug_options:
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.printTimings()
             newT = time.time()
-            print("time", newT - t)
-            self.totalTime += newT - t
-            self.totalFrames += 1
-            print("spf", self.totalTime/self.totalFrames)  # seconds per frame
+            print("Frame time", newT - t)
+            cm_timings.simulation["total"] += newT - t
+            print("Total time", cm_timings.simulation["total"])
+            cm_timings.simulation["totalFrames"] += 1
+            tf = cm_timings.simulation["totalFrames"]
+            tt = cm_timings.simulation["total"]
+            print("spf", tt/tf)  # seconds per frame
+            self.lastFrameTime = time.time()
 
     def frameChangeHandler(self, scene):
         """Given to Blender to call whenever the scene moves to a new frame"""

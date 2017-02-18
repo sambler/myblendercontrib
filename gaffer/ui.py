@@ -275,6 +275,7 @@ def draw_cycles_UI(context, layout, lights):
     maincol = layout.column(align=False)
     scene = context.scene
     gaf_props = scene.gaf_props
+    prefs = context.user_preferences.addons[__package__].preferences
     icons = get_icons()
 
     lights_to_show = []
@@ -538,79 +539,84 @@ def draw_cycles_UI(context, layout, lights):
             solobtn.worldsolo = True
 
         col = worldcol.column()
-        row = col.row(align=True)
 
-        row.label(text="", icon='WORLD')
-        row.separator()
-
-        color_node = None
-        if world.use_nodes:
-            backgrounds = []  # make a list of all linked Background shaders, use the right-most one
-            background = None
-            for node in world.node_tree.nodes:
-                if node.type == 'BACKGROUND':
-                    if node.outputs[0].is_linked:
-                        backgrounds.append(node)
-            if backgrounds:
-                background = sorted(backgrounds, key=lambda x: x.location.x, reverse=True)[0]
-                # Strength
-                if background.inputs[1].is_linked:
-                    strength_node = None
-                    current_node = background.inputs[1].links[0].from_node
-                    temp_current_node = None
-                    i = 0  # Failsafe in case of infinite loop (which can happen from accidental cyclic links)
-                    while strength_node == None and i < 100:  # limitted to 100 chained nodes
-                        i += 1
-                        connected_inputs = False
-                        if temp_current_node:
-                            current_node = temp_current_node
-                        for socket in current_node.inputs:
-                            # stop at first node with an unconnected Value socket
-                            if socket.type == 'VALUE' and not socket.is_linked:
-                                strength_node = current_node
-                            else:
-                                if socket.is_linked:
-                                    temp_current_node = socket.links[0].from_node
-
-                    if strength_node:
-                        for socket in strength_node.inputs:
-                            if socket.type == 'VALUE' and not socket.is_linked:  # use first color socket
-                                row.prop(socket, 'default_value', text="Strength")
-                                break
-                else:
-                    row.prop(background.inputs[1], "default_value", text="Strength")
-
-                # Color
-                if background.inputs[0].is_linked:
-                    current_node = background.inputs[0].links[0].from_node
-                    i = 0  # Failsafe in case of infinite loop (which can happen from accidental cyclic links)
-                    while color_node == None and i < 100:  # limitted to 100 chained nodes
-                        i += 1
-                        connected_inputs = False
-                        for socket in current_node.inputs:
-                            # stop at node end of chain, or node with only vector inputs:
-                            if socket.type != 'VECTOR' and socket.is_linked:
-                                connected_inputs = True
-                                current_node = socket.links[0].from_node
-                        if not connected_inputs:
-                            color_node = current_node
-
-                    if color_node.type == 'TEX_IMAGE' or color_node.type == 'TEX_ENVIRONMENT':
-                        row.prop(color_node, 'image', text='')
-                    elif color_node.type == 'TEX_SKY':
-                        row.prop(color_node, 'sun_direction', text='')
-                    else:
-                        if color_node.inputs:
-                            for socket in color_node.inputs:
-                                if socket.type == 'RGBA':  # use first color socket
-                                    row.prop(socket, 'default_value', text='')
-                                    break
-                else:
-                    row.prop(background.inputs[0], "default_value", text="")
-            else:
-                row.label("No node found!")
+        if gaf_props.hdri_handler_enabled:
+            draw_hdri_handler(context, col, gaf_props, prefs, icons, toolbar=True)
         else:
-            row.prop(world, 'horizon_color', text='')
+            row = col.row(align=True)
+
+            row.label(text="", icon='WORLD')
+            row.separator()
+
+            color_node = None
+            if world.use_nodes:
+                backgrounds = []  # make a list of all linked Background shaders, use the right-most one
+                background = None
+                for node in world.node_tree.nodes:
+                    if node.type == 'BACKGROUND':
+                        if not node.name.startswith("HDRIHandler_"):
+                            if node.outputs[0].is_linked:
+                                backgrounds.append(node)
+                if backgrounds:
+                    background = sorted(backgrounds, key=lambda x: x.location.x, reverse=True)[0]
+                    # Strength
+                    if background.inputs[1].is_linked:
+                        strength_node = None
+                        current_node = background.inputs[1].links[0].from_node
+                        temp_current_node = None
+                        i = 0  # Failsafe in case of infinite loop (which can happen from accidental cyclic links)
+                        while strength_node == None and i < 100:  # limitted to 100 chained nodes
+                            i += 1
+                            connected_inputs = False
+                            if temp_current_node:
+                                current_node = temp_current_node
+                            for socket in current_node.inputs:
+                                # stop at first node with an unconnected Value socket
+                                if socket.type == 'VALUE' and not socket.is_linked:
+                                    strength_node = current_node
+                                else:
+                                    if socket.is_linked:
+                                        temp_current_node = socket.links[0].from_node
+
+                        if strength_node:
+                            for socket in strength_node.inputs:
+                                if socket.type == 'VALUE' and not socket.is_linked:  # use first color socket
+                                    row.prop(socket, 'default_value', text="Strength")
+                                    break
+                    else:
+                        row.prop(background.inputs[1], "default_value", text="Strength")
+
+                    # Color
+                    if background.inputs[0].is_linked:
+                        current_node = background.inputs[0].links[0].from_node
+                        i = 0  # Failsafe in case of infinite loop (which can happen from accidental cyclic links)
+                        while color_node == None and i < 100:  # limitted to 100 chained nodes
+                            i += 1
+                            connected_inputs = False
+                            for socket in current_node.inputs:
+                                # stop at node end of chain, or node with only vector inputs:
+                                if socket.type != 'VECTOR' and socket.is_linked:
+                                    connected_inputs = True
+                                    current_node = socket.links[0].from_node
+                            if not connected_inputs:
+                                color_node = current_node
+
+                        if color_node.type == 'TEX_IMAGE' or color_node.type == 'TEX_ENVIRONMENT':
+                            row.prop(color_node, 'image', text='')
+                        elif color_node.type == 'TEX_SKY':
+                            row.prop(color_node, 'sun_direction', text='')
+                        else:
+                            if color_node.inputs:
+                                for socket in color_node.inputs:
+                                    if socket.type == 'RGBA':  # use first color socket
+                                        row.prop(socket, 'default_value', text='')
+                                        break
+                    else:
+                        row.prop(background.inputs[0], "default_value", text="")
+                else:
+                    row.label("No node found!")
+            else:
+                row.prop(world, 'horizon_color', text='')
 
         # Extra
         if "_Light:_(WorldEnviroLight)_" in gaf_props.MoreExpand or gaf_props.MoreExpandAll:
@@ -633,16 +639,17 @@ def draw_cycles_UI(context, layout, lights):
                 row.prop(world.light_settings, "ao_factor")
                 row.prop(world.light_settings, "distance")
 
-            if color_node:
-                if color_node.type == 'TEX_SKY':
-                    if world.node_tree and world.use_nodes:
-                        col = worldcol.column(align = True)
-                        row = col.row(align = True)
-                        if gaf_props.SunObject:
-                            row.operator('gaffer.link_sky_to_sun', icon="LAMP_SUN").node_name = color_node.name
-                        else:
-                            row.label("Link Sky Texture:")
-                        row.prop_search(gaf_props, "SunObject", bpy.data, "objects", text="")
+            if not gaf_props.hdri_handler_enabled:
+                if color_node:
+                    if color_node.type == 'TEX_SKY':
+                        if world.node_tree and world.use_nodes:
+                            col = worldcol.column(align = True)
+                            row = col.row(align = True)
+                            if gaf_props.SunObject:
+                                row.operator('gaffer.link_sky_to_sun', icon="LAMP_SUN").node_name = color_node.name
+                            else:
+                                row.label("Link Sky Texture:")
+                            row.prop_search(gaf_props, "SunObject", bpy.data, "objects", text="")
 
 
 class GafferPanelLights(bpy.types.Panel):
@@ -785,12 +792,234 @@ class GafferPanelTools(bpy.types.Panel):
         row.operator('gaffer.blacklist_remove', icon='ZOOMOUT')
 
 
+def draw_progress_bar(gaf_props, layout):
+    if gaf_props.ShowProgress:
+        layout.separator()
+        b = layout.box()
+        col = b.column(align=True)
+        col.label(gaf_props.ProgressText)
+        split = col.split(percentage=max(0.01, gaf_props.Progress), align=True)
+        r = split.row()
+        r.alert=True
+        r.prop(gaf_props, 'ProgressBarText', "")
+        r = split.row()
+        r.label("")
+        c = b.column(align=True)
+        c.label("Large HDRI files may take a while")
+        c.label("You can stop this any time by closing Blender")
+        layout.separator()
+
+def draw_hdri_handler(context, layout, gaf_props, prefs, icons, toolbar=False):
+    if gaf_props.hdri:
+        col = layout.column(align=True)
+
+        if gaf_props.hdri_search:
+            row = col.row(align=True)
+            row.prop(gaf_props, 'hdri_search', text="", expand=True, icon='VIEWZOOM')
+            row.operator('gaffer.clear_search', text="", icon='X')
+            subrow = row.row(align=True)
+            subrow.alignment = 'RIGHT'
+            subrow.label(str(len(hdri_enum_previews(gaf_props, context))) + ' matches')
+        else:
+            col.prop(gaf_props, 'hdri_search', text="", expand=True, icon='VIEWZOOM')
+
+        col = layout.column(align=True)
+
+        row = col.row(align=True)
+
+        tmpc = row.column(align=True)
+        tmpcc = tmpc.column(align=True)
+        tmpcc.scale_y=8
+        tmpcc.operator('gaffer.hdri_paddles', text='', icon='TRIA_LEFT').do_next=False
+        tmpr = tmpc.column(align=True)
+        tmpr.scale_y=1
+        tmpr.prop(gaf_props, 'hdri_show_tags_ui', text='', toggle=True, icon_value=icons['tag'].icon_id)
+
+        tmpc = row.column()
+        tmpc.scale_y=1.5
+        tmpc.template_icon_view(gaf_props, "hdri", show_labels=True, scale=8)
+
+        tmpc = row.column(align=True)
+        tmpcc = tmpc.column(align=True)
+        tmpcc.scale_y=8
+        tmpcc.operator('gaffer.hdri_paddles', text='', icon='TRIA_RIGHT').do_next=True
+        tmpr = tmpc.column(align=True)
+        tmpr.scale_y=1
+        tmpr.operator('gaffer.hdri_random', text='', icon_value=icons['random'].icon_id)
+
+        if gaf_props.hdri_show_tags_ui:
+            col.separator()
+            box = col.box()
+            tags_col = box.column(align=True)
+            tags_col.label("Choose some tags:")
+            tags_col.separator()
+
+            current_tags = get_tags()
+            if gaf_props.hdri in current_tags:
+                current_tags = current_tags[gaf_props.hdri]
+            else:
+                current_tags = []
+
+            i = 0
+            for t in possible_tags:
+                if i % 4 == 0 or t == '##split##':  # Split tags into columns
+                    row = tags_col.row(align=True)
+                if t != '##split##':
+
+                    op = row.operator('gaffer.add_tag', t.title(), icon='FILE_TICK' if t in current_tags else 'NONE')
+                    op.hdri = gaf_props.hdri
+                    op.tag = t
+                    i += 1
+                else:
+                    i = 0
+            tags_col.prop(gaf_props, 'hdri_custom_tags', icon_value=icons['text-cursor'].icon_id)
+            tags_col.separator()
+            tags_col.prop(gaf_props, 'hdri_show_tags_ui', text="Done", toggle=True)
+            col.separator()
+
+        col = layout.column(align=True)
+
+        if prefs.RequestThumbGen:
+            row = col.row(align=True)
+            row.alignment = 'CENTER'
+            row.operator('gaffer.generate_hdri_thumbs', icon='IMAGE_COL')
+            col.separator()
+
+        row = col.row(align=True)
+        row.prop(gaf_props, "hdri_variation", text="")
+        if hdri_haven_list and hdri_list:
+            if gaf_props.hdri in hdri_haven_list and gaf_props.hdri in hdri_list:
+                if not any(("_16k" in h or "_8k" in h or "_4k" in h) for h in hdri_list[gaf_props.hdri]):
+                    row.operator('gaffer.buy_hdri_haven', text="", icon_value=icons['hdri_haven'].icon_id).url="https://hdrihaven.com/hdri.php?hdri="+gaf_props.hdri+"&ref=gaffer"
+
+        col.separator()
+        col.separator()
+        col.prop(gaf_props, 'hdri_rotation', slider=True)
+        col.separator()
+        row = col.row(align = True)
+        row.prop(gaf_props, 'hdri_brightness', slider=True)
+        if not toolbar or "_Light:_(WorldEnviroLight)_" in gaf_props.MoreExpand or gaf_props.MoreExpandAll:
+            row.prop(gaf_props, 'hdri_saturation', slider=True)
+            row = col.row(align = True)
+            row.prop(gaf_props, 'hdri_contrast', slider=True)
+            row.prop(gaf_props, 'hdri_warmth', slider=True)
+
+        wc = context.scene.world.cycles
+        if wc.sample_map_resolution < 1000 or not wc.sample_as_light:
+            col.separator()
+            col.separator()
+            if not wc.sample_as_light:
+                col.label("Multiple Importance is disabled", icon="ERROR")
+            else:
+                col.label("Multiple Importance resolution is low", icon="ERROR")
+            row = col.row()
+            row.alignment="LEFT"
+            row.label("Your renders may be noisy")
+            row.operator('gaffer.fix_mis')
+            col.separator()
+
+        if not toolbar:
+            col.separator()
+            col.separator()
+
+            box = col.box()
+            col = box.column(align = True)
+            row = col.row(align=True)
+            row.alignment = 'LEFT'
+            row.prop(gaf_props, 'hdri_advanced', icon="TRIA_DOWN" if gaf_props.hdri_advanced else "TRIA_RIGHT", emboss=False, toggle=True)
+            if gaf_props.hdri_advanced:
+                col = box.column(align = True)
+                col.prop(gaf_props, 'hdri_tint', slider=True)
+                col.prop(gaf_props, 'hdri_clamp', slider=True)
+                col.separator()
+
+                col.label("Control background separately:")
+                row = col.row(align=True)
+                row.prop(gaf_props, 'hdri_use_separate_brightness', toggle=True)
+                sub = row.row(align=True)
+                sub.active = gaf_props.hdri_use_separate_brightness
+                sub.prop(gaf_props, 'hdri_background_brightness', slider=True)
+                row = col.row(align=True)
+                row.prop(gaf_props, 'hdri_use_separate_contrast', toggle=True)
+                sub = row.row(align=True)
+                sub.active = gaf_props.hdri_use_separate_contrast
+                sub.prop(gaf_props, 'hdri_background_contrast', slider=True)
+                row = col.row(align=True)
+                row.prop(gaf_props, 'hdri_use_separate_saturation', toggle=True)
+                sub = row.row(align=True)
+                sub.active = gaf_props.hdri_use_separate_saturation
+                sub.prop(gaf_props, 'hdri_background_saturation', slider=True)
+                row = col.row(align=True)
+                row.prop(gaf_props, 'hdri_use_separate_warmth', toggle=True)
+                sub = row.row(align=True)
+                sub.active = gaf_props.hdri_use_separate_warmth
+                sub.prop(gaf_props, 'hdri_background_warmth', slider=True)
+                row = col.row(align=True)
+                row.prop(gaf_props, 'hdri_use_separate_tint', toggle=True)
+                sub = row.row(align=True)
+                sub.active = gaf_props.hdri_use_separate_tint
+                sub.prop(gaf_props, 'hdri_background_tint', slider=True)
+
+                col.separator()
+                sub = col.row(align=True)
+                sub.active = any([gaf_props.hdri_use_jpg_background,
+                                  gaf_props.hdri_use_separate_brightness,
+                                  gaf_props.hdri_use_separate_contrast,
+                                  gaf_props.hdri_use_separate_saturation,
+                                  gaf_props.hdri_use_separate_warmth])
+                sub.prop(gaf_props, 'hdri_use_bg_reflections')
+
+                col.separator()
+                row = col.row(align=True)
+                row.prop(gaf_props, 'hdri_use_jpg_background')
+                sub = row.row(align=True)
+                sub.active = gaf_props.hdri_use_jpg_background
+                sub.prop(gaf_props, 'hdri_use_darkened_jpg')
+                if (gaf_props.hdri_use_jpg_background and gaf_props.hdri_use_bg_reflections) and not gaf_props.hdri_use_darkened_jpg:
+                    col.label("Enabling 'Pre-Darkened' is recommended to")
+                    col.label("get more accurate reflections.")
+                if gaf_props.RequestJPGGen and gaf_props.hdri_use_jpg_background:
+                    col.separator()
+                    col.separator()
+                    col.label("No JPGs have been created yet,", icon='ERROR')
+                    col.label("please click 'Generate JPGs' below.")
+                    col.label("Note: This may take a while for high-res images")
+                    col.operator('gaffer.generate_jpgs')
+                    col.prop(gaf_props, 'hdri_jpg_gen_all')
+                    if gaf_props.hdri_jpg_gen_all:
+                        col.label("This is REALLY going to take a while.")
+                        col.label("See the console for progress.")
+                    col.separator()
+    elif gaf_props.hdri_search:
+        prefs.ForcePreviewsRefresh = True
+        row = layout.row(align=True)
+        row.prop(gaf_props, 'hdri_search', text="", icon='VIEWZOOM')
+        row.operator('gaffer.clear_search', text="", icon='X')
+        subrow = row.row(align=True)
+        subrow.alignment = 'RIGHT'
+        subrow.label("No matches")
+    else:
+        prefs.ForcePreviewsRefresh = True
+        row = layout.row()
+        row.alignment='CENTER'
+        row.label("No HDRIs found")
+        row = layout.row()
+        row.alignment='CENTER'
+        row.label("Please put some in the HDRI folder:")
+        row = layout.row()
+        row.alignment='CENTER'
+        row.label(prefs.hdri_path)
+
 class GafferPanelHDRIs (bpy.types.Panel):
 
     bl_label = " "
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = 'world'
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.render.engine == 'CYCLES'
 
     def draw_header(self, context):
         gaf_props = context.scene.gaf_props
@@ -822,129 +1051,18 @@ class GafferPanelHDRIs (bpy.types.Panel):
             row = col.row()
             row.alignment = 'CENTER'
             row.label("Ctrl-Alt-U > Add-ons > Gaffer > HDRI Folder")
-            row = col.row()
-            row.alignment = 'CENTER'
-            row.label("Remember to click 'Save User Settings'")
         else:
             if gaf_props.hdri_handler_enabled:
-                    row = col.row(align=True)
-                    tmpc = row.column()
-                    tmpc.scale_y=9
-                    tmpc.operator('gaffer.hdri_paddles', text='', icon='TRIA_LEFT').do_next=False
-                    tmpc = row.column()
-                    tmpc.scale_y=1.5
-                    tmpc.template_icon_view(gaf_props, "hdri", show_labels=True, scale=8)
-                    tmpc = row.column(align=True)
-                    tmpcc = tmpc.column(align=True)
-                    tmpcc.scale_y=8
-                    tmpcc.operator('gaffer.hdri_paddles', text='', icon='TRIA_RIGHT').do_next=True
-                    tmpr = tmpc.column(align=True)
-                    tmpr.scale_y=1
-                    tmpr.operator('gaffer.hdri_random', text='', icon_value=icons['random'].icon_id)
+                draw_hdri_handler(context, col, gaf_props, prefs, icons)
 
-                    if context.scene.gaf_props.RequestThumbGen:
-                        col.operator('gaffer.generate_hdri_thumbs')
-                    
-                    row = col.row(align=True)
-                    row.prop(gaf_props, "hdri_variation", text="")
-                    if hdri_haven_list and hdri_list:
-                        if gaf_props.hdri in hdri_haven_list and gaf_props.hdri in hdri_list:
-                            if not any(("_16k" in h or "_8k" in h or "_4k" in h) for h in hdri_list[gaf_props.hdri]):
-                                row.operator('gaffer.buy_hdri_haven', text="", icon_value=icons['hdri_haven'].icon_id).url="https://hdrihaven.com/hdri.php?hdri="+gaf_props.hdri+"&ref=gaffer"
-
-                    col.separator()
-                    col.prop(gaf_props, 'hdri_rotation', slider=True)
-
-                    col = layout.column(align = True)
-                    col.prop(gaf_props, 'hdri_brightness', slider=True)
-                    row = col.row(align = True)
-                    row.prop(gaf_props, 'hdri_contrast', slider=True)
-                    row.prop(gaf_props, 'hdri_saturation', slider=True)
-                    col.prop(gaf_props, 'hdri_warmth', slider=True)
-                    col.separator()
-                    col.prop(gaf_props, 'hdri_clamp', slider=True)
-
-                    wc = context.scene.world.cycles
-                    if wc.sample_map_resolution < 1000 or not wc.sample_as_light:
-                        col.separator()
-                        col.separator()
-                        if not wc.sample_as_light:
-                            col.label("Multiple Importance is disabled", icon="ERROR")
-                        else:
-                            col.label("Multiple Importance resolution is low", icon="ERROR")
-                        row = col.row()
-                        row.alignment="LEFT"
-                        row.label("Your renders may be noisy")
-                        row.operator('gaffer.fix_mis')
-                        col.separator()
-
-                    col.separator()
-
-                    box = col.box()
-                    col = box.column(align = True)
-                    row = col.row(align=True)
-                    row.alignment = 'LEFT'
-                    row.prop(gaf_props, 'hdri_advanced', icon="TRIA_DOWN" if gaf_props.hdri_advanced else "TRIA_RIGHT", emboss=False, toggle=True)
-                    if gaf_props.hdri_advanced:
-                        col.separator()
-                        row = col.row(align=True)
-                        row.prop(gaf_props, 'hdri_use_jpg_background')
-                        sub = row.row(align=True)
-                        sub.active = gaf_props.hdri_use_jpg_background
-                        sub.prop(gaf_props, 'hdri_use_darkened_jpg')
-                        if gaf_props.RequestJPGGen and gaf_props.hdri_use_jpg_background:
-                            col.separator()
-                            col.separator()
-                            col.label("No JPGs have been created yet,", icon='ERROR')
-                            col.label("please click 'Generate JPGs' below.")
-                            col.label("Note: This may take a while for high-res images")
-                            col.operator('gaffer.generate_jpgs')
-                            col.prop(gaf_props, 'hdri_jpg_gen_all')
-                            if gaf_props.hdri_jpg_gen_all:
-                                col.label("This is REALLY going to take a while.")
-                                col.label("See the console for progress.")
-                            col.separator()
-
-                        col.separator()
-                        col.label("Control background separately from lighting:")
-                        row = col.row(align=True)
-                        row.prop(gaf_props, 'hdri_use_separate_brightness', toggle=True)
-                        sub = row.row(align=True)
-                        sub.active = gaf_props.hdri_use_separate_brightness
-                        sub.prop(gaf_props, 'hdri_background_brightness', slider=True)
-                        row = col.row(align=True)
-                        row.prop(gaf_props, 'hdri_use_separate_contrast', toggle=True)
-                        sub = row.row(align=True)
-                        sub.active = gaf_props.hdri_use_separate_contrast
-                        sub.prop(gaf_props, 'hdri_background_contrast', slider=True)
-                        row = col.row(align=True)
-                        row.prop(gaf_props, 'hdri_use_separate_saturation', toggle=True)
-                        sub = row.row(align=True)
-                        sub.active = gaf_props.hdri_use_separate_saturation
-                        sub.prop(gaf_props, 'hdri_background_saturation', slider=True)
-                        row = col.row(align=True)
-                        row.prop(gaf_props, 'hdri_use_separate_warmth', toggle=True)
-                        sub = row.row(align=True)
-                        sub.active = gaf_props.hdri_use_separate_warmth
-                        sub.prop(gaf_props, 'hdri_background_warmth', slider=True)
-
-                        col.separator()
-                        sub = col.row(align=True)
-                        sub.active = any([gaf_props.hdri_use_jpg_background,
-                                          gaf_props.hdri_use_separate_brightness,
-                                          gaf_props.hdri_use_separate_contrast,
-                                          gaf_props.hdri_use_separate_saturation,
-                                          gaf_props.hdri_use_separate_warmth])
-                        sub.prop(gaf_props, 'hdri_use_bg_reflections')
-
-                    if gaf_props.ShowHDRIHaven:
-                        layout.separator()
-                        row = layout.row(align=True)
-                        row.alignment='CENTER'
-                        row.scale_y = 1.5
-                        row.scale_x = 1.5
-                        row.operator('gaffer.get_hdri_haven', icon_value=icons['hdri_haven'].icon_id)
-                        row.operator('gaffer.hide_hdri_haven', text="", icon='X')
+                if gaf_props.ShowHDRIHaven:
+                    layout.separator()
+                    row = layout.row(align=True)
+                    row.alignment='CENTER'
+                    row.scale_y = 1.5
+                    row.scale_x = 1.5
+                    row.operator('gaffer.get_hdri_haven', icon_value=icons['hdri_haven'].icon_id)
+                    row.operator('gaffer.hide_hdri_haven', text="", icon='X')
             else:
                 col = layout.column()
                 row = col.row()
@@ -959,7 +1077,7 @@ class OBJECT_UL_object_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         obj = item
         layout.prop(obj, 'name', text="", emboss=False)
-        
+
 
 def gaffer_node_menu_func(self, context):
     if context.space_data.node_tree.type == 'SHADER' and context.space_data.shader_type == 'OBJECT':

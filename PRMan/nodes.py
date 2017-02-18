@@ -1470,8 +1470,6 @@ def gen_params(ri, node, mat_name=None):
                                           meta['renderman_name'])] = \
                             rib(prop, type_hint=meta['renderman_type'])
     if node.plugin_name == 'PxrRamp':
-        if mat_name not in bpy.data.materials:
-            return params
         nt = bpy.data.node_groups[node.node_group]
         if nt:
             dummy_ramp = nt.nodes['ColorRamp']

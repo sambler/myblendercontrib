@@ -164,13 +164,11 @@ def refresh_light_list(scene):
                     bpy.data.objects[light[0]].GafferFalloff = 'quadratic'
     scene.gaf_props.Lights = str(m)
 
-
 def force_update(context, obj=None):
     if not obj:
         context.space_data.node_tree.update_tag()
     else:
         obj.data.node_tree.update_tag()
-
 
 def stringToList(str="", stripquotes=False):
     raw = str.split(", ")
@@ -186,7 +184,6 @@ def stringToList(str="", stripquotes=False):
         raw = tmplist
     return raw
 
-
 def stringToNestedList(str="", stripquotes=False):
     raw = str.split("], ")
     raw[0] = (raw[0])[1:]
@@ -200,7 +197,6 @@ def stringToNestedList(str="", stripquotes=False):
         newraw.append(stringToList(item, stripquotes))
     return newraw
 
-
 def castBool(str):
     if str == 'True':
         return True
@@ -210,7 +206,6 @@ def castBool(str):
 
 def setColTemp(node, temp):
     node.inputs[0].default_value = temp
-
 
 def convert_temp_to_RGB(colour_temperature):
     """
@@ -224,9 +219,9 @@ def convert_temp_to_RGB(colour_temperature):
         colour_temperature = 1
     elif colour_temperature > 12000:
         colour_temperature = 12000
-    
+
     tmp_internal = colour_temperature / 100.0
-    
+
     # red
     if tmp_internal <= 66:
         red = 255
@@ -238,7 +233,7 @@ def convert_temp_to_RGB(colour_temperature):
             red = 255
         else:
             red = tmp_red
-    
+
     # green
     if tmp_internal <=66:
         tmp_green = 99.4708025861 * log(tmp_internal) - 161.1195681661
@@ -256,7 +251,7 @@ def convert_temp_to_RGB(colour_temperature):
             green = 255
         else:
             green = tmp_green
-    
+
     # blue
     if tmp_internal >=66:
         blue = 255
@@ -270,9 +265,8 @@ def convert_temp_to_RGB(colour_temperature):
             blue = 255
         else:
             blue = tmp_blue
-    
-    return [red/255, green/255, blue/255]  # return RGB in a 0-1 range
 
+    return [red/255, green/255, blue/255]  # return RGB in a 0-1 range
 
 def convert_wavelength_to_RGB(wavelength):
     # normalize wavelength into a number between 0 and 80 and use it as the index for the list
@@ -291,7 +285,6 @@ def getHiddenStatus(scene, lights):
     statelist.append(temparr)
 
     scene.gaf_props.LightsHiddenRecord = str(statelist)
-
 
 def isOnVisibleLayer(obj, scene):
     obj_layers = []
@@ -412,9 +405,43 @@ def do_update_falloff(self):
     except:
         print ("Warning: do_update_falloff failed, node may not exist anymore")
 
-
 def _update_falloff(self, context):
     do_update_falloff(self)
+
+
+def do_set_world_refl_only(context):
+    scene = context.scene
+    if scene.gaf_props.WorldReflOnly and not scene.gaf_props.WorldVis:
+        scene.gaf_props.WorldVis = True
+        scene.gaf_props.WorldReflOnly = True
+    if scene.gaf_props.WorldVis:
+        world = scene.world
+        world.cycles_visibility.glossy = True
+        world.cycles_visibility.camera = not scene.gaf_props.WorldReflOnly
+        world.cycles_visibility.diffuse = not scene.gaf_props.WorldReflOnly
+        world.cycles_visibility.transmission = not scene.gaf_props.WorldReflOnly
+        world.cycles_visibility.scatter = not scene.gaf_props.WorldReflOnly
+        world.update_tag()
+
+def _update_world_refl_only(self, context):
+    do_set_world_refl_only(context)
+
+def do_set_world_vis(context):
+    scene = context.scene
+    if scene.gaf_props.WorldVis:
+        scene.gaf_props.WorldReflOnly = False
+    elif scene.gaf_props.WorldReflOnly:
+        scene.gaf_props.WorldReflOnly = False
+    world = scene.world
+    world.cycles_visibility.glossy = scene.gaf_props.WorldVis
+    world.cycles_visibility.camera = scene.gaf_props.WorldVis
+    world.cycles_visibility.diffuse = scene.gaf_props.WorldVis
+    world.cycles_visibility.transmission = scene.gaf_props.WorldVis
+    world.cycles_visibility.scatter = scene.gaf_props.WorldVis
+    world.update_tag()
+
+def _update_world_vis(self, context):
+    do_set_world_vis(context)
 
 
 def refresh_bgl():
@@ -428,7 +455,6 @@ def refresh_bgl():
         bpy.ops.gaffer.show_label('INVOKE_DEFAULT')
         bpy.ops.gaffer.show_label('INVOKE_DEFAULT')
 
-
 def draw_rect(x1, y1, x2, y2):
     # For each quad, the draw order is important. Start with bottom left and go anti-clockwise.
     bgl.glBegin(bgl.GL_QUADS)
@@ -437,7 +463,6 @@ def draw_rect(x1, y1, x2, y2):
     bgl.glVertex2f(x2,y2)
     bgl.glVertex2f(x2,y1)
     bgl.glEnd()
-
 
 def draw_corner(x, y, r, corner):
     sides = 16
@@ -462,14 +487,13 @@ def draw_corner(x, y, r, corner):
         bgl.glVertex2f(cosine, sine)
     bgl.glEnd()
 
-
 def draw_rounded_rect(x1, y1, x2, y2, r):
     draw_rect(x1, y1, x2, y2)  # Main quad
     draw_rect(x1-r, y1, x1, y2)  # Left edge
     draw_rect(x2, y1, x2+r, y2)  # Right edge
     draw_rect(x1, y2, x2, y2+r)  # Top edge
     draw_rect(x1, y1-r, x2, y1)  # Bottom edge
-    
+
     draw_corner(x1, y1, r, 'BL')  # Bottom left
     draw_corner(x1, y2, r, 'TL')  # Top left
     draw_corner(x2, y2, r, 'TR')  # Top right
@@ -478,6 +502,18 @@ def draw_rounded_rect(x1, y1, x2, y2, r):
 
 
 # HDRI stuffs
+
+def update_hdri_path(self, context):
+    prefs = bpy.context.user_preferences.addons[__package__].preferences
+    if prefs.hdri_path.startswith('//'):
+        prefs.hdri_path = os.path.abspath(bpy.path.abspath(prefs.hdri_path))
+        # For some reason bpy.path.abspath often still includes some
+        # relativeness, such as "C:/path/../real_path/to/file.jpg"
+        # So running os.path.abspath(bpy.path.abspath) should resolve
+        # to "C:/real_path/to/file.jpg"
+
+    detect_hdris(self, context)
+    get_hdri_haven_list(force_update=True)
 
 def detect_hdris(self, context):
 
@@ -503,7 +539,6 @@ def detect_hdris(self, context):
                 sub_path = sub_path[1:]
 
             files = sorted(files, key=lambda x: os.path.getsize(os.path.join(path, x)))
-
             hdri_file_pairs = []
             separators = ['_', '-', '.', ' ']
             for f in files:
@@ -539,17 +574,54 @@ def detect_hdris(self, context):
 
         hdri_list = hdris
         refresh_previews()
+        set_persistent_setting('hdri_path', prefs.hdri_path)
+        prefs.ForcePreviewsRefresh = True
 
-def get_hdri_list():
+def get_hdri_list(use_search=False):
     if os.path.exists(hdri_list_path):
         with open(hdri_list_path) as f:
             data = json.load(f)
         if data:
-            return OrderedDict(sorted(data.items(), key=lambda x: x[0].lower()))
+            data = OrderedDict(sorted(data.items(), key=lambda x: x[0].lower()))
+
+            if use_search:
+                search_string = bpy.context.scene.gaf_props.hdri_search
+                if search_string:
+                    search_string = search_string.replace(',', ' ').replace(';', ' ')
+                    search_terms = search_string.split(' ')
+                    tags = get_tags()
+
+                    matched_data = {}
+
+                    for name in data:
+                        matchables = [name]
+                        sub_folder = data[name][0].split(name)[0]
+                        matchables += sub_folder.split('\\' if '\\' in sub_folder else '/')
+                        if name in tags:
+                            matchables += tags[name]
+
+                        num_matched = 0
+                        for s in search_terms:
+                            for m in matchables:
+                                if s.lower().strip() in m.lower():
+                                    num_matched += 1
+                                    break
+
+                        if num_matched == len(search_terms) or not search_terms:
+                            matched_data[name] = data[name]
+
+                    return OrderedDict(sorted(matched_data.items(), key=lambda x: x[0].lower()))
+                else:
+                    return data
+            else:
+                return data
+
+
+
         else:
-            return data
+            return {}
     else:
-        return None
+        return {}
 
 if len(hdri_list) < 1:
     hdri_list = get_hdri_list()
@@ -665,7 +737,7 @@ def handler_node(context, t, background=False):
         "ShaderNodeTexCoord": (-1021.785, 118.4),
         "ShaderNodeMapping": (-831.785, 138.4),
         "ShaderNodeTexEnvironment": (-461.785, 90.465 - y_offset),
-        "ShaderNodeBrightContrast": (-71.785, 59.522 - y_offset),
+        "ShaderNodeGamma": (-71.785, 59.522 - y_offset),
         "ShaderNodeHueSaturation": (118.214, 81.406 - y_offset),
         "Warmth": (-262.389, 72.821 - y_offset),
         "ShaderNodeBackground": (318.214, 48.494 - y_offset),
@@ -701,9 +773,8 @@ def uses_default_values(node, node_type):
             "use_min": False,
             "use_max": False,
         },
-        "ShaderNodeBrightContrast": {
-            "_socket_1": 0,
-            "_socket_2": 0,
+        "ShaderNodeGamma": {
+            "_socket_1": 1,
         },
         "ShaderNodeHueSaturation": {
             "_socket_0": 0.5,
@@ -722,7 +793,7 @@ def uses_default_values(node, node_type):
         if d.startswith("_"):
             node_value = node.inputs[int(d[-1])].default_value
         else:
-            node_value = getattr(node, d) 
+            node_value = getattr(node, d)
         if defaults[d] != node_value:
             return False
 
@@ -731,10 +802,10 @@ def uses_default_values(node, node_type):
 def new_link(links, from_socket, to_socket, force=False):
     if not to_socket.is_linked or force: links.new(from_socket, to_socket)
 
-def switch_hdri(self, context):    
+def switch_hdri(self, context):
     gaf_props = context.scene.gaf_props
     default_var = get_variation(gaf_props.hdri, mode='smallest')  # Default to smallest
-    
+
     # But prefer 1k if there is one
     for v in hdri_list[gaf_props.hdri]:
         if '1k' in v:
@@ -753,11 +824,12 @@ def setup_hdri(self, context):
         return None  # Don't do anything if handler is disabled
 
     extra_nodes = any([
-        gaf_props.hdri_use_jpg_background, 
-        gaf_props.hdri_use_separate_brightness, 
-        gaf_props.hdri_use_separate_contrast, 
+        gaf_props.hdri_use_jpg_background,
+        gaf_props.hdri_use_separate_brightness,
+        gaf_props.hdri_use_separate_contrast,
         gaf_props.hdri_use_separate_saturation,
-        gaf_props.hdri_use_separate_warmth
+        gaf_props.hdri_use_separate_warmth,
+        gaf_props.hdri_use_separate_tint
         ])
 
     w = context.scene.world
@@ -768,7 +840,7 @@ def setup_hdri(self, context):
     n_mapping  = handler_node(context, "ShaderNodeMapping")
     n_img      = handler_node(context, "ShaderNodeTexEnvironment")
     n_warm     = handler_node(context, "Warmth")
-    n_cont     = handler_node(context, "ShaderNodeBrightContrast")
+    n_cont     = handler_node(context, "ShaderNodeGamma")
     n_sat      = handler_node(context, "ShaderNodeHueSaturation")
     n_shader   = handler_node(context, "ShaderNodeBackground")
     n_out      = handler_node(context, "ShaderNodeOutputWorld")
@@ -778,7 +850,7 @@ def setup_hdri(self, context):
 
     if extra_nodes:
         n_img_b    = handler_node(context, "ShaderNodeTexEnvironment", background=gaf_props.hdri_use_jpg_background)
-        n_cont_b   = handler_node(context, "ShaderNodeBrightContrast", background=True)
+        n_cont_b   = handler_node(context, "ShaderNodeGamma", background=True)
         n_sat_b    = handler_node(context, "ShaderNodeHueSaturation", background=True)
         n_warm_b   = handler_node(context, "Warmth", background=True)
         n_shader_b = handler_node(context, "ShaderNodeBackground", background=True)
@@ -855,25 +927,68 @@ def setup_hdri(self, context):
     update_contrast(self, context)
     update_saturation(self, context)
     update_warmth(self, context)
+    update_tint(self, context)
     update_background_brightness(self, context)
     update_background_contrast(self, context)
     update_background_saturation(self, context)
     update_background_warmth(self, context)
+    update_background_tint(self, context)
 
     return None
 
 def hdri_enable(self, context):
+
+    def store_old_world_settings(context):
+        gaf_props = context.scene.gaf_props
+        w = context.scene.world
+        if w.use_nodes:
+            for n in w.node_tree.nodes:
+                if hasattr(n, "is_active_output"):
+                    if n.is_active_output:
+                        gaf_props.OldWorldSettings = n.name
+                        break
+            else:
+                # No active world output node found
+                gaf_props.OldWorldSettings = "__not use_nodes__"
+        else:
+            gaf_props.OldWorldSettings = "__not use_nodes__"
+
+    def restore_old_world_settings(context):
+        ow = context.scene.gaf_props.OldWorldSettings
+        w = context.scene.world
+        if ow == "__not use_nodes__":
+            w.use_nodes = False
+        else:
+            try:
+                w.node_tree.nodes[ow].is_active_output = True
+                for n in w.node_tree.nodes:
+                    if n.name != ow:
+                        if hasattr(n, 'is_active_output'):
+                            n.is_active_output = False
+            except:
+                print ("Failed to reset active world output (node may not exist anymore?)")
+
     gaf_props = context.scene.gaf_props
     if gaf_props.hdri_handler_enabled:
+        store_old_world_settings(context)
         prefs = context.user_preferences.addons[__package__].preferences
         if prefs.hdri_path != "" and os.path.exists(prefs.hdri_path):
             detect_hdris(self, context)
             setup_hdri(self, context)
+            prefs.ForcePreviewsRefresh = True
             if gaf_props.hdri:
                 if not os.path.exists(os.path.join(thumbnail_dir, gaf_props.hdri+"__thumb_preview.jpg")):
-                    context.scene.gaf_props.RequestThumbGen = True
+                    prefs.RequestThumbGen = True
         else:
             gaf_props.hdri_handler_enabled = False
+    else:
+        restore_old_world_settings(context)
+
+def update_search(self, context):
+    bpy.context.user_preferences.addons[__package__].preferences.ForcePreviewsRefresh = True
+    if context.scene.gaf_props.hdri:
+        # Force update of currently shown thumbnail
+        context.scene.gaf_props.hdri = context.scene.gaf_props.hdri
 
 def update_variation(self, context):
     gaf_props = context.scene.gaf_props
@@ -904,16 +1019,17 @@ def update_brightness(self, context):
     if not gaf_props.hdri_handler_enabled:
         return None  # Don't do anything if handler is disabled
 
-    value = gaf_props.hdri_brightness
+    value = pow(2, gaf_props.hdri_brightness)
     n = handler_node(context, "ShaderNodeBackground")
     n.inputs[1].default_value = value
 
     extra_nodes = any([
-        gaf_props.hdri_use_jpg_background, 
-        gaf_props.hdri_use_separate_brightness, 
-        gaf_props.hdri_use_separate_contrast, 
+        gaf_props.hdri_use_jpg_background,
+        gaf_props.hdri_use_separate_brightness,
+        gaf_props.hdri_use_separate_contrast,
         gaf_props.hdri_use_separate_saturation,
-        gaf_props.hdri_use_separate_warmth
+        gaf_props.hdri_use_separate_warmth,
+        gaf_props.hdri_use_separate_tint
         ])
     if not gaf_props.hdri_use_separate_brightness and extra_nodes:
         if gaf_props.hdri_use_darkened_jpg:
@@ -929,21 +1045,22 @@ def update_contrast(self, context):
         return None  # Don't do anything if handler is disabled
 
     value = gaf_props.hdri_contrast
-    n = handler_node(context, "ShaderNodeBrightContrast")
-    n.inputs[2].default_value = value - 1
-    n.mute = uses_default_values(n, "ShaderNodeBrightContrast")
+    n = handler_node(context, "ShaderNodeGamma")
+    n.inputs[1].default_value = value
+    n.mute = uses_default_values(n, "ShaderNodeGamma")
 
     extra_nodes = any([
-        gaf_props.hdri_use_jpg_background, 
-        gaf_props.hdri_use_separate_brightness, 
-        gaf_props.hdri_use_separate_contrast, 
+        gaf_props.hdri_use_jpg_background,
+        gaf_props.hdri_use_separate_brightness,
+        gaf_props.hdri_use_separate_contrast,
         gaf_props.hdri_use_separate_saturation,
-        gaf_props.hdri_use_separate_warmth
+        gaf_props.hdri_use_separate_warmth,
+        gaf_props.hdri_use_separate_tint
         ])
     if not gaf_props.hdri_use_separate_contrast and extra_nodes:
-        n = handler_node(context, "ShaderNodeBrightContrast", background=True)
-        n.inputs[2].default_value = value - 1
-        n.mute = uses_default_values(n, "ShaderNodeBrightContrast")
+        n = handler_node(context, "ShaderNodeGamma", background=True)
+        n.inputs[1].default_value = value
+        n.mute = uses_default_values(n, "ShaderNodeGamma")
 
     return None
 
@@ -958,11 +1075,12 @@ def update_saturation(self, context):
     n.mute = uses_default_values(n, "ShaderNodeHueSaturation")
 
     extra_nodes = any([
-        gaf_props.hdri_use_jpg_background, 
-        gaf_props.hdri_use_separate_brightness, 
-        gaf_props.hdri_use_separate_contrast, 
+        gaf_props.hdri_use_jpg_background,
+        gaf_props.hdri_use_separate_brightness,
+        gaf_props.hdri_use_separate_contrast,
         gaf_props.hdri_use_separate_saturation,
-        gaf_props.hdri_use_separate_warmth
+        gaf_props.hdri_use_separate_warmth,
+        gaf_props.hdri_use_separate_tint
         ])
     if not gaf_props.hdri_use_separate_saturation and extra_nodes:
         n = handler_node(context, "ShaderNodeHueSaturation", background=True)
@@ -982,15 +1100,41 @@ def update_warmth(self, context):
     n.mute = uses_default_values(n, "Warmth")
 
     extra_nodes = any([
-        gaf_props.hdri_use_jpg_background, 
-        gaf_props.hdri_use_separate_brightness, 
-        gaf_props.hdri_use_separate_contrast, 
+        gaf_props.hdri_use_jpg_background,
+        gaf_props.hdri_use_separate_brightness,
+        gaf_props.hdri_use_separate_contrast,
         gaf_props.hdri_use_separate_saturation,
-        gaf_props.hdri_use_separate_warmth
+        gaf_props.hdri_use_separate_warmth,
+        gaf_props.hdri_use_separate_tint
         ])
     if not gaf_props.hdri_use_separate_warmth and extra_nodes:
         n = handler_node(context, "Warmth", background=True)
         n.inputs[1].default_value = value
+        n.mute = uses_default_values(n, "Warmth")
+
+    return None
+
+def update_tint(self, context):
+    gaf_props = context.scene.gaf_props
+    if not gaf_props.hdri_handler_enabled:
+        return None  # Don't do anything if handler is disabled
+
+    value = (gaf_props.hdri_tint - 1) * 100
+    n = handler_node(context, "Warmth")
+    n.inputs[2].default_value = value
+    n.mute = uses_default_values(n, "Warmth")
+
+    extra_nodes = any([
+        gaf_props.hdri_use_jpg_background,
+        gaf_props.hdri_use_separate_brightness,
+        gaf_props.hdri_use_separate_contrast,
+        gaf_props.hdri_use_separate_saturation,
+        gaf_props.hdri_use_separate_warmth,
+        gaf_props.hdri_use_separate_tint
+        ])
+    if not gaf_props.hdri_use_separate_tint and extra_nodes:
+        n = handler_node(context, "Warmth", background=True)
+        n.inputs[2].default_value = value
         n.mute = uses_default_values(n, "Warmth")
 
     return None
@@ -1014,7 +1158,7 @@ def update_background_brightness (self, context):
         update_brightness(self, context)
         return None
 
-    value = gaf_props.hdri_background_brightness
+    value = pow(2, gaf_props.hdri_background_brightness)
     if gaf_props.hdri_use_darkened_jpg:
         value *= 20  # Increase exposure by ~4 EVs
     n = handler_node(context, "ShaderNodeBackground", background=True)
@@ -1029,9 +1173,9 @@ def update_background_contrast (self, context):
         return None
 
     value = gaf_props.hdri_background_contrast
-    n = handler_node(context, "ShaderNodeBrightContrast", background=True)
-    n.inputs[2].default_value = value - 1
-    n.mute = uses_default_values(n, "ShaderNodeBrightContrast")
+    n = handler_node(context, "ShaderNodeGamma", background=True)
+    n.inputs[1].default_value = value
+    n.mute = uses_default_values(n, "ShaderNodeGamma")
 
     return None
 
@@ -1057,6 +1201,19 @@ def update_background_warmth (self, context):
     value = (gaf_props.hdri_background_warmth - 1) * 100
     n = handler_node(context, "Warmth", background=True)
     n.inputs[1].default_value = value
+    n.mute = uses_default_values(n, "Warmth")
+
+    return None
+
+def update_background_tint (self, context):
+    gaf_props = context.scene.gaf_props
+    if not gaf_props.hdri_handler_enabled or not gaf_props.hdri_use_separate_tint:
+        update_warmth(self, context)
+        return None
+
+    value = (gaf_props.hdri_background_tint - 1) * 100
+    n = handler_node(context, "Warmth", background=True)
+    n.inputs[2].default_value = value
     n.mute = uses_default_values(n, "Warmth")
 
     return None
@@ -1135,6 +1292,7 @@ def get_icons():
 def refresh_previews():
     previews_unregister()
     previews_register()
+    bpy.context.user_preferences.addons[__package__].preferences.ForcePreviewsRefresh = True
 
 def hdri_enum_previews(self, context):
     enum_items = []
@@ -1142,24 +1300,33 @@ def hdri_enum_previews(self, context):
     if context is None:
         return enum_items
 
+    gaf_props = context.scene.gaf_props
+
     # Get the preview collection (defined in register func).
     pcoll = preview_collections["main"]
 
-    for i, name in enumerate(hdri_list):
+    prefs = bpy.context.user_preferences.addons[__package__].preferences
+    if not prefs.ForcePreviewsRefresh:
+        return pcoll.previews
+    else:
+        prefs.ForcePreviewsRefresh = False
+
+    all_thumbs_exist = True
+    for i, name in enumerate(get_hdri_list(use_search=True)):
+        
         thumb_file = os.path.join(thumbnail_dir, name+"__thumb_preview.jpg")
         if not os.path.exists(thumb_file):
+            print ("Missing thumb", name)
+            all_thumbs_exist = False
             thumb_file = missing_thumb()
-            try:
-                # Blender won't allow us to edit a scene prop sometimes (during registration?)
-                context.scene.gaf_props.RequestThumbGen = True
-            except:
-                pass
 
         if name in pcoll:
             thumb = pcoll[name]
         else:
             thumb = pcoll.load(name, thumb_file, 'IMAGE')
         enum_items.append((name, name, "", thumb.icon_id, i))
+
+    prefs.RequestThumbGen = not all_thumbs_exist        
 
     pcoll.previews = enum_items
     return pcoll.previews
@@ -1179,16 +1346,99 @@ def variation_enum_previews(self, context):
 
     return enum_items
 
-def get_hdri_haven_list():
-    from urllib.request import urlopen
-    try:
-        with urlopen('https://hdrihaven.com/php/json_list.php') as response:
-            html = str(response.read())
-    except:
-        print ("Can't fetch list from HDRI Haven")
-        return []
+def get_tags():
+    if os.path.exists(tags_path):
+        with open(tags_path) as f:
+            data = json.load(f)
+        return data
     else:
-        hdrihaven_hdris = html.split('### list after this! ###')[1].split('<br>')[:-1]
+        return {}
+
+def set_tag(name, tag, toggle=True):
+    tag = tag.strip().lower()
+    tag_list = get_tags()
+    if name in tag_list:
+        current_tags = tag_list[name]
+        if tag not in current_tags:
+            tag_list[name].append(tag)
+        elif toggle:
+            i = tag_list[name].index(tag)
+            del(tag_list[name][i])
+    else:
+        tag_list[name] = [tag]
+
+    with open(tags_path, 'w') as f:
+        f.write(json.dumps(tag_list, indent=4))
+
+def set_custom_tags(self, context):
+    gaf_props = context.scene.gaf_props
+    if gaf_props.hdri_custom_tags != "":
+        tags = gaf_props.hdri_custom_tags.replace(';', ',').split(',')
+
+        for t in tags:
+            t = t.strip().lower()
+            set_tag(gaf_props.hdri, t, toggle=False)
+            if t not in possible_tags:
+                possible_tags.append(t)
+
+        gaf_props.hdri_custom_tags = ""
+
+def get_possible_tags_list():
+    tags_list = get_tags()
+    possible_tags = default_tags
+    actual_tags = []
+    for h in tags_list:
+        for t in tags_list[h]:
+            if t not in possible_tags and t not in actual_tags:
+                actual_tags.append(t)
+    possible_tags += sorted(actual_tags)
+    return possible_tags
+
+if len(possible_tags) < 1:
+    possible_tags = get_possible_tags_list()
+
+def get_hdri_haven_list(force_update=False):
+    ''' Get HDRI Haven list from web once per week, otherwise fetch from file'''
+
+    if not force_update:
+        if os.path.exists(hdri_haven_list_path):
+            import time
+            age = time.time() - os.stat(hdri_haven_list_path).st_mtime  # seconds since last modified
+            if age/60/60/24 < 7:
+                with open(hdri_haven_list_path) as f:
+                    data = json.load(f)
+                if data:
+                    return data
+
+    from requests import get as requests_get
+    print ("Getting HDRI list from HDRI Haven...")
+    try:
+        hdrihaven_hdris = requests_get('https://hdrihaven.com/php/json_list.php', timeout=10).json()
+    except:
+        print ("    Can't fetch list from HDRI Haven")
+        return {}
+    else:
+        for h in hdrihaven_hdris:
+            # Convert comma separated list into actual list
+            hdrihaven_hdris[h] = hdrihaven_hdris[h].replace(';', ',').split(',')
+        with open(hdri_haven_list_path, 'w') as f:
+            f.write(json.dumps(hdrihaven_hdris, indent=4))
+
+        # Add HDRI Haven tags to tag list
+        standard_colors = ['red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'brown', 'black', 'gray', 'white']
+        tag_list = get_tags()
+        for h in hdrihaven_hdris:
+            if h in hdri_list:
+                if h in tag_list:
+                    for t in hdrihaven_hdris[h]:
+                        if t not in tag_list[h]:
+                            if t not in standard_colors:
+                                tag_list[h].append(t)
+                else:
+                    tag_list[h] = [t for t in hdrihaven_hdris[h] if t not in standard_colors]
+        with open(tags_path, 'w') as f:
+            f.write(json.dumps(tag_list, indent=4))
+
         return hdrihaven_hdris
 
 if len(hdri_haven_list) < 1:
@@ -1200,19 +1450,6 @@ def show_hdrihaven():
         if get_persistent_setting('show_hdri_haven'):
             bpy.context.scene.gaf_props.ShowHDRIHaven = True
 
-def draw_progress_bar(gaf_props, layout):
-    if gaf_props.ShowProgress:
-        layout.separator()
-        b = layout.box()
-        col = b.column(align=True)
-        col.label(gaf_props.ProgressText)
-        split = col.split(percentage=max(0.01, gaf_props.Progress), align=True)
-        r = split.row()
-        r.alert=True
-        r.prop(gaf_props, 'ProgressBarText', "")
-        r = split.row()
-        r.label("")
-        layout.separator()
 def progress_begin(context):
     context.scene.gaf_props.ShowProgress = True
     _force_redraw_hack()
@@ -1229,7 +1466,7 @@ def progress_end(context):
 def init_persistent_settings(set_name=None, set_value=None):
     ''' Initialize persistent settings file with option to change a default value'''
 
-    settings = {'show_hdri_haven': True}
+    settings = {'show_hdri_haven': True, 'hdri_path': ''}
 
     if set_name is not None:
         settings[set_name] = set_value

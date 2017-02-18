@@ -5,13 +5,16 @@ Vector
 .. toctree::
    :maxdepth: 2
 
-   axis_input
+   axis_input_mk2
    drop
    interpolation_stripes
    interpolation_mk3
    line_evaluate
    math
-   noise
+   noise_mk2
+   fractal
+   lerp
+   vector_rewire
    vector_in
    vector_out
    vector_polar_in

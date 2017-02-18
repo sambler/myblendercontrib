@@ -24,6 +24,7 @@ from bpy.props import EnumProperty, IntProperty, FloatVectorProperty
 import textwrap
 import nodeitems_utils
 from nodeitems_utils import NodeCategory, NodeItem
+import random
 
 from . icon_load import cicon
 
@@ -55,16 +56,28 @@ class DefaultSocket(NodeSocket):
         preferences = context.user_preferences.addons[__package__].preferences
         if not self.is_output and isinstance(node, StateNode):
             row = layout.row(align=True)
-            if self.is_linked:
-                row.prop(self, "filterProperty", text=text)
+            if node.syncState:
+                if self.is_linked:
+                    row.prop(self, "defaultValueProperty", text="")
+                    if preferences.use_custom_icons:
+                        row.prop(self, "randomInputValue",
+                                 icon_value=cicon('dice'), icon_only=True)
+                    else:
+                        row.prop(self, "randomInputValue", icon="FILE_REFRESH",
+                                 icon_only=True)
+                else:
+                    row.label(text)
             else:
-                row.prop(self, "defaultValueProperty", text="")
-            if preferences.use_custom_icons:
-                row.prop(self, "randomInputValue", icon_value=cicon('dice'),
-                         icon_only=True)
-            else:
-                row.prop(self, "randomInputValue", icon="FILE_REFRESH",
-                         icon_only=True)
+                if self.is_linked:
+                    row.prop(self, "filterProperty", text=text)
+                else:
+                    row.prop(self, "defaultValueProperty", text="")
+                if preferences.use_custom_icons:
+                    row.prop(self, "randomInputValue",
+                             icon_value=cicon('dice'), icon_only=True)
+                else:
+                    row.prop(self, "randomInputValue", icon="FILE_REFRESH",
+                             icon_only=True)
         else:
             layout.label(text)
 
@@ -317,7 +330,7 @@ class GraphNode(LogicNode):
 
     RBFMiddle = FloatProperty(default=0.0)
     RBFTenPP = FloatProperty(default=0.25)  # Ten percent point
-    
+
     """Testing to see if this would work, currently it breaks the texture preview in the properties editor
     def init(self, context):
         cm_tex1Path = os.path.dirname(__file__) + "/cm_graphics/images/range_function.jpg"
@@ -328,14 +341,14 @@ class GraphNode(LogicNode):
         except:
             raise NameError("Cannot load image %s" % cm_tex1Path)
             raise NameError("Cannot load image %s" % cm_tex2Path)
-        
+
         cm_tex1Name = 'CrowdMaster-Graph-Range-Do-Not-Delete'
         cm_tex2Name = 'CrowdMaster-Graph-RBF-Do-Not-Delete'
-        
+
         if cm_tex1Name not in bpy.data.textures:
             cm_tex1 = bpy.data.textures.new(cm_tex1Name, type='IMAGE')
             cm_tex1.image = cm_tex1Img
-        
+
         if cm_tex2Name not in bpy.data.textures:
             cm_tex2 = bpy.data.textures.new(cm_tex2Name, type='IMAGE')
             cm_tex2.image = cm_tex2Img
@@ -346,7 +359,7 @@ class GraphNode(LogicNode):
             row = layout.row()
             split = row.split(1000 / (context.region.width - 50))
             split.template_preview(bpy.data.textures['CrowdMaster-Graph-Range-Do-Not-Delete'], show_buttons=False)
-        
+
         elif self.CurveType == "RBF":
             row = layout.row()
             split = row.split(1000 / (context.region.width - 50))
@@ -695,10 +708,21 @@ class StateNode(CrowdMasterNode):
 
 # ====== End of Super class ======
 
+def updateWait(self, context):
+    """Keeps the random wait values in the right order"""
+    if self.minRandWait > self.maxRandWait:
+        self.minRandWait = self.maxRandWait
+
 
 class StartState(StateNode):
     """CrowdMaster Start State"""
     bl_label = "Start"
+    bl_width_default = 225.0
+
+    minRandWait = IntProperty(name="Minimum", default=0, min=0,
+                              update=updateWait)
+    maxRandWait = IntProperty(name="Maximum", default=0, min=0,
+                              update=updateWait)
 
     def init(self, context):
         self.inputs.new("DependanceSocketType", "Dependant")
@@ -708,7 +732,17 @@ class StartState(StateNode):
         self.outputs["To"].link_limit = 4095
 
     def getSettings(self, item):
-        return
+        item.settings["minRandWait"] = self.minRandWait
+        item.settings["maxRandWait"] = self.maxRandWait
+        item.length = random.randint(self.minRandWait,
+                                     self.maxRandWait)
+
+    def draw_buttons(self, context, layout):
+        row = layout.row()
+        row.label("Random wait time:")
+        row = layout.row(align=True)
+        row.prop(self, "minRandWait")
+        row.prop(self, "maxRandWait")
 
 
 class ActionState(StateNode):
@@ -719,6 +753,7 @@ class ActionState(StateNode):
     cycleState = BoolProperty(name="Cycle State", default=False)
     actionName = StringProperty(name="Action Name", default="")
     useValueOfSpeed = BoolProperty(name=" Use Value of Speed", default=True)
+    syncState = BoolProperty(name="Sync State", default=False)
 
     def init(self, context):
         StateNode.init(self, context)
@@ -732,6 +767,7 @@ class ActionState(StateNode):
         item.cycleState = self.cycleState
         item.actionName = self.actionName
         item.useValueOfSpeed = self.useValueOfSpeed
+        item.syncState = self.syncState
 
     def draw_buttons(self, context, layout):
         if self.actionName == "":
@@ -739,6 +775,7 @@ class ActionState(StateNode):
         layout.prop(self, "cycleState")
         row = layout.row()
         row.prop(self, "actionName", text="")
+        layout.prop(self, "syncState")
         # row.prop(self, "useValueOfSpeed", text="")
 
 

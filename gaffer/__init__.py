@@ -20,8 +20,8 @@ bl_info = {
     "name": "Gaffer",
     "description": "Manage all your lights together quickly and efficiently from the 3D View toolbar",
     "author": "Greg Zaal",
-    "version": (2, 6, 1),
-    "blender": (2, 77, 0),
+    "version": (2, 9, 0),
+    "blender": (2, 78, 0),
     "location": "3D View > Tools",
     "warning": "",
     "wiki_url": "https://blendermarket.com/products/gaffer-light-manager",
@@ -92,14 +92,17 @@ class GafferPreferences(bpy.types.AddonPreferences):
         name="HDRI Folder",
         subtype='DIR_PATH',
         description='The folder where all your HDRIs are stored',
-        default='',
-        update=functions.detect_hdris
+        default=functions.get_persistent_setting('hdri_path'),
+        update=functions.update_hdri_path
         )
     show_hdri_list = bpy.props.BoolProperty(
         name="Show",
         description="List all the detected HDRIs and their variants/resolutions below",
         default=False
         )
+
+    ForcePreviewsRefresh = bpy.props.BoolProperty(default = True, options={'HIDDEN'})
+    RequestThumbGen = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
 
 
     def draw(self, context):
@@ -125,7 +128,16 @@ class GafferPreferences(bpy.types.AddonPreferences):
                         col = layout.column(align=True)
                         for name in hdris:
                             col.label(name)
-                            for v in hdris[name]:
+                            variations = hdris[name]
+                            if len(variations) >= 10:
+                                row = col.row()
+                                row.alignment = 'CENTER'
+                                row.label('There are quite a few varations of this HDRI, maybe they were wrongly detected?', icon='QUESTION')
+                                row = col.row()
+                                row.alignment = 'CENTER'
+                                op = row.operator('wm.url_open', "Click here to learn how to fix this", icon='WORLD')
+                                op.url = "https://github.com/gregzaal/Gaffer/wiki/HDRI-Detection-and-Grouping"
+                            for v in variations:
                                 col.label('    '+v)
             else:
                 row = col.row()
@@ -137,44 +149,6 @@ class GafferPreferences(bpy.types.AddonPreferences):
             row.label("Select the folder that contains all your HDRIs. Subfolders will be included.")
 
         addon_updater_ops.update_settings_ui(self,context)
-
-
-def do_set_world_refl_only(context):
-    scene = context.scene
-    if scene.gaf_props.WorldReflOnly and not scene.gaf_props.WorldVis:
-        scene.gaf_props.WorldVis = True
-        scene.gaf_props.WorldReflOnly = True
-    if scene.gaf_props.WorldVis:
-        world = scene.world
-        world.cycles_visibility.glossy = True
-        world.cycles_visibility.camera = not scene.gaf_props.WorldReflOnly
-        world.cycles_visibility.diffuse = not scene.gaf_props.WorldReflOnly
-        world.cycles_visibility.transmission = not scene.gaf_props.WorldReflOnly
-        world.cycles_visibility.scatter = not scene.gaf_props.WorldReflOnly
-        world.update_tag()
-
-
-def _update_world_refl_only(self, context):
-    do_set_world_refl_only(context)
-
-
-def do_set_world_vis(context):
-    scene = context.scene
-    if scene.gaf_props.WorldVis:
-        scene.gaf_props.WorldReflOnly = False
-    elif scene.gaf_props.WorldReflOnly:
-        scene.gaf_props.WorldReflOnly = False
-    world = scene.world
-    world.cycles_visibility.glossy = scene.gaf_props.WorldVis
-    world.cycles_visibility.camera = scene.gaf_props.WorldVis
-    world.cycles_visibility.diffuse = scene.gaf_props.WorldVis
-    world.cycles_visibility.transmission = scene.gaf_props.WorldVis
-    world.cycles_visibility.scatter = scene.gaf_props.WorldVis
-    world.update_tag()
-
-
-def _update_world_vis(self, context):
-    do_set_world_vis(context)
 
 
 class BlacklistedObject(bpy.types.PropertyGroup):
@@ -223,12 +197,12 @@ class GafferProperties(bpy.types.PropertyGroup):
         name = "Hide World lighting",
         default = True,
         description = "Don't display (or render) the environment lighting",
-        update = _update_world_vis)
+        update = functions._update_world_vis)
     WorldReflOnly = bpy.props.BoolProperty(
         name = "Reflection Only",
         default = False,
         description = "Only show the World lighting in reflections",
-        update = _update_world_refl_only)
+        update = functions._update_world_refl_only)
     LightRadiusAlpha = bpy.props.FloatProperty(
         name = "Alpha",
         default = 0.6,
@@ -338,6 +312,12 @@ class GafferProperties(bpy.types.PropertyGroup):
         items=functions.variation_enum_previews,
         update=functions.update_variation
         )
+    hdri_search = bpy.props.StringProperty(
+        name="Search",
+        description="Show only HDRIs matching this text - name, subfolder and tags will match",
+        default="",
+        update=functions.update_search
+        )
     hdri_rotation = bpy.props.FloatProperty(
         name="Rotation",
         description='Rotate the HDRI (in degrees) around the Z-axis',
@@ -348,15 +328,15 @@ class GafferProperties(bpy.types.PropertyGroup):
         )
     hdri_brightness = bpy.props.FloatProperty(
         name="Brightness",
-        description='Change the exposure of the HDRI to emit more or less light',
-        default=1,
-        min=0,
-        soft_max=2,
+        description='Change the exposure of the HDRI to emit more or less light (measured in EVs)',
+        default=0,
+        soft_min=-10,
+        soft_max=10,
         update=functions.update_brightness
         )
     hdri_contrast = bpy.props.FloatProperty(
         name="Contrast",
-        description='Change how much light is emitted by only the brightest parts of the HDRI (use to make shadows more or less noticable)',
+        description='Adjust the Gamma, making light sources stonger or weaker compared to darker parts of the HDRI',
         default=1,
         min=0,
         soft_max=2,
@@ -378,8 +358,16 @@ class GafferProperties(bpy.types.PropertyGroup):
         soft_max=2,
         update=functions.update_warmth
         )
+    hdri_tint = bpy.props.FloatProperty(
+        name="Tint",
+        description='Control the purple/green color balance',
+        default=1,
+        soft_min=0,
+        soft_max=2,
+        update=functions.update_tint
+        )
     hdri_use_jpg_background = bpy.props.BoolProperty(
-        name = "Use high-res JPG background",
+        name = "High-res JPG background",
         default = False,
         description = "Use a higher-res JPG image for the background, keeping the HDR just for lighting - enable this and set the main resolution to a low option to save memory",
         update=functions.setup_hdri
@@ -405,9 +393,9 @@ class GafferProperties(bpy.types.PropertyGroup):
     hdri_background_brightness = bpy.props.FloatProperty(
         name="Value",
         description='Make the background image brighter or darker without affecting the lighting',
-        default=1,
-        min=0,
-        soft_max=2,
+        default=0,
+        soft_min=-10,
+        soft_max=10,
         update=functions.update_background_brightness
         )
     hdri_use_separate_contrast = bpy.props.BoolProperty(
@@ -432,7 +420,7 @@ class GafferProperties(bpy.types.PropertyGroup):
         )
     hdri_background_saturation = bpy.props.FloatProperty(
         name="Value",
-        description='Change the saturation of background image without affecting the lighting',
+        description='Change the saturation of the background image without affecting the lighting',
         default=1,
         min=0,
         soft_max=2,
@@ -446,11 +434,25 @@ class GafferProperties(bpy.types.PropertyGroup):
         )
     hdri_background_warmth = bpy.props.FloatProperty(
         name="Value",
-        description='Change the saturation of background image without affecting the lighting',
+        description='Change the warmth of the background image without affecting the lighting',
         default=1,
         soft_min=0,
         soft_max=2,
         update=functions.update_background_warmth
+        )
+    hdri_use_separate_tint = bpy.props.BoolProperty(
+        name = "Tint",
+        default = False,
+        description = "Adjust the tint value for the background separately from the lighting",
+        update=functions.setup_hdri
+        )
+    hdri_background_tint = bpy.props.FloatProperty(
+        name="Value",
+        description='Change the tint of the background image without affecting the lighting',
+        default=1,
+        soft_min=0,
+        soft_max=2,
+        update=functions.update_background_tint
         )
     hdri_clamp = bpy.props.FloatProperty(
         name="Clamp Brightness",
@@ -470,6 +472,17 @@ class GafferProperties(bpy.types.PropertyGroup):
         description = "Generate the JPG and darkened JPG for all HDRIs that you have. This will probably take a while",
         default = False
         )
+    hdri_show_tags_ui = bpy.props.BoolProperty(
+        name="Tags",
+        description = "Choose some tags for this HDRI to help you search for it later",
+        default = False
+        )
+    hdri_custom_tags = bpy.props.StringProperty(
+        name="New Tag(s)",
+        description = "Add some of your own tags to this HDRI - separate by commas or semi-colons",
+        default = "",
+        update = functions.set_custom_tags
+        )
 
     # Internal vars (not shown in UI)
     IsShowingRadius = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
@@ -477,13 +490,13 @@ class GafferProperties(bpy.types.PropertyGroup):
     BlacklistIndex = bpy.props.IntProperty(default = 0, options={'HIDDEN'})
     VarNameCounter = bpy.props.IntProperty(default = 0, options={'HIDDEN'})
     HDRIList = bpy.props.StringProperty(default = "", options={'HIDDEN'})
-    RequestThumbGen = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
     RequestJPGGen = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
     ShowProgress = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
     Progress = bpy.props.FloatProperty(default = 0.0, options={'HIDDEN'})
     ProgressText = bpy.props.StringProperty(default = "", options={'HIDDEN'})
     ProgressBarText = bpy.props.StringProperty(default = "", options={'HIDDEN'})
     ShowHDRIHaven = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
+    OldWorldSettings = bpy.props.StringProperty(default = "", options={'HIDDEN'})
     Blacklist = bpy.props.CollectionProperty(type=BlacklistedObject)  # must be registered after classes
 
 

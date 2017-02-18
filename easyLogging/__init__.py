@@ -552,7 +552,7 @@ def create_tag_scenes():
 					new_scene.use_audio_sync = True
 					new_scene.use_frame_drop = True
 				scene = bpy.data.scenes[tag]
-				import_clip(scene, clip_file[0][0], inpoint, outpoint, True)
+				import_clip(scene, (clip_file[0][0]).split('#')[0], inpoint, outpoint, True)
 
 	original_type = bpy.context.area.type
 	bpy.context.area.type = "SEQUENCE_EDITOR"
@@ -587,28 +587,23 @@ def create_new_log_file():
 # Trim an area regarding the IN and OUT points
 def trim_area(scene, inpoint, outpoint):
 	strips = bpy.context.scene.sequence_editor.sequences
-	# is it safe to cut on the left?
-	safe = False
-	for s in strips:
-		if s.type != 'COLOR' and s.frame_final_start < bpy.context.scene.frame_start :
-			safe = True
-			break
-	if safe:
+	try:
 		bpy.ops.sequencer.select_all(action = "SELECT")
 		bpy.context.scene.frame_current = inpoint
 		bpy.ops.sequencer.cut(frame=inpoint, type='SOFT', side='LEFT')
 		bpy.ops.sequencer.delete()
-	# is it safe to cut on the right?
-	safe = False
-	for s in strips:
-		if s.type != 'COLOR' and s.frame_final_end > bpy.context.scene.frame_end:
-			safe = True
-			break
-	if safe:
+	except:
+		pass
+
+	
+	try:
 		bpy.ops.sequencer.select_all(action = "SELECT")
 		bpy.context.scene.frame_current = outpoint
 		bpy.ops.sequencer.cut(frame=outpoint, type='SOFT', side='RIGHT')
-		bpy.ops.sequencer.delete()  
+		bpy.ops.sequencer.delete()
+	except:
+		pass
+
 	bpy.context.scene.frame_current = inpoint
 
 # Initialization ---------------------------------------------------------
@@ -724,9 +719,13 @@ class OBJECT_OT_Place(bpy.types.Operator):
 				return {'FINISHED'}
 			# Tag-scene context
 			else :
+				print("Tag-scene context")
 				tag_strip = bpy.context.scene.sequence_editor.active_strip
 				inpoint = tag_strip.frame_final_start
 				outpoint = tag_strip.frame_final_end - 1
+				print(inpoint)
+				print(outpoint)
+				print('---')
 				bpy.ops.scene.new(type='FULL_COPY')
 				temp_scene = bpy.context.screen.scene
 				trim_area(temp_scene, inpoint, outpoint)
@@ -1006,29 +1005,9 @@ def createNewLogfile_func(self, context):
 	self.layout.operator(SEQUENCER_OT_create_new_log_file.bl_idname, text="Create a new log file", icon='FILE_SCRIPT')    
 
 
-# -- REGISTRATIONS -----------------------------------------------------
-
+# ----------------- Registration -------------------     
 def register():
-	bpy.utils.register_class(EasyLog)
-	bpy.types.INFO_HT_header.append(draw_item)
-	bpy.utils.register_class(iop_panel)
-	bpy.utils.register_class(OBJECT_OT_Trim)
-	bpy.utils.register_class(OBJECT_OT_Setin)
-	bpy.utils.register_class(OBJECT_OT_addTag)
-	bpy.utils.register_class(OBJECT_OT_setInOut)
-	bpy.utils.register_class(OBJECT_OT_Setout)
-	bpy.utils.register_class(OBJECT_OT_Place)
-	bpy.utils.register_class(OBJECT_OT_Back)
-	bpy.types.OBJECT_MT_easy_log.append(createTagScene_func)
-	bpy.types.OBJECT_MT_easy_log.append(deleteTagScene_func)
-	bpy.types.OBJECT_MT_easy_log.append(createLogText_func)
-	bpy.types.OBJECT_MT_easy_log.append(createNewLogfile_func)
-	bpy.utils.register_class(SEQUENCER_OT_create_tag_scenes)
-	bpy.utils.register_class(SEQUENCER_OT_delete_tag_scenes)
-	bpy.utils.register_class(SEQUENCER_OT_create_log_text)
-	bpy.utils.register_class(SEQUENCER_OT_create_new_log_file)
-	bpy.utils.register_class(OBJECT_OT_import)
-
+	bpy.utils.register_module(__name__)
 	bpy.types.Scene.headerColor = bpy.props.FloatVectorProperty(
 									 name = "Display Color",
 									 subtype = "COLOR",
@@ -1037,31 +1016,22 @@ def register():
 									 max = 1.0,
 									 default = (0.355,0.366,0.57,1.0))
 	bpy.types.INFO_HT_header.append(header_refresh)
-
+	bpy.types.INFO_HT_header.append(draw_item)
+	bpy.types.OBJECT_MT_easy_log.append(createTagScene_func)
+	bpy.types.OBJECT_MT_easy_log.append(deleteTagScene_func)
+	bpy.types.OBJECT_MT_easy_log.append(createLogText_func)
+	bpy.types.OBJECT_MT_easy_log.append(createNewLogfile_func)
 
 def unregister():
-	bpy.utils.unregister_class(EasyLog)
-	bpy.types.INFO_HT_header.remove(draw_item)  
-	bpy.utils.unregister_class(iop_panel)
-	bpy.utils.unregister_class(OBJECT_OT_Trim)
-	bpy.utils.unregister_class(OBJECT_OT_Setin)
-	bpy.utils.unregister_class(OBJECT_OT_addTag)
-	bpy.utils.unregister_class(OBJECT_OT_setInOut)
-	bpy.utils.unregister_class(OBJECT_OT_Setout)
-	bpy.utils.unregister_class(OBJECT_OT_Place)
-	bpy.utils.unregister_class(OBJECT_OT_Back)
-	bpy.utils.unregister_class(SEQUENCER_OT_create_tag_scenes)
-	bpy.utils.unregister_class(SEQUENCER_OT_delete_tag_scenes)
-	bpy.utils.unregister_class(SEQUENCER_OT_create_log_text)
-	bpy.utils.unregister_class(SEQUENCER_OT_create_new_log_file)
-	bpy.utils.unregister_class(OBJECT_OT_import)
-	
+	bpy.utils.unregister_module(__name__)
 	bpy.types.INFO_HT_header.remove(header_refresh)
+	bpy.types.INFO_HT_header.remove(draw_item)
 	bpy.context.user_preferences.themes[0].info.space.header = (0.447,0.447,0.447)
 	del bpy.types.Scene.headerColor
 
 if __name__ == "__main__":
-	register()
+    register()
+
 
 def updateStringParameter(self,context):
 	print(self.my_string)

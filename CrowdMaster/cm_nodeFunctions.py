@@ -245,7 +245,7 @@ class LogicGRAPH(Neuron):
 
 class LogicMATH(Neuron):
     """returns the values added/subtracted/multiplied/divided together"""
-    
+
     def core(self, inps, settings):
         result = {}
         for into in inps:
@@ -662,7 +662,10 @@ logictypes = OrderedDict([
 
 class StateSTART(State):
     """Points to the first state for the agent to be in"""
-
+    def moveTo(self):
+        self.length = random.randint(self.settings["minRandWait"],
+                                         self.settings["maxRandWait"])
+        State.moveTo(self)
 
 class StateAction(State):
     """The normal state in a state machine"""
@@ -678,9 +681,9 @@ class StateAction(State):
             action = actionobj.action  # bpy action
             if action:
                 currentFrame = bpy.context.scene.frame_current
-                strip = tr.strips.new("", currentFrame, action)
-                strip.extrapolation = 'NOTHING'
-                strip.use_auto_blend = True
+                self.strip = tr.strips.new("", currentFrame, action)
+                self.strip.extrapolation = 'NOTHING'
+                self.strip.use_auto_blend = True
             self.length = actionobj.length
 
             """tr = obj.animation_data.nla_tracks.new()  # NLA track
@@ -690,6 +693,43 @@ class StateAction(State):
                 strip.extrapolation = 'HOLD_FORWARD'
                 strip.use_auto_blend = False
                 strip.blend_type = 'ADD'"""
+
+    def evaluate(self):
+        if self.syncState:
+            possible = False
+            for sInp in self.inputs:
+                if self.neurons[sInp].isCurrent:
+                    possible = True
+                    break
+
+            if not possible or len(self.valueInputs) == 0:
+                self.finalValue = 0
+                self.finalValueCalcd = True
+                return
+
+            sm = self.brain.sim.syncManager
+            userid = self.brain.userid
+
+            for inp in self.valueInputs:
+                vals = self.neurons[inp].evaluate()
+                for key, v in vals.items():
+                    if self.settings["RandomInput"]:
+                        val = v + (self.settings["ValueDefault"] *
+                                   v * random.random())
+                    else:
+                        val = v + (v * self.settings["ValueDefault"])
+                    if val > 0:
+                        sm.tell(userid, key, self.actionName, val, self.name)
+
+            state, pairedAgent = sm.getResult(userid)
+
+            if state == self.name:
+                self.finalValue = 1
+            else:
+                self.finalValue = 0
+            self.finalValueCalcd = True
+        else:
+            State.evaluate(self)
 
     def evaluateState(self):
         self.currentFrame += 1
@@ -722,6 +762,24 @@ class StateAction(State):
                     self.brain.outvars["rx"] += x
                     self.brain.outvars["ry"] += y
                     self.brain.outvars["rz"] += z
+
+        # Check to see if there is a valid sync state to move to
+
+        syncOptions = []
+        for con in self.outputs:
+            if self.neurons[con].syncState:
+                val = self.neurons[con].query()
+                if val is not None and val > 0:
+                    syncOptions.append((con, val))
+
+                    if len(syncOptions) > 0:
+                        self.strip.action_frame_end = self.currentFrame + 1
+                        if len(syncOptions) == 1:
+                            return True, syncOptions[0][0]
+                        else:
+                            return True, max(syncOptions, key=lambda v: v[1])[0]
+
+        # ==== Will stop here if there is a valid sync state ====
 
         if self.currentFrame < self.length - 1:
             return False, self.name
@@ -769,9 +827,9 @@ class StateActionGroup(State):
             action = actionobj.action  # bpy action
             if action:
                 currentFrame = bpy.context.scene.frame_current
-                strip = tr.strips.new("", currentFrame, action)
-                strip.extrapolation = 'NOTHING'
-                strip.use_auto_blend = True
+                self.strip = tr.strips.new("", currentFrame, action)
+                self.strip.extrapolation = 'NOTHING'
+                self.strip.use_auto_blend = True
             self.length = actionobj.length
 
     def evaluateState(self):

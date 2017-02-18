@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import AddonPreferences
-from bpy.props import BoolProperty, FloatVectorProperty, EnumProperty
+from bpy.props import BoolProperty, FloatVectorProperty, EnumProperty, IntProperty
 
 from sverchok import data_structure
 from sverchok.core import handlers
@@ -137,6 +137,11 @@ class SverchokPreferences(AddonPreferences):
     enable_live_objin = BoolProperty(
         description="Objects in edit mode will be updated in object-in Node")
 
+    #  bgl viewer settings
+
+    custom_font_id = IntProperty()
+
+
     def draw(self, context):
         layout = self.layout
         # row = layout.split(percentage=0.33)
@@ -203,7 +208,7 @@ class SverchokPreferences(AddonPreferences):
         if context.scene.sv_new_version:
             row1.operator('node.sverchok_update_addon', text='Upgrade Sverchok addon')
         else:
-            row1.operator('node.sverchok_check_for_upgrades', text='Check for new version')
+            row1.operator('node.sverchok_check_for_upgrades_wsha', text='Check for new version')
 
 
 def register():

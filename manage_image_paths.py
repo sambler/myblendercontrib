@@ -32,7 +32,6 @@ bl_info = {
 import bpy
 import os
 from shutil import copy2 as copyfile
-from time import time
 
 '''
 TODOs:
@@ -119,7 +118,6 @@ class MIPImagePathsPanel(bpy.types.Panel):
     bl_context = "scene"
 
     def draw(self, context):
-        print ("draw!", time())
         layout = self.layout
         images = get_images()
         props = context.scene.mip_props

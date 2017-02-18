@@ -19,7 +19,7 @@ bl_info = {
     "name": "Export Selected",
     "author": "dairin0d, rking, moth3r",
     "version": (2, 1, 3),
-    "blender": (2, 7, 8),
+    "blender": (2, 7, 0),
     "location": "File > Export > Selected",
     "description": "Export selected objects to a chosen format",
     "warning": "",
@@ -862,7 +862,10 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
         
         for scene in bpy.data.scenes:
             if scene != context.scene:
-                bpy.data.scenes.remove(scene, do_unlink=True)
+                try:
+                    bpy.data.scenes.remove(scene, do_unlink=True) # Blender 2.78
+                except TypeError:
+                    bpy.data.scenes.remove(scene) # earlier versions
         
         scene = context.scene
         
@@ -896,9 +899,13 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
             # of clear_world(), at least in Blender 2.78a.
             # The user can undo manually, but doing it from script appears impossible.
         else:
-            #bpy.ops.wm.save_as_mainfile(filepath=self.filepath, copy=True)
-            # Hopefully this does not save unused libraries:
-            bpy.data.libraries.write(self.filepath, {context.scene, *context.scene.objects})
+            if hasattr(bpy.data.libraries, "write"):
+                # Hopefully this does not save unused libraries:
+                refs = {context.scene} # {a, *b} syntax is only supported in recent Blender versions
+                refs.update(context.scene.objects)
+                bpy.data.libraries.write(self.filepath, refs)
+            else:
+                bpy.ops.wm.save_as_mainfile(filepath=self.filepath, copy=True) # fallback for earlier versions
     
     def export_bundle(self, context, filepath, bundle):
         self.filepath = filepath
