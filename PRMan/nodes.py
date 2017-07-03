@@ -1,6 +1,6 @@
 # ##### BEGIN MIT LICENSE BLOCK #####
 #
-# Copyright (c) 2015 Brian Savery
+# Copyright (c) 2015 - 2017 Pixar
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -527,6 +527,8 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                     self.inputs.new(socket_map["struct"], prop_name, prop_name)
                 elif prop_type == "void":
                     pass
+                elif 'lockgeom' in shader_meta[prop_name] and shader_meta[prop_name]['lockgeom'] == 0:
+                    pass
                 else:
                     input = self.inputs.new(socket_map[shader_meta[prop_name]["type"]],
                                             prop_name, prop_name)
@@ -565,6 +567,7 @@ class RendermanOutputNode(RendermanShadingNode):
     def update(self):
         from . import engine
         if engine.is_ipr_running():
+            engine.ipr.last_edit_mat = None
             engine.ipr.issue_shader_edits(nt=self.id_data)
 
 
@@ -761,13 +764,8 @@ def draw_nodes_properties_ui(layout, context, nt, input_name='Bxdf',
         draw_node_properties_recursive(layout, context, nt, node)
 
 
-def node_shader_handle(nt, node):
-    return '%s_%s' % (nt.name, node.name)
-
-
 def socket_node_input(nt, socket):
     return next((l.from_node for l in nt.links if l.to_socket == socket), None)
-
 
 def socket_socket_input(nt, socket):
     return next((l.from_socket for l in nt.links if l.to_socket == socket and socket.is_linked),
@@ -860,12 +858,21 @@ def draw_node_properties_recursive(layout, context, nt, node, level=0):
                         row = split.row()
                         for i in range(level):
                             row.label('', icon='BLANK1')
+
                         row.prop(node, ui_prop, icon=icon, text='',
                                  icon_only=True, emboss=False)
+                        sub_prop_names = list(prop)
+                        if node.bl_idname in {"PxrSurfaceBxdfNode", "PxrLayerPatternNode"}:
+                            for pn in sub_prop_names:
+                                if pn.startswith('enable'):
+                                    row.prop(node, pn, text='')
+                                    sub_prop_names.remove(pn)
+                                    break
+                        
                         row.label(prop_name.split('.')[-1] + ':')
 
                         if ui_open:
-                            draw_props(prop, layout, level + 1)
+                            draw_props(sub_prop_names, layout, level + 1)
 
                     else:
                         indented_label(row, None, level)
@@ -1727,6 +1734,8 @@ cycles_node_map = {
     'ShaderNodeWireframe': 'node_wireframe',
 }
 
+def get_mat_name(mat_name):
+    return mat_name.replace(' ', '')
 
 def get_node_name(node, mat_name):
     return "%s.%s" % (mat_name, node.name.replace(' ', ''))
@@ -1929,6 +1938,9 @@ def shader_node_rib(ri, node, mat_name, disp_bound=0.0, portal=False):
 
     params['__instanceid'] = instance
 
+    if 'string filename' in params:
+        params['string filename'] = bpy.path.abspath(params['string filename'])
+
     if node.renderman_node_type == "pattern":
         if node.bl_label == 'PxrOSL':
             shader = node.plugin_name
@@ -1947,9 +1959,27 @@ def shader_node_rib(ri, node, mat_name, disp_bound=0.0, portal=False):
         params['__instanceid'] = mat_name
 
         light_name = node.bl_label
-        if portal:
-            light_name = 'PxrPortalLight'
-            params['string domeColorMap'] = params.pop('string lightColorMap')
+        if light_name == 'PxrPortalLight':
+            if mat_name in bpy.data.lamps:
+                lamp = bpy.context.scene.objects.active
+                if lamp and lamp.parent and lamp.parent.type == 'LAMP' \
+                    and lamp.parent.data.renderman.renderman_type == 'ENV':
+                    from .export import property_group_to_params
+                    parent_node = lamp.parent.data.renderman.get_light_node()
+                    parent_params = property_group_to_params(parent_node)
+                    params['string domeSpace'] = lamp.parent.name
+                    params['string portalName'] = mat_name
+                    params['string domeColorMap'] = parent_params['string lightColorMap']
+                    params['float intensity'] = parent_params['float intensity'] * params['float intensityMult']
+                    del params['float intensityMult']
+                    params['float exposure'] = parent_params['float exposure']
+                    params['color lightColor'] = [i*j for i,j in zip(parent_params['color lightColor'],params['color tint'])]
+                    del params['color tint']
+                    if not params['int enableTemperature']:
+                        params['int enableTemperature'] = parent_params['int enableTemperature']
+                        params['float temperature'] = parent_params['float temperature']
+                    params['float specular'] *= parent_params['float specular']
+                    params['float diffuse'] *= parent_params['float diffuse']
         ri.Light(light_name, mat_name, params)
     elif node.renderman_node_type == "lightfilter":
         params['__instanceid'] = mat_name
@@ -2059,6 +2089,8 @@ def export_shader_nodetree(ri, id, handle=None, disp_bound=0.0, iterate_instance
             nt = id.node_tree
             if not handle:
                 handle = id.name
+                if type(id) == bpy.types.Material:
+                    handle = get_mat_name(handle)
 
             # if ipr we need to iterate instance num on nodes for edits
             from . import engine
@@ -2178,10 +2210,10 @@ def get_textures(id):
     return textures
 
 
-pattern_node_categories_map = {"texture": ["PxrFractal", "PxrProjectionLayer", "PxrPtexture", "PxrTexture", "PxrVoronoise", "PxrWorley", "PxrFractalize", "PxrDirt", "PxrLayeredTexture", "PxrMultiTexture"],
+pattern_node_categories_map = {"texture": ["PxrFractal", "PxrBakeTexture", "PxrBakePointCloud", "PxrProjectionLayer", "PxrPtexture", "PxrTexture", "PxrVoronoise", "PxrWorley", "PxrFractalize", "PxrDirt", "PxrLayeredTexture", "PxrMultiTexture"],
                                "bump": ["PxrBump", "PxrNormalMap", "PxrFlakes", "aaOceanPrmanShader", 'PxrAdjustNormal'],
-                               "color": ["PxrBlackBody", "PxrBlend", "PxrLayeredBlend", "PxrClamp", "PxrExposure", "PxrGamma", "PxrHSL", "PxrInvert", "PxrMix", "PxrProjectionStack", "PxrRamp", "PxrRemap", "PxrThinFilm", "PxrThreshold", "PxrVary", "PxrChecker", "PxrColorCorrect"],
-                               "manifold": ["PxrManifold2D", "PxrManifold3D", "PxrManifold3DN", "PxrProjector", "PxrRoundCube", "PxrBumpManifold2D", "PxrTileManifold"],
+                               "color": ["PxrBlackBody", "PxrHairColor", "PxrBlend", "PxrLayeredBlend", "PxrClamp", "PxrExposure", "PxrGamma", "PxrHSL", "PxrInvert", "PxrMix", "PxrProjectionStack", "PxrRamp", "PxrRemap", "PxrThinFilm", "PxrThreshold", "PxrVary", "PxrChecker", "PxrColorCorrect"],
+                               "manifold": ["PxrManifold2D", "PxrRandomTextureManifold", "PxrManifold3D", "PxrManifold3DN", "PxrProjector", "PxrRoundCube", "PxrBumpManifold2D", "PxrTileManifold"],
                                "geometry": ["PxrDot", "PxrCross", "PxrFacingRatio", "PxrTangentField"],
                                "script": ["PxrOSL", "PxrSeExpr"],
                                "utility": ["PxrAttribute", "PxrGeometricAOVs", "PxrMatteID", "PxrPrimvar", "PxrShadedSide", "PxrTee", "PxrToFloat", "PxrToFloat3", "PxrVariable"],

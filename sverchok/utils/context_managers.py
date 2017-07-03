@@ -1,10 +1,7 @@
-import bpy
-from sverchok.data_structure import SVERCHOK_NAME as addon_name
-
-import bpy
-from sverchok.data_structure import SVERCHOK_NAME as addon_name
 from contextlib import contextmanager
 
+import bpy
+import sverchok
 
 @contextmanager
 def hard_freeze(self):
@@ -28,6 +25,7 @@ def hard_freeze(self):
     yield self
     self.id_data.unfreeze(hard=True)
 
+
 @contextmanager
 def sv_preferences():
     '''
@@ -38,6 +36,27 @@ def sv_preferences():
         with sv_preferences() as prefs:
             print(prefs.<some attr>)
     '''
-    addon = bpy.context.user_preferences.addons.get(addon_name)
+    # by using svercok.__name__ we increase likelyhood that the addon preferences will correspond
+    addon = bpy.context.user_preferences.addons.get(sverchok.__name__)
     if addon and hasattr(addon, "preferences"):
         yield addon.preferences
+
+
+@contextmanager
+def new_input(node, ident, name):
+    '''
+    use this to contextualize additional props on a socket. f.ex:
+
+        c1 = inew('StringsSocket', 'stroke color')
+        c1.prop_name = 'unit_1_color'
+        c1.nodule_color = nodule_color
+
+        becomes
+
+        with new_input(self, 'StringsSocket', 'stroke color') as c1:
+            c1.prop_name = 'unit_1_color'
+            c1.nodule_color = nodule_color        
+
+
+    '''
+    yield node.inputs.new(ident, name)

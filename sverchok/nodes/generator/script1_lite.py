@@ -30,8 +30,8 @@ from sverchok.utils.snlite_importhelper import (
     UNPARSABLE, set_autocolor, parse_sockets, are_matched,
     get_rgb_curve, set_rgb_curve
 )
-from sverchok.utils.snlite_utils import vectorize
-
+from sverchok.utils.snlite_utils import vectorize, ddir
+from sverchok.utils.sv_bmesh_utils import bmesh_from_pydata, pydata_from_bmesh
 from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import updateNode
 
@@ -42,7 +42,7 @@ READY_COLOR = (0, 0.8, 0.95)
 sv_path = os.path.dirname(sv_get_local_path()[0])
 snlite_template_path = os.path.join(sv_path, 'node_scripts', 'SNLite_templates')
 
-defaults = list(range(32))
+defaults = [0] * 32
 
 
 class SvScriptNodeLitePyMenu(bpy.types.Menu):
@@ -69,6 +69,17 @@ class SvScriptNodeLiteCallBack(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class SvScriptNodeLiteCustomCallBack(bpy.types.Operator):
+
+    bl_idname = "node.scriptlite_custom_callback"
+    bl_label = "custom SNLite callback"
+    cb_name = bpy.props.StringProperty(default='')
+
+    def execute(self, context):
+        context.node.custom_callback(context, self)
+        return {'FINISHED'}
+
+
 class SvScriptNodeLiteTextImport(bpy.types.Operator):
 
     bl_idname = "node.scriptlite_import"
@@ -83,11 +94,41 @@ class SvScriptNodeLiteTextImport(bpy.types.Operator):
 
 
 class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
+    ''' snl SN Lite /// a lite version of SN '''
 
-    ''' Script node Lite'''
     bl_idname = 'SvScriptNodeLite'
     bl_label = 'Scripted Node Lite'
     bl_icon = 'SCRIPTPLUGINS'
+
+    def custom_enum_func(self, context):
+        ND = self.node_dict.get(hash(self))
+        if ND:
+            enum_list = ND['sockets']['custom_enum']
+            if enum_list:
+                return [(ce, ce, '', idx) for idx, ce in enumerate(enum_list)]
+
+        return [("A", "A", '', 0), ("B", "B", '', 1)]
+
+
+    def custom_callback(self, context, operator):
+        ND = self.node_dict.get(hash(self))
+        if ND:
+            ND['sockets']['callbacks'][operator.cb_name](self, context)
+
+
+    def make_operator(self, new_func_name, force=False):
+        ND = self.node_dict.get(hash(self))               
+        if ND:                                            
+            callbacks = ND['sockets']['callbacks']        
+            if not (new_func_name in callbacks) or force:
+                # here node refers to an ast node (a syntax tree node), not a node tree node
+                ast_node = self.get_node_from_function_name(new_func_name)
+                slice_begin, slice_end = ast_node.body[0].lineno-1, ast_node.body[-1].lineno
+                code = '\n'.join(self.script_str.split('\n')[slice_begin-1:slice_end+1])
+
+                exec(code, locals(), locals())
+                callbacks[new_func_name] = locals()[new_func_name]
+
 
     script_name = StringProperty()
     script_str = StringProperty()
@@ -112,8 +153,15 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
         default="To Node",
         update=updateNode
     )
-
+    
     inject_params = BoolProperty()
+    injected_state = BoolProperty(default=False)
+    user_filename = StringProperty(update=updateNode)
+    n_id = StringProperty(default='')
+
+    custom_enum = bpy.props.EnumProperty(
+        items=custom_enum_func, description="custom enum", update=updateNode
+    )
 
     def draw_label(self):
         if self.script_name:
@@ -155,12 +203,12 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
                 if isinstance(dval, float):
                     s.prop_type = "float_list"
                     s.prop_index = idx
-                    self.float_list[idx] = dval
+                    self.float_list[idx] = self.float_list[idx] or dval  # pick up current if not zero
 
                 elif isinstance(dval, int):
                     s.prop_type = "int_list"
                     s.prop_index = idx
-                    self.int_list[idx] = dval
+                    self.int_list[idx] = self.int_list[idx] or dval
         except:
             print('some failure in the add_props_to_sockets function. ouch.')
 
@@ -202,6 +250,7 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
 
 
     def load(self):
+        ''' ----- '''
         if not self.script_name:
             return
 
@@ -213,6 +262,7 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
                 print('but script loaded locally anyway.')
 
         if self.update_sockets():
+            self.injected_state = False
             self.process()
 
 
@@ -238,12 +288,14 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
         # make .blend reload event work, without this the self.node_dict is empty.
         if not self.node_dict:
             # self.load()
+            self.injected_state = False
             self.update_sockets()
 
         # make inputs local, do function with inputs, return outputs if present
         ND = self.node_dict.get(hash(self))
         if not ND:
             print('hash invalidated')
+            self.injected_state = False
             self.update_sockets()
             ND = self.node_dict.get(hash(self))
             self.load()
@@ -261,34 +313,93 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
                 val = sock_desc[2]
                 if isinstance(val, (int, float)):
                     # extra pussyfooting for the load sequence.
-                    t = s.sv_get(default=[[val]])
-                    if t and t[0] and t[0][0]:
+                    t = s.sv_get()
+                    if t and t[0] and len(t[0]) > 0:
                         val = t[0][0]
 
             local_dict[s.name] = val
 
         return local_dict
 
+    def get_node_from_function_name(self, func_name):
+        """
+        this seems to get enough info for a snlite stateful setup function.
+
+        """
+        tree = ast.parse(self.script_str)
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name == func_name:
+                return node
+
+
+    def get_setup_code(self):
+        ast_node = self.get_node_from_function_name('setup')
+        if ast_node:
+            begin_setup = ast_node.body[0].lineno - 1
+            end_setup = ast_node.body[-1].lineno
+            code = '\n'.join(self.script_str.split('\n')[begin_setup:end_setup])
+            return 'def setup():\n\n' + code + '\n    return locals()\n'
+
+
+    def get_ui_code(self):
+        ast_node = self.get_node_from_function_name('ui')
+        if ast_node:
+            begin_setup = ast_node.body[0].lineno - 1
+            end_setup = ast_node.body[-1].lineno
+            code = '\n'.join(self.script_str.split('\n')[begin_setup:end_setup])
+            return 'def ui(self, context, layout):\n\n' + code + '\n\n'
+
+
+    def inject_state(self, local_variables):
+        setup_result = self.get_setup_code()
+        if setup_result:
+            exec(setup_result, local_variables, local_variables)
+            setup_locals = local_variables.get('setup')()
+            local_variables.update(setup_locals)
+            local_variables['socket_info']['setup_state'] = setup_locals
+            self.injected_state = True
+
+
+    def inject_draw_buttons(self, local_variables):
+        draw_ui_result = self.get_ui_code()
+        if draw_ui_result:
+            exec(draw_ui_result, local_variables, local_variables)
+            ui_func = local_variables.get('ui')
+            local_variables['socket_info']['drawfunc'] = ui_func
+
 
     def process_script(self):
-        locals().update(self.make_new_locals())
-        locals().update({'vectorize': vectorize})
+        __local__dict__ = self.make_new_locals()
+        locals().update(__local__dict__)
+        locals().update({
+            'vectorize': vectorize,
+            'bpy': bpy,
+            'ddir': ddir, 
+            'bmesh_from_pydata': bmesh_from_pydata,
+            'pydata_from_bmesh': pydata_from_bmesh
+        })
+
+        for output in self.outputs:
+            locals().update({output.name: []})
 
         try:
+            socket_info = self.node_dict[hash(self)]['sockets']
 
-            if hasattr(self, 'inject_params'):
-                if self.inject_params:
-                    parameters = eval("[" + ", ".join([i.name for i in self.inputs]) + "]")
+            # inject once! 
+            if not self.injected_state:
+                self.inject_state(locals())
+                self.inject_draw_buttons(locals())
+            else:
+                locals().update(socket_info['setup_state'])
+
+            if self.inject_params:
+                locals().update({'parameters': [__local__dict__.get(s.name) for s in self.inputs]})
 
             exec(self.script_str, locals(), locals())
+
             for idx, _socket in enumerate(self.outputs):
                 vals = locals()[_socket.name]
                 self.outputs[idx].sv_set(vals)
-
-            socket_info = self.node_dict[hash(self)]['sockets']
-            __fnamex = socket_info.get('drawfunc_name')
-            if __fnamex:
-                socket_info['drawfunc'] = locals()[__fnamex]
 
             set_autocolor(self, True, READY_COLOR)
 
@@ -309,9 +420,16 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
         if not tk or not tk.get('sockets'):
             return
 
-        socket_info = tk['sockets']
-        if socket_info:
-            f = socket_info.get('drawfunc')
+        snlite_info = tk['sockets']
+        if snlite_info:
+
+            # snlite supplied custom file handler solution
+            fh = snlite_info.get('display_file_handler')
+            if fh:
+                layout.prop_search(self, 'user_filename', bpy.data, 'texts', text='filename')
+
+            # user supplied custom draw function
+            f = snlite_info.get('drawfunc')
             if f:
                 f(self, context, layout)
 
@@ -395,6 +513,7 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
 
 
 classes = [
+    SvScriptNodeLiteCustomCallBack,
     SvScriptNodeLiteTextImport,
     SvScriptNodeLitePyMenu,
     SvScriptNodeLiteCallBack,
@@ -408,4 +527,3 @@ def register():
 
 def unregister():
     _ = [bpy.utils.unregister_class(name) for name in classes]
- 

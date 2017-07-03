@@ -19,7 +19,7 @@ bl_info = {
     "name": "Batch Operations / Manager",
     "description": "Modifiers, Materials, Groups management / batch operations",
     "author": "dairin0d, moth3r",
-    "version": (0, 6, 6),
+    "version": (0, 6, 8),
     "blender": (2, 7, 0),
     "location": "View3D > Batch category in Tools panel",
     "warning": "",
@@ -182,6 +182,7 @@ class ThisAddonPreferences:
     use_panel_right = False | prop("Show in N-panel", name="N (right panel)")
     default_select_state = True | prop("Default row selection state", name="Rows selected by default")
     use_rename_popup = True | prop("Use a separate dialog for batch renaming", name="Use popup dialog for renaming")
+    include_duplis = False | prop("Process dupli instances", name="Process dupli instances")
     
     show_operations_as_list = False | prop("Show all in one line or each in a separate row")
     
@@ -268,6 +269,7 @@ class ThisAddonPreferences:
         with layout.row()(alignment='LEFT'):
             layout.prop(self, "default_select_state")
             layout.prop(self, "use_rename_popup")
+            layout.prop(self, "include_duplis")
         
         with layout.row()(alignment='LEFT'):
             with layout.column():

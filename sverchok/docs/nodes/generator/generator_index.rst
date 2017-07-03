@@ -11,10 +11,14 @@ Generators
    bricks
    circle
    cylinder
-   formula_shape
    image
    line
    ngon
    plane
    random_vector_mk2
+   script1_lite
    sphere
+   icosphere
+   torus
+   torusKnot
+   formula_shape

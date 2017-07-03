@@ -19,7 +19,7 @@ bl_info = {
     "name": "Cut/Copy/Paste objects and elements",
     "description": "Cut/Copy/Paste objects and elements",
     "author": "dairin0d",
-    "version": (0, 6, 5),
+    "version": (0, 6, 6),
     "blender": (2, 7, 0),
     "location": "View3D -> Ctrl+X, Ctrl+C, Ctrl+V, Shift+Delete, Ctrl+Insert, Shift+Insert",
     "warning": "",
@@ -372,7 +372,8 @@ def save_clipboard_file(filepath):
     bpy.ops.wm.save_as_mainfile(filepath=filepath, check_existing=False, copy=True)
 
 def data_clipboard_path():
-    resource_path = bpy.utils.resource_path('LOCAL') # USER SYSTEM
+    #resource_path = bpy.utils.resource_path('LOCAL') # USER SYSTEM
+    resource_path = get_clipboards_dir()
     return os.path.normcase(os.path.join(resource_path, "clipboard.data"))
 
 @addon.Panel(space_type='VIEW_3D', region_type='TOOLS', category="Tools", label="Copy/Paste")
@@ -398,7 +399,7 @@ class VIEW3D_PT_copy_paste:
 
 @addon.Operator(idname="view3d.copy", label="Copy objects/elements", description="Copy objects/elements")
 class OperatorCopy:
-    force_copy = True | -prop()
+    force_copy = False | -prop()
     
     @classmethod
     def poll(cls, context):
@@ -410,6 +411,8 @@ class OperatorCopy:
         opts = addon.preferences
         
         self_is_clipboard = False
+        
+        self.force_copy |= opts.force_copy
         
         # Cut operation deletes objects from the scene after copying,
         # so we have to store them somewhere else (-> force_copy=True).
@@ -440,6 +443,7 @@ class OperatorCopy:
             return id
         
         objects = {}
+        matrices = {}
         parents = {}
         active_obj = context.object
         
@@ -449,11 +453,13 @@ class OperatorCopy:
                 json_data["active_object_library"] = library_id(obj)
             
             objects[obj.name] = library_id(obj)
+            matrices[obj.name] = [tuple(v) for v in obj.matrix_world]
             
             if obj.parent:
                 parents[obj.name] = (obj.parent.name, obj.parent_bone)
         
         json_data["objects"] = objects
+        json_data["matrices"] = matrices
         json_data["parents"] = parents
         
         json_data["libraries"] = libraries_inv
@@ -856,6 +862,12 @@ class OperatorPaste:
             assert len(v) == 2
             assert isinstance(v[0], str) and isinstance(v[1], str)
         
+        matrices = json_data.get("matrices", {})
+        assert isinstance(matrices, dict)
+        self.matrices = {}
+        for k, v in matrices.items():
+            self.matrices[k] = Matrix(matrices[k])
+        
         objects = json_data["objects"]
         assert isinstance(objects, dict) and objects
         
@@ -963,15 +975,10 @@ class OperatorPaste:
             
             new_obj.select = True
             
-            is_active = False
-            
             if self.active_object_library is not None:
                 if ((obj_name == self.active_object) and
                     (lib_path == self.active_object_library)):
                         scene.objects.active = new_obj
-                        is_active = True
-            
-            self.add_pivot(new_obj.matrix_world.translation, is_active)
             
             old_to_new[obj_name] = new_obj
             new_to_old[new_obj] = obj_name
@@ -1017,10 +1024,13 @@ class OperatorPaste:
             if parent_info:
                 parent = old_to_new.get(parent_info[0])
                 if parent:
-                    mw = Matrix(obj.matrix_world)
                     obj.parent = parent
                     obj.parent_bone = parent_info[1]
-                    obj.matrix_world = mw
+            
+            obj.matrix_world = self.matrices[old_name]
+            
+            is_active = (obj == scene.objects.active)
+            self.add_pivot(obj.matrix_world.translation, is_active)
         
         # In Object mode the coordsystem option is not used
         # (ambiguous and the same effects can be achieved relatively easily)
@@ -1584,11 +1594,18 @@ class ThisAddonPreferences:
         ('GLOBAL', "Global", "Global"),
         ('LOCAL', "Local", "Local"),
     ])
+    
+    force_copy = True | prop("Always save clipbuffer to disk", "Force full copy")
+    
     def actual_coordsystem(self, context=None):
         if self.coordinate_system == 'CONTEXT':
             is_edit = ('EDIT' in (context or bpy.context).mode)
             return ('LOCAL' if is_edit else 'GLOBAL')
         return self.coordinate_system
+    
+    def draw(self, context):
+        layout = NestedLayout(self.layout)
+        layout.prop(self, "force_copy")
 
 def register():
     addon.register()

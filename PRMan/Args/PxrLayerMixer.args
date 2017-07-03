@@ -646,6 +646,16 @@
       <tag value="color"/>
     </tags>
   </param>
+  <param  name="baselayer_subsurfaceTransmitGain"
+    type="float"
+    label="baselayer_subsurfaceTransmitGain"
+    widget="null"
+    vstructmember="baselayer.subsurfaceTransmitGain"
+    default="0">
+    <tags>
+      <tag value="float"/>
+    </tags>
+  </param>
   <param  name="baselayer_enableSinglescatter"
     type="int"
     label="baselayer_enableSinglescatter"
@@ -1404,6 +1414,16 @@
     default="1 1 1">
     <tags>
       <tag value="color"/>
+    </tags>
+  </param>
+  <param  name="layer1_subsurfaceTransmitGain"
+    type="float"
+    label="layer1_subsurfaceTransmitGain"
+    widget="null"
+    vstructmember="layer1.subsurfaceTransmitGain"
+    default="0">
+    <tags>
+      <tag value="float"/>
     </tags>
   </param>
   <param  name="layer1_enableSinglescatter"
@@ -2166,6 +2186,16 @@
       <tag value="color"/>
     </tags>
   </param>
+  <param  name="layer2_subsurfaceTransmitGain"
+    type="float"
+    label="layer2_subsurfaceTransmitGain"
+    widget="null"
+    vstructmember="layer2.subsurfaceTransmitGain"
+    default="0">
+    <tags>
+      <tag value="float"/>
+    </tags>
+  </param>
   <param  name="layer2_enableSinglescatter"
     type="int"
     label="layer2_enableSinglescatter"
@@ -2924,6 +2954,16 @@
     default="1 1 1">
     <tags>
       <tag value="color"/>
+    </tags>
+  </param>
+  <param  name="layer3_subsurfaceTransmitGain"
+    type="float"
+    label="layer3_subsurfaceTransmitGain"
+    widget="null"
+    vstructmember="layer3.subsurfaceTransmitGain"
+    default="0">
+    <tags>
+      <tag value="float"/>
     </tags>
   </param>
   <param  name="layer3_enableSinglescatter"
@@ -3686,6 +3726,16 @@
       <tag value="color"/>
     </tags>
   </param>
+  <param  name="layer4_subsurfaceTransmitGain"
+    type="float"
+    label="layer4_subsurfaceTransmitGain"
+    widget="null"
+    vstructmember="layer4.subsurfaceTransmitGain"
+    default="0">
+    <tags>
+      <tag value="float"/>
+    </tags>
+  </param>
   <param  name="layer4_enableSinglescatter"
     type="int"
     label="layer4_enableSinglescatter"
@@ -3833,530 +3883,537 @@
   </output>
   <output  name="pxrMaterialOut_enableDiffuse"
     vstructmember="pxrMaterialOut.enableDiffuse"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableDiffuse > 0 or layer1_enableDiffuse > 0 or layer2_enableDiffuse > 0 or layer3_enableDiffuse > 0 or layer4_enableDiffuse > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableDiffuse == 1 or layer1_enableDiffuse == 1 or layer2_enableDiffuse == 1 or layer3_enableDiffuse == 1 or layer4_enableDiffuse == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_diffuseGain"
     vstructmember="pxrMaterialOut.diffuseGain"
-    vstructConditionalExpr="connect if (baselayer_enableDiffuse > 0 or  layer1_enableDiffuse > 0 or  layer2_enableDiffuse > 0 or  layer3_enableDiffuse > 0 or  layer4_enableDiffuse > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableDiffuse == 1 or  layer1_enableDiffuse == 1 or  layer2_enableDiffuse == 1 or  layer3_enableDiffuse == 1 or  layer4_enableDiffuse == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_diffuseColor"
     vstructmember="pxrMaterialOut.diffuseColor"
-    vstructConditionalExpr="connect if (baselayer_enableDiffuse > 0 or  layer1_enableDiffuse > 0 or  layer2_enableDiffuse > 0 or  layer3_enableDiffuse > 0 or  layer4_enableDiffuse > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableDiffuse == 1 or  layer1_enableDiffuse == 1 or  layer2_enableDiffuse == 1 or  layer3_enableDiffuse == 1 or  layer4_enableDiffuse == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_diffuseRoughness"
     vstructmember="pxrMaterialOut.diffuseRoughness"
-    vstructConditionalExpr="connect if (baselayer_enableDiffuse > 0 or  layer1_enableDiffuse > 0 or  layer2_enableDiffuse > 0 or  layer3_enableDiffuse > 0 or  layer4_enableDiffuse > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableDiffuse == 1 or  layer1_enableDiffuse == 1 or  layer2_enableDiffuse == 1 or  layer3_enableDiffuse == 1 or  layer4_enableDiffuse == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_diffuseBumpNormal"
     vstructmember="pxrMaterialOut.diffuseBumpNormal"
-    vstructConditionalExpr="connect if (baselayer_enableDiffuse > 0 and baselayer_diffuseBumpNormal is connected) or  (layer1_enableDiffuse > 0 and layer1_diffuseBumpNormal is connected) or  (layer2_enableDiffuse > 0 and layer2_diffuseBumpNormal is connected) or  (layer3_enableDiffuse > 0 and layer3_diffuseBumpNormal is connected) or  (layer4_enableDiffuse > 0 and layer4_diffuseBumpNormal is connected) ">
+    vstructConditionalExpr="connect if (baselayer_enableDiffuse == 1 and baselayer_diffuseBumpNormal is connected) or  (layer1_enableDiffuse == 1 and layer1_diffuseBumpNormal is connected) or  (layer2_enableDiffuse == 1 and layer2_diffuseBumpNormal is connected) or  (layer3_enableDiffuse == 1 and layer3_diffuseBumpNormal is connected) or  (layer4_enableDiffuse == 1 and layer4_diffuseBumpNormal is connected) ">
     <tags>
       <tag value="normal"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_diffuseBackColor"
     vstructmember="pxrMaterialOut.diffuseBackColor"
-    vstructConditionalExpr="connect if (baselayer_enableDiffuse > 0 or  layer1_enableDiffuse > 0 or  layer2_enableDiffuse > 0 or  layer3_enableDiffuse > 0 or  layer4_enableDiffuse > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableDiffuse == 1 or  layer1_enableDiffuse == 1 or  layer2_enableDiffuse == 1 or  layer3_enableDiffuse == 1 or  layer4_enableDiffuse == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_diffuseTransmitGain"
     vstructmember="pxrMaterialOut.diffuseTransmitGain"
-    vstructConditionalExpr="connect if (baselayer_enableDiffuse > 0 or  layer1_enableDiffuse > 0 or  layer2_enableDiffuse > 0 or  layer3_enableDiffuse > 0 or  layer4_enableDiffuse > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableDiffuse == 1 or  layer1_enableDiffuse == 1 or  layer2_enableDiffuse == 1 or  layer3_enableDiffuse == 1 or  layer4_enableDiffuse == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_diffuseTransmitColor"
     vstructmember="pxrMaterialOut.diffuseTransmitColor"
-    vstructConditionalExpr="connect if (baselayer_enableDiffuse > 0 or  layer1_enableDiffuse > 0 or  layer2_enableDiffuse > 0 or  layer3_enableDiffuse > 0 or  layer4_enableDiffuse > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableDiffuse == 1 or  layer1_enableDiffuse == 1 or  layer2_enableDiffuse == 1 or  layer3_enableDiffuse == 1 or  layer4_enableDiffuse == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableSpecular"
     vstructmember="pxrMaterialOut.enableSpecular"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableSpecular > 0 or layer1_enableSpecular > 0 or layer2_enableSpecular > 0 or layer3_enableSpecular > 0 or layer4_enableSpecular > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableSpecular == 1 or layer1_enableSpecular == 1 or layer2_enableSpecular == 1 or layer3_enableSpecular == 1 or layer4_enableSpecular == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_specularFaceColor"
     vstructmember="pxrMaterialOut.specularFaceColor"
-    vstructConditionalExpr="connect if (baselayer_enableSpecular > 0 or  layer1_enableSpecular > 0 or  layer2_enableSpecular > 0 or  layer3_enableSpecular > 0 or  layer4_enableSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSpecular == 1 or  layer1_enableSpecular == 1 or  layer2_enableSpecular == 1 or  layer3_enableSpecular == 1 or  layer4_enableSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_specularEdgeColor"
     vstructmember="pxrMaterialOut.specularEdgeColor"
-    vstructConditionalExpr="connect if (baselayer_enableSpecular > 0 or  layer1_enableSpecular > 0 or  layer2_enableSpecular > 0 or  layer3_enableSpecular > 0 or  layer4_enableSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSpecular == 1 or  layer1_enableSpecular == 1 or  layer2_enableSpecular == 1 or  layer3_enableSpecular == 1 or  layer4_enableSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_specularIor"
     vstructmember="pxrMaterialOut.specularIor"
-    vstructConditionalExpr="connect if (baselayer_enableSpecular > 0 or  layer1_enableSpecular > 0 or  layer2_enableSpecular > 0 or  layer3_enableSpecular > 0 or  layer4_enableSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSpecular == 1 or  layer1_enableSpecular == 1 or  layer2_enableSpecular == 1 or  layer3_enableSpecular == 1 or  layer4_enableSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_specularExtinctionCoeff"
     vstructmember="pxrMaterialOut.specularExtinctionCoeff"
-    vstructConditionalExpr="connect if (baselayer_enableSpecular > 0 or  layer1_enableSpecular > 0 or  layer2_enableSpecular > 0 or  layer3_enableSpecular > 0 or  layer4_enableSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSpecular == 1 or  layer1_enableSpecular == 1 or  layer2_enableSpecular == 1 or  layer3_enableSpecular == 1 or  layer4_enableSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_specularRoughness"
     vstructmember="pxrMaterialOut.specularRoughness"
-    vstructConditionalExpr="connect if (baselayer_enableSpecular > 0 or  layer1_enableSpecular > 0 or  layer2_enableSpecular > 0 or  layer3_enableSpecular > 0 or  layer4_enableSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSpecular == 1 or  layer1_enableSpecular == 1 or  layer2_enableSpecular == 1 or  layer3_enableSpecular == 1 or  layer4_enableSpecular == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_specularAnisotropy"
     vstructmember="pxrMaterialOut.specularAnisotropy"
-    vstructConditionalExpr="connect if (baselayer_enableSpecular > 0 or  layer1_enableSpecular > 0 or  layer2_enableSpecular > 0 or  layer3_enableSpecular > 0 or  layer4_enableSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSpecular == 1 or  layer1_enableSpecular == 1 or  layer2_enableSpecular == 1 or  layer3_enableSpecular == 1 or  layer4_enableSpecular == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_specularBumpNormal"
     vstructmember="pxrMaterialOut.specularBumpNormal"
-    vstructConditionalExpr="connect if (baselayer_enableSpecular > 0 and baselayer_specularBumpNormal is connected) or  (layer1_enableSpecular > 0 and layer1_specularBumpNormal is connected) or  (layer2_enableSpecular > 0 and layer2_specularBumpNormal is connected) or  (layer3_enableSpecular > 0 and layer3_specularBumpNormal is connected) or  (layer4_enableSpecular > 0 and layer4_specularBumpNormal is connected) ">
+    vstructConditionalExpr="connect if (baselayer_enableSpecular == 1 and baselayer_specularBumpNormal is connected) or  (layer1_enableSpecular == 1 and layer1_specularBumpNormal is connected) or  (layer2_enableSpecular == 1 and layer2_specularBumpNormal is connected) or  (layer3_enableSpecular == 1 and layer3_specularBumpNormal is connected) or  (layer4_enableSpecular == 1 and layer4_specularBumpNormal is connected) ">
     <tags>
       <tag value="normal"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableRoughSpecular"
     vstructmember="pxrMaterialOut.enableRoughSpecular"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableRoughSpecular > 0 or layer1_enableRoughSpecular > 0 or layer2_enableRoughSpecular > 0 or layer3_enableRoughSpecular > 0 or layer4_enableRoughSpecular > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableRoughSpecular == 1 or layer1_enableRoughSpecular == 1 or layer2_enableRoughSpecular == 1 or layer3_enableRoughSpecular == 1 or layer4_enableRoughSpecular == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_roughSpecularFaceColor"
     vstructmember="pxrMaterialOut.roughSpecularFaceColor"
-    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular > 0 or  layer1_enableRoughSpecular > 0 or  layer2_enableRoughSpecular > 0 or  layer3_enableRoughSpecular > 0 or  layer4_enableRoughSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular == 1 or  layer1_enableRoughSpecular == 1 or  layer2_enableRoughSpecular == 1 or  layer3_enableRoughSpecular == 1 or  layer4_enableRoughSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_roughSpecularEdgeColor"
     vstructmember="pxrMaterialOut.roughSpecularEdgeColor"
-    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular > 0 or  layer1_enableRoughSpecular > 0 or  layer2_enableRoughSpecular > 0 or  layer3_enableRoughSpecular > 0 or  layer4_enableRoughSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular == 1 or  layer1_enableRoughSpecular == 1 or  layer2_enableRoughSpecular == 1 or  layer3_enableRoughSpecular == 1 or  layer4_enableRoughSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_roughSpecularIor"
     vstructmember="pxrMaterialOut.roughSpecularIor"
-    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular > 0 or  layer1_enableRoughSpecular > 0 or  layer2_enableRoughSpecular > 0 or  layer3_enableRoughSpecular > 0 or  layer4_enableRoughSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular == 1 or  layer1_enableRoughSpecular == 1 or  layer2_enableRoughSpecular == 1 or  layer3_enableRoughSpecular == 1 or  layer4_enableRoughSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_roughSpecularExtinctionCoeff"
     vstructmember="pxrMaterialOut.roughSpecularExtinctionCoeff"
-    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular > 0 or  layer1_enableRoughSpecular > 0 or  layer2_enableRoughSpecular > 0 or  layer3_enableRoughSpecular > 0 or  layer4_enableRoughSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular == 1 or  layer1_enableRoughSpecular == 1 or  layer2_enableRoughSpecular == 1 or  layer3_enableRoughSpecular == 1 or  layer4_enableRoughSpecular == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_roughSpecularRoughness"
     vstructmember="pxrMaterialOut.roughSpecularRoughness"
-    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular > 0 or  layer1_enableRoughSpecular > 0 or  layer2_enableRoughSpecular > 0 or  layer3_enableRoughSpecular > 0 or  layer4_enableRoughSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular == 1 or  layer1_enableRoughSpecular == 1 or  layer2_enableRoughSpecular == 1 or  layer3_enableRoughSpecular == 1 or  layer4_enableRoughSpecular == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_roughSpecularAnisotropy"
     vstructmember="pxrMaterialOut.roughSpecularAnisotropy"
-    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular > 0 or  layer1_enableRoughSpecular > 0 or  layer2_enableRoughSpecular > 0 or  layer3_enableRoughSpecular > 0 or  layer4_enableRoughSpecular > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular == 1 or  layer1_enableRoughSpecular == 1 or  layer2_enableRoughSpecular == 1 or  layer3_enableRoughSpecular == 1 or  layer4_enableRoughSpecular == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_roughSpecularBumpNormal"
     vstructmember="pxrMaterialOut.roughSpecularBumpNormal"
-    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular > 0 and baselayer_roughSpecularBumpNormal is connected) or  (layer1_enableRoughSpecular > 0 and layer1_roughSpecularBumpNormal is connected) or  (layer2_enableRoughSpecular > 0 and layer2_roughSpecularBumpNormal is connected) or  (layer3_enableRoughSpecular > 0 and layer3_roughSpecularBumpNormal is connected) or  (layer4_enableRoughSpecular > 0 and layer4_roughSpecularBumpNormal is connected) ">
+    vstructConditionalExpr="connect if (baselayer_enableRoughSpecular == 1 and baselayer_roughSpecularBumpNormal is connected) or  (layer1_enableRoughSpecular == 1 and layer1_roughSpecularBumpNormal is connected) or  (layer2_enableRoughSpecular == 1 and layer2_roughSpecularBumpNormal is connected) or  (layer3_enableRoughSpecular == 1 and layer3_roughSpecularBumpNormal is connected) or  (layer4_enableRoughSpecular == 1 and layer4_roughSpecularBumpNormal is connected) ">
     <tags>
       <tag value="normal"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableClearcoat"
     vstructmember="pxrMaterialOut.enableClearcoat"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableClearcoat > 0 or layer1_enableClearcoat > 0 or layer2_enableClearcoat > 0 or layer3_enableClearcoat > 0 or layer4_enableClearcoat > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableClearcoat == 1 or layer1_enableClearcoat == 1 or layer2_enableClearcoat == 1 or layer3_enableClearcoat == 1 or layer4_enableClearcoat == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_clearcoatFaceColor"
     vstructmember="pxrMaterialOut.clearcoatFaceColor"
-    vstructConditionalExpr="connect if (baselayer_enableClearcoat > 0 or  layer1_enableClearcoat > 0 or  layer2_enableClearcoat > 0 or  layer3_enableClearcoat > 0 or  layer4_enableClearcoat > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableClearcoat == 1 or  layer1_enableClearcoat == 1 or  layer2_enableClearcoat == 1 or  layer3_enableClearcoat == 1 or  layer4_enableClearcoat == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_clearcoatEdgeColor"
     vstructmember="pxrMaterialOut.clearcoatEdgeColor"
-    vstructConditionalExpr="connect if (baselayer_enableClearcoat > 0 or  layer1_enableClearcoat > 0 or  layer2_enableClearcoat > 0 or  layer3_enableClearcoat > 0 or  layer4_enableClearcoat > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableClearcoat == 1 or  layer1_enableClearcoat == 1 or  layer2_enableClearcoat == 1 or  layer3_enableClearcoat == 1 or  layer4_enableClearcoat == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_clearcoatIor"
     vstructmember="pxrMaterialOut.clearcoatIor"
-    vstructConditionalExpr="connect if (baselayer_enableClearcoat > 0 or  layer1_enableClearcoat > 0 or  layer2_enableClearcoat > 0 or  layer3_enableClearcoat > 0 or  layer4_enableClearcoat > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableClearcoat == 1 or  layer1_enableClearcoat == 1 or  layer2_enableClearcoat == 1 or  layer3_enableClearcoat == 1 or  layer4_enableClearcoat == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_clearcoatExtinctionCoeff"
     vstructmember="pxrMaterialOut.clearcoatExtinctionCoeff"
-    vstructConditionalExpr="connect if (baselayer_enableClearcoat > 0 or  layer1_enableClearcoat > 0 or  layer2_enableClearcoat > 0 or  layer3_enableClearcoat > 0 or  layer4_enableClearcoat > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableClearcoat == 1 or  layer1_enableClearcoat == 1 or  layer2_enableClearcoat == 1 or  layer3_enableClearcoat == 1 or  layer4_enableClearcoat == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_clearcoatRoughness"
     vstructmember="pxrMaterialOut.clearcoatRoughness"
-    vstructConditionalExpr="connect if (baselayer_enableClearcoat > 0 or  layer1_enableClearcoat > 0 or  layer2_enableClearcoat > 0 or  layer3_enableClearcoat > 0 or  layer4_enableClearcoat > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableClearcoat == 1 or  layer1_enableClearcoat == 1 or  layer2_enableClearcoat == 1 or  layer3_enableClearcoat == 1 or  layer4_enableClearcoat == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_clearcoatAnisotropy"
     vstructmember="pxrMaterialOut.clearcoatAnisotropy"
-    vstructConditionalExpr="connect if (baselayer_enableClearcoat > 0 or  layer1_enableClearcoat > 0 or  layer2_enableClearcoat > 0 or  layer3_enableClearcoat > 0 or  layer4_enableClearcoat > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableClearcoat == 1 or  layer1_enableClearcoat == 1 or  layer2_enableClearcoat == 1 or  layer3_enableClearcoat == 1 or  layer4_enableClearcoat == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_clearcoatBumpNormal"
     vstructmember="pxrMaterialOut.clearcoatBumpNormal"
-    vstructConditionalExpr="connect if (baselayer_enableClearcoat > 0 and baselayer_clearcoatBumpNormal is connected) or  (layer1_enableClearcoat > 0 and layer1_clearcoatBumpNormal is connected) or  (layer2_enableClearcoat > 0 and layer2_clearcoatBumpNormal is connected) or  (layer3_enableClearcoat > 0 and layer3_clearcoatBumpNormal is connected) or  (layer4_enableClearcoat > 0 and layer4_clearcoatBumpNormal is connected) ">
+    vstructConditionalExpr="connect if (baselayer_enableClearcoat == 1 and baselayer_clearcoatBumpNormal is connected) or  (layer1_enableClearcoat == 1 and layer1_clearcoatBumpNormal is connected) or  (layer2_enableClearcoat == 1 and layer2_clearcoatBumpNormal is connected) or  (layer3_enableClearcoat == 1 and layer3_clearcoatBumpNormal is connected) or  (layer4_enableClearcoat == 1 and layer4_clearcoatBumpNormal is connected) ">
     <tags>
       <tag value="normal"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableFuzz"
     vstructmember="pxrMaterialOut.enableFuzz"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableFuzz > 0 or layer1_enableFuzz > 0 or layer2_enableFuzz > 0 or layer3_enableFuzz > 0 or layer4_enableFuzz > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableFuzz == 1 or layer1_enableFuzz == 1 or layer2_enableFuzz == 1 or layer3_enableFuzz == 1 or layer4_enableFuzz == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_fuzzGain"
     vstructmember="pxrMaterialOut.fuzzGain"
-    vstructConditionalExpr="connect if (baselayer_enableFuzz > 0 or  layer1_enableFuzz > 0 or  layer2_enableFuzz > 0 or  layer3_enableFuzz > 0 or  layer4_enableFuzz > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableFuzz == 1 or  layer1_enableFuzz == 1 or  layer2_enableFuzz == 1 or  layer3_enableFuzz == 1 or  layer4_enableFuzz == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_fuzzColor"
     vstructmember="pxrMaterialOut.fuzzColor"
-    vstructConditionalExpr="connect if (baselayer_enableFuzz > 0 or  layer1_enableFuzz > 0 or  layer2_enableFuzz > 0 or  layer3_enableFuzz > 0 or  layer4_enableFuzz > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableFuzz == 1 or  layer1_enableFuzz == 1 or  layer2_enableFuzz == 1 or  layer3_enableFuzz == 1 or  layer4_enableFuzz == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_fuzzConeAngle"
     vstructmember="pxrMaterialOut.fuzzConeAngle"
-    vstructConditionalExpr="connect if (baselayer_enableFuzz > 0 or  layer1_enableFuzz > 0 or  layer2_enableFuzz > 0 or  layer3_enableFuzz > 0 or  layer4_enableFuzz > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableFuzz == 1 or  layer1_enableFuzz == 1 or  layer2_enableFuzz == 1 or  layer3_enableFuzz == 1 or  layer4_enableFuzz == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_fuzzBumpNormal"
     vstructmember="pxrMaterialOut.fuzzBumpNormal"
-    vstructConditionalExpr="connect if (baselayer_enableFuzz > 0 and baselayer_fuzzBumpNormal is connected) or  (layer1_enableFuzz > 0 and layer1_fuzzBumpNormal is connected) or  (layer2_enableFuzz > 0 and layer2_fuzzBumpNormal is connected) or  (layer3_enableFuzz > 0 and layer3_fuzzBumpNormal is connected) or  (layer4_enableFuzz > 0 and layer4_fuzzBumpNormal is connected) ">
+    vstructConditionalExpr="connect if (baselayer_enableFuzz == 1 and baselayer_fuzzBumpNormal is connected) or  (layer1_enableFuzz == 1 and layer1_fuzzBumpNormal is connected) or  (layer2_enableFuzz == 1 and layer2_fuzzBumpNormal is connected) or  (layer3_enableFuzz == 1 and layer3_fuzzBumpNormal is connected) or  (layer4_enableFuzz == 1 and layer4_fuzzBumpNormal is connected) ">
     <tags>
       <tag value="normal"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableIridescence"
     vstructmember="pxrMaterialOut.enableIridescence"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableIridescence > 0 or layer1_enableIridescence > 0 or layer2_enableIridescence > 0 or layer3_enableIridescence > 0 or layer4_enableIridescence > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableIridescence == 1 or layer1_enableIridescence == 1 or layer2_enableIridescence == 1 or layer3_enableIridescence == 1 or layer4_enableIridescence == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_iridescenceFaceGain"
     vstructmember="pxrMaterialOut.iridescenceFaceGain"
-    vstructConditionalExpr="connect if (baselayer_enableIridescence > 0 or  layer1_enableIridescence > 0 or  layer2_enableIridescence > 0 or  layer3_enableIridescence > 0 or  layer4_enableIridescence > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableIridescence == 1 or  layer1_enableIridescence == 1 or  layer2_enableIridescence == 1 or  layer3_enableIridescence == 1 or  layer4_enableIridescence == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_iridescenceEdgeGain"
     vstructmember="pxrMaterialOut.iridescenceEdgeGain"
-    vstructConditionalExpr="connect if (baselayer_enableIridescence > 0 or  layer1_enableIridescence > 0 or  layer2_enableIridescence > 0 or  layer3_enableIridescence > 0 or  layer4_enableIridescence > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableIridescence == 1 or  layer1_enableIridescence == 1 or  layer2_enableIridescence == 1 or  layer3_enableIridescence == 1 or  layer4_enableIridescence == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_iridescencePrimaryColor"
     vstructmember="pxrMaterialOut.iridescencePrimaryColor"
-    vstructConditionalExpr="connect if (baselayer_enableIridescence > 0 or  layer1_enableIridescence > 0 or  layer2_enableIridescence > 0 or  layer3_enableIridescence > 0 or  layer4_enableIridescence > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableIridescence == 1 or  layer1_enableIridescence == 1 or  layer2_enableIridescence == 1 or  layer3_enableIridescence == 1 or  layer4_enableIridescence == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_iridescenceSecondaryColor"
     vstructmember="pxrMaterialOut.iridescenceSecondaryColor"
-    vstructConditionalExpr="connect if (baselayer_enableIridescence > 0 or  layer1_enableIridescence > 0 or  layer2_enableIridescence > 0 or  layer3_enableIridescence > 0 or  layer4_enableIridescence > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableIridescence == 1 or  layer1_enableIridescence == 1 or  layer2_enableIridescence == 1 or  layer3_enableIridescence == 1 or  layer4_enableIridescence == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_iridescenceThickness"
     vstructmember="pxrMaterialOut.iridescenceThickness"
-    vstructConditionalExpr="connect if (baselayer_enableIridescence > 0 or  layer1_enableIridescence > 0 or  layer2_enableIridescence > 0 or  layer3_enableIridescence > 0 or  layer4_enableIridescence > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableIridescence == 1 or  layer1_enableIridescence == 1 or  layer2_enableIridescence == 1 or  layer3_enableIridescence == 1 or  layer4_enableIridescence == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_iridescenceRoughness"
     vstructmember="pxrMaterialOut.iridescenceRoughness"
-    vstructConditionalExpr="connect if (baselayer_enableIridescence > 0 or  layer1_enableIridescence > 0 or  layer2_enableIridescence > 0 or  layer3_enableIridescence > 0 or  layer4_enableIridescence > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableIridescence == 1 or  layer1_enableIridescence == 1 or  layer2_enableIridescence == 1 or  layer3_enableIridescence == 1 or  layer4_enableIridescence == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableRR"
     vstructmember="pxrMaterialOut.enableRR"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableRR > 0 or layer1_enableRR > 0 or layer2_enableRR > 0 or layer3_enableRR > 0 or layer4_enableRR > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableRR == 1 or layer1_enableRR == 1 or layer2_enableRR == 1 or layer3_enableRR == 1 or layer4_enableRR == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_refractionGain"
     vstructmember="pxrMaterialOut.refractionGain"
-    vstructConditionalExpr="connect if (baselayer_enableRR > 0 or  layer1_enableRR > 0 or  layer2_enableRR > 0 or  layer3_enableRR > 0 or  layer4_enableRR > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRR == 1 or  layer1_enableRR == 1 or  layer2_enableRR == 1 or  layer3_enableRR == 1 or  layer4_enableRR == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_refractionColor"
     vstructmember="pxrMaterialOut.refractionColor"
-    vstructConditionalExpr="connect if (baselayer_enableRR > 0 or  layer1_enableRR > 0 or  layer2_enableRR > 0 or  layer3_enableRR > 0 or  layer4_enableRR > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRR == 1 or  layer1_enableRR == 1 or  layer2_enableRR == 1 or  layer3_enableRR == 1 or  layer4_enableRR == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_reflectionGain"
     vstructmember="pxrMaterialOut.reflectionGain"
-    vstructConditionalExpr="connect if (baselayer_enableRR > 0 or  layer1_enableRR > 0 or  layer2_enableRR > 0 or  layer3_enableRR > 0 or  layer4_enableRR > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRR == 1 or  layer1_enableRR == 1 or  layer2_enableRR == 1 or  layer3_enableRR == 1 or  layer4_enableRR == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_glassRoughness"
     vstructmember="pxrMaterialOut.glassRoughness"
-    vstructConditionalExpr="connect if (baselayer_enableRR > 0 or  layer1_enableRR > 0 or  layer2_enableRR > 0 or  layer3_enableRR > 0 or  layer4_enableRR > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRR == 1 or  layer1_enableRR == 1 or  layer2_enableRR == 1 or  layer3_enableRR == 1 or  layer4_enableRR == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_glassIor"
     vstructmember="pxrMaterialOut.glassIor"
-    vstructConditionalExpr="connect if (baselayer_enableRR > 0 or  layer1_enableRR > 0 or  layer2_enableRR > 0 or  layer3_enableRR > 0 or  layer4_enableRR > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableRR == 1 or  layer1_enableRR == 1 or  layer2_enableRR == 1 or  layer3_enableRR == 1 or  layer4_enableRR == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableSubsurface"
     vstructmember="pxrMaterialOut.enableSubsurface"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableSubsurface > 0 or layer1_enableSubsurface > 0 or layer2_enableSubsurface > 0 or layer3_enableSubsurface > 0 or layer4_enableSubsurface > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableSubsurface == 1 or layer1_enableSubsurface == 1 or layer2_enableSubsurface == 1 or layer3_enableSubsurface == 1 or layer4_enableSubsurface == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_subsurfaceGain"
     vstructmember="pxrMaterialOut.subsurfaceGain"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_subsurfaceColor"
     vstructmember="pxrMaterialOut.subsurfaceColor"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_subsurfaceDmfp"
     vstructmember="pxrMaterialOut.subsurfaceDmfp"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_subsurfaceDmfpColor"
     vstructmember="pxrMaterialOut.subsurfaceDmfpColor"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_shortSubsurfaceGain"
     vstructmember="pxrMaterialOut.shortSubsurfaceGain"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_shortSubsurfaceColor"
     vstructmember="pxrMaterialOut.shortSubsurfaceColor"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_shortSubsurfaceDmfp"
     vstructmember="pxrMaterialOut.shortSubsurfaceDmfp"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_longSubsurfaceGain"
     vstructmember="pxrMaterialOut.longSubsurfaceGain"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_longSubsurfaceColor"
     vstructmember="pxrMaterialOut.longSubsurfaceColor"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_longSubsurfaceDmfp"
     vstructmember="pxrMaterialOut.longSubsurfaceDmfp"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_subsurfacePostTint"
     vstructmember="pxrMaterialOut.subsurfacePostTint"
-    vstructConditionalExpr="connect if (baselayer_enableSubsurface > 0 or  layer1_enableSubsurface > 0 or  layer2_enableSubsurface > 0 or  layer3_enableSubsurface > 0 or  layer4_enableSubsurface > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
+  <output  name="pxrMaterialOut_subsurfaceTransmitGain"
+    vstructmember="pxrMaterialOut.subsurfaceTransmitGain"
+    vstructConditionalExpr="connect if (baselayer_enableSubsurface == 1 or  layer1_enableSubsurface == 1 or  layer2_enableSubsurface == 1 or  layer3_enableSubsurface == 1 or  layer4_enableSubsurface == 1) ">
+    <tags>
+      <tag value="float"/>
+    </tags>
+  </output>
   <output  name="pxrMaterialOut_enableSinglescatter"
     vstructmember="pxrMaterialOut.enableSinglescatter"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableSinglescatter > 0 or layer1_enableSinglescatter > 0 or layer2_enableSinglescatter > 0 or layer3_enableSinglescatter > 0 or layer4_enableSinglescatter > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableSinglescatter == 1 or layer1_enableSinglescatter == 1 or layer2_enableSinglescatter == 1 or layer3_enableSinglescatter == 1 or layer4_enableSinglescatter == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterGain"
     vstructmember="pxrMaterialOut.singlescatterGain"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterColor"
     vstructmember="pxrMaterialOut.singlescatterColor"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterMfp"
     vstructmember="pxrMaterialOut.singlescatterMfp"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterMfpColor"
     vstructmember="pxrMaterialOut.singlescatterMfpColor"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterDirectionality"
     vstructmember="pxrMaterialOut.singlescatterDirectionality"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterIor"
     vstructmember="pxrMaterialOut.singlescatterIor"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterBlur"
     vstructmember="pxrMaterialOut.singlescatterBlur"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterDirectGain"
     vstructmember="pxrMaterialOut.singlescatterDirectGain"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_singlescatterDirectGainTint"
     vstructmember="pxrMaterialOut.singlescatterDirectGainTint"
-    vstructConditionalExpr="connect if (baselayer_enableSinglescatter > 0 or  layer1_enableSinglescatter > 0 or  layer2_enableSinglescatter > 0 or  layer3_enableSinglescatter > 0 or  layer4_enableSinglescatter > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableSinglescatter == 1 or  layer1_enableSinglescatter == 1 or  layer2_enableSinglescatter == 1 or  layer3_enableSinglescatter == 1 or  layer4_enableSinglescatter == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_enableGlow"
     vstructmember="pxrMaterialOut.enableGlow"
-    vstructConditionalExpr="set 1.0 if (baselayer_enableGlow > 0 or layer1_enableGlow > 0 or layer2_enableGlow > 0 or layer3_enableGlow > 0 or layer4_enableGlow > 0) else set 0 ">
+    vstructConditionalExpr="set 1 if (baselayer_enableGlow == 1 or layer1_enableGlow == 1 or layer2_enableGlow == 1 or layer3_enableGlow == 1 or layer4_enableGlow == 1) else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_glowGain"
     vstructmember="pxrMaterialOut.glowGain"
-    vstructConditionalExpr="connect if (baselayer_enableGlow > 0 or  layer1_enableGlow > 0 or  layer2_enableGlow > 0 or  layer3_enableGlow > 0 or  layer4_enableGlow > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableGlow == 1 or  layer1_enableGlow == 1 or  layer2_enableGlow == 1 or  layer3_enableGlow == 1 or  layer4_enableGlow == 1) ">
     <tags>
       <tag value="float"/>
     </tags>
   </output>
   <output  name="pxrMaterialOut_glowColor"
     vstructmember="pxrMaterialOut.glowColor"
-    vstructConditionalExpr="connect if (baselayer_enableGlow > 0 or  layer1_enableGlow > 0 or  layer2_enableGlow > 0 or  layer3_enableGlow > 0 or  layer4_enableGlow > 0) ">
+    vstructConditionalExpr="connect if (baselayer_enableGlow == 1 or  layer1_enableGlow == 1 or  layer2_enableGlow == 1 or  layer3_enableGlow == 1 or  layer4_enableGlow == 1) ">
     <tags>
       <tag value="color"/>
     </tags>
   </output>
-  <page name="Layer1" open="False">
+  <page name="Layer 1" open="False">
   <param  name="layer1Enabled"
     type="int"
     label="Enabled"
@@ -4395,7 +4452,7 @@
     </tags>
   </param>
   </page>
-  <page name="Layer2" open="False">
+  <page name="Layer 2" open="False">
   <param  name="layer2Enabled"
     type="int"
     label="Enabled"
@@ -4434,7 +4491,7 @@
     </tags>
   </param>
   </page>
-  <page name="Layer3" open="False">
+  <page name="Layer 3" open="False">
   <param  name="layer3Enabled"
     type="int"
     label="Enabled"
@@ -4473,7 +4530,7 @@
     </tags>
   </param>
   </page>
-  <page name="Layer4" open="False">
+  <page name="Layer 4" open="False">
   <param  name="layer4Enabled"
     type="int"
     label="Enabled"

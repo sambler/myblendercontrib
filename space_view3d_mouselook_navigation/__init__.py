@@ -19,7 +19,7 @@ bl_info = {
     "name": "Mouselook Navigation",
     "description": "Alternative 3D view navigation",
     "author": "dairin0d, moth3r",
-    "version": (1, 0, 6),
+    "version": (1, 0, 7),
     "blender": (2, 7, 0),
     "location": "View3D > orbit/pan/dolly/zoom/fly/walk",
     "warning": "",
@@ -722,6 +722,18 @@ class MouselookNavigation:
         if use_auto_perspective:
             self.sv.is_perspective = self._perspective0
     
+    numpad_orientations = [
+        ('LEFT', Quaternion((0, 0, -1), math.pi/2.0)),
+        ('RIGHT', Quaternion((0, 0, 1), math.pi/2.0)),
+        ('BOTTOM', Quaternion((1, 0, 0), math.pi/2.0)),
+        ('TOP', Quaternion((-1, 0, 0), math.pi/2.0)),
+        ('FRONT', Quaternion((1, 0, 0, 0))),
+        ('BACK', Quaternion((0, 0, 0, 1))),
+        ('BACK', Quaternion((0, 0, 0, -1))),
+    ]
+    def detect_numpad_orientation(self, q):
+        for name, nq in self.numpad_orientations:
+            if abs(q.rotation_difference(nq).angle) < 1e-6: return name
     def snap_rotation(self, n=1):
         grid = math.pi*0.5 / n
         euler = self.euler.copy()
@@ -730,6 +742,11 @@ class MouselookNavigation:
         euler.z = round(euler.z / grid) * grid
         self.sv.turntable_euler = euler
         self.rot = self.sv.rotation
+        numpad_orientation = self.detect_numpad_orientation(self.rot)
+        if numpad_orientation:
+            bpy.ops.view3d.viewnumpad(type=numpad_orientation, align_active=False)
+        else:
+            bpy.ops.view3d.view_orbit(angle=0.0, type='ORBITUP')
     
     def change_euler(self, ex, ey, ez, always_up=False):
         self.euler.x += ex
@@ -924,6 +941,7 @@ class MouselookNavigation:
         self._pos0 = self.sv.focus
         self._rot0 = self.sv.rotation
         self._euler0 = self.sv.turntable_euler
+        self._smooth_view0 = userprefs.view.smooth_view
         
         self.mouse0 = self._mouse0.copy()
         self.clock0 = self._clock0
@@ -945,7 +963,16 @@ class MouselookNavigation:
         self.teleport_time_start = -1
         self.teleport_allowed = False
         
+        self.sculpt_levels0 = None
+        if (context.mode == 'SCULPT') and context.tool_settings.sculpt.show_low_resolution:
+            for modifier in context.object.modifiers:
+                if modifier.type == 'MULTIRES':
+                    self.sculpt_levels0 = modifier.sculpt_levels
+                    modifier.sculpt_levels = min(modifier.sculpt_levels, 1)
+                    break
+        
         userprefs.inputs.use_mouse_continuous = True
+        userprefs.view.smooth_view = 0
         
         self.register_handlers(context)
         
@@ -973,8 +1000,15 @@ class MouselookNavigation:
             focus_proj = self.sv.focus_projected + self.sv.region_rect()[0]
             context.window.cursor_warp(focus_proj.x, focus_proj.y)
         
+        if (context.mode == 'SCULPT') and context.tool_settings.sculpt.show_low_resolution:
+            for modifier in context.object.modifiers:
+                if modifier.type == 'MULTIRES':
+                    modifier.sculpt_levels = self.sculpt_levels0
+                    break
+        
         userprefs = context.user_preferences
         userprefs.inputs.use_mouse_continuous = self._continuous0
+        userprefs.view.smooth_view = self._smooth_view0
         
         self.unregister_handlers(context)
         
@@ -1365,6 +1399,10 @@ class ThisAddonPreferences:
     
     is_enabled = True | prop("Enable/disable Mouselook Navigation", name="Enabled")
     
+    def use_zbuffer_update(self, context):
+        addon.use_zbuffer = addon.preferences.use_zbuffer
+    use_zbuffer = True | prop("Preemptively grab Z-buffer (WARNING: CAN BE SLOW!)", name="Record Z-buffer", update=use_zbuffer_update)
+    
     flips = NavigationDirectionFlip | prop()
     
     zoom_speed_modifier = 1.0 | prop("Zooming speed", name="Zoom speed")
@@ -1373,7 +1411,7 @@ class ThisAddonPreferences:
     fps_horizontal = False | prop("Force forward/backward to be in horizontal plane, and up/down to be vertical", name="FPS horizontal")
     zoom_to_selection = True | prop("Zoom to selection when Rotate Around Selection is enabled", name="Zoom to selection")
     trackball_mode = 'WRAPPED' | prop("Rotation algorithm used in trackball mode", name="Trackball mode", items=[('BLENDER', 'Blender', 'Blender (buggy!)', 'ERROR'), ('WRAPPED', 'Wrapped'), ('CENTER', 'Center')])
-    rotation_snap_subdivs = 1 | prop("Intermediate angles used when snapping (1: 90°, 2: 45°, 3: 30°, etc.)", name="Orbit snap subdivs", min=1)
+    rotation_snap_subdivs = 2 | prop("Intermediate angles used when snapping (1: 90°, 2: 45°, 3: 30°, etc.)", name="Orbit snap subdivs", min=1)
     rotation_snap_autoperspective = True | prop("If Auto Perspective is enabled, rotation snapping will automatically switch the view to Ortho", name="Orbit snap->ortho")
     autolevel_trackball = False | prop("Autolevel in Trackball mode", name="Trackball Autolevel")
     autolevel_trackball_up = False | prop("Try to autolevel 'upright' in Trackball mode", name="Trackball Autolevel up")
@@ -1383,6 +1421,9 @@ class ThisAddonPreferences:
         layout = NestedLayout(self.layout)
         
         use_universal_input_settings = (self.use_universal_input_settings or len(self.autoreg_keymaps) == 0)
+        
+        with layout.row():
+            layout.prop(self, "use_zbuffer")
         
         with layout.row():
             with layout.column():
@@ -1443,8 +1484,8 @@ class ThisAddonPreferences:
             inp_set.draw(layout)
 
 def register():
-    addon.use_zbuffer = True
     addon.register()
+    addon.use_zbuffer = addon.preferences.use_zbuffer
     
     addon.draw_handler_add(bpy.types.SpaceView3D, draw_callback_px, (None, None), 'WINDOW', 'POST_PIXEL')
     

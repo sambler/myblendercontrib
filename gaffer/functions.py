@@ -19,6 +19,7 @@
 import bpy
 import json
 import bgl, blf
+import time, datetime
 from collections import OrderedDict
 from math import pi, cos, sin, log, radians
 from mathutils import Vector, Matrix, Euler
@@ -32,6 +33,57 @@ def _force_redraw_hack():  # Taken from Campbell's Cell Fracture addon
     _force_redraw_hack.opr(**_force_redraw_hack.arg)
 _force_redraw_hack.opr = bpy.ops.wm.redraw_timer
 _force_redraw_hack.arg = dict(type='DRAW_WIN_SWAP', iterations=1)
+
+def log(text, timestamp=True, also_print = False):
+    ts = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d %H:%M:%S')
+
+    with open(log_file, 'a') as f:
+        if also_print:
+            print (text)
+        if timestamp:
+            f.write(ts + "    " + text + '\n')
+        else:
+            f.write(' '*len(ts) + "    " + text + '\n')
+
+def cleanup_logs():
+    ''' Delete log lines that are older than 1 week to keep the file size down '''
+    if os.path.exists(log_file):
+        with open(log_file, 'r') as f:
+            lines = f.readlines()
+
+        i = 0  # Where the most recent line is that's older than 7 days
+        for ln_no, l in enumerate(lines):
+            try:
+                d = datetime.datetime.strptime(l[:19], '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                pass
+            else:
+                age = time.time() - time.mktime(d.timetuple())
+                if age/60/60/24 > 7:
+                    i = ln_no
+                else:
+                    break
+        if i > 0:
+            new_lines = lines[i+1:]
+            with open(log_file, 'w') as f:
+                f.writelines(new_lines)
+
+def hastebin_file(filepath, extra_string=""):
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            lines = f.read()
+        from requests import post as requests_post
+        r = requests_post("https://hastebin.com/documents", lines + '\n'*4 + extra_string)
+        url = "https://hastebin.com/" + json.loads(r.content.decode())['key']
+        bpy.ops.wm.url_open(url=url)
+
+def dpifac():
+    prefs = bpy.context.user_preferences.system
+    if hasattr(prefs, 'pixel_size'):  # python access to this was only added recently, assume non-retina display is used if using older blender
+        retinafac = bpy.context.user_preferences.system.pixel_size
+    else:
+        retinafac = 1
+    return bpy.context.user_preferences.system.dpi/(72/retinafac)
 
 
 def refresh_light_list(scene):
@@ -515,7 +567,24 @@ def update_hdri_path(self, context):
     detect_hdris(self, context)
     get_hdri_haven_list(force_update=True)
 
+def get_hdri_basename(f):
+    separators = ['_', '-', '.', ' ']
+    fn, ext = os.path.splitext(f)
+    sep = ''
+    for c in fn[::-1][:-1]:  # Reversed filename to see which separator is last
+        if c in separators:
+            sep = c
+            break
+    if sep != '':
+        # Remove all character after the separator - what's left is the hdri name without resolution etc.
+        hdri_name = sep.join(fn.split(sep)[:-1])
+    else:
+        hdri_name = fn
+    return hdri_name
+
 def detect_hdris(self, context):
+
+    log("FN: Detect HDRIs")
 
     show_hdrihaven()
 
@@ -523,38 +592,32 @@ def detect_hdris(self, context):
     hdris = {}
 
     def check_folder_for_HDRIs(path):
+        prefs = bpy.context.user_preferences.addons[__package__].preferences
+        
+        l_allowed_file_types = allowed_file_types
+        if not prefs.include_8bit:
+            l_allowed_file_types = hdr_file_types
+
         if os.path.exists(path):
-            allowed_file_types = ['.tif', '.tiff', '.hdr', '.exr', '.jpg', '.jpeg', '.png', '.tga']
             files = []
             for f in os.listdir(path):
                 if os.path.isfile(os.path.join(path, f)):
-                    if os.path.splitext(f)[1] in allowed_file_types:
-                        files.append(f)
+                    fn, ext = os.path.splitext(f)
+                    if not any([fn.lower().endswith(b) for b in thumb_endings]):
+                        if ext.lower() in l_allowed_file_types:
+                            files.append(f)
                 else:
-                    check_folder_for_HDRIs(os.path.join(path, f))
+                    if f != "_MACOSX":
+                        check_folder_for_HDRIs(os.path.join(path, f))
 
-            prefs = bpy.context.user_preferences.addons[__package__].preferences
             sub_path = path.replace(prefs.hdri_path, "")
             if sub_path.startswith('\\') or sub_path.startswith('/'):
                 sub_path = sub_path[1:]
 
             files = sorted(files, key=lambda x: os.path.getsize(os.path.join(path, x)))
             hdri_file_pairs = []
-            separators = ['_', '-', '.', ' ']
             for f in files:
-                fn, ext = os.path.splitext(f)
-                sep = ''
-                for c in fn[::-1]:  # Reversed filename to see which separator is last
-                    if c in separators:
-                        sep = c
-                        break
-                if sep != '':
-                    # Remove all character after the separator - what's left is the hdri name without resolution etc.
-                    hdri_name = sep.join(fn.split(sep)[:-1])
-                else:
-                    hdri_name = fn
-
-                # hdri_file_pairs.append([hdri_name, f])
+                hdri_name = get_hdri_basename(f)
                 hdri_file_pairs.append([hdri_name, f if sub_path == "" else os.path.join(sub_path, f)])
 
             for h in hdri_file_pairs:
@@ -1259,7 +1322,8 @@ def save_image(context, img, filepath, fileformat, exposure=0):
 
 def nice_hdri_name(name):
     dont_capitalize = ['a', 'an', 'the', 'for', 'and', 'by', 'at', 'of',' from', 'on', 'with']
-    name = name.replace('_', ' ').replace('-', ' ').replace('.', ' ')
+    name = name[0] + name[1:].replace('_', ' ').replace('-', ' ').replace('.', ' ')
+    #                      ^^  name = name[0] + name[1:] to ignore separator if first char
     name = ' '.join([w[0].upper() + w[1:] for w in name.split(' ')])  # Title case but only for first character
     for w in dont_capitalize:
         name.replace(' '+w.title(), ' '+w)

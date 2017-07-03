@@ -6,11 +6,14 @@ Modifier Change
    :maxdepth: 2
 
    bevel
+   subdivide
+   smooth
    delete_loose
    edges_intersect
    extrude_edges
    extrude_edges_old
    extrude_separate
+   extrude_region
    holes_fill
    iterate
    mesh_join

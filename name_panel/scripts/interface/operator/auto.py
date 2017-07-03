@@ -11,911 +11,911 @@ addon = bpy.context.user_preferences.addons.get(__name__.partition('.')[0])
 
 # name
 class name(Operator):
-  '''
-    Automatically name datablocks based on type.
-  '''
-  bl_idname = 'view3d.auto_name'
-  bl_label = 'Auto Name'
-  bl_description = 'Automatically name datablocks based on type.'
-  bl_options = {'UNDO'}
-
-  # count
-  count = IntProperty(
-    name = 'Total named',
-    description = 'Total number of names changed during the batch auto name process',
-    default = 0
-  )
-
-  # object
-  objects = []
-
-  # constraints
-  constraints = []
-
-  # modifiers
-  modifiers = []
-
-  # cameras
-  cameras = []
-
-  # meshes
-  meshes = []
-
-  # curves
-  curves = []
-
-  # lamps
-  lamps = []
-
-  # lattices
-  lattices = []
-
-  # metaballs
-  metaballs = []
-
-  # speakers
-  speakers = []
-
-  # armatures
-  armatures = []
-
-  # poll
-  @classmethod
-  def poll(cls, context):
     '''
-      Space data type must be in 3D view.
+        Automatically name datablocks based on type.
     '''
-    return context.space_data.type in 'VIEW_3D'
+    bl_idname = 'view3d.auto_name'
+    bl_label = 'Auto Name'
+    bl_description = 'Automatically name datablocks based on type.'
+    bl_options = {'UNDO'}
 
-  # check
-  def check(self, context):
-    return True
+    # count
+    count = IntProperty(
+        name = 'Total named',
+        description = 'Total number of names changed during the batch auto name process',
+        default = 0
+    )
 
-  # draw
-  def draw(self, context):
-    '''
-      Draw the operator panel/menu.
-    '''
-
-    # layout
-    layout = self.layout
-
-    # option
-    option = context.window_manager.AutoName
-
-    # label
-    layout.label(text='Targets:')
-
-    # row
-    row = layout.row(align=True)
-
-    # mode
-    row.prop(option, 'mode', expand=True)
-
-    # op: reset name panel settings
-    op = row.operator('wm.reset_name_panel_settings', text='', icon='LOAD_FACTORY')
-    op.panel = False
-    op.auto = True
-    op.names = True
-    op.name = False
-    op.copy = False
-
-    # column
-    column = layout.column(align=True)
-
-    # split
-    split = column.split(align=True)
-
-    # objects
-    split.prop(option, 'objects', text='', icon='OBJECT_DATA')
+    # object
+    objects = []
 
     # constraints
-    split.prop(option, 'constraints', text='', icon='CONSTRAINT')
+    constraints = []
 
     # modifiers
-    split.prop(option, 'modifiers', text='', icon='MODIFIER')
+    modifiers = []
 
-    # object data
-    split.prop(option, 'objectData', text='', icon='MESH_DATA')
+    # cameras
+    cameras = []
 
-    # bone constraints
-    split.prop(option, 'boneConstraints', text='', icon='CONSTRAINT_BONE')
+    # meshes
+    meshes = []
 
-    # is objects or constraints or modifiers
-    if option.objects or option.constraints or option.boneConstraints or option.modifiers:
+    # curves
+    curves = []
 
-      # column
-      column = layout.column()
+    # lamps
+    lamps = []
 
-    # is objects
-    if option.objects:
+    # lattices
+    lattices = []
 
-      # object type
-      column.prop(option, 'objectType', text='')
+    # metaballs
+    metaballs = []
 
-    # is constraints
-    if option.constraints or option.boneConstraints:
+    # speakers
+    speakers = []
 
-      # constraint type
-      column.prop(option, 'constraintType', text='')
+    # armatures
+    armatures = []
 
-    # is modifiers
-    if option.modifiers:
+    # poll
+    @classmethod
+    def poll(cls, context):
+        '''
+            Space data type must be in 3D view.
+        '''
+        return context.space_data.type in 'VIEW_3D'
 
-      # modifier type
-      column.prop(option, 'modifierType', text='')
+    # check
+    def check(self, context):
+        return True
 
-    # column
-    column = layout.column()
+    # draw
+    def draw(self, context):
+        '''
+            Draw the operator panel/menu.
+        '''
 
-    # label
-    column.label(text='Name Settings:')
+        # layout
+        layout = self.layout
 
-    # split
-    split = column.split(align=True)
+        # option
+        option = context.window_manager.AutoName
 
-    # batch auto name object names
-    split.operator('view3d.auto_name_object_names', text='Objects')
+        # label
+        layout.label(text='Targets:')
 
-    # batch auto name constraint names
-    split.operator('view3d.auto_name_constraint_names', text='Constraints')
+        # row
+        row = layout.row(align=True)
 
-    # batch auto name modifier names
-    split.operator('view3d.auto_name_modifier_names', text='Modifiers')
+        # mode
+        row.prop(option, 'mode', expand=True)
 
-    # batch auto name object data names
-    split.operator('view3d.auto_name_object_data_names', text='Object Data')
+        # op: reset name panel settings
+        op = row.operator('wm.reset_name_panel_settings', text='', icon='LOAD_FACTORY')
+        op.panel = False
+        op.auto = True
+        op.names = True
+        op.name = False
+        op.copy = False
 
-    # column
-    column = layout.column(align=True)
+        # column
+        column = layout.column(align=True)
 
-    # sort
-    shared.sort(column, context.window_manager.BatchShared)
+        # split
+        split = column.split(align=True)
 
-    # count
-    shared.count(column, context.window_manager.BatchShared)
+        # objects
+        split.prop(option, 'objects', text='', icon='OBJECT_DATA')
 
-  # execute
-  def execute(self, context):
-    '''
-      Execute the operator.
-    '''
+        # constraints
+        split.prop(option, 'constraints', text='', icon='CONSTRAINT')
 
-    # main
-    auto.main(self, context)
+        # modifiers
+        split.prop(option, 'modifiers', text='', icon='MODIFIER')
 
-    # report
-    self.report({'INFO'}, 'Datablocks named: ' + str(self.count))
+        # object data
+        split.prop(option, 'objectData', text='', icon='MESH_DATA')
 
-    # count
-    self.count = 0
+        # bone constraints
+        split.prop(option, 'boneConstraints', text='', icon='CONSTRAINT_BONE')
 
-    return {'FINISHED'}
+        # is objects or constraints or modifiers
+        if option.objects or option.constraints or option.boneConstraints or option.modifiers:
 
-  # invoke
-  def invoke(self, context, event):
-    '''
-      Invoke the operator panel/menu, control its width.
-    '''
+            # column
+            column = layout.column()
 
-    self.check(context)
+        # is objects
+        if option.objects:
 
-    size = 330 if not context.window_manager.BatchShared.largePopups else 460
-    context.window_manager.invoke_props_dialog(self, width=size)
-    return {'RUNNING_MODAL'}
+            # object type
+            column.prop(option, 'objectType', text='')
+
+        # is constraints
+        if option.constraints or option.boneConstraints:
+
+            # constraint type
+            column.prop(option, 'constraintType', text='')
+
+        # is modifiers
+        if option.modifiers:
+
+            # modifier type
+            column.prop(option, 'modifierType', text='')
+
+        # column
+        column = layout.column()
+
+        # label
+        column.label(text='Name Settings:')
+
+        # split
+        split = column.split(align=True)
+
+        # batch auto name object names
+        split.operator('view3d.auto_name_object_names', text='Objects')
+
+        # batch auto name constraint names
+        split.operator('view3d.auto_name_constraint_names', text='Constraints')
+
+        # batch auto name modifier names
+        split.operator('view3d.auto_name_modifier_names', text='Modifiers')
+
+        # batch auto name object data names
+        split.operator('view3d.auto_name_object_data_names', text='Object Data')
+
+        # column
+        column = layout.column(align=True)
+
+        # sort
+        shared.sort(column, context.window_manager.BatchShared)
+
+        # count
+        shared.count(column, context.window_manager.BatchShared)
+
+    # execute
+    def execute(self, context):
+        '''
+            Execute the operator.
+        '''
+
+        # main
+        auto.main(self, context)
+
+        # report
+        self.report({'INFO'}, 'Datablocks named: ' + str(self.count))
+
+        # count
+        self.count = 0
+
+        return {'FINISHED'}
+
+    # invoke
+    def invoke(self, context, event):
+        '''
+            Invoke the operator panel/menu, control its width.
+        '''
+
+        self.check(context)
+
+        size = 330 if not context.window_manager.BatchShared.largePopups else 460
+        context.window_manager.invoke_props_dialog(self, width=size)
+        return {'RUNNING_MODAL'}
 
 # objects
 class objects(Operator):
-  '''
-    Invoke the auto name object names dialogue.
-  '''
-  bl_idname = 'view3d.auto_name_object_names'
-  bl_label = 'Object Names:'
-  bl_description = 'Change the names used for objects.'
-  bl_options = {'UNDO'}
-
-  # draw
-  def draw(self, context):
     '''
-      Draw the operator panel/menu.
+        Invoke the auto name object names dialogue.
     '''
+    bl_idname = 'view3d.auto_name_object_names'
+    bl_label = 'Object Names:'
+    bl_description = 'Change the names used for objects.'
+    bl_options = {'UNDO'}
 
-    # layout
-    layout = self.layout
+    # draw
+    def draw(self, context):
+        '''
+            Draw the operator panel/menu.
+        '''
 
-    # option
-    option = context.scene.ObjectNames
+        # layout
+        layout = self.layout
 
-    # prefix
-    layout.prop(option, 'prefix')
+        # option
+        option = context.scene.ObjectNames
 
-    # input fields
+        # prefix
+        layout.prop(option, 'prefix')
 
-    # mesh
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_MESH')
-    row.prop(option, 'mesh', text='')
+        # input fields
 
-    # curve
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_CURVE')
-    row.prop(option, 'curve', text='')
+        # mesh
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_MESH')
+        row.prop(option, 'mesh', text='')
 
-    # surface
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_SURFACE')
-    row.prop(option, 'surface', text='')
+        # curve
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_CURVE')
+        row.prop(option, 'curve', text='')
 
-    # meta
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_META')
-    row.prop(option, 'meta', text='')
+        # surface
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_SURFACE')
+        row.prop(option, 'surface', text='')
 
-    # font
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_FONT')
-    row.prop(option, 'font', text='')
+        # meta
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_META')
+        row.prop(option, 'meta', text='')
 
-    # armature
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_ARMATURE')
-    row.prop(option, 'armature', text='')
+        # font
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_FONT')
+        row.prop(option, 'font', text='')
 
-    # lattice
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_LATTICE')
-    row.prop(option, 'lattice', text='')
+        # armature
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_ARMATURE')
+        row.prop(option, 'armature', text='')
 
-    # empty
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_EMPTY')
-    row.prop(option, 'empty', text='')
+        # lattice
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_LATTICE')
+        row.prop(option, 'lattice', text='')
 
-    # speaker
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_SPEAKER')
-    row.prop(option, 'speaker', text='')
+        # empty
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_EMPTY')
+        row.prop(option, 'empty', text='')
 
-    # camera
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_CAMERA')
-    row.prop(option, 'camera', text='')
+        # speaker
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_SPEAKER')
+        row.prop(option, 'speaker', text='')
 
-    # lamp
-    column = layout.column()
-    row = column.row()
-    row.label(icon='OUTLINER_OB_LAMP')
-    row.prop(option, 'lamp', text='')
+        # camera
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_CAMERA')
+        row.prop(option, 'camera', text='')
 
-  # execute
-  def execute(self, context):
-    '''
-      Execute the operator.
-    '''
-    # do nothing
-    return {'FINISHED'}
+        # lamp
+        column = layout.column()
+        row = column.row()
+        row.label(icon='OUTLINER_OB_LAMP')
+        row.prop(option, 'lamp', text='')
 
-  # invoke
-  def invoke(self, context, event):
-    '''
-      Invoke the operator panel/menu, control its width.
-    '''
-    size = 150 if not context.window_manager.BatchShared.largePopups else 225
-    context.window_manager.invoke_props_dialog(self, width=size)
-    return {'RUNNING_MODAL'}
+    # execute
+    def execute(self, context):
+        '''
+            Execute the operator.
+        '''
+        # do nothing
+        return {'FINISHED'}
+
+    # invoke
+    def invoke(self, context, event):
+        '''
+            Invoke the operator panel/menu, control its width.
+        '''
+        size = 150 if not context.window_manager.BatchShared.largePopups else 225
+        context.window_manager.invoke_props_dialog(self, width=size)
+        return {'RUNNING_MODAL'}
 
 # constraints
 class constraints(Operator):
-  '''
-    Invoke the auto name constraint names dialogue.
-  '''
-  bl_idname = 'view3d.auto_name_constraint_names'
-  bl_label = 'Constraint Names:'
-  bl_description = 'Change the names used for constraints.'
-  bl_options = {'UNDO'}
-
-  # draw
-  def draw(self, context):
     '''
-      Draw the operator panel/menu.
+        Invoke the auto name constraint names dialogue.
     '''
+    bl_idname = 'view3d.auto_name_constraint_names'
+    bl_label = 'Constraint Names:'
+    bl_description = 'Change the names used for constraints.'
+    bl_options = {'UNDO'}
 
-    # layout
-    layout = self.layout
+    # draw
+    def draw(self, context):
+        '''
+            Draw the operator panel/menu.
+        '''
 
-    # option
-    option = context.scene.ConstraintNames
+        # layout
+        layout = self.layout
 
-    # prefix
-    layout.prop(option, 'prefix')
+        # option
+        option = context.scene.ConstraintNames
 
-    # input fields
-    split = layout.split()
+        # prefix
+        layout.prop(option, 'prefix')
 
-    # motion tracking
-    column = split.column()
-    column.label(text='Motion Tracking')
+        # input fields
+        split = layout.split()
 
-    # camera solver
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'cameraSolver', text='')
+        # motion tracking
+        column = split.column()
+        column.label(text='Motion Tracking')
 
-    # follow track
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'followTrack', text='')
+        # camera solver
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'cameraSolver', text='')
 
-    # object solver
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'objectSolver', text='')
+        # follow track
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'followTrack', text='')
 
-    # transform
-    column = split.column()
-    column.label(text='Transform')
+        # object solver
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'objectSolver', text='')
 
-    # copy location
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'copyLocation', text='')
+        # transform
+        column = split.column()
+        column.label(text='Transform')
 
-    # copy rotation
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'copyRotation', text='')
+        # copy location
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'copyLocation', text='')
 
-    # copy scale
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'copyScale', text='')
+        # copy rotation
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'copyRotation', text='')
 
-    # copy transforms
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'copyTransforms', text='')
+        # copy scale
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'copyScale', text='')
 
-    # limit distance
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'limitDistance', text='')
+        # copy transforms
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'copyTransforms', text='')
 
-    # limit location
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'limitLocation', text='')
+        # limit distance
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'limitDistance', text='')
 
-    # limit rotation
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'limitRotation', text='')
+        # limit location
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'limitLocation', text='')
 
-    # limit scale
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'limitScale', text='')
+        # limit rotation
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'limitRotation', text='')
 
-    # maintain volume
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'maintainVolume', text='')
+        # limit scale
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'limitScale', text='')
 
-    # transform
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'transform', text='')
+        # maintain volume
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'maintainVolume', text='')
 
-    # tracking
-    column = split.column()
-    column.label(text='Tracking')
+        # transform
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'transform', text='')
 
-    # clamp to
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'clampTo', text='')
+        # tracking
+        column = split.column()
+        column.label(text='Tracking')
 
-    # damped track
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'dampedTrack', text='')
+        # clamp to
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'clampTo', text='')
 
-    # inverse kinematics
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'inverseKinematics', text='')
+        # damped track
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'dampedTrack', text='')
 
-    # locked track
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'lockedTrack', text='')
+        # inverse kinematics
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'inverseKinematics', text='')
 
-    # spline inverse kinematics
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'splineInverseKinematics', text='')
+        # locked track
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'lockedTrack', text='')
 
-    # stretch to
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'stretchTo', text='')
+        # spline inverse kinematics
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'splineInverseKinematics', text='')
 
-    # track to
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'trackTo', text='')
+        # stretch to
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'stretchTo', text='')
 
-    # relationship
-    column = split.column()
-    column.label(text='Relationship')
+        # track to
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'trackTo', text='')
 
-    # action
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'action', text='')
+        # relationship
+        column = split.column()
+        column.label(text='Relationship')
 
-    # child of
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'childOf', text='')
+        # action
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'action', text='')
 
-    # floor
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'floor', text='')
+        # child of
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'childOf', text='')
 
-    # follow path
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'followPath', text='')
+        # floor
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'floor', text='')
 
-    # pivot
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'pivot', text='')
+        # follow path
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'followPath', text='')
 
-    # rigid body joint
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'rigidBodyJoint', text='')
+        # pivot
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'pivot', text='')
 
-    # shrinkwrap
-    row = column.row()
-    row.label(icon='CONSTRAINT_DATA')
-    row.prop(option, 'shrinkwrap', text='')
+        # rigid body joint
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'rigidBodyJoint', text='')
 
-  # execute
-  def execute(self, context):
-    '''
-      Execute the operator.
-    '''
-    # do nothing
-    return {'FINISHED'}
+        # shrinkwrap
+        row = column.row()
+        row.label(icon='CONSTRAINT_DATA')
+        row.prop(option, 'shrinkwrap', text='')
 
-  # invoke
-  def invoke(self, context, event):
-    '''
-      Invoke the operator panel/menu, control its width.
-    '''
-    size = 600 if not context.window_manager.BatchShared.largePopups else 900
-    context.window_manager.invoke_props_dialog(self, width=size)
-    return {'RUNNING_MODAL'}
+    # execute
+    def execute(self, context):
+        '''
+            Execute the operator.
+        '''
+        # do nothing
+        return {'FINISHED'}
+
+    # invoke
+    def invoke(self, context, event):
+        '''
+            Invoke the operator panel/menu, control its width.
+        '''
+        size = 600 if not context.window_manager.BatchShared.largePopups else 900
+        context.window_manager.invoke_props_dialog(self, width=size)
+        return {'RUNNING_MODAL'}
 
 # modifiers
 class modifiers(Operator):
-  '''
-    Invoke the auto name modifier names dialogue.
-  '''
-  bl_idname = 'view3d.auto_name_modifier_names'
-  bl_label = 'Modifier Names:'
-  bl_description = 'Change the names used for modifiers.'
-  bl_options = {'UNDO'}
-
-  # draw
-  def draw(self, context):
     '''
-      Draw the operator panel/menu.
+        Invoke the auto name modifier names dialogue.
     '''
+    bl_idname = 'view3d.auto_name_modifier_names'
+    bl_label = 'Modifier Names:'
+    bl_description = 'Change the names used for modifiers.'
+    bl_options = {'UNDO'}
 
-    # layout
-    layout = self.layout
+    # draw
+    def draw(self, context):
+        '''
+            Draw the operator panel/menu.
+        '''
 
-    # option
-    option = context.scene.ModifierNames
+        # layout
+        layout = self.layout
 
-    # prefix
-    layout.prop(option, 'prefix')
+        # option
+        option = context.scene.ModifierNames
 
-    # input fields
-    split = layout.split()
+        # prefix
+        layout.prop(option, 'prefix')
 
-    # modify
-    column = split.column()
-    column.label(text='Modify')
+        # input fields
+        split = layout.split()
 
-    # data transfer
-    row = column.row()
-    row.label(icon='MOD_DATA_TRANSFER')
-    row.prop(option, 'dataTransfer', text='')
+        # modify
+        column = split.column()
+        column.label(text='Modify')
 
-    # mesh cache
-    row = column.row()
-    row.label(icon='MOD_MESHDEFORM')
-    row.prop(option, 'meshCache', text='')
+        # data transfer
+        row = column.row()
+        row.label(icon='MOD_DATA_TRANSFER')
+        row.prop(option, 'dataTransfer', text='')
 
-    # normal edit
-    row = column.row()
-    row.label(icon='MOD_NORMALEDIT')
-    row.prop(option, 'normalEdit', text='')
+        # mesh cache
+        row = column.row()
+        row.label(icon='MOD_MESHDEFORM')
+        row.prop(option, 'meshCache', text='')
 
-    # uv project
-    row = column.row()
-    row.label(icon='MOD_UVPROJECT')
-    row.prop(option, 'uvProject', text='')
+        # normal edit
+        row = column.row()
+        row.label(icon='MOD_NORMALEDIT')
+        row.prop(option, 'normalEdit', text='')
 
-    # uv warp
-    row = column.row()
-    row.label(icon='MOD_UVPROJECT')
-    row.prop(option, 'uvWarp', text='')
+        # uv project
+        row = column.row()
+        row.label(icon='MOD_UVPROJECT')
+        row.prop(option, 'uvProject', text='')
 
-    # vertex weight edit
-    row = column.row()
-    row.label(icon='MOD_VERTEX_WEIGHT')
-    row.prop(option, 'vertexWeightEdit', text='')
+        # uv warp
+        row = column.row()
+        row.label(icon='MOD_UVPROJECT')
+        row.prop(option, 'uvWarp', text='')
 
-    # vertex weight mix
-    row = column.row()
-    row.label(icon='MOD_VERTEX_WEIGHT')
-    row.prop(option, 'vertexWeightMix', text='')
+        # vertex weight edit
+        row = column.row()
+        row.label(icon='MOD_VERTEX_WEIGHT')
+        row.prop(option, 'vertexWeightEdit', text='')
 
-    # vertex weight proximity
-    row = column.row()
-    row.label(icon='MOD_VERTEX_WEIGHT')
-    row.prop(option, 'vertexWeightProximity', text='')
+        # vertex weight mix
+        row = column.row()
+        row.label(icon='MOD_VERTEX_WEIGHT')
+        row.prop(option, 'vertexWeightMix', text='')
 
-    # generate
-    column = split.column()
-    column.label(text='Generate')
+        # vertex weight proximity
+        row = column.row()
+        row.label(icon='MOD_VERTEX_WEIGHT')
+        row.prop(option, 'vertexWeightProximity', text='')
 
-    # array
-    row = column.row()
-    row.label(icon='MOD_ARRAY')
-    row.prop(option, 'array', text='')
+        # generate
+        column = split.column()
+        column.label(text='Generate')
 
-    # bevel
-    row = column.row()
-    row.label(icon='MOD_BEVEL')
-    row.prop(option, 'bevel', text='')
+        # array
+        row = column.row()
+        row.label(icon='MOD_ARRAY')
+        row.prop(option, 'array', text='')
 
-    # boolean
-    row = column.row()
-    row.label(icon='MOD_BOOLEAN')
-    row.prop(option, 'boolean', text='')
+        # bevel
+        row = column.row()
+        row.label(icon='MOD_BEVEL')
+        row.prop(option, 'bevel', text='')
 
-    # build
-    row = column.row()
-    row.label(icon='MOD_BUILD')
-    row.prop(option, 'build', text='')
+        # boolean
+        row = column.row()
+        row.label(icon='MOD_BOOLEAN')
+        row.prop(option, 'boolean', text='')
 
-    # decimate
-    row = column.row()
-    row.label(icon='MOD_DECIM')
-    row.prop(option, 'decimate', text='')
+        # build
+        row = column.row()
+        row.label(icon='MOD_BUILD')
+        row.prop(option, 'build', text='')
 
-    # edge split
-    row = column.row()
-    row.label(icon='MOD_EDGESPLIT')
-    row.prop(option, 'edgeSplit', text='')
+        # decimate
+        row = column.row()
+        row.label(icon='MOD_DECIM')
+        row.prop(option, 'decimate', text='')
 
-    # mask
-    row = column.row()
-    row.label(icon='MOD_MASK')
-    row.prop(option, 'mask', text='')
+        # edge split
+        row = column.row()
+        row.label(icon='MOD_EDGESPLIT')
+        row.prop(option, 'edgeSplit', text='')
 
-    # mirror
-    row = column.row()
-    row.label(icon='MOD_MIRROR')
-    row.prop(option, 'mirror', text='')
+        # mask
+        row = column.row()
+        row.label(icon='MOD_MASK')
+        row.prop(option, 'mask', text='')
 
-    # multiresolution
-    row = column.row()
-    row.label(icon='MOD_MULTIRES')
-    row.prop(option, 'multiresolution', text='')
+        # mirror
+        row = column.row()
+        row.label(icon='MOD_MIRROR')
+        row.prop(option, 'mirror', text='')
 
-    # remesh
-    row = column.row()
-    row.label(icon='MOD_REMESH')
-    row.prop(option, 'remesh', text='')
+        # multiresolution
+        row = column.row()
+        row.label(icon='MOD_MULTIRES')
+        row.prop(option, 'multiresolution', text='')
 
-    # screw
-    row = column.row()
-    row.label(icon='MOD_SCREW')
-    row.prop(option, 'screw', text='')
+        # remesh
+        row = column.row()
+        row.label(icon='MOD_REMESH')
+        row.prop(option, 'remesh', text='')
 
-    # skin
-    row = column.row()
-    row.label(icon='MOD_SKIN')
-    row.prop(option, 'skin', text='')
+        # screw
+        row = column.row()
+        row.label(icon='MOD_SCREW')
+        row.prop(option, 'screw', text='')
 
-    # solidify
-    row = column.row()
-    row.label(icon='MOD_SOLIDIFY')
-    row.prop(option, 'solidify', text='')
+        # skin
+        row = column.row()
+        row.label(icon='MOD_SKIN')
+        row.prop(option, 'skin', text='')
 
-    # subdivision surface
-    row = column.row()
-    row.label(icon='MOD_SUBSURF')
-    row.prop(option, 'subdivisionSurface', text='')
+        # solidify
+        row = column.row()
+        row.label(icon='MOD_SOLIDIFY')
+        row.prop(option, 'solidify', text='')
 
-    # triangulate
-    row = column.row()
-    row.label(icon='MOD_TRIANGULATE')
-    row.prop(option, 'triangulate', text='')
+        # subdivision surface
+        row = column.row()
+        row.label(icon='MOD_SUBSURF')
+        row.prop(option, 'subdivisionSurface', text='')
 
-    # wireframe
-    row = column.row()
-    row.label(icon='MOD_WIREFRAME')
-    row.prop(option, 'wireframe', text='')
+        # triangulate
+        row = column.row()
+        row.label(icon='MOD_TRIANGULATE')
+        row.prop(option, 'triangulate', text='')
 
-    # deform
-    column = split.column()
-    column.label(text='Deform')
+        # wireframe
+        row = column.row()
+        row.label(icon='MOD_WIREFRAME')
+        row.prop(option, 'wireframe', text='')
 
-    # armature
-    row = column.row()
-    row.label(icon='MOD_ARMATURE')
-    row.prop(option, 'armature', text='')
+        # deform
+        column = split.column()
+        column.label(text='Deform')
 
-    # cast
-    row = column.row()
-    row.label(icon='MOD_CAST')
-    row.prop(option, 'cast', text='')
+        # armature
+        row = column.row()
+        row.label(icon='MOD_ARMATURE')
+        row.prop(option, 'armature', text='')
 
-    # corrective smooth
-    row = column.row()
-    row.label(icon='MOD_SMOOTH')
-    row.prop(option, 'correctiveSmooth', text='')
+        # cast
+        row = column.row()
+        row.label(icon='MOD_CAST')
+        row.prop(option, 'cast', text='')
 
-    # curve
-    row = column.row()
-    row.label(icon='MOD_CURVE')
-    row.prop(option, 'curve', text='')
+        # corrective smooth
+        row = column.row()
+        row.label(icon='MOD_SMOOTH')
+        row.prop(option, 'correctiveSmooth', text='')
 
-    # displace
-    row = column.row()
-    row.label(icon='MOD_DISPLACE')
-    row.prop(option, 'displace', text='')
+        # curve
+        row = column.row()
+        row.label(icon='MOD_CURVE')
+        row.prop(option, 'curve', text='')
 
-    # hook
-    row = column.row()
-    row.label(icon='HOOK')
-    row.prop(option, 'hook', text='')
+        # displace
+        row = column.row()
+        row.label(icon='MOD_DISPLACE')
+        row.prop(option, 'displace', text='')
 
-    # laplacian smooth
-    row = column.row()
-    row.label(icon='MOD_SMOOTH')
-    row.prop(option, 'laplacianSmooth', text='')
+        # hook
+        row = column.row()
+        row.label(icon='HOOK')
+        row.prop(option, 'hook', text='')
 
-    # laplacian deform
-    row = column.row()
-    row.label(icon='MOD_MESHDEFORM')
-    row.prop(option, 'laplacianDeform', text='')
+        # laplacian smooth
+        row = column.row()
+        row.label(icon='MOD_SMOOTH')
+        row.prop(option, 'laplacianSmooth', text='')
 
-    # lattice
-    row = column.row()
-    row.label(icon='MOD_LATTICE')
-    row.prop(option, 'lattice', text='')
+        # laplacian deform
+        row = column.row()
+        row.label(icon='MOD_MESHDEFORM')
+        row.prop(option, 'laplacianDeform', text='')
 
-    # mesh deform
-    row = column.row()
-    row.label(icon='MOD_MESHDEFORM')
-    row.prop(option, 'meshDeform', text='')
+        # lattice
+        row = column.row()
+        row.label(icon='MOD_LATTICE')
+        row.prop(option, 'lattice', text='')
 
-    # shrinkwrap
-    row = column.row()
-    row.label(icon='MOD_SHRINKWRAP')
-    row.prop(option, 'shrinkwrap', text='')
+        # mesh deform
+        row = column.row()
+        row.label(icon='MOD_MESHDEFORM')
+        row.prop(option, 'meshDeform', text='')
 
-    # simple deform
-    row = column.row()
-    row.label(icon='MOD_SIMPLEDEFORM')
-    row.prop(option, 'simpleDeform', text='')
+        # shrinkwrap
+        row = column.row()
+        row.label(icon='MOD_SHRINKWRAP')
+        row.prop(option, 'shrinkwrap', text='')
 
-    # smooth
-    row = column.row()
-    row.label(icon='MOD_SMOOTH')
-    row.prop(option, 'smooth', text='')
+        # simple deform
+        row = column.row()
+        row.label(icon='MOD_SIMPLEDEFORM')
+        row.prop(option, 'simpleDeform', text='')
 
-    # warp
-    row = column.row()
-    row.label(icon='MOD_WARP')
-    row.prop(option, 'warp', text='')
+        # smooth
+        row = column.row()
+        row.label(icon='MOD_SMOOTH')
+        row.prop(option, 'smooth', text='')
 
-    # wave
-    row = column.row()
-    row.label(icon='MOD_WAVE')
-    row.prop(option, 'wave', text='')
+        # warp
+        row = column.row()
+        row.label(icon='MOD_WARP')
+        row.prop(option, 'warp', text='')
 
-    # simulate
-    column = split.column()
-    column.label(text='Simulate')
+        # wave
+        row = column.row()
+        row.label(icon='MOD_WAVE')
+        row.prop(option, 'wave', text='')
 
-    # cloth
-    row = column.row()
-    row.label(icon='MOD_CLOTH')
-    row.prop(option, 'cloth', text='')
+        # simulate
+        column = split.column()
+        column.label(text='Simulate')
 
-    # collision
-    row = column.row()
-    row.label(icon='MOD_PHYSICS')
-    row.prop(option, 'collision', text='')
+        # cloth
+        row = column.row()
+        row.label(icon='MOD_CLOTH')
+        row.prop(option, 'cloth', text='')
 
-    # dynamic paint
-    row = column.row()
-    row.label(icon='MOD_DYNAMICPAINT')
-    row.prop(option, 'dynamicPaint', text='')
+        # collision
+        row = column.row()
+        row.label(icon='MOD_PHYSICS')
+        row.prop(option, 'collision', text='')
 
-    # explode
-    row = column.row()
-    row.label(icon='MOD_EXPLODE')
-    row.prop(option, 'explode', text='')
+        # dynamic paint
+        row = column.row()
+        row.label(icon='MOD_DYNAMICPAINT')
+        row.prop(option, 'dynamicPaint', text='')
 
-    # fluid simulation
-    row = column.row()
-    row.label(icon='MOD_FLUIDSIM')
-    row.prop(option, 'fluidSimulation', text='')
+        # explode
+        row = column.row()
+        row.label(icon='MOD_EXPLODE')
+        row.prop(option, 'explode', text='')
 
-    # ocean
-    row = column.row()
-    row.label(icon='MOD_OCEAN')
-    row.prop(option, 'ocean', text='')
+        # fluid simulation
+        row = column.row()
+        row.label(icon='MOD_FLUIDSIM')
+        row.prop(option, 'fluidSimulation', text='')
 
-    # particle instance
-    row = column.row()
-    row.label(icon='MOD_PARTICLES')
-    row.prop(option, 'particleInstance', text='')
+        # ocean
+        row = column.row()
+        row.label(icon='MOD_OCEAN')
+        row.prop(option, 'ocean', text='')
 
-    # particle system
-    row = column.row()
-    row.label(icon='MOD_PARTICLES')
-    row.prop(option, 'particleSystem', text='')
+        # particle instance
+        row = column.row()
+        row.label(icon='MOD_PARTICLES')
+        row.prop(option, 'particleInstance', text='')
 
-    # smoke
-    row = column.row()
-    row.label(icon='MOD_SMOKE')
-    row.prop(option, 'smoke', text='')
+        # particle system
+        row = column.row()
+        row.label(icon='MOD_PARTICLES')
+        row.prop(option, 'particleSystem', text='')
 
-    # soft body
-    row = column.row()
-    row.label(icon='MOD_SOFT')
-    row.prop(option, 'softBody', text='')
+        # smoke
+        row = column.row()
+        row.label(icon='MOD_SMOKE')
+        row.prop(option, 'smoke', text='')
 
-  # execute
-  def execute(self, context):
-    '''
-      Execute the operator.
-    '''
-    # do nothing
-    return {'FINISHED'}
+        # soft body
+        row = column.row()
+        row.label(icon='MOD_SOFT')
+        row.prop(option, 'softBody', text='')
 
-  # invoke
-  def invoke(self, context, event):
-    '''
-      Invoke the operator panel/menu, control its width.
-    '''
-    size = 600 if not context.window_manager.BatchShared.largePopups else 900
-    context.window_manager.invoke_props_dialog(self, width=size)
-    return {'RUNNING_MODAL'}
+    # execute
+    def execute(self, context):
+        '''
+            Execute the operator.
+        '''
+        # do nothing
+        return {'FINISHED'}
+
+    # invoke
+    def invoke(self, context, event):
+        '''
+            Invoke the operator panel/menu, control its width.
+        '''
+        size = 600 if not context.window_manager.BatchShared.largePopups else 900
+        context.window_manager.invoke_props_dialog(self, width=size)
+        return {'RUNNING_MODAL'}
 
 # objects
 class objectData(Operator):
-  '''
-    Invoke the auto name object data names dialogue.
-  '''
-  bl_idname = 'view3d.auto_name_object_data_names'
-  bl_label = 'Object Data Names:'
-  bl_description = 'Change the names used for objects data.'
-  bl_options = {'UNDO'}
-
-  # draw
-  def draw(self, context):
     '''
-      Draw the operator panel/menu.
+        Invoke the auto name object data names dialogue.
     '''
+    bl_idname = 'view3d.auto_name_object_data_names'
+    bl_label = 'Object Data Names:'
+    bl_description = 'Change the names used for objects data.'
+    bl_options = {'UNDO'}
 
-    # layout
-    layout = self.layout
+    # draw
+    def draw(self, context):
+        '''
+            Draw the operator panel/menu.
+        '''
 
-    # option
-    option = context.scene.ObjectDataNames
+        # layout
+        layout = self.layout
 
-    # prefix
-    layout.prop(option, 'prefix')
+        # option
+        option = context.scene.ObjectDataNames
 
-    # input fields
+        # prefix
+        layout.prop(option, 'prefix')
 
-    # mesh
-    column = layout.column()
-    row = column.row()
-    row.label(icon='MESH_DATA')
-    row.prop(option, 'mesh', text='')
+        # input fields
 
-    # curve
-    column = layout.column()
-    row = column.row()
-    row.label(icon='CURVE_DATA')
-    row.prop(option, 'curve', text='')
+        # mesh
+        column = layout.column()
+        row = column.row()
+        row.label(icon='MESH_DATA')
+        row.prop(option, 'mesh', text='')
 
-    # surface
-    column = layout.column()
-    row = column.row()
-    row.label(icon='SURFACE_DATA')
-    row.prop(option, 'surface', text='')
+        # curve
+        column = layout.column()
+        row = column.row()
+        row.label(icon='CURVE_DATA')
+        row.prop(option, 'curve', text='')
 
-    # meta
-    column = layout.column()
-    row = column.row()
-    row.label(icon='META_DATA')
-    row.prop(option, 'meta', text='')
+        # surface
+        column = layout.column()
+        row = column.row()
+        row.label(icon='SURFACE_DATA')
+        row.prop(option, 'surface', text='')
 
-    # font
-    column = layout.column()
-    row = column.row()
-    row.label(icon='FONT_DATA')
-    row.prop(option, 'font', text='')
+        # meta
+        column = layout.column()
+        row = column.row()
+        row.label(icon='META_DATA')
+        row.prop(option, 'meta', text='')
 
-    # armature
-    column = layout.column()
-    row = column.row()
-    row.label(icon='ARMATURE_DATA')
-    row.prop(option, 'armature', text='')
+        # font
+        column = layout.column()
+        row = column.row()
+        row.label(icon='FONT_DATA')
+        row.prop(option, 'font', text='')
 
-    # lattice
-    column = layout.column()
-    row = column.row()
-    row.label(icon='LATTICE_DATA')
-    row.prop(option, 'lattice', text='')
+        # armature
+        column = layout.column()
+        row = column.row()
+        row.label(icon='ARMATURE_DATA')
+        row.prop(option, 'armature', text='')
 
-    # speaker
-    column = layout.column()
-    row = column.row()
-    row.label(icon='SPEAKER')
-    row.prop(option, 'speaker', text='')
+        # lattice
+        column = layout.column()
+        row = column.row()
+        row.label(icon='LATTICE_DATA')
+        row.prop(option, 'lattice', text='')
 
-    # camera
-    column = layout.column()
-    row = column.row()
-    row.label(icon='CAMERA_DATA')
-    row.prop(option, 'camera', text='')
+        # speaker
+        column = layout.column()
+        row = column.row()
+        row.label(icon='SPEAKER')
+        row.prop(option, 'speaker', text='')
 
-    # lamp
-    column = layout.column()
-    row = column.row()
-    row.label(icon='LAMP_DATA')
-    row.prop(option, 'lamp', text='')
+        # camera
+        column = layout.column()
+        row = column.row()
+        row.label(icon='CAMERA_DATA')
+        row.prop(option, 'camera', text='')
 
-  # execute
-  def execute(self, context):
-    '''
-      Execute the operator.
-    '''
-    # do nothing
-    return {'FINISHED'}
+        # lamp
+        column = layout.column()
+        row = column.row()
+        row.label(icon='LAMP_DATA')
+        row.prop(option, 'lamp', text='')
 
-  # invoke
-  def invoke(self, context, event):
-    '''
-      Invoke the operator panel/menu, control its width.
-    '''
-    size = 150 if not context.window_manager.BatchShared.largePopups else 225
-    context.window_manager.invoke_props_dialog(self, width=size)
-    return {'RUNNING_MODAL'}
+    # execute
+    def execute(self, context):
+        '''
+            Execute the operator.
+        '''
+        # do nothing
+        return {'FINISHED'}
+
+    # invoke
+    def invoke(self, context, event):
+        '''
+            Invoke the operator panel/menu, control its width.
+        '''
+        size = 150 if not context.window_manager.BatchShared.largePopups else 225
+        context.window_manager.invoke_props_dialog(self, width=size)
+        return {'RUNNING_MODAL'}

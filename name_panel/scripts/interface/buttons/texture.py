@@ -1,8 +1,8 @@
 
 # texture
 def Texture(self, context, layout, datablock):
-  '''
-    Texture buttons.
-  '''
+    '''
+        Texture buttons.
+    '''
 
-  pass
+    pass

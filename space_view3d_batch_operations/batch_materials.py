@@ -41,7 +41,7 @@ from {0}dairin0d.utils_addon import AddonManager
 """.format(dairin0d_location))
 
 from .batch_common import (
-    LeftRightPanel, make_category, idnames_separator
+    LeftRightPanel, make_category, idnames_separator, iterate_workset
 )
 
 addon = AddonManager()
@@ -139,7 +139,7 @@ class BatchOperations:
     
     @classmethod
     def iterate_objects(cls, search_in, context=None):
-        return BlUtil.Object.iterate(search_in, context, BlEnums.object_types_geometry)
+        return iterate_workset(search_in, context, BlEnums.object_types_geometry)
     
     @classmethod
     def split_idnames(cls, idnames):

@@ -25,28 +25,11 @@ from mathutils import Matrix
 
 import sverchok
 from sverchok.node_tree import SverchCustomTreeNode
-
-from sverchok.data_structure import (
-    node_id, updateNode, dataCorrect,
-    Vector_generate, Matrix_generate)
-
+from sverchok.data_structure import node_id, updateNode, dataCorrect, Matrix_generate
 from sverchok.ui.viewer_draw_mk2 import callback_disable, callback_enable
 
+
 cache_viewer_baker = {}
-
-sock_dict = {
-    'v': 'VerticesSocket',
-    's': 'StringsSocket',
-    'm': 'MatrixSocket'
-}
-
-reverse_sock_dict = {
-    'VerticesSocket': 'v',
-    'StringsSocket': 's',
-    'MatrixSocket': 'm'
-}
-
-
 
 class SvObjBakeMK2(bpy.types.Operator):
     """ B A K E   OBJECTS """
@@ -101,7 +84,6 @@ class SvObjBakeMK2(bpy.types.Operator):
         except:
             num_keys = 0
 
-        vertices = Vector_generate(vers)
         matrixes = Matrix_generate(mats)
         edgs, pols, max_vert_index, fht = [], [], [], []
 
@@ -111,17 +93,17 @@ class SvObjBakeMK2(bpy.types.Operator):
                 fht.append(maxi)
 
         for u, f in enumerate(fht):
-            max_vert_index.append(min(len(vertices[u]), fht[u]))
+            max_vert_index.append(min(len(vers[u]), fht[u]))
 
         objects = {}
         for i, m in enumerate(matrixes):
             k = i
-            lenver = len(vertices) - 1
+            lenver = len(vers) - 1
             if i > lenver:
-                v = vertices[-1]
+                v = vers[-1]
                 k = lenver
             else:
-                v = vertices[k]
+                v = vers[k]
 
             if max_vert_index:
                 if (len(v) - 1) < max_vert_index[k]:
@@ -179,7 +161,7 @@ class SvObjBakeMK2(bpy.types.Operator):
 
 
 class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
-    ''' ViewerNode2 '''
+    ''' vd View Geometry /// ViewerNode2 '''
     bl_idname = 'ViewerNode2'
     bl_label = 'Viewer Draw'
     bl_icon = 'RETOPO'
@@ -301,13 +283,15 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
         self.draw_main_ui_elements(context, layout)
 
         if self.bakebuttonshow:
-            row = layout.row()
+            row = layout.row(align=True)
             addon = context.user_preferences.addons.get(sverchok.__name__)
             row.scale_y = 4.0 if addon.preferences.over_sized_buttons else 1
 
             opera = row.operator('node.sverchok_mesh_baker_mk2', text="B A K E")
             opera.idname = self.name
             opera.idtree = self.id_data.name
+            row.separator()
+            row.operator("node.view3d_align_from", text='', icon='CURSOR')
 
     def draw_buttons_ext(self, context, layout):
 
@@ -340,11 +324,16 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
     def copy(self, node):
         self.n_id = ''
 
+
     def update(self):
         if not ("matrix" in self.inputs):
             return
-        if self.inputs[0].links or self.inputs[2].links:
-            callback_disable(node_id(self))
+        try:
+            if not (self.inputs[0].other or self.inputs[2].other):
+                callback_disable(node_id(self))
+        except:
+            print('vdmk2 update holdout')
+
 
     def process(self):
         if not (self.id_data.sv_show and self.activate):
@@ -366,20 +355,9 @@ class ViewerNode2(bpy.types.Node, SverchCustomTreeNode):
         # every time you hit a dot, you pay a price, so alias and benefit
         inputs = self.inputs
 
-        # this should catch accidental connections which otherwise will cause
-        # an unrecoverable crash. It might even be an idea to have step in between
-        # new connections and processing, it could auto rewire s->s v->v m->m.
-        def check_origin(to_socket, socket_type):
-            origin_socket_bl_idname = inputs[to_socket].other.bl_idname
-
-            if isinstance(socket_type, str):
-                return origin_socket_bl_idname == sock_dict.get(socket_type)
-            else:
-                return reverse_sock_dict.get(origin_socket_bl_idname) in socket_type
-
-        vertex_links = inputs['vertices'].is_linked and check_origin('vertices', ('v', 'm'))
-        matrix_links = inputs['matrix'].is_linked and check_origin('matrix', ('m', 'v'))
-        edgepol_links = inputs['edg_pol'].is_linked and check_origin('edg_pol', 's')
+        vertex_links = inputs['vertices'].is_linked
+        matrix_links = inputs['matrix'].is_linked
+        edgepol_links = inputs['edg_pol'].is_linked
 
         if vertex_links or matrix_links:
 

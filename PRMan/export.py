@@ -1,6 +1,6 @@
 # ##### BEGIN MIT LICENSE BLOCK #####
 #
-# Copyright (c) 2015 Brian Savery
+# Copyright (c) 2015 - 2017 Pixar
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,7 +47,8 @@ from .util import debug, get_addon_prefs
 
 from .util import find_it_path
 from .nodes import export_shader_nodetree, get_textures, get_textures_for_node, get_tex_file_name
-from .nodes import shader_node_rib
+from .nodes import shader_node_rib, get_mat_name
+from .nodes import replace_frame_num
 
 addon_version = bl_info['version']
 
@@ -108,8 +109,7 @@ def is_visible_layer(scene, ob):
 
 def is_renderable(scene, ob):
     return (is_visible_layer(scene, ob) and not ob.hide_render) or \
-        (ob.type in ['ARMATURE', 'LATTICE', 'EMPTY']
-         and ob.dupli_type not in SUPPORTED_DUPLI_TYPES)
+        (ob.type in ['ARMATURE', 'LATTICE', 'EMPTY'] and ob.dupli_type not in SUPPORTED_DUPLI_TYPES)
     # and not ob.type in ('CAMERA', 'ARMATURE', 'LATTICE'))
 
 
@@ -126,7 +126,7 @@ def is_renderable_or_parent(scene, ob):
 
 
 def is_data_renderable(scene, ob):
-    return (is_visible_layer(scene, ob) and not ob.hide_render and not ob.type in ('EMPTY', 'ARMATURE', 'LATTICE'))
+    return (is_visible_layer(scene, ob) and not ob.hide_render and ob.type not in ('EMPTY', 'ARMATURE', 'LATTICE'))
 
 
 def renderable_objects(scene):
@@ -390,6 +390,8 @@ def get_strands(scene, ob, psys, objectCorrectionMatrix=False):
 
 # only export particles that are alive,
 # or have been born since the last frame
+
+
 def valid_particle(pa, valid_frames):
     return pa.die_time >= valid_frames[-1] and pa.birth_time <= valid_frames[0]
 
@@ -550,7 +552,7 @@ def get_primvars(ob, geo, interpolation=""):
     return primvars
 
 
-def get_primvars_particle(scene, psys):
+def get_primvars_particle(scene, psys, subframes):
     primvars = {}
     rm = psys.settings.renderman
     cfra = scene.frame_current
@@ -561,37 +563,40 @@ def get_primvars_particle(scene, psys):
         if p.data_source in ('VELOCITY', 'ANGULAR_VELOCITY'):
             if p.data_source == 'VELOCITY':
                 for pa in \
-                        [p for p in psys.particles if valid_particle(p, [cfra, cfra])]:
+                        [p for p in psys.particles if valid_particle(p, subframes)]:
                     pvars.extend(pa.velocity)
             elif p.data_source == 'ANGULAR_VELOCITY':
                 for pa in \
-                        [p for p in psys.particles if valid_particle(p, [cfra, cfra])]:
+                        [p for p in psys.particles if valid_particle(p, subframes)]:
                     pvars.extend(pa.angular_velocity)
 
             primvars["uniform float[3] %s" % p.name] = pvars
 
         elif p.data_source in \
-                ('SIZE', 'AGE', 'BIRTH_TIME', 'DIE_TIME', 'LIFE_TIME'):
+                ('SIZE', 'AGE', 'BIRTH_TIME', 'DIE_TIME', 'LIFE_TIME', 'ID'):
             if p.data_source == 'SIZE':
                 for pa in \
-                        [p for p in psys.particles if valid_particle(p, [cfra, cfra])]:
+                        [p for p in psys.particles if valid_particle(p, subframes)]:
                     pvars.append(pa.size)
             elif p.data_source == 'AGE':
                 for pa in \
-                        [p for p in psys.particles if valid_particle(p, [cfra, cfra])]:
+                        [p for p in psys.particles if valid_particle(p, subframes)]:
                     pvars.append((cfra - pa.birth_time) / pa.lifetime)
             elif p.data_source == 'BIRTH_TIME':
                 for pa in \
-                        [p for p in psys.particles if valid_particle(p, [cfra, cfra])]:
+                        [p for p in psys.particles if valid_particle(p, subframes)]:
                     pvars.append(pa.birth_time)
             elif p.data_source == 'DIE_TIME':
                 for pa in \
-                        [p for p in psys.particles if valid_particle(p, [cfra, cfra])]:
+                        [p for p in psys.particles if valid_particle(p, subframes)]:
                     pvars.append(pa.die_time)
             elif p.data_source == 'LIFE_TIME':
                 for pa in \
-                        [p for p in psys.particles if valid_particle(p, [cfra, cfra])]:
+                        [p for p in psys.particles if valid_particle(p, subframes)]:
                     pvars.append(pa.lifetime)
+            elif p.data_source == 'ID':
+                pvars = [id for id, p in psys.particles.items(
+                ) if valid_particle(p, subframes)]
 
             primvars["varying float %s" % p.name] = pvars
 
@@ -653,23 +658,24 @@ def modify_light_matrix(m, ob):
         m2 = Matrix.Rotation(math.radians(180), 4, 'X')
         m = m * m2
         if ob.data.type == 'AREA':
-            if data.renderman.area_shape == 'rect':
-                m = m * Matrix.Scale(data.size, 4, (1, 0, 0)) * \
-                    Matrix.Scale(data.size_y, 4, (0, 1, 0))
-            else:
-                m = m * Matrix.Scale(data.size, 4, (1,1,1))
+            m[0][0] *= data.size
+            m[1][1] *= data.size
+            if data.renderman.area_shape == 'sphere':
+                m[2][2] *= data.size
         elif ob.data.type == 'SPOT':
-            m = m * Matrix.Scale(.01, 4, (1, 0, 0)) * \
-                    Matrix.Scale(.01, 4, (0, 1, 0))
+            m[0][0] *= .01
+            m[1][1] *= .01
     elif ob.data.type == 'POINT':
-        m = m * Matrix.Scale(.001, 4, (1, 0, 0)) * Matrix.Scale(.001, 4, (0, 1, 0)) * Matrix.Scale(.001, 4, (0, 0, 1))
-        
+        m[0][0] *= .001
+        m[1][1] *= .001
+        m[2][2] *= .001
+    
     if ob.data.type in ['HEMI']:
         eul = m.to_euler()
         eul = Euler([eul[0], eul[1], eul[2]], eul.order)
         m = eul.to_matrix().to_4x4()
         m = m * Matrix.Rotation(math.pi, 4, 'Z')
-    elif ob.data.renderman.renderman_type != "FILTER":
+    elif ob.data.renderman.renderman_type not in ["FILTER"]:
         m = m * Matrix.Scale(-1.0, 4, (1, 0, 0))
 
     return m
@@ -737,27 +743,56 @@ def export_light_filters(ri, lamp, do_coordsys=False):
             ), light_filter.data.name, params)
 
 
-def export_light_shaders(ri, lamp, group_name=''):
+def export_light_shaders(ri, lamp, group_name='', portal_parent=''):
     handle = lamp.name
     rm = lamp.renderman
     # need this for rerendering
     ri.Attribute('identifier', {'string name': handle})
-    
+
     # do the shader
     light_shader = rm.get_light_node()
     if light_shader:
         # make sure the shape is set on PxrStdAreaLightShape
-        
+
         params = property_group_to_params(light_shader)
         params['__instanceid'] = handle
         params['string lightGroup'] = group_name
         if hasattr(light_shader, 'iesProfile'):
-            params['string iesProfile'] = bpy.path.abspath(light_shader.iesProfile)
+            params['string iesProfile'] = bpy.path.abspath(
+                light_shader.iesProfile)
         if lamp.type == 'SPOT':
             params['float coneAngle'] = math.degrees(lamp.spot_size)
             params['float coneSoftness'] = lamp.spot_blend
         if lamp.type in ['SPOT', 'POINT']:
             params['int areaNormalize'] = 1
+        if rm.renderman_type == 'PORTAL' and portal_parent and portal_parent.type == 'LAMP' \
+                and portal_parent.data.renderman.renderman_type == 'ENV':
+            parent_node = portal_parent.data.renderman.get_light_node()
+            parent_params = property_group_to_params(parent_node)
+            params['string domeSpace'] = portal_parent.name
+            params['string portalName'] = handle
+            params['string domeColorMap'] = parent_params[
+                'string lightColorMap']
+            if 'vector colorMapGamma' in params and params['vector colorMapGamma'] == (1.0, 1.0, 1.0):
+                params['vector colorMapGamma'] = parent_params[
+                    'vector colorMapGamma']
+            if 'float colorMapSaturation' in params and params['float colorMapSaturation'] == 1.0:
+                params['float colorMapSaturation'] = parent_params[
+                    'float colorMapSaturation']
+            params['float intensity'] = parent_params[
+                'float intensity'] * params['float intensityMult']
+            del params['float intensityMult']
+            params['float exposure'] = parent_params['float exposure']
+            params['color lightColor'] = [
+                i * j for i, j in zip(parent_params['color lightColor'], params['color tint'])]
+            del params['color tint']
+            if not params['int enableTemperature']:
+                params['int enableTemperature'] = parent_params[
+                    'int enableTemperature']
+                params['float temperature'] = parent_params[
+                    'float temperature']
+            params['float specular'] *= parent_params['float specular']
+            params['float diffuse'] *= parent_params['float diffuse']
 
         primary_vis = rm.light_primary_visibility
         ri.Attribute("visibility", {'int transmission': 0, 'int indirect': 0,
@@ -796,7 +831,7 @@ def export_world(ri, world, do_geometry=True):
         m = m * Matrix.Scale(-1.0, 4, (1, 0, 0))
         ri.Transform(rib(m))
         # No need to name Coordinate System system for world.
-        #ri.ShadingRate(rm.shadingrate)
+        # ri.ShadingRate(rm.shadingrate)
 
     handle = world.name
     # need this for rerendering
@@ -828,7 +863,7 @@ def get_light_group(light_ob):
     return ''
 
 
-def export_light(ri, instance):
+def export_light(ri, instance, instances):
     ob = instance.ob
     lamp = ob.data
     rm = lamp.renderman
@@ -839,29 +874,40 @@ def export_light(ri, instance):
         ri.TransformBegin()
         export_transform(ri, instance)
         ri.TransformEnd()
-
     else:
         ri.AttributeBegin()
         ri.Attribute("identifier", {"string name": lamp.name})
 
+        if rm.renderman_type == 'PORTAL' and ob.parent and ob.parent.type == 'LAMP' and \
+                ob.parent.data.renderman.renderman_type == 'ENV':
+            export_transform(ri, instances[ob.parent.name])
+
         export_transform(ri, instance)
 
         export_light_filters(ri, lamp)
-        export_light_shaders(ri, lamp, get_light_group(ob))
+        child_portals = []
+        if rm.renderman_type == 'ENV' and ob.children:
+            child_portals = [child for child in ob.children if child.type == 'LAMP' and
+                             child.data.renderman.renderman_type == 'PORTAL']
+        # if this is an env light and there are portals just do those instead
+        # of shader
+        if not child_portals:
+            export_light_shaders(ri, lamp, get_light_group(ob), ob.parent)
 
         ri.AttributeEnd()
 
-        # illuminate if illumintaes and not muted
-        do_light = rm.illuminates_by_default and not rm.mute
-        if bpy.context.scene.renderman.solo_light:
-            # check if solo
-            do_light = do_light and rm.solo
-        ri.Illuminate(lamp.name, do_light)
-        for lf in rm.light_filters:
-            if lf.filter_name in bpy.data.objects:
-                filter = bpy.data.objects[lf.filter_name].data
-                ri.EnableLightFilter(lamp.name, filter.name,
-                                     filter.renderman.illuminates_by_default)
+        if not child_portals:
+            # illuminate if illumintaes and not muted
+            do_light = rm.illuminates_by_default and not rm.mute
+            if bpy.context.scene.renderman.solo_light:
+                # check if solo
+                do_light = do_light and rm.solo
+            ri.Illuminate(lamp.name, do_light)
+            for lf in rm.light_filters:
+                if lf.filter_name in bpy.data.objects:
+                    filter = bpy.data.objects[lf.filter_name].data
+                    ri.EnableLightFilter(lamp.name, filter.name,
+                                         filter.renderman.illuminates_by_default)
 
 
 def export_material(ri, mat, handle=None, iterate_instance=False):
@@ -879,7 +925,7 @@ def export_material(ri, mat, handle=None, iterate_instance=False):
 
 def export_material_archive(ri, mat):
     if mat:
-        ri.ReadArchive('material.' + mat.name)
+        ri.ReadArchive('material.' + get_mat_name(mat.name))
 
 
 def export_motion_begin(ri, motion_data):
@@ -897,7 +943,7 @@ def export_hair(ri, scene, ob, psys, data, objectCorrectionMatrix=False):
         scene, ob, psys, objectCorrectionMatrix)
 
     for vertsArray, points, widthString, widths, scalpS, scalpT in curves:
-        params = {"P": rib(points), widthString: widths}
+        params = {"P": rib(points), widthString: widths, 'uniform integer index': range(len(vertsArray))}
         if len(scalpS):
             params['uniform float scalpS'] = scalpS
             params['uniform float scalpT'] = scalpT
@@ -939,19 +985,22 @@ def geometry_source_rib(ri, scene, ob):
                           rib(bounds))
 
         elif rm.geometry_source == 'OPENVDB':
-            openvdb_file = rib_path(get_sequence_path(rm.path_archive,
-                                                      blender_frame, anim))
-            params = {"constant string[2] blobbydso:stringargs": [openvdb_file, "density"]}
+            openvdb_file = rib_path(replace_frame_num(rm.path_archive))
+            params = {"constant string[2] blobbydso:stringargs": [
+                openvdb_file, "density"]}
             for channel in rm.openvdb_channels:
                 if channel.name != '':
                     params['varying %s %s' % (channel.type, channel.name)] = []
             ri.Volume("blobbydso:impl_openvdb", rib(bounds), [0, 0, 0],
-                params)
+                      params)
+
 
 def export_blobby_particles(ri, scene, psys, ob, motion_data):
     rm = psys.settings.renderman
     if len(motion_data) > 1:
         export_motion_begin(ri, motion_data)
+
+    subframes = [scene.frame_current + i for (i, data) in motion_data]
 
     for (i, (P, rot, widths)) in motion_data:
         op = []
@@ -975,7 +1024,7 @@ def export_blobby_particles(ri, scene, psys, ob, motion_data):
             op.append(n)
 
         st = ('',)
-        parm = get_primvars_particle(scene, psys)
+        parm = get_primvars_particle(scene, psys, subframes)
         ri.Blobby(count, op, tform, st, parm)
     if len(motion_data) > 1:
         ri.MotionEnd()
@@ -984,7 +1033,8 @@ def export_blobby_particles(ri, scene, psys, ob, motion_data):
 def export_particle_instances(ri, scene, rpass, psys, ob, motion_data, type='OBJECT'):
     rm = psys.settings.renderman
 
-    params = get_primvars_particle(scene, psys)
+    params = get_primvars_particle(
+        scene, psys, [scene.frame_current + i for (i, data) in motion_data])
 
     if type == 'OBJECT':
         master_ob = bpy.data.objects[rm.particle_instance_object]
@@ -1046,7 +1096,8 @@ def export_particle_points(ri, scene, psys, ob, motion_data, objectCorrectionMat
         export_motion_begin(ri, motion_data)
 
     for (i, (P, rot, width)) in motion_data:
-        params = get_primvars_particle(scene, psys)
+        params = get_primvars_particle(
+            scene, psys, [scene.frame_current + i for (i, data) in motion_data])
         params[ri.P] = rib(P)
         params["uniform string type"] = rm.particle_type
         if rm.constant_width:
@@ -1146,12 +1197,12 @@ def export_scene_lights(ri, instances):
     export_comment(ri, '##Light Filters')
     for instance in [inst for name, inst in instances.items() if inst.type == 'LAMP']:
         if instance.ob.data.renderman.renderman_type == 'FILTER':
-            export_light(ri, instance)
+            export_light(ri, instance, instances)
 
     export_comment(ri, '##Lights')
     for instance in [inst for name, inst in instances.items() if inst.type == 'LAMP']:
-        if instance.ob.data.renderman.renderman_type != 'FILTER':
-            export_light(ri, instance)
+        if instance.ob.data.renderman.renderman_type not in ['FILTER']:
+            export_light(ri, instance, instances)
 
 
 def export_default_bxdf(ri, name):
@@ -1163,10 +1214,10 @@ def export_default_bxdf(ri, name):
 def export_shader(ri, mat):
     rm = mat.renderman
     # if rm.surface_shaders.active == '' or not rpass.surface_shaders: return
-    name = mat.name
+    name = get_mat_name(mat.name)
     params = {"color baseColor": rib(mat.diffuse_color),
               "float specular": mat.specular_intensity,
-              'string __instanceid': mat.name}
+              'string __instanceid': get_mat_name(mat.name)}
 
     if mat.emit:
         params["color emitColor"] = rib(mat.diffuse_color)
@@ -1176,7 +1227,7 @@ def export_shader(ri, mat):
             rib(mat.subsurface_scattering.color)
     if mat.raytrace_mirror.use:
         params["float metallic"] = mat.raytrace_mirror.reflect_factor
-    ri.Bxdf("PxrDisney", mat.name, params)
+    ri.Bxdf("PxrDisney", get_mat_name(mat.name), params)
 
 
 def is_smoke(ob):
@@ -1272,7 +1323,8 @@ def export_subdivision_mesh(ri, scene, ob, data=None):
         return
     tags = ['interpolateboundary', 'facevaryinginterpolateboundary']
     nargs = [1, 0, 1, 0]
-    intargs = [ob.data.renderman.interp_boundary, ob.data.renderman.face_boundary]
+    intargs = [ob.data.renderman.interp_boundary,
+               ob.data.renderman.face_boundary]
     floatargs = []
 
     primvars = get_primvars(ob, mesh, "facevarying")
@@ -1334,26 +1386,32 @@ def get_mats_faces(nverts, primvars):
 def split_multi_mesh(nverts, verts, primvars):
     if "uniform float material_id" not in primvars:
         return {0: (nverts, verts, primvars)}
-
     else:
         meshes = {}
         vert_index = 0
-
         for face_id, num_verts in enumerate(nverts):
             mat_id = primvars["uniform float material_id"][face_id]
             if mat_id not in meshes:
                 meshes[mat_id] = ([], [], {'P': []})
-                if "facevarying float[2] st" in primvars:
-                    meshes[mat_id][2]["facevarying float[2] st"] = []
-                if "varying normal N" in primvars:
-                    meshes[mat_id][2]["varying normal N"] = []
+                for key, val in primvars.items():
+                    if "facevarying" not in key:
+                        continue
+                    meshes[mat_id][2][key] = []
 
             meshes[mat_id][0].append(num_verts)
             meshes[mat_id][1].extend(verts[vert_index:vert_index + num_verts])
-            if "facevarying float[2] st" in primvars:
-                meshes[mat_id][2]["facevarying float[2] st"].extend(
-                    primvars["facevarying float[2] st"][vert_index * 2:
-                                                        vert_index * 2 + num_verts * 2])
+            for key, val in primvars.items():
+                if "facevarying" not in key:
+                    continue
+                item_len = 3
+                item_type = key.split()[1]
+                if "int" in item_type or "float" in item_type:
+                    item_len = 1
+                    if "[" in item_type:
+                        item_len = int(item_type.split('[')[1].split(']')[0])
+                meshes[mat_id][2][key].extend(
+                    primvars[key][vert_index * item_len:
+                                  vert_index * item_len + num_verts * item_len])
             vert_index += num_verts
 
         # now sort the verts and replace
@@ -1364,14 +1422,9 @@ def split_multi_mesh(nverts, verts, primvars):
                 vert_mapping[v_index] = i
                 mat_mesh[2]['P'].extend(
                     primvars['P'][int(v_index * 3):int(v_index * 3) + 3])
-                if "varying normal N" in primvars:
-                    mat_mesh[2]['varying normal N'].extend(
-                        primvars['varying normal N'][int(v_index * 3):
-                                                     int(v_index * 3) + 3])
 
             for i, vert_old in enumerate(mat_mesh[1]):
                 mat_mesh[1][i] = vert_mapping[vert_old]
-
         return meshes
 
 
@@ -1464,7 +1517,7 @@ def export_openVDB(ri, ob):
         debug('error', "Please save and export OpenVDB files before rendering.")
         return
     params = {"constant string[2] blobbydso:stringargs": [cacheFile, "density:fogvolume"], "varying float density": [],
-              "varying float flame": [], "varying color color": []}
+              "varying float flame": [], "varying float heat": []}
     ri.Volume("blobbydso:impl_openvdb", rib_ob_bounds(ob.bound_box), [0, 0, 0],
               params)
 
@@ -1498,9 +1551,11 @@ def export_smoke(ri, ob):
     ri.Volume("box", rib_ob_bounds(ob.bound_box),
               smoke_res, params)
 
-def export_volume(ri,ob):
+
+def export_volume(ri, ob):
     rm = ob.renderman
     ri.Volume("box", rib_ob_bounds(ob.bound_box), [0, 0, 0])
+
 
 def export_sphere(ri, ob):
     rm = ob.renderman
@@ -1670,6 +1725,8 @@ def is_transforming(ob, do_mb, recurse=False):
     transforming = (do_mb and ob.animation_data is not None)
     if not transforming and ob.parent:
         transforming = is_transforming(ob.parent, do_mb, recurse=True)
+        if not transforming and ob.parent.type == 'CURVE' and ob.parent.data:
+            transforming = ob.parent.data.use_path
     return transforming
 
 
@@ -1736,9 +1793,19 @@ def has_emissive_material(db):
     return False
 
 
+def export_for_bake(db):
+    for mat in db.material:
+        if mat and mat.node_tree:
+            for n in mat.node_tree.nodes:
+                if n.bl_idname in ("PxrBakeTexturePatternNode", "PxrBakePointCloudPatternNode"):
+                    return True
+        return False
+
 # return if a psys should be animated
 # NB:  we ALWAYS need the animating psys if the emitter is transforming,
 # not just if MB is on
+
+
 def is_psys_animating(ob, psys, do_mb):
     return (psys.settings.frame_start != psys.settings.frame_end) or is_transforming(ob, True, recurse=True)
 
@@ -1749,11 +1816,12 @@ def is_psys_animating(ob, psys, do_mb):
 
 
 def get_instances_and_blocks(obs, rpass):
+    bake = rpass.bake
     instances = {}
     data_blocks = {}
     motion_segs = {}
     scene = rpass.scene
-    mb_on = scene.renderman.motion_blur
+    mb_on = scene.renderman.motion_blur if not bake else False
     mb_segs = scene.renderman.motion_segments
 
     for ob in obs:
@@ -1770,7 +1838,9 @@ def get_instances_and_blocks(obs, rpass):
             # now get the data_blocks for the instance
             inst_data_blocks = get_data_blocks_needed(ob, rpass, mb_on)
             for db in inst_data_blocks:
-                if not db.dupli_data:
+                do_db = False if (bake and not export_for_bake(db)) else True
+
+                if do_db and not db.dupli_data:
                     inst.data_block_names.append(db.name)
 
                 # if this data_block is already in the list to export...
@@ -1778,12 +1848,13 @@ def get_instances_and_blocks(obs, rpass):
                     continue
 
                 # add data_block to mb list
-                if db.deforming and mb_on:
+                if do_db and db.deforming and mb_on:
                     if ob_mb_segs not in motion_segs:
                         motion_segs[ob_mb_segs] = ([], [])
                     motion_segs[ob_mb_segs][1].append(db.name)
 
-                data_blocks[db.name] = db
+                if do_db:
+                    data_blocks[db.name] = db
 
             instances[inst.name] = inst
 
@@ -1840,7 +1911,7 @@ def get_dupli_block(ob, rpass, do_mb):
                 dbs.extend(sub_dbs)
         archive_filename = get_archive_filename(name, rpass, deforming)
         dbs.append(DataBlock(name, "DUPLI", archive_filename, ob, deforming=deforming,
-                             dupli_data=True, 
+                             dupli_data=True,
                              do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
         return dbs
 
@@ -1911,7 +1982,6 @@ def get_data_blocks_needed(ob, rpass, do_mb):
         archive_filename = get_archive_filename(name, rpass, dupli_deforming)
         data_blocks.append(DataBlock(name, "DUPLI", archive_filename, ob, dupli_deforming,
                                      do_export=file_is_dirty(rpass.scene, ob, archive_filename)))
-        
 
     # now the objects data
     if is_data_renderable(rpass.scene, ob) and emit_ob:
@@ -2018,7 +2088,8 @@ def cache_motion(scene, rpass, objects=None):
                 get_transform(instances[name], seg)
 
             for name in data_names:
-                get_deformation(data_blocks[name], seg, scene, actual_subframes)
+                get_deformation(data_blocks[name],
+                                seg, scene, actual_subframes)
 
     scene.frame_set(origframe, 0)
 
@@ -2073,7 +2144,7 @@ def export_RIBArchive_data_archive(ri, scene, rpass, data_blocks, exportMaterial
         if db.type == "MESH":
             # Gets the world location and uses the ri transform to set it in
             # the archive.
-            if(objectMatrix == True):
+            if objectMatrix:
                 ri.Transform(rib(db.data.matrix_world))
                 ri.CoordinateSystem(db.name)
             export_mesh_archive(ri, scene, db)
@@ -2109,7 +2180,11 @@ def export_instance_read_archive(ri, instance, instances, data_blocks, rpass, is
     for child_name in instance.children:
         if child_name in instances:
             export_instance_read_archive(
-                ri, instances[child_name], instances, data_blocks, rpass, is_child=True)
+                ri, instances[child_name], instances, data_blocks, rpass, is_child=True, visible_objects=visible_objects)
+
+    if instance.ob and instance.ob.renderman.post_object_rib_box != '':
+        export_rib_box(ri, instance.ob.renderman.post_object_rib_box)
+
     ri.AttributeEnd()
 
 
@@ -2120,11 +2195,9 @@ def export_data_read_archive(ri, data_block, rpass):
         export_material_archive(ri, mat)
 
     archive_filename = relpath_archive(data_block.archive_filename, rpass)
-    for mat in data_block.material:
-        export_material_archive(ri, mat)
 
     # we want these relative paths of the archive
-    if data_block.type == 'MESH':
+    if data_block.type == 'MESH' and not rpass.bake:
         # PxrMeshLight can't be in DRA
         if has_emissive_material(data_block):
             ri.ReadArchive(archive_filename)
@@ -2150,8 +2223,8 @@ def export_data_rib_archive(ri, data_block, instance, rpass):
 
     for mat in data_block.material:
         export_material_archive(ri, mat)
-    
-    if rm.geometry_source == "ARCHIVE":
+
+    if rm.geometry_source == "ARCHIVE" and ".zip" in instance.ob.renderman.path_archive:
         arvhiveInfo = instance.ob.renderman
         relPath = os.path.splitext(get_real_path(arvhiveInfo.path_archive))[0]
         archiveFileExtention = ".zip"
@@ -2243,21 +2316,13 @@ def export_object_attributes(ri, scene, ob, visible_objects):
     if rm.pre_object_rib_box != '':
         export_rib_box(ri, rm.pre_object_rib_box)
 
-    # This is a temporary hack until multiple lpe groups are introduced in 21.0
     obj_groups_str = "*"
-    do_holdout = False
     for obj_group in scene.renderman.object_groups:
         if ob.name in obj_group.members.keys():
             obj_groups_str += ',' + obj_group.name
-            if obj_group.name == 'collector':
-                do_holdout = True
     # add to trace sets
-    ri.Attribute("grouping", {"string membership": obj_groups_str})
-
-    # add to lpe groups
-    #ri.Attribute("identifier", {"string lpegroup": obj_groups_str})
-
     if obj_groups_str != '*':
+        ri.Attribute("grouping", {"string membership": obj_groups_str})
         ri.Attribute("identifier", {
                      "string lpegroup": obj_groups_str})
 
@@ -2266,9 +2331,11 @@ def export_object_attributes(ri, scene, ob, visible_objects):
         dice_params = {}
         # output motionfactor always, could not find documented default value?
         if ob.renderman.geometric_approx_focus != -1.0:
-            approx_params["float focusfactor"] = ob.renderman.geometric_approx_focus
+            approx_params[
+                "float focusfactor"] = ob.renderman.geometric_approx_focus
         if ob.renderman.geometric_approx_motion != 1.0:
-            approx_params["float motionfactor"] = ob.renderman.geometric_approx_motion
+            approx_params[
+                "float motionfactor"] = ob.renderman.geometric_approx_motion
         if ob.renderman.shadingrate != 1:
             dice_params["float micropolygonlength"] = ob.renderman.shadingrate
         if ob.renderman.watertight:
@@ -2290,12 +2357,13 @@ def export_object_attributes(ri, scene, ob, visible_objects):
     # ray tracing attributes
     trace_params = {}
     shade_params = {}
-    if do_holdout:
-        trace_params['int holdout'] = True
     if ob.renderman.raytrace_intersectpriority != 0:
         trace_params[
             "int intersectpriority"] = ob.renderman.raytrace_intersectpriority
         shade_params["float indexofrefraction"] = ob.renderman.raytrace_ior
+
+    if ob.renderman.holdout:
+        trace_params["int holdout"] = 1
 
     if ob.renderman.raytrace_override:
         if ob.renderman.raytrace_maxdiffusedepth != 1:
@@ -2367,11 +2435,10 @@ def export_object_attributes(ri, scene, ob, visible_objects):
             user_attr["color %s" % name] = rib(getattr(rm, name))
 
     if hasattr(ob, 'color'):
-        user_attr["color Cs" ] = rib(ob.color[:3])
+        user_attr["color Cs"] = rib(ob.color[:3])
 
     if len(user_attr):
         ri.Attribute('user', user_attr)
-    
 
 
 def get_bounding_box(ob):
@@ -2413,7 +2480,7 @@ def export_particle_archive(ri, scene, rpass, data_block, objectCorrectionMatrix
 
 def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
     ob = data_block.data
-    
+
     ob.dupli_list_create(scene, "RENDER")
     if ob.dupli_type == 'GROUP' and ob.dupli_group:
         for dupob in ob.dupli_list:
@@ -2446,11 +2513,27 @@ def export_dupli_archive(ri, scene, rpass, data_block, data_blocks):
                 export_material_archive(ri, mat)
             ri.Transform(rib(Matrix.Identity(4)))
             ri.CoordinateSystem(dupob.object.name)
-            source_data_name = data_name(dupob.object, scene)
-            deforming = is_deforming(dupob.object)
 
-            ri.ReadArchive(get_archive_filename(source_data_name, rpass,
-                                                deforming, True))
+            if dupob.object.renderman.geometry_source == 'ARCHIVE':
+                dupob_rm = dupob.object.renderman
+                relPath = os.path.splitext(
+                    get_real_path(dupob_rm.path_archive))[0]
+                archiveFileExtention = ".zip"
+                objectName = os.path.split(os.path.splitext(relPath)[0])[1]
+                if dupob_rm.archive_anim_settings.animated_sequence:
+                    current_frame = bpy.context.scene.frame_current
+                    zero_fill = str(current_frame).zfill(4)
+                    archive_filename = relPath + archiveFileExtention + \
+                        "!" + os.path.join(zero_fill, objectName + ".rib")
+                    ri.ReadArchive(archive_filename)
+                else:
+                    archive_filename = relPath + archiveFileExtention + "!" + objectName + ".rib"
+                    ri.ReadArchive(archive_filename)
+            else:
+                source_data_name = data_name(dupob.object, scene)
+                deforming = is_deforming(dupob.object)
+                ri.ReadArchive(get_archive_filename(source_data_name, rpass,
+                                                    deforming, True))
             ri.ObjectEnd()
             object_masters[dupob.object.name] = instance_handle
             # export "null" bxdf to clear material for object master
@@ -2470,8 +2553,8 @@ def export_materials_archive(ri, rpass, scene):
                                  scene).replace('{object}', 'materials')
     ri.Begin(archive_filename)
     for mat_name, mat in bpy.data.materials.items():
-        ri.ArchiveBegin('material.' + mat_name)
-        #ri.Attribute("identifier", {"name": mat_name})
+        ri.ArchiveBegin('material.' + get_mat_name(mat_name))
+        # ri.Attribute("identifier", {"name": mat_name})
         export_material(ri, mat)
         ri.ArchiveEnd()
     ri.End()
@@ -2491,7 +2574,7 @@ def property_group_to_params(node, lamp=None):
     for prop_name, meta in node.prop_meta.items():
         prop = getattr(node, prop_name)
         # if property group recurse
-        if meta['renderman_type'] == 'page' or prop_name == 'notes':
+        if meta['renderman_type'] == 'page' or prop_name == 'notes' or meta['renderman_type'] == 'enum':
             continue
         # if input socket is linked reference that
         else:
@@ -2609,12 +2692,12 @@ def export_render_settings(ri, rpass, scene, preview=False):
         depths = {'int maxdiffusedepth': rm.preview_max_diffuse_depth,
                   'int maxspeculardepth': rm.preview_max_specular_depth,
                   'int displacements': 1}
-    
+
     dicing_params = {"float micropolygonlength": rm.shadingrate,
-                    "string strategy": rm.dicing_strategy,
-                    "string instancestrategy": "worlddistance", 
-                    "float instanceworlddistancelength": rm.instanceworlddistancelength}
-                    
+                     "string strategy": rm.dicing_strategy,
+                     "string instancestrategy": "worlddistance",
+                     "float instanceworlddistancelength": rm.instanceworlddistancelength}
+
     if rm.dicing_strategy is "worlddistance":
         dicing_params["float worlddistancelength"] = rm.worlddistancelength
 
@@ -2758,8 +2841,8 @@ def export_camera_render_preview(ri, scene):
     ri.ScreenWindow(-xaspect, xaspect, -yaspect, yaspect)
     resolution = render_get_resolution(scene.render)
     ri.Format(resolution[0], resolution[1], 1.0)
-    ri.Transform([0, -0.25, -1, 0,  1, 0, 0, 0, 0,
-                  1, -0.25, 0,  0, -.75, 3.25, 1])
+    ri.Transform([0, -0.25, -1, 0, 1, 0, 0, 0, 0,
+                  1, -0.25, 0, 0, -.75, 3.25, 1])
 
 
 def export_options(ri, scene):
@@ -2773,6 +2856,7 @@ def export_options(ri, scene):
         ri.Option("checkpoint", {"int asfinal": 1})
     ri.Option("searchpath", {"string procedural": [
               ".:${RMANTREE}/lib/plugins:@"]})
+    ri.Option("user", {"int osl:lazy_builtins": 1, "int osl:lazy_inputs": 1})
 
     lpe_options = {
         "string diffuse2": "Diffuse",
@@ -2787,6 +2871,7 @@ def export_options(ri, scene):
     }
 
     ri.Option('lpe', lpe_options)
+
 
 def export_searchpaths(ri, paths):
     ri.Option("ribparse", {"string varsubst": ["$"]})
@@ -2866,7 +2951,7 @@ def preview_model(ri, scene, mat):
         # ri.Translate(0.0, 0.0, 0.01)
         ri.PointsPolygons([4, ],
                           [0, 1, 2, 3],
-                          {ri.P: [0, -1, -1,  0, 1, -1,  0, 1, 1,  0, -1, 1]})
+                          {ri.P: [0, -1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1]})
     elif mat.preview_render_type == 'CUBE':
         ri.Scale(.75, .75, .75)
         export_geometry_data(ri, scene, scene.objects[
@@ -2894,6 +2979,7 @@ def export_displayfilters(ri, scene):
     display_filter_names = []
     for df in rm.display_filters:
         params = property_group_to_params(df.get_filter_node())
+        params['__instanceid'] = df.name
         ri.DisplayFilter(df.get_filter_name(), df.name, params)
         display_filter_names.append(df.name)
 
@@ -2903,13 +2989,42 @@ def export_displayfilters(ri, scene):
         ri.DisplayFilter('PxrDisplayFilterCombiner', 'combiner', params)
 
 
-def export_samplefilters(ri, scene):
+def export_samplefilters(ri, rpass, scene):
     rm = scene.renderman
     filter_names = []
+    display_driver = rpass.display_driver
+    addon_prefs = get_addon_prefs()
     for sf in rm.sample_filters:
         params = property_group_to_params(sf.get_filter_node())
-        ri.DisplayFilter(sf.get_filter_name(), sf.name, params)
+        ri.SampleFilter(sf.get_filter_name(), sf.name, params)
         filter_names.append(sf.name)
+
+        # pxrshadowfilter aov generation
+        if sf.filter_type == 'PxrShadowFilter':
+            ri.DisplayChannel("color %s" % sf.PxrShadowFilter_settings.occludedAov, {
+                              "string source": "color lpe:holdouts;C[DS]+[LO]"})
+            dspy_name = user_path(
+                addon_prefs.path_aov_image, scene=scene, display_driver=rpass.display_driver,
+                layer_name='Shadow', pass_name='Occluded')
+            ri.Display('+' + dspy_name, display_driver,
+                       sf.PxrShadowFilter_settings.occludedAov, {"int asrgba": 1})
+
+            ri.DisplayChannel("color %s" % sf.PxrShadowFilter_settings.unoccludedAov, {
+                              "string source": "color lpe:holdouts;unoccluded;C[DS]+[LO]"})
+            dspy_name = user_path(
+                addon_prefs.path_aov_image, scene=scene, display_driver=rpass.display_driver,
+                layer_name='Shadow', pass_name='Unoccluded')
+            ri.Display('+' + dspy_name, display_driver,
+                       sf.PxrShadowFilter_settings.unoccludedAov, {"int asrgba": 1})
+
+            if sf.PxrShadowFilter_settings.shadowAov != 'a':
+                ri.DisplayChannel("color %s" %
+                                  sf.PxrShadowFilter_settings.shadowAov)
+                dspy_name = user_path(
+                    addon_prefs.path_aov_image, scene=scene, display_driver=rpass.display_driver,
+                    layer_name='Shadow', pass_name='ShadowOutput')
+                ri.Display('+' + dspy_name, display_driver,
+                           sf.PxrShadowFilter_settings.shadowAov, {"int asrgba": 1})
 
     if len(filter_names) > 1:
         params = {'reference samplefilter[%d] filter' % len(
@@ -2918,35 +3033,37 @@ def export_samplefilters(ri, scene):
 
 
 channel_name_map = {
-                    "directDiffuseLobe": "diffuse",
-                    "subsurfaceLobe": "diffuse",
-                    "Subsurface": "diffuse",
-                    "transmissiveSingleScatterLobe": "diffuse",
-                    "Caustics": "diffuse",
-                    "Albedo": "diffuse",
-                    "Diffuse": "diffuse",
-                    "IndirectDiffuse": "indirectdiffuse",
-                    "indirectDiffuseLobe": "indirectdiffuse",
-                    "directSpecularPrimaryLobe": "specular",
-                    "directSpecularRoughLobe": "specular",
-                    "directSpecularClearcoatLobe": "specular",
-                    "directSpecularIridescenceLobe": "specular",
-                    "directSpecularFuzzLobe": "specular",
-                    "directSpecularGlassLobe": "specular",
-                    "transmissiveGlassLobe": "specular",
-                    "Reflection": "specular",
-                    "Refraction": "specular",
-                    "Specular": "specular",
-                    "indirectSpecularPrimaryLobe": "indirectspecular",
-                    "indirectSpecularRoughLobe": "indirectspecular",
-                    "IndirectSpecular": "indirectspecular",
-                    "indirectSpecularClearcoatLobe": "indirectspecular",
-                    "indirectSpecularIridescenceLobe": "indirectspecular",
-                    "indirectSpecularFuzzLobe": "indirectspecular",
-                    "indirectSpecularGlassLobe": "indirectspecular",
-                    "Shadows": "emission",
-                    "Emission": "emission"
-                }
+    "directDiffuseLobe": "diffuse",
+    "subsurfaceLobe": "diffuse",
+    "Subsurface": "diffuse",
+    "transmissiveSingleScatterLobe": "diffuse",
+    "Caustics": "diffuse",
+    "Albedo": "diffuse",
+    "Diffuse": "diffuse",
+    "IndirectDiffuse": "indirectdiffuse",
+    "indirectDiffuseLobe": "indirectdiffuse",
+    "directSpecularPrimaryLobe": "specular",
+    "directSpecularRoughLobe": "specular",
+    "directSpecularClearcoatLobe": "specular",
+    "directSpecularIridescenceLobe": "specular",
+    "directSpecularFuzzLobe": "specular",
+    "directSpecularGlassLobe": "specular",
+    "transmissiveGlassLobe": "specular",
+    "Reflection": "specular",
+    "Refraction": "specular",
+    "Specular": "specular",
+    "indirectSpecularPrimaryLobe": "indirectspecular",
+    "indirectSpecularRoughLobe": "indirectspecular",
+    "IndirectSpecular": "indirectspecular",
+    "indirectSpecularClearcoatLobe": "indirectspecular",
+    "indirectSpecularIridescenceLobe": "indirectspecular",
+    "indirectSpecularFuzzLobe": "indirectspecular",
+    "indirectSpecularGlassLobe": "indirectspecular",
+    "Shadows": "emission",
+    "All Lighting": "emission",
+    "Emission": "emission"
+}
+
 
 def get_channel_name(aov, layer_name):
     aov_name = aov.name.replace(' ', '')
@@ -2962,7 +3079,7 @@ def get_channel_name(aov, layer_name):
 
     elif aov.aov_name == "color custom_lpe":
         aov_channel_name = aov.name
-        
+
     else:
         aov_channel_name = '%s_%s' % (
             aov_name, layer_name)
@@ -3007,14 +3124,19 @@ def export_display(ri, rpass, scene):
 
     display_driver = rpass.display_driver
     rpass.output_files = []
-    rpass.aov_denoise_files = []
     addon_prefs = get_addon_prefs()
     main_display = user_path(
         addon_prefs.path_display_driver_image, scene=scene, display_driver=rpass.display_driver)
     debug("info", "Main_display: " + main_display)
 
     # just going to always output rgba
-    ri.Display(main_display, display_driver, "rgba", {})
+    dspy_info = {}
+
+    # if it inject some image info
+    if display_driver == 'it':
+        dspy_info = make_dspy_info(scene)
+
+    ri.Display(main_display, display_driver, "rgba", dspy_info)
     rpass.output_files.append(main_display)
 
     display_params = {'int asrgba': 1}
@@ -3111,7 +3233,7 @@ def export_display(ri, rpass, scene):
                 pixelfilter_x = aov.aov_pixelfilter_x
                 pixelfilter_y = aov.aov_pixelfilter_y
                 channel_name = get_channel_name(aov, layer_name)
-                
+
                 if channel_name == '':
                     continue
                 if aov.aov_name == "color custom_lpe":
@@ -3139,7 +3261,7 @@ def export_display(ri, rpass, scene):
                 if source == 'rgba':
                     del params['string source']
                     ri.DisplayChannel("color Ci", params)
-                    ri.DisplayChannel("float a",  params)
+                    ri.DisplayChannel("float a", params)
                 else:
                     ri.DisplayChannel(source_type + ' %s' %
                                       channel_name, params)
@@ -3147,13 +3269,13 @@ def export_display(ri, rpass, scene):
             # if this is a multilayer combine em!
             if rm_rl.export_multilayer and rpass.external_render:
                 channels = []
-                channel_name = get_channel_name(aov, layer_name)
                 for aov in rm_rl.custom_aovs:
+                    channel_name = get_channel_name(aov, layer_name)
                     channels.append(channel_name)
                 out_type, ext = ('openexr', 'exr')
                 if rm_rl.use_deep:
-                    channels = [x for x in channels if x.split('_')[0] not in [
-                        'z_depth', 'z_back']]
+                    channels = [x for x in channels if not (
+                        "z_back" in x or 'z_depth' in x)]
                     out_type, ext = ('deepexr', 'exr')
                 params = {"string storage": rm_rl.exr_storage}
                 if rm_rl.exr_format_options != 'default':
@@ -3167,8 +3289,6 @@ def export_display(ri, rpass, scene):
                     layer_name=layer_name, pass_name='multilayer')
                 ri.Display('+' + dspy_name, out_type,
                            ','.join(channels), params)
-                if rm.external_denoise:
-                    rpass.aov_denoise_files.append(dspy_name)
 
             else:
                 for aov in rm_rl.custom_aovs:
@@ -3187,8 +3307,6 @@ def export_display(ri, rpass, scene):
                         addon_prefs.path_aov_image, scene=scene, display_driver=rpass.display_driver,
                         layer_name=layer_name, pass_name=aov_name)
                     rpass.output_files.append(dspy_name)
-                    if rm.external_denoise:
-                        rpass.aov_denoise_files.append(dspy_name)
                     ri.Display('+' + dspy_name, display_driver,
                                aov_channel_name, params)
 
@@ -3234,42 +3352,46 @@ def export_display(ri, rpass, scene):
 
 
 def export_hider(ri, rpass, scene, preview=False):
-    rm = scene.renderman
+    if rpass.bake:
+        ri.Hider("bake")
 
-    pv = rm.pixel_variance
-    hider_params = {'int maxsamples': rm.max_samples,
-                    'int minsamples': rm.min_samples,
-                    'int incremental': int(rm.incremental)}
+    else:
+        rm = scene.renderman
 
-    if preview or rpass.is_interactive:
-        hider_params['int maxsamples'] = rm.preview_max_samples
-        hider_params['int minsamples'] = rm.preview_min_samples
-        hider_params['int incremental'] = 1
-        pv = rm.preview_pixel_variance
+        pv = rm.pixel_variance
+        hider_params = {'int maxsamples': rm.max_samples,
+                        'int minsamples': rm.min_samples,
+                        'int incremental': int(rm.incremental)}
 
-    if (not rpass.external_render and rm.render_into == 'blender') or (rm.integrator in ['PxrVCM', 'PxrUPBP']) or rm.enable_checkpoint:
-        hider_params['int incremental'] = 1
+        if preview or rpass.is_interactive:
+            hider_params['int maxsamples'] = rm.preview_max_samples
+            hider_params['int minsamples'] = rm.preview_min_samples
+            hider_params['int incremental'] = 1
+            pv = rm.preview_pixel_variance
 
-    if not preview:
-        cam = scene.camera.data.renderman
-        hider_params["float[4] aperture"] = [cam.aperture_sides,
-                                             cam.aperture_angle, cam.aperture_roundness, cam.aperture_density]
-        hider_params["float dofaspect"] = [cam.dof_aspect]
-        hider_params["float darkfalloff"] = [rm.dark_falloff]
+        if (not rpass.external_render and rm.render_into == 'blender') or (rm.integrator in ['PxrVCM', 'PxrUPBP']) or rm.enable_checkpoint:
+            hider_params['int incremental'] = 1
 
-    if not rm.sample_motion_blur:
-        hider_params["samplemotion"] = 0
+        if not preview:
+            cam = scene.camera.data.renderman
+            hider_params["float[4] aperture"] = [cam.aperture_sides,
+                                                 cam.aperture_angle, cam.aperture_roundness, cam.aperture_density]
+            hider_params["float dofaspect"] = [cam.dof_aspect]
+            hider_params["float darkfalloff"] = [rm.dark_falloff]
 
-    ri.PixelVariance(pv)
+        if not rm.sample_motion_blur:
+            hider_params["samplemotion"] = 0
 
-    if rm.do_denoise and not rpass.external_render or rm.external_denoise and rpass.external_render:
-        hider_params['string pixelfiltermode'] = 'importance'
+        ri.PixelVariance(pv)
 
-    ri.Hider("raytrace", hider_params)
+        if rm.do_denoise and not rpass.external_render or rm.external_denoise and rpass.external_render:
+            hider_params['string pixelfiltermode'] = 'importance'
+
+        ri.Hider("raytrace", hider_params)
 
 
 # I hate to make rpass global but it makes things so much easier
-def write_rib(rpass, scene, ri, visible_objects=None, engine=None):
+def write_rib(rpass, scene, ri, visible_objects=None, engine=None, do_objects=True):
 
     # precalculate motion blur data
     data_blocks, instances = cache_motion(scene, rpass)
@@ -3278,43 +3400,51 @@ def write_rib(rpass, scene, ri, visible_objects=None, engine=None):
     # this should be the only time empties are evaluated.
     emptiesToExport = get_valid_empties(scene, rpass)
 
-    # export rib archives of objects
-    export_data_archives(ri, scene, rpass, data_blocks, engine)
+    if do_objects:
+        # export rib archives of objects
+        export_data_archives(ri, scene, rpass, data_blocks, engine)
 
     export_header(ri)
     export_header_rib(ri, scene)
     export_searchpaths(ri, rpass.paths)
     export_options(ri, scene)
 
-    export_display(ri, rpass, scene)
-
-    export_displayfilters(ri, scene)
-    export_samplefilters(ri, scene)
+    if not rpass.bake:
+        export_display(ri, rpass, scene)
+        export_displayfilters(ri, scene)
+        export_samplefilters(ri, rpass, scene)
+    else:
+        ri.Display("null", "null", "rgba")
 
     export_hider(ri, rpass, scene)
-    export_integrator(ri, rpass, scene)
+
+    if not rpass.bake:
+        export_integrator(ri, rpass, scene)
 
     # export_inline_rib(ri, rpass, scene)
+
     scene.frame_set(scene.frame_current)
     ri.FrameBegin(scene.frame_current)
 
-    export_camera(ri, scene, instances)
-    export_render_settings(ri, rpass, scene)
+    if not rpass.bake:
+        export_camera(ri, scene, instances)
+        export_render_settings(ri, rpass, scene)
+
     # export_global_illumination_settings(ri, rpass, scene)
 
     ri.WorldBegin()
-    export_world_rib(ri, scene.world)
 
     # export_global_illumination_lights(ri, rpass, scene)
     # export_world_coshaders(ri, rpass, scene) # BBM addition
-    export_world(ri, scene.world)
-    export_scene_lights(ri, instances)
-
-    export_default_bxdf(ri, "default")
+    if not rpass.bake:
+        export_world_rib(ri, scene.world)
+        export_world(ri, scene.world)
+        export_scene_lights(ri, instances)
+        export_default_bxdf(ri, "default")
     export_materials_archive(ri, rpass, scene)
     # now output the object archives
     for name, instance in instances.items():
-        if instance.type not in ['CAMERA', 'LAMP'] and not instance.parent:
+        if not instance.parent:
             export_instance_read_archive(
                 ri, instance, instances, data_blocks, rpass, visible_objects=visible_objects)
 
@@ -3397,7 +3527,7 @@ def write_archive_RIB(rpass, scene, ri, object, overridePath, exportMats, export
     else:
         success = False
 
-    if(success == True):
+    if success:
         # export rib archives of objects
         if(exportRange):
             # Get range numbers from the timeline and use that as our range.
@@ -3474,15 +3604,73 @@ def write_auto_archives(paths, scene, info_callback):
 
 
 def interactive_initial_rib(rpass, ri, scene, prman):
-    ri.Display('rerender', 'it', 'rgba')
+
+    dspy_info = make_dspy_info(scene)
+
+    ri.Display('rerender', 'it', 'rgba', dspy_info)
     export_hider(ri, rpass, scene, True)
 
     ri.EditWorldBegin(
         rpass.paths['rib_output'], {"string rerenderer": "raytrace"})
     ri.Option('rerender', {'int[2] lodrange': [0, 3]})
+    cw = rpass.crop_window
+    ri.CropWindow(cw[0], cw[1], cw[2], cw[3])
 
     ri.ArchiveRecord("structure", ri.STREAMMARKER + "_initial")
     prman.RicFlush("_initial", 0, ri.FINISHRENDERING)
+
+
+def make_dspy_info(scene):
+    """
+    Create some render parameter from scene and pass it to image tool.
+
+    If current scene renders to "it", collect some useful infos from scene
+    and send them alongside the render job to Rendermans image tool. Applies to
+    renderpass result only, does not affect postprocessing like denoise.
+    """
+    params = {}
+    rm = scene.renderman
+    from time import localtime, strftime
+    ts = strftime("%a %x, %X", localtime())
+    ts = bytes(ts, 'ascii', 'ignore').decode('utf-8', 'ignore')
+
+    dspy_notes = "Render start:\t%s\r\r" % ts
+    dspy_notes += "Integrator:\t%s\r\r" % rm.integrator
+    dspy_notes += "Samples:\t%d - %d\r" % (rm.min_samples, rm.max_samples)
+    dspy_notes += "Pixel Variance:\t%f\r\r" % rm.pixel_variance
+
+    # moved this in front of integrator check. Was called redundant in
+    # both cases
+    integrator = getattr(rm, "%s_settings" % rm.integrator)
+
+    if rm.integrator == 'PxrPathTracer':
+        dspy_notes += "Mode:\t%s\r" % integrator.sampleMode
+        dspy_notes += "Light:\t%d\r" % integrator.numLightSamples
+        dspy_notes += "Bxdf:\t%d\r" % integrator.numBxdfSamples
+
+        if integrator.sampleMode == 'bxdf':
+            dspy_notes += "Indirect:\t%d\r\r" % integrator.numIndirectSamples
+        else:
+            dspy_notes += "Diffuse:\t%d\r" % integrator.numDiffuseSamples
+            dspy_notes += "Specular:\t%d\r" % integrator.numSpecularSamples
+            dspy_notes += "Subsurface:\t%d\r" % integrator.numSubsurfaceSamples
+            dspy_notes += "Refraction:\t%d\r" % integrator.numRefractionSamples
+
+    elif rm.integrator == "PxrVCM":
+        dspy_notes += "Light:\t%d\r" % integrator.numLightSamples
+        dspy_notes += "Bxdf:\t%d\r\r" % integrator.numBxdfSamples
+
+    # escaping line break is requiered
+    params["string dspyParams"] = """ itOpenHandler {::ice::startTimer;};;;                     \
+                                      itCloseHandler {::ice::endTimer %%arglist; };;;           \
+                                      dspyRender -renderer preview -time %d -crop %f %f %f %f   \
+                                      -notes %s""" % (scene.frame_current,
+                                                      scene.render.border_min_x,
+                                                      scene.render.border_max_x,
+                                                      1.0 - scene.render.border_min_y,
+                                                      1.0 - scene.render.border_max_y,
+                                                      dspy_notes)
+    return params
 
 # flush the current edit
 
@@ -3520,14 +3708,22 @@ def issue_light_filter_transform_edit(ri, rpass, obj):
 
         # reset the transform for light
         export_object_transform(ri, light_obj)
-        
-        export_light_shaders(ri, lamp, get_light_group(light_obj))
+
+        export_light_shaders(ri, lamp, get_light_group(light_obj), obj.parent)
         ri.EditEnd()
 
 
 def issue_camera_edit(ri, rpass, camera):
     ri.EditBegin('option')
     export_camera(ri, rpass.scene, [], camera_to_use=camera)
+    ri.EditEnd()
+
+
+def update_crop_window(ri, rpass, prman, cw):
+    rpass.edit_num += 1
+    edit_flush(ri, rpass.edit_num, prman)
+    ri.EditBegin('option')
+    ri.CropWindow(cw[0], cw[1], cw[2], cw[3])
     ri.EditEnd()
 
 # search this material/lamp for textures to re txmake and do them
@@ -3698,13 +3894,18 @@ def update_light_link(rpass, ri, prman, link, remove=False):
 # test the active object type for edits to do then do them
 
 
-def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
+def issue_shader_edits(rpass, ri, prman, nt=None, node=None, ob=None):
     if node is None:
         mat = None
         if bpy.context.object:
             mat = bpy.context.object.active_material
             if mat not in rpass.material_dict:
                 rpass.material_dict[mat] = [bpy.context.object]
+            # if the last edit was a material edit skip the attribute edit
+            # we get two edits when should get one.
+            if rpass.last_edit_mat == mat:
+                rpass.last_edit_mat = None
+                return
         lamp = None
         world = bpy.context.scene.world
         if mat is None and hasattr(bpy.context, 'lamp') and bpy.context.lamp:
@@ -3727,10 +3928,17 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
         edit_flush(ri, rpass.edit_num, prman)
         # for obj in objs:
         if mat in rpass.material_dict:
-            for obj in rpass.material_dict[mat]:
-                ri.EditBegin('attribute', {'string scopename': obj.name})
+            if ob:
+                ri.EditBegin(
+                    'attribute', {'string scopename': "^" + ob.name + "$"})
                 export_material(ri, mat, iterate_instance=True)
                 ri.EditEnd()
+            else:
+                for obj in rpass.material_dict[mat]:
+                    ri.EditBegin(
+                        'attribute', {'string scopename': "^" + obj.name + "$"})
+                    export_material(ri, mat, iterate_instance=True)
+                    ri.EditEnd()
         elif lamp:
             lamp_ob = lamp
             lamp = mat
@@ -3750,11 +3958,17 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
         world = bpy.context.scene.world
         mat = None
         instance_num = 0
+        mat_name = None
 
         if bpy.context.object:
             mat = bpy.context.object.active_material
             if mat:
                 instance_num = mat.renderman.instance_num
+                if rpass.last_edit_mat == mat:
+                    rpass.last_edit_mat = None
+                    return
+                rpass.last_edit_mat = mat
+                mat_name = get_mat_name(mat.name)
         # if this is a lamp use that for the mat/name
         if mat is None and node and issubclass(type(node.id_data), bpy.types.Lamp):
             mat = node.id_data
@@ -3765,12 +3979,25 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
             edit_flush(ri, rpass.edit_num, prman)
 
             ri.EditBegin('option')
-            export_camera(ri, rpass.scene, [], camera_to_use=rpass.scene.camera)
+            export_camera(ri, rpass.scene, [],
+                          camera_to_use=rpass.scene.camera)
+            ri.EditEnd()
+            return
+        elif mat is None \
+                and hasattr(node, "renderman_node_type") \
+                and node.renderman_node_type \
+                in {'displayfilter', 'displaysamplefilter'}:
+            edit_flush(ri, rpass.edit_num, prman)
+
+            ri.EditBegin('instance')
+            export_displayfilters(ri, bpy.context.scene)
             ri.EditEnd()
             return
         elif mat is None:
             return
-        mat_name = mat.name
+
+        if not mat_name:
+            mat_name = mat.name  # for world/light
 
         tex_made = False
         if reissue_textures(ri, rpass, mat):
@@ -3784,7 +4011,7 @@ def issue_shader_edits(rpass, ri, prman, nt=None, node=None):
         edit_flush(ri, rpass.edit_num, prman)
 
         ri.EditBegin('instance')
-        handle = mat.name
+        handle = mat_name
         if instance_num > 0:
             handle += "_%d" % instance_num
         shader_node_rib(ri, node, handle)

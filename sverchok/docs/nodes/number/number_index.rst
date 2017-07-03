@@ -12,8 +12,11 @@ Number
    formula2
    integer
    list_input
+   mix_numbers
    random
    range_float
    range_int
    range_map
+   scalar_mk2
    scalar
+   numbers

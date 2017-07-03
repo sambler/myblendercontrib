@@ -28,10 +28,12 @@
 #     Gorodetskiy Nikita (aka Nikitron)
 #     Linus Yng (aka Ly29)
 #     Agustin Jimenez (aka AgustinJB)
-#     Dealga McArdle (aka Zeffii)
+#     Dealga McArdle (aka zeffii)
 #     Konstantin Vorobiew (aka Kosvor)
 #     Ilya Portnov (aka portnov)
 #     Eleanor Howick (aka elfnor)
+#     Walter Perdan (aka kalwalt)
+#     Marius Giurgi (aka DolphinDream)
 #
 #  ***** END GPL LICENSE BLOCK *****
 #
@@ -43,7 +45,7 @@ bl_info = {
         "sverchok-b3d@ya.ru, "
         "Cfyzzz, Nikitron, Ly29, "
         "AgustinJB, Zeffii, Kosvor, "
-        "Portnov, Elfnor"
+        "Portnov, Elfnor, kalwalt, DolphinDream"
     ),
     "version": (0, 5, 9, 6),
     "blender": (2, 7, 8),
@@ -77,31 +79,32 @@ root_modules = [
 
 core_modules = [
     "monad_properties",
-    "handlers", "update_system", "upgrade_nodes", "upgrade_group", "monad",
+    "handlers", "update_system", "upgrade_nodes", "upgrade_group", "monad", "node_defaults"
 ]
 
 utils_modules = [
     # non UI tools
-    "cad_module", "sv_bmesh_utils", "sv_viewer_utils", "sv_curve_utils",
+    "cad_module", "cad_module_class", "sv_bmesh_utils", "sv_viewer_utils", "sv_curve_utils",
     "voronoi", "sv_script", "sv_itertools", "script_importhelper",
     "csg_core", "csg_geom", "geom", "sv_easing_functions",
     "snlite_utils", "snlite_importhelper", "context_managers",
     # UI text editor ui
     "text_editor_submenu", "text_editor_plugins",
     # UI operators and tools
-    "sv_panels_tools", "sv_gist_tools", "sv_IO_panel_tools",
-    "monad", "sv_help",
+    "sv_IO_monad_helpers",
+    "sv_panels_tools", "sv_gist_tools", "sv_IO_panel_tools", "sv_load_zipped_blend",
+    "monad", "sv_help", "sv_default_macros", "sv_macro_utils", "sv_extra_search", "sv_3dview_tools",
     #"loadscript",
-    "debug_script", "sv_update_utils"
+    "debug_script", "sv_update_utils", "sv_bgl_primitives"
 ]
 
 ui_modules = [
     "color_def", "sv_IO_panel", "sv_templates_menu",
     "sv_panels", "nodeview_space_menu", "nodeview_keymaps",
-    "monad",
+    "monad", "sv_icons",
     # bgl modules
     "viewer_draw", "viewer_draw_mk2", "nodeview_bgl_viewer_draw", "nodeview_bgl_viewer_draw_mk2",
-    "index_viewer_draw",
+    "index_viewer_draw", "bgl_callback_3dview",
     # show git info
     "development",
 ]
@@ -154,6 +157,7 @@ if reload_event:
 
 import bpy
 from sverchok.utils import ascii_print
+from sverchok.core import node_defaults
 
 
 def register():
@@ -166,10 +170,12 @@ def register():
     print("** version: ", bl_info['version']," **")
     print("** Have a nice day with sverchok  **\n")
     ascii_print.logo()
+    node_defaults.register_defaults()
 
     if reload_event:
         data_structure.RELOAD_EVENT = True
         print("Sverchok is reloaded, press update")
+
 
 
 def unregister():

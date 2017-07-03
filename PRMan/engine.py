@@ -1,6 +1,6 @@
 # ##### BEGIN MIT LICENSE BLOCK #####
 #
-# Copyright (c) 2015 Brian Savery
+# Copyright (c) 2015 - 2017 Pixar
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -59,7 +59,7 @@ from bpy.app.handlers import persistent
 from .export import write_rib, write_preview_rib, get_texture_list,\
     issue_shader_edits, get_texture_list_preview, issue_transform_edits,\
     interactive_initial_rib, update_light_link, delete_light,\
-    reset_light_illum, solo_light, mute_lights, issue_light_vis
+    reset_light_illum, solo_light, mute_lights, issue_light_vis, update_crop_window
 
 from .nodes import get_tex_file_name
 
@@ -127,7 +127,7 @@ def reset(engine, data, scene):
         prman.Cleanup()
     engine.render_pass.ri = prman.Ri()
     engine.render_pass.set_scene(scene)
-
+    engine.render_pass.update_frame_num(scene.frame_current)
 
 def update(engine, data, scene):
     engine.render_pass.update_time = int(time.time())
@@ -176,11 +176,10 @@ def format_seconds_to_hhmmss(seconds):
 
 class RPass:
 
-    def __init__(self, scene, interactive=False, external_render=False, preview_render=False):
+    def __init__(self, scene, interactive=False, external_render=False, preview_render=False, bake=False):
         self.rib_done = False
         self.scene = scene
         self.output_files = []
-        self.aov_denoise_files = []
         # set the display driver
         if external_render:
             self.display_driver = scene.renderman.display_driver
@@ -195,6 +194,7 @@ class RPass:
         self.initialize_paths(scene)
         self.rm = scene.renderman
         self.external_render = external_render
+        self.bake=bake
         self.do_render = (scene.renderman.output_action == 'EXPORT_RENDER')
         self.is_interactive = interactive
         self.is_interactive_ready = False
@@ -210,6 +210,7 @@ class RPass:
         self.ri = prman.Ri()
         self.edit_num = 0
         self.update_time = None
+        self.last_edit_mat = None
 
     def __del__(self):
 
@@ -573,7 +574,7 @@ class RPass:
     # start the interactive session.  Basically the same as ribgen, only
     # save the file
     def start_interactive(self):
-
+        rm = self.scene.renderman
         if find_it_path() is None:
             debug('error', "ERROR no 'it' installed.  \
                     Cannot start interactive rendering.")
@@ -586,13 +587,19 @@ class RPass:
             return
 
         self.ri.Begin(self.paths['rib_output'])
-        self.ri.Option("rib", {"string asciistyle": "indented,wide"})
+        rib_options = {"string format": "binary"} if rm.rib_format == "binary" else {
+            "string format": "ascii", "string asciistyle": "indented,wide"}
+        if rm.rib_compression == "gzip":
+            rib_options["string compression"] = "gzip"
+        self.ri.Option("rib", rib_options)
         self.material_dict = {}
         self.instance_dict = {}
         self.lights = {}
         self.light_filter_map = {}
         self.current_solo_light = None
         self.muted_lights = []
+        self.crop_window = (self.scene.render.border_min_x, self.scene.render.border_max_x,
+                      1.0 - self.scene.render.border_min_y, 1.0 - self.scene.render.border_max_y)
         for obj in self.scene.objects:
             if obj.type == 'LAMP' and obj.name not in self.lights:
                 # add the filters to the filter ma
@@ -642,6 +649,13 @@ class RPass:
 
     # find the changed object and send for edits
     def issue_transform_edits(self, scene):
+        cw = (scene.render.border_min_x, scene.render.border_max_x,
+                      1.0 - scene.render.border_min_y, 1.0 - scene.render.border_max_y)
+        if cw != self.crop_window:
+            self.crop_window = cw
+            update_crop_window(self.ri, self, prman, cw)
+            return
+
         active = scene.objects.active
         if (active and active.is_updated) or (active and active.type == 'LAMP' and active.is_updated_data):
             if is_ipr_running():
@@ -669,15 +683,15 @@ class RPass:
             for light_name in lights_deleted:
                 self.lights.pop(light_name, None)
 
-        if active and active.type in  ['MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'LATTICE']:
-            
+        if active and active.type in ['MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'LATTICE']:
+
             for mat_slot in active.material_slots:
                 if mat_slot.material not in self.material_dict:
                     self.material_dict[mat_slot.material] = []
                 if active not in self.material_dict[mat_slot.material]:
                     self.material_dict[mat_slot.material].append(active)
-                if mat_slot.material.is_updated:
-                    issue_shader_edits(self, self.ri, prman, nt=mat_slot.material.node_tree)
+                    issue_shader_edits(self, self.ri, prman,
+                                        nt=mat_slot.material.node_tree, ob=active)
 
     def update_illuminates(self):
         update_illuminates(self, self.ri, prman)
@@ -745,7 +759,7 @@ class RPass:
         self.instance_dict = {}
         pass
 
-    def gen_rib(self, engine=None, convert_textures=True):
+    def gen_rib(self, do_objects=True, engine=None, convert_textures=True):
         rm = self.scene.renderman
         if self.scene.camera is None:
             debug('error', "ERROR no Camera.  \
@@ -768,11 +782,11 @@ class RPass:
         self.ri.Begin(self.paths['rib_output'])
 
         # Check if rendering select objects only.
-        if(self.scene.renderman.render_selected_objects_only):
+        if rm.render_selected_objects_only:
             visible_objects = get_Selected_Objects(self.scene)
         else:
             visible_objects = None
-        write_rib(self, self.scene, self.ri, visible_objects, engine)
+        write_rib(self, self.scene, self.ri, visible_objects, engine, do_objects)
         self.ri.End()
         if engine:
             engine.report({"INFO"}, "RIB generation took %s" %

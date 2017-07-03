@@ -13,9 +13,12 @@ from sverchok.ui import (
     index_viewer_draw,
     nodeview_bgl_viewer_draw,
     nodeview_bgl_viewer_draw_mk2,
+    bgl_callback_3dview,
     color_def
 )
 
+
+_state = {'frame': None}
 
 def sverchok_trees():
     for ng in bpy.data.node_groups:
@@ -23,16 +26,27 @@ def sverchok_trees():
             yield ng
 
 
+def has_frame_changed(scene):
+    last_frame = _state['frame']
+    _state['frame'] = scene.frame_current
+    return not last_frame == scene.frame_current
+
+
 @persistent
 def sv_update_handler(scene):
     """
     Update sverchok node groups on frame change events.
     """
+    if not has_frame_changed(scene):
+        return
+    
     for ng in sverchok_trees():
         try:
+            # print('sv_update_handler')
             ng.process_ani()
         except Exception as e:
             print('Failed to update:', name, str(e))
+
     scene.update()
 
 
@@ -43,6 +57,7 @@ def sv_scene_handler(scene):
     Update sverchok node groups on scene update events.
     Not used yet.
     """
+    # print('sv_scene_handler')
     for ng in sverchok_trees():
         try:
             ng.process_ani()
@@ -58,6 +73,7 @@ def sv_main_handler(scene):
     for ng in sverchok_trees():
         # print("Scene handler looking at tree {}".format(ng.name))
         if ng.has_changed:
+            # print('sv_main_handler')
             # print("Edit detected in {}".format(ng.name))
             ng.process()
 
@@ -72,6 +88,8 @@ def sv_clean(scene):
     index_viewer_draw.callback_disable_all()
     nodeview_bgl_viewer_draw.callback_disable_all()
     nodeview_bgl_viewer_draw_mk2.callback_disable_all()
+    bgl_callback_3dview.callback_disable_all()
+
     data_structure.sv_Vars = {}
     data_structure.temp_handle = {}
 

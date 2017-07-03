@@ -1,7 +1,7 @@
 bl_info = {
-    "name": "SMD: Valve studiomodel source format",
+    "name": "Export SMD: Valve studiomodel source format",
     "author": "nemyax",
-    "version": (0, 1, 20170124),
+    "version": (0, 1, 20170616),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Export Valve studiomodel sources",
@@ -127,8 +127,8 @@ def get_tri_items(bm, tx_lu, weighting=False):
             entry = template.format(pb, vx, vy, vz, nx, ny, nz, u, v)
             if weighting:
                 entry += " {}".format(len(wts))
-                for k, v in wts:
-                    entry += " {} {:.6f}".format(k, v)
+                for k, val in wts:
+                    entry += " {} {:.6f}".format(k, val)
             entry += "\n"
             result.append(entry)
     return result

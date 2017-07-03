@@ -26,7 +26,7 @@ from random import random
 import time
 
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import updateNode, match_long_repeat, SvSetSocketAnyType
+from sverchok.data_structure import updateNode, match_long_repeat
 
 DEBUG=False
 
@@ -140,6 +140,7 @@ class SvTorusKnotNode(bpy.types.Node, SverchCustomTreeNode):
     bl_idname = 'SvTorusKnotNode'
     bl_label = 'Torus Knot'
     bl_icon = 'MESH_TORUS'
+    sv_icon = 'SV_TORUS_KNOT'
 
     # switch radii input sockets (R,r) <=> (eR,iR)
     def update_mode(self, context):

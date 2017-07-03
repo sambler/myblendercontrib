@@ -18,13 +18,13 @@
 
 bl_info = {
     "name": "Gaffer",
-    "description": "Manage all your lights together quickly and efficiently from the 3D View toolbar",
+    "description": "Master your lighting workflow with easy access to lamp properties and other tools",
     "author": "Greg Zaal",
-    "version": (2, 9, 0),
+    "version": (3, 0, 3),
     "blender": (2, 78, 0),
-    "location": "3D View > Tools",
+    "location": "3D View > Tools  &  World Settings > HDRI",
     "warning": "",
-    "wiki_url": "https://blendermarket.com/products/gaffer-light-manager",
+    "wiki_url": "https://github.com/gregzaal/Gaffer/wiki",
     "tracker_url": "https://github.com/gregzaal/Gaffer/issues",
     "category": "Lighting"}
 
@@ -100,6 +100,18 @@ class GafferPreferences(bpy.types.AddonPreferences):
         description="List all the detected HDRIs and their variants/resolutions below",
         default=False
         )
+    include_8bit = bpy.props.BoolProperty(
+        name="Detect 8-bit images as HDRIs",
+        description="Include LDR images like JPGs and PNGs when searching for files in the HDRI folder. Sometimes example renders are put next to HDRI files which can confuse the HDRI detection process, so they are ignored by default. Enable this to include them",
+        default=False,
+        update = functions.update_hdri_path
+        )
+
+    show_debug = bpy.props.BoolProperty(
+        name="Show Debug Tools",
+        description="Expand this box to show various debugging tools",
+        default=False
+        )
 
     ForcePreviewsRefresh = bpy.props.BoolProperty(default = True, options={'HIDDEN'})
     RequestThumbGen = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
@@ -108,24 +120,25 @@ class GafferPreferences(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
 
-        col = layout.column()
-        col.prop(self, 'hdri_path')
+        main_col = layout.column()
+        main_col.prop(self, 'hdri_path')
 
         if self.hdri_path:
             if os.path.exists(self.hdri_path):
                 hdris = functions.get_hdri_list()
                 if hdris:
+                    num_files = sum(len(x) for x in hdris.values())
                     hdris = OrderedDict(sorted(hdris.items(), key=lambda x: x[0].lower()))
                     num_hdris = len(hdris)
-                    row = col.row()
+                    row = main_col.row()
                     row.alignment = 'RIGHT'
-                    row.label("Found " + str(num_hdris) + " HDRIs")
+                    row.label("Found {} HDRIs ({} files)".format(num_hdris, num_files))
                     if num_hdris > 0:
                         row.prop(self, 'show_hdri_list', toggle=True)
                     row.operator('gaffer.detect_hdris', "Refresh", icon="FILE_REFRESH")
 
                     if self.show_hdri_list:
-                        col = layout.column(align=True)
+                        col = main_col.column(align=True)
                         for name in hdris:
                             col.label(name)
                             variations = hdris[name]
@@ -140,15 +153,31 @@ class GafferPreferences(bpy.types.AddonPreferences):
                             for v in variations:
                                 col.label('    '+v)
             else:
-                row = col.row()
+                row = main_col.row()
                 row.alignment = 'RIGHT'
                 row.label("Cannot find HDRI folder :(")
         else:
-            row = col.row()
+            row = main_col.row()
             row.alignment = 'RIGHT'
             row.label("Select the folder that contains all your HDRIs. Subfolders will be included.")
 
+        
+        row = main_col.row()
+        row.alignment = 'RIGHT'
+        row.prop(self, 'include_8bit')
+
         addon_updater_ops.update_settings_ui(self,context)
+
+        box = layout.box()
+        col = box.column()
+        row = col.row(align=True)
+        row.alignment = 'LEFT'
+        row.prop(self, 'show_debug', text="Debug Tools", emboss=False, icon="TRIA_DOWN" if self.show_debug else "TRIA_RIGHT")
+        if self.show_debug:
+            col = box.column()
+            col.operator('gaffer.dbg_delete_thumbs')
+            col.operator('gaffer.dbg_upload_hdri_list')
+            col.operator('gaffer.dbg_upload_logs')
 
 
 class BlacklistedObject(bpy.types.PropertyGroup):
@@ -497,6 +526,7 @@ class GafferProperties(bpy.types.PropertyGroup):
     ProgressBarText = bpy.props.StringProperty(default = "", options={'HIDDEN'})
     ShowHDRIHaven = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
     OldWorldSettings = bpy.props.StringProperty(default = "", options={'HIDDEN'})
+    ThumbnailsBigHDRIFound = bpy.props.BoolProperty(default = False, options={'HIDDEN'})
     Blacklist = bpy.props.CollectionProperty(type=BlacklistedObject)  # must be registered after classes
 
 
@@ -504,6 +534,7 @@ def register():
     addon_updater_ops.register(bl_info)
 
     functions.previews_register()
+    functions.cleanup_logs()
 
     bpy.types.NODE_PT_active_node_generic.append(ui.gaffer_node_menu_func)
     bpy.utils.register_module(__name__)

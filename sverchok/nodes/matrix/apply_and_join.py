@@ -25,10 +25,14 @@ from sverchok.utils.sv_mesh_utils import mesh_join
 
 
 class SvMatrixApplyJoinNode(bpy.types.Node, SverchCustomTreeNode):
-    ''' Multiply vectors on matrices with several objects in output,
-        and process edges & faces too '''
+    '''
+    M * verts (optional join)  ///
+
+    Multiply vectors on matrices with several objects in output,
+    and process edges & faces too 
+    '''
     bl_idname = 'SvMatrixApplyJoinNode'
-    bl_label = 'Apply matrix to mesh'
+    bl_label = 'Matrix Apply'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     do_join = BoolProperty(name='Join', default=True, update=updateNode)

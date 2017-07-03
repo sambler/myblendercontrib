@@ -12,7 +12,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Original Author = Jacob Morris
-# URL = blendingjacob.blogspot.com
+# URL = github.com/BlendingJake
 
 bl_info = {
     "name": "CubeSter",
@@ -31,6 +31,7 @@ from random import uniform
 from math import radians
 import bmesh
 from os import path, listdir
+import re
 
 
 # load image if possible
@@ -320,8 +321,14 @@ def create_mesh_from_audio(self, scene, verts, faces):
 # generate mesh from image(s)
 def create_mesh_from_image(self, scene, verts, faces):
     context = bpy.context
-    picture = bpy.data.images[scene.cubester_image]
-    pixels = list(picture.pixels)
+
+    if scene.cubester_image in bpy.data.images:
+        picture = bpy.data.images[scene.cubester_image]
+    else:
+        self.report({"ERROR"}, "CubeSter: image '{}' could not be found".format(scene.cubester_image))
+        return -1
+
+    pixels = list(picture.pixels)  # convert to list to greatly speed up indexing
     
     x_pixels = picture.size[0] / (scene.cubester_skip_pixels + 1)
     y_pixels = picture.size[1] / (scene.cubester_skip_pixels + 1)
@@ -335,8 +342,6 @@ def create_mesh_from_image(self, scene, verts, faces):
     y = -height / 2 + half_width
 
     vert_colors = []
-     
-    weights = [uniform(0.0, 1.0) for i in range(4)] # random weights  
     rows = 0             
 
     # go through each row of pixels stepping by scene.cubester_skip_pixels + 1
@@ -344,7 +349,7 @@ def create_mesh_from_image(self, scene, verts, faces):
         rows += 1          
         x = -width / 2 + half_width  # reset to left edge of mesh
         # go through each column, step by appropriate amount
-        for column in range(0, picture.size[0] * 4, 4 + scene.cubester_skip_pixels * 4):                        
+        for column in range(0, picture.size[0] * 4, 4 + scene.cubester_skip_pixels * 4):
             r, g, b, a = get_pixel_values(picture, pixels, row, column)
             h = find_point_height(r, g, b, a, scene)
             
@@ -592,25 +597,21 @@ def find_sequence_images(self, context):
     scene = context.scene
     images = [[], []]
     
-    if scene.cubester_image in bpy.data.images:
+    if scene.cubester_image in bpy.data.images and scene.cubester_load_type == "multiple":
         image = bpy.data.images[scene.cubester_image]
-        main = image.name.split(".")[0]
+        main = re.search('([^0-9]*)', image.name.split(".")[0])
         
-        # first part of name to check against other files
-        length = len(main)
-        keep_going = True
-        for i in range(length - 1, -1, -1):
-            if main[i].isdigit() and keep_going:
-                length -= 1
-            else:
-                keep_going = not keep_going
-        name = main[0:length]
-        
+        # find basename
+        if main.group(0) == '':
+            return images
+
+        name = main.group(0)
+        ext = image.name.split(".")[1]
         dir_name = path.dirname(bpy.path.abspath(image.filepath))
         
         try:
             for file in listdir(dir_name):
-                if path.isfile(path.join(dir_name, file)) and file.startswith(name):
+                if path.isfile(path.join(dir_name, file)) and file.startswith(name) and file.endswith(ext):
                     images[0].append(path.join(dir_name, file))
                     images[1].append(file)
         except FileNotFoundError:
@@ -793,8 +794,12 @@ class CubeSterPanel(bpy.types.Panel):
             box.prop(scene, "cubester_mesh_style", icon="MESH_GRID")
         
             if scene.cubester_mesh_style == "blocks":            
-                box.prop(scene, "cubester_block_style")                             
-        
+                box.prop(scene, "cubester_block_style")
+
+            if scene.cubester_image in bpy.data.images:
+                rows = int(bpy.data.images[scene.cubester_image].size[1] / (scene.cubester_skip_pixels + 1))
+                columns = int(bpy.data.images[scene.cubester_image].size[0] / (scene.cubester_skip_pixels + 1))
+
         # audio file
         else:               
             layout.prop(scene, "cubester_audio_path")
@@ -849,15 +854,17 @@ class CubeSterPanel(bpy.types.Panel):
             if not scene.cubester_use_image_color or scene.cubester_audio_image == "audio":
                 box.label("Image To Use For Colors:")
                 box.prop_search(scene, "cubester_color_image", bpy.data, "images")
-                box.prop(scene, "cubester_load_color_image")                         
-        
-            if scene.cubester_image in bpy.data.images:
-                rows = int(bpy.data.images[scene.cubester_image].size[1] / (scene.cubester_skip_pixels + 1))
-                columns = int(bpy.data.images[scene.cubester_image].size[0] / (scene.cubester_skip_pixels + 1))                     
+                box.prop(scene, "cubester_load_color_image")
         
         layout.separator()
+
+        # general information
         box = layout.box()  
-                      
+
+        # image width and height
+        if scene.cubester_audio_image == "image" and scene.cubester_image in bpy.data.images:
+            box.label("Image Size: {}px*{}px".format(*bpy.data.images[scene.cubester_image].size))  # unpack size with *
+
         if scene.cubester_mesh_style == "blocks":           
             box.label("Approximate Cube Count: " + str(rows * columns))
             box.label("Expected # Verts/Faces: " + str(rows * columns * 8) + " / " + str(rows * columns * 6))
@@ -933,9 +940,12 @@ class CubeSter(bpy.types.Operator):
         
         start = timeit.default_timer()         
         scene = bpy.context.scene
+        error = False
         
         if scene.cubester_audio_image == "image":
-            create_mesh_from_image(self, scene, verts, faces)
+            if create_mesh_from_image(self, scene, verts, faces) == -1:
+                error = True
+
             frames = find_sequence_images(self, context)
             created = len(frames[0])
         else:
@@ -943,15 +953,16 @@ class CubeSter(bpy.types.Operator):
             created = int(scene.cubester_audio_file_length)
         
         stop = timeit.default_timer()    
-                        
-        if scene.cubester_mesh_style == "blocks" or scene.cubester_audio_image == "audio":
-            self.report({"INFO"}, "CubeSter: {} blocks and {} frame(s) in {}s".format(str(int(len(verts) / 8)),
-                                                                                     str(created),
-                                                                                     str(round(stop - start, 4))))
-        else:
-            self.report({"INFO"}, "CubeSter: {} points and {} frame(s) in {}s" .format(str(len(verts)),
-                                                                                       str(created),
-                                                                                       str(round(stop - start, 4))))
+
+        if not error:
+            if scene.cubester_mesh_style == "blocks" or scene.cubester_audio_image == "audio":
+                self.report({"INFO"}, "CubeSter: {} blocks and {} frame(s) in {}s".format(str(int(len(verts) / 8)),
+                                                                                          str(created),
+                                                                                          str(round(stop - start, 4))))
+            else:
+                self.report({"INFO"}, "CubeSter: {} points and {} frame(s) in {}s" .format(str(len(verts)),
+                                                                                           str(created),
+                                                                                           str(round(stop - start, 4))))
         
         return {"FINISHED"}               
 

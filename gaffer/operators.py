@@ -19,10 +19,12 @@
 import bpy
 import json
 import bgl, blf
-from math import pi, cos, sin, log
+from math import pi, cos, sin, log, ceil
 from mathutils import Vector, Matrix
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 from bpy.app.handlers import persistent
+from time import sleep
+from subprocess import run
 
 from .constants import *
 from .functions import *
@@ -999,92 +1001,67 @@ class GafHDRIThumbGen(bpy.types.Operator):
     bl_label = 'Generate Thumbnails'
     bl_options = {'INTERNAL'}
 
+    size_limit = 100
+
+    skip_huge_files = bpy.props.BoolProperty(
+        name = "Skip big files",
+        description = "If you have big HDRIs (>"+str(size_limit)+" MB) with no smaller resolution available, these will be skipped to save time. Disabling this will mean it may take an unreasonable amount of time to generate thumbnails. Instead, it would be better if you manually create the lower resolution version first in Photoshop/Krita, then click 'Refresh' in Gaffer's User Preferences",
+        default=True
+        )
+
     # TODO render diffuse/gloss/plastic spheres instead of just the normal preview
     # TODO option to try to download sphere renders instead of rendering locally, as well as a separate option to upload local renders to help others skip rendering locally again
 
     def draw(self, context):
         layout = self.layout
 
+        col = layout.column()
+        col.label("This only has to be done once.")
+        col.label("The only way to stop this process once you start it is to forcibly close Blender.")
+
+        col.separator()
         col = layout.column(align=True)
-        r = col.row(align=True)
-        r.alignment = 'CENTER'
-        r.label("This may take a while if you have large HDRIs and no", icon='ERROR')
-        r = col.row(align=True)
-        r.alignment = 'CENTER'
-        r.label("smaller resolution version for each one.")
+        col.prop(self, 'skip_huge_files')
 
-        col = layout.column(align=True)
-        r = col.row(align=True)
-        r.alignment = 'CENTER'
-        r.label("The only way to stop this process once you start it")
-        r = col.row(align=True)
-        r.alignment = 'CENTER'
-        r.label("is to forcibly close Blender.")
-
-        col = layout.column(align=True)
-        r = col.row(align=True)
-        r.alignment = 'CENTER'
-        r.label("This only has to be done once.")
-
-    def downsample(self, img, in_x, in_y, out_x, out_y):
-        import numpy
-
-        if in_x < out_x or in_y < out_y:
-            return numpy.array(img.pixels)
-        
-        p = numpy.array(img.pixels)
-        new_p = numpy.empty(out_x*out_y*4)
-        i = 0
-        ni = 0
-        r_y = in_y / out_y
-        inc = int(r_y)*4
-
-        for y in range(out_y):
-            v_jump = int(r_y * y)
-            i = in_x * v_jump * 4
-            for x in range(out_x):
-                i = int(i)
-                try:
-                    new_p[ni] = p[i]
-                except:
-                    break
-                new_p[ni+1] = p[i+1]
-                new_p[ni+2] = p[i+2]
-                new_p[ni+3] = p[i+3]
-                i += inc
-                ni += 4
-
-        return new_p
+        if context.scene.gaf_props.ThumbnailsBigHDRIFound:
+            col.label("Large HDRI files were skipped last time.", icon='ERROR')
+            col.label("You may wish to disable 'Skip big files', but first read its tooltip.")
 
     def generate_thumb(self, name, files):
-        import numpy
-
         context = bpy.context
         prefs = context.user_preferences.addons[__package__].preferences
 
         chosen_file = ''
-        downsample = True
 
-        if len(files) == 1:
-            chosen_file = files[0]
-        else:
-            # First check if there are really small versions
-            small_sizes = ['256p', '512p']
-            for f in files:
-                for s in small_sizes:
-                    if s in f:
-                        chosen_file = f
-                        break
-                if chosen_file:
-                    break
+        # Check if thumb file came with HDRI
+        d = os.path.dirname(files[0])
+        for f in os.listdir(os.path.join(prefs.hdri_path, d)):
+            if any(os.path.splitext(f)[0].lower().endswith(e) and name == get_hdri_basename(f) for e in thumb_endings):
+                chosen_file = os.path.join(d, f)
+                break
 
-            # Otherwise pick smallest file
-            if not chosen_file:
-                file_sizes = {}
+        if not chosen_file:
+            if len(files) == 1:
+                chosen_file = files[0]
+            else:
+                # First check if there are really small versions
+                small_sizes = ['256p', '512p']
                 for f in files:
-                    if not os.path.splitext(f)[0].lower().endswith('env'):
-                        file_sizes[f] = os.path.getsize(os.path.join(prefs.hdri_path, f))
-                chosen_file = min(file_sizes, key=file_sizes.get)
+                    for s in small_sizes:
+                        if s in f:
+                            chosen_file = f
+                            break
+                    if chosen_file:
+                        break
+
+                # Otherwise pick smallest file
+                if not chosen_file:
+                    file_sizes = {}
+                    for f in files:
+                        if os.path.splitext(f)[1].lower() in allowed_file_types:
+                            if not os.path.splitext(f)[0].lower().endswith('env'):
+                                file_sizes[f] = os.path.getsize(os.path.join(prefs.hdri_path, f))
+                    chosen_file = min(file_sizes, key=file_sizes.get)
         if not chosen_file:
             chosen_file = files[0]  # Safety fallback
 
@@ -1092,47 +1069,72 @@ class GafHDRIThumbGen(bpy.types.Operator):
         fp = os.path.join(prefs.hdri_path, chosen_file)
         thumb_file = os.path.join(thumbnail_dir, name+"__thumb_preview.jpg")
         if not os.path.exists(thumb_file):
-            img = bpy.data.images.load(fp, check_existing=False)
-
-            in_x = img.size[0]
-            in_y = img.size[1]
-            out_x = 200
-            out_y = round(out_x * (in_y/in_x))  # Same aspect ratio as original
-
-            pixels = []
-            if downsample:
-                pixels = self.downsample(img, in_x, in_y, out_x, out_y)
+            filesize = os.path.getsize(fp)/1024/1024
+            log('    ' + name + ": " + chosen_file + "  " + str(ceil(filesize))+" MB", also_print=True)
+            
+            if filesize < self.size_limit or not self.skip_huge_files:
+                cmd = [bpy.app.binary_path]
+                cmd.append("--background")
+                cmd.append("--factory-startup")
+                cmd.append("--python")
+                cmd.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "resize.py"))
+                cmd.append('--')
+                cmd.append(fp)
+                cmd.append('200')
+                cmd.append(thumb_file)
+                run(cmd)
             else:
-                pixels = numpy.array(img.pixels)
-
-            if img.colorspace_settings.name == 'Linear':
-                pixels = numpy.power(pixels, 1/2.2)
-
-            out_img = bpy.data.images.new("tmp_"+name+"__thumb", out_x, out_y, alpha=True)
-            out_img.pixels = pixels
-
-            save_image(context, out_img, thumb_file, 'JPEG')
-
-            bpy.data.images.remove(img)
-            bpy.data.images.remove(out_img)
+                log("    Too big", timestamp=False, also_print=True)
+                bpy.context.scene.gaf_props.ThumbnailsBigHDRIFound = True
 
     def execute(self, context):
+        log("OP: Generate Thumbnails")
+        if not self.skip_huge_files:
+            log("Large files included", timestamp=False)
+
         context.user_preferences.addons[__package__].preferences.RequestThumbGen = False
         hdris = get_hdri_list()
 
         progress_begin(context)
+
         num_hdris = len(hdris)
+
+
+        from concurrent.futures import ThreadPoolExecutor
+        executor = ThreadPoolExecutor(max_workers=8 if self.skip_huge_files else 4)
+        threads = []
         for i, h in enumerate(hdris):
-            progress_update(context, i/num_hdris, "Generating thumbnail "+str(i+1)+' of '+str(num_hdris)+' ('+h+')')
-            self.generate_thumb(h, hdris[h])
+            t = executor.submit(self.generate_thumb, h, hdris[h])
+            threads.append(t)
+
+        errors = []
+        while (any(t._state!="FINISHED" for t in threads)):
+            num_finished = 0
+            for tt in threads:
+                if tt._state == "FINISHED":
+                    num_finished += 1
+                    if tt.result() != None:
+                        errors.append(tt.result())
+            progress_update(context, num_finished/num_hdris, "Generating thumbnail: "+str(num_finished+1)+'/'+str(num_hdris))
+            sleep (2)
+
+        if errors:
+            for e in errors:
+                print (e)
+        else:
+            success = True
+
+
         progress_end(context)
+
+        log("Successfully finished generating thumbnails")
 
         refresh_previews()
 
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=300)
+        return context.window_manager.invoke_props_dialog(self, width=420*dpifac())
 
 class GafHDRIJPGGen(bpy.types.Operator):
 
@@ -1142,7 +1144,6 @@ class GafHDRIJPGGen(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     def generate_jpgs(self, context, name):
-        import numpy
         gaf_props = context.scene.gaf_props
 
         hdri_path = get_variation(name, mode="biggest")
@@ -1344,7 +1345,6 @@ class GafGetHDRIHaven(bpy.types.Operator):
                 t = executor.submit(self.download_file, context, i, hh, hdri_list, out_folder, num_hdris)
                 threads.append(t)
 
-            from time import sleep
             errors = []
             while (any(t._state!="FINISHED" for t in threads)):
                 num_finished = 0
@@ -1374,7 +1374,7 @@ class GafGetHDRIHaven(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=500)
+        return context.window_manager.invoke_props_dialog(self, width=500*dpifac())
 
 class GafHideHDRIHaven(bpy.types.Operator):
 
@@ -1420,3 +1420,98 @@ class GafHDRIOpenDataFolder(bpy.types.Operator):
             self.report({'WARNING'}, "This might not have worked :( Navigate to the path manually: "+data_dir)
         
         return {'FINISHED'}
+
+class GafDebugDeleteThumbs(bpy.types.Operator):
+
+    "Delete all thumbnail images"
+    bl_idname = 'gaffer.dbg_delete_thumbs'
+    bl_label = 'Delete thumbnails'
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        row = col.row(align=True)
+        row.alignment = 'CENTER'
+        row.label("This will delete all thumbnail files that Gaffer has made.", icon="ERROR")
+        row = col.row(align=True)
+        row.alignment = 'CENTER'
+        row.label("You will need to generate them again.")
+
+    def execute(self, context):
+        if os.path.exists(thumbnail_dir):
+            files = os.listdir(thumbnail_dir)
+            for f in files:
+                p = os.path.join(thumbnail_dir, f)
+                os.remove(p)
+            self.report({'INFO'}, "Deleted %s files" % len(files))
+            return {'FINISHED'}
+        else:
+            self.report({'ERROR'}, "Folder does not exist")
+            return {'CANCELLED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=340*dpifac())
+
+class GafDebugUploadHDRIList(bpy.types.Operator):
+
+    "Upload your list of HDRIs to the internet"
+    bl_idname = 'gaffer.dbg_upload_hdri_list'
+    bl_label = 'Upload HDRI List'
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        row = col.row(align=True)
+        row.alignment = 'CENTER'
+        row.label("This will upload Gaffer's HDRI list to the internet,", icon="ERROR")
+        row = col.row(align=True)
+        row.alignment = 'CENTER'
+        row.label("and then open the public URL in your browser.")
+
+    def execute(self, context):
+
+        file_list = []
+        def get_file_list(p):
+            for f in os.listdir(p):
+                if os.path.isfile(os.path.join(p, f)):
+                    if os.path.splitext(f)[1].lower() in allowed_file_types:
+                        file_list.append(f)
+                else:
+                    get_file_list(os.path.join(p, f))
+
+        if os.path.exists(hdri_list_path):
+            get_file_list(bpy.context.user_preferences.addons[__package__].preferences.hdri_path)
+            file_list = sorted(file_list, key=lambda x: x.lower())
+            hastebin_file(hdri_list_path, extra_string = "    Actual files:\n" + '\n'.join(file_list))
+            return {'FINISHED'}
+        else:
+            self.report({'ERROR'}, "File does not exist")
+            return {'CANCELLED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=300*dpifac())
+
+class GafDebugUploadLogs(bpy.types.Operator):
+
+    "Upload Gaffer's debugging logs to the internet"
+    bl_idname = 'gaffer.dbg_upload_logs'
+    bl_label = 'Upload Logs'
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        row = col.row(align=True)
+        row.alignment = 'CENTER'
+        row.label("This will upload Gaffer's logs to the internet,", icon="ERROR")
+        row = col.row(align=True)
+        row.alignment = 'CENTER'
+        row.label("and then open the public URL in your browser.")
+
+    def execute(self, context):
+        if os.path.exists(log_file):
+            hastebin_file(log_file)
+            return {'FINISHED'}
+        else:
+            self.report({'ERROR'}, "File does not exist")
+            return {'CANCELLED'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=300*dpifac())
+

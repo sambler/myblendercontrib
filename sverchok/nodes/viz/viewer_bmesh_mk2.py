@@ -82,7 +82,7 @@ def make_bmesh_geometry(node, idx, context, verts, *topology):
     else:
 
         ''' get bmesh, write bmesh to obj, free bmesh'''
-        bm = bmesh_from_pydata(verts, edges, faces)
+        bm = bmesh_from_pydata(verts, edges, faces, normal_update=node.calc_normals)
         bm.to_mesh(sv_object.data)
         bm.free()
 
@@ -145,7 +145,7 @@ def make_bmesh_geometry_merged(node, idx, context, yielder_object):
         mesh.update()
     else:
         ''' get bmesh, write bmesh to obj, free bmesh'''
-        bm = bmesh_from_pydata(big_verts, big_edges, big_faces)
+        bm = bmesh_from_pydata(big_verts, big_edges, big_faces, normal_update=node.calc_normals)
         bm.to_mesh(sv_object.data)
         bm.free()
 
@@ -186,7 +186,21 @@ class SvBmeshViewOp2(bpy.types.Operator):
             mat = bpy.data.materials.new('sv_material')
             mat.use_nodes = True
             mat.use_fake_user = True  # usually handy
+
+
+            nodes = mat.node_tree.nodes
             n.material = mat.name
+            
+            if bpy.context.scene.render.engine == 'CYCLES':
+                # add attr node to the left of diffuse BSDF + connect it
+                diffuse_node = nodes['Diffuse BSDF']
+                attr_node = nodes.new('ShaderNodeAttribute')
+                attr_node.location = (-170, 300)
+                attr_node.attribute_name = 'SvCol'
+
+                links = mat.node_tree.links
+                links.new(attr_node.outputs[0], diffuse_node.inputs[0])
+
 
     def execute(self, context):
         self.hide_unhide(context, self.fn_name)
@@ -194,9 +208,10 @@ class SvBmeshViewOp2(bpy.types.Operator):
 
 
 class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
+    """ bmv Generate Live geom """
 
     bl_idname = 'SvBmeshViewerNodeMK2'
-    bl_label = 'Viewer BMeshMK2'
+    bl_label = 'Viewer BMesh'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     # hints found at ba.org/forum/showthread.php?290106
@@ -225,6 +240,7 @@ class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
     hide_select = BoolProperty(default=True)
 
     select_state_mesh = BoolProperty(default=False)
+    calc_normals = BoolProperty(default=False, update=updateNode)
 
     activate = BoolProperty(
         default=True,
@@ -293,7 +309,6 @@ class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         if col:
             row = col.row(align=True)
             row.prop(self, "grouping", text="Group", toggle=True)
-            row.separator()
             row.prop(self, "merge", text="Merge", toggle=True)
 
             row = col.row(align=True)
@@ -329,12 +344,13 @@ class SvBmeshViewerNodeMK2(bpy.types.Node, SverchCustomTreeNode):
             box.prop(self, "extended_matrix", text="Extended Matrix")
             box.prop(self, "fixed_verts", text="Fixed vert count")
             box.prop(self, 'autosmooth', text='smooth shade')
+            box.prop(self, 'calc_normals', text='calculate normals')
             box.prop(self, 'layer_choice', text='layer')
 
     def get_geometry_from_sockets(self):
 
         def get(socket_name):
-            data = self.inputs[socket_name].sv_get(default=[])
+            data = self.inputs[socket_name].sv_get(default=[]) # , deepcopy=False) # can't because of fulllist.
             return dataCorrect(data)
 
         mverts = get('vertices')

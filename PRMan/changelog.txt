@@ -1,3 +1,32 @@
+v21.4.0 5/16/17
+* Support for PxrHairColor (per strand index)
+* Preset browser integration.  Found under the RenderMan tab in the View3D menu (press T).  This is an implementation of the same preset browser in RfM.  Allows you to share shader networks with RfM, and save and import your favorite materials, and apply them to selected objects.
+* Updates to the auto-updater.
+* A couple fixes and optimizations to baking.
+
+v21.3.0 4/15/17
+* Auto updater for addon added.  In the addon preferences there is settings for auto updating.  If
+left to the default it will check once a day with github and download any changes.
+Thanks to CG Cookie for contributing the example and JDent for implementing
+https://github.com/CGCookie/blender-addon-updater
+* Portal lights now must be parented under the corresponding Hemi light in the outliner.  They need this to get the rotation from the hemi light.
+* Material Baking is enabled now.  To use insert a PxrBakeTexture node in a shader graph and use the bake button.  (thanks to JDent)
+* OpenVDB files can be exported in place of an object or empty under the "Geometry Source" on the object properties
+* An object can be exported as an RiVolume cube using the bounding box under the "Primitive Type" in the object properties.
+* Fix Rotation of directional lights and other lights
+* Doing undo (ctrl+z) in IPR should no longer cause a crash.
+* MatteID can be set per object in the object properties.
+* Rib files now default to binary (smaller, faster) and can be zipped.  See the advanced render properties
+* Per lobe outputs for PxrSurface are available for AOV's
+* Various IPR fixes (MUCH MORE STABLE AND FASTER for material changes)
+* Fix IES profiles for lights
+* A few blender panels (example physics settings) were hidden, show them
+* Output settings notes when rendering to IT, view in the image properties.
+* An "id" primvar is available for particles (and hair) allowing random variations with PxrVary node.
+* innumerable other bug fixes.
+* As always thanks to jdent02 and rgordon for their help.
+
+
 v21.2.0 11/8/16
 * NOTE SIGNIFICANT CHANGE - Nodetrees are moved to use the built in cycles nodetree!
   * This will help file linking and allow node groups.

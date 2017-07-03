@@ -1,17 +1,13 @@
-# This is the release version of the plugin file osm_georeferencing_dev.py
-# If you would like to make edits, make them in the file osm_georeferencing_dev.py and the other related modules
-# To create the release version of osm_georeferencing_dev.py, execute:
-# python plugin_builder.py osm_georeferencing_dev.py
 bl_info = {
     "name": "OpenStreetMap Georeferencing",
     "author": "Vladimir Elistratov <vladimir.elistratov@gmail.com>",
-    "version": (1, 0, 1),
-    "blender": (2, 7, 6),
+    "version": (1, 0, 2),
+    "blender": (2, 7, 8),
     "location": "View 3D > Object Mode > Tool Shelf",
     "description": "OpenStreetMap based object georeferencing",
     "warning": "",
-    "wiki_url": "https://github.com/vvoovv/blender-geo/wiki/OpenStreetMap-Georeferencing",
-    "tracker_url": "https://github.com/vvoovv/blender-geo/issues",
+    "wiki_url": "https://github.com/vvoovv/blender-tools/wiki/OpenStreetMap-Georeferencing",
+    "tracker_url": "https://github.com/vvoovv/blender-tools/issues",
     "support": "COMMUNITY",
     "category": "3D View",
 }
@@ -20,21 +16,18 @@ import bpy
 import math
 from mathutils import Vector
 
-import sys
-import math
-
 # see conversion formulas at
 # http://en.wikipedia.org/wiki/Transverse_Mercator_projection
 # and
 # http://mathworld.wolfram.com/MercatorProjection.html
 class TransverseMercator:
-    radius = 6378137
+    radius = 6378137.
 
     def __init__(self, **kwargs):
         # setting default values
-        self.lat = 0 # in degrees
-        self.lon = 0 # in degrees
-        self.k = 1 # scale factor
+        self.lat = 0. # in degrees
+        self.lon = 0. # in degrees
+        self.k = 1. # scale factor
         
         for attr in kwargs:
             setattr(self, attr, kwargs[attr])
@@ -44,7 +37,7 @@ class TransverseMercator:
         lat = math.radians(lat)
         lon = math.radians(lon-self.lon)
         B = math.sin(lon) * math.cos(lat)
-        x = 0.5 * self.k * self.radius * math.log((1+B)/(1-B))
+        x = 0.5 * self.k * self.radius * math.log((1.+B)/(1.-B))
         y = self.k * self.radius * ( math.atan(math.tan(lat)/math.cos(lon)) - self.latInRadians )
         return (x,y)
 
@@ -75,8 +68,8 @@ class OsmGeoreferencingPanel(bpy.types.Panel):
         if not (
             # the original position is set
             "_x" in wm and "_y" in wm and "_h" in wm and
-            # custom properties "latitude" and "longitude" are set for the active scene
-            "latitude" in context.scene and "longitude" in context.scene and
+            # custom properties "lat" and "lon" are set for the active scene
+            "lat" in context.scene and "lon" in context.scene and
             # objects belonging to the model are selected
             len(context.selected_objects)>0
         ):
@@ -113,10 +106,10 @@ class DoGeoreferencing(bpy.types.Operator):
         # calculationg the new position of the active object center
         v = -Vector((wm["_x"], wm["_y"], o.location.z))
         p = o.matrix_world * v
-        projection = TransverseMercator(lat=scene["latitude"], lon=scene["longitude"])
+        projection = TransverseMercator(lat=scene["lat"], lon=scene["lon"])
         (lat, lon) = projection.toGeographic(p[0], p[1])
-        scene["longitude"] = lon
-        scene["latitude"] = lat
+        scene["lat"] = lat
+        scene["lon"] = lon
         scene["heading"] = (o.rotation_euler[2]-wm["_h"])*180/math.pi
         
         # restoring original objects location and orientation

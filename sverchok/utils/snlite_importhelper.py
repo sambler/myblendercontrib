@@ -85,7 +85,8 @@ def parse_sockets(node):
 
     snlite_info = {
         'inputs': [], 'outputs': [], 
-        'snlite_ui': [], 'includes': {}
+        'snlite_ui': [], 'includes': {},
+        'custom_enum': [], 'callbacks': {}
     }
 
     quotes = 0
@@ -101,11 +102,6 @@ def parse_sockets(node):
             socket_dir = L.split(' ')[0] + 'puts'
             snlite_info[socket_dir].append(parse_socket_line(L))
 
-        elif L.startswith('draw '):
-            drawfunc_line = L.split(' ')
-            if len(drawfunc_line) == 2:
-                snlite_info['drawfunc_name'] = drawfunc_line[1]
-
         elif L.startswith('ui = '):
             ui_dict = parse_ui_line(L)
             if isinstance(ui_dict, dict):
@@ -115,11 +111,21 @@ def parse_sockets(node):
             if hasattr(node, 'inject_params'):
                 node.inject_params = True
 
+        elif L.startswith('enum ='):
+            snlite_info['custom_enum'] = L[6:].strip().split(' ')
+
         elif L.startswith('include <') and L.endswith('>'):
             filename = L[9:-1]
             file = bpy.data.texts.get(filename)
             if file:
                 snlite_info['includes'][filename] = file.as_string()
+
+        elif L in {'fh', 'filehandler'}:
+            snlite_info['display_file_handler'] = True
+
+        # elif L.startswith('cb '):
+        #     cb_name = L[3:].strip()
+        #     snlite_info['callbacks'].append(cb_name)
 
     return snlite_info
 

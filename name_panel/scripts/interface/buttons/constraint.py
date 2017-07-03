@@ -1,1965 +1,1965 @@
 
 # constraint
 class Constraint:
-  '''
-    The UI settings for the constraints.
-  '''
+    '''
+        The UI settings for the constraints.
+    '''
 
-  # main
-  def main(self, context, layout, constraint):
+    # main
+    def main(self, context, layout, constraint):
 
-    # row
-    row = layout.row(align=True)
+        # row
+        row = layout.row(align=True)
 
-    # name
-    row.prop(constraint, 'name', text='')
+        # name
+        row.prop(constraint, 'name', text='')
 
-    # context pointer set
-    row.context_pointer_set('constraint', constraint)
+        # context pointer set
+        row.context_pointer_set('constraint', constraint)
 
-    # is not first
-    if constraint != constraint.id_data.constraints[0]:
+        # is not first
+        if constraint != constraint.id_data.constraints[0]:
 
-      # move up
-      row.operator('constraint.move_up', text='', icon='TRIA_UP')
+            # move up
+            row.operator('constraint.move_up', text='', icon='TRIA_UP')
 
-    # is not last
-    if constraint != constraint.id_data.constraints[len(constraint.id_data.constraints)-1]:
+        # is not last
+        if constraint != constraint.id_data.constraints[len(constraint.id_data.constraints)-1]:
 
-      # move down
-      row.operator('constraint.move_down', text='', icon='TRIA_DOWN')
+            # move down
+            row.operator('constraint.move_down', text='', icon='TRIA_DOWN')
 
-    # delete
-    row.operator('constraint.delete', text='', icon='X')
+        # delete
+        row.operator('constraint.delete', text='', icon='X')
 
-    # column
-    column = layout.column()
+        # column
+        column = layout.column()
 
-    getattr(Constraint, constraint.type)(Constraint, context, column, constraint)
+        getattr(Constraint, constraint.type)(Constraint, context, column, constraint)
 
-    # is constraint has influence
-    if constraint.type not in {'RIGID_BODY_JOINT', 'NULL'}:
+        # is constraint has influence
+        if constraint.type not in {'RIGID_BODY_JOINT', 'NULL'}:
 
-      # separate
-      column.separator()
+            # separate
+            column.separator()
 
-      # influence
-      column.prop(constraint, 'influence')
-
-  # space template
-  @staticmethod
-  def space_template(layout, constraint, target=True, owner=True):
-
-    # is target or owner
-    if target or owner:
-
-      # split
-      split = layout.split(percentage=0.2)
-
-      # label
-      split.label(text='Space:')
-
-      # row
-      row = split.row()
-
-      # is target
-      if target:
-
-        # target space
-        row.prop(constraint, 'target_space', text='')
-
-      # is target and owner
-      if target and owner:
-
-        # label
-        row.label(icon='ARROW_LEFTRIGHT')
-
-      # is owner
-      if owner:
-
-        # owner space
-        row.prop(constraint, 'owner_space', text='')
-
-  # target template
-  @staticmethod
-  def target_template(layout, constraint, subtargets=True):
-
-    # target
-    layout.prop(constraint, 'target')  # XXX limiting settings for only 'curves' or some type of object
-
-    # is contraint target and sub target
-    if constraint.target and subtargets:
-
-      # is target in armature
-      if constraint.target.type == 'ARMATURE':
-
-        # subtarget
-        layout.prop_search(constraint, 'subtarget', constraint.target.data, 'bones', text='Bone')
-
-        # has head tail
-        if hasattr(constraint, 'head_tail'):
-
-          # row
-          row = layout.row()
-
-          # label
-          row.label(text='Head/Tail:')
-
-          # head tail
-          row.prop(constraint, 'head_tail', text='')
-
-      # is target in mesh or lattice
-      elif constraint.target.type in {'MESH', 'LATTICE'}:
-
-        # subtarget
-        layout.prop_search(constraint, 'subtarget', constraint.target, 'vertex_groups', text='Vertex Group')
-
-  # ik tamplate
-  @staticmethod
-  def ik_template(layout, constraint):
-
-    # pole target
-    layout.prop(constraint, 'pole_target')
-
-    # is target and it in aramture
-    if constraint.pole_target and constraint.pole_target.type == 'ARMATURE':
-
-      # pole subtarget
-      layout.prop_search(constraint, 'pole_subtarget', constraint.pole_target.data, 'bones', text='Bone')
-
-    # is pole target
-    if constraint.pole_target:
-
-      # row
-      row = layout.row()
-
-      # label
-      row.label()
-
-      # pole target
-      row.prop(constraint, 'pole_angle')
-
-    # split
-    split = layout.split(percentage=0.33)
-
-    # column
-    column = split.column()
-
-    # use tail
-    column.prop(constraint, 'use_tail')
-
-    # use stretch
-    column.prop(constraint, 'use_stretch')
-
-    # column
-    column = split.column()
-
-    # chain count
-    column.prop(constraint, 'chain_count')
-
-  # child of
-  def CHILD_OF(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint)
-
-    # split
-    split = layout.split()
-
-    # column
-    column = split.column()
-
-    # label
-    column.label(text='Location:')
-
-    # use location x
-    column.prop(constraint, 'use_location_x', text='X')
-
-    # use location y
-    column.prop(constraint, 'use_location_y', text='Y')
-
-    # use location z
-    column.prop(constraint, 'use_location_z', text='Z')
-
-    # column
-    column = split.column()
-
-    # label
-    column.label(text='Rotation:')
-
-    # use rotation x
-    column.prop(constraint, 'use_rotation_x', text='X')
-
-    # use rotation y
-    column.prop(constraint, 'use_rotation_y', text='Y')
-
-    # use rotation z
-    column.prop(constraint, 'use_rotation_z', text='Z')
-
-    # column
-    column = split.column()
-
-    # label
-    column.label(text='Scale:')
-
-    # use scale x
-    column.prop(constraint, 'use_scale_x', text='X')
-
-    # use scale y
-    column.prop(constraint, 'use_scale_y', text='Y')
-
-    # use scale z
-    column.prop(constraint, 'use_scale_z', text='Z')
-
-    # row
-    row = layout.row()
-
-    # constraint child of set inverse
-    row.operator('constraint.childof_set_inverse')
-
-    # constraint child of clear inverse
-    row.operator('constraint.childof_clear_inverse')
-
-  # track to
-  def TRACK_TO(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint)
-
-    # row
-    row = layout.row()
-
-    # label
-    row.label(text='To:')
-
-    # track axis
-    row.prop(constraint, 'track_axis', expand=True)
-
-    # row
-    row = layout.row()
-
-    # up axis
-    row.prop(constraint, 'up_axis', text='Up')
-
-    # use target
-    row.prop(constraint, 'use_target_z')
+            # influence
+            column.prop(constraint, 'influence')
 
     # space template
-    self.space_template(layout, constraint)
+    @staticmethod
+    def space_template(layout, constraint, target=True, owner=True):
 
-  # ik
-  def IK(self, context, layout, constraint):
+        # is target or owner
+        if target or owner:
 
-    # is ik solver in iTaSC
-    if context.object.pose.ik_solver == 'ITASC':
+            # split
+            split = layout.split(percentage=0.2)
 
-      # ik type
-      layout.prop(constraint, 'ik_type')
-      getattr(self, 'IK_' + constraint.ik_type)(context, layout, constraint)
+            # label
+            split.label(text='Space:')
 
-    # isnt ik solver in iTaSC
-    else:
+            # row
+            row = split.row()
 
-      # target template
-      self.target_template(layout, constraint)
+            # is target
+            if target:
 
-      # pole target
-      layout.prop(constraint, 'pole_target')
+                # target space
+                row.prop(constraint, 'target_space', text='')
 
-      # is pole target and pole target in armature
-      if constraint.pole_target and constraint.pole_target.type == 'ARMATURE':
+            # is target and owner
+            if target and owner:
 
-        # pole subtarget
-        layout.prop_search(constraint, 'pole_subtarget', constraint.pole_target.data, 'bones', text='Bone')
+                # label
+                row.label(icon='ARROW_LEFTRIGHT')
 
-      # is poe target
-      if constraint.pole_target:
+            # is owner
+            if owner:
+
+                # owner space
+                row.prop(constraint, 'owner_space', text='')
+
+    # target template
+    @staticmethod
+    def target_template(layout, constraint, subtargets=True):
+
+        # target
+        layout.prop(constraint, 'target')    # XXX limiting settings for only 'curves' or some type of object
+
+        # is contraint target and sub target
+        if constraint.target and subtargets:
+
+            # is target in armature
+            if constraint.target.type == 'ARMATURE':
+
+                # subtarget
+                layout.prop_search(constraint, 'subtarget', constraint.target.data, 'bones', text='Bone')
+
+                # has head tail
+                if hasattr(constraint, 'head_tail'):
+
+                    # row
+                    row = layout.row()
+
+                    # label
+                    row.label(text='Head/Tail:')
+
+                    # head tail
+                    row.prop(constraint, 'head_tail', text='')
+
+            # is target in mesh or lattice
+            elif constraint.target.type in {'MESH', 'LATTICE'}:
+
+                # subtarget
+                layout.prop_search(constraint, 'subtarget', constraint.target, 'vertex_groups', text='Vertex Group')
+
+    # ik tamplate
+    @staticmethod
+    def ik_template(layout, constraint):
+
+        # pole target
+        layout.prop(constraint, 'pole_target')
+
+        # is target and it in aramture
+        if constraint.pole_target and constraint.pole_target.type == 'ARMATURE':
+
+            # pole subtarget
+            layout.prop_search(constraint, 'pole_subtarget', constraint.pole_target.data, 'bones', text='Bone')
+
+        # is pole target
+        if constraint.pole_target:
+
+            # row
+            row = layout.row()
+
+            # label
+            row.label()
+
+            # pole target
+            row.prop(constraint, 'pole_angle')
+
+        # split
+        split = layout.split(percentage=0.33)
+
+        # column
+        column = split.column()
+
+        # use tail
+        column.prop(constraint, 'use_tail')
+
+        # use stretch
+        column.prop(constraint, 'use_stretch')
+
+        # column
+        column = split.column()
+
+        # chain count
+        column.prop(constraint, 'chain_count')
+
+    # child of
+    def CHILD_OF(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # split
+        split = layout.split()
+
+        # column
+        column = split.column()
+
+        # label
+        column.label(text='Location:')
+
+        # use location x
+        column.prop(constraint, 'use_location_x', text='X')
+
+        # use location y
+        column.prop(constraint, 'use_location_y', text='Y')
+
+        # use location z
+        column.prop(constraint, 'use_location_z', text='Z')
+
+        # column
+        column = split.column()
+
+        # label
+        column.label(text='Rotation:')
+
+        # use rotation x
+        column.prop(constraint, 'use_rotation_x', text='X')
+
+        # use rotation y
+        column.prop(constraint, 'use_rotation_y', text='Y')
+
+        # use rotation z
+        column.prop(constraint, 'use_rotation_z', text='Z')
+
+        # column
+        column = split.column()
+
+        # label
+        column.label(text='Scale:')
+
+        # use scale x
+        column.prop(constraint, 'use_scale_x', text='X')
+
+        # use scale y
+        column.prop(constraint, 'use_scale_y', text='Y')
+
+        # use scale z
+        column.prop(constraint, 'use_scale_z', text='Z')
 
         # row
         row = layout.row()
 
-        # pole angle
-        row.prop(constraint, 'pole_angle')
+        # constraint child of set inverse
+        row.operator('constraint.childof_set_inverse')
+
+        # constraint child of clear inverse
+        row.operator('constraint.childof_clear_inverse')
+
+    # track to
+    def TRACK_TO(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # row
+        row = layout.row()
 
         # label
-        row.label()
+        row.label(text='To:')
 
-      # split
-      split = layout.split()
+        # track axis
+        row.prop(constraint, 'track_axis', expand=True)
 
-      # column
-      column = split.column()
+        # row
+        row = layout.row()
 
-      # iterations
-      column.prop(constraint, 'iterations')
+        # up axis
+        row.prop(constraint, 'up_axis', text='Up')
 
-      # chain count
-      column.prop(constraint, 'chain_count')
+        # use target
+        row.prop(constraint, 'use_target_z')
 
-      # column
-      column = split.column()
+        # space template
+        self.space_template(layout, constraint)
 
-      # use tail
-      column.prop(constraint, 'use_tail')
+    # ik
+    def IK(self, context, layout, constraint):
 
-      # use stretch
-      column.prop(constraint, 'use_stretch')
+        # is ik solver in iTaSC
+        if context.object.pose.ik_solver == 'ITASC':
 
-      # label
-      layout.label(text='Weight:')
+            # ik type
+            layout.prop(constraint, 'ik_type')
+            getattr(self, 'IK_' + constraint.ik_type)(context, layout, constraint)
 
-      # split
-      split = layout.split()
+        # isnt ik solver in iTaSC
+        else:
 
-      # column
-      column = split.column()
+            # target template
+            self.target_template(layout, constraint)
 
-      # row
-      row = column.row(align=True)
+            # pole target
+            layout.prop(constraint, 'pole_target')
 
-      # use location
-      row.prop(constraint, 'use_location', text='')
+            # is pole target and pole target in armature
+            if constraint.pole_target and constraint.pole_target.type == 'ARMATURE':
 
-      # sub
-      sub = row.row(align=True)
+                # pole subtarget
+                layout.prop_search(constraint, 'pole_subtarget', constraint.pole_target.data, 'bones', text='Bone')
 
-      # sub active if use location
-      sub.active = constraint.use_location
+            # is poe target
+            if constraint.pole_target:
 
-      # weight
-      sub.prop(constraint, 'weight', text='Position', slider=True)
+                # row
+                row = layout.row()
 
-      # column
-      column = split.column()
+                # pole angle
+                row.prop(constraint, 'pole_angle')
 
-      # row
-      row = column.row(align=True)
+                # label
+                row.label()
 
-      # use rotation
-      row.prop(constraint, 'use_rotation', text='')
+            # split
+            split = layout.split()
 
-      # sub
-      sub = row.row(align=True)
+            # column
+            column = split.column()
 
-      # sub active if use rotation
-      sub.active = constraint.use_rotation
+            # iterations
+            column.prop(constraint, 'iterations')
 
-      # orient weight
-      sub.prop(constraint, 'orient_weight', text='Rotation', slider=True)
+            # chain count
+            column.prop(constraint, 'chain_count')
 
-  # ik copy pose
-  def IK_COPY_POSE(self, context, layout, constraint):
+            # column
+            column = split.column()
 
-    # target templat
-    self.target_template(layout, constraint)
+            # use tail
+            column.prop(constraint, 'use_tail')
 
-    # ik template
-    self.ik_template(layout, constraint)
+            # use stretch
+            column.prop(constraint, 'use_stretch')
 
-    # row
-    row = layout.row()
+            # label
+            layout.label(text='Weight:')
 
-    # label
-    row.label(text='Axis Ref:')
+            # split
+            split = layout.split()
 
-    # reference axis
-    row.prop(constraint, 'reference_axis', expand=True)
+            # column
+            column = split.column()
 
-    # split
-    split = layout.split(percentage=0.33)
+            # row
+            row = column.row(align=True)
 
-    # use location
-    split.row().prop(constraint, 'use_location')
+            # use location
+            row.prop(constraint, 'use_location', text='')
 
-    # row
-    row = split.row()
+            # sub
+            sub = row.row(align=True)
 
-    # row active if use location
-    row.active = constraint.use_location
+            # sub active if use location
+            sub.active = constraint.use_location
 
-    # weigth
-    row.prop(constraint, 'weight', text='Weight', slider=True)
+            # weight
+            sub.prop(constraint, 'weight', text='Position', slider=True)
 
-    # split
-    split = layout.split(percentage=0.33)
+            # column
+            column = split.column()
 
-    # split active if use location
-    split.active = constraint.use_location
+            # row
+            row = column.row(align=True)
 
-    # row
-    row = split.row()
+            # use rotation
+            row.prop(constraint, 'use_rotation', text='')
 
-    # label
-    row.label(text='Lock:')
+            # sub
+            sub = row.row(align=True)
 
-    # row
-    row = split.row()
+            # sub active if use rotation
+            sub.active = constraint.use_rotation
 
-    # lock location x
-    row.prop(constraint, 'lock_location_x', text='X')
+            # orient weight
+            sub.prop(constraint, 'orient_weight', text='Rotation', slider=True)
 
-    # lock location y
-    row.prop(constraint, 'lock_location_y', text='Y')
+    # ik copy pose
+    def IK_COPY_POSE(self, context, layout, constraint):
 
-    # lock location z
-    row.prop(constraint, 'lock_location_z', text='Z')
+        # target templat
+        self.target_template(layout, constraint)
 
-    # split
-    split = layout.split(percentage=0.33)
+        # ik template
+        self.ik_template(layout, constraint)
 
-    # use rotation
-    split.row().prop(constraint, 'use_rotation')
+        # row
+        row = layout.row()
 
-    # row
-    row = split.row()
+        # label
+        row.label(text='Axis Ref:')
 
-    # row active if use rotation
-    row.active = constraint.use_rotation
+        # reference axis
+        row.prop(constraint, 'reference_axis', expand=True)
 
-    # orient weight
-    row.prop(constraint, 'orient_weight', text='Weight', slider=True)
+        # split
+        split = layout.split(percentage=0.33)
 
-    # split
-    split = layout.split(percentage=0.33)
+        # use location
+        split.row().prop(constraint, 'use_location')
 
-    # split active if use rotation
-    split.active = constraint.use_rotation
+        # row
+        row = split.row()
 
-    # row
-    row = split.row()
+        # row active if use location
+        row.active = constraint.use_location
 
-    # label
-    row.label(text='Lock:')
+        # weigth
+        row.prop(constraint, 'weight', text='Weight', slider=True)
 
-    # row
-    row = split.row()
+        # split
+        split = layout.split(percentage=0.33)
 
-    # lock rotation x
-    row.prop(constraint, 'lock_rotation_x', text='X')
+        # split active if use location
+        split.active = constraint.use_location
 
-    # lock rotation y
-    row.prop(constraint, 'lock_rotation_y', text='Y')
+        # row
+        row = split.row()
 
-    # lock rotation z
-    row.prop(constraint, 'lock_rotation_z', text='Z')
+        # label
+        row.label(text='Lock:')
 
-  # ik distance
-  def IK_DISTANCE(self, context, layout, constraint):
+        # row
+        row = split.row()
 
-    # target template
-    self.target_template(layout, constraint)
+        # lock location x
+        row.prop(constraint, 'lock_location_x', text='X')
 
-    # ik template
-    self.ik_template(layout, constraint)
+        # lock location y
+        row.prop(constraint, 'lock_location_y', text='Y')
 
-    # limit mode
-    layout.prop(constraint, 'limit_mode')
+        # lock location z
+        row.prop(constraint, 'lock_location_z', text='Z')
 
-    # row
-    row = layout.row()
+        # split
+        split = layout.split(percentage=0.33)
 
-    # weight
-    row.prop(constraint, 'weight', text='Weight', slider=True)
+        # use rotation
+        split.row().prop(constraint, 'use_rotation')
 
-    # distance
-    row.prop(constraint, 'distance', text='Distance', slider=True)
+        # row
+        row = split.row()
 
-  # follow path
-  def FOLLOW_PATH(self, context, layout, constraint):
+        # row active if use rotation
+        row.active = constraint.use_rotation
 
-    # target template
-    self.target_template(layout, constraint)
+        # orient weight
+        row.prop(constraint, 'orient_weight', text='Weight', slider=True)
 
-    # constraint follow path, path animate
-    layout.operator('constraint.followpath_path_animate', text='Animate Path', icon='ANIM_DATA')
+        # split
+        split = layout.split(percentage=0.33)
 
-    # plsit
-    split = layout.split()
+        # split active if use rotation
+        split.active = constraint.use_rotation
 
-    # column
-    column = split.column()
+        # row
+        row = split.row()
 
-    # use curve follow
-    column.prop(constraint, 'use_curve_follow')
+        # label
+        row.label(text='Lock:')
 
-    # use curve radius
-    column.prop(constraint, 'use_curve_radius')
+        # row
+        row = split.row()
 
-    # column
-    column = split.column()
+        # lock rotation x
+        row.prop(constraint, 'lock_rotation_x', text='X')
 
-    # use fixed location
-    column.prop(constraint, 'use_fixed_location')
+        # lock rotation y
+        row.prop(constraint, 'lock_rotation_y', text='Y')
 
-    # is use fixed location
-    if constraint.use_fixed_location:
+        # lock rotation z
+        row.prop(constraint, 'lock_rotation_z', text='Z')
 
-      # offset factor
-      column.prop(constraint, 'offset_factor', text='Offset')
+    # ik distance
+    def IK_DISTANCE(self, context, layout, constraint):
 
-    # isnt use fixed location
-    else:
+        # target template
+        self.target_template(layout, constraint)
 
-      # offset
-      column.prop(constraint, 'offset')
+        # ik template
+        self.ik_template(layout, constraint)
 
-    # row
-    row = layout.row()
+        # limit mode
+        layout.prop(constraint, 'limit_mode')
 
-    # label
-    row.label(text='Forward:')
+        # row
+        row = layout.row()
 
-    # forward axis
-    row.prop(constraint, 'forward_axis', expand=True)
+        # weight
+        row.prop(constraint, 'weight', text='Weight', slider=True)
 
-    # row
-    row = layout.row()
+        # distance
+        row.prop(constraint, 'distance', text='Distance', slider=True)
 
-    # up axis
-    row.prop(constraint, 'up_axis', text='Up')
+    # follow path
+    def FOLLOW_PATH(self, context, layout, constraint):
 
-    # separate
-    layout.separator()
+        # target template
+        self.target_template(layout, constraint)
 
-  # limit rotation
-  def LIMIT_ROTATION(self, context, layout, constraint):
+        # constraint follow path, path animate
+        layout.operator('constraint.followpath_path_animate', text='Animate Path', icon='ANIM_DATA')
 
-    # split
-    split = layout.split()
+        # plsit
+        split = layout.split()
 
-    # column
-    column = split.column(align=True)
+        # column
+        column = split.column()
 
-    # use limit x
-    column.prop(constraint, 'use_limit_x')
+        # use curve follow
+        column.prop(constraint, 'use_curve_follow')
 
-    # sub
-    sub = column.column(align=True)
+        # use curve radius
+        column.prop(constraint, 'use_curve_radius')
 
-    # sub active if use limit x
-    sub.active = constraint.use_limit_x
+        # column
+        column = split.column()
 
-    # min x
-    sub.prop(constraint, 'min_x', text='Min')
+        # use fixed location
+        column.prop(constraint, 'use_fixed_location')
 
-    # max x
-    sub.prop(constraint, 'max_x', text='Max')
+        # is use fixed location
+        if constraint.use_fixed_location:
 
-    # column
-    column = split.column(align=True)
+            # offset factor
+            column.prop(constraint, 'offset_factor', text='Offset')
 
-    # use limit y
-    column.prop(constraint, 'use_limit_y')
+        # isnt use fixed location
+        else:
 
-    # sub
-    sub = column.column(align=True)
+            # offset
+            column.prop(constraint, 'offset')
 
-    # sub active if use limit y
-    sub.active = constraint.use_limit_y
+        # row
+        row = layout.row()
 
-    # min y
-    sub.prop(constraint, 'min_y', text='Min')
+        # label
+        row.label(text='Forward:')
 
-    # max y
-    sub.prop(constraint, 'max_y', text='Max')
+        # forward axis
+        row.prop(constraint, 'forward_axis', expand=True)
 
-    # column
-    column = split.column(align=True)
+        # row
+        row = layout.row()
 
-    # use limit z
-    column.prop(constraint, 'use_limit_z')
+        # up axis
+        row.prop(constraint, 'up_axis', text='Up')
 
-    # sub
-    sub = column.column(align=True)
+        # separate
+        layout.separator()
 
-    # sub active if use limit z
-    sub.active = constraint.use_limit_z
+    # limit rotation
+    def LIMIT_ROTATION(self, context, layout, constraint):
 
-    # min z
-    sub.prop(constraint, 'min_z', text='Min')
+        # split
+        split = layout.split()
 
-    # max z
-    sub.prop(constraint, 'max_z', text='Max')
+        # column
+        column = split.column(align=True)
 
-    # use transform limit
-    layout.prop(constraint, 'use_transform_limit')
+        # use limit x
+        column.prop(constraint, 'use_limit_x')
 
-    # row
-    row = layout.row()
+        # sub
+        sub = column.column(align=True)
 
-    # label
-    row.label(text='Convert:')
+        # sub active if use limit x
+        sub.active = constraint.use_limit_x
 
-    # owner space
-    row.prop(constraint, 'owner_space', text='')
+        # min x
+        sub.prop(constraint, 'min_x', text='Min')
 
-  # limit location
-  def LIMIT_LOCATION(self, context, layout, constraint):
+        # max x
+        sub.prop(constraint, 'max_x', text='Max')
 
-    # split
-    split = layout.split()
+        # column
+        column = split.column(align=True)
 
-    # column
-    column = split.column()
+        # use limit y
+        column.prop(constraint, 'use_limit_y')
 
-    # use min x
-    column.prop(constraint, 'use_min_x')
+        # sub
+        sub = column.column(align=True)
 
-    # sub
-    sub = column.column()
+        # sub active if use limit y
+        sub.active = constraint.use_limit_y
 
-    # sub active if use min x
-    sub.active = constraint.use_min_x
+        # min y
+        sub.prop(constraint, 'min_y', text='Min')
 
-    # min x
-    sub.prop(constraint, 'min_x', text='')
+        # max y
+        sub.prop(constraint, 'max_y', text='Max')
 
-    # use max x
-    column.prop(constraint, 'use_max_x')
+        # column
+        column = split.column(align=True)
 
-    # sub
-    sub = column.column()
+        # use limit z
+        column.prop(constraint, 'use_limit_z')
 
-    # sub active if use max x
-    sub.active = constraint.use_max_x
+        # sub
+        sub = column.column(align=True)
 
-    # max x
-    sub.prop(constraint, 'max_x', text='')
+        # sub active if use limit z
+        sub.active = constraint.use_limit_z
 
-    # column
-    column = split.column()
+        # min z
+        sub.prop(constraint, 'min_z', text='Min')
 
-    # use min y
-    column.prop(constraint, 'use_min_y')
+        # max z
+        sub.prop(constraint, 'max_z', text='Max')
 
-    # sub
-    sub = column.column()
+        # use transform limit
+        layout.prop(constraint, 'use_transform_limit')
 
-    # use min y
-    sub.active = constraint.use_min_y
+        # row
+        row = layout.row()
 
-    # min y
-    sub.prop(constraint, 'min_y', text='')
+        # label
+        row.label(text='Convert:')
 
-    # use max y
-    column.prop(constraint, 'use_max_y')
+        # owner space
+        row.prop(constraint, 'owner_space', text='')
 
-    # sub
-    sub = column.column()
+    # limit location
+    def LIMIT_LOCATION(self, context, layout, constraint):
 
-    # sub active if use max y
-    sub.active = constraint.use_max_y
+        # split
+        split = layout.split()
 
-    # max y
-    sub.prop(constraint, 'max_y', text='')
+        # column
+        column = split.column()
 
-    # column
-    column = split.column()
+        # use min x
+        column.prop(constraint, 'use_min_x')
 
-    # use min z
-    column.prop(constraint, 'use_min_z')
+        # sub
+        sub = column.column()
 
-    # sub
-    sub = column.column()
+        # sub active if use min x
+        sub.active = constraint.use_min_x
 
-    # sub active if use min z
-    sub.active = constraint.use_min_z
+        # min x
+        sub.prop(constraint, 'min_x', text='')
 
-    # min z
-    sub.prop(constraint, 'min_z', text='')
+        # use max x
+        column.prop(constraint, 'use_max_x')
 
-    # use max z
-    column.prop(constraint, 'use_max_z')
+        # sub
+        sub = column.column()
 
-    # sub
-    sub = column.column()
+        # sub active if use max x
+        sub.active = constraint.use_max_x
 
-    # sub active if use max z
-    sub.active = constraint.use_max_z
+        # max x
+        sub.prop(constraint, 'max_x', text='')
 
-    # max z
-    sub.prop(constraint, 'max_z', text='')
+        # column
+        column = split.column()
 
-    # row
-    row = layout.row()
+        # use min y
+        column.prop(constraint, 'use_min_y')
 
-    # use transform limit
-    row.prop(constraint, 'use_transform_limit')
+        # sub
+        sub = column.column()
 
-    # separate
-    layout.separator()
+        # use min y
+        sub.active = constraint.use_min_y
 
-    # row
-    row = layout.row()
+        # min y
+        sub.prop(constraint, 'min_y', text='')
 
-    # label
-    row.label(text='Convert:')
+        # use max y
+        column.prop(constraint, 'use_max_y')
 
-    # owner space
-    row.prop(constraint, 'owner_space', text='')
+        # sub
+        sub = column.column()
 
-  # limit scale
-  def LIMIT_SCALE(self, context, layout, constraint):
+        # sub active if use max y
+        sub.active = constraint.use_max_y
 
-    # split
-    split = layout.split()
+        # max y
+        sub.prop(constraint, 'max_y', text='')
 
-    # column
-    column = split.column()
+        # column
+        column = split.column()
 
-    # use min x
-    column.prop(constraint, 'use_min_x')
+        # use min z
+        column.prop(constraint, 'use_min_z')
 
-    # sub
-    sub = column.column()
+        # sub
+        sub = column.column()
 
-    # sub active if use min x
-    sub.active = constraint.use_min_x
+        # sub active if use min z
+        sub.active = constraint.use_min_z
 
-    # min x
-    sub.prop(constraint, 'min_x', text='')
+        # min z
+        sub.prop(constraint, 'min_z', text='')
 
-    # use max x
-    column.prop(constraint, 'use_max_x')
+        # use max z
+        column.prop(constraint, 'use_max_z')
 
-    # sub
-    sub = column.column()
+        # sub
+        sub = column.column()
 
-    # sub active if use max x
-    sub.active = constraint.use_max_x
+        # sub active if use max z
+        sub.active = constraint.use_max_z
 
-    # max x
-    sub.prop(constraint, 'max_x', text='')
+        # max z
+        sub.prop(constraint, 'max_z', text='')
 
-    # column
-    column = split.column()
+        # row
+        row = layout.row()
 
-    # use min y
-    column.prop(constraint, 'use_min_y')
+        # use transform limit
+        row.prop(constraint, 'use_transform_limit')
 
-    # sub
-    sub = column.column()
+        # separate
+        layout.separator()
 
-    # sub active if use min y
-    sub.active = constraint.use_min_y
+        # row
+        row = layout.row()
 
-    # min y
-    sub.prop(constraint, 'min_y', text='')
+        # label
+        row.label(text='Convert:')
 
-    # use max y
-    column.prop(constraint, 'use_max_y')
+        # owner space
+        row.prop(constraint, 'owner_space', text='')
 
-    # sub
-    sub = column.column()
+    # limit scale
+    def LIMIT_SCALE(self, context, layout, constraint):
 
-    # sub active
-    sub.active = constraint.use_max_y
+        # split
+        split = layout.split()
 
-    # max y
-    sub.prop(constraint, 'max_y', text='')
+        # column
+        column = split.column()
 
-    # column
-    column = split.column()
+        # use min x
+        column.prop(constraint, 'use_min_x')
 
-    # use min z
-    column.prop(constraint, 'use_min_z')
+        # sub
+        sub = column.column()
 
-    # sub
-    sub = column.column()
+        # sub active if use min x
+        sub.active = constraint.use_min_x
 
-    # sub active if use min z
-    sub.active = constraint.use_min_z
+        # min x
+        sub.prop(constraint, 'min_x', text='')
 
-    # min z
-    sub.prop(constraint, 'min_z', text='')
+        # use max x
+        column.prop(constraint, 'use_max_x')
 
-    # use max z
-    column.prop(constraint, 'use_max_z')
+        # sub
+        sub = column.column()
 
-    # sub
-    sub = column.column()
+        # sub active if use max x
+        sub.active = constraint.use_max_x
 
-    # sub active if use max z
-    sub.active = constraint.use_max_z
+        # max x
+        sub.prop(constraint, 'max_x', text='')
 
-    # max z
-    sub.prop(constraint, 'max_z', text='')
+        # column
+        column = split.column()
 
-    # row
-    row = layout.row()
+        # use min y
+        column.prop(constraint, 'use_min_y')
 
-    # use transform limit
-    row.prop(constraint, 'use_transform_limit')
+        # sub
+        sub = column.column()
 
-    # separate
-    layout.separator()
+        # sub active if use min y
+        sub.active = constraint.use_min_y
 
-    # row
-    row = layout.row()
+        # min y
+        sub.prop(constraint, 'min_y', text='')
 
-    # label
-    row.label(text='Convert:')
+        # use max y
+        column.prop(constraint, 'use_max_y')
 
-    # owner space
-    row.prop(constraint, 'owner_space', text='')
+        # sub
+        sub = column.column()
 
-  # copy rotation
-  def COPY_ROTATION(self, context, layout, constraint):
+        # sub active
+        sub.active = constraint.use_max_y
 
-    # target template
-    self.target_template(layout, constraint)
+        # max y
+        sub.prop(constraint, 'max_y', text='')
 
-    # split
-    split = layout.split()
+        # column
+        column = split.column()
 
-    # column
-    column = split.column()
+        # use min z
+        column.prop(constraint, 'use_min_z')
 
-    # use x
-    column.prop(constraint, 'use_x', text='X')
+        # sub
+        sub = column.column()
 
-    # sub
-    sub = column.column()
+        # sub active if use min z
+        sub.active = constraint.use_min_z
 
-    # sub active if use x
-    sub.active = constraint.use_x
+        # min z
+        sub.prop(constraint, 'min_z', text='')
 
-    # invert x
-    sub.prop(constraint, 'invert_x', text='Invert')
+        # use max z
+        column.prop(constraint, 'use_max_z')
 
-    # column
-    column = split.column()
+        # sub
+        sub = column.column()
 
-    # use y
-    column.prop(constraint, 'use_y', text='Y')
+        # sub active if use max z
+        sub.active = constraint.use_max_z
 
-    # sub
-    sub = column.column()
+        # max z
+        sub.prop(constraint, 'max_z', text='')
 
-    # sub active if use y
-    sub.active = constraint.use_y
+        # row
+        row = layout.row()
 
-    # invert y
-    sub.prop(constraint, 'invert_y', text='Invert')
+        # use transform limit
+        row.prop(constraint, 'use_transform_limit')
 
-    # column
-    column = split.column()
+        # separate
+        layout.separator()
 
-    # use z
-    column.prop(constraint, 'use_z', text='Z')
+        # row
+        row = layout.row()
 
-    # sub
-    sub = column.column()
+        # label
+        row.label(text='Convert:')
 
-    # sub active if use z
-    sub.active = constraint.use_z
+        # owner space
+        row.prop(constraint, 'owner_space', text='')
 
-    # invert z
-    sub.prop(constraint, 'invert_z', text='Invert')
+    # copy rotation
+    def COPY_ROTATION(self, context, layout, constraint):
 
-    # use offset
-    layout.prop(constraint, 'use_offset')
+        # target template
+        self.target_template(layout, constraint)
 
-    # space template
-    self.space_template(layout, constraint)
+        # split
+        split = layout.split()
 
-  # copy location
-  def COPY_LOCATION(self, context, layout, constraint):
+        # column
+        column = split.column()
 
-    # target template
-    self.target_template(layout, constraint)
+        # use x
+        column.prop(constraint, 'use_x', text='X')
 
-    # split
-    split = layout.split()
+        # sub
+        sub = column.column()
 
-    # column
-    column = split.column()
+        # sub active if use x
+        sub.active = constraint.use_x
 
-    # use x
-    column.prop(constraint, 'use_x', text='X')
+        # invert x
+        sub.prop(constraint, 'invert_x', text='Invert')
 
-    # sub
-    sub = column.column()
+        # column
+        column = split.column()
 
-    # sub active if use x
-    sub.active = constraint.use_x
+        # use y
+        column.prop(constraint, 'use_y', text='Y')
 
-    # invert x
-    sub.prop(constraint, 'invert_x', text='Invert')
+        # sub
+        sub = column.column()
 
-    # column
-    column = split.column()
+        # sub active if use y
+        sub.active = constraint.use_y
 
-    # use y
-    column.prop(constraint, 'use_y', text='Y')
+        # invert y
+        sub.prop(constraint, 'invert_y', text='Invert')
 
-    # sub
-    sub = column.column()
+        # column
+        column = split.column()
 
-    # sub active if use y
-    sub.active = constraint.use_y
+        # use z
+        column.prop(constraint, 'use_z', text='Z')
 
-    # invert y
-    sub.prop(constraint, 'invert_y', text='Invert')
+        # sub
+        sub = column.column()
 
-    # column
-    column = split.column()
+        # sub active if use z
+        sub.active = constraint.use_z
 
-    # use z
-    column.prop(constraint, 'use_z', text='Z')
+        # invert z
+        sub.prop(constraint, 'invert_z', text='Invert')
 
-    # sub
-    sub = column.column()
+        # use offset
+        layout.prop(constraint, 'use_offset')
 
-    # sub active if use z
-    sub.active = constraint.use_z
+        # space template
+        self.space_template(layout, constraint)
 
-    # invert z
-    sub.prop(constraint, 'invert_z', text='Invert')
+    # copy location
+    def COPY_LOCATION(self, context, layout, constraint):
 
-    # use offset
-    layout.prop(constraint, 'use_offset')
+        # target template
+        self.target_template(layout, constraint)
 
-    # space template
-    self.space_template(layout, constraint)
+        # split
+        split = layout.split()
 
-  # copy scale
-  def COPY_SCALE(self, context, layout, constraint):
+        # column
+        column = split.column()
 
-    # target template
-    self.target_template(layout, constraint)
+        # use x
+        column.prop(constraint, 'use_x', text='X')
 
-    # row
-    row = layout.row(align=True)
+        # sub
+        sub = column.column()
 
-    # use x
-    row.prop(constraint, 'use_x', text='X')
+        # sub active if use x
+        sub.active = constraint.use_x
 
-    # use y
-    row.prop(constraint, 'use_y', text='Y')
+        # invert x
+        sub.prop(constraint, 'invert_x', text='Invert')
 
-    # use z
-    row.prop(constraint, 'use_z', text='Z')
+        # column
+        column = split.column()
 
-    # use offset
-    layout.prop(constraint, 'use_offset')
+        # use y
+        column.prop(constraint, 'use_y', text='Y')
 
-    # space template
-    self.space_template(layout, constraint)
+        # sub
+        sub = column.column()
 
-  # maintain volume
-  def MAINTAIN_VOLUME(self, context, layout, constraint):
+        # sub active if use y
+        sub.active = constraint.use_y
 
-    # row
-    row = layout.row()
+        # invert y
+        sub.prop(constraint, 'invert_y', text='Invert')
 
-    # label
-    row.label(text='Free:')
+        # column
+        column = split.column()
 
-    # free axis
-    row.prop(constraint, 'free_axis', expand=True)
+        # use z
+        column.prop(constraint, 'use_z', text='Z')
 
-    # volume
-    layout.prop(constraint, 'volume')
+        # sub
+        sub = column.column()
 
-    # row
-    row = layout.row()
+        # sub active if use z
+        sub.active = constraint.use_z
 
-    # label
-    row.label(text='Convert:')
+        # invert z
+        sub.prop(constraint, 'invert_z', text='Invert')
 
-    # owner space
-    row.prop(constraint, 'owner_space', text='')
+        # use offset
+        layout.prop(constraint, 'use_offset')
 
-  # copy transform
-  def COPY_TRANSFORMS(self, context, layout, constraint):
+        # space template
+        self.space_template(layout, constraint)
 
-    # target template
-    self.target_template(layout, constraint)
+    # copy scale
+    def COPY_SCALE(self, context, layout, constraint):
 
-    # space template
-    self.space_template(layout, constraint)
+        # target template
+        self.target_template(layout, constraint)
 
-  # action
-  def ACTION(self, context, layout, constraint):
+        # row
+        row = layout.row(align=True)
 
-    # target template
-    self.target_template(layout, constraint)
+        # use x
+        row.prop(constraint, 'use_x', text='X')
 
-    # split
-    split = layout.split()
+        # use y
+        row.prop(constraint, 'use_y', text='Y')
 
-    # column
-    column = split.column()
+        # use z
+        row.prop(constraint, 'use_z', text='Z')
 
-    # label
-    column.label(text='From Target:')
+        # use offset
+        layout.prop(constraint, 'use_offset')
 
-    # transform channel
-    column.prop(constraint, 'transform_channel', text='')
+        # space template
+        self.space_template(layout, constraint)
 
-    # target space
-    column.prop(constraint, 'target_space', text='')
+    # maintain volume
+    def MAINTAIN_VOLUME(self, context, layout, constraint):
 
-    # column
-    column = split.column()
+        # row
+        row = layout.row()
 
-    # label
-    column.label(text='To Action:')
+        # label
+        row.label(text='Free:')
+
+        # free axis
+        row.prop(constraint, 'free_axis', expand=True)
+
+        # volume
+        layout.prop(constraint, 'volume')
+
+        # row
+        row = layout.row()
+
+        # label
+        row.label(text='Convert:')
+
+        # owner space
+        row.prop(constraint, 'owner_space', text='')
+
+    # copy transform
+    def COPY_TRANSFORMS(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # space template
+        self.space_template(layout, constraint)
 
     # action
-    column.prop(constraint, 'action', text='')
+    def ACTION(self, context, layout, constraint):
 
-    # use bone object action
-    column.prop(constraint, 'use_bone_object_action')
+        # target template
+        self.target_template(layout, constraint)
 
-    # split
-    split = layout.split()
+        # split
+        split = layout.split()
 
-    # column
-    column = split.column(align=True)
+        # column
+        column = split.column()
 
-    # label
-    column.label(text='Target Range:')
+        # label
+        column.label(text='From Target:')
 
-    # min
-    column.prop(constraint, 'min', text='Min')
+        # transform channel
+        column.prop(constraint, 'transform_channel', text='')
 
-    # max
-    column.prop(constraint, 'max', text='Max')
+        # target space
+        column.prop(constraint, 'target_space', text='')
 
-    # column
-    column = split.column(align=True)
+        # column
+        column = split.column()
 
-    # label
-    column.label(text='Action Range:')
+        # label
+        column.label(text='To Action:')
 
-    # frame start
-    column.prop(constraint, 'frame_start', text='Start')
+        # action
+        column.prop(constraint, 'action', text='')
 
-    # frame end
-    column.prop(constraint, 'frame_end', text='End')
+        # use bone object action
+        column.prop(constraint, 'use_bone_object_action')
 
-  # locked track
-  def LOCKED_TRACK(self, context, layout, constraint):
+        # split
+        split = layout.split()
 
-    # target template
-    self.target_template(layout, constraint)
+        # column
+        column = split.column(align=True)
 
-    # row
-    row = layout.row()
+        # label
+        column.label(text='Target Range:')
 
-    # label
-    row.label(text='To:')
+        # min
+        column.prop(constraint, 'min', text='Min')
 
-    # track axis
-    row.prop(constraint, 'track_axis', expand=True)
+        # max
+        column.prop(constraint, 'max', text='Max')
 
-    # row
-    row = layout.row()
+        # column
+        column = split.column(align=True)
 
-    # label
-    row.label(text='Lock:')
+        # label
+        column.label(text='Action Range:')
 
-    # lock axis
-    row.prop(constraint, 'lock_axis', expand=True)
+        # frame start
+        column.prop(constraint, 'frame_start', text='Start')
 
-  # limit distance
-  def LIMIT_DISTANCE(self, context, layout, constraint):
+        # frame end
+        column.prop(constraint, 'frame_end', text='End')
 
-    # target template
-    self.target_template(layout, constraint)
+    # locked track
+    def LOCKED_TRACK(self, context, layout, constraint):
 
-    # column
-    column = layout.column(align=True)
+        # target template
+        self.target_template(layout, constraint)
 
-    # distance
-    column.prop(constraint, 'distance')
+        # row
+        row = layout.row()
 
-    # constraint limit distance reset
-    column.operator('constraint.limitdistance_reset')
+        # label
+        row.label(text='To:')
 
-    # row
-    row = layout.row()
+        # track axis
+        row.prop(constraint, 'track_axis', expand=True)
 
-    # label
-    row.label(text='Clamp Region:')
+        # row
+        row = layout.row()
 
-    # limit mode
-    row.prop(constraint, 'limit_mode', text='')
+        # label
+        row.label(text='Lock:')
 
-    # row
-    row = layout.row()
+        # lock axis
+        row.prop(constraint, 'lock_axis', expand=True)
 
-    # use transform limit
-    row.prop(constraint, 'use_transform_limit')
+    # limit distance
+    def LIMIT_DISTANCE(self, context, layout, constraint):
 
-    # separate
-    layout.separator()
+        # target template
+        self.target_template(layout, constraint)
 
-    # space template
-    self.space_template(layout, constraint)
+        # column
+        column = layout.column(align=True)
 
-  # stretch to
-  def STRETCH_TO(self, context, layout, constraint):
+        # distance
+        column.prop(constraint, 'distance')
 
-    # target template
-    self.target_template(layout, constraint)
+        # constraint limit distance reset
+        column.operator('constraint.limitdistance_reset')
 
-    # row
-    row = layout.row()
+        # row
+        row = layout.row()
 
-    # rest length
-    row.prop(constraint, 'rest_length', text='Rest Length')
+        # label
+        row.label(text='Clamp Region:')
 
-    # constraint stretch to reset
-    row.operator('constraint.stretchto_reset', text='Reset')
+        # limit mode
+        row.prop(constraint, 'limit_mode', text='')
 
-    # blge
-    layout.prop(constraint, 'bulge', text='Volume Variation')
+        # row
+        row = layout.row()
 
-    # split
-    split = layout.split()
+        # use transform limit
+        row.prop(constraint, 'use_transform_limit')
 
-    # column
-    column = split.column(align=True)
+        # separate
+        layout.separator()
 
-    # use bulge min
-    column.prop(constraint, 'use_bulge_min', text='Volume Min')
+        # space template
+        self.space_template(layout, constraint)
 
-    # sub
-    sub = column.column()
+    # stretch to
+    def STRETCH_TO(self, context, layout, constraint):
 
-    # sub active if use bulge min
-    sub.active = constraint.use_bulge_min
+        # target template
+        self.target_template(layout, constraint)
 
-    # bulge min
-    sub.prop(constraint, 'bulge_min', text='')
+        # row
+        row = layout.row()
 
-    # column
-    column = split.column(align=True)
+        # rest length
+        row.prop(constraint, 'rest_length', text='Rest Length')
 
-    # use bulge max
-    column.prop(constraint, 'use_bulge_max', text='Volume Max')
+        # constraint stretch to reset
+        row.operator('constraint.stretchto_reset', text='Reset')
 
-    # sub
-    sub = column.column()
+        # blge
+        layout.prop(constraint, 'bulge', text='Volume Variation')
 
-    # sub active if use bulge max
-    sub.active = constraint.use_bulge_max
+        # split
+        split = layout.split()
 
-    # bulge max
-    sub.prop(constraint, 'bulge_max', text='')
+        # column
+        column = split.column(align=True)
 
-    # column
-    column = layout.column()
+        # use bulge min
+        column.prop(constraint, 'use_bulge_min', text='Volume Min')
 
-    # column active if use bulge min or use bulge max
-    column.active = constraint.use_bulge_min or constraint.use_bulge_max
+        # sub
+        sub = column.column()
 
-    # bulge smooth
-    column.prop(constraint, 'bulge_smooth', text='Smooth')
+        # sub active if use bulge min
+        sub.active = constraint.use_bulge_min
 
-    # row
-    row = layout.row()
+        # bulge min
+        sub.prop(constraint, 'bulge_min', text='')
 
-    # label
-    row.label(text='Volume:')
+        # column
+        column = split.column(align=True)
 
-    # volume
-    row.prop(constraint, 'volume', expand=True)
+        # use bulge max
+        column.prop(constraint, 'use_bulge_max', text='Volume Max')
 
-    # label
-    row.label(text='Plane:')
+        # sub
+        sub = column.column()
 
-    # keep axis
-    row.prop(constraint, 'keep_axis', expand=True)
+        # sub active if use bulge max
+        sub.active = constraint.use_bulge_max
 
-  # floor
-  def FLOOR(self, context, layout, constraint):
+        # bulge max
+        sub.prop(constraint, 'bulge_max', text='')
 
-    # target template
-    self.target_template(layout, constraint)
+        # column
+        column = layout.column()
 
-    # row
-    row = layout.row()
+        # column active if use bulge min or use bulge max
+        column.active = constraint.use_bulge_min or constraint.use_bulge_max
 
-    # use sticky
-    row.prop(constraint, 'use_sticky')
+        # bulge smooth
+        column.prop(constraint, 'bulge_smooth', text='Smooth')
 
-    # use rotation
-    row.prop(constraint, 'use_rotation')
+        # row
+        row = layout.row()
 
-    # offset
-    layout.prop(constraint, 'offset')
+        # label
+        row.label(text='Volume:')
 
-    # row
-    row = layout.row()
+        # volume
+        row.prop(constraint, 'volume', expand=True)
 
-    # label
-    row.label(text='Min/Max:')
+        # label
+        row.label(text='Plane:')
 
-    # floor location
-    row.prop(constraint, 'floor_location', expand=True)
+        # keep axis
+        row.prop(constraint, 'keep_axis', expand=True)
 
-    # space template
-    self.space_template(layout, constraint)
+    # floor
+    def FLOOR(self, context, layout, constraint):
 
-  # rigid body joint
-  def RIGID_BODY_JOINT(self, context, layout, constraint):
+        # target template
+        self.target_template(layout, constraint)
 
-    # target template
-    self.target_template(layout, constraint, subtargets=False)
+        # row
+        row = layout.row()
 
-    # pivot type
-    layout.prop(constraint, 'pivot_type')
+        # use sticky
+        row.prop(constraint, 'use_sticky')
 
-    # child
-    layout.prop(constraint, 'child')
-
-    # row
-    row = layout.row()
-
-    # use linked collision
-    row.prop(constraint, 'use_linked_collision', text='Linked Collision')
-
-    # show pivot
-    row.prop(constraint, 'show_pivot', text='Display Pivot')
-
-    # split
-    split = layout.split()
-
-    # column
-    column = split.column(align=True)
-
-    # label
-    column.label(text='Pivot:')
-
-    # pivot x
-    column.prop(constraint, 'pivot_x', text='X')
-
-    # pivot y
-    column.prop(constraint, 'pivot_y', text='Y')
-
-    # pivot z
-    column.prop(constraint, 'pivot_z', text='Z')
-
-    # column
-    column = split.column(align=True)
-
-    # label
-    column.label(text='Axis:')
-
-    # axis x
-    column.prop(constraint, 'axis_x', text='X')
-
-    # axis y
-    column.prop(constraint, 'axis_y', text='Y')
-
-    # axis z
-    column.prop(constraint, 'axis_z', text='Z')
-
-    # is pivot type in cone twist
-    if constraint.pivot_type == 'CONE_TWIST':
-
-      # label
-      layout.label(text='Limits:')
-
-      # split
-      split = layout.split()
-
-      # column
-      column = split.column()
-
-      # use angular limit x
-      column.prop(constraint, 'use_angular_limit_x', text='Angle X')
-
-      # sub
-      sub = column.column()
-
-      # sub active if use angular limit x
-      sub.active = constraint.use_angular_limit_x
-
-      # limit angle max x
-      sub.prop(constraint, 'limit_angle_max_x', text='')
-
-      # column
-      column = split.column()
-
-      # use angular limit y
-      column.prop(constraint, 'use_angular_limit_y', text='Angle Y')
-
-      # sub
-      sub = column.column()
-
-      # use angular limit y
-      sub.active = constraint.use_angular_limit_y
-
-      # limit nagle max y
-      sub.prop(constraint, 'limit_angle_max_y', text='')
-
-      # column
-      column = split.column()
-
-      # use angular limit z
-      column.prop(constraint, 'use_angular_limit_z', text='Angle Z')
-
-      # sub
-      sub = column.column()
-
-      # sub active if use angular limit z
-      sub.active = constraint.use_angular_limit_z
-
-      # limit angle max z
-      sub.prop(constraint, 'limit_angle_max_z', text='')
-
-    # is pivot type in generic 6 dof
-    elif constraint.pivot_type == 'GENERIC_6_DOF':
-
-      # label
-      layout.label(text='Limits:')
-
-      # split
-      split = layout.split()
-
-      # column
-      column = split.column(align=True)
-
-      # use limit x
-      column.prop(constraint, 'use_limit_x', text='X')
-
-      # sub
-      sub = column.column(align=True)
-
-      # sub active if use limit x
-      sub.active = constraint.use_limit_x
-
-      # limit min x
-      sub.prop(constraint, 'limit_min_x', text='Min')
-
-      # limit max s
-      sub.prop(constraint, 'limit_max_x', text='Max')
-
-      # column
-      column = split.column(align=True)
-
-      # use limit y
-      column.prop(constraint, 'use_limit_y', text='Y')
-
-      # sub
-      sub = column.column(align=True)
-
-      # sub active if use limit y
-      sub.active = constraint.use_limit_y
-
-      # limit min y
-      sub.prop(constraint, 'limit_min_y', text='Min')
-
-      # limit max y
-      sub.prop(constraint, 'limit_max_y', text='Max')
-
-      # column
-      column = split.column(align=True)
-
-      # use limit z
-      column.prop(constraint, 'use_limit_z', text='Z')
-
-      # sub
-      sub = column.column(align=True)
-
-      # sub active if use limit z
-      sub.active = constraint.use_limit_z
-
-      # limit min z
-      sub.prop(constraint, 'limit_min_z', text='Min')
-
-      # limit max z
-      sub.prop(constraint, 'limit_max_z', text='Max')
-
-      # split
-      split = layout.split()
-
-      # column
-      column = split.column(align=True)
-
-      # use angular limit x
-      column.prop(constraint, 'use_angular_limit_x', text='Angle X')
-
-      # sub
-      sub = column.column(align=True)
-
-      # sub active if use angular limit x
-      sub.active = constraint.use_angular_limit_x
-
-      # limit angle min x
-      sub.prop(constraint, 'limit_angle_min_x', text='Min')
-
-      # limit angle max x
-      sub.prop(constraint, 'limit_angle_max_x', text='Max')
-
-      # column
-      column = split.column(align=True)
-
-      # use angular limit y
-      column.prop(constraint, 'use_angular_limit_y', text='Angle Y')
-
-      # sub
-      sub = column.column(align=True)
-
-      # sub active if use angular limit y
-      sub.active = constraint.use_angular_limit_y
-
-      # limit angle min y
-      sub.prop(constraint, 'limit_angle_min_y', text='Min')
-
-      # limit angle max y
-      sub.prop(constraint, 'limit_angle_max_y', text='Max')
-
-      # column
-      column = split.column(align=True)
-
-      # use angular limit z
-      column.prop(constraint, 'use_angular_limit_z', text='Angle Z')
-
-      # sub
-      sub = column.column(align=True)
-
-      # sub active if use angular limit z
-      sub.active = constraint.use_angular_limit_z
-
-      # limit angle min z
-      sub.prop(constraint, 'limit_angle_min_z', text='Min')
-
-      # limit angle max z
-      sub.prop(constraint, 'limit_angle_max_z', text='Max')
-
-    # is pivot type in hinge
-    elif constraint.pivot_type == 'HINGE':
-
-      # label
-      layout.label(text='Limits:')
-
-      # split
-      split = layout.split()
-
-      # row
-      row = split.row(align=True)
-
-      # column
-      column = row.column()
-
-      # use angular limit x
-      column.prop(constraint, 'use_angular_limit_x', text='Angle X')
-
-      # column
-      column = row.column()
-
-      # column active if use angular limit x
-      column.active = constraint.use_angular_limit_x
-
-      # limit angle min x
-      column.prop(constraint, 'limit_angle_min_x', text='Min')
-
-      # column
-      column = row.column()
-
-      # column active if use angular x
-      column.active = constraint.use_angular_limit_x
-
-      # limit angle max x
-      column.prop(constraint, 'limit_angle_max_x', text='Max')
-
-  # clamp to
-  def CLAMP_TO(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint)
-
-    # row
-    row = layout.row()
-
-    # label
-    row.label(text='Main Axis:')
-
-    # main axis
-    row.prop(constraint, 'main_axis', expand=True)
-
-    # use cyclic
-    layout.prop(constraint, 'use_cyclic')
-
-  # transform
-  def TRANSFORM(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint)
-
-    # use motion extrapolate
-    layout.prop(constraint, 'use_motion_extrapolate', text='Extrapolate')
-
-    # column
-    column = layout.column()
-
-    # label
-    column.row().label(text='Source:')
-
-    # map from
-    column.row().prop(constraint, 'map_from', expand=True)
-
-    # split
-    split = layout.split()
-
-    # ext
-    ext = '' if constraint.map_from == 'LOCATION' else '_rot' if constraint.map_from == 'ROTATION' else '_scale'
-
-    # sub
-    sub = split.column(align=True)
-
-    # label
-    sub.label(text='X:')
-
-    # from min x
-    sub.prop(constraint, 'from_min_x' + ext, text='Min')
-
-    # from max x
-    sub.prop(constraint, 'from_max_x' + ext, text='Max')
-
-    # sub
-    sub = split.column(align=True)
-
-    # label
-    sub.label(text='Y:')
-
-    # from min y
-    sub.prop(constraint, 'from_min_y' + ext, text='Min')
-
-    # from max y
-    sub.prop(constraint, 'from_max_y' + ext, text='Max')
-
-    # sub
-    sub = split.column(align=True)
-
-    # label
-    sub.label(text='Z:')
-
-    # from min z
-    sub.prop(constraint, 'from_min_z' + ext, text='Min')
-
-    # from max z
-    sub.prop(constraint, 'from_max_z' + ext, text='Max')
-
-    # column
-    column = layout.column()
-
-    # row
-    row = column.row()
-
-    # label
-    row.label(text='Source to Destination Mapping:')
-
-    # row
-    row = column.row()
-
-    # map to x from
-    row.prop(constraint, 'map_to_x_from', expand=False, text='')
-
-    # label
-    row.label(text=' %s    X' % chr(187)) # note: chr(187) is the ASCII arrow ( >> ). Blender Text Editor can't open it. Thus we are using the hard-coded value instead.
-
-    # row
-    row = column.row()
-
-    # map to y from
-    row.prop(constraint, 'map_to_y_from', expand=False, text='')
-
-    # label
-    row.label(text=' %s    Y' % chr(187))
-
-    # row
-    row = column.row()
-
-    # map to z from
-    row.prop(constraint, 'map_to_z_from', expand=False, text='')
-
-    # label
-    row.label(text=' %s    Z' % chr(187))
-
-    # split
-    split = layout.split()
-
-    # column
-    column = split.column()
-
-    # label
-    column.label(text='Destination:')
-
-    # map to
-    column.row().prop(constraint, 'map_to', expand=True)
-
-    # split
-    split = layout.split()
-
-    # ext
-    ext = '' if constraint.map_to == 'LOCATION' else '_rot' if constraint.map_to == 'ROTATION' else '_scale'
-
-    # column
-    column = split.column()
-
-    # label
-    column.label(text='X:')
-
-    # sub
-    sub = column.column(align=True)
-
-    # to min x
-    sub.prop(constraint, 'to_min_x' + ext, text='Min')
-
-    # to max x
-    sub.prop(constraint, 'to_max_x' + ext, text='Max')
-
-    # column
-    column = split.column()
-
-    # label
-    column.label(text='Y:')
-
-    # sub
-    sub = column.column(align=True)
-
-    # to min y
-    sub.prop(constraint, 'to_min_y' + ext, text='Min')
-
-    # to max y
-    sub.prop(constraint, 'to_max_y' + ext, text='Max')
-
-    # column
-    column = split.column()
-
-    # label
-    column.label(text='Z:')
-
-    # sub
-    sub = column.column(align=True)
-
-    # to min z
-    sub.prop(constraint, 'to_min_z' + ext, text='Min')
-
-    # to max z
-    sub.prop(constraint, 'to_max_z' + ext, text='Max')
-
-    # space template
-    self.space_template(layout, constraint)
-
-  # shrinkwrap
-  def SHRINKWRAP(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint, False)
-
-    # distance
-    layout.prop(constraint, 'distance')
-
-    # shrinkwrap type
-    layout.prop(constraint, 'shrinkwrap_type')
-
-    # is shrinkwarp type in project
-    if constraint.shrinkwrap_type == 'PROJECT':
-
-      # row
-      row = layout.row(align=True)
-
-      # project axis
-      row.prop(constraint, 'project_axis', expand=True)
-
-      # split
-      split = layout.split(percentage=0.4)
-
-      # label
-      split.label(text='Axis Space:')
-
-      # sub
-      sub = split.row()
-
-      # project axis space
-      sub.prop(constraint, 'project_axis_space', text='')
-
-      # project limit
-      layout.prop(constraint, 'project_limit')
-
-  # damped track
-  def DAMPED_TRACK(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint)
-
-    # row
-    row = layout.row()
-
-    # label
-    row.label(text='To:')
-
-    # track axis
-    row.prop(constraint, 'track_axis', expand=True)
-
-  # spline ik
-  def SPLINE_IK(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint)
-
-    # column
-    column = layout.column()
-
-    # label
-    column.label(text='Spline Fitting:')
-
-    # chain count
-    column.prop(constraint, 'chain_count')
-
-    # use even divisions
-    column.prop(constraint, 'use_even_divisions')
-
-    # use chain offset
-    column.prop(constraint, 'use_chain_offset')
-
-    # column
-    column = layout.column()
-
-    # label
-    column.label(text='Chain Scaling:')
-
-    # use y stretch
-    column.prop(constraint, 'use_y_stretch')
-
-    # use curve radius
-    column.prop(constraint, 'use_curve_radius')
-
-    # xz scale mode
-    layout.prop(constraint, 'xz_scale_mode')
-
-    # is xz scale mode in volume preserve
-    if constraint.xz_scale_mode == 'VOLUME_PRESERVE':
-
-      # bulge
-      layout.prop(constraint, 'bulge', text='Volume Variation')
-
-      # split
-      split = layout.split()
-
-      # column
-      column = split.column(align=True)
-
-      # use bulge min
-      column.prop(constraint, 'use_bulge_min', text='Volume Min')
-
-      # sub
-      sub = column.column()
-
-      # sub active if use bulge min
-      sub.active = constraint.use_bulge_min
-
-      # bulge min
-      sub.prop(constraint, 'bulge_min', text='')
-
-      # column
-      column = split.column(align=True)
-
-      # use bulge max
-      column.prop(constraint, 'use_bulge_max', text='Volume Max')
-
-      # sub
-      sub = column.column()
-
-      # sub active use bulge max
-      sub.active = constraint.use_bulge_max
-
-      # bulge max
-      sub.prop(constraint, 'bulge_max', text='')
-
-      # olumn
-      column = layout.column()
-
-      # column active if use bulge min or use bulge max
-      column.active = constraint.use_bulge_min or constraint.use_bulge_max
-
-      # bulge smooth
-      column.prop(constraint, 'bulge_smooth', text='Smooth')
-
-  # pivot
-  def PIVOT(self, context, layout, constraint):
-
-    # target template
-    self.target_template(layout, constraint)
-
-    # target
-    if constraint.target:
-
-      # column
-      column = layout.column()
-
-      # offset
-      column.prop(constraint, 'offset', text='Pivot Offset')
-
-    # isnt target
-    else:
-
-      # column
-      column = layout.column()
-
-      # use relative location
-      column.prop(constraint, 'use_relative_location')
-
-      # is use relative location
-      if constraint.use_relative_location:
+        # use rotation
+        row.prop(constraint, 'use_rotation')
 
         # offset
-        column.prop(constraint, 'offset', text='Relative Pivot Point')
+        layout.prop(constraint, 'offset')
 
-      # isnt use relative location
-      else:
+        # row
+        row = layout.row()
 
-        # offset
-        column.prop(constraint, 'offset', text='Absolute Pivot Point')
+        # label
+        row.label(text='Min/Max:')
 
-    # column
-    column = layout.column()
+        # floor location
+        row.prop(constraint, 'floor_location', expand=True)
 
-    # rotation range
-    column.prop(constraint, 'rotation_range', text='Pivot When')
+        # space template
+        self.space_template(layout, constraint)
 
-  # get constraint clip
-  @staticmethod
-  def _getConstraintClip(context, constraint):
+    # rigid body joint
+    def RIGID_BODY_JOINT(self, context, layout, constraint):
 
-    # isnt use active clip
-    if not constraint.use_active_clip:
-      return constraint.clip
+        # target template
+        self.target_template(layout, constraint, subtargets=False)
 
-    # is use active clip
-    else:
-      return context.scene.active_clip
+        # pivot type
+        layout.prop(constraint, 'pivot_type')
 
-  # follow track
-  def FOLLOW_TRACK(self, context, layout, constraint):
+        # child
+        layout.prop(constraint, 'child')
 
-    # clip
-    clip = self._getConstraintClip(context, constraint)
+        # row
+        row = layout.row()
 
-    # row
-    row = layout.row()
+        # use linked collision
+        row.prop(constraint, 'use_linked_collision', text='Linked Collision')
 
-    # use active clip
-    row.prop(constraint, 'use_active_clip')
+        # show pivot
+        row.prop(constraint, 'show_pivot', text='Display Pivot')
 
-    # use 3d position
-    row.prop(constraint, 'use_3d_position')
+        # split
+        split = layout.split()
 
-    # sub
-    sub = row.column()
+        # column
+        column = split.column(align=True)
 
-    # sub active if use 3d position
-    sub.active = not constraint.use_3d_position
+        # label
+        column.label(text='Pivot:')
 
-    # use undistorted position
-    sub.prop(constraint, 'use_undistorted_position')
+        # pivot x
+        column.prop(constraint, 'pivot_x', text='X')
 
-    # column
-    column = layout.column()
+        # pivot y
+        column.prop(constraint, 'pivot_y', text='Y')
 
-    # is use active clip
-    if not constraint.use_active_clip:
+        # pivot z
+        column.prop(constraint, 'pivot_z', text='Z')
 
-      # clip
-      column.prop(constraint, 'clip')
+        # column
+        column = split.column(align=True)
 
-    # row
-    row = column.row()
+        # label
+        column.label(text='Axis:')
 
-    # frame method
-    row.prop(constraint, 'frame_method', expand=True)
+        # axis x
+        column.prop(constraint, 'axis_x', text='X')
 
-    # is clip
-    if clip:
+        # axis y
+        column.prop(constraint, 'axis_y', text='Y')
 
-      # tracking
-      tracking = clip.tracking
+        # axis z
+        column.prop(constraint, 'axis_z', text='Z')
 
-      # object
-      column.prop_search(constraint, 'object', tracking, 'objects', icon='OBJECT_DATA')
+        # is pivot type in cone twist
+        if constraint.pivot_type == 'CONE_TWIST':
 
-      # tracking object
-      tracking_object = tracking.objects.get(constraint.object, tracking.objects[0])
+            # label
+            layout.label(text='Limits:')
 
-      # track
-      column.prop_search(constraint, 'track', tracking_object, 'tracks', icon='ANIM_DATA')
+            # split
+            split = layout.split()
 
-    # camera
-    column.prop(constraint, 'camera')
+            # column
+            column = split.column()
 
-    # row
-    row = column.row()
+            # use angular limit x
+            column.prop(constraint, 'use_angular_limit_x', text='Angle X')
 
-    # row isnt active if use 3d position
-    row.active = not constraint.use_3d_position
+            # sub
+            sub = column.column()
 
-    # depth object
-    row.prop(constraint, 'depth_object')
+            # sub active if use angular limit x
+            sub.active = constraint.use_angular_limit_x
 
-    # clip constraint to fcurve
-    layout.operator('clip.constraint_to_fcurve')
+            # limit angle max x
+            sub.prop(constraint, 'limit_angle_max_x', text='')
 
-  # camera solver
-  def CAMERA_SOLVER(self, context, layout, constraint):
+            # column
+            column = split.column()
 
-    # use active clip
-    layout.prop(constraint, 'use_active_clip')
+            # use angular limit y
+            column.prop(constraint, 'use_angular_limit_y', text='Angle Y')
 
-    # is use active clip
-    if not constraint.use_active_clip:
+            # sub
+            sub = column.column()
 
-      # clip
-      layout.prop(constraint, 'clip')
+            # use angular limit y
+            sub.active = constraint.use_angular_limit_y
 
-    # clip constraint to fcurve
-    layout.operator('clip.constraint_to_fcurve')
+            # limit nagle max y
+            sub.prop(constraint, 'limit_angle_max_y', text='')
 
-  # object solver
-  def OBJECT_SOLVER(self, context, layout, constraint):
+            # column
+            column = split.column()
 
-    # clip
-    clip = self._getConstraintClip(context, constraint)
+            # use angular limit z
+            column.prop(constraint, 'use_angular_limit_z', text='Angle Z')
 
-    # use active clip
-    layout.prop(constraint, 'use_active_clip')
+            # sub
+            sub = column.column()
 
-    # is use active clip
-    if not constraint.use_active_clip:
+            # sub active if use angular limit z
+            sub.active = constraint.use_angular_limit_z
 
-      # clip
-      layout.prop(constraint, 'clip')
+            # limit angle max z
+            sub.prop(constraint, 'limit_angle_max_z', text='')
 
-    # is clip
-    if clip:
+        # is pivot type in generic 6 dof
+        elif constraint.pivot_type == 'GENERIC_6_DOF':
 
-      # object
-      layout.prop_search(constraint, 'object', clip.tracking, 'objects', icon='OBJECT_DATA')
+            # label
+            layout.label(text='Limits:')
 
-    # camera
-    layout.prop(constraint, 'camera')
+            # split
+            split = layout.split()
 
-    # row
-    row = layout.row()
+            # column
+            column = split.column(align=True)
 
-    # constraint object solver set inverse
-    row.operator('constraint.objectsolver_set_inverse')
+            # use limit x
+            column.prop(constraint, 'use_limit_x', text='X')
 
-    # constraint object solver clear inverse
-    row.operator('constraint.objectsolver_clear_inverse')
+            # sub
+            sub = column.column(align=True)
 
-    # clip constraint to fcurve
-    layout.operator('clip.constraint_to_fcurve')
+            # sub active if use limit x
+            sub.active = constraint.use_limit_x
 
-  # script
-  def SCRIPT(self, context, layout, constraint):
+            # limit min x
+            sub.prop(constraint, 'limit_min_x', text='Min')
 
-    # label
-    layout.label('Blender 2.7 doesn\'t support python constraints yet')
+            # limit max s
+            sub.prop(constraint, 'limit_max_x', text='Max')
+
+            # column
+            column = split.column(align=True)
+
+            # use limit y
+            column.prop(constraint, 'use_limit_y', text='Y')
+
+            # sub
+            sub = column.column(align=True)
+
+            # sub active if use limit y
+            sub.active = constraint.use_limit_y
+
+            # limit min y
+            sub.prop(constraint, 'limit_min_y', text='Min')
+
+            # limit max y
+            sub.prop(constraint, 'limit_max_y', text='Max')
+
+            # column
+            column = split.column(align=True)
+
+            # use limit z
+            column.prop(constraint, 'use_limit_z', text='Z')
+
+            # sub
+            sub = column.column(align=True)
+
+            # sub active if use limit z
+            sub.active = constraint.use_limit_z
+
+            # limit min z
+            sub.prop(constraint, 'limit_min_z', text='Min')
+
+            # limit max z
+            sub.prop(constraint, 'limit_max_z', text='Max')
+
+            # split
+            split = layout.split()
+
+            # column
+            column = split.column(align=True)
+
+            # use angular limit x
+            column.prop(constraint, 'use_angular_limit_x', text='Angle X')
+
+            # sub
+            sub = column.column(align=True)
+
+            # sub active if use angular limit x
+            sub.active = constraint.use_angular_limit_x
+
+            # limit angle min x
+            sub.prop(constraint, 'limit_angle_min_x', text='Min')
+
+            # limit angle max x
+            sub.prop(constraint, 'limit_angle_max_x', text='Max')
+
+            # column
+            column = split.column(align=True)
+
+            # use angular limit y
+            column.prop(constraint, 'use_angular_limit_y', text='Angle Y')
+
+            # sub
+            sub = column.column(align=True)
+
+            # sub active if use angular limit y
+            sub.active = constraint.use_angular_limit_y
+
+            # limit angle min y
+            sub.prop(constraint, 'limit_angle_min_y', text='Min')
+
+            # limit angle max y
+            sub.prop(constraint, 'limit_angle_max_y', text='Max')
+
+            # column
+            column = split.column(align=True)
+
+            # use angular limit z
+            column.prop(constraint, 'use_angular_limit_z', text='Angle Z')
+
+            # sub
+            sub = column.column(align=True)
+
+            # sub active if use angular limit z
+            sub.active = constraint.use_angular_limit_z
+
+            # limit angle min z
+            sub.prop(constraint, 'limit_angle_min_z', text='Min')
+
+            # limit angle max z
+            sub.prop(constraint, 'limit_angle_max_z', text='Max')
+
+        # is pivot type in hinge
+        elif constraint.pivot_type == 'HINGE':
+
+            # label
+            layout.label(text='Limits:')
+
+            # split
+            split = layout.split()
+
+            # row
+            row = split.row(align=True)
+
+            # column
+            column = row.column()
+
+            # use angular limit x
+            column.prop(constraint, 'use_angular_limit_x', text='Angle X')
+
+            # column
+            column = row.column()
+
+            # column active if use angular limit x
+            column.active = constraint.use_angular_limit_x
+
+            # limit angle min x
+            column.prop(constraint, 'limit_angle_min_x', text='Min')
+
+            # column
+            column = row.column()
+
+            # column active if use angular x
+            column.active = constraint.use_angular_limit_x
+
+            # limit angle max x
+            column.prop(constraint, 'limit_angle_max_x', text='Max')
+
+    # clamp to
+    def CLAMP_TO(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # row
+        row = layout.row()
+
+        # label
+        row.label(text='Main Axis:')
+
+        # main axis
+        row.prop(constraint, 'main_axis', expand=True)
+
+        # use cyclic
+        layout.prop(constraint, 'use_cyclic')
+
+    # transform
+    def TRANSFORM(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # use motion extrapolate
+        layout.prop(constraint, 'use_motion_extrapolate', text='Extrapolate')
+
+        # column
+        column = layout.column()
+
+        # label
+        column.row().label(text='Source:')
+
+        # map from
+        column.row().prop(constraint, 'map_from', expand=True)
+
+        # split
+        split = layout.split()
+
+        # ext
+        ext = '' if constraint.map_from == 'LOCATION' else '_rot' if constraint.map_from == 'ROTATION' else '_scale'
+
+        # sub
+        sub = split.column(align=True)
+
+        # label
+        sub.label(text='X:')
+
+        # from min x
+        sub.prop(constraint, 'from_min_x' + ext, text='Min')
+
+        # from max x
+        sub.prop(constraint, 'from_max_x' + ext, text='Max')
+
+        # sub
+        sub = split.column(align=True)
+
+        # label
+        sub.label(text='Y:')
+
+        # from min y
+        sub.prop(constraint, 'from_min_y' + ext, text='Min')
+
+        # from max y
+        sub.prop(constraint, 'from_max_y' + ext, text='Max')
+
+        # sub
+        sub = split.column(align=True)
+
+        # label
+        sub.label(text='Z:')
+
+        # from min z
+        sub.prop(constraint, 'from_min_z' + ext, text='Min')
+
+        # from max z
+        sub.prop(constraint, 'from_max_z' + ext, text='Max')
+
+        # column
+        column = layout.column()
+
+        # row
+        row = column.row()
+
+        # label
+        row.label(text='Source to Destination Mapping:')
+
+        # row
+        row = column.row()
+
+        # map to x from
+        row.prop(constraint, 'map_to_x_from', expand=False, text='')
+
+        # label
+        row.label(text=' %s        X' % chr(187)) # note: chr(187) is the ASCII arrow ( >> ). Blender Text Editor can't open it. Thus we are using the hard-coded value instead.
+
+        # row
+        row = column.row()
+
+        # map to y from
+        row.prop(constraint, 'map_to_y_from', expand=False, text='')
+
+        # label
+        row.label(text=' %s        Y' % chr(187))
+
+        # row
+        row = column.row()
+
+        # map to z from
+        row.prop(constraint, 'map_to_z_from', expand=False, text='')
+
+        # label
+        row.label(text=' %s        Z' % chr(187))
+
+        # split
+        split = layout.split()
+
+        # column
+        column = split.column()
+
+        # label
+        column.label(text='Destination:')
+
+        # map to
+        column.row().prop(constraint, 'map_to', expand=True)
+
+        # split
+        split = layout.split()
+
+        # ext
+        ext = '' if constraint.map_to == 'LOCATION' else '_rot' if constraint.map_to == 'ROTATION' else '_scale'
+
+        # column
+        column = split.column()
+
+        # label
+        column.label(text='X:')
+
+        # sub
+        sub = column.column(align=True)
+
+        # to min x
+        sub.prop(constraint, 'to_min_x' + ext, text='Min')
+
+        # to max x
+        sub.prop(constraint, 'to_max_x' + ext, text='Max')
+
+        # column
+        column = split.column()
+
+        # label
+        column.label(text='Y:')
+
+        # sub
+        sub = column.column(align=True)
+
+        # to min y
+        sub.prop(constraint, 'to_min_y' + ext, text='Min')
+
+        # to max y
+        sub.prop(constraint, 'to_max_y' + ext, text='Max')
+
+        # column
+        column = split.column()
+
+        # label
+        column.label(text='Z:')
+
+        # sub
+        sub = column.column(align=True)
+
+        # to min z
+        sub.prop(constraint, 'to_min_z' + ext, text='Min')
+
+        # to max z
+        sub.prop(constraint, 'to_max_z' + ext, text='Max')
+
+        # space template
+        self.space_template(layout, constraint)
+
+    # shrinkwrap
+    def SHRINKWRAP(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint, False)
+
+        # distance
+        layout.prop(constraint, 'distance')
+
+        # shrinkwrap type
+        layout.prop(constraint, 'shrinkwrap_type')
+
+        # is shrinkwarp type in project
+        if constraint.shrinkwrap_type == 'PROJECT':
+
+            # row
+            row = layout.row(align=True)
+
+            # project axis
+            row.prop(constraint, 'project_axis', expand=True)
+
+            # split
+            split = layout.split(percentage=0.4)
+
+            # label
+            split.label(text='Axis Space:')
+
+            # sub
+            sub = split.row()
+
+            # project axis space
+            sub.prop(constraint, 'project_axis_space', text='')
+
+            # project limit
+            layout.prop(constraint, 'project_limit')
+
+    # damped track
+    def DAMPED_TRACK(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # row
+        row = layout.row()
+
+        # label
+        row.label(text='To:')
+
+        # track axis
+        row.prop(constraint, 'track_axis', expand=True)
+
+    # spline ik
+    def SPLINE_IK(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # column
+        column = layout.column()
+
+        # label
+        column.label(text='Spline Fitting:')
+
+        # chain count
+        column.prop(constraint, 'chain_count')
+
+        # use even divisions
+        column.prop(constraint, 'use_even_divisions')
+
+        # use chain offset
+        column.prop(constraint, 'use_chain_offset')
+
+        # column
+        column = layout.column()
+
+        # label
+        column.label(text='Chain Scaling:')
+
+        # use y stretch
+        column.prop(constraint, 'use_y_stretch')
+
+        # use curve radius
+        column.prop(constraint, 'use_curve_radius')
+
+        # xz scale mode
+        layout.prop(constraint, 'xz_scale_mode')
+
+        # is xz scale mode in volume preserve
+        if constraint.xz_scale_mode == 'VOLUME_PRESERVE':
+
+            # bulge
+            layout.prop(constraint, 'bulge', text='Volume Variation')
+
+            # split
+            split = layout.split()
+
+            # column
+            column = split.column(align=True)
+
+            # use bulge min
+            column.prop(constraint, 'use_bulge_min', text='Volume Min')
+
+            # sub
+            sub = column.column()
+
+            # sub active if use bulge min
+            sub.active = constraint.use_bulge_min
+
+            # bulge min
+            sub.prop(constraint, 'bulge_min', text='')
+
+            # column
+            column = split.column(align=True)
+
+            # use bulge max
+            column.prop(constraint, 'use_bulge_max', text='Volume Max')
+
+            # sub
+            sub = column.column()
+
+            # sub active use bulge max
+            sub.active = constraint.use_bulge_max
+
+            # bulge max
+            sub.prop(constraint, 'bulge_max', text='')
+
+            # olumn
+            column = layout.column()
+
+            # column active if use bulge min or use bulge max
+            column.active = constraint.use_bulge_min or constraint.use_bulge_max
+
+            # bulge smooth
+            column.prop(constraint, 'bulge_smooth', text='Smooth')
+
+    # pivot
+    def PIVOT(self, context, layout, constraint):
+
+        # target template
+        self.target_template(layout, constraint)
+
+        # target
+        if constraint.target:
+
+            # column
+            column = layout.column()
+
+            # offset
+            column.prop(constraint, 'offset', text='Pivot Offset')
+
+        # isnt target
+        else:
+
+            # column
+            column = layout.column()
+
+            # use relative location
+            column.prop(constraint, 'use_relative_location')
+
+            # is use relative location
+            if constraint.use_relative_location:
+
+                # offset
+                column.prop(constraint, 'offset', text='Relative Pivot Point')
+
+            # isnt use relative location
+            else:
+
+                # offset
+                column.prop(constraint, 'offset', text='Absolute Pivot Point')
+
+        # column
+        column = layout.column()
+
+        # rotation range
+        column.prop(constraint, 'rotation_range', text='Pivot When')
+
+    # get constraint clip
+    @staticmethod
+    def _getConstraintClip(context, constraint):
+
+        # isnt use active clip
+        if not constraint.use_active_clip:
+            return constraint.clip
+
+        # is use active clip
+        else:
+            return context.scene.active_clip
+
+    # follow track
+    def FOLLOW_TRACK(self, context, layout, constraint):
+
+        # clip
+        clip = self._getConstraintClip(context, constraint)
+
+        # row
+        row = layout.row()
+
+        # use active clip
+        row.prop(constraint, 'use_active_clip')
+
+        # use 3d position
+        row.prop(constraint, 'use_3d_position')
+
+        # sub
+        sub = row.column()
+
+        # sub active if use 3d position
+        sub.active = not constraint.use_3d_position
+
+        # use undistorted position
+        sub.prop(constraint, 'use_undistorted_position')
+
+        # column
+        column = layout.column()
+
+        # is use active clip
+        if not constraint.use_active_clip:
+
+            # clip
+            column.prop(constraint, 'clip')
+
+        # row
+        row = column.row()
+
+        # frame method
+        row.prop(constraint, 'frame_method', expand=True)
+
+        # is clip
+        if clip:
+
+            # tracking
+            tracking = clip.tracking
+
+            # object
+            column.prop_search(constraint, 'object', tracking, 'objects', icon='OBJECT_DATA')
+
+            # tracking object
+            tracking_object = tracking.objects.get(constraint.object, tracking.objects[0])
+
+            # track
+            column.prop_search(constraint, 'track', tracking_object, 'tracks', icon='ANIM_DATA')
+
+        # camera
+        column.prop(constraint, 'camera')
+
+        # row
+        row = column.row()
+
+        # row isnt active if use 3d position
+        row.active = not constraint.use_3d_position
+
+        # depth object
+        row.prop(constraint, 'depth_object')
+
+        # clip constraint to fcurve
+        layout.operator('clip.constraint_to_fcurve')
+
+    # camera solver
+    def CAMERA_SOLVER(self, context, layout, constraint):
+
+        # use active clip
+        layout.prop(constraint, 'use_active_clip')
+
+        # is use active clip
+        if not constraint.use_active_clip:
+
+            # clip
+            layout.prop(constraint, 'clip')
+
+        # clip constraint to fcurve
+        layout.operator('clip.constraint_to_fcurve')
+
+    # object solver
+    def OBJECT_SOLVER(self, context, layout, constraint):
+
+        # clip
+        clip = self._getConstraintClip(context, constraint)
+
+        # use active clip
+        layout.prop(constraint, 'use_active_clip')
+
+        # is use active clip
+        if not constraint.use_active_clip:
+
+            # clip
+            layout.prop(constraint, 'clip')
+
+        # is clip
+        if clip:
+
+            # object
+            layout.prop_search(constraint, 'object', clip.tracking, 'objects', icon='OBJECT_DATA')
+
+        # camera
+        layout.prop(constraint, 'camera')
+
+        # row
+        row = layout.row()
+
+        # constraint object solver set inverse
+        row.operator('constraint.objectsolver_set_inverse')
+
+        # constraint object solver clear inverse
+        row.operator('constraint.objectsolver_clear_inverse')
+
+        # clip constraint to fcurve
+        layout.operator('clip.constraint_to_fcurve')
+
+    # script
+    def SCRIPT(self, context, layout, constraint):
+
+        # label
+        layout.label('Blender 2.7 doesn\'t support python constraints yet')

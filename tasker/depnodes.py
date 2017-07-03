@@ -424,7 +424,9 @@ class SearchPanel(bpy.types.Panel):
 
 def _report_format(prefix, nodes):
     """ Format a report for a given number of nodes """
-    total = sum(node.time for node in nodes if not node.completed)
+    total = sum(
+        node.time for node in nodes
+        if node.bl_idname == 'TaskNode' if not node.completed)
     report = "{0:.2f} days".format(total) if total < 30 else nicetime(days=total)
     return "{} takes {}".format(prefix, report)
 

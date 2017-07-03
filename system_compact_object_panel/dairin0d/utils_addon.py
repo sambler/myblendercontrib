@@ -380,7 +380,9 @@ class AddonManager:
         return self._use_zbuffer
     @use_zbuffer.setter
     def use_zbuffer(self, value):
-        if self.status != 'INITIALIZATION': return
+        if self._use_zbuffer == value: return
+        if self.status == 'REGISTERED':
+            addons_registry.zbuf_users += (1 if value else -1)
         self._use_zbuffer = value
     
     def on_register(self, callback):

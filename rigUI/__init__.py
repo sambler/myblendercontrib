@@ -22,7 +22,7 @@ else:
 import bpy
 
 def menu_func(self, context):
-    self.layout.operator("rigui.ui_draw",icon ='MOD_ARMATURE')
+    self.layout.operator("rigui.ui_draw",icon ='MOD_ARMATURE',text ="")
 
 
 def register():

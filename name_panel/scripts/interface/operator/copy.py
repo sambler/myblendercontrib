@@ -6,94 +6,94 @@ from ...function import copy
 
 # name
 class name(Operator):
-  '''
-    Transfer names from some types of datablocks to others.
-  '''
-  bl_idname = 'view3d.transfer_name'
-  bl_label = 'Transfer Names'
-  bl_description = 'Transfer names from some types of datablocks to others.'
-  bl_options = {'UNDO'}
-
-  # poll
-  @classmethod
-  def poll(cls, context):
     '''
-      Space data type must be in 3D view.
+        Transfer names from some types of datablocks to others.
     '''
-    return context.space_data.type in 'VIEW_3D'
+    bl_idname = 'view3d.transfer_name'
+    bl_label = 'Transfer Names'
+    bl_description = 'Transfer names from some types of datablocks to others.'
+    bl_options = {'UNDO'}
 
-  # check
-  def check(self, context):
-    return True
+    # poll
+    @classmethod
+    def poll(cls, context):
+        '''
+            Space data type must be in 3D view.
+        '''
+        return context.space_data.type in 'VIEW_3D'
 
-  # draw
-  def draw(self, context):
-    '''
-      Draw the operator panel/menu.
-    '''
+    # check
+    def check(self, context):
+        return True
 
-    # layout
-    layout = self.layout
+    # draw
+    def draw(self, context):
+        '''
+            Draw the operator panel/menu.
+        '''
 
-    # option
-    option = context.window_manager.CopyName
+        # layout
+        layout = self.layout
 
-    # row
-    row = layout.row(align=True)
+        # option
+        option = context.window_manager.CopyName
 
-    # mode
-    row.prop(option, 'mode', expand=True)
+        # row
+        row = layout.row(align=True)
 
-    # reset settings
-    op = row.operator('wm.reset_name_panel_settings', text='', icon='LOAD_FACTORY')
-    op.panel = False
-    op.auto = False
-    op.names = False
-    op.name = False
-    op.copy = True
+        # mode
+        row.prop(option, 'mode', expand=True)
 
-    # column
-    column = layout.column(align=True)
+        # reset settings
+        op = row.operator('wm.reset_name_panel_settings', text='', icon='LOAD_FACTORY')
+        op.panel = False
+        op.auto = False
+        op.names = False
+        op.name = False
+        op.copy = True
 
-    # source
-    column.label(text='From:', icon='COPYDOWN')
-    column = layout.column(align=True)
-    column.prop(option, 'source', expand=True)
-    column = layout.column(align=True)
+        # column
+        column = layout.column(align=True)
 
-    # targets
-    column.label(text='To:', icon='PASTEDOWN')
-    column = layout.column(align=True)
-    split = column.split(align=True)
-    split.prop(option, 'objects', text='', icon='OBJECT_DATA')
-    split.prop(option, 'objectData', text='', icon='MESH_DATA')
-    split.prop(option, 'materials', text='', icon='MATERIAL')
-    split.prop(option, 'textures', text='', icon='TEXTURE')
-    split.prop(option, 'particleSystems', text='', icon='PARTICLES')
-    split.prop(option, 'particleSettings', text='', icon='MOD_PARTICLES')
+        # source
+        column.label(text='From:', icon='COPYDOWN')
+        column = layout.column(align=True)
+        column.prop(option, 'source', expand=True)
+        column = layout.column(align=True)
 
-    # use active object
-    column = layout.column()
-    column.prop(option, 'useActiveObject')
+        # targets
+        column.label(text='To:', icon='PASTEDOWN')
+        column = layout.column(align=True)
+        split = column.split(align=True)
+        split.prop(option, 'objects', text='', icon='OBJECT_DATA')
+        split.prop(option, 'objectData', text='', icon='MESH_DATA')
+        split.prop(option, 'materials', text='', icon='MATERIAL')
+        split.prop(option, 'textures', text='', icon='TEXTURE')
+        split.prop(option, 'particleSystems', text='', icon='PARTICLES')
+        split.prop(option, 'particleSettings', text='', icon='MOD_PARTICLES')
 
-  # execute
-  def execute(self, context):
-    '''
-      Execute the operator.
-    '''
+        # use active object
+        column = layout.column()
+        column.prop(option, 'useActiveObject')
 
-    # copy
-    copy.main(context)
-    return {'FINISHED'}
+    # execute
+    def execute(self, context):
+        '''
+            Execute the operator.
+        '''
 
-  # invoke
-  def invoke(self, context, event):
-    '''
-      Invoke the operator panel/menu, control its width.
-    '''
+        # copy
+        copy.main(context)
+        return {'FINISHED'}
 
-    self.check(context)
+    # invoke
+    def invoke(self, context, event):
+        '''
+            Invoke the operator panel/menu, control its width.
+        '''
 
-    size = 210 if not context.window_manager.BatchShared.largePopups else 340
-    context.window_manager.invoke_props_dialog(self, width=size)
-    return {'RUNNING_MODAL'}
+        self.check(context)
+
+        size = 210 if not context.window_manager.BatchShared.largePopups else 340
+        context.window_manager.invoke_props_dialog(self, width=size)
+        return {'RUNNING_MODAL'}

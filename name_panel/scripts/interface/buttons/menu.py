@@ -1,81 +1,81 @@
 
 def menu(self, context):
 
-  # layout
-  layout = self.layout
+    # layout
+    layout = self.layout
 
-  # option
-  option = context.scene.NamePanel
+    # option
+    option = context.scene.NamePanel
 
-  # label
-  layout.label(text='Operators')
+    # label
+    layout.label(text='Operators')
 
-  # seperate
-  layout.separator()
+    # seperate
+    layout.separator()
 
-  # batch auto name
-  layout.operator('view3d.auto_name', icon='AUTO')
+    # batch auto name
+    layout.operator('view3d.auto_name', icon='AUTO')
 
-  # bath name
-  op = layout.operator('wm.batch_name', icon='SORTALPHA')
-  op.simple = False
-  op.quickBatch = False
+    # bath name
+    op = layout.operator('wm.batch_name', icon='SORTALPHA')
+    op.simple = False
+    op.quickBatch = False
 
-  # batch copy
-  layout.operator('view3d.transfer_name', icon='COPYDOWN')
+    # batch copy
+    layout.operator('view3d.transfer_name', icon='COPYDOWN')
 
-  # is option.regex
-  if option.regex or context.window_manager.BatchName.regex:
+    # is option.regex
+    if option.regex or context.window_manager.BatchName.regex:
+
+        # separate
+        layout.separator()
+
+        # operator; regular expression cheatsheet
+        layout.operator('wm.regular_expression_cheatsheet', icon='NEW')
 
     # separate
     layout.separator()
 
-    # operator; regular expression cheatsheet
-    layout.operator('wm.regular_expression_cheatsheet', icon='NEW')
+    # label
+    layout.label(text='Panel Options')
 
-  # separate
-  layout.separator()
+    # seperate
+    layout.separator()
 
-  # label
-  layout.label(text='Panel Options')
+    # is display names
+    if option.displayNames:
 
-  # seperate
-  layout.separator()
+            # pin active object
+            layout.prop(option, 'pinActiveObject')
 
-  # is display names
-  if option.displayNames:
+    # is display bone names
+    if option.displayBones:
 
-      # pin active object
-      layout.prop(option, 'pinActiveObject')
+            # pin active bone
+            layout.prop(option, 'pinActiveBone')
 
-  # is display bone names
-  if option.displayBones:
+    # hide find
+    layout.prop(option, 'hideFind')
 
-      # pin active bone
-      layout.prop(option, 'pinActiveBone')
+    # isnt hide find
+    if not option.hideFind:
 
-  # hide find
-  layout.prop(option, 'hideFind')
+        # hide replace
+        layout.prop(option, 'hideReplace')
 
-  # isnt hide find
-  if not option.hideFind:
+    # isnt hide replace
+    if not option.hideFind and not option.hideReplace:
 
-    # hide replace
-    layout.prop(option, 'hideReplace')
+        # clear search
+        layout.prop(option, 'clearSearch')
 
-  # isnt hide replace
-  if not option.hideFind and not option.hideReplace:
+    # separate
+    layout.separator()
 
-    # clear search
-    layout.prop(option, 'clearSearch')
-
-  # separate
-  layout.separator()
-
-  # reset panel
-  op = layout.operator('wm.reset_name_panel_settings', text='Reset Panel', icon='LOAD_FACTORY')
-  op.panel = True
-  op.auto = False
-  op.names = False
-  op.name = False
-  op.copy = False
+    # reset panel
+    op = layout.operator('wm.reset_name_panel_settings', text='Reset Panel', icon='LOAD_FACTORY')
+    op.panel = True
+    op.auto = False
+    op.names = False
+    op.name = False
+    op.copy = False

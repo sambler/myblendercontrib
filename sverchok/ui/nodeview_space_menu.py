@@ -28,11 +28,15 @@ import bpy
 
 import sverchok
 from sverchok.menu import make_node_cats
+from sverchok.ui.sv_icons import custom_icon
+# from nodeitems_utils import _node_categories
 
+sv_tree_types = {'SverchCustomTreeType', 'SverchGroupTreeType'}
 node_cats = make_node_cats()
 addon_name = sverchok.__name__
 menu_prefs = {}
 
+# _items_to_remove = {}
 
 def get_icon_switch():
     addon = bpy.context.user_preferences.addons.get(addon_name)
@@ -41,25 +45,40 @@ def get_icon_switch():
         return addon.preferences.show_icons
 
 
+def icon(display_icon):
+    '''returns empty dict if show_icons is False, else the icon passed'''
+    kws = {}
+    if menu_prefs.get('show_icons'):
+        if display_icon.startswith('SV_'):
+            kws = {'icon_value': custom_icon(display_icon)}
+        else: 
+            kws = {'icon': display_icon}
+    return kws
+
+
+def node_icon(node_ref):
+    '''returns empty dict if show_icons is False, else the icon passed'''
+    if not menu_prefs.get('show_icons'):
+        return {}
+    else:
+        if hasattr(node_ref, 'sv_icon'):
+            iconID = custom_icon(node_ref.sv_icon)
+            return {'icon_value': iconID} if iconID else {}
+        elif hasattr(node_ref, 'bl_icon') and node_ref.bl_icon != 'OUTLINER_OB_EMPTY':
+            iconID = node_ref.bl_icon
+            return {'icon': iconID} if iconID else {}
+        else:
+            return {}
+
+
 def layout_draw_categories(layout, node_details):
-    show_icons = menu_prefs.get('show_icons')
-
-    def icon(display_icon):
-        '''returns empty dict if show_icons is False, else the icon passed'''
-        return {'icon': display_icon for i in [1] if show_icons and display_icon}
-
-    def get_icon(node_ref):
-        # some nodes don't declare a bl_icon, but most do so try/except is fine.
-        try:
-            _icon = getattr(node_ref, 'bl_icon')
-            if _icon == 'OUTLINER_OB_EMPTY':
-                _icon = None
-        except:
-            _icon = None
-        return _icon
 
     add_n_grab = 'node.add_node'
     for node_info in node_details:
+
+        if node_info[0] == 'separator':
+            layout.separator()
+            continue
 
         if not node_info:
             print(repr(node_info), 'is incomplete, or unparsable')
@@ -68,9 +87,8 @@ def layout_draw_categories(layout, node_details):
         bl_idname = node_info[0]
         node_ref = getattr(bpy.types, bl_idname)
 
-        display_icon = get_icon(node_ref)
         if hasattr(node_ref, "bl_label"):
-            layout_params = dict(text=node_ref.bl_label, **icon(display_icon))
+            layout_params = dict(text=node_ref.bl_label, **node_icon(node_ref))
         elif bl_idname == 'NodeReroute':
             layout_params = dict(text='Reroute')
         else:
@@ -87,6 +105,7 @@ class NodeViewMenuTemplate(bpy.types.Menu):
 
     def draw(self, context):
         layout_draw_categories(self.layout, node_cats[self.bl_label])
+        # prop_menu_enum(data, property, text="", text_ctxt="", icon='NONE')
 
 
 # quick class factory.
@@ -101,47 +120,48 @@ class NODEVIEW_MT_Dynamic_Menu(bpy.types.Menu):
     @classmethod
     def poll(cls, context):
         tree_type = context.space_data.tree_type
-        if tree_type == 'SverchCustomTreeType':
+        if tree_type in sv_tree_types:
             menu_prefs['show_icons'] = get_icon_switch()
             # print('showing', menu_prefs['show_icons'])
             return True
 
     def draw(self, context):
 
+        # dont show up in other tree menu (needed because we bypassed poll by appending manually)
+        tree_type = context.space_data.tree_type
+        if not tree_type in sv_tree_types:
+            return
+
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        s = layout.operator("node.add_search", text="Search", icon='OUTLINER_DATA_FONT')
-        s.use_transform = True
+        if self.bl_idname == 'NODEVIEW_MT_Dynamic_Menu':
+            layout.operator("node.sv_extra_search", text="Search", icon='OUTLINER_DATA_FONT')
 
-        show_icons = menu_prefs.get('show_icons')
-
-        def icon(display_icon):
-            '''returns empty dict if show_icons is False, else the icon passed'''
-            return {'icon': display_icon for i in [1] if show_icons}
 
         layout.separator()
-
         layout.menu("NODEVIEW_MT_AddGenerators", **icon('OBJECT_DATAMODE'))
         layout.menu("NODEVIEW_MT_AddTransforms", **icon('MANIPUL'))
         layout.menu("NODEVIEW_MT_AddAnalyzers", **icon('VIEWZOOM'))
         layout.menu("NODEVIEW_MT_AddModifiers", **icon('MODIFIER'))
-
         layout.separator()
         layout.menu("NODEVIEW_MT_AddNumber")
         layout.menu("NODEVIEW_MT_AddVector")
         layout.menu("NODEVIEW_MT_AddMatrix")
-        layout.menu("NODEVIEW_MT_AddLogic")
+        layout.menu("NODEVIEW_MT_AddLogic", **icon("SV_LOGIC"))
         layout.menu("NODEVIEW_MT_AddListOps", **icon('NLA'))
         layout.separator()
         layout.menu("NODEVIEW_MT_AddViz", **icon('RESTRICT_VIEW_OFF'))
         layout.menu("NODEVIEW_MT_AddText")
-        layout.menu("NODEVIEW_MT_AddScene")
-        layout.menu("NODEVIEW_MT_AddLayout")
+        layout.menu("NODEVIEW_MT_AddScene", **icon('SCENE_DATA'))
+        layout.menu("NODEVIEW_MT_AddLayout", **icon("SV_LAYOUT"))
+        layout.menu("NODE_MT_category_SVERCHOK_BPY_Data", icon="BLENDER")
         layout.separator()
-        layout.menu("NODEVIEW_MT_AddNetwork")
-        layout.menu("NODEVIEW_MT_AddBetas", **icon('OUTLINER_DATA_POSE'))
-        layout.menu("NODEVIEW_MT_AddAlphas", **icon('ERROR'))
+        layout.menu("NODEVIEW_MT_AddNetwork", **icon("OOPS"))
+        layout.menu("NODEVIEW_MT_AddBetas", **icon("SV_BETA"))
+        layout.menu("NODEVIEW_MT_AddAlphas", **icon("SV_ALPHA"))
+        layout.separator() 
+        layout.menu("NODE_MT_category_SVERCHOK_GROUPS", icon="RNA")
 
 
 class NODEVIEW_MT_AddGenerators(bpy.types.Menu):
@@ -150,10 +170,7 @@ class NODEVIEW_MT_AddGenerators(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         layout_draw_categories(self.layout, node_cats[self.bl_label])
-        if menu_prefs.get('show_icons'):
-            layout.menu("NODEVIEW_MT_AddGeneratorsExt", icon='PLUGIN')
-        else:
-            layout.menu("NODEVIEW_MT_AddGeneratorsExt")
+        layout.menu("NODEVIEW_MT_AddGeneratorsExt", **icon('PLUGIN'))
 
 
 class NODEVIEW_MT_AddModifiers(bpy.types.Menu):
@@ -203,29 +220,46 @@ classes = [
     make_class('Alphas', "Alpha Nodes"),
 ]
 
-nodeview_keymaps = []
 
-def add_keymap():
-    wm = bpy.context.window_manager
-    kc = wm.keyconfigs.addon
-    if kc:
-        km = kc.keymaps.new(name='Node Editor', space_type='NODE_EDITOR')
-        kmi = km.keymap_items.new('wm.call_menu', 'SPACE', 'PRESS', ctrl=True)
-        kmi.properties.name = "NODEVIEW_MT_Dynamic_Menu"
-        nodeview_keymaps.append((km, kmi))
-    
-def remove_keymap():
-    for km, kmi in nodeview_keymaps:
-        km.keymap_items.remove(kmi)
-    nodeview_keymaps.clear()
+# def ff_unregister_node_categories():
+#     """
+#     Below (in the register function) we remove the SVERCHOK group from _node_categories collection, by doing:
+
+#         _items_to_remove['sverchok_popped'] = _node_categories.pop("SVERCHOK")
+
+#     this allows us to populate the NODE_MT_add menu as we want. In doing so we lose the automatic unregistration of 
+#     various menu and category classes. This function behaves as a dedicated removal of those classes (for F8 and disable add-on),
+#     """
+
+#     def ff_unregister_node_cat_types(cats):
+#         for mt in cats[2]:
+#             bpy.utils.unregister_class(mt)
+#         for pt in cats[3]:
+#             bpy.utils.unregister_class(pt)
+
+#     cat_types = _items_to_remove['sverchok_popped']
+#     if cat_types:
+#         ff_unregister_node_cat_types(cat_types)
+
+#     del _items_to_remove['sverchok_popped']
+
+
 
 def register():
     for class_name in classes:
         bpy.utils.register_class(class_name)
-    add_keymap()
+
+    # we pop sverchok from the standard nodecat collection to avoid the menu items appearing in the default Add node menu.
+    # _items_to_remove['sverchok_popped'] = _node_categories.pop("SVERCHOK")
+
+    # bpy.types.NODE_MT_add.append(bpy.types.NODEVIEW_MT_Dynamic_Menu.draw)
 
 
 def unregister():
+    # bpy.types.NODE_MT_add.remove(bpy.types.NODEVIEW_MT_Dynamic_Menu.draw)
+
     for class_name in classes:
         bpy.utils.unregister_class(class_name)
-    remove_keymap()
+
+    # because we popped sverchok off the nodecat collection in register, we have to do our own class unregistration here.
+    # ff_unregister_node_categories()

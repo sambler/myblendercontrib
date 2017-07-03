@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Animation:Master Import",
     "author": "nemyax",
-    "version": (0, 1, 20160815),
+    "version": (0, 2, 20170410),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Import Animation:Master .mdl",
@@ -14,20 +14,18 @@ import bpy
 import bmesh
 import math
 import mathutils as mu
-# import os.path
+import struct
 import re
 from bpy.props import (
-    BoolProperty,
-    FloatProperty,
     StringProperty,
-    IntProperty)
+    EnumProperty)
 from bpy_extras.io_utils import (
     ImportHelper,
     path_reference_mode)
 
-def do_import(path):
+def do_import(path, orient):
     splines, patches, stamps, bones, groups = read_mdl(path)
-    make_obj(splines, patches, stamps, bones, groups)
+    make_obj(splines, patches, stamps, bones, groups, orient)
 
 def corr_mtx():
     return \
@@ -65,8 +63,8 @@ def read_mdl(path):
         groups = {}
     return splines, patches, uv_patches, bones, groups
 
-def make_obj(splines, patches, stamps, bones, groups):
-    arm_obj = segments_to_armature(bones)
+def make_obj(splines, patches, stamps, bones, groups, orient):
+    arm_obj = segments_to_armature(bones, orient)
     mesh = bpy.data.meshes.new("mdl_mesh")
     obj = bpy.data.objects.new("mdl", mesh)
     vgs = obj.vertex_groups
@@ -681,19 +679,23 @@ def mdl_to_bmesh(splines, patches, stamps, bones, groups, g_lookup):
 
 ### Conversion to armature
 
-def segments_to_armature(bones):
+def segments_to_armature(bones, orient):
     cmtx = corr_mtx()
-    arm = bpy.data.armatures.new("mdl-armature")
-    arm_o = bpy.data.objects.new("mdl-armature", arm)
+    aname = "mdl_armature_" + orient
+    arm = bpy.data.armatures.new(aname)
+    arm_o = bpy.data.objects.new(aname, arm)
     bpy.context.scene.objects.link(arm_o)
     bpy.context.scene.objects.active = arm_o
     bpy.ops.object.mode_set()
     bpy.ops.object.mode_set(mode='EDIT')
     ebs = arm.edit_bones
     lookup = {}
-    bcm = \
-        mu.Matrix.Rotation(math.radians(180), 4, 'Y') * \
-        mu.Matrix.Rotation(math.radians(-90), 4, 'X')
+    if orient == "blen":
+        bcm = \
+            mu.Matrix.Rotation(math.radians(180), 4, 'Y') * \
+            mu.Matrix.Rotation(math.radians(-90), 4, 'X')
+    else:
+        bcm = mu.Matrix.Identity(4)
     for b in bones:
         s_vec = mu.Vector(b.start)
         if not b.end:
@@ -715,6 +717,104 @@ def segments_to_armature(bones):
     arm.transform(cmtx)
     return arm_o
 
+### Animation import
+
+def write_keys(channel_dict, xf, num_frames, orient):
+    curf = bpy.context.scene.frame_current
+    for f in range(num_frames):
+        frame = curf + f
+        nbs, = struct.unpack('<i', xf.read(4))
+        for _ in range(nbs):
+            bone, tx, ty, tz, qw, qx, qy, qz, sx, sy, sz = \
+                struct.unpack('<i10f', xf.read(44))
+            chans = channel_dict[bone]
+            rx, ry, rz = mu.Quaternion((qw,qx,qy,qz)).to_euler()
+            if orient == "am":
+                vals = [tx,ty,tz,qw,qx,qy,qz,rx,ry,rz,sx,sy,sz]
+            else:
+                vals = [-tx,tz,ty,qw,-qx,qz,qy,-rx,rz,ry,sx,sz,sy]
+            for ch, val in zip(chans, vals):
+                ch.insert(frame, val)
+
+def prep_channels(ao, src_bones):
+    cf = float(bpy.context.scene.frame_current)
+    pbs = ao.pose.bones
+    if not ao.animation_data:
+        ao.animation_data_create()
+    result = {}
+    l = "location"
+    q = "rotation_quaternion"
+    e = "rotation_euler"
+    for i, bname, _ in src_bones:
+        pb = pbs[bname]
+        pb.keyframe_insert(l, group=bname)
+        pb.keyframe_insert(q, group=bname)
+        pb.keyframe_insert(e, group=bname)
+        entry = {l:{},q:{},e:{}}
+        pbn = pb.name
+        fc_re = re.compile("pose\.bones\[."+pbn+".\]\.("+l+"|"+q+"|"+e+")")
+        for fc in pb.id_data.animation_data.action.fcurves:
+            m = fc_re.match(fc.data_path)
+            if m:
+                key1 = m.group(1)
+                key2 = fc.array_index
+                entry[key1][key2] = fc.keyframe_points
+        result[i] = [
+            entry[l][0],entry[l][1],entry[l][2],
+            entry[q][0],entry[q][1],entry[q][2],entry[q][3],
+            entry[e][0],entry[e][1],entry[e][2]]
+    return result
+
+def get_bones(xf, num_bones):
+    result = []
+    for i in range(num_bones):
+        name, par = struct.unpack('<64si28x', xf.read(96))
+        real_name = ""
+        for c in name:
+            if c == 0:
+                break
+            real_name += chr(c)
+        result.append((i,real_name,par))
+    return result
+
+def bone_tree_blender(ao):
+    return btb(None, ao.pose.bones[:])
+
+def btb(b, bs):
+    ch = sorted([a for a in bs if a.parent == b], key=lambda x: x.name)
+    return [[c.name, btb(c, bs)] for c in ch]
+
+def bone_tree_xf(lst):
+    return btxf(-1, lst)
+
+def btxf(e, l):
+    ch = sorted([a for a in l if a[2] == e], key=lambda x: x[1])
+    return [[c[1], btxf(c[0], l)] for c in ch]
+
+def do_xform_import(path, orient):
+    xf = open(path, 'rb')
+    if xf.read(6) != b"XFORM\x00":
+        xf.close()
+        return "Cannot recognize the file format.", {'CANCELLED'}
+    num_bones, num_frames, start_frame = struct.unpack('<xx3i', xf.read(14))
+    o = bpy.context.active_object
+    if o.type != 'ARMATURE':
+        o = o.find_armature()
+    src_bones = get_bones(xf, num_bones)
+    if bone_tree_blender(o) == bone_tree_xf(src_bones):
+        msg = "Animation imported successfully from \"{}\".".format(path)
+        result = {'FINISHED'}
+        write_keys(
+            prep_channels(o, src_bones),
+            xf,
+            num_frames,
+            orient)
+    else:
+        msg = "The armature doesn't match the skeleton in \"{}\".".format(path)
+        result = {'CANCELLED'}
+    xf.close()
+    return msg, result
+
 ### Boilerplate
 
 class ImportAMMDL(bpy.types.Operator, ImportHelper):
@@ -728,21 +828,74 @@ class ImportAMMDL(bpy.types.Operator, ImportHelper):
             options={'HIDDEN'})
     path_mode = path_reference_mode
     check_extension = True
+    orient = EnumProperty(
+        name="Bone orientation",
+        items=(
+            ("am","A:M-native","".join([
+                "+Z forward, +Y up;",
+                " recommended if you plan to import animation made in A:M"])),
+            ("blen","Blender-friendly","".join([
+                "+Y forward, +Z up"]))),
+        default="am")
     def execute(self, context):
-        do_import(self.filepath)
+        do_import(self.filepath, self.orient)
         return {'FINISHED'}
+
+class ImportXforms(bpy.types.Operator, ImportHelper):
+    '''Load a Bone Transformations File'''
+    bl_idname = "import_scene.xforms"
+    bl_label = 'Import XFORM'
+    bl_options = {'PRESET'}
+    filename_ext = ".xform"
+    filter_glob = StringProperty(
+            default="*.xform",
+            options={'HIDDEN'})
+    path_mode = path_reference_mode
+    check_extension = True
+    orient = EnumProperty(
+        name="Bone orientation in armature",
+        items=(
+            ("am","A:M-native","+Z forward, +Y up (weird-looking)"),
+            ("blen","Blender-friendly","+Y forward, +Z up")),
+        default="am")
+    
+    @classmethod
+    def poll(cls, context):
+        ao = bpy.context.active_object
+        if ao:
+            if ao.type == 'ARMATURE':
+                return True
+            elif ao.type == 'MESH':
+                if ao.find_armature():
+                    return True
+        return False
+    
+    def execute(self, context):
+        msg, result = do_xform_import(self.filepath, self.orient)
+        print(msg)
+        if result != {'FINISHED'}:
+            self.report({'ERROR'}, msg)
+        return result
 
 def menu_func_import_mesh(self, context):
     self.layout.operator(
         ImportAMMDL.bl_idname, text="Animation:Master Model (.mdl)")
 
+def menu_func_import_action(self, context):
+    self.layout.operator(
+        ImportXforms.bl_idname, text="Bone Transformations as Animation (.xform)")
+
 def register():
     bpy.utils.register_class(ImportAMMDL)
+    bpy.utils.register_class(ImportXforms)
     bpy.types.INFO_MT_file_import.append(menu_func_import_mesh)
+    bpy.types.INFO_MT_file_import.append(menu_func_import_action)
 
 def unregister():
     bpy.utils.unregister_class(ImportAMMDL)
+    bpy.utils.unregister_class(ImportXforms)
     bpy.types.INFO_MT_file_import.remove(menu_func_import_mesh)
+    bpy.types.INFO_MT_file_import.remove(menu_func_import_action)
 
 if __name__ == "__main__":
     register()

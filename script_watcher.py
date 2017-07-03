@@ -105,6 +105,86 @@ class SplitIO(io.StringIO):
         self.stream.write(s)
 
 
+class ScriptWatcherLoader:
+    """Load the script"""
+    filepath = None
+    mod_name = None
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.mod_name = self.get_mod_name()
+
+    def load_module(self):
+        """Load the module"""
+        try:
+            f = open(self.filepath)
+            paths, files = self.get_paths()
+
+            # Create the module and setup the basic properties.
+            mod = types.ModuleType('__main__')
+            mod.__file__ = self.filepath
+            mod.__path__ = paths
+            mod.__package__ = self.mod_name
+            mod.__loader__ = self
+
+            # Add the module to the system module cache.
+            sys.modules[self.mod_name] = mod
+
+            # Finally, execute the module.
+            exec(compile(f.read(), self.filepath, 'exec'), mod.__dict__)
+        except IOError:
+            print('Could not open script file.')
+        except:
+            sys.stderr.write("There was an error when loading the module:\n" + traceback.format_exc())
+        else:
+            f.close()
+
+    def reload(self):
+        """Reload the module clearing any cached sub-modules"""
+        print('Reloading script:', self.filepath)
+        self.remove_cached_mods()
+        self.load_module()
+
+    def get_paths(self):
+        """Find all the python paths surrounding the given filepath."""
+        dirname = os.path.dirname(self.filepath)
+
+        paths = []
+        filepaths = []
+
+        for root, dirs, files in os.walk(dirname, topdown=True):
+            if '__init__.py' in files:
+                paths.append(root)
+                for f in files:
+                    filepaths.append(os.path.join(root, f))
+            else:
+                dirs[:] = []  # No __init__ so we stop walking this dir.
+
+        # If we just have one (non __init__) file then return just that file.
+        return paths, filepaths or [self.filepath]
+
+    def get_mod_name(self):
+        """Return the module name."""
+        dir, mod = os.path.split(self.filepath)
+
+        # Module is a package.
+        if mod == '__init__.py':
+            mod = os.path.basename(dir)
+
+        # Module is a single file.
+        else:
+            mod = os.path.splitext(mod)[0]
+
+        return mod
+
+    def remove_cached_mods(self):
+        """Remove all the script modules from the system cache."""
+        paths = self.get_paths()
+        for mod_name, mod in list(sys.modules.items()):
+            if hasattr(mod, '__file__') and os.path.dirname(mod.__file__) in paths:
+                del sys.modules[mod_name]
+
+
 # Addon preferences.
 class ScriptWatcherPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
@@ -130,76 +210,8 @@ class WatchScriptOperator(bpy.types.Operator):
     _timer = None
     _running = False
     _times = None
-    filepath = None
-
-    def get_paths(self):
-        """Find all the python paths surrounding the given filepath."""
-
-        dirname = os.path.dirname(self.filepath)
-
-        paths = []
-        filepaths = []
-
-        for root, dirs, files in os.walk(dirname, topdown=True):
-            if '__init__.py' in files:
-                paths.append(root)
-                for f in files:
-                    filepaths.append(os.path.join(root, f))
-            else:
-                dirs[:] = []  # No __init__ so we stop walking this dir.
-
-        # If we just have one (non __init__) file then return just that file.
-        return paths, filepaths or [self.filepath]
-
-    def get_mod_name(self):
-        """Return the module name and the root path of the givin python file path."""
-        dir, mod = os.path.split(self.filepath)
-
-        # Module is a package.
-        if mod == '__init__.py':
-            mod = os.path.basename(dir)
-            dir = os.path.dirname(dir)
-
-        # Module is a single file.
-        else:
-            mod = os.path.splitext(mod)[0]
-
-        return mod, dir
-
-    def remove_cached_mods(self):
-        """Remove all the script modules from the system cache."""
-        paths, files = self.get_paths()
-        for mod_name, mod in list(sys.modules.items()):
-            if hasattr(mod, '__file__') and os.path.dirname(mod.__file__) in paths:
-                del sys.modules[mod_name]
-
-    def _reload_script_module(self):
-        print('Reloading script:', self.filepath)
-        self.remove_cached_mods()
-        try:
-            f = open(self.filepath)
-            paths, files = self.get_paths()
-
-            # Get the module name and the root module path.
-            mod_name, mod_root = self.get_mod_name()
-
-            # Create the module and setup the basic properties.
-            mod = types.ModuleType('__main__')
-            mod.__file__ = self.filepath
-            mod.__path__ = paths
-            mod.__package__ = mod_name
-
-            # Add the module to the system module cache.
-            sys.modules[mod_name] = mod
-
-            # Fianally, execute the module.
-            exec (compile(f.read(), self.filepath, 'exec'), mod.__dict__)
-        except IOError:
-            print('Could not open script file.')
-        except:
-            sys.stderr.write("There was an error when running the script:\n" + traceback.format_exc())
-        else:
-            f.close()
+    use_py_console = None
+    loader = None
 
     def reload_script(self, context):
         """Reload this script while printing the output to blenders python console."""
@@ -212,7 +224,7 @@ class WatchScriptOperator(bpy.types.Operator):
         sys.stderr = stderr
 
         # Run the script.
-        self._reload_script_module()
+        self.loader.reload()
 
         # Go back to the begining so we can read the streams.
         stdout.seek(0)
@@ -273,16 +285,19 @@ class WatchScriptOperator(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Grab the settings and store them as local variables.
-        self.filepath = bpy.path.abspath(context.scene.sw_settings.filepath)
         self.use_py_console = context.scene.sw_settings.use_py_console
 
-        # If it's not a file, doesn't exist or permistion is denied we don't preceed.
-        if not os.path.isfile(self.filepath):
+        filepath = bpy.path.abspath(context.scene.sw_settings.filepath)
+
+        # If it's not a file, doesn't exist or permission is denied we don't proceed.
+        if not os.path.isfile(filepath):
             self.report({'ERROR'}, 'Unable to open script.')
             return {'CANCELLED'}
 
+        self.loader = ScriptWatcherLoader(filepath)
+
         # Setup the times dict to keep track of when all the files where last edited.
-        dirs, files = self.get_paths()
+        dirs, files = self.loader.get_paths()
         self._times = dict(
             (path, os.stat(path).st_mtime) for path in files)  # Where we store the times of all the paths.
         self._times[files[0]] = 0  # We set one of the times to 0 so the script will be loaded on startup.
@@ -299,7 +314,8 @@ class WatchScriptOperator(bpy.types.Operator):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
 
-        self.remove_cached_mods()
+        # Should we call a separate close function on the loader?
+        self.loader.remove_cached_mods()
 
         context.scene.sw_settings.running = False
 

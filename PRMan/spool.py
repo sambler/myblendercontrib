@@ -1,3 +1,28 @@
+# ##### BEGIN MIT LICENSE BLOCK #####
+#
+# Copyright (c) 2015 - 2017 Pixar
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+#
+# ##### END MIT LICENSE BLOCK #####
+
 import bpy
 import os
 import time
@@ -30,17 +55,18 @@ def quote(filename):
     return '"%s"' % filename
 
 
-def spool_render(rman_version_short, rib_files, denoise_files, denoise_aov_files, frame_begin, frame_end=None, denoise=None, context=None,
-                 job_texture_cmds=[], frame_texture_cmds={}, rpass=None):
+def spool_render(rman_version_short, to_render, rib_files, denoise_files, denoise_aov_files, frame_begin, frame_end=None, denoise=None, context=None,
+                 job_texture_cmds=[], frame_texture_cmds={}, rpass=None,  bake=False):
     prefs = bpy.context.user_preferences.addons[__package__].preferences
 
     out_dir = prefs.env_vars.out
     cdir = user_path(out_dir)
     scene = context.scene
     rm = scene.renderman
-
-    alf_file = os.path.join(cdir, 'spool_%s.alf' %
-                            time.strftime("%m%d%y%H%M%S"))
+    
+    alf_file = os.path.join(cdir, 'bake_%s.alf' %
+                            time.strftime("%m%d%y%H%M%S")) if bake else os.path.join(cdir, rm.custom_alfname + '_%s.alf' % time.strftime("%m%d%y%H%M%S"))
+        
     per_frame_denoise = denoise == 'frame'
     crossframe_denoise = denoise == 'crossframe'
 
@@ -104,21 +130,23 @@ def spool_render(rman_version_short, rib_files, denoise_files, denoise_aov_files
             end_block(f, 3)
 
         # render frame
-        cmd_str = ['prman', '-Progress', '-cwd', quote(cdir), '-t:%d' %
-                   rm.threads, quote(rib_files[frame_num - frame_begin])]
-        if rm.enable_checkpoint:
-            if rm.render_limit == 0:
-                cmd_str.insert(5, '-checkpoint %d%s' %
-                               (rm.checkpoint_interval, rm.checkpoint_type))
-            else:
-                cmd_str.insert(5, '-checkpoint %d%s,%d%s' % (
-                    rm.checkpoint_interval, rm.checkpoint_type, rm.render_limit, rm.checkpoint_type))
-        if rm.recover:
-            cmd_str.insert(5, '-recover 1')
-        if rm.custom_cmd != '':
-            cmd_str.insert(5, rm.custom_cmd)
-        write_cmd_task_line(f, 'Render frame %d' % frame_num, [('PixarRender',
-                                                                cmd_str)], 3)
+        if to_render:
+            threads = rm.threads if not rm.override_threads else rm.external_threads
+            cmd_str = ['prman', '-Progress', '-cwd', quote(cdir), '-t:%d' %
+                       threads, quote(rib_files[frame_num - frame_begin])]
+            if rm.enable_checkpoint:
+                if rm.render_limit == 0:
+                    cmd_str.insert(5, '-checkpoint %d%s' %
+                                   (rm.checkpoint_interval, rm.checkpoint_type))
+                else:
+                    cmd_str.insert(5, '-checkpoint %d%s,%d%s' % (
+                        rm.checkpoint_interval, rm.checkpoint_type, rm.render_limit, rm.checkpoint_type))
+            if rm.recover:
+                cmd_str.insert(5, '-recover 1')
+            if rm.custom_cmd != '':
+                cmd_str.insert(5, rm.custom_cmd)
+            write_cmd_task_line(f, 'Render frame %d' % frame_num, [('PixarRender',
+                                                                    cmd_str)], 3)
 
         # denoise frame
         if per_frame_denoise:
@@ -135,7 +163,7 @@ def spool_render(rman_version_short, rib_files, denoise_files, denoise_aov_files
                     denoise_options.append('--override gpuIndex 0 --')
                 cmd_str = ['denoise'] + denoise_options + \
                     [quote(denoise_files[
-                    frame_num - frame_begin][0])]
+                        frame_num - frame_begin][0])]
             write_cmd_task_line(f, 'Denoise frame %d' % frame_num,
                                 [('PixarRender', cmd_str)], 3)
         elif crossframe_denoise:

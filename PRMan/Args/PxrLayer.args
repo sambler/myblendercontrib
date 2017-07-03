@@ -58,7 +58,7 @@
       <tag value="float"/>
     </tags>
   </param>
-  <page name="Advanced" open="False">
+  <page name="Diffuse Advanced" open="False">
   <param  name="diffuseBumpNormal"
     type="normal"
     label="Bump"
@@ -90,7 +90,7 @@
     max="1"
     default="0">
     <help>
-      Diffuse transmit gain.
+      This only applies when diffuse lobe's Double Sided is on in the Bxdf. Instead of using Diffuse Gain for controlling the intensity of the diffuse transmission, we use Diffuse Transmit Gain.If it is set to 0.0, the diffuse transmission is off.
     </help>
     <tags>
       <tag value="float"/>
@@ -102,7 +102,7 @@
     widget="color"
     default="0.18 0.18 0.18">
     <help>
-      Diffuse transmit color of this layer.
+      This only applies when diffuse lobe's Double Sided is on in the Bxdf. This sets the color for diffuse transmission of this layer.
     </help>
     <tags>
       <tag value="color"/>
@@ -110,7 +110,7 @@
   </param>
   </page>
   </page>
-  <page name="PrimarySpecular" open="False">
+  <page name="Primary Specular" open="False">
   <param  name="enableSpecular"
     type="int"
     label="Enable"
@@ -175,7 +175,7 @@
       <tag value="float"/>
     </tags>
   </param>
-  <page name="Physical" open="False">
+  <page name="Primary Specular Physical" open="False">
   <param  name="specularIor"
     type="color"
     label="Refraction Index"
@@ -201,7 +201,7 @@
     </tags>
   </param>
   </page>
-  <page name="Advanced" open="False">
+  <page name="Primary Specular Advanced" open="False">
   <param  name="specularAnisotropy"
     type="float"
     label="Anisotropy"
@@ -229,7 +229,7 @@
   </param>
   </page>
   </page>
-  <page name="RoughSpecular" open="False">
+  <page name="Rough Specular" open="False">
   <param  name="enableRoughSpecular"
     type="int"
     label="Enable"
@@ -294,7 +294,7 @@
       <tag value="float"/>
     </tags>
   </param>
-  <page name="Physical" open="False">
+  <page name="Rough Specular Physical" open="False">
   <param  name="roughSpecularIor"
     type="color"
     label="Refraction Index"
@@ -320,7 +320,7 @@
     </tags>
   </param>
   </page>
-  <page name="Advanced" open="False">
+  <page name="Rough Specular Advanced" open="False">
   <param  name="roughSpecularAnisotropy"
     type="float"
     label="Anisotropy"
@@ -348,7 +348,7 @@
   </param>
   </page>
   </page>
-  <page name="ClearCoat" open="False">
+  <page name="Clear Coat" open="False">
   <param  name="enableClearcoat"
     type="int"
     label="Enable"
@@ -413,7 +413,7 @@
       <tag value="float"/>
     </tags>
   </param>
-  <page name="Physical" open="False">
+  <page name="Clear Coat Physical" open="False">
   <param  name="clearcoatIor"
     type="color"
     label="Refraction Index"
@@ -439,7 +439,7 @@
     </tags>
   </param>
   </page>
-  <page name="Advanced" open="False">
+  <page name="Clear Coat Advanced" open="False">
   <param  name="clearcoatAnisotropy"
     type="float"
     label="Anisotropy"
@@ -546,7 +546,7 @@
       <tag value="float"/>
     </tags>
   </param>
-  <page name="Physical" open="False">
+  <page name="Iridescence Physical" open="False">
   <param  name="iridescenceThickness"
     type="float"
     label="Thin Film Thickness"
@@ -613,7 +613,7 @@
       <tag value="float"/>
     </tags>
   </param>
-  <page name="Advanced" open="False">
+  <page name="Fuzz Advanced" open="False">
   <param  name="fuzzBumpNormal"
     type="normal"
     label="Bump"
@@ -690,7 +690,7 @@
       <tag value="color"/>
     </tags>
   </param>
-  <page name="MultipleMeanFreePaths" open="False">
+  <page name="Subsurface Multiple Mean Free Paths" open="False">
   <param  name="shortSubsurfaceGain"
     type="float"
     label="Short Gain"
@@ -768,7 +768,7 @@
     </tags>
   </param>
   </page>
-  <page name="Advanced" open="False">
+  <page name="Subsurface Advanced" open="False">
   <param  name="subsurfacePostTint"
     type="color"
     label="Post Tint"
@@ -781,9 +781,23 @@
       <tag value="color"/>
     </tags>
   </param>
+  <param  name="subsurfaceTransmitGain"
+    type="float"
+    label="Transmit Gain"
+    slider="1"
+    min="0"
+    max="1"
+    default="0">
+    <help>
+      This only applies when subsurface lobe's Double Sided is on in the Bxdf. Instead of using Subsurface Gain for controlling the intensity of the subsurface transmission, we use Subsurface Transmit Gain.If it is set to 0.0, the subsurface transmission is off.
+    </help>
+    <tags>
+      <tag value="float"/>
+    </tags>
+  </param>
   </page>
   </page>
-  <page name="SingleScatter" open="False">
+  <page name="Single Scatter" open="False">
   <param  name="enableSinglescatter"
     type="int"
     label="Enable"
@@ -846,7 +860,7 @@
       <tag value="color"/>
     </tags>
   </param>
-  <page name="Advanced" open="False">
+  <page name="Single Scatter Advanced" open="False">
   <param  name="singlescatterDirectionality"
     type="float"
     label="Directionality"
@@ -983,7 +997,7 @@
       <tag value="float"/>
     </tags>
   </param>
-  <page name="Advanced" open="False">
+  <page name="Glass Advanced" open="False">
   <param  name="rrIor"
     type="float"
     label="Refractive Index"
@@ -1065,7 +1079,7 @@
   </output>
   <output  name="pxrMaterialOut_enableDiffuse"
     vstructmember="pxrMaterialOut.enableDiffuse"
-    vstructConditionalExpr="set 1.0 if enableDiffuse == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableDiffuse == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1121,7 +1135,7 @@
   </output>
   <output  name="pxrMaterialOut_enableSpecular"
     vstructmember="pxrMaterialOut.enableSpecular"
-    vstructConditionalExpr="set 1.0 if enableSpecular == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableSpecular == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1177,7 +1191,7 @@
   </output>
   <output  name="pxrMaterialOut_enableRoughSpecular"
     vstructmember="pxrMaterialOut.enableRoughSpecular"
-    vstructConditionalExpr="set 1.0 if enableRoughSpecular == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableRoughSpecular == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1233,7 +1247,7 @@
   </output>
   <output  name="pxrMaterialOut_enableClearcoat"
     vstructmember="pxrMaterialOut.enableClearcoat"
-    vstructConditionalExpr="set 1.0 if enableClearcoat == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableClearcoat == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1289,7 +1303,7 @@
   </output>
   <output  name="pxrMaterialOut_enableIridescence"
     vstructmember="pxrMaterialOut.enableIridescence"
-    vstructConditionalExpr="set 1.0 if enableIridescence == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableIridescence == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1338,7 +1352,7 @@
   </output>
   <output  name="pxrMaterialOut_enableFuzz"
     vstructmember="pxrMaterialOut.enableFuzz"
-    vstructConditionalExpr="set 1.0 if enableFuzz == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableFuzz == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1373,7 +1387,7 @@
   </output>
   <output  name="pxrMaterialOut_enableRR"
     vstructmember="pxrMaterialOut.enableRR"
-    vstructConditionalExpr="set 1.0 if enableRR == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableRR == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1415,7 +1429,7 @@
   </output>
   <output  name="pxrMaterialOut_enableSubsurface"
     vstructmember="pxrMaterialOut.enableSubsurface"
-    vstructConditionalExpr="set 1.0 if enableSubsurface == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableSubsurface == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1497,9 +1511,16 @@
       <tag value="color"/>
     </tags>
   </output>
+  <output  name="pxrMaterialOut_subsurfaceTransmitGain"
+    vstructmember="pxrMaterialOut.subsurfaceTransmitGain"
+    vstructConditionalExpr="connect if enableSubsurface == 1 ">
+    <tags>
+      <tag value="float"/>
+    </tags>
+  </output>
   <output  name="pxrMaterialOut_enableSinglescatter"
     vstructmember="pxrMaterialOut.enableSinglescatter"
-    vstructConditionalExpr="set 1.0 if enableSinglescatter == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableSinglescatter == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>
@@ -1569,7 +1590,7 @@
   </output>
   <output  name="pxrMaterialOut_enableGlow"
     vstructmember="pxrMaterialOut.enableGlow"
-    vstructConditionalExpr="set 1.0 if enableGlow == 1 else set 0.0 ">
+    vstructConditionalExpr="set 1 if enableGlow == 1 else set 0 ">
     <tags>
       <tag value="int"/>
     </tags>

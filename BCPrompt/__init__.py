@@ -51,6 +51,7 @@ if 'bpy' in globals():
         imp.reload(bc_update_utils)
         imp.reload(bc_CAD_utils)
         imp.reload(bc_TEXT_utils)
+        imp.reload(bc_theme_utils)
         imp.reload(bc_text_repr_utils)
         imp.reload(bc_package_manager)
         imp.reload(bc_command_dispatch)

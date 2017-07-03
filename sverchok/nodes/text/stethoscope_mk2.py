@@ -40,6 +40,9 @@ def high_contrast_color(c):
     L = 0.2126 * (c.r**g) + 0.7152 * (c.g**g) + 0.0722 * (c.b**g)
     return [(.1, .1, .1), (.95, .95, .95)][int(L < 0.5)]
 
+def adjust_location(_x, _y, location_theta):
+    return _x * location_theta, _y * location_theta
+
 
 class SvStethoscopeNodeMK2(bpy.types.Node, SverchCustomTreeNode):
     bl_idname = 'SvStethoscopeNodeMK2'
@@ -71,6 +74,9 @@ class SvStethoscopeNodeMK2(bpy.types.Node, SverchCustomTreeNode):
     num_elements = IntProperty(default=0)
     element_index = IntProperty(default=0, update=updateNode)
     rounding = IntProperty(min=1, max=5, default=3, update=updateNode)
+    line_width = IntProperty(default=60, min=20, update=updateNode, name='Line Width (chars)')
+    compact = BoolProperty(default=False, update=updateNode)
+    depth = IntProperty(default=5, min=0, update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('StringsSocket', 'Data')
@@ -95,7 +101,12 @@ class SvStethoscopeNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         if self.selected_mode == 'text-based':
 
             row.prop(self, "text_color", text='')
-            layout.prop(self, "rounding")
+            row1 = layout.row(align=True)
+            row1.prop(self, "rounding")
+            row1.prop(self, "compact", toggle=True)
+            row2 = layout.row(align=True)
+            row2.prop(self, "line_width")
+            row2.prop(self, "depth")
             # layout.prop(self, "socket_name")
             layout.label('input has {0} elements'.format(self.num_elements))
             layout.prop(self, 'view_by_element', toggle=True)
@@ -116,26 +127,47 @@ class SvStethoscopeNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         nvBGL.callback_disable(n_id)
 
         if self.activate and inputs[0].is_linked:
+
+            try:
+                with sv_preferences() as prefs:
+                    scale = prefs.stethoscope_view_scale
+                    location_theta = prefs.stethoscope_view_xy_multiplier
+            except:
+                # print('did not find preferences - you need to save user preferences')
+                scale = 1.0
+                location_theta = 1.0
+
             # gather vertices from input
             data = inputs[0].sv_get(deepcopy=False)
             self.num_elements = len(data)
 
+
             if self.selected_mode == 'text-based':
+                props = lambda: None
+                props.line_width = self.line_width
+                props.compact = self.compact
+                props.depth = self.depth or None
+
                 processed_data = nvBGL.parse_socket(
                     inputs[0],
                     self.rounding,
                     self.element_index,
-                    self.view_by_element
+                    self.view_by_element,
+                    props
                 )
             else:
                 #                # implement another nvBGL parses for gfx
                 processed_data = data
 
+            _x, _y = (self.location + Vector((self.width + 20, 0)))
+            location = adjust_location(_x, _y, location_theta)
+
             draw_data = {
                 'tree_name': self.id_data.name[:],
                 'content': processed_data,
-                'location': (self.location + Vector((self.width + 20, 0)))[:],
+                'location': location,
                 'color': self.text_color[:],
+                'scale' : float(scale),
                 'mode': self.selected_mode[:],
                 'font_id': int(self.font_id)
             }
@@ -143,6 +175,16 @@ class SvStethoscopeNodeMK2(bpy.types.Node, SverchCustomTreeNode):
 
     def free(self):
         nvBGL.callback_disable(node_id(self))
+
+
+    def update(self):
+        if not ("Data" in self.inputs):
+            return
+        try:
+            if not self.inputs[0].other:
+                nvBGL.callback_disable(node_id(self))        
+        except:
+            print('stethoscope update holdout (not a problem)')
 
 
 def register():

@@ -25,23 +25,24 @@ from time import gmtime, strftime
 import urllib
 from urllib.request import urlopen
 
-from os.path import basename
-from os.path import dirname
+from os.path import basename, dirname
 from itertools import chain
 
 import bpy
-from bpy.types import EnumProperty
-from bpy.props import StringProperty
-from bpy.props import BoolProperty
+from bpy.props import StringProperty, BoolProperty
+
 from sverchok import old_nodes
 from sverchok.utils import sv_gist_tools
+from sverchok.utils.sv_IO_monad_helpers import pack_monad, unpack_monad
 
 
 SCRIPTED_NODES = {'SvScriptNode', 'SvScriptNodeMK2', 'SvScriptNodeLite'}
 
-_EXPORTER_REVISION_ = '0.063'
+_EXPORTER_REVISION_ = '0.065'
 
 '''
+0.065 general refactoring to get the monad pack/unpack into one file
+0.064 prop_types as a property is now tracked for scalarmath and logic node, this uses boolvec.
 0.063 add support for obj_in_lite obj serialization \o/ .
 0.062 (no revision change) - fixes import of sn texts that are present already in .blend
 0.062 (no revision change) - looks in multiple places for textmode param.
@@ -86,17 +87,33 @@ def get_file_obj_from_zip(fullpath):
 def find_enumerators(node):
     ignored_enums = ['bl_icon', 'bl_static_type', 'type']
     node_props = node.bl_rna.properties[:]
-    f = filter(lambda p: isinstance(p, EnumProperty), node_props)
+    f = filter(lambda p: isinstance(p, bpy.types.EnumProperty), node_props)
     return [p.identifier for p in f if not (p.identifier in ignored_enums)]
 
 
 def compile_socket(link):
-    return (link.from_node.name, link.from_socket.name,
-            link.to_node.name, link.to_socket.name)
+
+    try:
+        link_data = (link.from_node.name, link.from_socket.index, link.to_node.name, link.to_socket.index)
+    except Exception as err:
+        if "'NodeSocketColor' object has no attribute 'index'" in repr(err):
+            print('adding node reroute using socketname instead if index')
+        else:
+            print(repr(err))
+        link_data = (link.from_node.name, link.from_socket.name, link.to_node.name, link.to_socket.name)
+
+    return link_data
 
 
 def write_json(layout_dict, destination_path):
-    m = json.dumps(layout_dict, sort_keys=True, indent=2)
+
+
+    try:
+        m = json.dumps(layout_dict, sort_keys=True, indent=2)
+    except Exception as err:
+        print(repr(err))
+        print(layout_dict)
+
     # optional post processing step
     post_processing = False
     if post_processing:
@@ -122,6 +139,15 @@ def has_state_switch_protection(node, k):
         return node.bl_idname in {'VectorMathNode'}
 
 
+def get_superficial_props(node_dict, node):
+    node_dict['height'] = node.height
+    node_dict['width'] = node.width
+    node_dict['label'] = node.label
+    node_dict['hide'] = node.hide
+    node_dict['location'] = node.location[:]
+    node_dict['color'] = node.color[:]
+
+
 def create_dict_of_tree(ng, skip_set={}, selected=False):
     nodes = ng.nodes
     layout_dict = {}
@@ -129,7 +155,7 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
     groups_dict = {}
     texts = bpy.data.texts
     if not skip_set:
-        skip_set = {'SvImportExport', 'Sv3DviewPropsNode'}
+        skip_set = {'Sv3DviewPropsNode'}
 
     if selected:
         nodes = list(filter(lambda n: n.select, nodes))
@@ -147,6 +173,7 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
         ObjectsNode = (node.bl_idname == 'ObjectsNode')
         ObjectsNode3 = (node.bl_idname == 'SvObjectsNodeMK3')
         ObjNodeLite = (node.bl_idname == 'SvObjInLite')
+        MeshEvalNode = (node.bl_idname == 'SvMeshEvalNode')
 
         ScriptNodeLite = (node.bl_idname == 'SvScriptNodeLite')
         ProfileParamNode = (node.bl_idname == 'SvProfileNode')
@@ -157,24 +184,30 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
 
         for k, v in node.items():
 
-            if k == 'n_id':
-                # used to store the hash of the current Node,
-                # this is created along with the Node anyway. skip.
-                continue
+            if not isinstance(v, (float, int, str)):
+                print('//')
+                print(node.name, ' -> property:', k, type(v))
+                print(type(node.bl_rna.properties[k]))
+                print('\\\\')
 
-            if k in {'typ', 'newsock'}:
-                ''' these are reserved variables for changeable socks '''
-                continue
-
-            if k == 'dynamic_strings':
-                ''' reserved by exec node '''
+            if k in {'n_id', 'typ', 'newsock', 'dynamic_strings', 'frame_collection_name', 'type_collection_name'}:
+                """
+                n_id: 
+                    used to store the hash of the current Node,
+                    this is created along with the Node anyway. skip.
+                typ, newsock:
+                    reserved variables for changeable sockets
+                dynamic_strings:
+                    reserved by exec node
+                frame_collection_name / type_collection_name both store Collection properties..avoiding for now
+                """
                 continue
 
             if has_state_switch_protection(node, k):
                 continue
 
-            # this silences the import error when items not found.
             if ObjectsNode and (k == "objects_local"):
+                # this silences the import error when items not found.
                 continue
             elif ObjectsNode3 and (k == 'object_names'):
                 node_dict['object_names'] = [o.name for o in node.object_names]
@@ -184,7 +217,7 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
                 node_dict['current_text'] = node.text
                 node_dict['textmode'] = node.textmode
                 if node.textmode == 'JSON':
-                    # let us add the json as full member to the tree :)
+                    # add the json as full member to the tree :)
                     text_str = texts[node.text].as_string()
                     json_as_dict = json.loads(text_str)
                     node_dict['text_lines'] = {}
@@ -205,6 +238,9 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
 
             if isinstance(v, (float, int, str)):
                 node_items[k] = v
+            elif node.bl_idname in {'ScalarMathNode', 'SvLogicNode'} and k == 'prop_types':
+                node_items[k] = getattr(node, k)[:]
+                continue
             else:
                 node_items[k] = v[:]
 
@@ -212,40 +248,12 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
                 v = getattr(node, k)
                 node_items[k] = v
 
-        # we can not rely on .items() to be present for various reasons, so we must gather
-        # something to fill .params with - due to dynamic nature of node. 
         if IsMonadInstanceNode and node.monad:
-            name = node.monad.name
-            node_items['monad'] = name
-            node_items['cls_dict'] = {}
-            node_items['cls_dict']['cls_bl_idname'] = node.bl_idname
+            pack_monad(node, node_items, groups_dict, create_dict_of_tree)
 
-            for template in ['input_template', 'output_template']:
-                node_items['cls_dict'][template] = getattr(node, template)
-
-            if name not in groups_dict:
-                group_ng = bpy.data.node_groups[name]
-                group_dict = create_dict_of_tree(group_ng)
-                group_dict['bl_idname'] = group_ng.bl_idname  # uhmm..
-                group_dict['cls_bl_idname'] = node.bl_idname
-                group_json = json.dumps(group_dict)
-                groups_dict[name] = group_json
-
-            # [['Y', 'StringsSocket', {'prop_name': 'y'}], [....
-            for socket_name, socket_type, prop_dict in node.input_template:
-                socket = node.inputs[socket_name]
-                if not socket.is_linked and prop_dict:
-
-                    prop_name = prop_dict['prop_name']
-                    v = getattr(node, prop_name)
-                    if not isinstance(v, (float, int, str)):
-                        v = v[:]
-
-                    node_items[prop_name] = v
-
-        if any([ScriptNodeLite, ObjNodeLite, SvExecNodeMod]):
+        # if hasattr(node, "storage_get_data"):
+        if any([ScriptNodeLite, ObjNodeLite, SvExecNodeMod, MeshEvalNode]):
             node.storage_get_data(node_dict)
-
 
         # collect socket properties
         # inputs = node.inputs
@@ -257,10 +265,10 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
 
         node_dict['params'] = node_items
 
-        node_dict['height'] = node.height
-        node_dict['width'] = node.width
-        node_dict['label'] = node.label
-        node_dict['hide'] = node.hide
+        #if node.bl_idname == 'NodeFrame':
+        #    frame_props = 'shrink', 'use_custom_color', 'label_size'
+        #    node_dict['params'].update({fpv: getattr(node, fpv) for fpv in frame_props})
+
         
         if IsMonadInstanceNode:
             node_dict['bl_idname'] = 'SvMonadGenericNode'
@@ -270,9 +278,10 @@ def create_dict_of_tree(ng, skip_set={}, selected=False):
         if node.bl_idname in {'SvGroupInputsNodeExp', 'SvGroupOutputsNodeExp'}:
             node_dict[node.node_kind] = node.stash()
 
-        node_dict['location'] = node.location[:]
-        node_dict['color'] = node.color[:]
+        get_superficial_props(node_dict, node)
         nodes_dict[node.name] = node_dict
+
+        # -------------------
 
     layout_dict['nodes'] = nodes_dict
     layout_dict['groups'] = groups_dict
@@ -399,11 +408,17 @@ def perform_svtextin_node_object(node, node_ref):
 
     elif not current_text in texts:
         new_text = texts.new(current_text)
+        text_line_entry = node_ref['text_lines']
+
         if node.textmode == 'JSON':
-            json_str = json.dumps(node_ref['text_lines']['stored_as_json'])
-            new_text.from_string(json_str)
-        else:
-            new_text.from_string(node_ref['text_lines'])
+            if isinstance(text_line_entry, str):
+                print('loading old text json content / backward compatibility mode')
+                pass
+
+            elif isinstance(text_line_entry, dict):
+                text_line_entry = json.dumps(text_line_entry['stored_as_json'])
+
+        new_text.from_string(text_line_entry)
 
     else:
         # reaches here if  (current_text) and (current_text in texts)
@@ -437,12 +452,21 @@ def gather_remapped_names(node, n, name_remap):
 
 def apply_core_props(node, node_ref):
     params = node_ref['params']
-    # print(node.name, params)
     if 'cls_dict' in params:
         return
     for p in params:
         val = params[p]
-        setattr(node, p, val)
+        try:
+            setattr(node, p, val)
+        except Exception as e:
+            error_message = repr(e)  # for reasons
+            print(error_message)
+            msg = 'failed to assign value to the node'
+            print(node.name, p, val, msg)
+            if "val: expected sequence items of type boolean, not int" in error_message:
+                print("going to convert a list of ints to a list of bools and assign that instead")
+                setattr(node, p, [bool(i) for i in val])
+
 
 
 def add_texts(node, node_ref):
@@ -460,14 +484,12 @@ def apply_post_processing(node, node_ref):
     '''
     Nodes that require post processing to work properly
     '''
-    if node.bl_idname in {'SvGroupInputsNode', 'SvGroupOutputsNode'}:
+    if node.bl_idname in {'SvGroupInputsNode', 'SvGroupOutputsNode', 'SvTextInNode'}:
         node.load()
     elif node.bl_idname in {'SvGroupNode'}:
         node.load()
         group_name = node.group_name
         node.group_name = group_name_remap.get(group_name, group_name)
-    elif node.bl_idname == 'SvTextInNode':
-        node.load()
     elif node.bl_idname in {'SvGroupInputsNodeExp', 'SvGroupOutputsNodeExp'}:
         socket_kinds = node_ref.get(node.node_kind)
         node.repopulate(socket_kinds)
@@ -482,19 +504,12 @@ def add_node_to_tree(nodes, n, nodes_to_import, name_remap, create_texts):
             old_nodes.register_old(bl_idname)
 
         if bl_idname == 'SvMonadGenericNode':
-            node = nodes.new(bl_idname)
-            params = node_ref.get('params')
-            cls_dict = params.get('cls_dict')
-            monad_name = params.get('monad')
-            monad = bpy.data.node_groups[monad_name]
-            node.input_template = cls_dict['input_template']
-            node.output_template = cls_dict['output_template']
-            setattr(node, 'cls_bl_idname', cls_dict['cls_bl_idname'])
-            setattr(monad, 'cls_bl_idname', cls_dict['cls_bl_idname'])
-
-            # node.bl_idname = node.cls_bl_idname
+            node = unpack_monad(nodes, node_ref)
+            if not node:
+                raise Exception("It seems no valid node was created for this Monad {0}".format(node_ref))
         else:
             node = nodes.new(bl_idname)
+
     except Exception as err:
         print(traceback.format_exc())
         print(bl_idname, 'not currently registered, skipping')
@@ -503,7 +518,7 @@ def add_node_to_tree(nodes, n, nodes_to_import, name_remap, create_texts):
     if create_texts:
         add_texts(node, node_ref)
     
-    if bl_idname in {'SvObjInLite', 'SvExecNodeMod'}:
+    if bl_idname in {'SvObjInLite', 'SvExecNodeMod', 'SvMeshEvalNode'}:
         node.storage_set_data(node_ref)
 
     if bl_idname == 'SvObjectsNodeMK3':
@@ -516,14 +531,22 @@ def add_node_to_tree(nodes, n, nodes_to_import, name_remap, create_texts):
     apply_post_processing(node, node_ref)
 
 
-def add_nodes(nodes_to_import, nodes, create_texts):
+def add_nodes(ng, nodes_to_import, nodes, create_texts):
     '''
-    return the dictionary that tracks which nodes got renamed due to conflicts
+    return the dictionary that tracks which nodes got renamed due to conflicts.
+    setting 'ng.limited_init' supresses any custom defaults associated with nodes in the json.
     '''
     name_remap = {}
-    for n in sorted(nodes_to_import):
-        add_node_to_tree(nodes, n, nodes_to_import, name_remap, create_texts)
+    ng.limited_init = True
+    try:
+        for n in sorted(nodes_to_import):
+            add_node_to_tree(nodes, n, nodes_to_import, name_remap, create_texts)
+    except Exception as err:
+        print(repr(err))
+    
+    ng.limited_init = False
     return name_remap
+
 
 
 def add_groups(groups_to_import):
@@ -599,7 +622,7 @@ def import_tree(ng, fullpath='', nodes_json=None, create_texts=True):
         groups_to_import = nodes_json.get('groups', {})
         
         add_groups(groups_to_import)  # this return is not used yet
-        name_remap = add_nodes(nodes_to_import, nodes, create_texts)
+        name_remap = add_nodes(ng, nodes_to_import, nodes, create_texts)
 
         ''' now connect them '''
 
@@ -849,7 +872,17 @@ class SvNodeTreeExportToGist(bpy.types.Operator):
         gist_filename = ng.name
         gist_description = 'to do later?'
         layout_dict = create_dict_of_tree(ng, skip_set={}, selected=False)
-        gist_body = json.dumps(layout_dict, sort_keys=True, indent=2)
+
+        try:       
+            gist_body = json.dumps(layout_dict, sort_keys=True, indent=2)
+        except Exception as err:
+            if 'not JSON serializable' in repr(err):
+                print(layout_dict)
+            else:
+                print(repr(err))
+            self.report({'WARNING'}, "See terminal/Command prompt for printout of error")
+            return {'CANCELLED'}
+
         try:
             gist_url = sv_gist_tools.main_upload_function(gist_filename, gist_description, gist_body, show_browser=False)
             context.window_manager.clipboard = gist_url   # full destination url
@@ -884,6 +917,9 @@ class SvBlendToZip(bpy.types.Operator):
             print('saved: ', blendzippath)
 
         return {'FINISHED'}
+
+
+
 
 
 class SvIOPanelProperties(bpy.types.PropertyGroup):
@@ -936,6 +972,5 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
 
-
-if __name__ == '__main__':
-    register()
+# if __name__ == '__main__':
+#    register()

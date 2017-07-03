@@ -1,8 +1,8 @@
 
 # particle settings
 def ParticleSettings(self, context, layout, datablock):
-  '''
-    Particle settings buttons.
-  '''
+    '''
+        Particle settings buttons.
+    '''
 
-  pass
+    pass

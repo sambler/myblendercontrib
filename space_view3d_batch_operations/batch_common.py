@@ -188,6 +188,47 @@ def apply_modifiers(objects, scene, idnames, options=(), apply_as='DATA'):
     
     return objects_to_delete
 
+def add_potential_duplis(objs, parent):
+    if parent.dupli_type == 'GROUP':
+        if not parent.dupli_group: return
+        for obj in parent.dupli_group.objects:
+            objs.add(obj)
+            add_potential_duplis(objs, obj)
+    elif parent.dupli_type in {'VERTS', 'FACES'}:
+        for obj in parent.children:
+            objs.add(obj)
+            add_potential_duplis(objs, obj)
+
+# GROUP: layers don't matter, hide status is correct
+# VERTS/FACES: objects on invisible layers don't get
+#   included into dupli_list, hide status is False
+#   even if the object is hidden (a bug?)
+def add_actual_duplis(objs, obj, context, ignore_hide):
+    if obj.dupli_list: obj.dupli_list_clear()
+    obj.dupli_list_create(context.scene, 'VIEWPORT')
+    for dupli in obj.dupli_list:
+        if ignore_hide or (not dupli.object.hide):
+            objs.add(dupli.object)
+    obj.dupli_list_clear()
+
+def iterate_workset(search_in, context=None, obj_types=None, include_duplis=None):
+    if include_duplis is None: include_duplis = addon.preferences.include_duplis
+    if (not include_duplis) or (search_in == 'FILE'):
+        yield from BlUtil.Object.iterate(search_in, context, obj_types)
+    else:
+        if context is None: context = bpy.context
+        objs = set()
+        for obj in BlUtil.Object.iterate(search_in, context, None):
+            if ((obj_types is None) or (obj.type in obj_types)): objs.add(obj)
+            if obj.dupli_type in {'NONE', 'FRAMES'}: continue
+            if search_in == 'VISIBLE':
+                add_actual_duplis(objs, obj, context, False)
+            elif search_in == 'LAYER':
+                add_actual_duplis(objs, obj, context, True)
+            else:
+                add_potential_duplis(objs, obj)
+        yield from objs
+
 #============================================================================#
 
 @addon.Operator(idname="object.batch_repeat_actions", options={'INTERNAL'}, label="Repeat action(s)", description="Repeat action(s) for selected objects")
@@ -382,7 +423,10 @@ class Operator_batch_streamline_meshes:
     intersect = False | prop("Cut an intersection into faces", "Intersect")
     if BpyOp("mesh.intersect"):
         intersect_mode = BlRna.to_bpy_prop(bpy.ops.mesh.intersect, "mode") | prop(default='SELECT')
-        intersect_use_separate = BlRna.to_bpy_prop(bpy.ops.mesh.intersect, "use_separate")
+        if "separate_mode" in BlRna(bpy.ops.mesh.intersect).properties: # instead of use_separate (since 2.78.4)
+            intersect_separate_mode = BlRna.to_bpy_prop(bpy.ops.mesh.intersect, "separate_mode")
+        else:
+            intersect_use_separate = BlRna.to_bpy_prop(bpy.ops.mesh.intersect, "use_separate")
         intersect_threshold = BlRna.to_bpy_prop(bpy.ops.mesh.intersect, "threshold") | prop(name="Merge Distance")
     else:
         intersect_mode = 'SELECT' | prop(items=[('SELECT_UNSELECT', "Selected/Unselected"), ('SELECT', "Self intersect")])
@@ -520,7 +564,10 @@ class Operator_batch_streamline_meshes:
                     with layout.row()(alignment='LEFT'):
                         layout.prop(self, "intersect_mode", text="")
                         layout.prop(self, "intersect_threshold")
-                        layout.prop(self, "intersect_use_separate")
+                        if hasattr(self, "intersect_separate_mode"):
+                            layout.prop(self, "intersect_separate_mode", text="")
+                        else:
+                            layout.prop(self, "intersect_use_separate")
                     with layout.row()(alignment='LEFT'):
                         layout.prop_enum(self, "normals_type", 'OUTSIDE')
                         layout.prop_enum(self, "normals_type", 'INSIDE')
@@ -639,11 +686,15 @@ class Operator_batch_streamline_meshes:
             if select_all: bpy.ops.mesh.select_all(action='SELECT')
         
         if self.intersect and BpyOp("mesh.intersect"):
-            bpy.ops.mesh.intersect(
-                mode=self.intersect_mode,
-                threshold=self.intersect_threshold,
-                use_separate=self.intersect_use_separate,
+            kwargs = dict(
+                    mode=self.intersect_mode,
+                    threshold=self.intersect_threshold,
             )
+            if hasattr(self, "intersect_separate_mode"):
+                kwargs["separate_mode"] = self.intersect_separate_mode
+            else:
+                kwargs["use_separate"] = self.intersect_use_separate
+            bpy.ops.mesh.intersect(**kwargs)
             if select_all: bpy.ops.mesh.select_all(action='SELECT')
         
         if self.normals:
@@ -701,13 +752,13 @@ class Operator_batch_streamline_meshes:
                 materials=self.tris_convert_to_quads_materials,
             )
             if hasattr(self, "tris_convert_to_quads_limit"):
-                kwargs["tris_convert_to_quads_limit"] = self.tris_convert_to_quads_limit
+                kwargs["limit"] = self.tris_convert_to_quads_limit
             if hasattr(self, "tris_convert_to_quads_face_threshold"):
-                kwargs["tris_convert_to_quads_face_threshold"] = self.tris_convert_to_quads_face_threshold
+                kwargs["face_threshold"] = self.tris_convert_to_quads_face_threshold
             if hasattr(self, "tris_convert_to_quads_shape_threshold"):
-                kwargs["tris_convert_to_quads_shape_threshold"] = self.tris_convert_to_quads_shape_threshold
+                kwargs["shape_threshold"] = self.tris_convert_to_quads_shape_threshold
             if hasattr(self, "tris_convert_to_quads_seam"):
-                kwargs["tris_convert_to_quads_seam"] = self.tris_convert_to_quads_seam
+                kwargs["seam"] = self.tris_convert_to_quads_seam
             bpy.ops.mesh.tris_convert_to_quads(**kwargs)
             if select_all: bpy.ops.mesh.select_all(action='SELECT')
         
