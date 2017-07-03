@@ -100,7 +100,7 @@ bpy.app.handlers.load_post.append(CargaAutoLoadPC)
 
 class View3DMCPanel():
     bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'     
+    bl_region_type = 'TOOLS'      
 
 class OscEPc2ExporterPanel(View3DMCPanel, bpy.types.Panel):    
     """
@@ -108,9 +108,11 @@ class OscEPc2ExporterPanel(View3DMCPanel, bpy.types.Panel):
     bl_idname = "Mesh Cache Tools"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
-    """
-    bl_category = "Mesh Cache Tools"
+   """
+    bl_category = "Tools"
     bl_label = "Mesh Cache Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+
 
     def draw(self, context):
         layout = self.layout
@@ -294,24 +296,13 @@ def OscLinkedGroupToLocal():
     for ob in GROBJS:
         NEWGROUP.objects.link(ob)
         NEWOBJ.append(ob)
-    """    
-    for ob in NEWOBJ:
-        if ob.type == "MESH":
-            if len(ob.modifiers):
-                for MODIFIER in ob.modifiers[:]:
-                    if MODIFIER.type == "SUBSURF" or MODIFIER.type == "MASK":
-                        ob.modifiers.remove(MODIFIER)
-    """                    
+                  
 
 class OscGroupLinkedToLocal(bpy.types.Operator):
     bl_idname = "group.linked_group_to_local"
     bl_label = "Group Linked To Local"
     bl_description = "Group Linked To Local"
     bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return(bpy.context.scene.pc_pc2_group != "")
 
     def execute(self, context):
         OscLinkedGroupToLocal()
@@ -344,6 +335,46 @@ class OscMeshCacheUp(bpy.types.Operator):
         return {'FINISHED'}
 
 
+#PREFERENCIAS ADDON
+
+# Addons Preferences Update Panel
+
+def update_panel(self, context):
+    try:
+        bpy.utils.unregister_class(OscEPc2ExporterPanel)
+    except:
+        pass
+
+    addon_prefs = context.user_preferences.addons[__name__].preferences
+
+    OscEPc2ExporterPanel.bl_category = addon_prefs.category
+    bpy.utils.register_class(OscEPc2ExporterPanel)
+
+
+
+class OscurartToolsAddonPreferences(bpy.types.AddonPreferences):
+    # this must match the addon name, use '__package__'
+    # when defining this in a submodule of a python package.
+    bl_idname = __name__
+
+    category = bpy.props.StringProperty(
+            name="Category",
+            description="Choose a name for the category of the panel",
+            default="Tools",
+            update=update_panel,
+            )
+
+    def draw(self, context):
+
+        layout = self.layout
+        row = layout.row()
+        col = row.column()
+        col.label(text="Category:")
+        col.prop(self, "category", text="")
+
+
+#REGISTRA
+
 def register():
     from bpy.types import Scene
     from bpy.props import (BoolProperty,
@@ -359,9 +390,11 @@ def register():
     Scene.pc_pc2_end = IntProperty(default=100, name="Frame End")
     Scene.pc_pc2_group = StringProperty()
     Scene.pc_pc2_folder = StringProperty(default="Set me Please!")
-    Scene.pc_pc2_exclude = StringProperty(default="*")
+    Scene.pc_pc2_exclude = StringProperty(default="*")   
     
     bpy.utils.register_module(__name__)
+    
+    update_panel(None, bpy.context)
 
 
 def unregister():

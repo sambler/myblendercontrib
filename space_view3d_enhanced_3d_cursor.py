@@ -21,11 +21,11 @@ bl_info = {
     "name": "Enhanced 3D Cursor",
     "description": "Cursor history and bookmarks; drag/snap cursor.",
     "author": "dairin0d",
-    "version": (3, 0, 1),
+    "version": (3, 0, 3),
     "blender": (2, 7, 7),
     "location": "View3D > Action mouse; F10; Properties panel",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
+    "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/"
         "Scripts/3D_interaction/Enhanced_3D_Cursor",
     "tracker_url": "https://github.com/dairin0d/enhanced-3d-cursor/issues",
     "category": "3D View"}
@@ -157,6 +157,8 @@ class EnhancedSetCursor(bpy.types.Operator):
     key_coordsys_map = {
         'LEFT_BRACKET':-1,
         'RIGHT_BRACKET':1,
+        ':':-1, # Instead of [ for French keyboards
+        '!':1, # Instead of ] for French keyboards
         'J':'VIEW',
         'K':"Surface",
         'L':'LOCAL',
@@ -476,9 +478,20 @@ class EnhancedSetCursor(bpy.types.Operator):
                 self.coord_format = "{:." + \
                     str(settings.free_coord_precision) + "f}"
 
+            new_orient1 = self.key_coordsys_map.get(event.type, None)
+            new_orient2 = self.key_coordsys_map.get(event.unicode, None)
+            new_orientation = (new_orient1 or new_orient2)
+            if new_orientation:
+                self.csu.set_orientation(new_orientation)
+
+                self.update_origin_projection(context)
+
+                if event.ctrl:
+                    self.snap_to_system_origin()
+
             if (event.type == 'ZERO') and event.ctrl:
                 self.snap_to_system_origin()
-            else:
+            elif new_orientation is None: # avoid conflicting shortcuts
                 self.process_axis_input(event)
 
             if event.alt:
@@ -504,15 +517,6 @@ class EnhancedSetCursor(bpy.types.Operator):
                                 c = "\t"
                             ttext += c
                         self.set_axes_text(ttext, True)
-
-            if event.type in self.key_coordsys_map:
-                new_orientation = self.key_coordsys_map[event.type]
-                self.csu.set_orientation(new_orientation)
-
-                self.update_origin_projection(context)
-
-                if event.ctrl:
-                    self.snap_to_system_origin()
 
             if event.type in self.key_map["use_object_centers"]:
                 v3d.use_pivot_point_align = not v3d.use_pivot_point_align
@@ -2663,9 +2667,18 @@ class Snap3DUtility(SnapUtilityBase):
                 # returns points in flipped order
                 lb, la = sec
 
+            # Note: in 2.77 the ray_cast API has changed.
+            # was: location, normal, index
+            # now: result, location, normal, index
+            def ray_cast(obj, la, lb):
+                res = obj.ray_cast(la, lb)
+                if bpy.app.version < (2, 77, 0):
+                    return ((res[-1] >= 0), res[0], res[1], res[2])
+                return res
+
             # Does ray actually intersect something?
             try:
-                success, lp, ln, face_id = obj.ray_cast(obj, la, lb)
+                success, lp, ln, face_id = ray_cast(obj, la, lb)
             except Exception as e:
                 # Somewhy this seems to happen when snapping cursor
                 # in Local View mode at least since r55223:
@@ -2676,7 +2689,7 @@ class Snap3DUtility(SnapUtilityBase):
                     # Work-around: in Local View at least the object
                     # in focus permits raycasting (modifiers are
                     # applied in 'PREVIEW' mode)
-                    success, lp, ln, face_id = orig_obj.ray_cast(la, lb)
+                    success, lp, ln, face_id = ray_cast(orig_obj, la, lb)
                 except Exception as e:
                     # However, in Edit mode in Local View we have
                     # no luck -- during the edit mode, mesh is
@@ -4006,6 +4019,13 @@ class Cursor3DToolsSettings(bpy.types.PropertyGroup):
         type=TransformExtraOptionsProp,
         options={'HIDDEN'})
 
+    cursor_visible = bpy.props.BoolProperty(
+        name="Cursor visibility",
+        description="Show/hide cursor. When hidden, "\
+"Blender continuously redraws itself (eats CPU like crazy, "\
+"and becomes the less responsive the more complex scene you have)!",
+        default=True)
+
     cursor_lock = bpy.props.BoolProperty(
         name="Lock cursor location",
         description="Prevent accidental cursor movement",
@@ -4175,9 +4195,14 @@ class Cursor3DTools(bpy.types.Panel):
             text="", icon='SNAP_ON', toggle=True)
 
         row = layout.split(0.5)
-        subrow = row.split(1)
+        subrow = row.split(0.5)
         subrow.prop(settings, "cursor_lock", text="", toggle=True,
                  icon=('LOCKED' if settings.cursor_lock else 'UNLOCKED'))
+        subrow = subrow.split(1)
+        subrow.alert = True
+        subrow.prop(settings, "cursor_visible", text="", toggle=True,
+                 icon=('RESTRICT_VIEW_OFF' if settings.cursor_visible
+                       else 'RESTRICT_VIEW_ON'))
         row = row.split(1 / 3, align=True)
         row.prop(settings, "draw_N",
             text="N", toggle=True, index=0)
@@ -4353,7 +4378,7 @@ class SnapCursor_Circumscribed(bpy.types.Operator):
             self.report({'WARNING'}, 'Not implemented \
                         for %s mode' % context.mode)
             return {'CANCELLED'}
-        
+
         pos = center_of_circumscribed_circle(vecs)
         if pos is None:
             self.report({'WARNING'}, 'Select 3 objects/elements')
@@ -4374,7 +4399,7 @@ class SnapCursor_Inscribed(bpy.types.Operator):
             self.report({'WARNING'}, 'Not implemented \
                         for %s mode' % context.mode)
             return {'CANCELLED'}
-        
+
         pos = center_of_inscribed_circle(vecs)
         if pos is None:
             self.report({'WARNING'}, 'Select 3 objects/elements')
@@ -4634,7 +4659,7 @@ class CursorMonitor(bpy.types.Operator):
             if IsKeyMapItemEvent(kmi, event):
                 self.cancel(context)
                 return {'CANCELLED'}
-        
+
         try:
             return self._modal(context, event)
         except Exception as e:
@@ -4667,7 +4692,7 @@ class CursorMonitor(bpy.types.Operator):
             context.area.tag_redraw()
 
         settings = find_settings()
-        
+
         propagate_settings_to_all_screens(settings)
 
         # ================== #
@@ -5292,6 +5317,36 @@ def draw_callback_view(self, context):
             color_prev[3])
 
     cursor_save_location = Vector(context.space_data.cursor_location)
+    if not settings.cursor_visible:
+        # This is causing problems! See <https://developer.blender.org/T33197>
+        #bpy.context.space_data.cursor_location = Vector([float('nan')] * 3)
+
+        region = context.region
+        v3d = context.space_data
+        rv3d = context.region_data
+
+        pixelsize = 1
+        dpi = context.user_preferences.system.dpi
+        widget_unit = (pixelsize * dpi * 20.0 + 36.0) / 72.0
+
+        cursor_w = widget_unit*2
+        cursor_h = widget_unit*2
+
+        viewinv = rv3d.view_matrix.inverted()
+        persinv = rv3d.perspective_matrix.inverted()
+
+        origin_start = viewinv.translation
+        view_direction = viewinv.col[2].xyz#.normalized()
+        depth_location = origin_start - view_direction
+
+        coord = (-cursor_w, -cursor_h)
+        dx = (2.0 * coord[0] / region.width) - 1.0
+        dy = (2.0 * coord[1] / region.height) - 1.0
+        p = ((persinv.col[0].xyz * dx) +
+             (persinv.col[1].xyz * dy) +
+             depth_location)
+
+        context.space_data.cursor_location = p
 
 def draw_callback_header_px(self, context):
     r = context.region
@@ -5315,6 +5370,9 @@ def draw_callback_px(self, context):
     if settings is None:
         return
     library = settings.libraries.get_item()
+
+    if not settings.cursor_visible:
+        context.space_data.cursor_location = cursor_save_location
 
     tfm_operator = CursorDynamicSettings.active_transform_operator
 
@@ -5477,16 +5535,20 @@ def update_keymap(activate):
 
     wm = bpy.context.window_manager
     userprefs = bpy.context.user_preferences
-    addon_prefs = userprefs.addons[__name__].preferences
+
+    # add a check for Templates switching introduced in 2.78.x/2.79
+    is_prefs = bool(__name__ in userprefs.addons.keys())
+    addon_prefs = userprefs.addons[__name__].preferences if is_prefs else None
+
     settings = find_settings()
+    if addon_prefs:
+        wm.cursor_3d_runtime_settings.use_cursor_monitor = \
+            addon_prefs.use_cursor_monitor
 
-    wm.cursor_3d_runtime_settings.use_cursor_monitor = \
-        addon_prefs.use_cursor_monitor
-
-    auto_register_keymaps = settings.auto_register_keymaps
-    auto_register_keymaps &= addon_prefs.auto_register_keymaps
-    if not auto_register_keymaps:
-        return
+        auto_register_keymaps = settings.auto_register_keymaps
+        auto_register_keymaps &= addon_prefs.auto_register_keymaps
+        if not auto_register_keymaps:
+            return
 
     try:
         km = wm.keyconfigs.user.keymaps['3D View']
