@@ -27,7 +27,7 @@
 bl_info = {
     "name": "Set Smooth",
     "author": "sambler",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (2, 75, 0),
     "location": "Render panel",
     "description": "Easily set smooth/flat shading to all objects.",
@@ -39,7 +39,7 @@ bl_info = {
 import bpy
 
 class SetShading(bpy.types.Operator):
-    bl_idname = 'object.set_shading'
+    bl_idname = 'object.set_all_shading'
     bl_label = 'Set shading of all objects'
 
     smooth = bpy.props.BoolProperty()
@@ -64,7 +64,25 @@ def register():
     bpy.utils.register_class(SetShading)
     bpy.types.RENDER_PT_render.prepend(add_change_shading)
 
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+    if kc:
+        km = kc.keymaps.new('Window', space_type='EMPTY')
+        kmi = km.keymap_items.new(SetShading.bl_idname, 'F12', 'PRESS', alt=True)
+        kmi.properties.smooth = True
+
+        kmi = km.keymap_items.new(SetShading.bl_idname, 'F12', 'PRESS', alt=True, shift=True)
+        kmi.properties.smooth = False
+
 def unregister():
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+    if kc:
+        km = kc.keymaps['Window']
+        for kmi in km.keymap_items:
+            if kmi.idname == SetShading.bl_idname:
+                km.keymap_items.remove(kmi)
+
     bpy.types.RENDER_PT_render.remove(add_change_shading)
     bpy.utils.unregister_class(SetShading)
 
