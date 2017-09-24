@@ -7,7 +7,7 @@ from . import storage
 from .defaults import defaults
 
 # name
-class name(PropertyGroup):
+class options(PropertyGroup):
     '''
         Name panel options.
     '''
@@ -459,7 +459,7 @@ class batch:
                 objectData (PropertyGroup)
         '''
         # name
-        class name(PropertyGroup):
+        class options(PropertyGroup):
             '''
                 Auto name options
             '''
@@ -1281,7 +1281,7 @@ class batch:
             )
 
     # name
-    class name(PropertyGroup):
+    class options(PropertyGroup):
         '''
             Batch name options.
         '''

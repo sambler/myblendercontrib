@@ -29,9 +29,9 @@ class BoomProps(bpy.types.PropertyGroup):
     #twm.image_settings = bpy.types.ImageFormatSettings(
     #                        bpy.context.scene.render.image_settings)
 
-    #scene_cam = BoolProperty(
-    #    name = 'Active Camera',
-    #    description = 'Always renders from the active camera that's set in the Scene properties')
+    scene_cam = BoolProperty(
+        name = 'Active Camera',
+        description = 'Always renders from the active camera that\'s set in the Scene properties')
 
     incremental = BoolProperty(
         name = 'Incremental',
@@ -158,10 +158,11 @@ class DoBoom(bpy.types.Operator):
         #rd.image_settings = boom_props.image_settings
         rd.resolution_percentage = boom_props.resolution_percentage
         cs.frame_step = boom_props.frame_skip + 1
-        #view_pers = context.area.spaces[0].region_3d.view_perspective
-        #if boom_props.scene_cam and view_pers is not 'CAMERA':
-        #    bpy.ops.view3d.viewnumpad(type = 'CAMERA')
-
+        view_pers = context.area.spaces[0].region_3d.view_perspective
+        if boom_props.scene_cam and view_pers is not 'CAMERA':
+            context.area.spaces[0].region_3d.view_perspective = 'CAMERA'
+           
+        
         #ejecuto
         bpy.ops.render.opengl(animation = True)
         if boom_props.autoplay:
@@ -176,8 +177,8 @@ class DoBoom(bpy.types.Operator):
         #rd.image_settings = old_image_settings
         rd.resolution_percentage = old_resolution_percentage
         context.scene.frame_step = old_frame_step
-        #if boom_props.scene_cam and view_pers is not 'CAMERA':
-        #    bpy.ops.view3d.viewnumpad(type = 'CAMERA')    
+        if boom_props.scene_cam and view_pers is not 'CAMERA':
+            context.area.spaces[0].region_3d.view_perspective = view_pers
 
         return {'FINISHED'}  
     
@@ -201,7 +202,7 @@ def draw_boomsmash_panel(context, layout):
     #subcol.prop(boom_props, 'incremental')
     subcol.prop(boom_props, 'use_stamp')
     subcol.prop(boom_props, 'onlyrender')
-    #subcol.prop(boom_props, 'scene_cam')
+    subcol.prop(boom_props, 'scene_cam')
 
     subcol = split.column()
     subcol.prop(boom_props, 'transparent')

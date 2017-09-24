@@ -54,27 +54,25 @@ class EditWeights(bpy.types.Operator):
         self.deform_bones = []
     
     def armature_set_mode(self,context,mode,select):
-        global armature_select
-        armature_select = self.armature.select
-        self.armature.select = select
+        armature = bpy.data.objects[self.armature]
+        armature.select = select
         active_object = context.scene.objects.active
-        global armature_mode
-        armature_mode = self.armature.mode
-        context.scene.objects.active = self.armature
+        context.scene.objects.active = armature
         bpy.ops.object.mode_set(mode=mode)
 
         context.scene.objects.active = active_object
     
     def select_bone(self):
-        for bone in self.armature.data.bones:
+        armature = bpy.data.objects[self.armature]
+        for bone in armature.data.bones:
             bone.select = False
-        self.armature.data.bones.active = None
+        armature.data.bones.active = None
         
-        for i,vertex_group in enumerate(self.obj.vertex_groups):
-            if vertex_group.name in self.armature.data.bones:
-                self.obj.vertex_groups.active_index = i
-                bone = self.armature.data.bones[vertex_group.name]
-                self.armature.data.bones.active = bone
+        for i,vertex_group in enumerate(bpy.data.objects[self.obj].vertex_groups):#.vertex_groups):
+            if vertex_group.name in armature.data.bones:
+                bpy.data.objects[self.obj].vertex_groups.active_index = i
+                bone = armature.data.bones[vertex_group.name]
+                armature.data.bones.active = bone
                 break
      
     def exit_edit_weights(self,context):
@@ -88,17 +86,20 @@ class EditWeights(bpy.types.Operator):
         
         for obj in context.scene.objects:
             obj.select = False
-        for obj in self.selected_objects:
-            obj.select = True            
-        context.scene.objects.active = self.active_object
+        for name in self.selected_objects:
+            obj = bpy.data.objects[name]
+            obj.select = True
+        context.scene.objects.active = bpy.data.objects[self.active_object]
         self.unhide_non_deform_bones(context)
         self.hide_deform_bones(context)
             
     def modal(self, context, event):
     
         if get_local_view(context) == None or (context.active_object != None and context.active_object.mode != "WEIGHT_PAINT") or context.active_object == None:
+            sprite_object = bpy.data.objects[self.sprite_object] 
+            
             self.exit_edit_weights(context)
-            self.sprite_object.coa_edit_weights = False
+            sprite_object.coa_edit_weights = False
             bpy.ops.ed.undo_push(message="Exit Edit Weights")
             self.disable_object_color(False)
             return {"FINISHED"}
@@ -118,7 +119,8 @@ class EditWeights(bpy.types.Operator):
                         obj.material_slots[0].material.use_object_color = self.object_color_settings[obj.name]
     
     def unhide_deform_bones(self,context):
-        for bone in self.armature.data.bones:
+        armature = bpy.data.objects[self.armature]
+        for bone in armature.data.bones:
             if bone.hide and bone.use_deform:
                 self.deform_bones.append(bone)
                 bone.hide = False
@@ -128,7 +130,8 @@ class EditWeights(bpy.types.Operator):
             bone.hide = True
             
     def hide_non_deform_bones(self,context):
-        for bone in self.armature.data.bones:
+        armature = bpy.data.objects[self.armature]
+        for bone in armature.data.bones:
             if not bone.hide and not bone.use_deform:
                 self.non_deform_bones.append(bone)
                 bone.hide = True
@@ -139,11 +142,13 @@ class EditWeights(bpy.types.Operator):
     
                                     
     def invoke(self, context, event):
-        self.obj = context.active_object
-        self.sprite_object = get_sprite_object(self.obj)
-        self.armature = get_armature(self.sprite_object)
+        self.obj = context.active_object.name
+        self.sprite_object = get_sprite_object(context.active_object).name
+        sprite_object = bpy.data.objects[self.sprite_object]
+        self.armature = get_armature(sprite_object).name
+        armature = bpy.data.objects[self.armature]
         
-        if self.armature == None or not self.armature in context.visible_objects:
+        if armature == None or not armature in context.visible_objects:
             self.report({'WARNING'},'No Armature Available or Visible')
             return{"CANCELLED"}
         
@@ -155,26 +160,28 @@ class EditWeights(bpy.types.Operator):
         self.disable_object_color(True)
         context.window_manager.modal_handler_add(self)
         
-        self.active_object = context.active_object
-        self.selected_objects = context.selected_objects
+        self.active_object = context.active_object.name
         
-        self.sprite_object.coa_edit_weights = True
+        for obj in context.selected_objects:
+            self.selected_objects.append(obj.name)
+        
+        sprite_object.coa_edit_weights = True
         
         
         self.hide_non_deform_bones(context)
         self.unhide_deform_bones(context)
             
-        if self.armature != None:
+        if armature != None:
             self.armature_set_mode(context,"POSE",True)
             global bone_layers
             bone_layers = []
-            for i,bone_layer in enumerate(self.armature.data.layers):
+            for i,bone_layer in enumerate(armature.data.layers):
                 bone_layers.append(bone_layer)
-                self.armature.data.layers[i] = True
+                armature.data.layers[i] = True
             self.select_bone()
             
         sprite = context.active_object
-        if sprite.parent != get_armature(self.sprite_object):
+        if sprite.parent != get_armature(sprite_object):
             create_armature_parent(context)
 
         set_local_view(True)

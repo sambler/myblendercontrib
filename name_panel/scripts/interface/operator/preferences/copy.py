@@ -3,8 +3,8 @@
 import bpy
 from bpy.types import Operator
 
-# name
-class name(Operator):
+# operator
+class operator(Operator):
     '''
         Default settings for the copy name operator.
     '''

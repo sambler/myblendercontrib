@@ -98,7 +98,8 @@ def set_theme(context, m):
     import os
     fullpath = bpy.app.binary_path
     directory = os.path.dirname(fullpath)
-    fullext_path = "2.78/scripts/presets/interface_theme".split("/")
+    num = str(bpy.app.version[0]) + '.' + str(bpy.app.version[1])
+    fullext_path = (num + "/scripts/presets/interface_theme").split("/")
     seekable_path = os.path.join(directory, *fullext_path)
 
     def path_iterator(path_name, kind):

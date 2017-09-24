@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,12 +18,11 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-#from .cm_nodeFunctions import logictypes, statetypes
-from .C_cm_nodeFunctions import logictypes, statetypes
-preferences = bpy.context.user_preferences.addons[__package__].preferences
-if preferences.show_debug_options:
-    print("IMPORTED C_cm_nodeFunctions")
+
 from .cm_brainClasses import Brain
+from .cm_nodeFunctions import logictypes, statetypes
+
+preferences = bpy.context.user_preferences.addons[__package__].preferences
 
 
 def getInputs(inp):
@@ -60,9 +59,9 @@ def getOutputs(out):
     return result
 
 
-def compileBrain(nodeGroup, sim, userid):
+def compileBrain(nodeGroup, sim, userid, freezeAnimation):
     """Compile the brain that defines how and agent moves and is animated"""
-    result = Brain(sim, userid)
+    result = Brain(sim, userid, freezeAnimation)
     preferences = bpy.context.user_preferences.addons[__package__].preferences
     """create the connections from the node"""
     for node in nodeGroup.nodes:
@@ -83,8 +82,6 @@ def compileBrain(nodeGroup, sim, userid):
             item = statetypes[node.bl_idname](result, node, node.name)
             node.getSettings(item)
             item.outputs = getOutputs(node.outputs["To"])
-            if preferences.show_debug_options:
-                print(node.name, "outputs", item.outputs)
             if node.bl_idname == "StartState":
                 result.setStartState(node.name)
             else:

@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,10 +18,13 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import time
+
 import bpy
+
 
 class MasterChannel:
     """The parent class for all the channels"""
+
     def __init__(self, sim):
         self.sim = sim
         self.userid = ""
@@ -45,6 +48,7 @@ class MasterChannel:
 
 
 channelTimes = {}
+
 
 def timeChannel(classOverwrite=None):
     def createDecorator(func):

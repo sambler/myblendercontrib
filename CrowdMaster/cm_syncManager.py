@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,6 +18,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import unittest
+
 
 class syncManager:
     def __init__(self):
@@ -53,7 +54,7 @@ class syncManager:
         if action not in tgt:
             tgt[action] = (state, value)
         else:
-            tgt[action] = max(tgt[action], (state, value), key=lambda x:x[1])
+            tgt[action] = max(tgt[action], (state, value), key=lambda x: x[1])
 
     def resolveSync(self):
         seenPairs = set()
@@ -82,6 +83,7 @@ class syncManager:
                     for action, (state, value) in m0.items():
                         if action in self.actionPairs:
                             bestState = None
+                            bestAction = None
                             bestScore = 0
                             for possiblePair in self.actionPairs[action]:
                                 if possiblePair in m1:
@@ -89,10 +91,12 @@ class syncManager:
                                     score = v * value
                                     if score > bestScore:
                                         bestState = s
+                                        bestAction = possiblePair
                                         bestScore = score
                             if bestScore > 0:
                                 # All possible pairings get to this point
-                                pairs.append(((s0, state), (s1, bestState),
+                                pairs.append(((s0, (state, action)),
+                                              (s1, (bestState, bestAction)),
                                               bestScore))
         # Starting at maximum valued pair assign actions if no action has
         #    already been assigned to either agent.
@@ -104,13 +108,14 @@ class syncManager:
                 agentActions[pair[1][0]] = (pair[1][1], pair[0][0])
                 seenPairs.add(pair[0][0])
                 seenPairs.add(pair[1][0])
+        # agentActions in the form {fromActions: ((state, action), otherAgent)}
         return agentActions
 
     def getResult(self, agentName):
         if agentName in self.lastFrame:
             return self.lastFrame[agentName]
         else:
-            return None, None
+            return (None, None), None
 
 
 class SyncManagerTestCase(unittest.TestCase):
@@ -136,5 +141,40 @@ class SyncManagerTestCase(unittest.TestCase):
         sm.tell("y", "z", "attack", 0.1, "attackState")
         sm.tell("y", "z", "defence", 0.9, "defenceState")
 
-        self.assertEqual(sm.resolveSync(), {'z': ('attackState', 'y'),
-                                            'y': ('defenceState', 'z')})
+        self.assertEqual(sm.resolveSync(), {'z': (('attackState', 'attack'), 'y'),
+                                            'y': (('defenceState', 'defence'), 'z')})
+
+    def testCase2(self):
+        sm = syncManager()
+        sm.actionPair("attack", "impact")
+        sm.actionPair("attack", "death1")
+        sm.actionPair("attack", "death2")
+
+        sm.actionPair("death1", "attack")
+        sm.actionPair("death1", "slash")
+
+        sm.actionPair("slash", "impact")
+        sm.actionPair("slash", "death1")
+        sm.actionPair("slash", "death2")
+
+        sm.actionPair("death2", "attack")
+        sm.actionPair("death2", "slash")
+
+        sm.actionPair("impact", "attack")
+        sm.actionPair("impact", "slash")
+
+        sm.tell("x", "y", "death1", 1.5322003178298897, "Action.005")
+        sm.tell("x", "y", "attack", 1.0213593144361799, "Action.001")
+        sm.tell("x", "y", "slash", 1.0213593144361799, "Action.001")
+        sm.tell("x", "y", "death2", 0.5322003178298897, "Action.005")
+        sm.tell("x", "y", "impact", 1.012717818329232, "Action.002")
+
+        sm.tell("y", "x", "death1", 0.5275212760897328, "Action.005")
+        sm.tell("y", "x", "attack", 1.0282780862831944, "Action.001")
+        sm.tell("y", "x", "slash", 1.0282780862831944, "Action.001")
+        sm.tell("y", "x", "death2", 0.5275212760897328, "Action.005")
+        sm.tell("y", "x", "impact", 1.0214241096853804, "Action.002")
+
+        result = sm.resolveSync()
+        self.assertEqual(result, {'y': (('Action.001', 'attack'), 'x'),
+                                  'x': (('Action.005', 'death1'), 'y')})

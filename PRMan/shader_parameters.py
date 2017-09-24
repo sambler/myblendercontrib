@@ -330,7 +330,7 @@ def parse_conditional_visop(hintdict):
         'lessThan': '<'
     }
     visop = hintdict.find("string[@name='conditionalVisOp']").attrib['value']
-    if visop == 'and':
+    if visop in ('and', 'or'):
         vis1op = hintdict.find(
             "string[@name='conditionalVis1Op']").attrib['value']
         vis1path = hintdict.find(
@@ -360,7 +360,7 @@ def parse_conditional_visop(hintdict):
             vis2 = "float(getattr(node, '%s')) %s float(%s)" % \
                 (vis2path.rsplit('/', 1)[-1], op_map[vis2op], vis2Value)
 
-        return "%s and %s" % (vis1, vis2)
+        return "%s %s %s" % (vis1, visop, vis2)
     else:
         vispath = hintdict.find(
             "string[@name='conditionalVisPath']").attrib['value']

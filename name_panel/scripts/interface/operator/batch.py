@@ -9,8 +9,8 @@ from ...function import batch
 # addon
 addon = bpy.context.user_preferences.addons.get(__name__.partition('.')[0])
 
-# name
-class name(Operator):
+# operator
+class operator(Operator):
     '''
         Batch name datablocks.
     '''

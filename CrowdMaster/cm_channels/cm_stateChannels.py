@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,19 +18,21 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
+
 from .cm_masterChannels import MasterChannel as Mc
 from .cm_masterChannels import timeChannel
 
 
 class State(Mc):
     """Used for accessing the data of the current agent"""
+
     def __init__(self, sim):
         Mc.__init__(self, sim)
 
     @property
     @timeChannel("State")
     def radius(self):
-        return bpy.context.scene.objects[self.userid].dimensions.length/2
+        return bpy.context.scene.objects[self.userid].dimensions.length / 2
 
     @property
     @timeChannel("State")
@@ -56,3 +58,11 @@ class State(Mc):
     def velocity(self):
         """The vector of the change in position for the last frame"""
         return self.sim.agents[self.userid].globalVelocity
+
+    @timeChannel("State")
+    def getTag(self, tag):
+        name = self.userid
+        if name in self.sim.agents:
+            if tag in self.sim.agents[name].access["tags"]:
+                return {"None": self.sim.agents[name].access["tags"][tag]}
+        return {}

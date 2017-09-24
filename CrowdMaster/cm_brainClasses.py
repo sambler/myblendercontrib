@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -17,25 +17,29 @@
 # along with CrowdMaster.  If not, see <http://www.gnu.org/licenses/>.
 # ##### END GPL LICENSE BLOCK #####
 
+import logging
 import random
+import time
 
 import bpy
-
 import mathutils
+from bpy.props import BoolProperty
 
 from . import cm_timings
-import time
+
+logger = logging.getLogger("CrowdMaster")
 
 
 class Neuron():
     """The representation of the nodes. Not to be used on own"""
+
     def __init__(self, brain, bpyNode):
         self.brain = brain  # type: Brain
         self.neurons = self.brain.neurons  # type: List[Neuron]
         self.inputs = []  # type: List[str] - strings are names of neurons
         self.result = None  # type: None | ImpulseContainer - Cache for current
         self.resultLog = [(0, 0, 0), (0, 0, 0)]  # type: List[(int, int, int)]
-        self.fillOutput = bpy.props.BoolProperty(default=True)
+        self.fillOutput = BoolProperty(default=True)
         self.bpyNode = bpyNode  # type: cm_bpyNodes.LogicNode
         self.settings = {}  # type: Dict[str, bpy.props.*]
         self.dependantOn = []  # type: List[str] - strings are names of neurons
@@ -49,7 +53,11 @@ class Neuron():
             # Return a cached version of the answer if possible
             return self.result
         noDeps = len(self.dependantOn) == 0
-        dep = True in [self.neurons[x].isCurrent for x in self.dependantOn]
+        dep = False
+        for x in self.dependantOn:
+            if self.neurons[x].isCurrent:
+                dep = True
+                break
         # Only output something if the node isn't dependant on a state
         #  or if one of it's dependancies is the current state
         if preferences.show_debug_options and preferences.show_debug_timings:
@@ -63,13 +71,16 @@ class Neuron():
                 input in not a dictionary then it is made into one"""
                 if got is not None:
                     inps.append(got)
-            if preferences.show_debug_options:
+            if preferences.show_debug_options and preferences.show_debug_timings:
                 coreT = time.time()
             output = self.core(inps, self.settings)
             if preferences.show_debug_options and preferences.show_debug_timings:
-                cm_timings.coreTimes[self.__class__.__name__] += time.time() - coreT
+                cm_timings.coreTimes[self.__class__.__name__] += time.time() - \
+                    coreT
                 cm_timings.coreNumber[self.__class__.__name__] += 1
-            if not (isinstance(output, dict) or output is None):
+            if output is None:
+                output = {}
+            elif not (isinstance(output, dict) or output is None):
                 output = {"None": output}
         else:
             output = None
@@ -88,28 +99,27 @@ class Neuron():
                 startHue = 0.5
 
             if av > 1:
-                hueChange = -(-(abs(av)+1)/abs(av) + 2) * (1/3)
+                hueChange = -(-(abs(av) + 1) / abs(av) + 2) * (1 / 3)
                 hue = 0.333 + hueChange
                 sat = 1
             elif av < -1:
-                hueChange = (-(abs(av)+1)/abs(av) + 2) * (1/3)
+                hueChange = (-(abs(av) + 1) / abs(av) + 2) * (1 / 3)
                 hue = 0.5 + hueChange
                 sat = 1
             else:
                 hue = startHue
 
             if abs(av) < 1:
-                sat = abs(av)**(1/2)
+                sat = abs(av)**(1 / 2)
             else:
                 sat = 1
         else:
             hue = 0
             sat = 0
             val = 0.5
-        self.resultLog[-1] = (hue, sat, val)
-
         if preferences.show_debug_options and preferences.show_debug_timings:
-            cm_timings.neuron["colour"] += time.time() - t
+            cm_timings.neuron["sumColour"] += time.time() - t
+        self.resultLog[-1] = (hue, sat, val)
 
         return output
 
@@ -131,6 +141,7 @@ class Neuron():
 
 class State:
     """The basic element of the state machine. Abstract class"""
+
     def __init__(self, brain, bpyNode, name):
         """A lot of the fields are modified by the compileBrain function"""
         self.name = name
@@ -146,8 +157,6 @@ class State:
         self.length = 0
         self.cycleState = False
         self.currentFrame = 0
-
-        self.syncState = False  # Set during compileBrain
 
         self.bpyNode = bpyNode
         self.resultLog = {0: (0, 0, 0), 1: (0, 0, 0)}
@@ -214,8 +223,8 @@ class State:
         if self.length == 0:
             complete = 1
         else:
-            complete = self.currentFrame/self.length
-            complete = 0.5 + complete/2
+            complete = self.currentFrame / self.length
+            complete = 0.5 + complete / 2
         sceneFrame = bpy.context.scene.frame_current
         self.resultLog[sceneFrame] = ((0.15, 0.4, complete))
 
@@ -227,7 +236,6 @@ class State:
         options = []
         for con in self.outputs:
             val = self.neurons[con].query()
-            # print(con, val)
             if val is not None:
                 options.append((con, val))
 
@@ -235,7 +243,6 @@ class State:
         #    this state again.
         if self.cycleState and self.name not in self.outputs:
             val = self.neurons[self.name].query()
-            # print(con, val)
             if val is not None:
                 options.append((self.name, val))
 
@@ -268,14 +275,15 @@ class State:
 
 class Brain():
     """An executable brain object. One created per agent"""
-    def __init__(self, sim, userid):
+
+    def __init__(self, sim, userid, freezeAnimation):
         self.userid = userid
         self.sim = sim
-        self.agvars = {}
         self.lvars = self.sim.lvars
         self.outvars = {}
         self.tags = {}
         self.isActiveSelection = False
+        self.freeze = freezeAnimation
 
         self.currentState = None
         self.startState = None
@@ -292,9 +300,8 @@ class Brain():
 
     def reset(self):
         self.outvars = {"rx": 0, "ry": 0, "rz": 0,
-                        "px": 0, "py": 0, "pz": 0}
+                        "px": 0, "py": 0, "pz": 0, "sk": {}}
         self.tags = self.sim.agents[self.userid].access["tags"]
-        self.agvars = self.sim.agents[self.userid].agvars
 
     def execute(self):
         """Called for each time the agents needs to evaluate"""

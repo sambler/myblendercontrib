@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,13 +18,17 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import unittest
-import bpy
 
-from . cm_syncManager import SyncManagerTestCase
+import bpy
+from bpy.types import Operator
+
+from .cm_syncManager import SyncManagerTestCase
+
 
 class AddonRegisterTestCase(unittest.TestCase):
     def setUp(self):
-        self.play_animation = bpy.context.user_preferences.addons[__package__].preferences.play_animation
+        self.play_animation = bpy.context.user_preferences.addons[
+            __package__].preferences.play_animation
         bpy.ops.wm.read_homefile()
         bpy.context.user_preferences.addons[__package__].preferences.play_animation = False
 
@@ -45,18 +49,16 @@ class AddonRegisterTestCase(unittest.TestCase):
 
         opsProps = ["cm_actions_populate", "cm_actions_remove", "cm_agent_add",
                     "cm_agent_add_selected", "cm_agent_nodes_generate",
-                    "cm_agents_move", "cm_convert_to_bound_box",
-                    "cm_events_move", "cm_events_populate", "cm_events_remove",
-                    "cm_gennodes_pos_formation_simple",
-                    "cm_gennodes_pos_random_simple",
-                    "cm_gennodes_pos_target_simple", "cm_groups_reset",
+                    "cm_agents_move", "cm_events_move",
+                    "cm_events_populate", "cm_events_remove",
+                    "cm_groups_reset",
                     "cm_paths_populate", "cm_paths_remove",
                     "cm_place_deferred_geo", "cm_run_long_tests",
-                    "cm_run_short_tests", "cm_save_prefs", "cm_setup_agent",
-                    "cm_setup_sample_nodes", "cm_simnodes_action_random",
-                    "cm_simnodes_mov_simple", "cm_start", "cm_stop"]
+                    "cm_run_short_tests", "cm_save_prefs",
+                    "cm_start", "cm_stop"]
         for op in opsProps:
             self.assertIn(op, dir(bpy.ops.scene))
+
 
 def createShortTestSuite():
     """Gather all the short tests from this module in a test suite"""
@@ -65,13 +67,14 @@ def createShortTestSuite():
     test_suite.addTest(unittest.makeSuite(SyncManagerTestCase))
     return test_suite
 
+
 def createLongTestSuite():
     """Gather all the long tests from this module in a test suite"""
     test_suite = unittest.TestSuite()
     return test_suite
 
 
-class CrowdMaster_run_short_tests(bpy.types.Operator):
+class CrowdMaster_run_short_tests(Operator):
     """For tests cases that will run quickly.
     ie. that don't involve running simulations"""
     bl_idname = "scene.cm_run_short_tests"
@@ -85,7 +88,8 @@ class CrowdMaster_run_short_tests(bpy.types.Operator):
             return {'CANCELLED'}
         return {'FINISHED'}
 
-class CrowdMaster_run_long_tests(bpy.types.Operator):
+
+class CrowdMaster_run_long_tests(Operator):
     """For tests cases that will take a long time.
     ie. that involve simulation"""
     bl_idname = "scene.cm_run_long_tests"
@@ -103,6 +107,7 @@ class CrowdMaster_run_long_tests(bpy.types.Operator):
 def register():
     bpy.utils.register_class(CrowdMaster_run_short_tests)
     bpy.utils.register_class(CrowdMaster_run_long_tests)
+
 
 def unregister():
     bpy.utils.unregister_class(CrowdMaster_run_short_tests)

@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -17,18 +17,22 @@
 # along with CrowdMaster.  If not, see <http://www.gnu.org/licenses/>.
 # ##### END GPL LICENSE BLOCK #####
 
-from .cm_masterChannels import MasterChannel as Mc
-from .cm_masterChannels import timeChannel
-import mathutils
+import logging
 import math
 
-from ..libs.ins_clustering import clusterMatch
-
 import bpy
+import mathutils
+
+from ..libs.ins_clustering import clusterMatch
+from .cm_masterChannels import MasterChannel as Mc
+from .cm_masterChannels import timeChannel
+
+logger = logging.getLogger("CrowdMaster")
 
 
 class Formation(Mc):
     """Get and set data to allow agents to align themselves into formations"""
+
     def __init__(self, sim):
         Mc.__init__(self, sim)
         self.formations = {}
@@ -45,7 +49,7 @@ class Formation(Mc):
     def registerOld(self, agent, formID, val):
         """Adds an object that is a formation target"""
         if formID in dir(self):
-            print("""Formation ID must not be an attribute of this
+            logger.info("""Formation ID must not be an attribute of this
                   python object""")
         else:
             if formID not in self.formations:
@@ -104,15 +108,16 @@ class Channel:
         self.targets = []
         for ob in self.targetObjects:
             wrld = ob.matrix_world
-            self.targets += [wrld*v.co for v in ob.data.vertices]
+            self.targets += [wrld * v.co for v in ob.data.vertices]
 
     def calculate(self):
         """Collect data and use clusterMatch to work out pairings"""
         objs = bpy.data.objects
 
-        agAccess = lambda x: (objs[x].location.x, objs[x].location.y,
-                              objs[x].location.z)
-        tgAccess = lambda x: (x.x, x.y, x.z)
+        def agAccess(x): return (objs[x].location.x, objs[x].location.y,
+                                 objs[x].location.z)
+
+        def tgAccess(x): return (x.x, x.y, x.z)
         setOfTargets = set([tgAccess(x) for x in self.targets])
         if self.lastCalcd:
             # TODO if the same agents are inputed the same result as last time
@@ -200,7 +205,7 @@ class Channel:
             rotation = x * y * z
             relative = target * rotation
 
-            return math.atan2(relative[0], relative[1])/math.pi
+            return math.atan2(relative[0], relative[1]) / math.pi
 
     @property
     @timeChannel("Formation")
@@ -221,7 +226,7 @@ class Channel:
             rotation = x * y * z
             relative = target * rotation
 
-            return math.atan2(relative[0], relative[1])/math.pi
+            return math.atan2(relative[0], relative[1]) / math.pi
         else:
             return None
 
@@ -247,7 +252,7 @@ class Channel:
             rotation = x * y * z
             relative = target * rotation
 
-            return math.atan2(relative[2], relative[1])/math.pi
+            return math.atan2(relative[2], relative[1]) / math.pi
 
     @property
     @timeChannel("Formation")
@@ -268,6 +273,6 @@ class Channel:
             rotation = x * y * z
             relative = target * rotation
 
-            return math.atan2(relative[2], relative[1])/math.pi
+            return math.atan2(relative[2], relative[1]) / math.pi
         else:
             return None

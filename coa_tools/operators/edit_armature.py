@@ -265,7 +265,6 @@ class QuickArmature(bpy.types.Operator):
         
     
     def modal(self, context, event):
-        print(event.type)
         self.in_view_3d = check_region(context,event)
         if self.in_view_3d:
             if not event.alt:

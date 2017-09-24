@@ -4,8 +4,8 @@ import bpy
 from bpy.props import BoolProperty
 from bpy.types import Operator
 
-# name
-class name(Operator):
+# operator
+class operator(Operator):
     '''
         Name Panel.
     '''

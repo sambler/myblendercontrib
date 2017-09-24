@@ -4,8 +4,8 @@ import bpy
 from bpy.types import Operator
 from ...function import copy
 
-# name
-class name(Operator):
+# operator
+class operator(Operator):
     '''
         Transfer names from some types of datablocks to others.
     '''

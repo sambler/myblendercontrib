@@ -6,8 +6,8 @@ from ...defaults import defaults
 # main
 def main(context):
 
-    # name
-    name(context)
+    # panel
+    panel(context)
 
     # properties
     properties(context)
@@ -28,8 +28,8 @@ def main(context):
     generate.main(defaults)
 
 
-# name
-def name(context):
+# panel
+def panel(context):
 
     # option
     option = context.scene.NamePanel

@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -17,16 +17,18 @@
 # along with CrowdMaster.  If not, see <http://www.gnu.org/licenses/>.
 # ##### END GPL LICENSE BLOCK #####
 
+import math
+
 import bpy
+import mathutils
+
 from .cm_masterChannels import MasterChannel as Mc
 from .cm_masterChannels import timeChannel
-
-import math
-import mathutils
 
 
 class World(Mc):
     """Used to access other data from the scene"""
+
     def __init__(self, sim):
         Mc.__init__(self, sim)
         self.store = {}
@@ -48,6 +50,42 @@ class World(Mc):
     def time(self):
         return bpy.context.scene.frame_current
 
+    @timeChannel("World")
+    def event(self, eventName, eventType):
+        events = bpy.context.scene.cm_events.coll
+        en = eventName
+        for e in events:
+            if e.eventname == en:
+                result = True
+                if e.category == "Time" or e.category == "Time+Volume":
+                    if not e.timeMin <= bpy.context.scene.frame_current < e.timeMax:
+                        result = False
+                if e.category == "Volume" or e.category == "Time+Volume":
+                    if result:
+                        volObj = bpy.data.objects[e.volume]
+                        pt = bpy.data.objects[self.userid].location
+                        localPt = volObj.matrix_world.inverted() * pt
+                        d = mathutils.Vector()
+                        d.x = volObj.dimensions.x / volObj.scale.x
+                        d.y = volObj.dimensions.y / volObj.scale.y
+                        d.z = volObj.dimensions.z / volObj.scale.z
+
+                        if not (-(d.x / 2) <= localPt.x <= (d.x / 2) and
+                                -(d.y / 2) <= localPt.y <= (d.y / 2) and
+                                -(d.z / 2) <= localPt.z <= (d.z / 2)):
+                            result = False
+                if result:
+                    if eventType == "control":
+                        return {"None": 1}
+                    elif eventType == "duration":
+                        duration = e.timeMax - e.timeMin
+                        return {"None": duration}
+                    elif eventType == "elapsed":
+                        elapsed = bpy.context.scene.frame_current - e.timeMin
+                        return {"None": elapsed}
+
+        return {"None": 0}
+
 
 class Channel:
     def __init__(self, target, user, sim):
@@ -64,9 +102,9 @@ class Channel:
 
         to = O[self.target]
         ag = O[self.userid]
-        userDim = self.sim.agents[self.userid].dimensions
+        userDim = bpy.context.scene.objects[self.userid].dimensions
 
-        tDim = max(self.sim.agents[self.target].dimensions)
+        tDim = max(bpy.context.scene.objects[self.target].dimensions)
         uDim = max(userDim)
 
         difx = to.location.x - ag.location.x
@@ -83,8 +121,8 @@ class Channel:
         rotation = x * y * z
         relative = target * rotation
 
-        changez = math.atan2(relative[0], relative[1])/math.pi
-        changex = math.atan2(relative[2], relative[1])/math.pi
+        changez = math.atan2(relative[0], relative[1]) / math.pi
+        changex = math.atan2(relative[2], relative[1]) / math.pi
         self.store = {"rz": changez,
                       "rx": changex,
                       "arrived": 1 if dist < (tDim + uDim) else 0}

@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Export SMD: Valve studiomodel source format",
     "author": "nemyax",
-    "version": (0, 1, 20170616),
+    "version": (0, 1, 20170714),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Export Valve studiomodel sources",
@@ -307,8 +307,8 @@ def prep_bmesh(obj, bone_lu):
     bm = bmesh.new()
     bm.from_object(obj, bpy.context.scene)
     triangulate(strip_wires(bm))
-    bm.normal_update()
     bm.transform(obj.matrix_world)
+    bm.normal_update()
     v_groups = make_vert_group_lookup(obj, bone_lu)
     dl = bm.verts.layers.deform.verify()
     for v in bm.verts:

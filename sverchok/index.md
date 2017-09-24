@@ -23,7 +23,7 @@
     BasicSplineNode
     svBasicArcNode
     RandomVectorNodeMK2
-    SvScriptNodeLite    
+    SvScriptNodeLite
     ImageNode
 
 ## Generators Extended
@@ -52,6 +52,7 @@
     VectorNormalNode
     SvKDTreeNodeMK2
     SvKDTreeEdgesNodeMK2
+    SvBvhOverlapNodeNew
     SvMeshFilterNode
     SvEdgeAnglesNode
     SvMeshSelectNode
@@ -95,6 +96,7 @@
     SvExtrudeRegionNode
     SvVertMaskNode
     SvTransformSelectNode
+    SvSplitEdgesNode
 
 ## Modifier Make
     LineConnectNodeMK2
@@ -295,6 +297,5 @@
     SvCacheNode
     SvUVtextureNode
     SvSeparateMeshNodeMK2
-    SvBvhOverlapNodeNew
     SvIndexToMaskNode
     SvMultiExtrudeAlt

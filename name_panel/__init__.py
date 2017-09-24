@@ -237,7 +237,7 @@ def register():
 
     # auto name
     bpy.types.WindowManager.AutoName = PointerProperty(
-        type = PropertyGroup.batch.auto.name,
+        type = PropertyGroup.batch.auto.options,
         name = 'Batch Auto Name Settings',
         description = 'Storage location for the auto name operator settings.'
     )
@@ -272,7 +272,7 @@ def register():
 
     # batch name
     bpy.types.WindowManager.BatchName = PointerProperty(
-        type = PropertyGroup.batch.name,
+        type = PropertyGroup.batch.options,
         name = 'Batch Name Settings',
         description = 'Storage location for the batch name operator settings.'
     )
@@ -286,7 +286,7 @@ def register():
 
     # name panel
     bpy.types.Scene.NamePanel = PointerProperty(
-        type = PropertyGroup.name,
+        type = PropertyGroup.options,
         name = 'Name Panel Settings',
         description = 'Storage location for the name panel settings.'
     )

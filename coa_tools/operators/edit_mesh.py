@@ -32,10 +32,11 @@ from bpy_extras.io_utils import ExportHelper, ImportHelper
 import json
 from bpy.app.handlers import persistent
 from .. functions import *
+import bgl
 
 
 ######################################################################################################################################### Grid Fill
-def collapse_short_edges(bm,obj,threshold=1):
+def collapse_short_edges(bm,obj,threshold=1.0):
     ### collapse short edges
     edges_len_average = 0
     edges_count = 0
@@ -59,8 +60,7 @@ def collapse_short_edges(bm,obj,threshold=1):
 
     bmesh.update_edit_mesh(obj.data)
 
-def average_edge_cuts(bm,obj,cuts=1):
-    ### collapse short edges
+def get_average_edge_length(bm,obj):
     edges_len_average = 0
     edges_count = 0
     shortest_edge = 10000
@@ -72,7 +72,22 @@ def average_edge_cuts(bm,obj,cuts=1):
             if length < shortest_edge:
                 shortest_edge = length
     edges_len_average = edges_len_average/edges_count
+    return edges_len_average, shortest_edge
 
+def clean_boundary_edges(bm,obj):
+    edges_len_average, shortest_edge = get_average_edge_length(bm,obj)
+    edges = []
+    
+    for edge in bm.edges:
+        if edge.calc_length() < edges_len_average*.12 and not edge.tag:
+            edges.append(edge)
+    bmesh.ops.collapse(bm,edges=edges,uvs=False)        
+    bmesh.update_edit_mesh(obj.data)        
+
+def average_edge_cuts(bm,obj,cuts=1):
+    ### collapse short edges
+    edges_len_average, shortest_edge = get_average_edge_length(bm,obj)
+    
     subdivide_edges = []
     for edge in bm.edges:
         cut_count = int(edge.calc_length()/shortest_edge)*cuts
@@ -147,10 +162,21 @@ def clean_verts(bm,obj):
     bmesh.ops.dissolve_verts(bm,verts=verts)
     bmesh.update_edit_mesh(obj.data)
 
+def remove_doubles(obj,edge_average_len,edge_min_len):
+    bm = bmesh.from_edit_mesh(obj.data)
+    verts = []
+    for vert in bm.verts:
+        if not vert.hide:
+            verts.append(vert)
+    bmesh.ops.remove_doubles(bm,verts=verts,dist=0.0001)
+    bmesh.update_edit_mesh(obj.data)     
+        
 
 class Fill(bpy.types.Operator):
     bl_idname = "object.coa_fill"
     bl_label = "Triangle Fill"
+    bl_description = ""
+    bl_options = {"REGISTER"}
     
     detail = FloatProperty(name="Detail",default=.3,min=0,max=1.0)
     triangulate = BoolProperty(default=False)
@@ -184,15 +210,23 @@ class Fill(bpy.types.Operator):
         context.scene.objects.active = context.selected_objects[0]
         obj = context.selected_objects[0]
         bpy.ops.object.mode_set(mode="EDIT")
-        
         bpy.ops.mesh.select_all(action='SELECT')
+        
+        ### get edge lenght
+        bm = bmesh.from_edit_mesh(context.active_object.data)
+        edges_len_average, shortest_edge = get_average_edge_length(bm,context.active_object)
 
         ### grid fill start
         bm = bmesh.from_edit_mesh(obj.data)
         bm.verts.index_update()
+        
             
         fill_ok = triangle_fill(bm,obj)
+        
         if fill_ok:
+            ### remove short edges
+            clean_boundary_edges(bm,obj)
+            
             average_edge_cuts(bm,obj)
             triangulate(bm,obj)
             smooth_verts(bm,obj)
@@ -202,7 +236,6 @@ class Fill(bpy.types.Operator):
             smooth_verts(bm,obj)
             triangulate(bm,obj)
             smooth_verts(bm,obj)
-            
             
             bm.verts.index_update()
             bmesh.update_edit_mesh(obj.data) 
@@ -222,8 +255,8 @@ class Fill(bpy.types.Operator):
         context.scene.objects.active = start_obj
         bpy.ops.object.join()
         bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.remove_doubles(use_unselected=True)
-        
+        #bpy.ops.mesh.remove_doubles(use_unselected=True)
+        remove_doubles(context.active_object,edges_len_average, shortest_edge)
         
         
         ### create uv map
@@ -247,7 +280,6 @@ class Fill(bpy.types.Operator):
         for face in not_selected_faces:
             face.select = False
         bmesh.update_edit_mesh(start_obj.data)
-        
         
         ### unwrap
         obj = context.active_object
@@ -381,6 +413,8 @@ class DrawContour(bpy.types.Operator):
         self.bone_shape = None
         self.draw_bounds = False
         self.draw_type = ""
+        self.draw_handler_removed = False
+        self.bounds = []
     
     def project_cursor(self, event):
         coord = mathutils.Vector((event.mouse_region_x, event.mouse_region_y))
@@ -461,7 +495,7 @@ class DrawContour(bpy.types.Operator):
     
     def limit_cursor_by_bounds(self,context,event,location):
         obj = context.active_object
-        bounds = get_bounds_and_center(obj)[1]
+        bounds = self.bounds#get_bounds_and_center(obj)[1]
         if location[0] < bounds[0][0]:
             location[0] = bounds[0][0]
         if location[0] > bounds[3][0]:
@@ -534,10 +568,34 @@ class DrawContour(bpy.types.Operator):
             self.armature.data.bones[self.bone.name].show_wire = True
         bm.free()    
     
+    def check_verts(self,context,event):
+        verts = []
+        bm = bmesh.from_edit_mesh(context.active_object.data)
+        for vert in bm.verts:
+            if vert.select:
+                verts.append(vert)
+        for vert in verts:
+            vert.co = context.active_object.matrix_world.inverted() * self.limit_cursor_by_bounds(context,event,context.active_object.matrix_world * vert.co)
+        bmesh.update_edit_mesh(context.active_object.data)
+        
     def modal(self, context, event):
         self.in_view_3d = check_region(context,event)
         
-        if self.in_view_3d:
+        if event.value == "RELEASE" and context.active_object.mode == "EDIT":
+            self.check_verts(context,event)
+        
+        if self.in_view_3d and context.active_object != None:
+            if (context.active_object.mode != "EDIT" and not self.draw_handler_removed) or self.sprite_object.coa_edit_mesh == False:
+                self.draw_handler_removed = True
+                self.sprite_object.coa_edit_mesh = False
+                bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+                bpy.context.space_data.show_manipulator = self.show_manipulator
+                bpy.context.window.cursor_set("CROSSHAIR")
+                bpy.ops.object.mode_set(mode="OBJECT")
+                self.sprite_object.coa_edit_mesh = False
+                set_local_view(False)
+                return {"FINISHED"}
+                
             scene = context.scene
             ob = context.active_object
             
@@ -625,6 +683,8 @@ class DrawContour(bpy.types.Operator):
             if event.type in {'TAB'} and not event.ctrl:
                 self.sprite_object.coa_edit_mesh = False
                 bpy.ops.object.mode_set(mode='OBJECT')
+                
+                
                 #return{'CANCELLED'}
             
             if self.mouse_press_hist and not self.mouse_press:
@@ -637,6 +697,8 @@ class DrawContour(bpy.types.Operator):
     def execute(self, context):
         #bpy.ops.wm.coa_modal() ### start coa modal mode if not running
         self.sprite_object = get_sprite_object(context.active_object)
+        self.sprite_object = bpy.data.objects[self.sprite_object.name]
+        self.bounds = get_bounds_and_center(context.active_object)[1]
         
         if self.mode == "DRAW_BONE_SHAPE":
             self.draw_bounds = context.scene.coa_lock_to_bounds
@@ -693,6 +755,9 @@ class DrawContour(bpy.types.Operator):
         if self.mode == "EDIT_MESH":
             set_local_view(True)
         
+        args = ()
+        self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_VIEW")
+                
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
@@ -700,3 +765,65 @@ class DrawContour(bpy.types.Operator):
         bpy.context.space_data.show_manipulator = self.show_manipulator
         bpy.context.window_manager.sketch_assets_enabled = False
         return {'CANCELLED'}
+    
+    def draw_callback_px(self):
+        obj = bpy.context.active_object
+#        vec1 = obj.matrix_world * Vector(obj.bound_box[0])
+#        vec2 = obj.matrix_world * Vector(obj.bound_box[2])
+#        vec3 = obj.matrix_world * Vector(obj.bound_box[5])
+#        vec4 = obj.matrix_world * Vector(obj.bound_box[4])
+        
+        vec1 = Vector(self.bounds[0])
+        vec2 = Vector(self.bounds[1])
+        vec3 = Vector(self.bounds[3])
+        vec4 = Vector(self.bounds[2])
+        
+        color = [1,.7,.5]
+        bgl.glEnable(bgl.GL_BLEND)
+        bgl.glColor4f(color[0], color[1], color[2], .3)
+        bgl.glLineWidth(1)
+        
+        bgl.glEnable(bgl.GL_LINE_SMOOTH)
+        
+        bgl.glBegin(bgl.GL_LINE_STRIP)
+        bgl.glVertex3f(vec1[0],vec1[1],vec1[2])
+        bgl.glVertex3f(vec2[0],vec2[1],vec2[2])
+        bgl.glVertex3f(vec3[0],vec3[1],vec3[2])
+        bgl.glVertex3f(vec4[0],vec4[1],vec4[2])
+        bgl.glVertex3f(vec1[0],vec1[1],vec1[2])
+        bgl.glEnd()
+        
+        # restore opengl defaults
+        bgl.glLineWidth(1)
+        bgl.glDisable(bgl.GL_BLEND)
+        bgl.glDisable(bgl.GL_LINE_SMOOTH)
+        bgl.glColor4f(0.0, 0.0, 0.0, 1.0) 
+
+
+class PickEdgeLength(bpy.types.Operator):
+    bl_idname = "coa_tools.pick_edge_length"
+    bl_label = "Pick Edge Length"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        scene = context.scene
+        obj = context.active_object
+        bm = bmesh.from_edit_mesh(obj.data)
+        
+        for edge in bm.edges:
+            if edge.select:
+                scene.coa_distance = edge.calc_length()
+        for vert in bm.verts:
+            vert.select = False
+        for edge in bm.edges:
+            edge.select = False    
+        for face in bm.faces:
+            face.select = False            
+        bmesh.update_edit_mesh(obj.data)    
+        return {"FINISHED"}
+        

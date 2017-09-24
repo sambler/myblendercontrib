@@ -589,6 +589,7 @@ class CutoutAnimationTools(bpy.types.Panel):
             
             row2 = col.row(align=True)
             row2.prop(scene,'coa_distance',text="Stroke Distance")
+            row2.operator("coa_tools.pick_edge_length",text="",icon="EYEDROPPER")
             row2.row(align=True).prop(scene,'coa_distance_constraint',text="",icon="CONSTRAINT")
             
             row2 = col.row(align=True)
@@ -667,7 +668,8 @@ class SelectChild(bpy.types.Operator):
             context.scene.objects.active = ob
                 
         elif self.mode == "bone":
-            armature = bpy.data.armatures[self.ob_name]
+            armature_ob = bpy.data.objects[self.ob_name]
+            armature = bpy.data.armatures[armature_ob.data.name]
             bone = armature.bones[self.bone_name]
             bone.select = not bone.select
             bone.select_tail = not bone.select_tail

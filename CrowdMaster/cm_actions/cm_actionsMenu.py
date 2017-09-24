@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,16 +18,35 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from bpy.props import IntProperty, EnumProperty, CollectionProperty
-from bpy.props import PointerProperty, BoolProperty, StringProperty
-from bpy.types import PropertyGroup, UIList, Panel, Operator
+from bpy.props import (CollectionProperty, EnumProperty, IntProperty,
+                       PointerProperty, StringProperty)
+from bpy.types import Operator, Panel, PropertyGroup, UIList
+
+
+def updateGroups(self, context):
+    """update context.scene.cm_action_groups with any new actions"""
+    newGroups = []
+    for action in context.scene.cm_actions.coll:
+        if action.name != "" and action.name not in newGroups:
+            newGroups.append(action.name)
+        groups = [g.strip() for g in action.groups.split(",")]
+        for g in groups:
+            if g != "":
+                name = "[" + g + "]"
+                if name not in newGroups:
+                    newGroups.append("[" + g + "]")
+    context.scene.cm_action_groups.groups.clear()
+    for g in sorted(newGroups):
+        a = context.scene.cm_action_groups.groups.add()
+        a.name = g
 
 
 class action_entry(PropertyGroup):
     """The data structure for the action entries"""
+    name = StringProperty(update=updateGroups)
     action = StringProperty()
     motion = StringProperty()
-    groups = StringProperty()
+    groups = StringProperty(update=updateGroups)
 
 
 class actions_collection(PropertyGroup):
@@ -37,7 +56,7 @@ class actions_collection(PropertyGroup):
 
 class SCENE_OT_cm_actions_populate(Operator):
     bl_idname = "scene.cm_actions_populate"
-    bl_label = "Populate cm actions list"
+    bl_label = "Populate CM actions list"
 
     def execute(self, context):
         item = context.scene.cm_actions.coll.add()
@@ -86,6 +105,7 @@ class SCENE_OT_agent_move(Operator):
 
 class SCENE_UL_action(UIList):
     """for drawing each row"""
+
     def draw_item(self, context, layout, data, item, icon, active_data,
                   active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -93,6 +113,18 @@ class SCENE_UL_action(UIList):
             layout.prop_search(item, "action", bpy.data, "actions", text="")
             layout.prop_search(item, "motion", bpy.data, "actions", text="")
             layout.prop(item, "groups", text="")
+
+# =========================== Action groups (for search boxes) ================
+
+
+class action_group(PropertyGroup):
+    pass
+
+
+class action_groups_collection(PropertyGroup):
+    groups = CollectionProperty(type=action_group)
+    index = IntProperty()
+
 
 # =========================== Action pair definitions =========================
 
@@ -109,7 +141,7 @@ class action_pair_collection(PropertyGroup):
 
 class SCENE_OT_cm_action_pair_populate(Operator):
     bl_idname = "scene.cm_action_pair_populate"
-    bl_label = "Populate cm action pairs list"
+    bl_label = "Populate CM action pairs list"
 
     def execute(self, context):
         item = context.scene.cm_action_pairs.coll.add()
@@ -158,11 +190,14 @@ class SCENE_OT_action_pair_move(Operator):
 
 class SCENE_UL_action_pair(UIList):
     """for drawing each row"""
+
     def draw_item(self, context, layout, data, item, icon, active_data,
                   active_propname):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            layout.prop(item, "source", text="")
-            layout.prop(item, "target", text="")
+            layout.prop_search(item, "source", context.scene.cm_action_groups,
+                               "groups", text="")
+            layout.prop_search(item, "target", context.scene.cm_action_groups,
+                               "groups", text="")
 
 
 class SCENE_PT_action(Panel):
@@ -185,8 +220,8 @@ class SCENE_PT_action(Panel):
 
         row = layout.row()
         row.label("Name")
-        row.label("Armature action")
-        row.label("Motion action")
+        row.label("Armature Action")
+        row.label("Motion Action")
         row.label("Groups")
 
         row = layout.row()
@@ -250,7 +285,13 @@ def action_register():
     bpy.utils.register_class(SCENE_OT_action_pair_move)
     bpy.utils.register_class(action_pair_collection)
     bpy.utils.register_class(SCENE_UL_action_pair)
-    bpy.types.Scene.cm_action_pairs = PointerProperty(type=action_pair_collection)
+    bpy.types.Scene.cm_action_pairs = PointerProperty(
+        type=action_pair_collection)
+
+    bpy.utils.register_class(action_group)
+    bpy.utils.register_class(action_groups_collection)
+    bpy.types.Scene.cm_action_groups = PointerProperty(
+        type=action_groups_collection)
 
 
 def action_unregister():
@@ -268,3 +309,6 @@ def action_unregister():
     bpy.utils.unregister_class(SCENE_OT_cm_action_pair_populate)
     bpy.utils.unregister_class(action_pair_collection)
     bpy.utils.unregister_class(action_pair)
+
+    bpy.utils.unregister_class(action_group)
+    bpy.utils.unregister_class(action_groups_collection)

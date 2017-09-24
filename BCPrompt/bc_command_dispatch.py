@@ -17,7 +17,8 @@ from .bc_utils import (
     view_types_to_console,
     make_animated_gif,
     make_optimized_animated_gif,
-    cmd_controller
+    cmd_controller,
+    iterate_spaces
 )
 
 from .bc_text_repr_utils import (
@@ -418,6 +419,19 @@ def in_core_dev_commands(context, m):
         )
         for line in git_strings:
             add_scrollback(line, 'OUTPUT')
+
+    elif m.startswith('aft;'):
+        newstr = m[4:]
+        if newstr:
+            # get active tree, and active node, make sure it's a FrameNode
+            def behaviour(nodeview):
+                tree = nodeview.edit_tree
+                nodes = tree.nodes
+                node = nodes.active
+                if node and node.bl_idname == 'NodeFrame':
+                    node.label = newstr
+
+            iterate_spaces('NODE_EDITOR', behaviour)
 
     else:
         return False

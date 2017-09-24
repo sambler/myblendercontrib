@@ -426,6 +426,23 @@ def print_addon_msg(origin, msg):
     print(msg)
 
 
+def iterate_spaces(AREA, behaviour, end_early=True):
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+
+            if not area.type == AREA:
+                continue
+
+            for s in area.spaces:
+                if s.type == AREA:
+                    behaviour(s)
+                    if end_early:
+                        return
+
+
+
+
+
 def register():
     bpy.utils.register_module(__name__)
 

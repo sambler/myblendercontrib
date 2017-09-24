@@ -1,7 +1,7 @@
 bl_info = {"name": "Import ZBrush Wavefront OBJ",
            "description": "Import Wavefront OBJ exported from ZBrush with UV and polypaint (vertex colors).",
            "author": "Jakub Uhlik",
-           "version": (0, 1, 0),
+           "version": (0, 2, 1),
            "blender": (2, 78, 0),
            "location": "File > Import > ZBrush Wavefront (.obj)",
            "warning": "",
@@ -71,7 +71,7 @@ def activate_object(obj):
 
 
 class ZBrushOBJReader():
-    def __init__(self, path, with_uv=True, with_vcol=True, report_progress=False, ):
+    def __init__(self, path, with_uv=True, with_polypaint=True, with_polygroups=True, report_progress=False, ):
         log("{}:".format(self.__class__.__name__), 0, )
         name = os.path.splitext(os.path.split(path)[1])[0]
         
@@ -93,6 +93,12 @@ class ZBrushOBJReader():
         def f(l):
             l = l[2:-1]
             ls = l.split(' ')
+            f = [int(i) - 1 for i in ls]
+            return f
+        
+        def ft(l):
+            l = l[2:-1]
+            ls = l.split(' ')
             ls = [i.split('/') for i in ls]
             f = []
             t = []
@@ -110,7 +116,7 @@ class ZBrushOBJReader():
                 r.append(c)
             return r
         
-        groups = []
+        groups = {}
         verts = []
         tverts = []
         faces = []
@@ -121,24 +127,42 @@ class ZBrushOBJReader():
         if(report_progress):
             prgr = PercentDone(len(ls), 1)
         
+        has_uv = None
+        cg = None
+        
         for l in ls:
             if(report_progress):
                 prgr.step()
-            
             if(l.startswith('g ')):
-                groups.append(l[2:])
+                if(with_polygroups):
+                    g = l[2:-1]
+                    if(g not in groups):
+                        groups[g] = []
+                    cg = g
             elif(l.startswith('v ')):
                 verts.append(v(l))
             elif(l.startswith('vt ')):
                 if(with_uv):
                     tverts.append(vt(l))
             elif(l.startswith('f ')):
-                a, b = f(l)
+                if(has_uv is None):
+                    if('/' not in l):
+                        has_uv = False
+                    else:
+                        has_uv = True
+                if(has_uv):
+                    a, b = ft(l)
+                else:
+                    a = f(l)
                 faces.append(a)
-                if(with_uv):
-                    tfaces.append(b)
+                if(has_uv):
+                    if(with_uv):
+                        tfaces.append(b)
+                if(with_polygroups):
+                    if(cg is not None):
+                        groups[cg].extend(a)
             elif(l.startswith('#MRGB ')):
-                if(with_vcol):
+                if(with_polypaint):
                     vcols.extend(vc(l))
             else:
                 pass
@@ -183,6 +207,15 @@ class ZBrushOBJReader():
         
         self.name = name
         self.object = add_object(name, me)
+        
+        if(len(groups) > 0):
+            log("making polygroups..", 1)
+            o = self.object
+            me = o.data
+            for k, v in groups.items():
+                o.vertex_groups.new(k)
+                vg = o.vertex_groups[k]
+                vg.add(list(set(v)), 1.0, 'REPLACE')
 
 
 class ImportZBrushOBJ(Operator, ImportHelper):
@@ -195,13 +228,14 @@ class ImportZBrushOBJ(Operator, ImportHelper):
     check_extension = True
     
     with_uv = BoolProperty(name="UV Coords", default=True, )
-    with_vcol = BoolProperty(name="Vertex Colors", default=True, )
+    with_polypaint = BoolProperty(name="Polypaint", default=True, )
+    with_polygroups = BoolProperty(name="Polygroups", default=False, )
     scale = FloatProperty(name="Scale", description="", default=1.0, precision=3, )
     
     def execute(self, context):
         t = time.time()
         p = os.path.realpath(self.filepath)
-        r = ZBrushOBJReader(p, with_uv=self.with_uv, with_vcol=self.with_vcol, report_progress=False, )
+        r = ZBrushOBJReader(p, with_uv=self.with_uv, with_polypaint=self.with_polypaint, with_polygroups=self.with_polygroups, report_progress=False, )
         o = r.object
         
         if(self.scale != 1.0):

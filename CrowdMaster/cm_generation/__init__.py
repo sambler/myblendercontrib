@@ -1,4 +1,4 @@
-# Copyright 2016 CrowdMaster Developer Team
+# Copyright 2017 CrowdMaster Developer Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -17,21 +17,22 @@
 # along with CrowdMaster.  If not, see <http://www.gnu.org/licenses/>.
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy
 import time
-from bpy.types import Operator
+
+import bpy
 from bpy.props import StringProperty
+from bpy.types import Operator
 
-from .. libs.ins_vector import Vector
-
-from . cm_templates import templates, TemplateRequest
-from .. cm_graphics . cm_nodeHUD import update_hud_text, update_hud_text2
-from .. cm_graphics . utils import cm_redrawAll
+from . import cm_genNodes
+from ..libs.ins_vector import Vector
+from .cm_templates import TemplateRequest, templates, tmpPathChannel
+from .. import cm_timings
 
 
 class SCENE_OT_agent_nodes_generate(Operator):
     bl_idname = "scene.cm_agent_nodes_generate"
     bl_label = "Generate Agents"
+    bl_options = {'REGISTER', 'UNDO'}
 
     nodeName = StringProperty(name="node name")
     nodeTreeName = StringProperty(name="node tree")
@@ -45,6 +46,7 @@ class SCENE_OT_agent_nodes_generate(Operator):
 
     def construct(self, current, cache):
         """returns: bool - successfully built, Template"""
+        tmpPathChannel.newframe()
 
         idName = current.bl_idname
         if idName in templates:
@@ -75,14 +77,17 @@ class SCENE_OT_agent_nodes_generate(Operator):
             return False, None
 
     def execute(self, context):
-        startT = time.time()
+        if bpy.context.active_object is not None:
+            bpy.ops.object.mode_set(mode='OBJECT')
         ntree = bpy.data.node_groups[self.nodeTreeName]
         generateNode = ntree.nodes[self.nodeName]
+        preferences = context.user_preferences.addons["CrowdMaster"].preferences
 
         cache = {}
         genSpaces = {}
         allSuccess = True
 
+        t = time.time()
         for space in generateNode.inputs[0].links:
             tipNode = space.from_node
             if tipNode.bl_idname == "NodeReroute":
@@ -92,13 +97,13 @@ class SCENE_OT_agent_nodes_generate(Operator):
                 genSpaces[tipNode] = temp
             else:
                 allSuccess = False
+        cm_timings.placement["Construct"] += time.time() - t
+        cm_timings.placementNum["Construct"] += 1
 
+        t = time.time()
         if allSuccess:
-            if "cm_allAgents" in context.scene.cm_groups:
-                bpy.ops.scene.cm_groups_reset(groupName="cm_allAgents")
-            newGroup = context.scene.cm_groups.add()
-            newGroup.groupName = "cm_allAgents"
-            newGroup.name = "cm_allAgents"
+            for gpName in [g.name for g in context.scene.cm_groups]:
+                bpy.ops.scene.cm_groups_reset(groupName=gpName)
 
             for space in generateNode.inputs[0].links:
                 tipNode = space.from_node
@@ -108,26 +113,12 @@ class SCENE_OT_agent_nodes_generate(Operator):
                 genSpaces[tipNode].build(buildRequest)
         else:
             return {'CANCELLED'}
+        cm_timings.placement["Build"] += time.time() - t
+        cm_timings.placementNum["Build"] += 1
 
-        if allSuccess:
-            newhudText = "Agents Generated!"
-            update_hud_text(newhudText)
-
-        else:
-            newhudText = "Agents Generated With Errors!"
-            update_hud_text(newhudText)
-
-        endT = time.time() - startT
-
-        newhudText2 = "Time taken: {} seconds".format(str(endT))
-        update_hud_text2(newhudText2)
-
-        cm_redrawAll()
-
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.printTimings()
         return {'FINISHED'}
-
-
-from . import cm_genNodes
 
 
 def register():
