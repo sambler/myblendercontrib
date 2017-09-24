@@ -86,10 +86,10 @@ class Properties_meshinfo(bpy.types.Panel):
     bl_context = "scene"
 
     def draw(self, context):
-        prefs = bpy.context.user_preferences.addons[__name__].preferences
+        prefs = context.user_preferences.addons[__name__].preferences
         layout = self.layout
 
-        meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+        meshes = [o for o in context.scene.objects if o.type == 'MESH']
         row = layout.row()
         if len(meshes) == 1:
             row.label(text="1 Mesh object in this scene.", icon='OBJECT_DATA')
