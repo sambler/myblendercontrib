@@ -92,6 +92,12 @@ class AutoBlendSavePreferences(bpy.types.AddonPreferences):
         row = col.row()
         row.prop(self,'save_to_path')
         row = col.row()
+        if bpy.data.filepath == '':
+            par = os.getcwd()
+        else:
+            par = None
+        row.label(text='Current file will save to: '+bpy.path.abspath(self.save_to_path, start=par))
+        row = col.row()
         row.prop(self,'max_save_files')
         row = col.row()
         row.prop(self,'compress_backups')
