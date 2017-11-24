@@ -31,7 +31,7 @@
 bl_info = {
     "name": "Auto Blend Save",
     "author": "sambler",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (2, 75, 0),
     "location": "blender",
     "description": "Automatically save multiple copies of a blend file",
@@ -165,13 +165,14 @@ def save_post_open(scn):
 
 @persistent
 def save_pre_close(scn):
-    if prefs().save_before_close:
+    # is_dirty means there are changes that haven't been saved to disk
+    if bpy.data.is_dirty and prefs().save_before_close:
         save_file()
 
 @persistent
 def timed_save(scn):
-    #print(fn_prefix())
-    if prefs().save_on_interval and time_since_save() >= prefs().save_interval:
+    if bpy.data.is_dirty and prefs().save_on_interval \
+            and time_since_save() >= prefs().save_interval:
         save_file()
 
 def register():
