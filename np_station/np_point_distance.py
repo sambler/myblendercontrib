@@ -645,8 +645,8 @@ def draw_callback_px_TRANS(self, context):
         '''
         goldvec1 = mathutils.Vector((1.0 , 0.0))
         goldvec2 = endloc2d - startloc2d
-        if goldvec1.length != 0.0 and goldvec2.length != 0.0:
-            ang = goldvec1.angle_signed(goldvec2)
+        ang = goldvec1.angle_signed(goldvec2, None)
+        if ang is not None:
             coy = round(cos(ang), 8)
             cox = round(sin(ang), 8)
             goldtick = [[-cox, -coy], [0, 0], [cox, coy]]
@@ -655,7 +655,7 @@ def draw_callback_px_TRANS(self, context):
                 co[1] = round((co[1] * 10), 0) + goldloc2d[1]
             bgl.glColor4f(0.95, 0.55, 0.0, 1.0)
             bgl.glLineWidth(2)
-            bgl.glBegin(bgl.GL_LINE_STRIP) 
+            bgl.glBegin(bgl.GL_LINE_STRIP)
             for x, y in goldtick:
                 bgl.glVertex2f(x, y)
             bgl.glEnd()
