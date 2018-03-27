@@ -32,6 +32,8 @@ from bpy_extras.io_utils import ExportHelper, ImportHelper
 import json
 from bpy.app.handlers import persistent
 from .. functions import *
+from .. functions_draw import *
+import traceback
     
 class EditWeights(bpy.types.Operator):
     bl_idname = "object.coa_edit_weights"
@@ -45,6 +47,7 @@ class EditWeights(bpy.types.Operator):
     def __init__(self):
         self.sprite_object = None
         self.obj = None
+        self.shadeless = False
         self.armature = None
         self.active_object = None
         self.selected_objects = []
@@ -79,7 +82,12 @@ class EditWeights(bpy.types.Operator):
         tool_settings = context.scene.tool_settings
         tool_settings.unified_paint_settings.use_unified_strength = self.use_unified_strength
         set_local_view(False)
+        obj = bpy.data.objects[self.obj]
+        obj.hide = False
+        obj.select = True
+        context.scene.objects.active = obj
         armature = get_armature(get_sprite_object(context.active_object))
+        armature.hide = False
         bpy.ops.object.mode_set(mode="OBJECT")
         for i,bone_layer in enumerate(bone_layers):
             armature.data.layers[i] = bone_layer
@@ -91,18 +99,30 @@ class EditWeights(bpy.types.Operator):
             obj.select = True
         context.scene.objects.active = bpy.data.objects[self.active_object]
         self.unhide_non_deform_bones(context)
-        self.hide_deform_bones(context)
-            
-    def modal(self, context, event):
+        #self.hide_deform_bones(context)
     
-        if get_local_view(context) == None or (context.active_object != None and context.active_object.mode != "WEIGHT_PAINT") or context.active_object == None:
-            sprite_object = bpy.data.objects[self.sprite_object] 
-            
-            self.exit_edit_weights(context)
-            sprite_object.coa_edit_weights = False
-            bpy.ops.ed.undo_push(message="Exit Edit Weights")
-            self.disable_object_color(False)
-            return {"FINISHED"}
+    def exit_edit_mode(self,context):
+        sprite_object = bpy.data.objects[self.sprite_object] 
+                
+        self.exit_edit_weights(context)
+        sprite_object.coa_edit_weights = False
+        sprite_object.coa_edit_mode = "OBJECT"
+        bpy.ops.ed.undo_push(message="Exit Edit Weights")
+        self.disable_object_color(False)
+        context.active_object.active_material.use_shadeless = self.shadeless
+        
+        ### remove draw call
+        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+        return {"FINISHED"}
+    
+    def modal(self, context, event):
+        try:
+            if get_local_view(context) == None or (context.active_object != None and context.active_object.mode != "WEIGHT_PAINT") or context.active_object == None:
+                return self.exit_edit_mode(context)
+        except Exception as e:
+            traceback.print_exc()
+            self.report({"ERROR"},"An Error occured, please check console for more Information.")
+            self.exit_edit_mode(context)       
           
         return {"PASS_THROUGH"}
     
@@ -140,17 +160,33 @@ class EditWeights(bpy.types.Operator):
         for bone in self.non_deform_bones:
             bone.hide = False
     
+    
+    def create_armature_modifier(self,context,obj,armature):
+        for mod in obj.modifiers:
+            if mod.type == "ARMATURE":
+                return mod
+        mod = obj.modifiers.new("Armature","ARMATURE")    
+        mod.object = armature
+        return mod
                                     
     def invoke(self, context, event):
+        if context.active_object == None:
+            self.report({"ERROR"},"Armature is hidden or not selected. Cannot go in Edit Mode.")
+            return{"CANCELLED"}
+        obj = context.active_object
         self.obj = context.active_object.name
         self.sprite_object = get_sprite_object(context.active_object).name
         sprite_object = bpy.data.objects[self.sprite_object]
+        if get_armature(sprite_object) == None or get_armature(sprite_object) not in context.visible_objects:
+            self.report({'WARNING'},'No Armature Available or Visible')    
+            return{"CANCELLED"}
         self.armature = get_armature(sprite_object).name
         armature = bpy.data.objects[self.armature]
         
-        if armature == None or not armature in context.visible_objects:
-            self.report({'WARNING'},'No Armature Available or Visible')
-            return{"CANCELLED"}
+        self.shadeless = context.active_object.active_material.use_shadeless
+        context.active_object.active_material.use_shadeless = True
+        
+        self.create_armature_modifier(context,obj,armature)
         
         scene = context.scene
         tool_settings = scene.tool_settings
@@ -166,6 +202,7 @@ class EditWeights(bpy.types.Operator):
             self.selected_objects.append(obj.name)
         
         sprite_object.coa_edit_weights = True
+        sprite_object.coa_edit_mode = "WEIGHTS"
         
         
         self.hide_non_deform_bones(context)
@@ -185,8 +222,31 @@ class EditWeights(bpy.types.Operator):
             create_armature_parent(context)
 
         set_local_view(True)
+        
         context.scene.tool_settings.use_auto_normalize = True
         
+        ### zoom to selected mesh/sprite
+        for obj in bpy.context.selected_objects:
+            obj.select = False
+        obj = bpy.data.objects[self.obj]    
+        obj.select = True
+        context.scene.objects.active = obj
+        bpy.ops.view3d.view_selected()
+        
+        ### set uv image
+        bpy.context.space_data.viewport_shade = 'TEXTURED'
+        set_uv_image(obj)
+        
+        ### enter weights mode
         bpy.ops.object.mode_set(mode="WEIGHT_PAINT")
+        
+        
+        ### start draw call
+        args = ()
+        self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
         return {"RUNNING_MODAL"}
+    
+    
+    def draw_callback_px(self):
+        draw_edit_mode(self,bpy.context,color=[0.367356, 1.000000, 0.632293, 1.000000],text="Edit Weights Mode",offset=-5)
             

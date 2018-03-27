@@ -519,12 +519,12 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
     pixel_variance = FloatProperty(
         name="Pixel Variance",
         description="If a pixel changes by less than this amount when updated, it will not receive further samples in adaptive mode.  Lower values lead to increased render times and higher quality images",
-        min=0, max=1, default=.01)
+        min=0, max=1, default=.01, precision=3)
 
     dark_falloff = FloatProperty(
         name="Dark Falloff",
         description="Deprioritizes adaptive sampling in dark areas. Raising this can potentially reduce render times but may increase noise in dark areas",
-        min=0, max=1, default=.025)
+        min=0, max=1, default=.025, precision=3)
 
     min_samples = IntProperty(
         name="Min Samples",
@@ -756,7 +756,7 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
     preview_pixel_variance = FloatProperty(
         name="Preview Pixel Variance",
         description="If a pixel changes by less than this amount when updated, it will not receive further samples in adaptive mode",
-        min=0, max=1, default=.05)
+        min=0, max=1, default=.05, precision=3)
 
     preview_bucket_order = EnumProperty(
         name="Preview Bucket Order",
@@ -1942,6 +1942,13 @@ class RendermanMeshGeometrySettings(bpy.types.PropertyGroup):
         name="Export Default Vertex Color",
         description="Export the active Vertex Color set as the default 'Cs' primitive variable",
         default=True)
+    export_flipv = EnumProperty(
+        name="FlipV",
+        description="Use this to flip the V texture coordinate on the exported geometry when rendering. The origin on Renderman texture coordinates are top-left (ie. Photoshop) of image, UV texture coordinates (ie. Maya) generally use the bottom-left of the image as the origin. It's generally better to do this flip using a pattern like PxrTexture or PxrManifold2d",
+        items=[('NONE', 'No Flip', 'Do not do anything to the UVs.'),
+               ('TILE', 'Flip Tile Space', 'Flips V in tile space. Works with UDIM.'),
+               ('UV', 'Flip UV Space', 'Flips V in UV space. This is here for backwards compatability.')],
+        default='NONE')
     interp_boundary = IntProperty(
         name="Subdivision Edge Interpolation Mode",
         description="Defines how a subdivided mesh interpolates its boundary edges",

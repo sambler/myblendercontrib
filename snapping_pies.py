@@ -69,6 +69,8 @@ class VIEW3D_OT_toggle_pivot(bpy.types.Operator):
         pivot = context.space_data.pivot_point
         if pivot == "CURSOR":
             context.space_data.pivot_point = "MEDIAN_POINT"
+        elif pivot == "INDIVIDUAL_ORIGINS":
+            context.space_data.pivot_point = "MEDIAN_POINT"
         else:
             context.space_data.pivot_point = "CURSOR"
         return {'FINISHED'}
@@ -137,8 +139,6 @@ class VIEW3D_OT_SnapTargetVariable(bpy.types.Operator):
 
 
 
-
-
 class VIEW3D_OT_SnapElementVariable(bpy.types.Operator):
     bl_idname = "object.snapelementvariable"
     bl_label = "Snap Element Variable"
@@ -163,6 +163,23 @@ class VIEW3D_PIE_SnapElementMenu(Menu):
         layout = self.layout
         pie = layout.menu_pie()
         pie.prop(settings, "snap_element", expand=True)
+
+
+#Menu Snap Element
+class VIEW3D_OT_SetPivotIndividual(bpy.types.Operator):
+    bl_label = "Individual Origins"
+    bl_idname = "object.setpivotindidual"
+
+    @classmethod
+    def poll(cls, context):
+        sc = context.space_data
+        return (sc.type == 'VIEW_3D')
+
+    def execute(self, context):
+        bpy.context.space_data.pivot_point = "INDIVIDUAL_ORIGINS"
+        return {'FINISHED'}
+        
+
 
 
 
@@ -196,13 +213,16 @@ class VIEW3D_PIE_origin(Menu):
         else:
             pie.operator("object.origin_to_geometry", icon="MESH_CUBE")
 
-        pie.operator("wm.call_menu_pie", text="Snapping Extras", icon='PLUS').name = "VIEW3D_PIE_Snapping_Extras"
+        pie.operator("view3d.snap_cursor_to_center", icon="CURSOR")
         pie.operator("wm.call_menu_pie", text="Element / Target", icon='PLUS').name = "VIEW3D_PIE_SnapTarget"
 
-        if tool_settings.use_mesh_automerge:
-            pie.prop(tool_settings, "use_mesh_automerge", text="Automerge (ON)", icon='AUTOMERGE_ON')
+        if context.object.mode == "EDIT":
+            if tool_settings.use_mesh_automerge:
+                pie.prop(tool_settings, "use_mesh_automerge", text="Automerge (ON)", icon='AUTOMERGE_ON')
+            else:
+                pie.prop(tool_settings, "use_mesh_automerge", text="Automerge (OFF)", icon='AUTOMERGE_OFF')
         else:
-            pie.prop(tool_settings, "use_mesh_automerge", text="Automerge (OFF)", icon='AUTOMERGE_OFF')
+            pie.operator("object.setpivotindidual", icon="ROTATECOLLECTION")
 
         pie.operator("scene.toggle_pivot", icon="ROTATECENTER")
 
@@ -216,6 +236,7 @@ def register():
     bpy.utils.register_class(VIEW3D_OT_origin_to_geometry)
     bpy.utils.register_class(VIEW3D_OT_SnapTargetVariable)
     bpy.utils.register_class(VIEW3D_OT_SnapElementVariable)
+    bpy.utils.register_class(VIEW3D_OT_SetPivotIndividual)
     bpy.utils.register_class(VIEW3D_PIE_origin)
     bpy.utils.register_class(VIEW3D_PIE_SnapElementMenu)
     bpy.utils.register_class(VIEW3D_PIE_SnapTarget)
@@ -240,6 +261,7 @@ def unregister():
     bpy.utils.unregister_class(VIEW3D_OT_origin_to_geometry)
     bpy.utils.unregister_class(VIEW3D_OT_SnapTargetVariable)
     bpy.utils.unregister_class(VIEW3D_OT_SnapElementVariable)
+    bpy.utils.unregister_class(VIEW3D_OT_SetPivotIndividual)
     bpy.utils.unregister_class(VIEW3D_PIE_origin)
     bpy.utils.unregister_class(VIEW3D_PIE_SnapElementMenu)
     bpy.utils.unregister_class(VIEW3D_PIE_SnapTarget)

@@ -22,6 +22,60 @@ import bpy
 from bpy.props import FloatProperty, IntProperty, BoolProperty, StringProperty, CollectionProperty, FloatVectorProperty, EnumProperty, IntVectorProperty
 from .. functions import *
 
+class ChangeZOrdering(bpy.types.Operator):
+    bl_idname = "coa_tools.change_z_ordering"
+    bl_label = "Change Zordering"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+    
+    active_sprite = StringProperty()
+    all_sprites = StringProperty()
+    index = IntProperty()
+    direction = StringProperty() ## UP - DOWN
+    
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        scene = context.scene
+        active_sprite = scene.objects[self.active_sprite]
+        
+        all_sprites = []
+        for name in eval(self.all_sprites):
+            all_sprites.append(scene.objects[name])
+            
+        if self.direction == "UP":
+            next_index = max(self.index - 1 , 0)
+        elif self.direction == "DOWN":
+            next_index = min(self.index + 1 , len(all_sprites)-1)
+               
+        next_sprite = all_sprites[next_index]
+        
+        if active_sprite.coa_z_value == next_sprite.coa_z_value:
+            for i,child in enumerate(all_sprites):
+                if child == active_sprite:
+                    child.coa_z_value = child.coa_z_value
+                if self.direction == "DOWN":
+                    if i > self.index:
+                        child.coa_z_value -= 1
+                if self.direction == "UP":
+                    if i < self.index:
+                        child.coa_z_value += 1
+                
+        
+        active_loc_y = active_sprite.location[1]
+        next_loy_y = next_sprite.location[1]
+        active_sprite.location[1] = next_loy_y
+        next_sprite.location[1] = active_loc_y
+        active_z = active_sprite.coa_z_value
+        next_z = next_sprite.coa_z_value
+        active_sprite.coa_z_value = next_z
+        next_sprite.coa_z_value = active_z
+        
+        return {"FINISHED"}
+        
+
 class ViewSprite(bpy.types.Operator):
     bl_idname = "coa_tools.view_sprite"
     bl_label = "View Sprite"

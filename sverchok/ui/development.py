@@ -36,19 +36,21 @@ BRANCH = ""
 def get_branch():
     global BRANCH
 
-    # first use git to find branch
-    try:
-        res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                              stdout=subprocess.PIPE,
-                              cwd=os.path.dirname(sverchok.__file__),
-                              timeout=2)
+    # this commented out code needs revisiting at some point.
 
-        branch = str(res.stdout.decode("utf-8"))
-        BRANCH = branch.rstrip()
-    except: # if does not work ignore it
-        BRANCH = ""
-    if BRANCH:
-        return
+    # first use git to find branch
+    # try:
+    #     res = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+    #                           stdout=subprocess.PIPE,
+    #                           cwd=os.path.dirname(sverchok.__file__),
+    #                           timeout=2)
+
+    #     branch = str(res.stdout.decode("utf-8"))
+    #     BRANCH = branch.rstrip()
+    # except: # if does not work ignore it
+    #     BRANCH = ""
+    # if BRANCH:
+    #     return
 
     # if the above failed we can dig deeper, if this failed we concede victory.
     try:
@@ -59,6 +61,30 @@ def get_branch():
         BRANCH = branch.rstrip()
     except:
         BRANCH = ""
+
+    return BRANCH
+
+def get_hash():
+    get_branch()
+    if BRANCH:
+        path = os.path.join(os.path.dirname(sverchok.__file__), '.git', 'refs', 'heads', BRANCH)
+        if os.path.exists(path):
+            with open(path) as hashfile:
+                return hashfile.readlines()[0].strip()[:8]
+        else:
+            return None
+    else:
+        return None
+
+def get_version_string():
+    version = ".".join(map(str, sverchok.bl_info['version']))
+    branch = get_branch()
+    if branch:
+        version += ", branch " + branch
+        hash = get_hash()
+        if hash:
+            version += ", commit " + hash
+    return version
 
 def displaying_sverchok_nodes(context):
     return context.space_data.tree_type in {'SverchCustomTreeType', 'SverchGroupTreeType'}
@@ -94,6 +120,10 @@ class SvViewHelpForNode(bpy.types.Operator):
 
         string_dir = remapper.get(n.bl_idname)
         filename = n.__module__.split('.')[-1]
+        if filename in ('mask','mask_convert','mask_join'):
+            string_dir = 'list_masks'
+        elif filename in ('modifier'):
+            string_dir = 'list_mutators'
         help_url = string_dir + '/' + filename
 
         # first let's find if this is a valid doc file, by inspecting locally for the rst file.
@@ -113,9 +143,11 @@ class SvViewHelpForNode(bpy.types.Operator):
         help_url = help_url.replace(' ', '_')
         if self.kind == 'online':
             destination = 'http://nikitron.cc.ua/sverch/html/nodes/' + help_url + '.html'
-        else:
+        elif self.kind == 'offline':
             basepath = os.path.dirname(sverchok.__file__) + '/docs/nodes/'
             destination = r'file:///' + basepath + help_url + '.rst'
+        elif self.kind == 'github':
+            destination = 'https://github.com/nortikin/sverchok/blob/master/docs/nodes/' + help_url + '.rst'
 
         webbrowser.open(destination)
         return {'FINISHED'}
@@ -157,7 +189,7 @@ class SvViewSourceForNode(bpy.types.Operator):
                 fpath = fpath.replace(_dst, _src)
                 print(fpath)
 
-            subprocess.call([app_name, fpath])
+            subprocess.Popen([app_name, fpath])
             return {'FINISHED'}
         return {'CANCELLED'}
 
@@ -184,6 +216,7 @@ def idname_draw(self, context):
     row.label('help')
     row.operator('node.view_node_help', text='online').kind = 'online'
     row.operator('node.view_node_help', text='offline').kind = 'offline'
+    row.operator('node.view_node_help', text='', icon='GHOST').kind = 'github'
 
     # view the source of the current node ( warning, some nodes rely on more than one file )
     row = layout.row(align=True)

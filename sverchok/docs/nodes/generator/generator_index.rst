@@ -12,13 +12,14 @@ Generators
    circle
    cylinder
    image
-   line
+   line_mk2
    ngon
-   plane
+   plane_mk2
    random_vector_mk2
    script1_lite
    sphere
    icosphere
+   suzanne
    torus
    torusKnot
    formula_shape

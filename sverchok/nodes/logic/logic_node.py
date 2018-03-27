@@ -29,10 +29,10 @@ from sverchok.utils.sv_itertools import (recurse_fx, recurse_fxy)
 
 
 class SvLogicNode(bpy.types.Node, SverchCustomTreeNode):
-    ''' LogicNode '''
+    '''And, Or, If, <, >..'''
     bl_idname = 'SvLogicNode'
     bl_label = 'Logic functions'
-    bl_icon = 'OUTLINER_OB_EMPTY'
+    bl_icon = 'LOGIC'
 
 
 # Math functions from http://docs.python.org/3.3/library/math.html

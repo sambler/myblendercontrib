@@ -145,7 +145,8 @@ def get_dm():
     return dm
 
 def register():
-    bakeop = bpy.types.GRAPH_OT_sound_bake
+    #bakeop = bpy.types.GRAPH_OT_sound_bake
+    bakeop = bpy.ops.graph.sound_bake.get_rna()
     propdic = {}
     propfromtype(propdic, bakeop)
     bakeprops = type("BakeFCProperties", (PropertyGroup,), propdic)

@@ -22,17 +22,17 @@ from bpy.props import StringProperty, BoolProperty, FloatVectorProperty, IntProp
 from bpy.types import NodeTree, NodeSocket
 
 
-from sverchok.core.socket_data import SvGetSocket, SvGetSocketInfo
+from sverchok.core.socket_data import SvGetSocket, SvGetSocketInfo, SvNoDataError
 from sverchok.node_tree import SvSocketCommon, process_from_socket, sentinel
-
+from sverchok.core.socket_conversions import DefaultImplicitConversionPolicy
 
 class SvSocketStandard(SvSocketCommon):
     def get_prop_data(self):
         return {"default_value" , default_value}
 
-    def sv_get(self, default=sentinel, deepcopy=True):
+    def sv_get(self, default=sentinel, deepcopy=True, implicit_conversions=None):
         if self.is_linked and not self.is_output:
-            return SvGetSocket(self, deepcopy)
+            return self.convert_data(SvGetSocket(self, deepcopy), implicit_conversions)
         else:
             return [[self.default_value]]
 
@@ -90,16 +90,16 @@ class SvObjectSocket(NodeSocket, SvSocketCommon):
     def draw_color(self, context, node):
         return (0.69,  0.74,  0.73, 1.0)
 
-    def sv_get(self, default=sentinel, deepcopy=True):
+    def sv_get(self, default=sentinel, deepcopy=True, implicit_conversions=None):
         if self.is_linked and not self.is_output:
-            return SvGetSocket(self, deepcopy)
+            return self.convert_data(SvGetSocket(self, deepcopy), implicit_conversions)
         elif self.object_ref:
             obj_ref = bpy.data.objects.get(self.object_ref)
             if not obj_ref:
-                raise SvNoDataError
+                raise SvNoDataError(self)
             return [obj_ref]
         elif default is sentinel:
-            raise SvNoDataError
+            raise SvNoDataError(self)
         else:
             return default
 
@@ -118,13 +118,13 @@ class SvTextSocket(NodeSocket, SvSocketCommon):
     def draw_color(self, context, node):
         return (0.68,  0.85,  0.90, 1)
 
-    def sv_get(self, default=sentinel, deepcopy=True):
+    def sv_get(self, default=sentinel, deepcopy=True, implicit_conversions=None):
         if self.is_linked and not self.is_output:
-            return SvGetSocket(self, deepcopy)
+            return self.convert_data(SvGetSocket(self, deepcopy), implicit_conversions)
         elif self.text:
             return [self.text]
         elif default is sentinel:
-            raise SvNoDataError
+            raise SvNoDataError(self)
         else:
             return default
 

@@ -257,10 +257,7 @@ class create_hdr_sphere( bpy.types.Operator ):
         context.object.material_slots[0].material = mat
         
         # Create a new texture and set it up
-        bpy.data.textures.new( name = 'FakeHDR.Texture', type = 'IMAGE' )
-        tex       = bpy.data.textures[-1]
-        tex.name  = 'FakeHDR.Texture'
-        tex.type  = 'IMAGE'
+        tex = bpy.data.textures.new( name = 'FakeHDR.Texture', type = 'IMAGE' )
         tex.image = bpy.data.images[ context.scene.fake_hdr_image ]
 
         # Add material texture slot and set it up

@@ -1,17 +1,3 @@
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
 # grouping to surfaces must done by UV maps also, not only normals
 # TODO: merge surfaces with same uv maps and texture
 # TODO: check bounding sphere calculation
@@ -109,8 +95,12 @@ class MD3Exporter:
     def __init__(self, context):
         self.context = context
 
+    @property
+    def scene(self):
+        return self.context.scene
+
     def pack_tag(self, name):
-        tag = bpy.context.scene.objects[name]
+        tag = self.scene.objects[name]
         m = tag.matrix_basis.transposed()
         return fmt.Tag.pack(
             name=prepare_name(tag.name),
@@ -170,14 +160,14 @@ class MD3Exporter:
         return fmt.TexCoord.pack(s, t)
 
     def switch_frame(self, i):
-        bpy.context.scene.frame_set(bpy.context.scene.frame_start + i)
+        self.scene.frame_set(self.scene.frame_start + i)
 
     def surface_start_frame(self, i):
         self.switch_frame(i)
 
-        obj = bpy.context.scene.objects.active
+        obj = self.scene.objects.active
         self.mesh_matrix = obj.matrix_world
-        self.mesh = obj.to_mesh(bpy.context.scene, True, 'PREVIEW')
+        self.mesh = obj.to_mesh(self.scene, True, 'PREVIEW')
         self.mesh.calc_normals_split()
 
         self.mesh_sk_rel = None
@@ -199,10 +189,10 @@ class MD3Exporter:
                     self.mesh_sk_abs = (a, b, (e - kblocks[a].frame) / (kblocks[b].frame - kblocks[a].frame))
 
     def pack_surface(self, surf_name):
-        obj = bpy.context.scene.objects[surf_name]
-        bpy.context.scene.objects.active = obj
+        obj = self.scene.objects[surf_name]
+        self.scene.objects.active = obj
         bpy.ops.object.modifier_add(type='TRIANGULATE')  # no 4-gons or n-gons
-        self.mesh = obj.to_mesh(bpy.context.scene, True, 'PREVIEW')
+        self.mesh = obj.to_mesh(self.scene, True, 'PREVIEW')
         self.mesh.calc_normals_split()
 
         self.mesh_uvmap_name, self.mesh_shader_list = gather_shader_info(self.mesh)
@@ -214,7 +204,7 @@ class MD3Exporter:
         nVerts = len(self.mesh_md3vert_to_loop)
         nTris = len(self.mesh.polygons)
 
-        bpy.context.scene.frame_set(bpy.context.scene.frame_start)
+        self.scene.frame_set(self.scene.frame_start)
 
         f = OffsetBytesIO(start_offset=fmt.Surface.size)
         f.mark('offShaders')
@@ -289,10 +279,12 @@ class MD3Exporter:
         )
 
     def __call__(self, filename):
-        self.nFrames = self.context.scene.frame_end - self.context.scene.frame_start + 1
+        self.nFrames = self.scene.frame_end - self.scene.frame_start + 1
         self.surfNames = []
         self.tagNames = []
-        for o in self.context.scene.objects:
+        for o in self.scene.objects:
+            if o.hide:  # skip hidden objects
+                continue
             if o.type == 'MESH':
                 self.surfNames.append(o.name)
             elif o.type == 'EMPTY' and o.empty_draw_type == 'ARROWS':
@@ -302,6 +294,9 @@ class MD3Exporter:
         tags_bin = self.pack_animated_tags()
         surfaces_bin = [self.pack_surface(name) for name in self.surfNames]
         frames_bin = [self.pack_frame(i) for i in range(self.nFrames)]
+
+        if len(surfaces_bin) == 0:
+            raise ValueError("At least one surface mesh must be visible in order to export.")
 
         f = OffsetBytesIO(start_offset=fmt.Header.size)
         f.mark('offFrames')
@@ -316,13 +311,13 @@ class MD3Exporter:
             file.write(fmt.Header.pack(
                 magic=fmt.MAGIC,
                 version=fmt.VERSION,
-                modelname=self.context.scene.name,
+                modelname=self.scene.name,
                 flags=0,  # ignored
                 nFrames=self.nFrames,
                 nTags=len(self.tagNames),
-                nSurfaces=len(self.surfNames),
+                nSurfaces=len(surfaces_bin),
                 nSkins=0,  # count of skins, ignored
                 **f.getoffsets()
             ))
             file.write(f.getvalue())
-            print('nFrames={} nSurfaces={}'.format(self.nFrames, len(self.surfNames)))
+            print('nFrames={} nSurfaces={}'.format(self.nFrames, len(surfaces_bin)))

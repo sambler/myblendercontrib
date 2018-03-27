@@ -46,6 +46,7 @@ def invsquare(x):
     return x*x
 
 class SvProportionalEditNode(bpy.types.Node, SverchCustomTreeNode):
+    ''' Curved mask coeffs.'''
     bl_idname = 'SvProportionalEditNode'
     bl_label = 'Proportional Edit Falloff'
     bl_icon = 'PROP_ON'
@@ -105,19 +106,25 @@ class SvProportionalEditNode(bpy.types.Node, SverchCustomTreeNode):
 
             # build KDTree
             base = [v for v, mask in zip(vertices, masks) if mask]
-            tree = kdtree.KDTree(len(base))
-            for i, v in enumerate(base):
-                tree.insert(v, i)
-            tree.balance()
+            
+            if len(base):
 
-            coeffs = []
-            for vertex, mask in zip(vertices, masks):
-                if mask:
-                    coef = 1.0
-                else:
-                    _, _, rho = tree.find(vertex)
-                    coef = self.falloff(radius, rho)
-                coeffs.append(coef)
+                tree = kdtree.KDTree(len(base))
+                for i, v in enumerate(base):
+                    tree.insert(v, i)
+                tree.balance()
+
+                coeffs = []
+                for vertex, mask in zip(vertices, masks):
+                    if mask:
+                        coef = 1.0
+                    else:
+                        _, _, rho = tree.find(vertex)
+                        coef = self.falloff(radius, rho)
+                    coeffs.append(coef)
+
+            else:
+                coeffs = [0.0 for _ in masks]
 
             out_coeffs.append(coeffs)
 

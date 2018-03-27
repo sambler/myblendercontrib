@@ -619,6 +619,7 @@ class MESH_PT_renderman_prim_vars(CollectionPanel, Panel):
 
         layout.prop(rm, "export_default_uv")
         layout.prop(rm, "export_default_vcol")
+        layout.prop(rm, "export_flipv")
         layout.prop(rm, "interp_boundary")
         layout.prop(rm, "face_boundary")
 

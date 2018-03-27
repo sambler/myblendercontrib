@@ -33,9 +33,116 @@ import json
 from bpy.app.handlers import persistent
 from .. functions import *
 
+
+class UIListJsonImport(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        row = layout.row()
+        
+        row.prop(item,"active",text="")
+        row.label(text=item.name)
+
+class JsonImportData(bpy.types.PropertyGroup):
+    name = StringProperty()
+    active = BoolProperty()
+
+class LoadJsonData(bpy.types.Operator):
+    bl_idname = "coa_tools.load_json_data"
+    bl_label = "Load Json Data"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+    
+    def toggle_active(self,context):
+        for item in self.json_import_data:
+            item.active = self.active_all
+    
+    filepath = StringProperty()
+    json_data = StringProperty()
+    json_import_data = CollectionProperty(type=JsonImportData)
+    active_all = BoolProperty(default=True,update=toggle_active)
+    index = IntProperty()
+    mode = EnumProperty(items=(("UPDATE","Update Existing","Update","FILE_REFRESH",0),("ADD","Add as New","Add as New","FORWARD",1)))
+    
+    @classmethod
+    def poll(cls, context):
+        return True
+    
+    def check(self,context):
+        return True
+    
+    def draw(self, context):
+        layout = self.layout 
+        
+        row = layout.row()
+        row.prop(self,"mode",expand=True)
+        col = layout.column()
+        #row.template_list("UIListAnimationCollections","dummy",sprite_object, "coa_anim_collections", sprite_object, "coa_anim_collections_index",rows=2,maxrows=10,type='DEFAULT')
+        box = col.box()
+        box.prop(self,"active_all",text="Import All")
+        col.template_list("UIListJsonImport","dummy",self,"json_import_data",self,"index",rows=10)
+
+    def invoke(self, context, event):
+        
+        sprite_data = eval(self.json_data)
+        for node in sprite_data["nodes"]:
+            item = self.json_import_data.add()
+            item.name = node["name"]
+            item.active = True
+        
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+
+    def execute(self, context):
+        scene = context.scene
+        sprite_data = eval(self.json_data)
+        
+        ext = os.path.splitext(self.filepath)[1]
+        folder = (os.path.dirname(self.filepath))
+        
+        for object in bpy.context.selected_objects:
+            object.select = False
+                
+        sprite_object = get_sprite_object(context.active_object)                
+            
+
+        
+        if "name" in sprite_data:
+            sprite_object.name = sprite_data["name"]
+            
+        if "nodes" in sprite_data:
+            for i,sprite in enumerate(sprite_data["nodes"]):
+                if sprite["name"] in self.json_import_data and self.json_import_data[sprite["name"]].active:
+                    
+                    filepath = os.path.join(folder,sprite["resource_path"])
+                    pos = [sprite["position"][0],-sprite["z"],sprite["position"][1]]
+                    offset = [sprite["offset"][0],0,sprite["offset"][1]]
+                    parent = sprite_object.name
+                    tilesize = [sprite["tiles_x"],sprite["tiles_y"]]
+                    scale = get_addon_prefs(context).sprite_import_export_scale
+                    
+                    
+                    if self.mode == "ADD":
+                        bpy.ops.coa_tools.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=scale,pos=pos,tilesize=tilesize,offset=offset)
+                    if self.mode == "UPDATE":
+                        if sprite["name"] in context.scene.objects:
+                            obj = context.scene.objects[sprite["name"]]
+                            obj.select = True
+                            context.scene.objects.active = obj
+                            bpy.ops.coa_tools.coa_reimport_sprite(filepath=filepath,name=sprite["name"])
+                        else:
+                            bpy.ops.coa_tools.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=scale,pos=pos,tilesize=tilesize,offset=offset)
+                    
+                    
+                    obj = context.active_object
+                    obj.parent = sprite_object
+                
+        context.scene.objects.active = sprite_object    
+        
+        return {"FINISHED"}
+        
+
 ######################################################################################################################################### Import Single Sprite
 class ImportSprite(bpy.types.Operator):
-    bl_idname = "wm.coa_import_sprite"
+    bl_idname = "coa_tools.coa_import_sprite"
     bl_label = "Import Sprite"
     bl_options = {"REGISTER","UNDO"}
     
@@ -45,7 +152,6 @@ class ImportSprite(bpy.types.Operator):
     offset = FloatVectorProperty(default=Vector((0,0,0)))
     tilesize = FloatVectorProperty(default = Vector((1,1)),size=2)
     parent = StringProperty(name="Parent Object",default="None")
-    
     
     def create_verts(self,width,height,pos,me,tag_hide=False):
         bpy.ops.object.mode_set(mode="EDIT")
@@ -88,7 +194,7 @@ class ImportSprite(bpy.types.Operator):
         mod.show_render = False
         mod.show_viewport = False
         mod.show_on_cage = True
-        obj.coa_hide_base_sprite = False
+        obj.data.coa_hide_base_sprite = False
         
         
         obj.data.uv_textures.new("UVMap")
@@ -175,7 +281,7 @@ class ImportSprite(bpy.types.Operator):
         
 ######################################################################################################################################### Import Multiple Sprites
 class ImportSprites(bpy.types.Operator, ImportHelper):
-    bl_idname = "import.coa_import_sprites" 
+    bl_idname = "coa_tools.coa_import_sprites" 
     bl_label = "Import Sprites"
     bl_description="Imports sprites into Blender"
     
@@ -192,9 +298,12 @@ class ImportSprites(bpy.types.Operator, ImportHelper):
 
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling.
-    use_setting = None
+    #use_setting = None
+    replace = BoolProperty(name="Update Existing",default=True)
     
     def execute(self, context):
+        sprite_object = get_sprite_object(context.active_object)
+        
         bpy.context.space_data.viewport_shade = "TEXTURED"
         bpy.context.scene.game_settings.material_mode = "GLSL"
         
@@ -204,34 +313,21 @@ class ImportSprites(bpy.types.Operator, ImportHelper):
         for object in bpy.context.selected_objects:
             object.select = False
                 
-        sprite_object = get_sprite_object(context.active_object)            
         #if ext in [".png",".jpg",".psd",".jpeg",".gif"] or ext in [".avi",".wmv",".webm",".mpeg",".mp4",".mov"]:
         if ext not in [".json"]:
             for i in self.files:
                 filepath = (os.path.join(folder, i.name))
-                bpy.ops.wm.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=get_addon_prefs(context).sprite_import_export_scale)
+                if not self.replace or i.name not in bpy.data.objects:
+                    bpy.ops.coa_tools.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=get_addon_prefs(context).sprite_import_export_scale)
+                else:
+                    bpy.ops.coa_tools.coa_reimport_sprite(filepath=filepath,name=i.name)
         else:
             data_file = open(self.filepath)
             sprite_data = json.load(data_file)
             data_file.close()
             
-            if "name" in sprite_data:
-                sprite_object.name = sprite_data["name"]
-                
-            if "nodes" in sprite_data:
-                for i,sprite in enumerate(sprite_data["nodes"]):
-                    filepath = os.path.join(folder,sprite["resource_path"])
-                    pos = [sprite["position"][0],-sprite["z"],sprite["position"][1]]
-                    offset = [sprite["offset"][0],0,sprite["offset"][1]]
-                    parent = sprite_object.name
-                    tilesize = [sprite["tiles_x"],sprite["tiles_y"]]
-                    scale = get_addon_prefs(context).sprite_import_export_scale
-                    
-                    bpy.ops.wm.coa_import_sprite(path = filepath, pos = pos, offset = offset, parent = parent, tilesize = tilesize, scale = scale)
-                    obj = context.active_object
-                    obj.parent = sprite_object
-                    
-            context.scene.objects.active = sprite_object
+            bpy.ops.coa_tools.load_json_data("INVOKE_DEFAULT",json_data = str(sprite_data),filepath=self.filepath)
+
         if bpy.context.screen.coa_view == "3D":
             bpy.ops.view3d.viewnumpad(type="FRONT")
         if context.space_data.region_3d.is_perspective:
@@ -242,7 +338,7 @@ class ImportSprites(bpy.types.Operator, ImportHelper):
 
     
 class ReImportSprite(bpy.types.Operator, ImportHelper):
-    bl_idname = "import.coa_reimport_sprite"
+    bl_idname = "coa_tools.coa_reimport_sprite"
     bl_label = "Reimport Sprite"
     bl_description="Reimports sprites"
     
@@ -321,10 +417,17 @@ class ReImportSprite(bpy.types.Operator, ImportHelper):
         obj.coa_tiles_y = 1
         
         img_dimension = img.size
-        sprite_dimension = Vector(obj.coa_sprite_dimension) * (1/scale)
+        
+        obj_dimension = Vector(obj.dimensions)
+        obj_dimension[0] /= obj.scale[0]
+        obj_dimension[1] /= obj.scale[1]
+        obj_dimension[2] /= obj.scale[2]
+        
+        sprite_dimension = Vector(obj_dimension) * (1/scale)
+
         ratio_x = img_dimension[0] / sprite_dimension[0]
         ratio_y = img_dimension[1] / sprite_dimension[2]
         self.move_verts(obj,ratio_x,ratio_y)
-        
+
         bpy.context.scene.objects.active = active_obj
         return {'FINISHED'}

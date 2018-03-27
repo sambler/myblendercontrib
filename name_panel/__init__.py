@@ -16,9 +16,9 @@ this program. If not, see <http://www.gnu.org/licenses/>.
 bl_info = {
     'name': 'Name Panel',
     'author': 'Trentin Frederick (proxe)',
-    'version': (1, 7, 466),
-    'blender': (2, 68, 0),
-    'location': '3D View \N{Rightwards Arrow} Property Shelf \N{Rightwards Arrow} Name',
+    'version': (1, 7, 476),
+    'blender': (2, 69, 0),
+    'location': '3D View \N{Rightwards Arrow} Tool Shelf \N{Rightwards Arrow} Name',
     'description': 'In panel datablock name stack with shortcut and batch name tools.',
     'wiki_url': 'https://cgcookiemarkets.com/all-products/name-panel/?view=docs',
     'tracker_url': 'https://github.com/trentinfrederick/name-panel/issues',
@@ -65,7 +65,7 @@ class save(Operator):
                 bpy.utils.register_class(name.toolsName)
 
             # has ui name
-            if hasattr(bpy.types, 'VIEW3D_PT_UI_name')    :
+            if hasattr(bpy.types, 'VIEW3D_PT_UI_name'):
                 bpy.utils.unregister_class(name.UIName)
 
         # isnt location tools
@@ -150,7 +150,7 @@ class preferences(AddonPreferences):
         op.quickBatch = True
 
         # operator; batch name copy
-        row.operator('wm.copy_name_defaults', text='Copy Name')
+        row.operator('wm.copy_name_defaults', text='Transfer Name')
 
         # label
         box.label(text='Name Panel Location:')
@@ -162,7 +162,7 @@ class preferences(AddonPreferences):
         row.prop(context.scene.NamePanel, 'location', expand=True)
 
         # label
-        box.label(text='Property Panel Location:')
+        box.label(text='Datablock Panel Location:')
 
         # row
         row = box.row()
@@ -208,7 +208,13 @@ class preferences(AddonPreferences):
         prop.url = 'https://cgcookiemarkets.com/all-products/name-panel/'
 
         # operator; url open
-        prop = split.operator('wm.url_open', text='Blender Artists Thread')
+        prop = split.operator('wm.url_open', text='proxeIO')
+
+        # proxeIO
+        prop.url = 'https://proxeIO.github.io/'
+
+        # operator; url open
+        prop = split.operator('wm.url_open', text='Thread')
 
         # blender artists
         prop.url = 'http://blenderartists.org/forum/showthread.php?272086'

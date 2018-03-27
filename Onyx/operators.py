@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import Operator
-from .object_lib import ActivateObject, FocusObject, SelectObject
+from .object_lib import ActivateObject, FocusObject, SelectObject, RecordSelectedState, RestoreSelectedState
 from .update import Update_ObjectOrigin, Update_ObjectVGOrigin, SetMeshOrigin
 
 class OX_Update_Origin(Operator):

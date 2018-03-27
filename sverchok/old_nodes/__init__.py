@@ -16,65 +16,23 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-old_bl_idnames = {
-    'CentersPolsNode' : "polygons_center",
-    'LineConnectNode' : 'uvconnectmk1',
-    'ShiftNode' : 'shift',
-    'ListSortNode' : 'sort',
-    # 'ListLengthNode' : 'length',
-    'ListSumNode' : 'sum',
-    'BmeshViewerNode' : 'viewer_bmesh',
-    # 'BakeryNode' : "bakery",
-    'CircleNode' : "circle",
-    'ListItemNode' : "list_item",
-    'GenRangeNode' : "range",
-    'VectorMathNode' : "math",
-    'GenSeriesNode' : "series",
-    'SvKDTreeEdgesNode': "kd_tree_edges",
-    'SvFrameInfoNode': "frame_info",
-    #'Test1Node' : "test",
-    #'Test2Node' : "test",
-    #'ToolsNode' : "tools",
-    'SvProfileNode': "profile",
-    'SvReRouteNode': "reroute",
-    'VoronoiNode': "voronoi",
-    'ViewerNode': "viewer",
-    'SvPolylineViewerNode': 'viewer_polyline',
-    'SkinViewerNode': 'viewer_skin',
-    'SvGetDataObjectNode': 'get_blenddata',
-    'ObjectsNode': "objects",
-    'ObjectsNodeMK2': "objects_mk2",
-    'RandomVectorNode': 'random_vector',
-    'svAxisInputNode': 'axis_input',
-    'SvIntersectEdgesNode': 'edges_intersect',
-    'ViewerNode_text': "viewer_text",
-    'EvalKnievalNode': "eval_knieval",
-    'SvStethoscopeNode' :'stethoscope',
-    'FormulaNode': 'formula',
-    'SvNoiseNode': 'noise',
-    'SvPointOnMeshNode': 'closest_point_on_mesh',
-    'SvRayCastObjectNode': 'object_raycast',
-    'SvRayCastSceneNode': 'scene_raycast',
-    'SvObjectToMeshNode': 'blenddata_to_svdata',
-    'SvSetDataObjectNode': 'set_blenddata',
-    'SvVertexGroupNode': 'weights',
-    'MatrixGenNode':'matrix_in',
-    'LineNode': 'line',
-    'PlaneNode': 'plane',
-    'SvBMOpsNode': 'BMOperators',
-    'SvCSGBooleanNode': 'csg_boolean',
-    'SvKDTreeNode': 'kd_tree'
-}
 
-# we should add some functions to load things there
+import os
 import importlib
 import inspect
 import traceback
 
 import bpy
 
+
 from sverchok.node_tree import SverchCustomTreeNode
+from sverchok.utils.sv_oldnodes_parser import get_old_node_bl_idnames
+from sverchok.utils.logging import error, exception
+
 imported_mods = {}
+
+old_bl_idnames = get_old_node_bl_idnames(path=os.path.dirname(__file__))
+
 
 def is_old(node_info):
     '''
@@ -151,18 +109,23 @@ def register_old(bl_id):
     if bl_id in old_bl_idnames:
         mod = importlib.import_module(".{}".format(old_bl_idnames[bl_id]), __name__)
         res = inspect.getmembers(mod)
+        # print('mod/res:', mod, res)
         for name, cls in res:
             if inspect.isclass(cls):
                 if issubclass(cls, bpy.types.Node) and cls.bl_idname == bl_id:
                     if bl_id not in imported_mods:
                         try:
                             mod.register()
-                        except:
-                            traceback.print_exc()
+                        except Exception as err:
+                            print('failed mod register')
+                            exception(err)
+
                         imported_mods[bl_id] = mod
                         return mod
-                    
-    print("Cannot find {} among old nodes".format(bl_id))
+                    else:
+                        return imported_mods[bl_id]
+
+    error("Cannot find {} among old nodes".format(bl_id))
     return None
 
 def unregister_old(bl_id):

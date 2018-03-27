@@ -1275,13 +1275,13 @@ class GafFixMIS(bpy.types.Operator):
 
 class GafGetHDRIHaven(bpy.types.Operator):
 
-    "Instantly download free CC-BY HDRIs from hdrihaven.com"
+    "Instantly download free HDRIs from hdrihaven.com"
     bl_idname = 'gaffer.get_hdri_haven'
     bl_label = 'Get Free HDRIs'
     bl_options = {'INTERNAL'}
 
     def draw(self, context):
-        num_hdris = 100  # Assume 100, but check the actual number if possible
+        num_hdris = 50  # Assume 50, but check the actual number if possible
         if hdri_haven_list:
             num_hdris = len(hdri_haven_list)
         download_size = 1.6 * num_hdris
@@ -1290,7 +1290,7 @@ class GafGetHDRIHaven(bpy.types.Operator):
         col = layout.column(align=True)
         row = col.row()
         row.alignment='CENTER'
-        row.label("This will download ~"+str(num_hdris)+" 1k HDRIs from hdrihaven.com")
+        row.label("This will download ~"+str(num_hdris)+" HDRIs from hdrihaven.com")
         row = col.row()
         row.alignment='CENTER'
         row.label("(~"+str(download_size)+" MB)")
@@ -1298,29 +1298,28 @@ class GafGetHDRIHaven(bpy.types.Operator):
         col.separator()
         row = col.row()
         row.alignment='CENTER'
-        row.label("The HDRIs are licenced under a creative commons attribution license,")
+        row.label("The HDRIs are licenced as CC0, so you can do whatever you want with them.")
         row = col.row()
         row.alignment='CENTER'
-        row.label("this means you can use them for any purpose as long as you credit hdrihaven.com")
+        row.label("More info at hdrihaven.com")
 
         col.separator()
         row = col.row()
         row.alignment='CENTER'
         row.label("If you already have some of them, those will be skipped")
 
-    def download_file(self, context, i, hh, h_list, out_folder, num_hdris):
-        from urllib.request import urlretrieve
-
+    def download_file(self, context, req, i, hh, h_list, out_folder, num_hdris):
         filename = hh+'_1k.hdr'
         if hh not in h_list:
             filepath = os.path.join(out_folder, filename)
             print (str(i+1)+'/'+str(num_hdris), "Downloading:", filename)
             try:
-                urlretrieve('https://hdrihaven.com/hdris/hdris/'+filename, filepath)
+                url = 'https://hdrihaven.com/files/hdris/'+filename
+                req.urlretrieve(url, filepath)
                 success = True
             except:
                 import sys
-                print ("    Failed to download " + filename + " ("+sys.exc_info()[0]+")")
+                print ("    Failed to download " + filename + " ("+str(sys.exc_info()[0])+")")
         else:
             print ("Skipping " + filename + ", you already have it")
                     
@@ -1338,12 +1337,21 @@ class GafGetHDRIHaven(bpy.types.Operator):
             if not os.path.exists(out_folder):
                 os.makedirs(out_folder)
 
+            import urllib.request as req
+            # Spoof User-agent so server firewall doesn't block downloads
+            opener = req.build_opener()
+            opener.addheaders = [('User-agent', 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:55.0) Gecko/20100101 Firefox/55.0')]
+            req.install_opener(opener)
+
             from concurrent.futures import ThreadPoolExecutor
             executor = ThreadPoolExecutor(max_workers=12)
             threads = []
             for i, hh in enumerate(hdrihaven_hdris):
-                t = executor.submit(self.download_file, context, i, hh, hdri_list, out_folder, num_hdris)
+                t = executor.submit(self.download_file, context, req, i, hh, hdri_list, out_folder, num_hdris)
                 threads.append(t)
+            # Debug (single threaded)
+            # for i, hh in enumerate(hdrihaven_hdris):
+            #     self.download_file(context, req, i, hh, hdri_list, out_folder, num_hdris)
 
             errors = []
             while (any(t._state!="FINISHED" for t in threads)):
@@ -1364,7 +1372,7 @@ class GafGetHDRIHaven(bpy.types.Operator):
 
             progress_end(context)
         else:
-            self.report({'ERROR'}, "Cannot connect to HDRI Haven website, check your internet connection or try again later")
+            self.report({'ERROR'}, "Cannot connect to HDRI Haven website, check your internet connection or try again later. If this error persists, contact info@hdrihaven.com")
             return {'CANCELLED'}
 
         if success:
@@ -1390,9 +1398,9 @@ class GafHideHDRIHaven(bpy.types.Operator):
 
 class GafOpenHDRIHaven(bpy.types.Operator):
 
-    "Buy the full 16k resolution of this HDRI for $5.95 (opens web browser)"
-    bl_idname = 'gaffer.buy_hdri_haven'
-    bl_label = 'Buy full-res HDRI'
+    "Download higher resolutions of this HDRI (also free) - opens web browser"
+    bl_idname = 'gaffer.go_hdri_haven'
+    bl_label = 'Download higher resolutions of this HDRI (also free)'
     url = bpy.props.StringProperty()
 
     def execute(self, context):

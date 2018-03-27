@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Import SMD: Valve studiomodel source format",
     "author": "nemyax",
-    "version": (0, 1, 20170509),
+    "version": (0, 1, 20171130),
     "blender": (2, 7, 8),
     "location": "File > Import-Export",
     "description": "Import Valve studiomodel sources",
@@ -348,7 +348,9 @@ def skip_until(regex, ls):
 
 def bone_tree_blender(ao):
     if "smd" in [g.name.lower() for g in ao.pose.bone_groups]:
-        pbs = [b for b in ao.pose.bones if b.bone_group.name.lower() == "smd"]
+        pbs = [b for b in ao.pose.bones
+            if b.bone_group != None
+            and b.bone_group.name.lower() == "smd"]
     else:
         pbs = ao.pose.bones[:]
     return btb(None, pbs)
@@ -358,12 +360,11 @@ def btb(b, bs): # recursive; shouldn't matter for poxy SMD skeletons
     return [[c.name, btb(c, bs)] for c in ch]
 
 def bone_tree_smd(lst):
-    root = [a for a in lst if a[2] == -1][0]
-    return [[root[1], btm(root, lst)]]
+    return btm(-1, lst)
 
-def btm(e, l):
-    ch = sorted([a for a in l if a[2] == e[0]], key=lambda x: x[1])
-    return [[c[1], btm(c, l)] for c in ch]
+def btm(i, l):
+    ch = sorted([a for a in l if a[2] == i], key=lambda x: x[1])
+    return [[c[1], btm(c[0], l)] for c in ch]
 
 ###
 ### Operators and auxiliary functions

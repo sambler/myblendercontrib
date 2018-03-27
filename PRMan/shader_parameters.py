@@ -239,7 +239,7 @@ def update_func_with_inputs(self, context):
     from . import engine
     if engine.is_ipr_running():
         engine.ipr.issue_shader_edits(node=node)
-    
+
     if context and hasattr(context, 'material'):
         mat = context.material
         if mat:
@@ -263,7 +263,7 @@ def update_func_with_inputs(self, context):
         for input_name, socket in node.inputs.items():
             if 'hidden' in prop_meta[input_name]:
                 socket.hide = prop_meta[input_name]['hidden']
-    
+
 
 # send updates to ipr if running
 def update_func(self, context):
@@ -276,7 +276,7 @@ def update_func(self, context):
     from . import engine
     if engine.is_ipr_running():
         engine.ipr.issue_shader_edits(node=node)
-    
+
     if context and hasattr(context, 'material'):
         mat = context.material
         if mat:
@@ -296,7 +296,7 @@ def update_func(self, context):
             if 'hidden' in prop_meta[input_name] \
                     and prop_meta[input_name]['hidden'] and not socket.hide:
                 socket.hide = True
-    
+
 
 def update_inputs(node):
     if node.bl_idname == 'PxrMeshLightLightNode':
@@ -416,7 +416,6 @@ def generate_property(sp):
         param_type = sp.attrib['type']
     tags = sp.find('tags')
 
-    param_help = ""
     param_default = sp.attrib['default'] if 'default' in sp.attrib else None
 
     prop_meta = sp.attrib
@@ -449,12 +448,23 @@ def generate_property(sp):
 
     # sigh, some visops are in attrib:
     elif 'conditionalVisOp' in sp.attrib:
-        prop_meta['conditionalVisOp'] = parse_conditional_visop_attrib(
-            sp.attrib)
+        prop_meta['conditionalVisOp'] = parse_conditional_visop_attrib(sp.attrib)
 
+    param_help = ""
     for s in sp:
         if s.tag == 'help' and s.text:
-            param_help = s.text.rstrip('.')
+            #
+            # remove leading mutlispaces (note: 'leading' require re.MULTILINE)
+            param_help = re.sub(r"^(?:\ )+", '', s.text, count=0, flags=re.M)
+
+            # remove single newline at beginning (if any) of whole xml node
+            param_help = re.sub(r'^\n', '', param_help)
+
+            # remove single newline chars (exact match), replace with a space
+            # (preserving multi newlines as formatting as paragraphs).
+            # Add a newline to the end of whole xml node to separate additional
+            # infos added by Blender itself.
+            param_help = re.sub(r"(?<!\n)\n(?!\n)", ' ', param_help, count=0, flags=re.M) + '\n'
 
     if 'float' in param_type:
         if 'arraySize' in sp.attrib.keys():

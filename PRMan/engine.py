@@ -547,7 +547,7 @@ class RPass:
                               denoise_data)
 
         # Load all output images into image editor
-        if self.rm.import_images and self.rm.render_into == 'blender':
+        if bpy.app.version[1] < 79 and self.rm.import_images and self.rm.render_into == 'blender':
             for image in self.output_files:
                 try:
                     bpy.ops.image.open(filepath=image)

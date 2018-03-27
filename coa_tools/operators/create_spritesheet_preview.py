@@ -37,7 +37,7 @@ import bpy.utils.previews
 
     
 class SelectFrameThumb(bpy.types.Operator):
-    bl_idname = "my_operator.select_frame_thumb"
+    bl_idname = "coa_tools.select_frame_thumb"
     bl_label = "Select Frame Thumb"
     bl_description = "Loads all Spritesheet frames and generates a thumbnail preview. Can take a while when loading the first time."
     bl_options = {"REGISTER"}
@@ -62,9 +62,16 @@ class SelectFrameThumb(bpy.types.Operator):
         if "coa_sprite" in obj and obj.type == "MESH" and obj.coa_tiles_x * obj.coa_tiles_y > 1:
             if obj.coa_tiles_changed:
                 obj.coa_sprite_updated = False
-            bpy.ops.my_operator.create_spritesheet_preview()
+            bpy.ops.coa_tools.create_spritesheet_preview()
                 
             wm = context.window_manager 
+            return wm.invoke_popup(self,100)
+        elif obj.coa_type == "SLOT" and len(obj.coa_slot) > 0:
+            wm = context.window_manager
+            try:
+                obj.coa_sprite_frame_previews = str(obj.coa_slot_index)
+            except:
+                pass    
             return wm.invoke_popup(self,100)
         else:
             self.report({'INFO'},"Object has no Sprites.")
@@ -74,7 +81,7 @@ class SelectFrameThumb(bpy.types.Operator):
         return {"FINISHED"}
         
 class CreateSpritesheetPreview(bpy.types.Operator):
-    bl_idname = "my_operator.create_spritesheet_preview"
+    bl_idname = "coa_tools.create_spritesheet_preview"
     bl_label = "Create Spritesheet Preview"
     bl_description = ""
     bl_options = {"REGISTER"}

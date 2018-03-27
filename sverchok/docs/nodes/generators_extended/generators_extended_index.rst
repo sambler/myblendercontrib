@@ -11,10 +11,9 @@ Generators Extended
    hilbert
    hilbert3d
    hilbert_image
-   hexa_grid
+   hexa_grid_mk1
    image_components
    profile_mk2
-   plane_mk2
    mesh_eval
    ring
    script

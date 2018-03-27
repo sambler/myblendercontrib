@@ -110,4 +110,4 @@ def count(layout, option):
     subsubsub.prop(option, 'separator', text='')
 
     # ignore
-    subsub.prop(option, 'ignore', text='', icon='ZOOM_PREVIOUS')
+    # subsub.prop(option, 'ignore', text='', icon='ZOOM_PREVIOUS')

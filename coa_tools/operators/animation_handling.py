@@ -34,7 +34,7 @@ from bpy.app.handlers import persistent
 from .. functions import *
 
 class AddKeyframe(bpy.types.Operator):
-    bl_idname = "my_operator.add_keyframe"
+    bl_idname = "coa_tools.add_keyframe"
     bl_label = "Add Keyframe"
     bl_description = "Add Keyframe"
     bl_options = {"REGISTER"}
@@ -43,7 +43,8 @@ class AddKeyframe(bpy.types.Operator):
     add_keyframe = BoolProperty(default=True)
     interpolation = EnumProperty(default="BEZIER",items=(("BEZIER","BEZIER","BEZIER","IPO_BEZIER",0),("LINEAR","LINEAR","LINEAR","IPO_LINEAR",1),("CONSTANT","CONSTANT","CONSTANT","IPO_CONSTANT",2)))
     default_interpolation = StringProperty()
-    
+    obj = StringProperty(default="")
+    key_obj = None
     @classmethod
     def poll(cls, context):
         return True
@@ -58,16 +59,17 @@ class AddKeyframe(bpy.types.Operator):
             if data_path in fcurve.data_path:
                 for key in fcurve.keyframe_points:
                     if key.co[0] == context.scene.frame_current:
-                        print(self.interpolation)
                         key.interpolation = self.interpolation
     
     def create_keyframe(self,context,event,data_path,group=""):
         sprite = context.active_object
         sprite_object = get_sprite_object(sprite)
         
+        sprites = context.selected_objects if self.key_obj == None else [self.key_obj]
         if sprite_object.coa_anim_collections_index > 1:
             if self.add_keyframe:
-                for sprite in context.selected_objects:
+                #for sprite in context.selected_objects:
+                for sprite in sprites:    
                     if sprite.animation_data != None and sprite.animation_data.action != None:
                         if group != "":
                             sprite.keyframe_insert(data_path,group=group)
@@ -84,7 +86,7 @@ class AddKeyframe(bpy.types.Operator):
                             
                 self.report({'INFO'},str("Keyframe added at frame "+str(context.scene.frame_current)+"."))    
             else:
-                for sprite in context.selected_objects:
+                for sprite in sprites:#context.selected_objects:
                     if sprite.animation_data != None and sprite.animation_data.action != None:
                         sprite.keyframe_delete(data_path)
                         
@@ -94,7 +96,7 @@ class AddKeyframe(bpy.types.Operator):
                             action = bpy.data.actions[action_name]
                             if len(action.fcurves) == 0:
                                 action.use_fake_user = False
-                                action.user_clear()   
+                                action.user_clear()
                         self.report({'INFO'},str("Keyframe deleted at frame "+str(context.scene.frame_current)+"."))
                         set_action(context)
                     else:
@@ -104,7 +106,7 @@ class AddKeyframe(bpy.types.Operator):
     
     
     def create_bone_keyframe(self,context,event,prop_name):
-        obj = context.active_object
+        obj = context.active_object if self.key_obj == None else self.key_obj
         if obj != None and obj.type == "ARMATURE" and obj.mode == "POSE":
             for pose_bone in context.selected_pose_bones:
                 data_path = 'pose.bones["'+str(pose_bone.name)+'"].'+prop_name
@@ -119,16 +121,25 @@ class AddKeyframe(bpy.types.Operator):
     
     def invoke(self,context,event):
         wm = context.window_manager
-        if event.ctrl:
+        if event.ctrl and self.add_keyframe:
             
             return wm.invoke_props_dialog(self)
         else:
-            self.interpolation = self.default_interpolation
+            try:
+                self.interpolation = self.default_interpolation
+            except:
+                pass    
             self.execute(context)
+            self.obj = ""
+            self.key_obj = None
             return {'FINISHED'}
             
         
     def execute(self,context):
+        
+        if self.obj != "":
+            self.key_obj = bpy.data.objects[self.obj]
+            
         event = None
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
@@ -151,13 +162,60 @@ class AddKeyframe(bpy.types.Operator):
                 self.create_keyframe(context,event,self.prop_name)
         else:
             self.report({'WARNING'},"First create an animation collection.")        
-                
+        self.obj = ""
+        self.key_obj = None    
         return {"FINISHED"}   
 
+class DuplicateAnimationCollection(bpy.types.Operator):
+    bl_idname = "coa_tools.duplicate_animation_collection"
+    bl_label = "Duplicate Animation Collection"
+    bl_description = "Duplicate Animation Collection"
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    sprite_object = None
+    
+    def execute(self, context):
+        self.sprite_object = get_sprite_object(context.active_object)
+        
+        if self.sprite_object != None:
+            
+            name_array = []
+            for item in self.sprite_object.coa_anim_collections:
+                name_array.append(item.name)
+            
+            active_anim_collection = self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index]
+            active_anim_name = str(active_anim_collection.name)
+            active_anim_frame_end = active_anim_collection.frame_end
+            active_anim_frame_action_collection = active_anim_collection.action_collection
+            
+            new_anim_collection = self.sprite_object.coa_anim_collections.add()
+            
+            new_anim_collection_name = check_name(name_array,active_anim_name)
+            new_anim_collection.name = new_anim_collection_name
+            new_anim_collection.frame_end = active_anim_frame_end
+            new_anim_collection.action_collection = active_anim_frame_action_collection
+            
+            for action in bpy.data.actions:
+                name = active_anim_name + "_"
+                if name in action.name:
+                    
+                    copied_action = action.copy()
+                    new_name = new_anim_collection_name + "_"
+                    new_name = str(action.name).replace(name,new_name)
+                    copied_action.name = new_name
+            self.sprite_object.coa_anim_collections_index = len(self.sprite_object.coa_anim_collections)-1
+            
+        return {"FINISHED"}
+        
+
 class AddAnimationCollection(bpy.types.Operator):
-    bl_idname = "my_operator.add_animation_collection"
+    bl_idname = "coa_tools.add_animation_collection"
     bl_label = "Add Animation Collection"
-    bl_description = ""
+    bl_description = "Add new Animation Collection"
     bl_options = {"REGISTER"}
 
     @classmethod
@@ -213,9 +271,9 @@ class AddAnimationCollection(bpy.types.Operator):
         return {"FINISHED"}
         
 class RemoveAnimationCollection(bpy.types.Operator):
-    bl_idname = "my_operator.remove_animation_collection"
+    bl_idname = "coa_tools.remove_animation_collection"
     bl_label = "Remove Animation Collection"
-    bl_description = ""
+    bl_description = "Delete selected Animation Collection"
     bl_options = {"REGISTER"}
 
     @classmethod
@@ -383,8 +441,8 @@ class CreateNlaTrack(bpy.types.Operator):
                     
         return {"FINISHED"}
     
-    
 class BatchRender(bpy.types.Operator):
+#class BatchRender(bpy.types.RenderEngine):
     bl_idname = "coa_tools.batch_render"
     bl_label = "Batch Render"
     bl_description = ""
@@ -393,12 +451,23 @@ class BatchRender(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         return True
-
+    
+    def cam_found(self,context):
+        for obj in context.scene.objects:
+            if obj.type == "CAMERA":
+                return True
+        return False    
+    
     def invoke(self, context, event):
+        if not self.cam_found(context):
+            self.report({'WARNING'},"No Camera in scene found.")
+            return {'FINISHED'}
+        
+        wm = context.window_manager
         ### open render path
         path = context.scene.render.filepath.replace("\\","/")
         dirpath = path[:path.rfind("/")]
-        dirpath = dirpath.replace("/","")
+        dirpath = dirpath.replace("//","")
         basename = os.path.basename(bpy.data.filepath)
         blend_path = bpy.data.filepath.partition(basename)[0]
         output = os.path.join(blend_path,dirpath)
@@ -411,9 +480,11 @@ class BatchRender(bpy.types.Operator):
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
         if sprite_object != None:
+            
             idx = int(sprite_object.coa_anim_collections_index)
             
             for i in range(len(sprite_object.coa_anim_collections)):
+                
                 anim_name = sprite_object.coa_anim_collections[i].name
                 if anim_name not in ["NO ACTION","Restpose"]:
                     sprite_object.coa_anim_collections_index = i
@@ -426,8 +497,9 @@ class BatchRender(bpy.types.Operator):
                     final_path = dirpath + "/" + anim_name + "_"
                     context.scene.render.filepath = final_path
                     
-                    bpy.ops.render.render(animation=True,write_still=False,use_viewport=True,scene=context.scene.name)
-
+                    bpy.ops.render.render("EXEC_DEFAULT",animation=True,write_still=False,use_viewport=True,scene=context.scene.name)
+                    #bpy.ops.render.render("INVOKE_DEFAULT",animation=True,write_still=False,use_viewport=True,scene=context.scene.name)
+        
             sprite_object.coa_anim_collections_index = idx
         return {"FINISHED"}
     

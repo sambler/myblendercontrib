@@ -9,7 +9,7 @@
 >
 > Failing to follow these points will break the node category parser.
 
-## Generators
+## Generator
     SvLineNodeMK2
     SvPlaneNodeMK2
     SvNGonNode
@@ -19,6 +19,7 @@
     SphereNode
     SvIcosphereNode
     SvTorusNode
+    SvSuzanneNode
     ---
     BasicSplineNode
     svBasicArcNode
@@ -38,8 +39,9 @@
     SvImageComponentsNode
     SvScriptNode
     SvTorusKnotNode
-    SvHexaGridNode
+    SvHexaGridNodeMK1
     SvRingNode
+    SvEllipseNode
 
 ## Analyzers
     SvBBoxNode
@@ -59,11 +61,12 @@
     SvSelectSimilarNode
     SvPointInside
     SvProportionalEditNode
+    SvRaycasterLiteNode
 
 ## Transforms
     SvRotationNode
-    SvScaleNode
-    VectorMoveNode
+    SvScaleNodeMK2
+    SvMoveNodeMK2
     SvMirrorNode
     MatrixApplyNode
     SvSimpleDeformNode
@@ -94,6 +97,8 @@
     SvExtrudeEdgesNode
     SvExtrudeSeparateNode
     SvExtrudeRegionNode
+    SvBendAlongPathNode
+    SvBendAlongSurfaceNode
     SvVertMaskNode
     SvTransformSelectNode
     SvSplitEdgesNode
@@ -124,6 +129,8 @@
 
 ## List Mutators
     SvListModifierNode
+    SvFixEmptyObjectsNode
+    SvDatetimeStrings
 
 ## List Main
     ListJoinNode
@@ -215,14 +222,16 @@
     ViewerNode2
     SvBmeshViewerNodeMK2
     IndexViewerNode
+    SvMetaballOutNode
     SvTextureViewerNode
     Sv3DviewPropsNode
 
 ## Text
-    ViewerNodeTextMK2
-    SvTextInNode
-    SvTextOutNode
+    ViewerNodeTextMK3
+    SvTextInNodeMK2
+    SvTextOutNodeMK2
     NoteNode
+    SvDataShapeNode
     GTextNode
     SvDebugPrintNode
     SvStethoscopeNodeMK2
@@ -252,7 +261,7 @@
 
 ## Objects
     SvVertexGroupNodeMK2
-    SvVertexColorNodeMK2
+    SvVertexColorNodeMK3
 
 ## Layout
     WifiInNode
@@ -266,12 +275,28 @@
 ## Beta Nodes
     SvFormulaShapeNode
     SvHeavyTriangulateNode
-    SvColorsInNode
-    SvColorsOutNode
+    SvFormulaDeformNode
+    SvFormulaColorNode
+    SvMeshUVColorNode
+    SvUVPointonMeshNode
+    SvSubdivideLiteNode
+    SvExtrudeSeparateLiteNode
+    ---
+    SvColorsInNodeMK1
+    SvColorInputNode
+    SvColorsOutNodeMK1
+    ---
     SvMatrixNormalNode
+    SvMatrixTrackToNode
+    SvMatrixMathNode
+    ---
     SvSculptMaskNode
     SvGreasePencilStrokes
     SvTextureViewerNodeLite
+    SvSelectMeshVerts
+    SvSetCustomMeshNormals
+    ---
+    SvSpiralNode
 
 ## Alpha Nodes
     SvCurveViewerNode
@@ -281,8 +306,8 @@
     SvSkinViewerNodeMK1b
     SvMatrixViewer
     ---
-    SvBMVertsNode
-    SvBMinputNode
+    SvBManalyzinNode
+    SvBMObjinputNode
     SvBMoutputNode
     SvBMtoElementNode
     SvBMOpsNodeMK2
@@ -299,3 +324,7 @@
     SvSeparateMeshNodeMK2
     SvIndexToMaskNode
     SvMultiExtrudeAlt
+    SvOffsetLineNode
+    SvContourNode
+    SvPlanarEdgenetToPolygons
+    

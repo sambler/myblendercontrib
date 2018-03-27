@@ -23,8 +23,8 @@ class operator(Operator):
             Draw the operator panel/menu.
         '''
 
-        from ..copy import name
-        name.draw(self, context)
+        from ..copy import operator
+        operator.draw(self, context)
 
     # execute
     def execute(self, context):

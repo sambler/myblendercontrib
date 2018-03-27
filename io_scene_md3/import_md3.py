@@ -1,17 +1,3 @@
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
 # TODO: different normals for shape keys
 # TODO: merge vertices near sharp edges (there is a disconnected surface now)
 # TODO: use_smooth=False for flat faces (all vertex normal equal)
@@ -56,6 +42,10 @@ class MD3Importer:
     def __init__(self, context):
         self.context = context
 
+    @property
+    def scene(self):
+        return self.context.scene
+
     def read_n_items(self, n, offset, func):
         self.file.seek(offset)
         return [func(i) for i in range(n)]
@@ -98,7 +88,6 @@ class MD3Importer:
         data = self.unpack(fmt.Vertex)
         self.verts[i].co = mathutils.Vector((data.x, data.y, data.z))
         # ignoring data.normal here
-        # read_surface_normals reads them as a separate step
 
     def read_surface_normals(self, i):
         data = self.unpack(fmt.Vertex)
@@ -115,8 +104,8 @@ class MD3Importer:
                 data.nVerts,
                 start_pos + data.offVerts + frame * fmt.Vertex.size * data.nVerts,
                 self.read_surface_vert)
-        bpy.context.scene.objects.active = obj
-        bpy.context.object.active_shape_key_index = 0
+        self.scene.objects.active = obj
+        self.context.object.active_shape_key_index = 0
         bpy.ops.object.shape_key_retime()
         for frame in range(data.nFrames):
             self.mesh.shape_keys.eval_time = 10.0 * (frame + 1)
@@ -143,7 +132,7 @@ class MD3Importer:
         texture_slot.texture = texture
 
         for fname in guess_texture_filepath(self.filename, data.name):
-            if '\0' in fname:  # preventing ValuError: embedded null byte
+            if '\0' in fname:  # preventing ValueError: embedded null byte
                 continue
             if os.path.isfile(fname):
                 image = bpy.data.images.load(fname)
@@ -171,11 +160,8 @@ class MD3Importer:
         self.verts = self.mesh.vertices
         self.read_n_items(data.nVerts, start_pos + data.offVerts, self.read_surface_vert)
 
-        self.mesh.update(calc_edges=True)
         self.mesh.validate()
-
-        # separate step for normals. update() causes recalculation
-        self.read_n_items(data.nVerts, start_pos + data.offVerts, self.read_surface_normals)
+        self.mesh.calc_normals()
 
         self.material = bpy.data.materials.new('Main')
         self.mesh.materials.append(self.material)
@@ -188,7 +174,7 @@ class MD3Importer:
         self.read_n_items(data.nShaders, start_pos + data.offShaders, self.read_surface_shader)
 
         obj = bpy.data.objects.new(data.name, self.mesh)
-        self.context.scene.objects.link(obj)
+        self.scene.objects.link(obj)
 
         if data.nFrames > 1:
             self.read_mesh_animation(obj, data, start_pos)
@@ -196,9 +182,9 @@ class MD3Importer:
         self.file.seek(start_pos + data.offEnd)
 
     def post_settings(self):
-        self.context.scene.frame_set(0)
-        self.context.scene.game_settings.material_mode = 'GLSL'
-        bpy.ops.object.lamp_add(type='SUN')
+        self.scene.frame_set(0)
+        self.scene.game_settings.material_mode = 'GLSL'  # TODO: questionable
+        bpy.ops.object.lamp_add(type='SUN')  # TODO: questionable
 
     def __call__(self, filename):
         self.filename = filename
@@ -210,9 +196,10 @@ class MD3Importer:
             assert self.header.version == fmt.VERSION
 
             bpy.ops.scene.new()
-            self.context.scene.name = self.header.modelname
-            self.context.scene.frame_start = 0
-            self.context.scene.frame_end = self.header.nFrames - 1
+            self.scene.name = self.header.modelname
+            # TODO: start from 1?
+            self.scene.frame_start = 0
+            self.scene.frame_end = self.header.nFrames - 1
 
             self.frames = self.read_n_items(self.header.nFrames, self.header.offFrames, self.read_frame)
             self.tags = self.read_n_items(self.header.nTags, self.header.offTags, self.create_tag)

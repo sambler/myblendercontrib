@@ -1,86 +1,74 @@
-import bpy, bmesh, os, platform
+
+import bpy, bmesh, os, platform, sys
 from mathutils import Vector
 from math import pi, radians, degrees
 from bpy.types import Operator
 from bpy.props import IntProperty, BoolProperty, FloatProperty, EnumProperty, PointerProperty, StringProperty, CollectionProperty
 
-from .definitions import SelectObject, FocusObject, ActivateObject, DuplicateObject, DuplicateObjects, DeleteObject, SwitchObjectMode, MoveObject, MoveObjects, RotateObjectSafe, MoveBone, MoveObjects, MoveAll, RotateAll, RotateAllSafe, ScaleAll, CheckSuffix, CheckPrefix, CheckForTags, RemoveObjectTag, IdentifyObjectTag, CompareObjectWithTag, FindObjectWithTag, FindObjectsWithName, GetDependencies, AddParent, ClearParent, FindWorldSpaceObjectLocation, FindWorldSpaceBoneLocation, GetSceneGroups
 
+from .tk_utils import groups as group_utils
+from .tk_utils import select as select_utils
+from .tk_utils import locations as loc_utils
+from .tk_utils import object_ops
+from .tk_utils import object_transform
+from . import tag_ops
+from .export_utils import ReplaceSystemChar, CheckSystemChar, CheckAnimation, AddTriangulate, RemoveTriangulate
 
-class CAP_Export_Assets(Operator):
+class CAP_ExportAssets(Operator):
     """Exports all objects and groups in the scene that are marked for export."""
 
     bl_idname = "scene.cap_export"
     bl_label = "Export"
 
-    def ExportFBX(self, filePath):
-        # Calls the FBX Export API to make the export happen
-
-        print("APPLY UNIT SCALE, IS IT FUCKING ON?", self.apply_unit_scale)
-
-        print("Exporting", "*"*70)
-        bpy.ops.export_scene.fbx(check_existing=False,
-        filepath=filePath,
-        filter_glob="*.fbx",
-        version='BIN7400',
-        use_selection=True,
-        global_scale=self.global_scale,
-        apply_unit_scale=self.apply_unit_scale,
-        axis_forward=self.axisForward,
-        axis_up=self.axisUp,
-        bake_space_transform=self.bakeSpaceTransform,
-        object_types=self.export_types,
-        use_mesh_modifiers=self.applyModifiers,
-        mesh_smooth_type=self.meshSmooth,
-        use_mesh_edges=self.loose_edges,
-        use_tspace=self.tangent_space,
-        use_custom_props=False,
-        use_armature_deform_only=self.use_armature_deform_only,
-        add_leaf_bones=self.add_leaf_bones,
-        bake_anim=self.exportAnim,
-        bake_anim_use_all_bones=self.bake_anim_use_all_bones,
-        bake_anim_use_nla_strips=self.bake_anim_use_nla_strips,
-        bake_anim_use_all_actions=self.bake_anim_use_all_actions,
-        bake_anim_force_startend_keying=self.bake_anim_force_startend_keying,
-        #idk what this even is
-        use_anim=self.exportAnim,
-        use_anim_action_all=self.bake_anim_use_all_actions,
-        use_default_take=self.use_default_take,
-        use_anim_optimize=self.optimise_keyframes,
-        anim_optimize_precision=6.0,
-        path_mode=self.batch_mode,
-        embed_textures=True,
-        batch_mode='OFF',
-        use_batch_own_dir=False,
-        use_metadata=False)
-
-        self.exportedFiles += 1
-
     def PrepareExportIndividual(self, context, targets, path, suffix):
-        # Prepares export for multiple FBX files, each containing a separate
-        # object.
+        """
+        Exports a selection of objects, saving each object into it's own file.
+        """
+
         print(">>> Individual Pass <<<")
         for item in targets:
             print("-"*70)
             print("Exporting...... ", item.name)
-            individualFilePath = path + item.name + suffix + ".fbx"
+            individualFilePath = path + item.name + suffix
             print("Final File Path.", individualFilePath)
 
             # For the time being, manually move the object back and forth to
             # the world origin point.
-            tempLoc = FindWorldSpaceObjectLocation(item, context)
+            tempLoc = loc_utils.FindWorldSpaceObjectLocation(item, context)
 
-            #print("Moving location to centre...")
-            MoveObject(item, context, (0.0, 0.0, 0.0))
+            # FIXME: Doesn't distinguish between "Use Scene Origin".
+
+            # moves each target to the centre individually, even though these objects have
+            # already been moved before collectively.
+            object_transform.MoveObject(item, context, (0.0, 0.0, 0.0))
 
             bpy.ops.object.select_all(action='DESELECT')
-            FocusObject(item)
-            self.ExportFBX(individualFilePath)
-            MoveObject(item, context, tempLoc)
+            select_utils.FocusObject(item)
+
+            # based on the export location, send it to the right place
+            if self.exportPreset.format_type == 'FBX':
+                self.exportPreset.data_fbx.export(self.exportPreset, self.exportPass, individualFilePath)
 
 
-    def PrepareExportCombined(self, targets, path, exportName, suffix):
-        # Prepares export for an FBX file comprising of multiple objects
+            elif self.exportPreset.format_type == 'OBJ':
+                self.exportPreset.data_obj.export(self.exportPreset, self.exportPass, individualFilePath)
+            
+
+            elif self.exportPreset.format_type == 'GLTF':
+                self.exportPreset.data_gltf.export(context, self.exportPreset, self.exportPass, individualFilePath)
+
+
+            # tick up the exports and move the object back.
+            self.exportedFiles += 1
+
+            object_transform.MoveObject(item, context, tempLoc)
+
+
+    def PrepareExportCombined(self, context, targets, path, exportName, suffix):
+        """
+        Exports a selection of objects into a single file.
+        """
+
         print(">>> Exporting Combined Pass <<<")
         print("Checking export preferences...")
 
@@ -89,56 +77,33 @@ class CAP_Export_Assets(Operator):
         for item in targets:
             print("Exporting: ", item.name)
             print(item.name, "has export set to", item.CAPObj.enable_export)
-            SelectObject(item)
+            select_utils.SelectObject(item)
 
         print(path)
         print(exportName)
         print(suffix)
 
-        objectFilePath = path + exportName + suffix + ".fbx"
+        objectFilePath = path + exportName + suffix
         print("Final File Path.", objectFilePath)
 
-        self.ExportFBX(objectFilePath)
+        # based on the export location, send it to the right place
+        if self.exportPreset.format_type == 'FBX':
+            self.exportPreset.data_fbx.export(self.exportPreset, self.exportPass, objectFilePath)
 
-    def AddTriangulate(self, targetList):
+        elif self.exportPreset.format_type == 'OBJ':
+                self.exportPreset.data_obj.export(self.exportPreset, self.exportPass, objectFilePath)
 
-        modType = {'TRIANGULATE'}
+        elif self.exportPreset.format_type == 'GLTF':
+                self.exportPreset.data_gltf.export(context, self.exportPreset, self.exportPass, path, exportName + suffix)
 
-        for item in targetList:
-            if item.type == 'MESH':
-                stm = item.CAPStm
-                stm.has_triangulate = False
+        self.exportedFiles += 1
 
-                for modifier in item.modifiers:
-                    if modifier.type in modType:
-                        stm.has_triangulate = True
-
-                # if we didn't find any triangulation, add it!
-                if stm.has_triangulate == False:
-                    FocusObject(item)
-                    bpy.ops.object.modifier_add(type='TRIANGULATE')
-
-                    for modifier in item.modifiers:
-                        if modifier.type in modType:
-                            #print("Triangulation Found")
-                            modifier.quad_method = 'FIXED_ALTERNATE'
-                            modifier.ngon_method = 'CLIP'
-                            stm.has_triangulate = False
-
-    def RemoveTriangulate(self, targetList):
-
-        modType = {'TRIANGULATE'}
-
-        for item in targetList:
-            if item.type == 'MESH':
-                if item.CAPStm.has_triangulate is False:
-                    for modifier in item.modifiers:
-                        if modifier.type in modType:
-                            FocusObject(item)
-                            bpy.ops.object.modifier_remove(modifier=modifier.name)
 
     def GetFilePath(self, context, locationEnum, fileName):
-        # Get the file extension.  If the index is incorrect (as in, the user didnt set the path)
+        """
+        Attempts to fetch and retrieve the selected file path for 'CalculateFilePath'
+        """
+
         enumIndex = int(locationEnum)
         filePath = ""
 
@@ -157,14 +122,15 @@ class CAP_Export_Assets(Operator):
 
         return filePath
 
-    # Using various export and OS settings, calculates the correct file path for exports.
-    def CalculateFilePath(self, context, locationDefault, objectName, subDirectory):
+    def CalculateFilePath(self, context, locationDefault, object_name, subDirectory):
+        """
+        Attempts to create a file path based on the given location default and export settings.
+        """
 
-        # Does the proper calculation and error handling for the file path, in conjunction with GetFilePath()
         print("Obtaining File...")
         print("File Enumerator = ", locationDefault)
 
-        path = self.GetFilePath(context, locationDefault, objectName)
+        path = self.GetFilePath(context, locationDefault, object_name)
 
         print("Current Path: ", path)
 
@@ -185,18 +151,18 @@ class CAP_Export_Assets(Operator):
                 blendName = blendName.replace(".blend", "")
                 print(blendName)
                 if self.replaceInvalidChars is True:
-                    blendName = self.ReplaceSystemChar(context, blendName)
+                    blendName = ReplaceSystemChar(context, blendName)
 
                 newPath = path + blendName + slash
 
             if self.use_sub_directory is True:
                 if self.replaceInvalidChars is True:
-                    objectName = self.ReplaceSystemChar(context, objectName)
-                newPath = newPath + objectName + slash
+                    object_name = ReplaceSystemChar(context, object_name)
+                newPath = newPath + object_name + slash
 
             if subDirectory.replace(" ", "") != "":
                 if self.replaceInvalidChars is True:
-                    subDirectory = self.ReplaceSystemChar(context, subDirectory)
+                    subDirectory = ReplaceSystemChar(context, subDirectory)
                 newPath = newPath + subDirectory + slash
 
             if newPath == "":
@@ -225,53 +191,33 @@ class CAP_Export_Assets(Operator):
         if enum == '3':
             return 'OFF'
 
-    def GetExportInfo(self, exportDefault):
+    def GetExportInfo(self, exportPreset):
+        """
+        Builds a list of export information 
+        """
+
         # Stores a whole load of export-related settings for re-use throughout
         # the operator
 
-        self.use_blend_directory = exportDefault.use_blend_directory
-        self.use_sub_directory = exportDefault.use_sub_directory
-        self.bundle_textures = exportDefault.bundle_textures
-        self.filter_render = exportDefault.filter_render
-        self.export_types = exportDefault.export_types
+        self.use_blend_directory = exportPreset.use_blend_directory
+        self.use_sub_directory = exportPreset.use_sub_directory
+        #self.bundle_textures = self.exportPreset.bundle_textures
+        self.filter_render = exportPreset.filter_render
+        self.reset_rotation = exportPreset.reset_rotation
+        #self.export_types = self.exportPreset.export_types
 
-        export_types = exportDefault.export_types
-        self.bundle_textures = exportDefault.bundle_textures
-        self.batch_mode = 'AUTO'
-        if self.bundle_textures is True:
-            self.batch_mode = 'COPY'
+        # FIXME: Take note of this!
 
-        self.axisForward = exportDefault.axis_forward
-        self.axisUp = exportDefault.axis_up
-        self.global_scale = exportDefault.global_scale
-        self.bakeSpaceTransform = exportDefault.bake_space_transform
-        self.reset_rotation = exportDefault.reset_rotation
-
-        self.apply_unit_scale = exportDefault.apply_unit_scale
-        self.loose_edges = exportDefault.loose_edges
-        self.tangent_space = exportDefault.tangent_space
-
-        self.use_armature_deform_only = exportDefault.use_armature_deform_only
-        self.add_leaf_bones = exportDefault.add_leaf_bones
-        self.preserve_armature_constraints = exportDefault.preserve_armature_constraints
-        self.primary_bone_axis = exportDefault.primary_bone_axis
-        self.secondary_bone_axis = exportDefault.secondary_bone_axis
-        self.armature_nodetype = exportDefault.armature_nodetype
-
-        self.bake_anim_use_all_bones = exportDefault.bake_anim_use_all_bones
-        self.bake_anim_use_nla_strips = exportDefault.bake_anim_use_nla_strips
-        self.bake_anim_use_all_actions = exportDefault.bake_anim_use_all_actions
-        self.bake_anim_force_startend_keying = exportDefault.bake_anim_force_startend_keying
-        self.use_default_take = exportDefault.use_default_take
-        self.optimise_keyframes = exportDefault.optimise_keyframes
-        self.bake_anim_step = exportDefault.bake_anim_step
-        self.bake_anim_simplify_factor = exportDefault.bake_anim_simplify_factor
-
-        self.x_unity_rotation_fix = exportDefault.x_unity_rotation_fix
+        #self.bundle_textures = self.exportPreset.bundle_textures
+        #self.batch_mode = 'AUTO'
+        #if self.bundle_textures is True:
+        #    self.batch_mode = 'COPY'
 
     def SetupScene(self, context):
-        # Stores various scene settings and display features to restore later
-        # when the plugin is finished
+        """
+        Stores important scene information while also preparing it for the export process.
+        States stored here will be restored with the 'RestoreScene' function.
+        """
 
         self.active = None
         self.selected = []
@@ -342,7 +288,7 @@ class CAP_Export_Assets(Operator):
         self.armatureMode = []
         for item in context.scene.objects:
             if item.type == 'ARMATURE':
-                mode = SwitchObjectMode('OBJECT', item)
+                mode = object_ops.SwitchObjectMode('OBJECT', item)
                 if mode != None:
                     entry = {'object_name': item.name, 'mode': mode}
                     self.armatureMode.append(entry)
@@ -358,7 +304,7 @@ class CAP_Export_Assets(Operator):
             for constraint in item.constraints:
                 if item not in self.constraintObjects:
                     # Record the current object location for later
-                    trueLocation = FindWorldSpaceObjectLocation(item, context)
+                    trueLocation = loc_utils.FindWorldSpaceObjectLocation(item, context)
                     constraintLocation = Vector((0.0, 0.0, 0.0))
                     print("TrueLocation", trueLocation)
                     print("constraintLocation", constraintLocation)
@@ -383,7 +329,7 @@ class CAP_Export_Assets(Operator):
         # Reset the constraint location now we have a 'true' location
         for entry in self.constraintObjects:
             item = context.scene.objects[entry['object_name']]
-            entry['constraint_location'] = FindWorldSpaceObjectLocation(item, context)
+            entry['constraint_location'] = loc_utils.FindWorldSpaceObjectLocation(item, context)
             print("NEW CONSTRAINT LOCATION", item.name, entry['constraint_location'])
 
         # Now all problematic constraints have been turned off, we can safely move
@@ -391,7 +337,7 @@ class CAP_Export_Assets(Operator):
         for entry in self.constraintObjects:
             item = context.scene.objects[entry['object_name']]
             print("Moving Object...", item.name, entry['true_location'])
-            MoveObject(item, context, entry['true_location'])
+            object_transform.MoveObject(item, context, entry['true_location'])
             print("New Object Location = ", item.location)
             print("-"*20)
 
@@ -401,15 +347,16 @@ class CAP_Export_Assets(Operator):
         bpy.ops.object.select_all(action='DESELECT')
 
     def RestoreScene(self, context):
-        # Restores all previously held scene settings and display features
-        # after the operator is done shuffling it
+        """
+        Restores all scene information preserved with the 'SetupScene' function.
+        """
 
         # Restore constraint object positions
         for entry in self.constraintObjects:
             item = context.scene.objects[entry['object_name']]
             print(entry)
             print("Moving Object...", item.name, entry['constraint_location'])
-            MoveObject(item, context, entry['constraint_location'])
+            object_transform.MoveObject(item, context, entry['constraint_location'])
             print("New Object Location = ", item.name, item.location)
 
         # Restore Constraint Defaults
@@ -453,14 +400,14 @@ class CAP_Export_Assets(Operator):
         # Restore armature modes
         while len(self.armatureMode) != 0:
             entry = self.armatureMode.pop()
-            mode = SwitchObjectMode(entry['mode'], bpy.data.objects[entry['object_name']])
+            mode = object_ops.SwitchObjectMode(entry['mode'], bpy.data.objects[entry['object_name']])
 
         # Re-select the objects previously selected
         if self.active is not None:
-            FocusObject(self.active)
+            select_utils.FocusObject(self.active)
 
         for sel in self.selected:
-            SelectObject(sel)
+            select_utils.SelectObject(sel)
 
         if self.active is None and len(self.selected) == 0:
             bpy.ops.object.select_all(action='DESELECT')
@@ -471,6 +418,11 @@ class CAP_Export_Assets(Operator):
         print("Rawr")
 
     def StartSceneMovement(self, context, target, targetObjects, targetRot):
+        """
+        Moves the focus of the export to the desired location, performing any preparation work as needed.
+        """
+
+        # FIXME: WHY IS THIS HERE?
 
         # /////////// - OBJECT MOVEMENT - ///////////////////////////////////////////////////
         # ///////////////////////////////////////////////////////////////////////////////////
@@ -486,6 +438,8 @@ class CAP_Export_Assets(Operator):
             #self.forwardRotations.append(forwardRot)
             #self.reverseRotations.append(reverseRot)
 
+        # was removed since 1.01 due to unknown bugs and issues... *spooky*
+
         # If the user wanted to reset the rotation, time to add more
         # annoying levels of complexity to the mix and reset the rotation!
         #if self.reset_rotation is True:
@@ -495,64 +449,80 @@ class CAP_Export_Assets(Operator):
 
         # If the user wanted unity, time to stomp on the rotation
         # only the objects being exported should be applied
-        if self.x_unity_rotation_fix is True:
-            print("Unity rotation fix active!")
-            RotateAllSafe(target, context, (radians(-90), 0, 0), True)
-            bpy.ops.object.select_all(action='DESELECT')
-            for item in targetObjects:
-                SelectObject(item)
-                ActivateObject(item)
 
-            bpy.ops.object.transform_apply(
-                location=False,
-                rotation=True,
-                scale=False
-                )
-            RotateAllSafe(target, context, (radians(90), 0, 0), True)
+        # might be fixed in 2.79, remove for now.
+
+        # if self.x_unity_rotation_fix is True:
+
+        #     print("Unity rotation fix active!")
+        #     object_transform.RotateAllSafe(target, context, (radians(-90), 0, 0), True)
+        #     bpy.ops.object.select_all(action='DESELECT')
+
+        #     for item in targetObjects:
+        #         SelectObject(item)
+        #         ActivateObject(item)
+
+        #     bpy.ops.object.transform_apply(
+        #         location=False,
+        #         rotation=True,
+        #         scale=False
+        #         )
+        #     RotateAllSafe(target, context, (radians(90), 0, 0), True)
 
         if self.use_scene_origin is False:
             print("Moving scene...")
-            MoveAll(target, context, Vector((0.0, 0.0, 0.0)))
+            object_transform.MoveAll(target, context, Vector((0.0, 0.0, 0.0)))
 
     def FinishSceneMovement(self, context, target, targetObjects, targetLoc, targetRot):
-        # Move objects back
-        if self.reset_rotation is True:
-            RotateAllSafe(self.RO, context, targetRot, True)
+        """
+        Moves the focus of the export back from the desired location, after the export is complete.
+        """
+
+        # was removed since 1.01 due to unknown bugs and issues... *spooky*
+        # if self.reset_rotation is True:
+        #     object_transform.RotateAllSafe(self.root_object, context, targetRot, True)
 
         if self.use_scene_origin is False:
-            MoveAll(self.RO, context, targetLoc)
+            object_transform.MoveAll(self.root_object, context, targetLoc)
 
-        if self.x_unity_rotation_fix is True:
-            bpy.ops.object.select_all(action='DESELECT')
+        # since Blender 2.79 + Unity 2017.3, this is no longer needed.
+        # if self.exportPreset.format_type == 'FBX':
+        #     if self.exportPreset.data_fbx.x_unity_rotation_fix is True:
+        #         bpy.ops.object.select_all(action='DESELECT')
 
-            for item in targetObjects:
-                SelectObject(item)
-                ActivateObject(item)
-            bpy.ops.object.transform_apply(
-                location=False,
-                rotation=True,
-                scale=False
-                )
+        #         for item in targetObjects:
+        #             select_utils.SelectObject(item)
+        #             select_utils.ActivateObject(item)
+        #         bpy.ops.object.transform_apply(
+        #             location=False,
+        #             rotation=True,
+        #             scale=False
+        #             )
 
-            #for i, item in enumerate(targetObjects):
-                #RotateObjectSafe(item, context, self.reverseRotations[i], False)
+                #for i, item in enumerate(targetObjects):
+                    #RotateObjectSafe(item, context, self.reverseRotations[i], False)
 
-            #bpy.ops.object.select_all(action='DESELECT')
-            #for item in targetObjects:
-                #SelectObject(item)
-                #ActivateObject(item)
-            #bpy.ops.object.transform_apply(
-                #location=False,
-                #rotation=True,
-                #scale=False
-                #)
+                #bpy.ops.object.select_all(action='DESELECT')
+                #for item in targetObjects:
+                    #SelectObject(item)
+                    #ActivateObject(item)
+                #bpy.ops.object.transform_apply(
+                    #location=False,
+                    #rotation=True,
+                    #scale=False
+                    #)
 
-            #for i, item in enumerate(targetObjects):
-                #RotateObjectSafe(item, context, self.forwardRotations[i], True)
+                #for i, item in enumerate(targetObjects):
+                    #RotateObjectSafe(item, context, self.forwardRotations[i], True)
 
     def SetupMovement(self, context):
+        """
+        Handles armature constraints, turning them off and re-positioning all bones to ensure they are in their
+        original positions, ready to be moved by Capsule.
+        """
 
-        if self.preserve_armature_constraints is True:
+        # This process may fail, so if the user doesn't want us to process the armature constraints then stop right here.
+        if self.exportPreset.preserve_armature_constraints is True:
             return
 
         # We need to do similar constraint evaluation for armatures
@@ -566,7 +536,7 @@ class CAP_Export_Assets(Operator):
                     i = 0
                     for constraint in bone.constraints:
                         if item not in self.armatureConstraintObjects:
-                            trueLocation = FindWorldSpaceBoneLocation(item, context, bone)
+                            trueLocation = loc_utils.FindWorldSpaceBoneLocation(item, context, bone)
                             constraintLocation = Vector((bone.location[0], bone.location[1], bone.location[2]))
 
                             entry = {'object_name': item.name, 'bone_name': bone.name, 'true_location': trueLocation, 'constraint_location': constraintLocation}
@@ -599,7 +569,7 @@ class CAP_Export_Assets(Operator):
             item = context.scene.objects[entry['object_name']]
             for bone in item.pose.bones:
                 if bone.name == entry['bone_name']:
-                    entry['constraint_location'] = FindWorldSpaceBoneLocation(item, context, bone)
+                    entry['constraint_location'] = loc_utils.FindWorldSpaceBoneLocation(item, context, bone)
                     print("NEW CONSTRAINT LOCATION", item.name, bone.name, entry['constraint_location'])
 
         print("-"*40)
@@ -612,14 +582,18 @@ class CAP_Export_Assets(Operator):
             for bone in item.pose.bones:
                 if bone.name == entry['bone_name']:
                     #print("Moving Bone...", item.name, bone.name, entry['true_location'])
-                    MoveBone(item, bone, context, entry['true_location'])
+                    object_transform.MoveBone(item, bone, context, entry['true_location'])
                     #print("New Bone Location = ", bone.location)
 
         print("-"*40)
         print("-"*40)
 
     def FinishMovement(self, context):
-        if self.preserve_armature_constraints is True:
+        """
+        Restores any armature constraint changes that were made to prepare the scene for export.
+        """
+
+        if self.exportPreset.preserve_armature_constraints is True:
             return
 
         # Restore constraint object positions
@@ -628,7 +602,7 @@ class CAP_Export_Assets(Operator):
             for bone in item.pose.bones:
                 if bone.name == entry['bone_name']:
                     #print("Moving Bone...", item.name, bone.name)
-                    MoveBone(item, bone, context, entry['constraint_location'])
+                    object_transform.MoveBone(item, bone, context, entry['constraint_location'])
                     #print("New Bone Location = ", bone.location)
 
         # Restore Constraint Defaults
@@ -639,56 +613,6 @@ class CAP_Export_Assets(Operator):
                     index = entry['index']
                     bone.constraints[index].mute = entry['enabled']
                     bone.constraints[index].influence = entry['influence']
-
-    def ReplaceSystemChar(self, context, name):
-        # Replaces invalid directory characters in names
-
-        print("Checking Directory...", name)
-        returnName = name
-        if platform.system() == 'Windows':
-            invalidCharacters = ["/", "*", "?", "\"", "<", ">", "|", ":"]
-            for char in invalidCharacters:
-                returnName = returnName.replace(char, "_")
-
-        elif platform.system() == 'Darwin':
-            invalidCharacters = [":", "/"]
-            for char in invalidCharacters:
-                returnName = returnName.replace(char, "_")
-
-        elif platform.system() == 'linux' or platform.system() == 'linux2':
-            invalidCharacters = [":", "/"]
-            for char in invalidCharacters:
-                returnName = returnName.replace(char, "_")
-
-        return returnName
-
-    def CheckSystemChar(self, context, name):
-        # Checks for invalid directory characters in names
-
-        print("Checking Directory...", name)
-        if platform.system() == 'Windows':
-            invalidCharacters = ["/", "*", "?", "\"", "<", ">", "|", ":"]
-            invalidCaptured = []
-            for char in invalidCharacters:
-                if name.find(char) != -1:
-                    invalidCaptured.append(char)
-
-        elif platform.system() == 'Darwin':
-            invalidCharacters = [":", "/"]
-            invalidCaptured = []
-            for char in invalidCharacters:
-                if name.find(char) != -1:
-                    invalidCaptured.append(char)
-
-        elif platform.system() == 'linux' or platform.system() == 'linux2':
-            invalidCharacters = [":", "/"]
-            invalidCaptured = []
-            for char in invalidCharacters:
-                if name.find(char) != -1:
-                    invalidCaptured.append(char)
-
-        print("Invalid characters found...", invalidCaptured)
-        return invalidCaptured
 
     def CheckForErrors(self, context):
         # Ensures that the scene is setup with correct settings, before proceeding
@@ -701,6 +625,8 @@ class CAP_Export_Assets(Operator):
         # Check all active file presets for valid directory names
         # These lists will be analysed later
         nameCheck = []
+        gltfRequired = False
+
         for export in exp.file_presets:
             if export.use_blend_directory is True:
                 blendName = bpy.path.basename(bpy.context.blend_data.filepath)
@@ -710,6 +636,9 @@ class CAP_Export_Assets(Operator):
                     nameCheck.append([" Pass Folder", ePass.sub_directory, " Preset", export.name])
                 if ePass.file_suffix != "":
                     nameCheck.append([" File Suffix", ePass.file_suffix, " Preset", export.name])
+
+            if export.format_type == 'GLTF':
+                gltfRequired = True
 
         print("names found...", nameCheck)
 
@@ -721,7 +650,7 @@ class CAP_Export_Assets(Operator):
                 expKey = int(object.CAPObj.export_default) - 1
                 if expKey == -1:
                     statement = "The selected object " + object.name + " has no export default selected.  Please define!"
-                    FocusObject(object)
+                    select_utils.FocusObject(object)
                     return statement
 
                 # Check Export Sub-Directory
@@ -733,25 +662,28 @@ class CAP_Export_Assets(Operator):
                 # Check Location Default
                 if int(object.CAPObj.location_default) == 0:
                     statement =  "The selected object " + object.name + " has no location preset defined, please define one!"
-                    FocusObject(object)
+                    select_utils.FocusObject(object)
                     return statement
 
                 self.exportCount += 1
 
+
         # If we're using Unity export options, ensure that every object mesh has a single user
-        if export.x_unity_rotation_fix is True:
-            for item in context.scene.objects:
-                data = item.data
-                if data is not None:
-                    print(data.users)
-                    if data.users > 1:
-                        FocusObject(item)
-                        statement = "Sorry, but currently, this Unity Export Preset requires that all scene objects be single-user only.  Please ensure all objects have only one user, before using it."
-                        return statement
+
+        # Support for Unity 5 was removed since 2017.3 + Blender 2.79 fixes those problems.
+        # if export.format_type == 'FBX' and export.data_fbx.x_unity_rotation_fix is True:
+        #     for item in context.scene.objects:
+        #         data = item.data
+        #         if data is not None:
+        #             print(data.users)
+        #             if data.users > 1:
+        #                 select_utils.FocusObject(item)
+        #                 statement = "Sorry, but currently, this Unity Export Preset requires that all scene objects be single-user only.  Please ensure all objects have only one user, before using it."
+        #                 return statement
 
 
         # Check all scene groups for potential errors
-        for group in GetSceneGroups(context.scene, True):
+        for group in group_utils.GetSceneGroups(context.scene, True):
             if group.CAPGrp.enable_export is True:
 
                 # Check Export Key
@@ -759,7 +691,7 @@ class CAP_Export_Assets(Operator):
                 if expKey == -1:
                     bpy.ops.object.select_all(action='DESELECT')
                     for item in group.objects:
-                        SelectObject(item)
+                        select_utils.SelectObject(item)
                     statement = "The selected group " + group.name + " has no export default selected.  Please define!"
                     return statement
 
@@ -773,7 +705,7 @@ class CAP_Export_Assets(Operator):
                 if int(group.CAPGrp.location_default) == 0:
                     bpy.ops.object.select_all(action='DESELECT')
                     for item in group.objects:
-                        SelectObject(item)
+                        select_utils.SelectObject(item)
                     statement =  "The selected group " + group.name + " has no location preset defined, please define one!"
                     return statement
 
@@ -821,58 +753,29 @@ class CAP_Export_Assets(Operator):
                     statement = "The" + name[0] + " " + name[1] + ", belonging to the export, " + name[3] + characterlead + returnStatement + end
                     return statement
 
+        # Check that GLTF is installed if needed.
+        # Currently bundled with the plugin, leaving for later if needed
+
+        # if gltfRequired == True:
+        #     print(bpy.context.user_preferences.addons.keys())
+        #     foundName = False
+        #     moduleName = ""
+
+        #     for mod_name in bpy.context.user_preferences.addons.keys():
+        #         print(mod_name)
+
+        #         if "blendergltf" in mod_name:
+        #             foundName = True
+        #             self.GLTFModuleName = mod_name
+        #             continue
+
+        #     if foundName == False:
+        #         statement =  "In order to use the GLTF format, you need to install the plugin from GitHub.  View the Capsule GitHub for more info!"
+        #         select_utils.FocusObject(object)
+        #         return statement
+
+
         return None
-
-    def CheckAnimation(self, context):
-        # Not currently used until further notice
-
-        for item in context.scene.objects:
-            print(item.name)
-            print(item.animation_data)
-
-            if item.animation_data is not None:
-                print(item.animation_data.action)
-                print(item.animation_data.drivers)
-                print(item.animation_data.nla_tracks)
-
-                for driver in item.animation_data.drivers:
-                    print("------Driver:", driver)
-                    print(len(driver.driver.variables))
-
-                    for variable in driver.driver.variables:
-                        print("---Variable:", variable.name)
-                        print(len(variable.targets))
-
-                        for target in variable.targets:
-                            print("-Target:", target)
-                            print("Bone Target.....", target.bone_target)
-                            print("Data Path.......", target.data_path)
-                            print("ID..............", target.id)
-                            print("ID Type.........", target.id_type)
-                            print("Transform Space.", target.transform_space)
-                            print("Transform Type..", target.transform_type)
-
-                if item.animation_data.action is not None:
-                    action = item.animation_data.action
-                    print("FCurves......", action.fcurves)
-                    print("Frame Range..", action.frame_range)
-                    print("Groups.......", action.groups)
-                    print("ID Root......", action.id_root)
-
-                    for curve in action.fcurves:
-                        print(curve.driver.data_path)
-                        #for variable in curve.driver.variables:
-                            #for target in variable.targets:
-                                #print("-Target:", target)
-                                #print("Bone Target.....", target.bone_target)
-                                #print("Data Path.......", target.data_path)
-                            #    print("ID..............", target.id)
-                            #    print("ID Type.........", target.id_type)
-                            #    print("Transform Space.", target.transform_space)
-                            #    print("Transform Type..", target.transform_type)
-
-
-        print(">>>> CHECKED ANIMATION <<<<")
 
     ###############################################################
     # EXECUTE
@@ -890,10 +793,11 @@ class CAP_Export_Assets(Operator):
             self.report({'WARNING'}, "No Capsule Data for this blend file exists.  Please create it using the Toolshelf or Addon Preferences menu.")
             return {'FINISHED'}
 
-        # Now the checks over, it's time to continue
+        # Now the checks over, time to assign some export information
         self.exportInfo = bpy.data.objects[addon_prefs.default_datablock].CAPExp
         self.replaceInvalidChars = addon_prefs.substitute_directories
 
+        # Set export counts here just in case
         self.exportCount = 0
         self.exportedObjects = 0
         self.exportedGroups = 0
@@ -921,6 +825,7 @@ class CAP_Export_Assets(Operator):
         ###############################################################
         # OBJECT CYCLE
         ###############################################################
+
         # Cycle through the available objects
         for object in context.scene.objects:
             if object.CAPObj.enable_export is True:
@@ -938,63 +843,74 @@ class CAP_Export_Assets(Operator):
 
                 if expKey == -1:
                     statement = "The selected object " + object.name + " has no export default selected.  Please define!"
-                    FocusObject(object)
+                    select_utils.FocusObject(object)
                     self.report({'WARNING'}, statement)
                     self.RestoreScene(context)
                     return {'FINISHED'}
 
-                # Get the export default and set the variables here
-                exportDefault = self.exportInfo.file_presets[expKey]
-                self.GetExportInfo(exportDefault)
+                # Get the export default and send it to a function to create additional instance properties
+                self.exportPreset = self.exportInfo.file_presets[expKey]
+                self.GetExportInfo(self.exportPreset)
 
                 # Get the root object and set some more variables!
-                # RO = Root Object, keeps it short and snappy.
-                self.RO = object
-                self.ROType = IdentifyObjectTag(context, self.RO, exportDefault)
-                self.use_scene_origin = self.RO.CAPObj.use_scene_origin
+                self.root_object = object
+                self.root_object_type = tag_ops.IdentifyObjectTag(context, self.root_object, self.exportPreset)
+                self.use_scene_origin = self.root_object.CAPObj.use_scene_origin
 
+                # FIXME: Is this needed anymore?
                 # If they asked us not preserve armature constraints, we can
                 # do our jerb and ensure they don't screw things up beyond this code
-                if self.preserve_armature_constraints is False:
-                    self.SetupArmatureConstraints(context)
+                # Prepares the object for movement, will only work if Preserve Armature Constraints is false.
+                self.SetupMovement(context)
 
                 # Need to get the movement location.  If the user wants to use the scene origin though,
                 # just make it 0
-                ROLoc = Vector((0.0, 0.0, 0.0))
-                RORot = (0.0, 0.0, 0.0)
+                root_object_location = Vector((0.0, 0.0, 0.0))
+                root_object_rotation = (0.0, 0.0, 0.0)
 
                 if self.use_scene_origin is False:
-                    tempROL = FindWorldSpaceObjectLocation(self.RO, context)
-                    ROLoc = Vector((tempROL[0], tempROL[1], tempROL[2]))
-                    RORot = (self.RO.rotation_euler[0], self.RO.rotation_euler[1], self.RO.rotation_euler[2])
+
+                    tempROL = loc_utils.FindWorldSpaceObjectLocation(self.root_object, context)
+                    root_object_location = Vector((tempROL[0], 
+                                                   tempROL[1], 
+                                                   tempROL[2]))
+                    root_object_rotation = (self.root_object.rotation_euler[0], 
+                                            self.root_object.rotation_euler[1], 
+                                            self.root_object.rotation_euler[2])
 
 
                 # Get the object's base name
-                objectName = ""
-                if self.ROType != -1:
-                    objectName = RemoveObjectTag(context, self.RO, exportDefault)
+                object_name = ""
+
+                if self.root_object_type != -1:
+                    object_name = tag_ops.RemoveObjectTag(context, self.root_object, self.exportPreset)
                 else:
-                    objectName = self.RO.name
+                    object_name = self.root_object.name
 
 
-                for objPass in exportDefault.passes:
+                ###############################################################
+                # PASSES
+                ###############################################################
+
+                for object_pass in self.exportPreset.passes:
+
+                    self.exportPass = object_pass
 
                     # If the pass isn't enabled, skip it
-                    if objPass.enable is False:
+                    if object_pass.enable is False:
                         continue
 
                     print("-"*109)
                     print("NEW PASS", "-"*100)
                     print("-"*109)
-                    print("Export pass", objPass.name, "being used on object", object.name)
+                    print("Export pass", object_pass.name, "being used on object", object.name)
 
                     # Obtain some pass-specific preferences
-                    self.applyModifiers = objPass.apply_modifiers
-                    self.useTriangulate = objPass.triangulate
-                    self.exportIndividual = objPass.export_individual
-                    self.objectUseTags = objPass.use_tags_on_objects
-                    self.exportAnim = objPass.export_animation
-                    self.meshSmooth = self.GetNormals(self.RO.CAPObj.normals)
+                    self.applyModifiers = object_pass.apply_modifiers
+                    self.useTriangulate = object_pass.triangulate
+                    self.exportIndividual = object_pass.export_individual
+                    self.objectUseTags = object_pass.use_tags_on_objects
+                    self.exportAnim = object_pass.export_animation
 
                     activeTags = []
                     i = 0
@@ -1003,35 +919,38 @@ class CAP_Export_Assets(Operator):
                     # create a list for every tag in use
                     if self.objectUseTags is True:
                         print("Processing tags...")
-                        for passTag in objPass.tags:
+                        for passTag in object_pass.tags:
                             if passTag.use_tag is True:
                                 print("Active Tag Found: ", passTag.name)
-                                activeTags.append(exportDefault.tags[i])
+                                activeTags.append(self.exportPreset.tags[i])
 
                             i += 1
 
                     # Collect information on path names for later
-                    path = ""                                # Path given from the location default
-                    fileName = ""                            # File name for the object (without tag suffixes)
-                    suffix = objPass.file_suffix             # Additional file name suffix
-                    subDirectory = objPass.sub_directory     # Whether a sub-directory needs to be created
+
+                    path = ""                                    # Path given from the location default
+                    fileName = ""                                # File name for the object (without tag suffixes)
+                    suffix = object_pass.file_suffix             # Additional file name suffix
+                    subDirectory = object_pass.sub_directory     # Whether a sub-directory needs to be created
+
 
                     # Lists for the renaming feature
                     renameNameList = []
                     renameObjectList = []
 
+
                     # Lets see if the root object can be exported...
                     expRoot = False
 
-                    if self.ROType == -1:
+                    if self.root_object_type == -1:
                         if len(activeTags) == 0:
                             expRoot = True
                     elif len(activeTags) == 0:
                         expRoot = True
-                    elif objPass.tags[self.ROType].use_tag is True or (self.exportIndividual is True and self.objectUseTags is True):
+                    elif object_pass.tags[self.root_object_type].use_tag is True or (self.exportIndividual is True and self.objectUseTags is True):
                         expRoot = True
 
-                    if exportDefault.filter_render is True and self.RO.hide_render is True:
+                    if self.exportPreset.filter_render is True and self.root_object.hide_render is True:
                         expRoot = False
 
                     print("Export Root = ", expRoot)
@@ -1039,8 +958,9 @@ class CAP_Export_Assets(Operator):
 
 
                     #/////////////////// - FILE NAME - /////////////////////////////////////////////////
-                    path = self.CalculateFilePath(context, self.RO.CAPObj.location_default, objectName, subDirectory)
+                    path = self.CalculateFilePath(context, self.root_object.CAPObj.location_default, object_name, subDirectory)
 
+                    # If while calculating a file path a warning was found, return early.
                     if path.find("WARNING") == 0:
                         path = path.replace("WARNING: ", "")
                         self.report({'WARNING'}, path)
@@ -1060,10 +980,12 @@ class CAP_Export_Assets(Operator):
                     # We first want to collect all objects that share the same name,
                     # then if any tags are on, we filter those results
                     if self.objectUseTags is True:
-                        results = FindObjectsWithName(context, objectName)
+                        results = object_ops.FindObjectsWithName(context, object_name)
+
                         while len(results) != 0:
                             item = results.pop()
-                            if item.name != self.RO.name:
+
+                            if item.name != self.root_object.name:
                                 objectList.append(item)
 
                         print("Objects found...", objectList)
@@ -1076,32 +998,37 @@ class CAP_Export_Assets(Operator):
                             # For each tag, try to search for an object that matches the tag
                             for tag in activeTags:
                                 print(tag.name)
+
                                 for item in objectList:
                                     print(item)
-                                    if CompareObjectWithTag(context, item, tag) is True:
+
+                                    if tag_ops.CompareObjectWithTag(context, item, tag) is True:
                                         results.append(item)
 
                                         # If the active tag has the ability to replace names, do it here.
-                                        if tag.x_ue4_collision_naming is True and self.exportIndividual is False:
-                                            print("SUPER SECRET REPLACE NAME FUNCTION USED!")
-                                            renameObjectList.append(item)
-                                            renameNameList.append(item.name)
+                                        if self.self.exportPreset.format_type == 'FBX':
+                                            if tag.data_fbx.x_ue4_collision_naming is True and self.exportIndividual is False:
+                                                print("SUPER SECRET REPLACE NAME FUNCTION USED!")
+                                                renameObjectList.append(item)
+                                                renameNameList.append(item.name)
 
-                                            item.name = item.name.replace(tag.name_filter, "")
-                                            item.name = "UCX_" + item.name + exportDefault.tags[1].name_filter
+                                                item.name = item.name.replace(tag.name_filter, "")
+                                                item.name = "UCX_" + item.name + self.exportPreset.tags[1].name_filter
 
-                                            print("Name replaced...", item.name)
+                                                print("Name replaced...", item.name)
 
                             objectList.clear()
+
                             for item in results:
                                 objectList.append(item)
 
                         # If Filter by Rendering is on, we need to check our results against that
-                        if exportDefault.filter_render is True:
+                        if self.exportPreset.filter_render is True:
                             results = []
 
                             while len(objectList) != 0:
                                 item = objectList.pop()
+
                                 if item.hide_render is False:
                                     results.append(item)
 
@@ -1114,33 +1041,36 @@ class CAP_Export_Assets(Operator):
                         print(item.name)
 
 
-                    # /////////// - OBJECT MOVEMENT - ///////////////////////////////////////////////////
-                    # ///////////////////////////////////////////////////////////////////////////////////
+                    # /////////// - OBJECT MOVEMENT PREPARATION - /////////////////
+                    # /////////////////////////////////////////////////
                     movedObjects = []
                     movedObjects += objectList
-                    movedObjects.append(self.RO)
+                    movedObjects.append(self.root_object)
                     sceneOrigin = None
 
                     if self.use_scene_origin is False:
-                        self.StartSceneMovement(context, self.RO, movedObjects, RORot)
+                        self.StartSceneMovement(context, self.root_object, movedObjects, root_object_rotation)
+
                     else:
                         bpy.ops.view3d.snap_cursor_to_center()
                         bpy.ops.object.select_all(action='DESELECT')
                         bpy.ops.object.empty_add(type='PLAIN_AXES')
                         sceneOrigin = bpy.context.scene.objects.active
-                        self.StartSceneMovement(context, sceneOrigin, movedObjects, RORot)
+                        self.StartSceneMovement(context, sceneOrigin, movedObjects, root_object_rotation)
 
-                    # /////////// - MODIFIERS - ///////////////////////////////////////////////////
-                    # ////////////////////////////////////////////////////////////////////////////
+
+                    # /////////// - MODIFIERS - ///////////////////////
+                    # /////////////////////////////////////////////////
                     print(">>> Triangulating Objects <<<")
                     triangulateList = []
                     triangulateList += objectList
 
                     if expRoot is True:
-                        triangulateList.append(self.RO)
+                        triangulateList.append(self.root_object)
 
                     if self.useTriangulate is True and self.applyModifiers is True:
-                         self.AddTriangulate(triangulateList)
+                         AddTriangulate(triangulateList)
+
 
                     # //////////// - EXPORT PROCESS - ///////////////////////////////////////////
                     # A separate FBX export function call for every corner case isnt actually necessary
@@ -1149,18 +1079,19 @@ class CAP_Export_Assets(Operator):
 
                     if expRoot is True:
                         print("expRoot = ", expRoot)
-                        finalExportList.append(self.RO)
+                        finalExportList.append(self.root_object)
 
                     if len(finalExportList) > 0:
+
                         if self.exportIndividual is True:
                             self.PrepareExportIndividual(context, finalExportList, path, suffix)
 
                         else:
-                            self.PrepareExportCombined(finalExportList, path, objectName, suffix)
+                            self.PrepareExportCombined(context, finalExportList, path, object_name, suffix)
 
 
-                    # /////////// - DELETE/RESTORE - ///////////////////////////////////////////////////
-                    # ///////////////////////////////////////////////////////////////////////////////////
+                    # /////////// - DELETE/RESTORE - ///////////////////
+                    # //////////////////////////////////////////////////
                     # Restore names
                     i = 0
                     for item in renameObjectList:
@@ -1169,22 +1100,22 @@ class CAP_Export_Assets(Operator):
 
                     # Remove any triangulation modifiers
                     if self.useTriangulate is True and self.applyModifiers is True:
-                         self.RemoveTriangulate(triangulateList)
+                         RemoveTriangulate(triangulateList)
 
                     # Reverse movement and rotation
                     if self.use_scene_origin is False:
-                        self.FinishSceneMovement(context, self.RO, movedObjects, ROLoc, RORot)
+                        self.FinishSceneMovement(context, self.root_object, movedObjects, root_object_location, root_object_rotation)
                     else:
-                        self.FinishSceneMovement(context, sceneOrigin, movedObjects, ROLoc, RORot)
-                        DeleteObject(sceneOrigin)
+                        self.FinishSceneMovement(context, sceneOrigin, movedObjects, root_object_location, root_object_rotation)
+                        object_ops.DeleteObject(sceneOrigin)
 
                     print(">>> Pass Complete <<<")
 
-                if self.preserve_armature_constraints is False:
-                    self.RestoreArmatureConstraints(context)
+                # Cleans up any armature constraint modification (only works if Preserve Armature Constraints is off)
+                self.FinishMovement(context)
 
                 # Count up exported objects
-                if len(exportDefault.passes) > 0:
+                if len(self.exportPreset.passes) > 0:
                     self.exportedObjects += 1
                     self.exportCount += 1
                     context.window_manager.progress_update(self.exportCount)
@@ -1195,7 +1126,7 @@ class CAP_Export_Assets(Operator):
         # GROUP CYCLE
         ###############################################################
         # Now hold up, its group time!
-        for group in GetSceneGroups(context.scene, True):
+        for group in group_utils.GetSceneGroups(context.scene, True):
             if group.CAPGrp.enable_export is True:
 
                 print("-"*79)
@@ -1204,27 +1135,27 @@ class CAP_Export_Assets(Operator):
                 print(group.name)
 
                 # Before we do anything, check that a root object exists
-                self.RO = None
-                self.ROName = ""
-                self.ROType = 0
+                self.root_object = None
+                self.root_object_name = ""
+                self.root_object_type = 0
                 self.use_scene_origin = False
                 rootObjectInGroup = False
 
                 # Find the root object in a group, if thats where it's located
                 for item in group.objects:
                     if item.name == group.CAPGrp.root_object:
-                        self.RO = item
-                        self.ROName = item.name
+                        self.root_object = item
+                        self.root_object_name = item.name
                         rootObjectInGroup = True
 
                 # Otherwise, find it elsewhere
                 if rootObjectInGroup == False:
                     for item in context.scene.objects:
                         if item.name == group.CAPGrp.root_object:
-                            self.RO = item
-                            self.ROName = item.name
+                            self.root_object = item
+                            self.root_object_name = item.name
 
-                if self.RO == None:
+                if self.root_object == None:
                     self.use_scene_origin = True
                     print("No root object is currently being used, proceed!")
 
@@ -1238,41 +1169,43 @@ class CAP_Export_Assets(Operator):
                     return {'FINISHED'}
 
                 # Collect hidden defaults to restore afterwards.
-                objectName = group.name
+                object_name = group.name
 
-                exportDefault = self.exportInfo.file_presets[expKey]
-                self.use_blend_directory = exportDefault.use_blend_directory
-                self.use_sub_directory = exportDefault.use_sub_directory
-                self.GetExportInfo(exportDefault)
-                print("Using Export Default...", exportDefault.name, ".  Export Key", expKey)
+                self.exportPreset = self.exportInfo.file_presets[expKey]
+                self.use_blend_directory = self.exportPreset.use_blend_directory
+                self.use_sub_directory = self.exportPreset.use_sub_directory
+                self.GetExportInfo(self.exportPreset)
+                print("Using Export Default...", self.exportPreset.name, ".  Export Key", expKey)
 
 
                 # Identify what tag the root object has
-                if self.RO != None:
-                    self.ROType = IdentifyObjectTag(context, self.RO, exportDefault)
-                    print("Root type is...", self.ROType)
+                if self.root_object != None:
+                    self.root_object_type = tag_ops.IdentifyObjectTag(context, self.root_object, self.exportPreset)
+                    print("Root type is...", self.root_object_type)
 
                 # Get the root object location for later use
-                ROLoc = Vector((0.0, 0.0, 0.0))
-                RORot = (0.0, 0.0, 0.0)
+                root_object_location = Vector((0.0, 0.0, 0.0))
+                root_object_rotation = (0.0, 0.0, 0.0)
 
-                if self.RO != None:
-                    tempROL = FindWorldSpaceObjectLocation(self.RO, context)
-                    ROLoc = Vector((tempROL[0], tempROL[1], tempROL[2]))
-                    RORot = (self.RO.rotation_euler[0], self.RO.rotation_euler[1], self.RO.rotation_euler[2])
+                if self.root_object != None:
+                    tempROL = loc_utils.FindWorldSpaceObjectLocation(self.root_object, context)
+                    root_object_location = Vector((tempROL[0], tempROL[1], tempROL[2]))
+                    root_object_rotation = (self.root_object.rotation_euler[0], self.root_object.rotation_euler[1], self.root_object.rotation_euler[2])
 
                 #/////////////////// - PASSES - /////////////////////////////////////////////////
-                for objPass in exportDefault.passes:
+                for object_pass in self.exportPreset.passes:
+
+                    self.exportPass = object_pass
 
                     # If the pass isn't enabled, skip it
-                    if objPass.enable is False:
+                    if object_pass.enable is False:
                         continue
 
                     print("-"*59)
                     print("NEW PASS", "-"*50)
                     print("-"*59)
-                    print("Export pass", objPass.name, "being used on the group", group.name)
-                    print("Root object.....", self.ROName)
+                    print("Export pass", object_pass.name, "being used on the group", group.name)
+                    print("Root object.....", self.root_object_name)
 
                     activeTags = []
                     taggedList = []
@@ -1285,47 +1218,46 @@ class CAP_Export_Assets(Operator):
                     # Create a list for every tag in use
                     i = 0
                     print("Processing tags...")
-                    for passTag in objPass.tags:
+                    for passTag in object_pass.tags:
                         if passTag.use_tag is True:
                             print("Active Tag Found: ", passTag.name)
-                            activeTags.append(exportDefault.tags[i])
+                            activeTags.append(self.exportPreset.tags[i])
 
                         i += 1
 
                     # Obtain some object-specific preferences
-                    self.applyModifiers = objPass.apply_modifiers
-                    self.useTriangulate = objPass.triangulate
-                    self.exportIndividual = objPass.export_individual
-                    self.exportAnim = objPass.export_animation
-                    self.meshSmooth = self.GetNormals(group.CAPGrp.normals)
+                    self.applyModifiers = object_pass.apply_modifiers
+                    self.useTriangulate = object_pass.triangulate
+                    self.exportIndividual = object_pass.export_individual
+                    self.exportAnim = object_pass.export_animation
 
                     hasTriangulation = False
-                    print("EXPORT TYPES:", self.export_types)
+                    #print("EXPORT TYPES:", self.export_types)
 
                     # Also set file path name
                     path = ""
                     filePath = ""
                     objectFilePath = ""
-                    suffix = objPass.file_suffix
-                    subDirectory = objPass.sub_directory
+                    suffix = object_pass.file_suffix
+                    subDirectory = object_pass.sub_directory
 
                     # Lets see if the root object can be exported...
                     expRoot = False
                     print("Checking Root Exportability...")
-                    if self.RO != None and rootObjectInGroup is True:
+                    if self.root_object != None and rootObjectInGroup is True:
                         print("Well we have a root...")
                         if len(activeTags) == 0:
                             expRoot = True
-                        elif objPass.tags[self.ROType].use_tag is True:
+                        elif object_pass.tags[self.root_object_type].use_tag is True:
                             expRoot = True
-                        if exportDefault.filter_render == True and self.RO.hide_render == True:
+                        if self.exportPreset.filter_render == True and self.root_object.hide_render == True:
                             expRoot = False
 
                     print("expRoot:", expRoot)
 
 
                     #/////////////////// - FILE NAME - /////////////////////////////////////////////////
-                    path = self.CalculateFilePath(context, group.CAPGrp.location_default, objectName, subDirectory)
+                    path = self.CalculateFilePath(context, group.CAPGrp.location_default, object_name, subDirectory)
 
                     if path.find("WARNING") == 0:
                         path = path.replace("WARNING: ", "")
@@ -1351,26 +1283,28 @@ class CAP_Export_Assets(Operator):
 
                             for item in group.objects:
                                 print("Found item...", item.name)
-                                checkItem = CompareObjectWithTag(context, item, tag)
+                                checkItem = tag_ops.CompareObjectWithTag(context, item, tag)
 
                                 if checkItem == True:
-                                    if item.name != self.ROName:
+                                    if item.name != self.root_object_name:
                                         print(item.hide_render)
 
-                                        if exportDefault.filter_render == False or (exportDefault.filter_render == True and item.hide_render == False):
+                                        if self.exportPreset.filter_render == False or (self.exportPreset.filter_render == True and item.hide_render == False):
                                             print("ITEM FOUND: ", item.name)
                                             list.append(item)
                                             objectList.append(item)
 
-                                            if tag.x_ue4_collision_naming is True:
-                                                print("SUPER SECRET REPLACE NAME FUNCTION USED!", item.name)
-                                                renameObjectList.append(item)
-                                                renameNameList.append(item.name)
+                                            # If the active tag has the ability to replace names, do it here.
+                                            if self.self.exportPreset.format_type == 'FBX':
+                                                if tag.data_fbx.x_ue4_collision_naming is True:
+                                                    print("SUPER SECRET REPLACE NAME FUNCTION USED!", item.name)
+                                                    renameObjectList.append(item)
+                                                    renameNameList.append(item.name)
 
-                                                item.name = item.name.replace(tag.name_filter, "")
-                                                item.name = "UCX_" + item.name + exportDefault.tags[1].name_filter
+                                                    item.name = item.name.replace(tag.name_filter, "")
+                                                    item.name = "UCX_" + item.name + self.exportPreset.tags[1].name_filter
 
-                                                print("Name replaced...", item.name)
+                                                    print("Name replaced...", item.name)
 
                             taggedList.append(list)
                             print("-"*10)
@@ -1379,11 +1313,11 @@ class CAP_Export_Assets(Operator):
                     else:
                         print("No tags found, processing objects...")
                         for item in group.objects:
-                            if item.name != self.ROName:
-                                if exportDefault.filter_render == False:
+                            if item.name != self.root_object_name:
+                                if self.exportPreset.filter_render == False:
                                     print("ITEM FOUND: ", item.name)
                                     objectList.append(item)
-                                elif exportDefault.filter_render == True and item.hide_render == False:
+                                elif self.exportPreset.filter_render == True and item.hide_render == False:
                                     print("ITEM FOUND: ", item.name)
                                     objectList.append(item)
 
@@ -1397,9 +1331,9 @@ class CAP_Export_Assets(Operator):
                     sceneOrigin = None
 
                     # If we have a usable root object, use that as the origin point
-                    if self.RO != None:
-                        movedObjects.append(self.RO)
-                        self.StartSceneMovement(context, self.RO, movedObjects, RORot)
+                    if self.root_object != None:
+                        movedObjects.append(self.root_object)
+                        self.StartSceneMovement(context, self.root_object, movedObjects, root_object_rotation)
 
                     # If not, create one now, and get rid of it later
                     else:
@@ -1407,7 +1341,7 @@ class CAP_Export_Assets(Operator):
                         bpy.ops.object.select_all(action='DESELECT')
                         bpy.ops.object.empty_add(type='PLAIN_AXES')
                         sceneOrigin = bpy.context.scene.objects.active
-                        self.StartSceneMovement(context, sceneOrigin, movedObjects, RORot)
+                        self.StartSceneMovement(context, sceneOrigin, movedObjects, root_object_rotation)
 
 
                     # /////////// - MODIFIERS - //////////////////////////////////////////////
@@ -1417,10 +1351,10 @@ class CAP_Export_Assets(Operator):
                     triangulateList += objectList
 
                     if expRoot is True:
-                        triangulateList.append(self.RO)
+                        triangulateList.append(self.root_object)
 
                     if self.useTriangulate is True and self.applyModifiers is True:
-                         self.AddTriangulate(triangulateList)
+                         AddTriangulate(triangulateList)
 
                     # /////////// - EXPORT - ///////////////////////////////////////////////////
                     # //////////////////////////////////////////////////////////////////////////
@@ -1428,8 +1362,8 @@ class CAP_Export_Assets(Operator):
                     bpy.ops.object.select_all(action='DESELECT')
 
                     canExport = True
-                    if self.RO != None:
-                        print("Root Location...", self.RO.location)
+                    if self.root_object != None:
+                        print("Root Location...", self.root_object.location)
 
                     if len(objectList) == 0 and expRoot is False:
                         print("No objects found in pass, stopping export...")
@@ -1442,14 +1376,14 @@ class CAP_Export_Assets(Operator):
                         print("Final Export List:", finalExportList)
 
                         if expRoot is True:
-                            finalExportList.append(self.RO)
+                            finalExportList.append(self.root_object)
 
                         if len(finalExportList) > 0:
                             if self.exportIndividual is True:
                                 self.PrepareExportIndividual(context, finalExportList, path, suffix)
 
                             else:
-                                self.PrepareExportCombined(finalExportList, path, group.name, suffix)
+                                self.PrepareExportCombined(context, finalExportList, path, group.name, suffix)
 
                     bpy.ops.object.select_all(action='DESELECT')
 
@@ -1463,18 +1397,18 @@ class CAP_Export_Assets(Operator):
 
                     # Remove any triangulation modifiers
                     if self.useTriangulate is True and self.applyModifiers is True:
-                         self.RemoveTriangulate(triangulateList)
+                         RemoveTriangulate(triangulateList)
 
                     # Move objects back
-                    if self.RO != None:
-                        self.FinishSceneMovement(context, self.RO, movedObjects, ROLoc, RORot)
+                    if self.root_object != None:
+                        self.FinishSceneMovement(context, self.root_object, movedObjects, root_object_location, root_object_rotation)
                     else:
-                        self.FinishSceneMovement(context, sceneOrigin, movedObjects, ROLoc, RORot)
-                        DeleteObject(sceneOrigin)
+                        self.FinishSceneMovement(context, sceneOrigin, movedObjects, root_object_location, root_object_rotation)
+                        object_ops.DeleteObject(sceneOrigin)
 
                     print(">>> Pass Complete <<<")
 
-                if len(exportDefault.passes) > 0:
+                if len(self.exportPreset.passes) > 0:
                     self.exportedGroups += 1
                     self.exportCount += 1
                     context.window_manager.progress_update(self.exportCount)
@@ -1512,7 +1446,7 @@ class CAP_Export_Assets(Operator):
 
         # Output a nice report
         if self.exportedObjects == 0 and self.exportedGroups == 0:
-            self.report({'WARNING'}, 'No objects were exported.  Ensure you have objects tagges for export, and passes in your export presets.')
+            self.report({'WARNING'}, 'No objects were exported.  Ensure you have objects tagged for export, and at least one pass in your export presets.')
 
         else:
             self.report({'INFO'}, output)

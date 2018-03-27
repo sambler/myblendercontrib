@@ -116,4 +116,8 @@ def set_theme(context, m):
         idx = int(m.split('_')[1].strip())
         fullest_path = os.path.join(seekable_path, themes[idx])
         bpy.ops.script.execute_preset('INVOKE_DEFAULT', filepath=fullest_path, menu_idname="USERPREF_MT_interface_theme_presets")
+    elif m.strip() == 'theme_flatty_light':
+        fullest_path = os.path.join(seekable_path, "flatty_light.xml")
+        bpy.ops.script.execute_preset('INVOKE_DEFAULT', filepath=fullest_path, menu_idname="USERPREF_MT_interface_theme_presets")        
+
 

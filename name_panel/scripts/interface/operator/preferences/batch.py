@@ -31,8 +31,8 @@ class operator(Operator):
             Operator body.
         '''
 
-        from ..batch import name
-        name.draw(self, context)
+        from ..batch import operator
+        operator.draw(self, context)
 
     # execute
     def execute(self, context):

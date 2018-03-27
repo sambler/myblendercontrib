@@ -1009,8 +1009,8 @@ class UI(list):
                 col.operator(module + ".help", icon='QUESTION', text="")
                 index, uilist = self.get_uilist(context)
                 if not entity_list.use_filter_sort_alpha:
-                    col.operator(module + ".move_up", icon='MOVE_UP_VEC', text="")
-                    col.operator(module + ".move_down", icon='MOVE_DOWN_VEC', text="")
+                    col.operator(module + ".move_up", icon='TRIA_UP', text="")
+                    col.operator(module + ".move_down", icon='TRIA_DOWN', text="")
                 if 0 < len(uilist) and entity_list.flags[index]:
                     col.menu(root_dot + "m_" +
                         "_".join(entity_list[index].type.lower().split()), icon='DOWNARROW_HLT', text="")

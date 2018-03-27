@@ -442,7 +442,7 @@ def get_mesh(mesh, get_normals=False):
 
 
 # requires facevertex interpolation
-def get_mesh_uv(mesh, name=""):
+def get_mesh_uv(mesh, name="", flipvmode='NONE'):
     uvs = []
     if not name:
         uv_loop_layer = mesh.uv_layers.active
@@ -456,8 +456,14 @@ def get_mesh_uv(mesh, name=""):
 
     for uvloop in uv_loop_layer.data:
         uvs.append(uvloop.uv.x)
-        uvs.append(1.0 - uvloop.uv.y)
         # renderman expects UVs flipped vertically from blender
+        # best to do this in pattern, provided here as additional option
+        if flipvmode == 'UV':
+            uvs.append(1.0-uvloop.uv.y)
+        elif flipvmode == 'TILE':
+            uvs.append(math.ceil(uvloop.uv.y) - uvloop.uv.y + math.floor(uvloop.uv.y))
+        elif flipvmode == 'NONE':
+            uvs.append(uvloop.uv.y)
 
     return uvs
 
@@ -524,7 +530,7 @@ def get_primvars(ob, geo, interpolation=""):
                                                      for p in geo.polygons])
 
     if rm.export_default_uv:
-        uvs = get_mesh_uv(geo)
+        uvs = get_mesh_uv(geo, flipvmode=rm.export_flipv)
         if uvs and len(uvs) > 0:
             primvars["%s float[2] st" % interpolation] = uvs
     if rm.export_default_vcol:
@@ -540,7 +546,7 @@ def get_primvars(ob, geo, interpolation=""):
                 primvars["%s color %s" % (interpolation, p.name)] = rib(vcols)
 
         elif p.data_source == 'UV_TEXTURE':
-            uvs = get_mesh_uv(geo, p.data_name)
+            uvs = get_mesh_uv(geo, p.data_name, flipvmode=rm.export_flipv)
             if uvs and len(uvs) > 0:
                 primvars["%s float[2] %s" % (interpolation, p.name)] = uvs
 

@@ -57,6 +57,10 @@ class CreateOrtpographicCamera(bpy.types.Operator):
         return wm.invoke_props_dialog(self)
         
     def execute(self, context):
+        sprite_object = None    
+        if context.active_object != None:
+            sprite_object = get_sprite_object(context.active_object)
+        
         scene = context.scene
         if self.create:
             context.scene.objects.active = None
@@ -66,6 +70,9 @@ class CreateOrtpographicCamera(bpy.types.Operator):
         cam.data.type = "ORTHO"
         scene.render.pixel_filter_type = "BOX"
         scene.render.alpha_mode = "TRANSPARENT"
+        
+        if sprite_object != None:
+            cam.parent = sprite_object
         
         if self.set_resolution:
             ortho_scale = max(self.resolution[0],self.resolution[1])
@@ -171,7 +178,7 @@ class AlignCamera(bpy.types.Operator):
                 self.offset_y = 0.5
             
             cam.location[0] = self.x_multiplier * context.scene.render.resolution_x * get_addon_prefs(context).sprite_import_export_scale * self.offset_x
-            cam.location[1] = -self.x_multiplier * context.scene.render.resolution_x * get_addon_prefs(context).sprite_import_export_scale
+            #cam.location[1] = -self.x_multiplier * context.scene.render.resolution_x * get_addon_prefs(context).sprite_import_export_scale
             cam.location[2] = self.y_multiplier * context.scene.render.resolution_y * get_addon_prefs(context).sprite_import_export_scale * self.offset_y   
             
         return {"FINISHED"}

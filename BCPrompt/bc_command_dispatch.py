@@ -217,7 +217,7 @@ def in_scene_commands(context, m):
         add_scrollback(msg, output_type)
 
     elif m == 'bright':
-        set_theme(context, 'theme_3')
+        set_theme(context, 'theme_flatty_light')
         set_nodewhite(context, '')
         set_3de(context, '')
 

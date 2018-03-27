@@ -164,7 +164,8 @@ class OBJECT_OT_speaker_add(bpy.types.Operator, object_utils.AddObjectHelper):
     '''
     propdic = {}
 
-    propfromtype(propdic, bpy.types.OBJECT_OT_speaker_add)
+    propfromtype(propdic, bpy.ops.object.speaker_add.get_rna())
+
     for k,v in propdic.items():
         exec("%s = v" % k)
         #(OBJECT_OT_speaker_add, k, v)
@@ -437,9 +438,9 @@ def register():
 def unregister():
     unregister_class(ClosePopupWindow)
     unregister_class(OBJECT_OT_speaker_add)
-    from bpy.types import OBJECT_OT_speaker_add as AddSpeaker
+    #from bpy.types import OBJECT_OT_speaker_add as AddSpeaker
     # re-register the old one
-    register_class(AddSpeaker)
+    #register_class(AddSpeaker)
     unregister_class(SpeakerDataPanel)
     unregister_class(SpeakerSelectorOperator)
     unregister_class(ContextSpeakerSelectMenu)
