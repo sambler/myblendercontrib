@@ -32,7 +32,7 @@
 bl_info = {
     'name': 'Sequencer Alignment',
     'author': 'sambler',
-    'version': (1, 0),
+    'version': (1, 1),
     'blender': (2, 66, 0),
     'location': 'Video Sequencer',
     'description': 'Align strips to side of frame.',
@@ -48,29 +48,61 @@ alignment = [
     ('LEFT', 'Left', '', 2),
     ('BOTTOM', 'Bottom', '', 3),
     ('RIGHT', 'Right', '', 4),
+    ('VERT','Centre Height','',5),
+    ('HORIZ','Centre Width','',6),
     ]
 
 class VSEStripAlignment(bpy.types.Operator):
     bl_idname = 'sequencer.alignment'
     bl_label = 'Align strips to edge of the frame.'
+    bl_options = {'REGISTER','UNDO'}
 
     direction = bpy.props.EnumProperty(items=alignment)
 
     def execute(self, context):
-        width = context.scene.render.resolution_x
-        height = context.scene.render.resolution_y
-        for s in context.selected_sequences:
-            s.use_translation = True
-            st = s.transform
-            se = s.strip_elem_from_frame(s.frame_start)
-            if self.direction == 'TOP':
-                st.offset_y = height - se.orig_height
-            elif self.direction == 'BOTTOM':
-                st.offset_y = 0
-            elif self.direction == 'LEFT':
-                st.offset_x = 0
-            elif self.direction == 'RIGHT':
-                st.offset_x = width - se.orig_width
+        scene = context.scene
+        if scene.vse_align_active:
+            active_strip = scene.sequence_editor.active_strip
+            ast = active_strip.transform
+            ase = active_strip.strip_elem_from_frame(active_strip.frame_start)
+            asw = ase.orig_width
+            ash = ase.orig_height
+            for s in context.selected_sequences:
+                if s == active_strip: continue
+                s.use_translation = True
+                st = s.transform
+                se = s.strip_elem_from_frame(s.frame_start)
+                if self.direction == 'TOP':
+                    st.offset_y = ast.offset_y + ash
+                elif self.direction == 'BOTTOM':
+                    st.offset_y = ast.offset_y - se.orig_height
+                elif self.direction == 'LEFT':
+                    st.offset_x = ast.offset_x - se.orig_width
+                elif self.direction == 'RIGHT':
+                    st.offset_x = ast.offset_x + asw
+                elif self.direction == 'VERT':
+                    st.offset_y = ast.offset_y + (ash/2) - (se.orig_height/2)
+                elif self.direction == 'HORIZ':
+                    st.offset_x = ast.offset_x + (asw/2) - (se.orig_width/2)
+        else:
+            width = scene.render.resolution_x
+            height = scene.render.resolution_y
+            for s in context.selected_sequences:
+                s.use_translation = True
+                st = s.transform
+                se = s.strip_elem_from_frame(s.frame_start)
+                if self.direction == 'TOP':
+                    st.offset_y = height - se.orig_height
+                elif self.direction == 'BOTTOM':
+                    st.offset_y = 0
+                elif self.direction == 'LEFT':
+                    st.offset_x = 0
+                elif self.direction == 'RIGHT':
+                    st.offset_x = width - se.orig_width
+                elif self.direction == 'VERT':
+                    st.offset_y = (height/2) - (se.orig_height/2)
+                elif self.direction == 'HORIZ':
+                    st.offset_x = (width/2) - (se.orig_width/2)
         return {'FINISHED'}
 
 
@@ -82,14 +114,27 @@ class VSEAlignmentPanel(bpy.types.Panel):
 
     def draw(self, context):
         row = self.layout.row()
+        row.prop(context.scene, 'vse_align_active', text='Align to active.')
+        if context.scene.vse_align_active:
+            row = self.layout.row()
+            row.label(text=context.scene.sequence_editor.active_strip.name)
+        row = self.layout.row()
         row.operator(VSEStripAlignment.bl_idname, text='Top').direction = 'TOP'
         row = self.layout.row()
         row.operator(VSEStripAlignment.bl_idname, text='Left').direction = 'LEFT'
         row.operator(VSEStripAlignment.bl_idname, text='Right').direction = 'RIGHT'
         row = self.layout.row()
         row.operator(VSEStripAlignment.bl_idname, text='Bottom').direction = 'BOTTOM'
+        row = self.layout.row()
+        row.alignment = 'CENTER'
+        row.label('Centre')
+        row = self.layout.row()
+        row.operator(VSEStripAlignment.bl_idname, text='^Height^').direction = 'VERT'
+        row = self.layout.row()
+        row.operator(VSEStripAlignment.bl_idname, text='<-Width->').direction = 'HORIZ'
 
 def register():
+    bpy.types.Scene.vse_align_active = bpy.props.BoolProperty()
     bpy.utils.register_class(VSEStripAlignment)
     bpy.utils.register_class(VSEAlignmentPanel)
 
