@@ -35,7 +35,7 @@ bl_info = {
     'version': (1, 1),
     'blender': (2, 66, 0),
     'location': 'Video Sequencer',
-    'description': 'Align strips to side of frame.',
+    'description': 'Align sequencer strips.',
     'wiki_url': 'https://github.com/sambler/addonsByMe/blob/master/sequencer_alignment.py',
     'tracker_url': 'https://github.com/sambler/addonsByMe/issues',
     'category': 'Sequencer',
@@ -54,7 +54,7 @@ alignment = [
 
 class VSEStripAlignment(bpy.types.Operator):
     bl_idname = 'sequencer.alignment'
-    bl_label = 'Align strips to edge of the frame.'
+    bl_label = 'Align sequencer strips.'
     bl_options = {'REGISTER','UNDO'}
 
     direction = bpy.props.EnumProperty(items=alignment)
