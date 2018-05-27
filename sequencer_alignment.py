@@ -84,6 +84,16 @@ class VSEStripAlignment(bpy.types.Operator):
                     st.offset_y = ast.offset_y + (ash/2) - (se.orig_height/2)
                 elif self.direction == 'HORIZ':
                     st.offset_x = ast.offset_x + (asw/2) - (se.orig_width/2)
+
+                if s.use_crop:
+                    if self.direction == 'TOP':
+                        st.offset_y += s.crop.min_y + s.crop.max_y
+                    if self.direction == 'RIGHT':
+                        st.offset_x += s.crop.min_x + s.crop.max_x
+                    if self.direction == 'VERT':
+                        st.offset_y += (s.crop.min_y + s.crop.max_y) / 2
+                    if self.direction == 'HORIZ':
+                        st.offset_x += (s.crop.min_x + s.crop.max_x) / 2
         else:
             width = scene.render.resolution_x
             height = scene.render.resolution_y
@@ -103,6 +113,17 @@ class VSEStripAlignment(bpy.types.Operator):
                     st.offset_y = (height/2) - (se.orig_height/2)
                 elif self.direction == 'HORIZ':
                     st.offset_x = (width/2) - (se.orig_width/2)
+
+                if s.use_crop:
+                    if self.direction == 'TOP':
+                        st.offset_y += s.crop.min_y + s.crop.max_y
+                    if self.direction == 'RIGHT':
+                        st.offset_x += s.crop.min_x + s.crop.max_x
+                    if self.direction == 'VERT':
+                        st.offset_y += (s.crop.min_y + s.crop.max_y) / 2
+                    if self.direction == 'HORIZ':
+                        st.offset_x += (s.crop.min_x + s.crop.max_x) / 2
+
         return {'FINISHED'}
 
 
