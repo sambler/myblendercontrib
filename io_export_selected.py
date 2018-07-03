@@ -18,7 +18,7 @@
 bl_info = {
     "name": "Export Selected",
     "author": "dairin0d, rking, moth3r",
-    "version": (2, 1, 5),
+    "version": (2, 2, 1),
     "blender": (2, 7, 0),
     "location": "File > Export > Selected",
     "description": "Export selected objects to a chosen format",
@@ -28,9 +28,13 @@ bl_info = {
     "category": "Import-Export"}
 #============================================================================#
 
+# TODO:
+# * implement dynamic exporter properties differently (current implementation cannot support simultaneously opened export UIs if their export formats are different)
+# * batch import (Blender allows selecting multiple files, but only one of them is actually imported)
+
 import bpy
 
-from bpy_extras.io_utils import ExportHelper
+from bpy_extras.io_utils import ExportHelper, ImportHelper
 
 from mathutils import Vector, Matrix, Quaternion, Euler
 
@@ -277,6 +281,8 @@ forbidden_chars = "["+forbidden_chars+"]"
 def clean_filename(filename, sub="-"):
     return re.sub(forbidden_chars, sub, filename)
 
+#============================================================================#
+
 def iter_exporters():
     for category_name in dir(bpy.ops):
         if "export" not in category_name: continue
@@ -299,10 +305,14 @@ def iter_exporter_info():
     
     for idname, op in iter_exporters():
         op_class = type(op.get_instance())
+        if not hasattr(op_class, "filepath"): continue # e.g. sketchfab
         rna = op.get_rna()
         name = rna.rna_type.name
         if name.lower().startswith("export "): name = name[len("export "):]
         filename_ext = getattr(op_class, "filename_ext", "")
+        if not isinstance(filename_ext, str): # can be a bpy prop
+            filename_ext = filename_ext[1].get("default", "")
+        if not filename_ext: filename_ext = "."+idname.split(".")[-1]
         filter_glob = getattr(rna, "filter_glob", "*"+filename_ext)
         yield (idname, name, filename_ext, filter_glob)
 
@@ -316,35 +326,44 @@ def get_exporter_name(idname):
 
 def get_exporter_class(idname):
     if idname == 'BLEND':
-        return None
+        return BlendExportEmulator
     elif idname == 'wm.collada_export':
-        return ColladaEmulator
+        return ColladaExportEmulator
     elif idname == 'wm.alembic_export':
-        return AlembicEmulator
+        return AlembicExportEmulator
     else:
         op = get_op(idname)
         return type(op.get_instance())
 
-class ColladaEmulator:
+class BlendExportEmulator:
+    # Special case: Blend
+    compress = bpy.props.BoolProperty(name="Compress", description="Write compressed .blend file", default=False)
+    relative_remap = bpy.props.BoolProperty(name="Remap Relative", description="Remap relative paths when saving in a different directory", default=True)
+
+class ColladaExportEmulator:
     # Special case: Collada (built-in) -- has no explicitly defined Python properties
     apply_modifiers = bpy.props.BoolProperty(name="Apply Modifiers", description="Apply modifiers to exported mesh (non destructive)", default=False)
-    #export_mesh_type=0 # couldn't find correspondence in the UI
     export_mesh_type_selection = bpy.props.EnumProperty(name="Type of modifiers", description="Modifier resolution for export", default='view', items=[('render', "Render", "Apply modifier's render settings"), ('view', "View", "Apply modifier's view settings")])
     selected = bpy.props.BoolProperty(name="Selection Only", description="Export only selected elements", default=False)
     include_children = bpy.props.BoolProperty(name="Include Children", description="Export all children of selected objects (even if not selected)", default=False)
     include_armatures = bpy.props.BoolProperty(name="Include Armatures", description="Export related armatures (even if not selected)", default=False)
     include_shapekeys = bpy.props.BoolProperty(name="Include Shape Keys", description="Export all Shape Keys from Mesh Objects", default=True)
-    deform_bones_only = bpy.props.BoolProperty(name="Deform Bones only", description="Only export deforming bones with armatures", default=False)
     active_uv_only = bpy.props.BoolProperty(name="Only Active UV layer", description="Export textures assigned to the object UV maps", default=False)
-    include_uv_textures = bpy.props.BoolProperty(name="Include UV Textures", description="Export textures assigned to the object UV maps", default=False)
-    include_material_textures = bpy.props.BoolProperty(name="Include Material Textures", description="Export textures assigned to the object Materials", default=False)
+    if bpy.app.version < (2, 79, 0):
+        include_uv_textures = bpy.props.BoolProperty(name="Include UV Textures", description="Export textures assigned to the object UV maps", default=False)
+        include_material_textures = bpy.props.BoolProperty(name="Include Material Textures", description="Export textures assigned to the object Materials", default=False)
+    if bpy.app.version >= (2, 79, 0):
+        export_texture_type_selection = bpy.props.EnumProperty(name="Texture Type", description="Type for exported Textures (UV or MAT)", default='mat', items=[('mat', "Materials", "Export Materials"), ('uv', "UV Textures", "Export UV Textures (Face textures) as materials")])
     use_texture_copies = bpy.props.BoolProperty(name="Copy Textures", description="Copy textures to the same folder where .dae file is exported", default=True)
+    deform_bones_only = bpy.props.BoolProperty(name="Deform Bones only", description="Only export deforming bones with armatures", default=False)
+    open_sim = bpy.props.BoolProperty(name="Export for OpenSim", description="Compatibility mode for OpenSim and compatible online worlds", default=False)
     triangulate = bpy.props.BoolProperty(name="Triangulate", description="Export Polygons (Quads & NGons) as Triangles", default=True)
     use_object_instantiation = bpy.props.BoolProperty(name="Use Object Instances", description="Instantiate multiple Objects from same Data", default=True)
-    sort_by_name = bpy.props.BoolProperty(name="Sort by Object name", description="Sort exported data by Object name", default=False)
-    #export_transformation_type=0 # couldn't find correspondence in the UI
     export_transformation_type_selection = bpy.props.EnumProperty(name="Transformation Type", description="Transformation type for translation, scale and rotation", default='matrix', items=[('both', "Both", "Use <matrix> AND <translate>, <rotate>, <scale> to specify transformations"), ('transrotloc', "TransLocRot", "Use <translate>, <rotate>, <scale> to specify transformations"), ('matrix', "Matrix", "Use <matrix> to specify transformations")])
-    open_sim = bpy.props.BoolProperty(name="Export for OpenSim", description="Compatibility mode for OpenSim and compatible online worlds", default=False)
+    sort_by_name = bpy.props.BoolProperty(name="Sort by Object name", description="Sort exported data by Object name", default=False)
+    if bpy.app.version >= (2, 79, 0):
+        keep_bind_info = bpy.props.BoolProperty(name="Keep Bind Info", description="Store Bindpose information in custom bone properties for latter use during Collada export", default=False)
+        limit_precision = bpy.props.BoolProperty(name="Limit Precision", description="Reduce the precision of the exported data to 6 digits", default=False)
     
     def draw(self, context):
         layout = self.layout
@@ -362,8 +381,11 @@ class ColladaEmulator:
         box = layout.box()
         box.label(text="Texture Options", icon='TEXTURE')
         box.prop(self, "active_uv_only")
-        box.prop(self, "include_uv_textures")
-        box.prop(self, "include_material_textures")
+        if bpy.app.version < (2, 79, 0):
+            box.prop(self, "include_uv_textures")
+            box.prop(self, "include_material_textures")
+        if bpy.app.version >= (2, 79, 0):
+            box.prop(self, "export_texture_type_selection", text="")
         box.prop(self, "use_texture_copies", text="Copy")
         
         box = layout.box()
@@ -379,8 +401,11 @@ class ColladaEmulator:
         row.label(text="Transformation Type")
         row.prop(self, "export_transformation_type_selection", text="")
         box.prop(self, "sort_by_name")
+        if bpy.app.version >= (2, 79, 0):
+            box.prop(self, "keep_bind_info")
+            box.prop(self, "limit_precision")
 
-class AlembicEmulator:
+class AlembicExportEmulator:
     # Special case: Alembic (built-in) -- has no explicitly defined Python properties
     global_scale = bpy.props.FloatProperty(name="Scale", description="Value by which to enlarge or shrink the objects with respect to the world's origin", default=1.0, min=0.0001, max=1000.0, step=1, precision=3)
     start = bpy.props.IntProperty(name="Start Frame", description="Start Frame", default=1)
@@ -400,6 +425,12 @@ class AlembicEmulator:
     face_sets = bpy.props.BoolProperty(name="Face Sets", description="Export per face shading group assignments", default=False)
     subdiv_schema = bpy.props.BoolProperty(name="Use Subdivision Schema", description="Export meshes using Alembic's subdivision schema", default=False)
     apply_subdiv = bpy.props.BoolProperty(name="Apply Subsurf", description="Export subdivision surfaces as meshes", default=False)
+    if bpy.app.version >= (2, 79, 0):
+        triangulate = bpy.props.BoolProperty(name="Triangulate", description="Export Polygons (Quads & NGons) as Triangles", default=False)
+        quad_method = bpy.props.EnumProperty(name="Quad Method", description="Method for splitting the quads into triangles", default='SHORTEST_DIAGONAL', items=[('BEAUTY', "Beauty", "Split the quads in nice triangles, slower method."), ('FIXED', "Fixed", "Split the quads on the first and third vertices."), ('FIXED_ALTERNATE', "Fixed Alternate", "Split the quads on the 2nd and 4th vertices."), ('SHORTEST_DIAGONAL', "Shortest Diagonal", "Split the quads based on the distance between the vertices.")])
+        ngon_method = bpy.props.EnumProperty(name="Polygon Method", description="Method for splitting the polygons into triangles", default='SHORTEST_DIAGONAL', items=[('BEAUTY', "Beauty", "Split the quads in nice triangles, slower method."), ('FIXED', "Fixed", "Split the quads on the first and third vertices."), ('FIXED_ALTERNATE', "Fixed Alternate", "Split the quads on the 2nd and 4th vertices."), ('SHORTEST_DIAGONAL', "Shortest Diagonal", "Split the quads based on the distance between the vertices.")])
+        export_hair = bpy.props.BoolProperty(name="Export Hair", description="Exports hair particle systems as animated curves", default=True)
+        export_particles = bpy.props.BoolProperty(name="Export Particles", description="Exports non-hair particle systems", default=True)
     
     def draw(self, context):
         layout = self.layout
@@ -430,6 +461,35 @@ class AlembicEmulator:
         box.prop(self, "face_sets")
         box.prop(self, "subdiv_schema")
         box.prop(self, "apply_subdiv")
+        if bpy.app.version >= (2, 79, 0):
+            box.prop(self, "triangulate")
+            box.prop(self, "quad_method")
+            box.prop(self, "ngon_method")
+        
+        if bpy.app.version >= (2, 79, 0):
+            box = layout.box()
+            box.label(text="Particle Systems:", icon='PARTICLES')
+            box.prop(self, "export_hair")
+            box.prop(self, "export_particles")
+
+# Most formats support only mesh geometry (not curve/text/metaball)
+exporter_specifics = {
+    "wm.collada_export":dict(nonmesh=False, dupli=False, instancing=True),
+    "export_scene.fbx":dict(nonmesh=False, dupli=False, instancing=True),
+    "wm.alembic_export":dict(nonmesh=False, dupli=False, instancing=False),
+    "export_scene.obj":dict(nonmesh=False, dupli=False, instancing=False),
+    "export_scene.x3d":dict(nonmesh=False, dupli=False, instancing=False),
+    "export_scene.x":dict(nonmesh=False, dupli=False, instancing=False),
+    "export_scene.vrml2":dict(nonmesh=False, dupli=False, instancing=False),
+    "export_scene.autodesk_3ds":dict(nonmesh=False, dupli=False, instancing=False),
+    "export_scene.ms3d":dict(nonmesh=False, dupli=False, join=True),
+    "export.dxf":dict(nonmesh=False, dupli=False, join=True),
+    "export_mesh.ply":dict(nonmesh=False, dupli=False, join=True),
+    "export_mesh.stl":dict(nonmesh=False, dupli=False, join=True),
+    "export_mesh.raw":dict(nonmesh=False, dupli=False, join=True),
+    "export_mesh.pdb":dict(nonmesh=False, dupli=False, join=True), # ?
+    "export_mesh.paper_model":dict(nonmesh=False, dupli=False, join=True),
+}
 
 #============================================================================#
 
@@ -694,12 +754,6 @@ class ExportSelected_Base(ExportHelper):
     exporter_index = bpy.props.IntProperty(default=-1, options={'HIDDEN'}) # memorized index
     exporter_props = bpy.props.PointerProperty(type=CurrentExporterProperties)
     
-    single_mesh_exporters = {
-        "export_mesh.ply",
-        "export_mesh.stl",
-        "export_scene.autodesk_3ds",
-    }
-    
     def abspath(self, path):
         format = self.exporter_infos[self.exporter]["name"]
         return bpy.path.abspath(path.format(format=format))
@@ -856,7 +910,10 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
         scene.cursor_location = Vector() # just to tidy up
     
     def convert_dupli(self, scene, objs):
-        if not self.use_convert_dupli: return
+        specifics = exporter_specifics.get(self.exporter, {})
+        use_convert_dupli = self.use_convert_dupli or (not specifics.get("dupli", True))
+        
+        if not use_convert_dupli: return
         if not objs: return
         
         del_objs = {obj for obj in scene.objects if obj not in objs}
@@ -875,7 +932,10 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
             if self.can_include(obj, scene): objs.add(obj)
     
     def convert_mesh(self, scene, objs):
-        if not self.use_convert_mesh: return
+        specifics = exporter_specifics.get(self.exporter, {})
+        use_convert_mesh = self.use_convert_mesh or (not specifics.get("nonmesh", True))
+        
+        if not use_convert_mesh: return
         if not objs: return
         
         for obj in scene.objects:
@@ -885,7 +945,34 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
         # For some reason object.convert() REQUIRES an active object to be present
         if scene.objects.active not in objs: scene.objects.active = next(iter(objs))
         
+        prev_objs = set(scene.objects)
         bpy.ops.object.convert(target='MESH')
+        new_objs = set(scene.objects) - prev_objs
+        
+        for obj in new_objs:
+            if self.can_include(obj, scene): objs.add(obj)
+    
+    def rename_data(self, scene, objs):
+        addon_prefs = bpy.context.user_preferences.addons[__name__].preferences
+        if not addon_prefs.rename_data: return
+        if not objs: return
+        
+        specifics = exporter_specifics.get(self.exporter, {})
+        instancing = specifics.get("instancing", True)
+        
+        names = {}
+        for obj in scene.objects:
+            data = obj.data
+            if not data: continue
+            if (not instancing) and (data.users - int(data.use_fake_user) > 1):
+                data = data.copy()
+                obj.data = data
+            name = names.get(data)
+            if (name is None) or (len(obj.name) < len(name)):
+                names[data] = obj.name
+        
+        for data, name in names.items():
+            data.name = name
     
     def delete_other_objects(self, scene, objs):
         del_objs = {obj for obj in scene.objects if obj not in objs}
@@ -905,10 +992,14 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
                         pass
                 if len(del_objs) == n: break
     
+    def find_mesh_obj(self, objs, obj):
+        if (obj in objs) and (obj.type == 'MESH'): return obj
+        for obj in objs:
+            if obj.type == 'MESH': return obj
+        return None
+    
     def clear_world(self, context, objs):
-        is_single_mesh = self.exporter in self.single_mesh_exporters
-        self.use_convert_dupli |= is_single_mesh
-        self.use_convert_mesh |= is_single_mesh
+        specifics = exporter_specifics.get(self.exporter, {})
         
         for scene in bpy.data.scenes:
             if scene != context.scene:
@@ -925,6 +1016,8 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
         
         self.convert_mesh(scene, objs)
         
+        self.rename_data(scene, objs)
+        
         matrix_map = {obj:Matrix(obj.matrix_world) for obj in objs}
         
         self.delete_other_objects(scene, objs)
@@ -936,37 +1029,53 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
         
         scene.update()
         
-        if is_single_mesh: bpy.ops.object.join()
+        if specifics.get("join", False):
+            scene.objects.active = self.find_mesh_obj(objs, scene.objects.active)
+            if scene.objects.active: bpy.ops.object.join()
     
     def export(self, context):
         dirpath = self.abspath(bpy_path_split(self.filepath)[0])
         if not os.path.exists(dirpath): os.makedirs(dirpath)
         
+        addon_prefs = context.user_preferences.addons[__name__].preferences
+        
+        kwargs = self.exporter_kwargs()
+        
         if self.exporter != 'BLEND':
             op = get_op(self.exporter)
-            op(**self.exporter_kwargs())
+            op(**kwargs)
             # NOTE: For some reason, Alembic prevents undoing the effects
             # of clear_world(), at least in Blender 2.78a.
             # The user can undo manually, but doing it from script appears impossible.
         else:
-            if hasattr(bpy.data.libraries, "write"):
+            kwargs = {"compress":kwargs["compress"], "relative_remap":kwargs["relative_remap"]}
+            if hasattr(bpy.data.libraries, "write") and addon_prefs.save_blend_as_lib:
                 # Hopefully this does not save unused libraries:
                 refs = {context.scene} # {a, *b} syntax is only supported in recent Blender versions
                 refs.update(context.scene.objects)
-                bpy.data.libraries.write(self.filepath, refs)
+                bpy.data.libraries.write(self.filepath, refs, **kwargs)
             else:
-                bpy.ops.wm.save_as_mainfile(filepath=self.filepath, copy=True) # fallback for earlier versions
+                bpy.ops.wm.save_as_mainfile(filepath=self.filepath, copy=True, **kwargs)
     
     def export_bundle(self, context, filepath, bundle):
         self.filepath = filepath
         with ToggleObjectMode(undo=None):
+            edit_preferences = bpy.context.user_preferences.edit
+            use_global_undo = edit_preferences.use_global_undo
+            undo_steps = edit_preferences.undo_steps
+            undo_memory_limit = edit_preferences.undo_memory_limit
+            edit_preferences.use_global_undo = True
+            edit_preferences.undo_steps = max(undo_steps, 2) # just in case
+            edit_preferences.undo_memory_limit = 0 # unlimited
             cursor_location = Vector(context.scene.cursor_location)
             bpy.ops.ed.undo_push(message="Delete unselected")
             self.clear_world(context, bundle)
             self.export(context)
             bpy.ops.ed.undo()
-            bpy.ops.ed.undo_push(message="Export Selected")
             context.scene.cursor_location = cursor_location
+            edit_preferences.use_global_undo = use_global_undo
+            edit_preferences.undo_steps = undo_steps
+            edit_preferences.undo_memory_limit = undo_memory_limit
     
     def get_bundle_keys_individual(self, obj):
         return {obj.name}
@@ -1009,7 +1118,7 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
             if bpy_path_basename(basepath): basepath += "-"
             for key, bundle in bundles_dict.items():
                 # Due to Undo on export, object references will be invalid
-                bundle = [bpy.data.objects[obj_name] for obj_name in bundle]
+                bundle = {bpy.data.objects[obj_name] for obj_name in bundle}
                 yield basepath+clean_keys[key]+ext, bundle
     
     @classmethod
@@ -1033,6 +1142,7 @@ class ExportSelected(bpy.types.Operator, ExportSelected_Base):
         self.filepath = self.abspath(self.filepath).replace("/", os.path.sep)
         for filepath, bundle in self.bundle_objects(objs):
             self.export_bundle(context, filepath, bundle)
+        bpy.ops.ed.undo_push(message="Export Selected")
         return {'FINISHED'}
     
     def draw(self, context):
@@ -1136,7 +1246,7 @@ class OBJECT_MT_selected_export(bpy.types.Menu):
         for idname, name, filename_ext, filter_glob in iter_exporter_info():
             row = layout.row()
             if idname != 'BLEND': row.enabled = get_op(idname).poll()
-            op_info = row.operator(ExportSelected.bl_idname, text=name)
+            op_info = row.operator(ExportSelected.bl_idname, text="{} ({})".format(name, filename_ext))
             op_info.exporter_str = idname
             op_info.use_file_browser = True
     
@@ -1149,10 +1259,16 @@ class ExportSelectedPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
     
     show_in_shelf = bpy.props.BoolProperty(name="Show in shelf", default=False)
+    save_blend_as_lib = bpy.props.BoolProperty(name="Save .blend as a library", default=False,
+        description="The exported .blend will not contain unused libraries, but thumbnails also won't be generated")
+    rename_data = bpy.props.BoolProperty(name="Rename datablocks", default=False,
+        description="Rename datablocks to match the corresponding objects' names")
     
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "show_in_shelf")
+        layout.prop(self, "save_blend_as_lib")
+        layout.prop(self, "rename_data")
 
 storage_name_internal = "<%s-internal-storage>" % "io_export_selected"
 def get_internal_storage():

@@ -235,7 +235,7 @@ def update_sprites(dummy):
                 
         if update_scene:
             bpy.context.scene.update()
-
+            
     ### animation wrap mode
     if hasattr(context,"active_object"):
         sprite_object = get_sprite_object(context.active_object)
@@ -257,7 +257,8 @@ def scene_update(dummy):
         objects = context.visible_objects
     else:
         objects = bpy.data.objects
-    if  hasattr(context,"window_manager"):   
+            
+    if  hasattr(context,"window_manager"):
         wm = bpy.context.window_manager
         if wm.coa_update_uv:
             for obj in objects:

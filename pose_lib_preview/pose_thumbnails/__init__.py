@@ -35,23 +35,24 @@ bl_info = {
 if 'bpy' in locals():
     import importlib
 
-    if 'pose_thumbnails' in locals():
-        importlib.reload(pose_thumbnails)
+    if 'core' in locals():
+        importlib.reload(core)
+        importlib.reload(creation)
 else:
-    from . import pose_thumbnails
+    from . import core, creation
 import bpy
 
 
 def register():
     """Register all pose thumbnail related things."""
-    bpy.utils.register_module(__name__)
-    pose_thumbnails.register()
+    core.register()
+    creation.register()
 
 
 def unregister():
     """Unregister all pose thumbnails related things."""
-    bpy.utils.unregister_module(__name__)
-    pose_thumbnails.unregister()
+    core.unregister()
+    creation.unregister()
 
 
 if __name__ == '__main__':

@@ -381,14 +381,14 @@ class CreateNlaTrack(bpy.types.Operator):
             if len(track.strips) == 0:
                 return track
             
-            
             for strip in track.strips:
-                if (strip_range[0] > strip.frame_start and strip_range[0] < strip.frame_end) or (strip_range[1] > strip.frame_start and strip_range[1] < strip.frame_end):
+                if (strip_range[0] > strip.frame_start and strip_range[0] < strip.frame_end) or (strip_range[1] > strip.frame_start and strip_range[1] < strip.frame_end) or (strip_range[0] == strip.frame_start and strip_range[1] == strip.frame_end):
                     intersecting_strip_found = True
                 
         if not intersecting_strip_found:
             return track
-               
+        
+              
         return anim_data.nla_tracks.new()
     
     def execute(self, context):
@@ -425,8 +425,8 @@ class CreateNlaTrack(bpy.types.Operator):
                     if child.animation_data != None:
                         child.animation_data_create()
                         anim_data = child.animation_data
-                        
                         nla_track = self.get_empty_track(anim_data,[strip_start,strip_end])  
+                        
                         strip = nla_track.strips.new(action_name,self.start,action)
                         strip.action_frame_start = action_start
                         strip.action_frame_end = action_end

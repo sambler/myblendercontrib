@@ -77,7 +77,7 @@ def generate_page(sp, node, parent_name, first_level=False):
             prop_meta.update(sub_meta)
             prop_meta[name] = {'renderman_type': 'page'}
             prop_names.append(name)
-            ui_label = "%s_ui_open" % name
+            ui_label = "%s_uio" % name
             setattr(node, ui_label, BoolProperty(name=ui_label,
                                                  default=False))
         else:
@@ -98,13 +98,13 @@ def generate_page(sp, node, parent_name, first_level=False):
                 prop_names.append("TxMake Options")
                 prop_meta["TxMake Options"] = {'renderman_type': 'page'}
                 setattr(node, "TxMake Options", optionsNames)
-                ui_label = "%s_ui_open" % "TxMake Options"
+                ui_label = "%s_uio" % "TxMake Options"
                 setattr(node, ui_label, BoolProperty(name=ui_label,
                                                      default=False))
                 prop_meta.update(optionsMeta)
                 for Texname in optionsNames:
                     setattr(
-                        node, Texname + "_ui_open", optionsProps[Texname])
+                        node, Texname + "_uio", optionsProps[Texname])
                     setattr(node, Texname, optionsProps[Texname])
 
             # if name == sp.attrib['name']:
@@ -175,7 +175,7 @@ def class_generate_properties(node, parent_name, shaderparameters):
                 sp, node, page_name, first_level=first_level)
             prop_names.append(page_name)
             prop_meta[page_name] = {'renderman_type': 'page'}
-            ui_label = "%s_ui_open" % page_name
+            ui_label = "%s_uio" % page_name
             setattr(node, ui_label, BoolProperty(name=ui_label,
                                                  default=False))
             prop_meta.update(sub_params_meta)
@@ -204,13 +204,13 @@ def class_generate_properties(node, parent_name, shaderparameters):
                 prop_names.append("TxMake Options")
                 prop_meta["TxMake Options"] = {'renderman_type': 'page'}
                 setattr(node, "TxMake Options", optionsNames)
-                ui_label = "%s_ui_open" % "TxMake Options"
+                ui_label = "%s_uio" % "TxMake Options"
                 setattr(node, ui_label, BoolProperty(name=ui_label,
                                                      default=False))
                 prop_meta.update(optionsMeta)
                 for Texname in optionsNames:
                     setattr(
-                        node, Texname + "_ui_open", optionsProps[Texname])
+                        node, Texname + "_uio", optionsProps[Texname])
                     setattr(node, Texname, optionsProps[Texname])
 
     setattr(node, 'prop_names', prop_names)

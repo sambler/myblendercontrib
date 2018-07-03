@@ -21,8 +21,8 @@
 bl_info = {
     "name": "Tasker",
     "author": "Bassam Kurdali",
-    "version": (0, 2),
-    "blender": (2, 73, 0),
+    "version": (0, 3),
+    "blender": (2, 79, 0),
     "location": "Node Editor > Tools",
     "description": "Project Task Manager",
     "warning": "",

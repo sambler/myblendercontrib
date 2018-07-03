@@ -3,15 +3,15 @@
 # TODO: check bounding sphere calculation
 
 
-import bpy
-import mathutils
-from math import sqrt
 import re
 from collections import defaultdict
+from math import sqrt
+
+import bpy
+import mathutils
 
 from . import fmt_md3 as fmt
 from .utils import OffsetBytesIO
-
 
 nums = re.compile(r'\.\d{3}$')
 
@@ -59,7 +59,7 @@ def gather_vertices(mesh, uvmap_data=None):
         key = (
             loop.vertex_index,
             tuple(loop.normal),
-            None if uvmap_data is None else tuple(uvmap_data[i].uv)
+            None if uvmap_data is None else tuple(uvmap_data[i].uv),
         )
         md3id = index.get(key, None)
         if md3id is None:
@@ -296,7 +296,7 @@ class MD3Exporter:
         frames_bin = [self.pack_frame(i) for i in range(self.nFrames)]
 
         if len(surfaces_bin) == 0:
-            raise ValueError("At least one surface mesh must be visible in order to export.")
+            print("WARNING: There're no visible surfaces to export")
 
         f = OffsetBytesIO(start_offset=fmt.Header.size)
         f.mark('offFrames')

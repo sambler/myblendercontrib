@@ -183,7 +183,7 @@ class RENDER_PT_renderman_render(PRManButtonsPanel, Panel):
         layout = self.layout
         rd = context.scene.render
         rm = context.scene.renderman
-        
+
         # Render
         row = layout.row(align=True)
         rman_render = icons.get("render")
@@ -381,7 +381,7 @@ def draw_props(node, prop_names, layout):
         row = layout.row()
 
         if prop_meta['renderman_type'] == 'page':
-            ui_prop = prop_name + "_ui_open"
+            ui_prop = prop_name + "_uio"
             ui_open = getattr(node, ui_prop)
             icon = 'DISCLOSURE_TRI_DOWN' if ui_open \
                 else 'DISCLOSURE_TRI_RIGHT'

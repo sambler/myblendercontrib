@@ -78,6 +78,7 @@ class bgisPanel(bpy.types.Panel):
 		row.operator("importgis.shapefile_file_dialog", icon_value=icons_dict["shp"].icon_id, text='')
 		row.operator("importgis.georaster", icon_value=icons_dict["raster"].icon_id, text='')
 		row.operator("importgis.osm_file", icon_value=icons_dict["osm_xml"].icon_id, text='')
+		row.operator("importgis.asc_file", icon_value=icons_dict["asc"].icon_id, text='')
 		#row.operator("importgis.lidar_las", icon_value=icons_dict["lidar"].icon_id, text='')
 
 		col = layout.column(align=True)
@@ -103,6 +104,7 @@ def menu_func_import(self, context):
 	self.layout.operator('importgis.georaster', text="Georeferenced raster")
 	self.layout.operator('importgis.shapefile_file_dialog', text="Shapefile (.shp)")
 	self.layout.operator('importgis.osm_file', text="Open Street Map xml (.osm)")
+	self.layout.operator('importgis.asc_file', text="ESRI ASCII Grid (.asc)")
 
 def menu_func_export(self, context):
 	self.layout.operator('exportgis.shapefile', text="Shapefile (.shp)")
@@ -128,9 +130,10 @@ def register():
 
 	#shortcuts
 	wm = bpy.context.window_manager
-	km = wm.keyconfigs.active.keymaps['3D View']
-	kmi = km.keymap_items.new(idname='view3d.map_start', value='PRESS', type='NUMPAD_ASTERIX', ctrl=False, alt=False, shift=False, oskey=False)
-
+	kc =  wm.keyconfigs.active
+	if kc is not None: #no keyconfig when Blender from commandline with background flag
+		km = kc.keymaps['3D View']
+		kmi = km.keymap_items.new(idname='view3d.map_start', value='PRESS', type='NUMPAD_ASTERIX', ctrl=False, alt=False, shift=False, oskey=False)
 	#config core settings
 	prefs = bpy.context.user_preferences.addons[__package__].preferences
 	cfg = getSettings()
@@ -146,12 +149,13 @@ def unregister():
 
 	bpy.types.INFO_MT_file_import.remove(menu_func_import)
 	bpy.types.INFO_MT_file_export.append(menu_func_export)
-
-	wm = bpy.context.window_manager
-	km = wm.keyconfigs.active.keymaps['3D View']
-	kmi = km.keymap_items.remove(km.keymap_items['view3d.map_start'])
-	#>>cause warnings prints : "search for unknown operator 'VIEW3D_OT_map_start', 'VIEW3D_OT_map_start' "
-
+	try: #windows manager may be unavailable (for example whne running Blender command line)
+		wm = bpy.context.window_manager
+		km = wm.keyconfigs.active.keymaps['3D View']
+		kmi = km.keymap_items.remove(km.keymap_items['view3d.map_start'])
+		#>>cause warnings prints : "search for unknown operator 'VIEW3D_OT_map_start', 'VIEW3D_OT_map_start' "
+	except:
+		pass
 	nodes_terrain_analysis_reclassify.unregister()
 	bpy.utils.unregister_module(__name__)
 

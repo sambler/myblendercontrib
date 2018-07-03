@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import random
 
 import bpy
 import bmesh
@@ -39,7 +40,7 @@ def queryBuilder(bbox, tags=['building', 'highway'], types=['node', 'way', 'rela
 
 		'''
 		QL template syntax :
-		[out:json][bbox:ymin,xmin,ymax,xmax];(node[tag1];node[tag2];((way[tag1];way[tag2]);>);relation);out;
+		[out:json][bbox:ymin,xmin,ymax,xmax];(node[tag1];node[tag2];((way[tag1];way[tag2];);>;);relation;);out;
 		'''
 
 		#s,w,n,e <--> ymin,xmin,ymax,xmax
@@ -62,13 +63,13 @@ def queryBuilder(bbox, tags=['building', 'highway'], types=['node', 'way', 'rela
 		if 'way' in types:
 			union += '(('
 			if tags:
-				union += ';'.join( ['way['+tag+']' for tag in tags] ) + ');'
+				union += ';'.join( ['way['+tag+']' for tag in tags] ) + ';);'
 			else:
-				union += 'way);'
-			union += '>);'
+				union += 'way;);'
+			union += '>;);'
 		#all relations (no filter tag applied)
 		if 'relation' in types or 'rel' in types:
-			union += 'relation'
+			union += 'relation;'
 		union += ')'
 
 		output = ';out;'
@@ -130,6 +131,7 @@ class OSM_IMPORT():
 
 	defaultHeight = FloatProperty(name='Default Height', description='Set the height value using for extrude building when the tag is missing', default=20)
 	levelHeight = FloatProperty(name='Level height', description='Set a height for a building level, using for compute extrude height based on number of levels', default=3)
+	randomHeightThreshold = FloatProperty(name='Random height threshold', description='Threshold value for randomize default height', default=0)
 
 	def draw(self, context):
 		layout = self.layout
@@ -139,6 +141,7 @@ class OSM_IMPORT():
 		col = row.column()
 		col.prop(self, "filterTags", expand=True)
 		layout.prop(self, 'defaultHeight')
+		layout.prop(self, 'randomHeightThreshold')
 		layout.prop(self, 'levelHeight')
 		layout.prop(self, 'separate')
 
@@ -215,7 +218,11 @@ class OSM_IMPORT():
 				elif "building:levels" in tags:
 					offset = int(tags["building:levels"]) * self.levelHeight
 				else:
-					offset = self.defaultHeight
+					minH = self.defaultHeight - self.randomHeightThreshold
+					if minH < 0 :
+						minH = 0
+					maxH = self.defaultHeight + self.randomHeightThreshold
+					offset = random.randint(minH, maxH)
 
 				#Extrude
 				"""
@@ -563,8 +570,8 @@ class OSM_QUERY(Operator, OSM_IMPORT):
 		api = overpy.Overpass()
 
 		query = queryBuilder(bbox, tags=list(self.filterTags), types=list(self.featureType), format='xml')
-
-		print(query)
+                # print sometimes fail with non utf8 chars (lon -8.73915, lat 40.332, zoom 12)
+		# print(query)
 		try:
 			result = api.query(query)
 		except Exception as e:

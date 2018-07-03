@@ -51,7 +51,7 @@ class LeaveSculptmode(bpy.types.Operator):
 
 class ShapekeyAdd(bpy.types.Operator):
     bl_idname = "coa_tools.shapekey_add"
-    bl_label = "Shapekey Add"
+    bl_label = "Add Shapekey"
     bl_description = ""
     bl_options = {"REGISTER"}
 
@@ -80,6 +80,61 @@ class ShapekeyAdd(bpy.types.Operator):
                 break
             
         return {"FINISHED"}
+    
+class ShapekeyRemove(bpy.types.Operator):
+    bl_idname = "coa_tools.shapekey_remove"
+    bl_label = "Remove Shapekey"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+    
+    @classmethod
+    def poll(cls, context):
+        return True
+        
+    def invoke(self,context,event):
+        wm = context.window_manager
+        return wm.invoke_confirm(self,event)
+        
+    def execute(self, context):
+        obj = context.active_object
+        
+        idx = int(obj.coa_selected_shapekey)
+
+        shape = obj.data.shape_keys.key_blocks[idx]
+        obj.shape_key_remove(shape)
+            
+        return {"FINISHED"}
+    
+class ShapekeyRename(bpy.types.Operator):
+    bl_idname = "coa_tools.shapekey_rename"
+    bl_label = "Rename Shapekey"
+    bl_description = ""
+    bl_options = {"REGISTER"}
+
+    new_name = StringProperty()
+
+    @classmethod
+    def poll(cls, context):
+        return True
+    
+    def invoke(self,context,event):
+        obj = context.active_object
+        idx = int(obj.coa_selected_shapekey)
+        shape = obj.data.shape_keys.key_blocks[idx]
+        
+        self.new_name = shape.name
+        
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+    
+    def execute(self, context):
+        obj = context.active_object
+        idx = int(obj.coa_selected_shapekey)
+        shape = obj.data.shape_keys.key_blocks[idx]
+        
+        shape.name = self.new_name
+        return {"FINISHED"}
+            
         
 
 class EditShapekeyMode(bpy.types.Operator):
@@ -111,6 +166,8 @@ class EditShapekeyMode(bpy.types.Operator):
     create_shapekey = BoolProperty(default=False)
     objs = []
     
+    last_obj_name = ""
+    
     @classmethod
     def poll(cls, context):
         return True
@@ -137,13 +194,29 @@ class EditShapekeyMode(bpy.types.Operator):
             return self.execute(context)
             
     
+    def set_most_driven_shapekey(self,obj):
+        ### select most driven shapekey
+        index = None
+        value = 0.0
+        if obj != None and obj.data.shape_keys != None:
+            for i,shape in enumerate(obj.data.shape_keys.key_blocks):
+                if shape.value > value:
+                    index = i
+                    value = shape.value
+            if index != None:
+                obj.active_shape_key_index = index
+    
     def execute(self, context):
+        self.objs = []
         if context.active_object == None:
             self.report({"ERROR"},"Armature is hidden or not selected. Cannot go in Edit Mode.")
             return{"CANCELLED"}
         obj = context.active_object
+        
         self.sprite_object = get_sprite_object(obj)
-        self.armature = get_armature(self.sprite_object)
+        
+        armature_name = get_armature(self.sprite_object).name
+        self.armature = context.scene.objects[armature_name] if armature_name in context.scene.objects else None
         self.obj_init = context.active_object
         
         self.mode_init = obj.mode if obj.mode != "SCULPT" else "OBJECT"
@@ -165,6 +238,8 @@ class EditShapekeyMode(bpy.types.Operator):
                 context.scene.tool_settings.sculpt.brush = brush
                 break
         
+        self.set_most_driven_shapekey(obj)
+        
         ### run modal operator and draw handler
         args = ()
         self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
@@ -172,12 +247,17 @@ class EditShapekeyMode(bpy.types.Operator):
         return {"RUNNING_MODAL"}
     
     def exit_edit_mode(self,context,event,obj):
+        ### remove draw handler on exiting modal mode    
+        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW") 
+        
+        
         for obj in context.selected_objects:
             obj.select = False
         self.sprite_object.coa_edit_shapekey = False
         self.sprite_object.coa_edit_mode = "OBJECT"
         
-        for obj in self.objs:
+        for obj_name in self.objs:
+            obj = bpy.context.scene.objects[obj_name]
             obj.hide = False
             if obj.type == "MESH" and obj != None:
                 context.scene.objects.active = obj
@@ -187,20 +267,24 @@ class EditShapekeyMode(bpy.types.Operator):
         context.scene.objects.active = obj
         obj.select = True
         if self.armature != None:
-            self.armature.data.pose_position = "POSE"
-            
-        ### remove draw handler on exiting modal mode    
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")    
+            self.armature.data.pose_position = "POSE"   
         return {"FINISHED"}
     
     def modal(self, context, event):
-        obj = context.active_object
+        obj = None
+        obj_name = context.active_object.name if context.active_object != None else None
+        obj = context.scene.objects[obj_name] if obj_name != None else None
         try:
             if obj != None:
-                if obj not in self.objs and obj.type == "MESH":
-                    self.objs.append(obj)
+                
+                if obj_name != self.last_obj_name:
+                    if obj.type == "MESH":
+                        self.set_most_driven_shapekey(obj)
+                
+                if obj.name not in self.objs and obj.type == "MESH":
+                    self.objs.append(obj.name)
                 if obj.type == "MESH" and obj.mode in ["OBJECT","WEIGHT_PAINT"]:
-                    bpy.ops.object.mode_set(mode="SCULPT")    
+                    bpy.ops.object.mode_set(mode="SCULPT")
                 
                 if obj.type == "MESH" and obj.data.shape_keys != None:
                     if obj.coa_selected_shapekey != obj.active_shape_key.name:
@@ -212,7 +296,11 @@ class EditShapekeyMode(bpy.types.Operator):
         except Exception as e:
             traceback.print_exc()
             self.report({"ERROR"},"An Error occured, please check console for more Information.")
-            self.exit_edit_mode(context,event,obj) 
+            self.exit_edit_mode(context,event,obj)
+        
+        if obj_name != self.last_obj_name:
+            self.last_obj_name = obj_name
+             
         return {"PASS_THROUGH"}
     
     def draw_callback_px(self):

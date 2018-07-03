@@ -127,7 +127,7 @@ class LoadJsonData(bpy.types.Operator):
                             obj = context.scene.objects[sprite["name"]]
                             obj.select = True
                             context.scene.objects.active = obj
-                            bpy.ops.coa_tools.coa_reimport_sprite(filepath=filepath,name=sprite["name"])
+                            bpy.ops.coa_tools.coa_reimport_sprite(filepath=filepath,name=sprite["name"],scale=scale,pos=pos,offset=offset)
                         else:
                             bpy.ops.coa_tools.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=scale,pos=pos,tilesize=tilesize,offset=offset)
                     
@@ -354,7 +354,9 @@ class ReImportSprite(bpy.types.Operator, ImportHelper):
     tiles_x = IntProperty(default=1,min=1)
     tiles_y = IntProperty(default=1,min=1)
     name = StringProperty(default="")
-    
+    pos = FloatVectorProperty(default=Vector((0,0,0)))
+    scale = FloatProperty(default=.01)
+    offset = FloatVectorProperty(default=Vector((0,0,0)))
     
     def move_verts(self,obj,ratio_x,ratio_y):
         bpy.ops.object.mode_set(mode="EDIT")
@@ -422,6 +424,9 @@ class ReImportSprite(bpy.types.Operator, ImportHelper):
         obj_dimension[0] /= obj.scale[0]
         obj_dimension[1] /= obj.scale[1]
         obj_dimension[2] /= obj.scale[2]
+        
+        pos = self.pos
+        obj.location = Vector((pos[0],pos[1],-pos[2]))*self.scale + Vector((self.offset[0],self.offset[1],self.offset[2]))*self.scale
         
         sprite_dimension = Vector(obj_dimension) * (1/scale)
 

@@ -1821,6 +1821,40 @@ class ChangeMonitor:
 class BlUtil:
     class Object:
         @staticmethod
+        def line_cast(obj, start, end, world=False):
+            if world:
+                mi = matrix_inverted_safe(obj.matrix_world)
+                start, end = (mi * start), (mi * end)
+            
+            if bpy.app.version < (2, 77, 0):
+                # Object.ray_cast(start, end)
+                # returns (location, normal, index)
+                res = obj.ray_cast(start, end)
+                return ((res[-1] >= 0), res[0], res[1], res[2])
+            else:
+                # Object.ray_cast(origin, direction, [distance])
+                # returns (result, location, normal, index)
+                delta = end - start
+                return obj.ray_cast(start, delta, delta.magnitude)
+        
+        @staticmethod
+        def ray_cast(obj, origin, direction, distance=1.70141e+38, world=False):
+            if world:
+                mi = matrix_inverted_safe(obj.matrix_world)
+                origin, direction = (mi * origin), (mi.to_3x3() * direction)
+            
+            if bpy.app.version < (2, 77, 0):
+                # Object.ray_cast(start, end)
+                # returns (location, normal, index)
+                start, end = origin, (origin + direction.normalized() * distance)
+                res = obj.ray_cast(start, end)
+                return ((res[-1] >= 0), res[0], res[1], res[2])
+            else:
+                # Object.ray_cast(origin, direction, [distance])
+                # returns (result, location, normal, index)
+                return obj.ray_cast(origin, direction, distance)
+        
+        @staticmethod
         def layers_intersect(a, b, name_a="layers", name_b=None):
             return any(l0 and l1 for l0, l1 in zip(getattr(a, name_a), getattr(b, name_b or name_a)))
         
@@ -2096,6 +2130,34 @@ class BlUtil:
                 BlUtil.Object.instantiate_duplis(dst_obj, scene, settings, depth)
     
     class Scene:
+        @staticmethod
+        def line_cast(scene, start, end):
+            if bpy.app.version < (2, 77, 0):
+                # Scene.ray_cast(start, end)
+                # returns (result, object, matrix, location, normal)
+                res = scene.ray_cast(start, end)
+                index = (BlUtil.Object.line_cast(res[1], start, end, world=True)[-1] if res[0] else -1)
+                return (res[0], res[3], res[4], index, res[1], res[2])
+            else:
+                # Scene.ray_cast(origin, direction, distance=1.70141e+38)
+                # returns (result, location, normal, index, object, matrix)
+                delta = end - start
+                return scene.ray_cast(start, delta, delta.magnitude)
+        
+        @staticmethod
+        def ray_cast(scene, origin, direction, distance=1.70141e+38):
+            if bpy.app.version < (2, 77, 0):
+                # Scene.ray_cast(start, end)
+                # returns (result, object, matrix, location, normal)
+                start, end = origin, (origin + direction.normalized() * distance)
+                res = scene.ray_cast(start, end)
+                index = (BlUtil.Object.line_cast(res[1], start, end, world=True)[-1] if res[0] else -1)
+                return (res[0], res[3], res[4], index, res[1], res[2])
+            else:
+                # Scene.ray_cast(origin, direction, distance=1.70141e+38)
+                # returns (result, location, normal, index, object, matrix)
+                return scene.ray_cast(origin, direction, distance)
+        
         @staticmethod
         def cursor(context):
             if context:

@@ -19,7 +19,7 @@ bl_info = {
     "name": "Mouselook Navigation",
     "description": "Alternative 3D view navigation",
     "author": "dairin0d, moth3r",
-    "version": (1, 0, 7),
+    "version": (1, 0, 8),
     "blender": (2, 7, 0),
     "location": "View3D > orbit/pan/dolly/zoom/fly/walk",
     "warning": "",
@@ -559,7 +559,12 @@ class MouselookNavigation:
             self.cleanup(context)
             return {'CANCELLED'}
         
-        return {'RUNNING_MODAL'}
+        if addon_prefs.pass_through:
+            # Arguably more useful? Allows to more easily combine navigation with other operations,
+            # e.g. using mouse & NDOF device simultaneously or sculpt-rotate-sculpt-rotate without releasing the MMB
+            return {'PASS_THROUGH'}
+        else:
+            return {'RUNNING_MODAL'}
     
     def calc_abs_speed(self, walk_speed_factor, speed_zoom, use_zoom_to_mouse, speed_move, use_gravity, dt, jump_height, view_height):
         abs_speed = Vector()
@@ -1403,6 +1408,8 @@ class ThisAddonPreferences:
         addon.use_zbuffer = addon.preferences.use_zbuffer
     use_zbuffer = True | prop("Preemptively grab Z-buffer (WARNING: CAN BE SLOW!)", name="Record Z-buffer", update=use_zbuffer_update)
     
+    pass_through = False | prop("Other operators can be used while navigating", name="Non-blocking")
+    
     flips = NavigationDirectionFlip | prop()
     
     zoom_speed_modifier = 1.0 | prop("Zooming speed", name="Zoom speed")
@@ -1422,8 +1429,9 @@ class ThisAddonPreferences:
         
         use_universal_input_settings = (self.use_universal_input_settings or len(self.autoreg_keymaps) == 0)
         
-        with layout.row():
+        with layout.row()(alignment='LEFT'):
             layout.prop(self, "use_zbuffer")
+            layout.prop(self, "pass_through")
         
         with layout.row():
             with layout.column():

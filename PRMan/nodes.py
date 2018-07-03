@@ -375,7 +375,7 @@ class RendermanShadingNode(bpy.types.ShaderNode):
                     continue
                 if prop_name not in self.inputs:
                     if prop_meta['renderman_type'] == 'page':
-                        ui_prop = prop_name + "_ui_open"
+                        ui_prop = prop_name + "_uio"
                         ui_open = getattr(self, ui_prop)
                         icon = 'DISCLOSURE_TRI_DOWN' if ui_open \
                             else 'DISCLOSURE_TRI_RIGHT'
@@ -651,7 +651,7 @@ def generate_node_type(prefs, name, args):
             node_group.use_fake_user = True
             self.node_group = node_group.name
         update_conditional_visops(self)
-        
+
 
     def free(self):
         if name == "PxrRamp":
@@ -849,7 +849,7 @@ def draw_node_properties_recursive(layout, context, nt, node, level=0):
                 else:
                     row = layout.row(align=True)
                     if prop_meta['renderman_type'] == 'page':
-                        ui_prop = prop_name + "_ui_open"
+                        ui_prop = prop_name + "_uio"
                         ui_open = getattr(node, ui_prop)
                         icon = 'DISCLOSURE_TRI_DOWN' if ui_open \
                             else 'DISCLOSURE_TRI_RIGHT'
@@ -868,7 +868,7 @@ def draw_node_properties_recursive(layout, context, nt, node, level=0):
                                     row.prop(node, pn, text='')
                                     sub_prop_names.remove(pn)
                                     break
-                        
+
                         row.label(prop_name.split('.')[-1] + ':')
 
                         if ui_open:
@@ -1428,7 +1428,7 @@ def gen_params(ri, node, mat_name=None):
                         in_sock = group_output.inputs[from_socket.name]
                         if len(in_sock.links):
                             from_socket = in_sock.links[0].from_socket
-                            temp_mat_name = mat_name + '.' + from_socket.node.name    
+                            temp_mat_name = mat_name + '.' + from_socket.node.name
 
                     vstruct_from_param = "%s_%s" % (
                         from_socket.identifier, vstruct_member)
@@ -1998,7 +1998,7 @@ def replace_frame_num(prop):
     prop = prop.replace('$f4', str(frame_num).zfill(4))
     prop = prop.replace('$F4', str(frame_num).zfill(4))
     prop = prop.replace('$f3', str(frame_num).zfill(3))
-    prop = prop.replace('$f3', str(frame_num).zfill(3))
+    prop = prop.replace('$F3', str(frame_num).zfill(3))
     return prop
 
 # return the output file name if this texture is to be txmade.
@@ -2006,9 +2006,17 @@ def replace_frame_num(prop):
 
 def get_tex_file_name(prop):
     prop = replace_frame_num(prop)
-    prop = prop.replace('\\', '\/')
-    if prop != '' and prop.rsplit('.', 1) != 'tex':
-        return os.path.basename(prop).rsplit('.', 1)[0] + '.tex'
+    prop = bpy.path.basename(prop)
+    part = prop.rpartition('.')
+    prop = part[0]
+    if prop != '' and part[2].lower() != 'tex':
+        _p_ = bpy.context.scene.renderman.path_texture_output
+        #
+        # just in case there is a leading path separator
+        #
+        _s_ = "" if _p_.endswith("/") or _p_.endswith("\\") else "/"
+        _f_ = "{}{}{}{}".format(_p_, _s_, prop, ".tex")
+        return user_path(_f_)
     else:
         return prop
 
@@ -2326,6 +2334,6 @@ def register():
 def unregister():
     nodeitems_utils.unregister_node_categories("RENDERMANSHADERNODES")
     # bpy.utils.unregister_module(__name__)
-    
+
     for cls in classes:
         bpy.utils.unregister_class(cls)

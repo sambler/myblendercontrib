@@ -180,7 +180,8 @@ class COAModal(bpy.types.Operator):
             ### will be executed when leaving armature edit mode                
             if get_sprite_object(obj)!= None and obj != None and obj.type == "ARMATURE" and self.obj_mode_hist == "EDIT" and obj.mode != "EDIT":
                 ### fix bone roll to properly export
-                fix_bone_roll(obj)
+                if obj.hide == False:
+                    fix_bone_roll(obj)
             
             if obj != None:        
                 self.obj_mode_hist = str(obj.mode)

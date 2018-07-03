@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Export SMD: Valve studiomodel source format",
     "author": "nemyax",
-    "version": (0, 1, 20170714),
+    "version": (0, 2, 20180520),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Export Valve studiomodel sources",
@@ -29,28 +29,51 @@ from bpy_extras.io_utils import (
 ### Export functions
 ###
 
-def get_ranges(marker_filter):
+def get_ranges(name_filter):
     markers = bpy.context.scene.timeline_markers
     starts = [m for m in markers if
-        m.name.startswith(marker_filter) and
+        m.name.startswith(name_filter) and
         m.name.endswith("_start", 1)]
     ends = [m for m in markers if
-        m.name.startswith(marker_filter) and
+        m.name.startswith(name_filter) and
         m.name.endswith("_end", 1)]
     if not starts or not ends:
         return {}
     return find_matches(starts, ends)
 
-def find_matches(starts, ends):
-    pairs = {}
+def get_ranges_multiaction(name_filter):
+    result = {}
+    for a in bpy.data.actions:
+        markers = a.pose_markers
+        starts = [m for m in markers if
+            m.name.startswith(name_filter) and
+            m.name.endswith("_start", 1)]
+        ends = [m for m in markers if
+            m.name.startswith(name_filter) and
+            m.name.endswith("_end", 1)]
+        if not starts or not ends:
+            continue
+        matches = find_matches(starts, ends, a)
+        for m in matches:
+            seqn = m
+            incr = 1
+            while seqn in result:
+                seqn = m + str(incr)
+                if seqn in matches:
+                    incr += 1
+            result[seqn] = matches[m]
+    return result
+
+def find_matches(starts, ends, action=None):
+    spans = {}
     for s in starts:
         basename = s.name[:s.name.rfind("_start")]
         matches = [e for e in ends if
             e.name[:e.name.rfind("_end")] == basename]
         if matches:
             m = matches[0]
-            pairs[basename] = (min(s.frame, m.frame),max(s.frame, m.frame))
-    return pairs
+            spans[basename] = (min(s.frame, m.frame),max(s.frame, m.frame),action)
+    return spans
 
 def get_node_items(bone_lu):
     items = []
@@ -134,7 +157,7 @@ def get_tri_items(bm, tx_lu, weighting=False):
     return result
 
 def write_smd_mesh(path, prerequisites, weighting):
-    bone_lu, tx_lu, bm, a_mtx = prerequisites
+    a_obj, bone_lu, tx_lu, bm, a_mtx = prerequisites
     lines = ["version 1\n"]
     lines.append("nodes\n")
     lines.extend(get_node_items(bone_lu))
@@ -153,13 +176,20 @@ def write_smd_mesh(path, prerequisites, weighting):
     f.close()
 
 def write_smd_anim(path, prerequisites, frame_range):
-    bone_lu, tx_lu, bm, a_mtx = prerequisites
+    a_obj, bone_lu, tx_lu, bm, a_mtx = prerequisites
     go_back = bpy.context.scene.frame_current
-    if frame_range == None:
+    if bpy.context.scene.use_preview_range:
+        start_frame = bpy.context.scene.frame_preview_start
+        end_frame = bpy.context.scene.frame_preview_end
+    else:
         start_frame = bpy.context.scene.frame_start
         end_frame = bpy.context.scene.frame_end
-    else:
-        start_frame, end_frame = frame_range
+    action = None
+    if frame_range:
+        start_frame, end_frame, action = frame_range
+    if action:
+        if action != a_obj.animation_data.action:
+            a_obj.animation_data.action = action
     lines = ["version 1\n"]
     lines.append("nodes\n")
     lines.extend(get_node_items(bone_lu))
@@ -201,15 +231,20 @@ def write_qc(path, ranges):
     f.write(qc_str)
     f.close()
 
-def write_batch(path, prerequisites, marker_filter, weighting, qc):
+def write_batch(path, prerequisites, multi, name_filter, weighting, qc):
     write_smd_mesh(path, prerequisites, weighting)
-    ranges = get_ranges(marker_filter)
+    orig_action = prerequisites[0].animation_data.action
+    if multi:
+        ranges = get_ranges_multiaction(name_filter)
+    else:
+        ranges = get_ranges(name_filter)
     if not ranges:
         ranges = {'idle':(1,1)}
     for r in ranges:
         folder = os.path.dirname(path)
         anim_file = os.path.join(folder, r + ".smd")
         write_smd_anim(anim_file, prerequisites, ranges[r])
+    prerequisites[0].animation_data.action = orig_action
     if qc:
         write_qc(path, ranges)
     return {'FINISHED'}
@@ -242,7 +277,7 @@ def get_prereqs(what):
                 m.show_viewport = states[m]
         else:
             tx_lu, bm = prep_bmesh(obj, bone_lu)
-    return bone_lu, tx_lu, bm, a_mtx
+    return arm, bone_lu, tx_lu, bm, a_mtx
 
 ###
 ### Helper functions
@@ -445,6 +480,11 @@ class ExportGSSMDBatch(bpy.types.Operator, ExportHelper):
             options={'HIDDEN'})
     path_mode = path_reference_mode
     check_extension = True
+    multiaction = BoolProperty(
+        name="Multi-action export",
+        description="".join([
+                "Look for frame ranges in all actions",
+                " instead of the scene timeline"]))
     marker_filter = StringProperty(
             name="Marker filter",
             description="".join([
@@ -466,6 +506,7 @@ class ExportGSSMDBatch(bpy.types.Operator, ExportHelper):
         write_batch(
                 self.filepath,
                 prerequisites,
+                self.multiaction,
                 self.marker_filter,
                 self.weighting,
                 self.qc)

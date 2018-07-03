@@ -102,6 +102,9 @@ class EditWeights(bpy.types.Operator):
         #self.hide_deform_bones(context)
     
     def exit_edit_mode(self,context):
+        ### remove draw call
+        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+        
         sprite_object = bpy.data.objects[self.sprite_object] 
                 
         self.exit_edit_weights(context)
@@ -110,9 +113,6 @@ class EditWeights(bpy.types.Operator):
         bpy.ops.ed.undo_push(message="Exit Edit Weights")
         self.disable_object_color(False)
         context.active_object.active_material.use_shadeless = self.shadeless
-        
-        ### remove draw call
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
         return {"FINISHED"}
     
     def modal(self, context, event):

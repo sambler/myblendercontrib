@@ -378,6 +378,9 @@ class QuickArmature(bpy.types.Operator):
         return {'PASS_THROUGH'}
     
     def exit_edit_mode(self,context):
+        ### remove draw call
+        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+        
         bpy.context.space_data.show_manipulator = self.show_manipulator
         bpy.context.window.cursor_set("CROSSHAIR")
         #bpy.ops.object.mode_set(mode=self.armature_mode)
@@ -403,9 +406,6 @@ class QuickArmature(bpy.types.Operator):
         for obj in self.obj_settings:
             obj.show_x_ray = self.obj_settings[obj]["show_x_ray"]
             obj.show_name = self.obj_settings[obj]["show_name"]
-        
-        ### remove draw call
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
         return{'FINISHED'}
     
     def execute(self, context):

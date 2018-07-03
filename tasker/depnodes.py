@@ -34,6 +34,10 @@ import bpy
 from bpy.types import NodeTree, Node, NodeSocket
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
+# preview images for task nodes
+preview_collections = {}
+
+
 class TaskTree(NodeTree):
     """ Task Nodes Tree Type """
     bl_idname = 'TaskTree'
@@ -70,14 +74,24 @@ class TaskNode(Node, DepNode):
     bl_label = 'Task Node'
     bl_icon = 'SOUND'
 
+    preview_image = None
+    preview_filepath = bpy.props.StringProperty(default="", subtype="FILE_PATH")
+
     def init(self, context):
         for i in range(10):
             self.inputs.new('TaskSocket', "depend_{}".format(i))
         self.outputs.new('TaskSocket', "Output")
         
     def draw_buttons(self, context, layout):
+        if self.preview_filepath:
+            row = layout.row()
+            row.scale_y =2
+            row.template_icon_view(self, "preview_image")
+        row = layout.row()
+        row.prop(self, "preview_filepath")
         for prop in taskdna.Props.get_list():
-            layout.prop(self, prop, expand=True)
+            row = layout.row()
+            row.prop(self, prop, expand=True)
 
 for prop, proptype in taskdna.Props.get_bpy_types():
     setattr(TaskNode, prop, proptype())
@@ -459,20 +473,43 @@ class StatsPanel(bpy.types.Panel):
         layout.label(_report_format('project', nodes))
         if selected:
             selected.extend(_get_deps(selected))
-            layout.label(_report_format('selected', set(selected)))    
-        
+            layout.label(_report_format('selected', set(selected)))
+
 
 def register():
+    import os
+    import bpy.utils.previews
+    pcoll = bpy.utils.previews.new()
+    preview_collections["orgnodes"] = pcoll
+
+    def get_preview(self, context):
+        """ return just this node's preview images """
+        prefix = "PRV_{}__{}".format(self.name, "{}")
+        path = bpy.path.abspath(self.preview_filepath)
+        if not prefix.format(path) in preview_collections["orgnodes"]:
+            pcoll = preview_collections["orgnodes"]
+            pcoll.load(prefix.format(path), path, 'IMAGE')
+        return [
+            tuple([prefix.format(i),] * 3 + [preview[1].icon_id, i])
+            for i, preview in enumerate(
+                preview_collections["orgnodes"].items()
+                )
+            if preview[0].startswith(prefix.format(""))
+            ]
+
+    TaskNode.preview_image = bpy.props.EnumProperty(items=get_preview)
+
     bpy.utils.register_class(TaskTree)
+
     for prop, proptype in taskdna.Props.get_bpy_types():
-        setattr(bpy.types.TaskTree, 'task_{}'.format(prop), proptype())
-    bpy.types.TaskTree.task_name = bpy.props.StringProperty()
+        setattr(TaskTree, 'task_{}'.format(prop), proptype())
+    TaskTree.task_name = bpy.props.StringProperty()
     def get_nodes(self, context):
         too_many = len(self.nodes) >= 32
         return [
             tuple([node.name] * 3) for node in self.nodes
             if node.select or not too_many]
-    bpy.types.TaskTree.task_deps = bpy.props.EnumProperty(
+    TaskTree.task_deps = bpy.props.EnumProperty(
         items=get_nodes,options={'ENUM_FLAG'})
     for bpy_class in (TaskSocket, TaskNode):
         bpy.utils.register_class(bpy_class)
@@ -494,6 +531,9 @@ def unregister():
     for bpy_class in (
             TaskTree, TaskSocket, TaskNode):
         bpy.utils.unregister_class(bpy_class)
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()
 
 if __name__ == "__main__":
     register()

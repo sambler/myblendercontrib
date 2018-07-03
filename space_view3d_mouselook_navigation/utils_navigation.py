@@ -30,6 +30,7 @@ except ImportError:
 
 exec("""
 from {0}dairin0d.utils_ui import calc_region_rect
+from {0}dairin0d.utils_blender import BlUtil
 """.format(dairin0d_location))
 
 def calc_zbrush_border(area, region, scale=0.05, abs_min=16):
@@ -70,7 +71,7 @@ def calc_selection_center(context, non_obj_zero=False): # View3D area is assumed
                         positions.append(point.handle_left)
                     if point.select_right_handle:
                         positions.append(point.handle_right)
-            positions.extend(point.co for point in spline.points if point.select)
+            positions.extend(point.co.to_3d() for point in spline.points if point.select)
     elif context_mode == 'EDIT_METABALL':
         active_elem = active_object.data.elements.active
         if active_elem:
@@ -241,16 +242,10 @@ def ellipsoid_sweep(scene, e2w, w2e, v, ray_origin, subdivs=8, max_cnt=16):
         else:
             p0 = ray_origin.copy()
         
-        raycast_result = scene.ray_cast(p0, p1)
-        
-        if bpy.app.version < (2, 77, 0):
-            success = raycast_result[0]
-            location = raycast_result[-2]
-            normal = raycast_result[-1]
-        else:
-            success = raycast_result[0]
-            location = raycast_result[1]
-            normal = raycast_result[2]
+        raycast_result = BlUtil.Scene.line_cast(scene, p0, p1)
+        success = raycast_result[0]
+        location = raycast_result[1]
+        normal = raycast_result[2]
         
         if success:
             rn = normal

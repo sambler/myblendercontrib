@@ -62,6 +62,7 @@
     SvPointInside
     SvProportionalEditNode
     SvRaycasterLiteNode
+    SvOBJInsolationNode
 
 ## Transforms
     SvRotationNode
@@ -253,8 +254,10 @@
 ## Scene
     SvObjectsNodeMK3
     SvObjInLite
+    SvCurveInputNode
     SvObjEdit
     SvFrameInfoNodeMK2
+    SvLampOutNode
     SvEmptyOutNode
     SvInstancerNode
     SvDupliInstancesMK4
@@ -275,12 +278,19 @@
 ## Beta Nodes
     SvFormulaShapeNode
     SvHeavyTriangulateNode
-    SvFormulaDeformNode
+    SvFormulaDeformMK2Node
     SvFormulaColorNode
     SvMeshUVColorNode
     SvUVPointonMeshNode
+    SvSampleUVColorNode
     SvSubdivideLiteNode
     SvExtrudeSeparateLiteNode
+    SvBVHnearNewNode
+    SvUnsubdivideNode
+    SvLimitedDissolveMK2
+    SvMetaballOutLiteNode
+    SvArmaturePropsNode
+    SvLatticePropsNode
     ---
     SvColorsInNodeMK1
     SvColorInputNode
