@@ -31,6 +31,7 @@ from .. functions import *
 from .. functions_draw import *
 import bgl, blf
 import traceback
+import pdb
 
 class LeaveSculptmode(bpy.types.Operator):
     bl_idname = "coa_tools.leave_sculptmode"
@@ -159,9 +160,10 @@ class EditShapekeyMode(bpy.types.Operator):
     shapekeys = EnumProperty(name="Shapekey",items=get_shapekeys)
     shapekey_name = StringProperty(name="Name",default="New Shape")
     mode_init = StringProperty()
-    obj_init = None
     armature = None
+    armature_name = ""
     sprite_object = None
+    sprite_object_name = None
     shape = None
     create_shapekey = BoolProperty(default=False)
     objs = []
@@ -208,16 +210,16 @@ class EditShapekeyMode(bpy.types.Operator):
     
     def execute(self, context):
         self.objs = []
-        if context.active_object == None:
-            self.report({"ERROR"},"Armature is hidden or not selected. Cannot go in Edit Mode.")
+        if context.active_object == None or context.active_object.type != "MESH":
+            self.report({"ERROR"},"Sprite is not selected. Cannot go in Edit Mode.")
             return{"CANCELLED"}
-        obj = context.active_object
+        obj = bpy.data.objects[context.active_object.name] if context.active_object.name in bpy.data.objects else None
         
-        self.sprite_object = get_sprite_object(obj)
-        
-        armature_name = get_armature(self.sprite_object).name
-        self.armature = context.scene.objects[armature_name] if armature_name in context.scene.objects else None
-        self.obj_init = context.active_object
+        self.sprite_object_name = get_sprite_object(obj).name
+        self.sprite_object = bpy.data.objects[self.sprite_object_name]
+
+        self.armature_name = get_armature(self.sprite_object).name
+        self.armature = context.scene.objects[self.armature_name] if self.armature_name in context.scene.objects else None
         
         self.mode_init = obj.mode if obj.mode != "SCULPT" else "OBJECT"
         
@@ -247,15 +249,14 @@ class EditShapekeyMode(bpy.types.Operator):
         return {"RUNNING_MODAL"}
     
     def exit_edit_mode(self,context,event,obj):
-        ### remove draw handler on exiting modal mode    
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW") 
-        
-        
+        ### remove draw handler on exiting modal mode
+        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+
         for obj in context.selected_objects:
             obj.select = False
         self.sprite_object.coa_edit_shapekey = False
         self.sprite_object.coa_edit_mode = "OBJECT"
-        
+
         for obj_name in self.objs:
             obj = bpy.context.scene.objects[obj_name]
             obj.hide = False
@@ -263,20 +264,26 @@ class EditShapekeyMode(bpy.types.Operator):
                 context.scene.objects.active = obj
                 bpy.ops.object.mode_set(mode="OBJECT")
                 obj.show_only_shape_key = False
-        
+
         context.scene.objects.active = obj
         obj.select = True
-        if self.armature != None:
-            self.armature.data.pose_position = "POSE"   
+        if self.armature != None and self.armature.data != None:
+            self.armature.data.pose_position = "POSE"
         return {"FINISHED"}
     
     def modal(self, context, event):
         obj = None
         obj_name = context.active_object.name if context.active_object != None else None
         obj = context.scene.objects[obj_name] if obj_name != None else None
+        self.sprite_object = bpy.data.objects[self.sprite_object_name]
+        self.armature = bpy.data.objects[self.armature_name]
+
         try:
+            # used for debugging
+            # if event.ctrl and event.type == "Z" and len(context.selected_objects) == 2:
+            #     pdb.set_trace()
+
             if obj != None:
-                
                 if obj_name != self.last_obj_name:
                     if obj.type == "MESH":
                         self.set_most_driven_shapekey(obj)
@@ -290,7 +297,7 @@ class EditShapekeyMode(bpy.types.Operator):
                     if obj.coa_selected_shapekey != obj.active_shape_key.name:
                         obj.coa_selected_shapekey = str(obj.active_shape_key_index) #obj.active_shape_key.name
             
-            if self.sprite_object.coa_edit_shapekey == False:
+            if self.sprite_object.coa_edit_shapekey == False and obj != None:
                 return self.exit_edit_mode(context,event,obj)
             
         except Exception as e:
@@ -299,7 +306,7 @@ class EditShapekeyMode(bpy.types.Operator):
             self.exit_edit_mode(context,event,obj)
         
         if obj_name != self.last_obj_name:
-            self.last_obj_name = obj_name
+            self.last_obj_name = str(obj_name)
              
         return {"PASS_THROUGH"}
     

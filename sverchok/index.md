@@ -30,6 +30,7 @@
 ## Generators Extended
     SvBoxRoundedNode
     SvBricksNode
+    SvPolygonGridNode
     HilbertNode
     Hilbert3dNode
     HilbertImageNode
@@ -39,7 +40,6 @@
     SvImageComponentsNode
     SvScriptNode
     SvTorusKnotNode
-    SvHexaGridNodeMK1
     SvRingNode
     SvEllipseNode
 
@@ -261,6 +261,7 @@
     SvEmptyOutNode
     SvInstancerNode
     SvDupliInstancesMK4
+    SvFCurveInNodeMK1
 
 ## Objects
     SvVertexGroupNodeMK2

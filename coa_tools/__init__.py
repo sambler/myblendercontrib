@@ -22,7 +22,7 @@ bl_info = {
     "name": "COA Tools",
     "description": "This Addon provides a Toolset for a 2D Animation Workflow.",
     "author": "Andreas Esau",
-    "version": (1, 0, 2),
+    "version": (1, 0, 3),
     "blender": (2, 79, 0),
     "location": "View 3D > Tools > Cutout Animation Tools",
     "warning": "",

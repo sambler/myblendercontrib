@@ -33,7 +33,8 @@ from bpy.types import SpaceView3D
 from bpy_extras.view3d_utils import location_3d_to_region_2d, region_2d_to_vector_3d
 from bpy_extras.view3d_utils import region_2d_to_location_3d, region_2d_to_origin_3d
 
-from .common.utils import exception_handler, registered_object_add, registered_check
+from .common.debug import debugger
+from .common.utils import registered_object_add, registered_check
 
 #from .lib.common_classes import TextBox
 #from . import key_maps
@@ -106,8 +107,9 @@ class ModalOperator(Operator):
             }
 
     def handle_exception(self, serious=False):
-        errormsg = exception_handler()
+        errormsg, errorhash = debugger.get_exception_info_and_hash()
         # if max number of exceptions occur within threshold of time, abort!
+        print('\n',errormsg)
         curtime = time.time()
         self.exceptions_caught += [(errormsg, curtime)]
         # keep exceptions that have occurred within the last 5 seconds
@@ -121,7 +123,7 @@ class ModalOperator(Operator):
             print('Something went wrong. Please start an error report with CG Cookie so we can fix it!')
             print('-'*100)
             print('\n'*5)
-            #showErrorMessage('Something went wrong. Please start an error report with CG Cookie so we can fix it!', wrap=240)
+            #show_error_message('Something went wrong. Please start an error report with CG Cookie so we can fix it!', wrap=240)
             self.exception_quit = True
         
         self.fsm_mode = 'main'
@@ -156,7 +158,7 @@ class ModalOperator(Operator):
  
         handle_nav = False
         handle_nav |= eventd['ftype'] in self.events_nav
-        
+
         if handle_nav:
             self.post_update   = True
             self.is_navigating = True

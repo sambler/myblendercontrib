@@ -19,5 +19,23 @@ Created by Jonathan Denning, Jonathan Williamson, Patrick Moore
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-__all__ = ['utils']
-
+__all__ = [
+    'bezier',
+    'blender',
+    'bmesh_render',
+    'debug',
+    'decorators',
+    'drawing',
+    'fontmanager',
+    'globals',
+    'hasher',
+    'logger',
+    'maths',
+    'metaclasses',
+    'profiler',
+    'shaders',
+    'ui',
+    'useractions',
+    'utils',
+    'xmesh',
+]

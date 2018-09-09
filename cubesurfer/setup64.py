@@ -8,7 +8,7 @@ Cython.Compiler.Options.annotate = True
 # only valid on windows
 #ext_modules = [Extension("mciso", ["mciso.pyx"],extra_compile_args=['/O2','/openmp','/fp:fast'])]
 # for *nix this should work
-ext_modules = [Extension("mciso", ["mciso.pyx"],extra_compile_args=['-O2','-fopenmp','-mfpmath=sse'])]
+ext_modules = [Extension("mciso", ["mciso.pyx"],extra_compile_args=['-O2', '-I/usr/local/include', '-fopenmp', '-mfpmath=sse'])]
 
 
 setup(

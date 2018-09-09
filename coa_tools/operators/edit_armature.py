@@ -35,6 +35,31 @@ from .. functions import *
 from .. functions_draw import *        
 import traceback
 
+class BindMeshToBones(bpy.types.Operator):
+    bl_idname = "coa_tools.bind_mesh_to_bones"
+    bl_label = "Bind Mesh To Selected Bones"
+    bl_description = "Bind mesh to selected bones."
+    bl_options = {"REGISTER"}
+    
+    ob_name = StringProperty()
+    armature = None
+    sprite_object = None
+    
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        obj = bpy.data.objects[self.ob_name]
+        self.sprite_object = get_sprite_object(obj)
+        self.armature = get_armature(self.sprite_object)
+        set_weights(self,context,obj)
+        
+        msg = '"'+obj.name+'"' + " has been bound to selected Bones."
+        self.report({'INFO'},msg)
+        return {"FINISHED"}
+        
+
 ######################################################################################################################################### Quick Armature        
 class QuickArmature(bpy.types.Operator):
     bl_idname = "scene.coa_quick_armature" 

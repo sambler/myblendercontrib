@@ -384,49 +384,49 @@ class CreateNlaTrack(bpy.types.Operator):
             for strip in track.strips:
                 if (strip_range[0] > strip.frame_start and strip_range[0] < strip.frame_end) or (strip_range[1] > strip.frame_start and strip_range[1] < strip.frame_end) or (strip_range[0] == strip.frame_start and strip_range[1] == strip.frame_end):
                     intersecting_strip_found = True
-                
+
         if not intersecting_strip_found:
             return track
-        
-              
+
+
         return anim_data.nla_tracks.new()
-    
+
     def execute(self, context):
         obj = bpy.context.active_object
         sprite_object = get_sprite_object(obj)
         children = get_children(context,sprite_object,ob_list=[])
-        
+
         context.scene.coa_nla_mode = "NLA"
-        
+
         if self.anim_collection_name == "":
             anim_collection = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
-        else:    
+        else:
             anim_collection = sprite_object.coa_anim_collections[self.anim_collection_name]
-        
+
         if self.insert_at_cursor:
             self.start = context.scene.frame_current
-        
+
         for child in children:
             if child.animation_data != None:
                 for track in child.animation_data.nla_tracks:
                     for strip in track.strips:
                         strip.select = False
-                    
+
                 action_name = anim_collection.name + "_" + child.name
                 if action_name in bpy.data.actions:
                     action_start = 0
                     action_end = anim_collection.frame_end
                     strip_start = self.start
                     strip_end = self.start + anim_collection.frame_end
-                    
-                    
+
+
                     action = bpy.data.actions[action_name]
-                    
+
                     if child.animation_data != None:
                         child.animation_data_create()
                         anim_data = child.animation_data
-                        nla_track = self.get_empty_track(anim_data,[strip_start,strip_end])  
-                        
+                        nla_track = self.get_empty_track(anim_data,[strip_start,strip_end])
+
                         strip = nla_track.strips.new(action_name,self.start,action)
                         strip.action_frame_start = action_start
                         strip.action_frame_end = action_end

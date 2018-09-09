@@ -1,7 +1,8 @@
 import os
 import time
 
-import urllib.request
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
 import bpy
 import bmesh
@@ -9,7 +10,7 @@ from bpy.types import Operator, Panel, AddonPreferences
 from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, EnumProperty, FloatVectorProperty
 
 from ..geoscene import GeoScene
-from .utils import adjust3Dview, getBBOX
+from .utils import adjust3Dview, getBBOX, isTopView
 from ..core.proj import SRS, reprojBbox
 
 from ..core.settings import getSetting
@@ -31,13 +32,16 @@ class SRTM_QUERY(Operator):
 		geoscn = GeoScene(context.scene)
 		if not geoscn.isGeoref:
 				self.report({'ERROR'}, "Scene is not georef")
-				return {'FINISHED'}
+				return {'CANCELLED'}
 		if geoscn.isBroken:
 				self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
-				return {'FINISHED'}
+				return {'CANCELLED'}
 
 		return self.execute(context)#context.window_manager.invoke_props_dialog(self)
 
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT'
 
 	def execute(self, context):
 
@@ -45,31 +49,22 @@ class SRTM_QUERY(Operator):
 		geoscn = GeoScene(scn)
 		crs = SRS(geoscn.crs)
 
-		try:
-			bpy.ops.object.mode_set(mode='OBJECT')
-		except:
-			pass
-
 		#Validate selection
 		objs = bpy.context.selected_objects
-		if not objs:
+		aObj = context.active_object
+		if isTopView(context):
 			onMesh = False
-			#check if 3dview is top ortho
-			reg3d = context.region_data
-			if reg3d.view_perspective != 'ORTHO' or tuple(reg3d.view_matrix.to_euler()) != (0,0,0):
-				self.report({'ERROR'}, "View3d must be in top ortho")
-				return {'FINISHED'}
 			bbox = getBBOX.fromTopView(context).toGeo(geoscn)
-		elif len(objs) > 2 or (len(objs) == 1 and not objs[0].type == 'MESH'):
-			self.report({'ERROR'}, "Pre-selection is incorrect")
-			return {'CANCELLED'}
-		else:
+		elif len(objs) == 1 and aObj.type == 'MESH':
 			onMesh = True
-			bbox = getBBOX.fromObj(objs[0]).toGeo(geoscn)
+			bbox = getBBOX.fromObj(aObj).toGeo(geoscn)
+		else:
+			self.report({'ERROR'}, "Please define the query extent in orthographic top view or by selecting a reference object")
+			return {'CANCELLED'}
 
 		if bbox.dimensions.x > 20000 or bbox.dimensions.y > 20000:
 			self.report({'ERROR'}, "Too large extent")
-			return {'FINISHED'}
+			return {'CANCELLED'}
 
 		bbox = reprojBbox(geoscn.crs, 4326, bbox)
 
@@ -90,19 +85,28 @@ class SRTM_QUERY(Operator):
 
 		# Download the file from url and save it locally
 		# opentopo return a geotiff object in wgs84
-		filePath = bpy.app.tempdir + 'srtm.tif'
+		if bpy.data.is_saved:
+			filePath = os.path.join(os.path.dirname(bpy.data.filepath), 'srtm.tif')
+		else:
+			filePath = os.path.join(bpy.app.tempdir, 'srtm.tif')
 
 		#we can directly init NpImg from blob but if gdal is not used as image engine then georef will not be extracted
 		#Alternatively, we can save on disk, open with GeoRaster class (will use tyf if gdal not available)
-		rq = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-		with urllib.request.urlopen(rq) as response, open(filePath, 'wb') as outFile:
-			data = response.read() # a `bytes` object
-			outFile.write(data) #
+		rq = Request(url, headers={'User-Agent': USER_AGENT})
+		try:
+			with urlopen(rq) as response, open(filePath, 'wb') as outFile:
+				data = response.read() # a `bytes` object
+				outFile.write(data) #
+		except (URLError, HTTPError) as err:
+			#print(err.code, err.reason, err.headers)
+			self.report({'ERROR'}, "Cannot reach OpenTopography web service at {} : {}".format(url, err))
+			return {'CANCELLED'}
 
 		if not onMesh:
 			bpy.ops.importgis.georaster(
 			'EXEC_DEFAULT',
 			filepath = filePath,
+			reprojection = True,
 			rastCRS = 'EPSG:4326',
 			importMode = 'DEM',
 			subdivision = 'subsurf')
@@ -110,6 +114,7 @@ class SRTM_QUERY(Operator):
 			bpy.ops.importgis.georaster(
 			'EXEC_DEFAULT',
 			filepath = filePath,
+			reprojection = True,
 			rastCRS = 'EPSG:4326',
 			importMode = 'DEM',
 			subdivision = 'subsurf',

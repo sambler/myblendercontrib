@@ -11,7 +11,7 @@ from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, 
 from .lib.osm import overpy
 
 from ..geoscene import GeoScene
-from .utils import adjust3Dview, getBBOX
+from .utils import adjust3Dview, getBBOX, DropToGround, isTopView
 
 from ..core.proj import Reproj, reprojBbox, reprojPt, utm
 
@@ -127,6 +127,26 @@ class OSM_IMPORT():
 			options = {"ENUM_FLAG"}
 			)
 
+	# Elevation object
+	def listObjects(self, context):
+		objs = []
+		for index, object in enumerate(bpy.context.scene.objects):
+			if object.type == 'MESH':
+				#put each object in a tuple (key, label, tooltip) and add this to the objects list
+				objs.append((str(index), object.name, "Object named " + object.name))
+		return objs
+
+	objElevLst = EnumProperty(
+		name="Elev. object",
+		description="Choose the mesh from which extract z elevation",
+		items=listObjects )
+
+	useElevObj = BoolProperty(
+			name="Elevation from object",
+			description="Get z elevation value from an existing ground mesh",
+			default=False )
+
+
 	separate = BoolProperty(name='Separate objects', description='Warning : can be very slow with lot of features')
 
 	defaultHeight = FloatProperty(name='Default Height', description='Set the height value using for extrude building when the tag is missing', default=20)
@@ -140,6 +160,9 @@ class OSM_IMPORT():
 		row = layout.row()
 		col = row.column()
 		col.prop(self, "filterTags", expand=True)
+		layout.prop(self, 'useElevObj')
+		if self.useElevObj:
+			layout.prop(self, 'objElevLst')
 		layout.prop(self, 'defaultHeight')
 		layout.prop(self, 'randomHeightThreshold')
 		layout.prop(self, 'levelHeight')
@@ -159,6 +182,9 @@ class OSM_IMPORT():
 			self.report({'ERROR'}, "Unable to reproject data. " + str(e))
 			return {'FINISHED'}
 
+		if self.useElevObj:
+			elevObj = scn.objects[int(self.objElevLst)]
+			rayCaster = DropToGround(scn, elevObj)
 
 		bmeshes = {}
 		vgroupsObj = {}
@@ -185,7 +211,11 @@ class OSM_IMPORT():
 			#reproj and shift coords
 			pts = rprj.pts(pts)
 			dx, dy = geoscn.crsx, geoscn.crsy
-			pts = [ (v[0]-dx, v[1]-dy, 0) for v in pts]
+
+			if self.useElevObj:
+				pts = [rayCaster.rayCast(v[0]-dx, v[1]-dy).loc for v in pts]
+			else:
+				pts = [ (v[0]-dx, v[1]-dy, 0) for v in pts]
 
 			#Create a new bmesh
 			#>using an intermediate bmesh object allows some extra operation like extrusion
@@ -194,7 +224,7 @@ class OSM_IMPORT():
 			if len(pts) == 1:
 				verts = [bm.verts.new(pt) for pt in pts]
 
-			elif closed:
+			elif closed: #faces
 				verts = [bm.verts.new(pt) for pt in pts]
 				face = bm.faces.new(verts)
 				#ensure face is up (anticlockwise order)
@@ -203,8 +233,10 @@ class OSM_IMPORT():
 				if face.normal.z < 0:
 					face.normal_flip()
 
+				offset = None
 				if "height" in tags:
 						htag = tags["height"]
+						htag.replace(',', '.')
 						try:
 							offset = int(htag)
 						except:
@@ -213,11 +245,18 @@ class OSM_IMPORT():
 							except:
 								for i, c in enumerate(htag):
 									if not c.isdigit():
-										offset, unit = float(htag[:i]), htag[i:].strip()
-										#todo : parse unit  25, 25m, 25 ft, etc.
+										try:
+											offset, unit = float(htag[:i]), htag[i:].strip()
+											#todo : parse unit  25, 25m, 25 ft, etc.
+										except:
+											offset = None
 				elif "building:levels" in tags:
-					offset = int(tags["building:levels"]) * self.levelHeight
-				else:
+					try:
+						offset = int(tags["building:levels"]) * self.levelHeight
+					except ValueError as e:
+						offset = None
+
+				if offset is None:
 					minH = self.defaultHeight - self.randomHeightThreshold
 					if minH < 0 :
 						minH = 0
@@ -234,7 +273,14 @@ class OSM_IMPORT():
 				vect = (0, 0, offset)
 				faces = bmesh.ops.extrude_discrete_faces(bm, faces=[face]) #return {'faces': [BMFace]}
 				verts = faces['faces'][0].verts
-				bmesh.ops.translate(bm, verts=verts, vec=vect)
+				if self.useElevObj:
+					#Making flat roof
+					z = max([v.co.z for v in verts]) + offset #get max z coord
+					for v in verts:
+						v.co.z = z
+				else:
+					bmesh.ops.translate(bm, verts=verts, vec=vect)
+
 
 			elif len(pts) > 1: #edge
 				#Split polyline to lines
@@ -453,7 +499,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 
 		if not os.path.exists(self.filepath):
 			self.report({'ERROR'}, "Invalid file")
-			return{'FINISHED'}
+			return{'CANCELLED'}
 
 		try:
 			bpy.ops.object.mode_set(mode='OBJECT')
@@ -469,7 +515,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 		geoscn = GeoScene(scn)
 		if geoscn.isBroken:
 				self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
-				return {'FINISHED'}
+				return {'CANCELLED'}
 
 		#Parse file
 		t0 = time.clock()
@@ -490,7 +536,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 				geoscn.crs = utm.lonlat_to_epsg(lon, lat)
 			except Exception as e:
 				self.report({'ERROR'}, str(e))
-				return {'FINISHED'}
+				return {'CANCELLED'}
 		#Set scene origin georef
 		if not geoscn.hasOriginPrj:
 			x, y = reprojPt(4326, geoscn.crs, lon, lat)
@@ -520,26 +566,20 @@ class OSM_QUERY(Operator, OSM_IMPORT):
 	bl_label = "Get OSM"
 	bl_options = {"UNDO"}
 
-	def invoke(self, context, event):
+	#special function to auto redraw an operator popup called through invoke_props_dialog
+	def check(self, context):
+		return True
 
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT'
+
+
+	def invoke(self, context, event):
 		#workaround to enum callback bug (T48873, T38489)
 		global OSMTAGS
 		OSMTAGS = getTags()
-
-		#check if 3dview is top ortho
-		reg3d = context.region_data
-		if reg3d.view_perspective != 'ORTHO' or tuple(reg3d.view_matrix.to_euler()) != (0,0,0):
-			self.report({'ERROR'}, "View3d must be in top ortho")
-			return {'FINISHED'}
-
-		#check georef
-		geoscn = GeoScene(context.scene)
-		if not geoscn.isGeoref:
-				self.report({'ERROR'}, "Scene is not georef")
-				return {'FINISHED'}
-		if geoscn.isBroken:
-				self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
-				return {'FINISHED'}
 
 		return context.window_manager.invoke_props_dialog(self)
 
@@ -548,36 +588,46 @@ class OSM_QUERY(Operator, OSM_IMPORT):
 
 		scn = context.scene
 		geoscn = GeoScene(scn)
+		objs = context.selected_objects
+		aObj = context.active_object
 
-		try:
-			bpy.ops.object.mode_set(mode='OBJECT')
-		except:
-			pass
-		bpy.ops.object.select_all(action='DESELECT')
+		if not geoscn.isGeoref:
+				self.report({'ERROR'}, "Scene is not georef")
+				return {'CANCELLED'}
+		elif geoscn.isBroken:
+				self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
+				return {'CANCELLED'}
+
+		if isTopView(context):
+			bbox = getBBOX.fromTopView(context).toGeo(geoscn)
+		elif len(objs) == 1 and aObj.type == 'MESH':
+			bbox = getBBOX.fromObj(aObj).toGeo(geoscn)
+		else:
+			self.report({'ERROR'}, "Please define the query extent in orthographic top view or by selecting a reference object")
+			return {'CANCELLED'}
+
+		if bbox.dimensions.x > 20000 or bbox.dimensions.y > 20000:
+			self.report({'ERROR'}, "Too large extent")
+			return {'CANCELLED'}
+
+		#Get view3d bbox in lonlat
+		bbox = reprojBbox(geoscn.crs, 4326, bbox)
 
 		#Set cursor representation to 'loading' icon
 		w = context.window
 		w.cursor_set('WAIT')
 
-		#Get view3d bbox in lonlat
-		bbox = getBBOX.fromTopView(context).toGeo(geoscn)
-		if bbox.dimensions.x > 20000 or bbox.dimensions.y > 20000:
-			self.report({'ERROR'}, "Too large extent")
-			return {'FINISHED'}
-		bbox = reprojBbox(geoscn.crs, 4326, bbox)
-
 		#Download from overpass api
 		api = overpy.Overpass()
 
 		query = queryBuilder(bbox, tags=list(self.filterTags), types=list(self.featureType), format='xml')
-                # print sometimes fail with non utf8 chars (lon -8.73915, lat 40.332, zoom 12)
-		# print(query)
+		# print(query) # can fails with non utf8 chars
 		try:
 			result = api.query(query)
 		except Exception as e:
 			print(str(e))
 			self.report({'ERROR'}, "Overpass query failed")
-			return {'FINISHED'}
+			return {'CANCELLED'}
 		else:
 			print('Overpass query success')
 

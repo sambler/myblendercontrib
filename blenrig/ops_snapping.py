@@ -53,13 +53,13 @@ class Operator_Torso_Snap_IK_FK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_torso' == b.name):
-                prop = int(b.ik_torso)
-                prop_inv = int(b.inv_torso)
-                if prop != 0 or prop_inv != 0:
-                    self.report({'ERROR'}, 'Only works in IK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_torso' == b.name):
+#                prop = int(b.ik_torso)
+#                prop_inv = int(b.inv_torso)
+#                if prop != 0 or prop_inv != 0:
+#                    self.report({'ERROR'}, 'Only works in IK mode')  
+#                    return {"CANCELLED"}                  
                    
         check_bones = ['spine_1_fk', 'spine_1_ik', 'spine_2_fk', 'spine_2_ik', 'spine_3_fk', 'spine_3_ik', 'torso_fk_ctrl']
         
@@ -108,13 +108,13 @@ class Operator_Torso_Snap_FK_IK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
 
-        for b in p_bones:
-            if ('properties_torso' == b.name):
-                prop = int(b.ik_torso)
-                prop_inv = int(b.inv_torso)
-                if prop != 1 or prop_inv != 0:
-                    self.report({'ERROR'}, 'Only works in FK mode')  
-                    return {"CANCELLED"}   
+#        for b in p_bones:
+#            if ('properties_torso' == b.name):
+#                prop = int(b.ik_torso)
+#                prop_inv = int(b.inv_torso)
+#                if prop != 1 or prop_inv != 0:
+#                    self.report({'ERROR'}, 'Only works in FK mode')  
+#                    return {"CANCELLED"}   
         
         check_bones = ['torso_ik_ctrl', 'snap_torso_fk_ctrl', 'spine_4_ik_ctrl', 'neck_1_fk', 'spine_3_ik_ctrl', 'spine_3_fk', 'spine_2_ik_ctrl', 'spine_2_fk', 'spine_1_ik_ctrl', 'spine_1_fk']
         
@@ -167,12 +167,12 @@ class Operator_Torso_Snap_INV_UP(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
 
-        for b in p_bones:
-            if ('properties_torso' == b.name):
-                prop_inv = int(b.inv_torso)
-                if prop_inv != 1:
-                    self.report({'ERROR'}, 'Only works in FK/IK mode')  
-                    return {"CANCELLED"}   
+#        for b in p_bones:
+#            if ('properties_torso' == b.name):
+#                prop_inv = int(b.inv_torso)
+#                if prop_inv != 1:
+#                    self.report({'ERROR'}, 'Only works in FK/IK mode')  
+#                    return {"CANCELLED"}   
         
         check_bones = ['pelvis_ctrl', 'snap_pelvis_ctrl_inv', 'spine_1_fk', 'snap_spine_1_fk_inv', 'spine_2_fk', 'snap_spine_2_fk_inv', 'spine_3_fk', 'spine_3_inv', 'spine_2_ik_ctrl', 'spine_3_ik_ctrl', 'spine_4_ik_ctrl', 'torso_ik_ctrl', 'torso_fk_ctrl', 'neck_1_fk']
         
@@ -232,13 +232,13 @@ class Operator_Torso_Snap_UP_INV(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
 
-        for b in p_bones:
-            if ('properties_torso' == b.name):
-                prop = int(b.ik_torso)
-                prop_inv = int(b.inv_torso)
-                if prop_inv != 0:
-                    self.report({'ERROR'}, 'Only works in invert mode')  
-                    return {"CANCELLED"}   
+#        for b in p_bones:
+#            if ('properties_torso' == b.name):
+#                prop = int(b.ik_torso)
+#                prop_inv = int(b.inv_torso)
+#                if prop_inv != 0:
+#                    self.report({'ERROR'}, 'Only works in invert mode')  
+#                    return {"CANCELLED"}   
         
         check_bones = ['spine_3_inv_ctrl', 'snap_torso_ctrl_inv_loc', 'spine_3_inv', 'spine_3_fk', 'spine_2_inv', 'snap_spine_2_inv_fk', 'spine_1_inv', 'snap_spine_1_inv_fk', 'pelvis_inv', 'pelvis', 'torso_inv_ctrl']
         
@@ -292,12 +292,12 @@ class Operator_Head_Snap_IK_FK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_head' == b.name):
-                prop = int(b.ik_head)
-                if prop != 0:
-                    self.report({'ERROR'}, 'Only works in IK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_head' == b.name):
+#                prop = int(b.ik_head)
+#                if prop != 0:
+#                    self.report({'ERROR'}, 'Only works in IK mode')  
+#                    return {"CANCELLED"}                  
                    
         check_bones = ['neck_1_fk', 'neck_1_ik', 'neck_2_fk', 'neck_2_ik', 'neck_3_fk', 'neck_3_ik', 'neck_fk_ctrl']
         
@@ -346,12 +346,12 @@ class Operator_Head_Snap_FK_IK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
 
-        for b in p_bones:
-            if ('properties_head' == b.name):
-                prop = int(b.ik_head)
-                if prop != 1:
-                    self.report({'ERROR'}, 'Only works in FK mode')  
-                    return {"CANCELLED"}   
+#        for b in p_bones:
+#            if ('properties_head' == b.name):
+#                prop = int(b.ik_head)
+#                if prop != 1:
+#                    self.report({'ERROR'}, 'Only works in FK mode')  
+#                    return {"CANCELLED"}   
         
         check_bones = ['neck_ik_ctrl', 'snap_neck_fk_pivot', 'head_ik_ctrl', 'head_fk', 'neck_3_ik_ctrl', 'neck_3_fk', 'neck_2_ik_ctrl', 'neck_2_fk']
         
@@ -404,12 +404,12 @@ class Operator_Arm_L_Snap_IK_FK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_arm_L' == b.name):
-                prop = int(b.ik_arm_L)
-                if prop != 0:
-                    self.report({'ERROR'}, 'Only works in IK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_arm_L' == b.name):
+#                prop = int(b.ik_arm_L)
+#                if prop != 0:
+#                    self.report({'ERROR'}, 'Only works in IK mode')  
+#                    return {"CANCELLED"}                  
         
         # Biped
         if arm_data['rig_type'] == 'Biped':
@@ -493,12 +493,12 @@ class Operator_Arm_L_Snap_FK_IK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_arm_L' == b.name):
-                prop = int(b.ik_arm_L)
-                if prop != 1:
-                    self.report({'ERROR'}, 'Only works in FK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_arm_L' == b.name):
+#                prop = int(b.ik_arm_L)
+#                if prop != 1:
+#                    self.report({'ERROR'}, 'Only works in FK mode')  
+#                    return {"CANCELLED"}                  
 
         #Biped
         if arm_data['rig_type'] == 'Biped':
@@ -604,12 +604,12 @@ class Operator_Arm_R_Snap_IK_FK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_arm_R' == b.name):
-                prop = int(b.ik_arm_R)
-                if prop != 0:
-                    self.report({'ERROR'}, 'Only works in IK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_arm_R' == b.name):
+#                prop = int(b.ik_arm_R)
+#                if prop != 0:
+#                    self.report({'ERROR'}, 'Only works in IK mode')  
+#                    return {"CANCELLED"}                  
                    
         # Biped
         if arm_data['rig_type'] == 'Biped':
@@ -693,12 +693,12 @@ class Operator_Arm_R_Snap_FK_IK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_arm_R' == b.name):
-                prop = int(b.ik_arm_R)
-                if prop != 1:
-                    self.report({'ERROR'}, 'Only works in FK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_arm_R' == b.name):
+#                prop = int(b.ik_arm_R)
+#                if prop != 1:
+#                    self.report({'ERROR'}, 'Only works in FK mode')  
+#                    return {"CANCELLED"}                  
                    
         #Biped
         if arm_data['rig_type'] == 'Biped':
@@ -804,12 +804,12 @@ class Operator_Leg_L_Snap_IK_FK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_leg_L' == b.name):
-                prop = int(b.ik_leg_L)
-                if prop != 0:
-                    self.report({'ERROR'}, 'Only works in IK mode')  
-                    return {"CANCELLED"}   
+#        for b in p_bones:
+#            if ('properties_leg_L' == b.name):
+#                prop = int(b.ik_leg_L)
+#                if prop != 0:
+#                    self.report({'ERROR'}, 'Only works in IK mode')  
+#                    return {"CANCELLED"}   
                 
         #Biped
         if arm_data['rig_type'] == 'Biped':                               
@@ -891,12 +891,12 @@ class Operator_Leg_L_Snap_FK_IK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_leg_L' == b.name):
-                prop = int(b.ik_leg_L)
-                if prop != 1:
-                    self.report({'ERROR'}, 'Only works in FK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_leg_L' == b.name):
+#                prop = int(b.ik_leg_L)
+#                if prop != 1:
+#                    self.report({'ERROR'}, 'Only works in FK mode')  
+#                    return {"CANCELLED"}                  
 
         #Biped
         if arm_data['rig_type'] == 'Biped':  
@@ -1013,12 +1013,12 @@ class Operator_Leg_R_Snap_IK_FK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_Leg_R' == b.name):
-                prop = int(b.ik_leg_R)
-                if prop != 0:
-                    self.report({'ERROR'}, 'Only works in IK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_Leg_R' == b.name):
+#                prop = int(b.ik_leg_R)
+#                if prop != 0:
+#                    self.report({'ERROR'}, 'Only works in IK mode')  
+#                    return {"CANCELLED"}                  
                    
         #Biped
         if arm_data['rig_type'] == 'Biped':                               
@@ -1100,12 +1100,12 @@ class Operator_Leg_R_Snap_FK_IK(bpy.types.Operator):
         arm_data = arm.data
         p_bones = arm.pose.bones
        
-        for b in p_bones:
-            if ('properties_leg_R' == b.name):
-                prop = int(b.ik_leg_R)
-                if prop != 1:
-                    self.report({'ERROR'}, 'Only works in FK mode')  
-                    return {"CANCELLED"}                  
+#        for b in p_bones:
+#            if ('properties_leg_R' == b.name):
+#                prop = int(b.ik_leg_R)
+#                if prop != 1:
+#                    self.report({'ERROR'}, 'Only works in FK mode')  
+#                    return {"CANCELLED"}                  
                    
         #Biped
         if arm_data['rig_type'] == 'Biped':  

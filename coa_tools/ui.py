@@ -118,7 +118,7 @@ class AnimationCollections(bpy.types.PropertyGroup):
     name_old = StringProperty()
     action_collection = BoolProperty(default=False)
     frame_start = IntProperty(default=0 ,update=set_frame_start)
-    frame_end = IntProperty(default=250 ,update=set_frame_end)
+    frame_end = IntProperty(default=250 ,min=1,update=set_frame_end)
     event = CollectionProperty(type=Event)
     event_index = IntProperty(default=-1,max=-1)
         
@@ -218,13 +218,8 @@ class CutoutAnimationObjectProperties(bpy.types.Panel):
         self.hide_select = self.coa_hide_select
     
     def hide(self,context):
-#        if self.coa_hide:
-#            if context.scene.objects.active == self:
-#                context.scene.objects.active = self.parent
         if self.hide != self.coa_hide:
             self.hide = self.coa_hide
-#        else:
-#            self.coa_hide = not self.coa_hide
     def hide_select(self,context):
         if self.coa_hide_select:
             self.select = False
@@ -618,14 +613,38 @@ class CutoutAnimationTools(bpy.types.Panel):
         else:
             row.prop(wm,"coa_show_help",text="",icon="INFO")    
         
-#        row = layout.row(align=True)
-#        row.prop(sprite_object,"coa_edit_mode",expand=True)
+        
+        if sprite_object != None:            
+            ### draw Edit Mode Operator
+            if obj.mode in ["OBJECT","POSE"]:
+                row = layout.row()
+                row.label(text="Edit Modes:")
+            
+            if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and obj.mode not in ["SCULPT"]:
+                row = layout.row(align=True)
+                row.operator("object.coa_edit_mesh",text="Edit Mesh",icon="GREASEPENCIL")
+                
+            if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and not(obj.type == "MESH" and obj.mode in ["EDIT","SCULPT"]):  
+                row = layout.row(align=True)
+                row.operator("scene.coa_quick_armature",text="Edit Armature",icon="ARMATURE_DATA")
+            elif sprite_object.coa_edit_armature:
+                row = layout.row(align=True)
+                row.prop(sprite_object,"coa_edit_armature", text="Finish Edit Armature",icon="ARMATURE_DATA")
+                
+            if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and obj.mode not in ["SCULPT"]:    
+                row = layout.row(align=True)
+                row.operator("coa_tools.edit_shapekey",text="Edit Shapekey",icon="SHAPEKEY_DATA")     
+            
+            if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and not(obj.type == "MESH" and obj.mode in ["EDIT","SCULPT"]) and (sprite_object) != None:
+                row = layout.row(align=True)
+                row.operator("object.coa_edit_weights",text="Edit Weights",icon="MOD_VERTEX_WEIGHT")
+            elif sprite_object.coa_edit_weights:
+                row = layout.row(align=True)
+                row.prop(sprite_object,"coa_edit_weights", text="Finish Edit Weights", toggle=True, icon="MOD_VERTEX_WEIGHT")
+            ###
         
         no_edit_mode_active = sprite_object != None and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False
         if obj == None or (obj != None):
-            if not no_edit_mode_active and sprite_object != None:
-                row = layout.row(align=True)
-                row.label(text="Edit Operator:")
             if sprite_object != None and sprite_object.coa_edit_mesh:
                 row = layout.row(align=True)
                 row.prop(sprite_object,"coa_edit_mesh", text="Finish Edit Mesh", toggle=True, icon="GREASEPENCIL")
@@ -646,24 +665,22 @@ class CutoutAnimationTools(bpy.types.Panel):
             op = row.operator("wm.coa_create_ortho_cam",text="Reset Camera Resolution",icon="OUTLINER_DATA_CAMERA")
             op.create = False
             
-#            row = layout.row(align=True)
-#            row.operator("coa_tools.align_camera",text="Align 2D Camera",icon="ALIGN")
         
         if obj == None or (obj != None and obj.mode not in ["EDIT","WEIGHT_PAINT","SCULPT"]):
             row = layout.row(align=True)
             row.operator("wm.coa_create_sprite_object",text="Create new Sprite Object",icon="TEXTURE_DATA")
         
-        if get_sprite_object(obj) != None:
+        if get_sprite_object(obj) != None:            
             if obj != None and obj.mode in ["OBJECT","SCULPT","POSE"]:
                 if operator_exists("object.create_driver_constraint") and len(context.selected_objects)>1:
                     row = layout.row()
                     row.operator("object.create_driver_constraint",text="Driver Constraint",icon="DRIVER")
+                    
+            
             if sprite_object.coa_edit_weights == False and sprite_object.coa_edit_shapekey == False:
                 if sprite_object != None and ((obj != None and obj.mode not in ["EDIT","WEIGHT_PAINT","SCULPT"]) or obj == None):
                     row = layout.row(align=True)
                     row.operator("coa_tools.coa_import_sprites",text="Re / Import Sprites",icon="IMASEL")
-#                    if obj.type == "MESH":
-#                        row.operator("coa_tools.coa_reimport_sprite",text="Reimport Sprite",icon="FILE_REFRESH")
                         
                     if get_addon_prefs(context).json_export:
                         row = layout.row()
@@ -682,18 +699,11 @@ class CutoutAnimationTools(bpy.types.Panel):
                         row = layout.row()
                         row.operator("coa_tools.export_dragon_bones",text="Export Dragonbones",icon_value=db_icon.icon_id,emboss=True)
                 
-                if obj != None:    
-                    row = layout.row(align=True)
-                    row.label(text="Edit Operator:")
-                    
+                if obj != None:
                     if obj.type == "ARMATURE" and obj.mode == "POSE":
                         row = layout.row(align=True)
                         row.operator("bone.coa_draw_bone_shape",text="Draw Bone Shape",icon="BONE_DATA")
-                    row = layout.row(align=True)
-                    if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and not(obj.type == "MESH" and obj.mode in ["EDIT","SCULPT"]):  
-                        row.operator("scene.coa_quick_armature",text="Edit Armature",icon="ARMATURE_DATA")
-                    elif sprite_object.coa_edit_armature:
-                        row.prop(sprite_object,"coa_edit_armature", text="Finish Edit Armature",icon="ARMATURE_DATA")
+                    
                     if obj != None and obj.mode == "POSE":
                         row = layout.row(align=True)
                         row.label(text="Bone Constraint Operator:")
@@ -706,12 +716,6 @@ class CutoutAnimationTools(bpy.types.Panel):
                         row.operator("coa_tools.create_stretch_ik",text="Create Stretch IK",icon="CONSTRAINT_BONE")
                     
             if obj != None and obj.type == "MESH":
-                if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and obj.mode not in ["SCULPT"]:
-                    row = layout.row(align=True)
-                    row.operator("object.coa_edit_mesh",text="Edit Mesh",icon="GREASEPENCIL")
-                    
-                    row = layout.row(align=True)
-                    row.operator("coa_tools.edit_shapekey",text="Edit Shapekey",icon="SHAPEKEY_DATA")
                 
                 if obj != None and obj.mode == "SCULPT":
                     if not sprite_object.coa_edit_shapekey:
@@ -721,12 +725,8 @@ class CutoutAnimationTools(bpy.types.Panel):
                     draw_sculpt_ui(self,context,row)
                     
                 if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and not(obj.type == "MESH" and obj.mode in ["EDIT","SCULPT"]) and (sprite_object) != None:
-                    row = layout.row(align=True)
-                    row.operator("object.coa_edit_weights",text="Edit Weights",icon="MOD_VERTEX_WEIGHT")
-                elif sprite_object.coa_edit_weights:
-                    row = layout.row(align=True)
-                    row.prop(sprite_object,"coa_edit_weights", text="Finish Edit Weights", toggle=True, icon="MOD_VERTEX_WEIGHT")
-                    
+                    pass
+                elif sprite_object.coa_edit_weights:                    
                     col = layout.split().column()
                     tool_settings = scene.tool_settings
                     brush_data = tool_settings.weight_paint
@@ -768,7 +768,6 @@ class CutoutAnimationTools(bpy.types.Panel):
             row2 = col.row(align=True)
             row2.prop(scene,'coa_distance',text="Stroke Distance")
             row2.operator("coa_tools.pick_edge_length",text="",icon="EYEDROPPER")
-            #row2.row(align=True).prop(scene,'coa_distance_constraint',text="",icon="CONSTRAINT")
             
             row2 = col.row(align=True)
             row2.prop(scene,'coa_snap_distance',text="Snap Distance")
@@ -777,15 +776,6 @@ class CutoutAnimationTools(bpy.types.Panel):
                 row2.prop(scene,'coa_surface_snap',text="Snap Vertices",icon="SNAP_ON")
             else:
                 row2.prop(scene,'coa_surface_snap',text="Snap Vertices",icon="SNAP_OFF")    
-            
-#            row2 = col.row(align=True)
-#            row2.prop(scene,'coa_automerge',text="Merge Vertices",toggle=True,icon="AUTOMERGE_ON")
-#            
-#            row2 = col.row(align=True)
-#            if scene.coa_lock_to_bounds:
-#                row2.prop(scene,"coa_lock_to_bounds",text="Draw only within Bounds",icon="LOCKVIEW_ON")
-#            else:
-#                row2.prop(scene,"coa_lock_to_bounds",text="Draw everywhere",icon="LOCKVIEW_OFF")
             
             col = layout.column(align=True)
             operator = col.operator("mesh.knife_tool", text="Knife")
@@ -925,8 +915,6 @@ class SelectChild(bpy.types.Operator):
                 select_range.append(i)  
         for i,child in enumerate(children):
             if i in select_range:
-#                child.coa_hide_select = False
-#                child.coa_hide = False
                 child.select = True
                 
         if self.mode == "object":
@@ -959,6 +947,11 @@ class SelectChild(bpy.types.Operator):
     def invoke(self,context,event):
         self.sprite_object = get_sprite_object(context.active_object)
         self.armature = get_armature(self.sprite_object)
+        
+        if self.sprite_object.coa_edit_mesh:
+            obj = bpy.data.objects[self.ob_name]
+            obj.hide = False
+        
         if self.sprite_object != None:
             self.change_weight_mode(context,"OBJECT")
         
@@ -977,8 +970,6 @@ class SelectChild(bpy.types.Operator):
                 self.shift_select_child(context,event)
             if not self.sprite_object.coa_edit_weights or ( self.sprite_object.coa_edit_weights and bpy.data.objects[self.ob_name].type == "MESH"):
                 if not event.ctrl and not event.shift:
-#                    for child in context.selected_objects:
-#                        child.select = False
                     if self.mode == "bone":
                         for bone in bpy.data.objects[self.ob_name].data.bones:
                             bone.select = False
@@ -1124,12 +1115,11 @@ class CutoutAnimationCollections(bpy.types.Panel):
                     row = layout.row(align=False)
                     row.template_list("UIListEventCollection","dummy",item, "event", item, "event_index",rows=1,maxrows=10,type='DEFAULT')
                     col = row.column(align=True)
-                    col.operator("coa_tools.add_timeline_event",text="",icon="ZOOMIN")
-                    #row.prop(sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index],"frame_end",text="End")    
+                    col.operator("coa_tools.add_timeline_event",text="",icon="ZOOMIN")  
             
             row = layout.row(align=True)
             if context.scene.coa_nla_mode == "ACTION":
-                #row.operator_context = "INVOKE_DEFAULT"
+
                 operator = row.operator("coa_tools.batch_render",text="Batch Render Animations",icon="RENDER_ANIMATION")
             else:
                 operator = row.operator("render.render",text="Render Animation",icon="RENDER_ANIMATION")

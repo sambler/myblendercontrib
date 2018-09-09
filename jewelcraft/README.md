@@ -8,15 +8,15 @@ Features:
 * Calculate weight in a variety of precious alloys.
 * Present summary information about your design with product report.
 
-Watch:
+Video:
 
-* [Demo v1.0][2]
-* [Камни][3]
-* [Инструменты закрепки][4]
-* [Менеджер ассетов][5]
-* [Отчёт изделия][6]
-* [Оценка веса][7]
-* [Инструменты кривых и объектов][8]
+* [Demo v1.0](https://youtu.be/XZ6uIdNnrHk)
+* [Prongs & Cutters v2.0](https://youtu.be/AZlCFg8bDSg)
+* New in v2.1:
+  * [Оценка веса + Менеджер ассетов](https://youtu.be/w2VWn8UlmPM)
+  * [Виджеты](https://youtu.be/Ck26lgKQ64Y)
+
+[More videos][2] / [Больше видео][3]
 
 
 How to install
@@ -42,10 +42,5 @@ How to install
 
 
 [1]: https://github.com/mrachinskiy/jewelcraft/archive/master.zip
-[2]: https://youtu.be/XZ6uIdNnrHk
-[3]: https://youtu.be/DqzDK7dSlUM
-[4]: https://youtu.be/VVooIV8u1JI
-[5]: https://youtu.be/S_SkB3dn4co
-[6]: https://youtu.be/lOt1wpfUQT8
-[7]: https://youtu.be/qb4OriNIRQg
-[8]: https://youtu.be/RoeWbrNPGPU
+[2]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KhfestF7xCic1jf5YjXiVh
+[3]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KQ0cobvQLR2q3sYF6fH2lh

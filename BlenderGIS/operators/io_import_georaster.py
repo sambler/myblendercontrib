@@ -29,7 +29,8 @@ import numpy as np#Ship with Blender since 2.70
 from ..geoscene import GeoScene, georefManagerLayout
 from ..prefs import PredefCRS
 
-from .utils import bpyGeoRaster as GeoRaster
+from ..core.georaster import GeoRaster
+from .utils import bpyGeoRaster, exportAsMesh
 from .utils import placeObj, adjust3Dview, showTextures, addTexture, getBBOX
 from .utils import rasterExtentToMesh, geoRastUVmap, setDisplacer
 
@@ -77,6 +78,10 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 		description = "Choose a Coordinate Reference System",
 		items = listPredefCRS,
 		)
+	reprojection = BoolProperty(
+			name="Specifiy raster CRS",
+			description="Specifiy raster CRS if it's different from scene CRS",
+			default=False )
 
 	# List of operator properties, the attributes will be assigned
 	# to the class instance from the operator settings before calling.
@@ -86,19 +91,25 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			items=[ ('PLANE', 'On plane', "Place raster texture on new plane mesh"),
 			('BKG', 'As background', "Place raster as background image"),
 			('MESH', 'On mesh', "UV map raster on an existing mesh"),
-			('DEM', 'As DEM', "Use DEM raster GRID to wrap an existing mesh"),
-			('DEM_RAW', 'Raw DEM', "Import a DEM as pixels points cloud")]
+			('DEM', 'As DEM texture', "Use DEM raster as height texture to wrap a base mesh"),
+			('DEM_RAW', 'Raw DEM', "Import a DEM as pixels points cloud with building faces")]
 			)
 	#
 	objectsLst = EnumProperty(attr="obj_list", name="Objects", description="Choose object to edit", items=listObjects)
 	#
 	#Subdivise (as DEM option)
+	def listSubdivisionModes(self, context):
+		items = [ ('subsurf', 'Subsurf', "Add a subsurf modifier"), ('none', 'None', "No subdivision")]
+		if not self.demOnMesh:
+			#mesh subdivision method can not be applyed on an existing mesh
+			#this option makes sense only when the mesh is created from scratch
+			items.append(('mesh', 'Mesh', "Create vertices at each pixels"))
+		return items
+
 	subdivision = EnumProperty(
 			name="Subdivision",
 			description="How to subdivise the plane (dispacer needs vertex to work with)",
-			items=[ ('subsurf', 'Subsurf', "Add a subsurf modifier"),
-			('mesh', 'Mesh', "Edit the mesh to subdivise the plane according to the number of DEM pixels which overlay the plane"),
-			('none', 'None', "No subdivision")]
+			items=listSubdivisionModes
 			)
 	#
 	demOnMesh = BoolProperty(
@@ -120,6 +131,8 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			)
 	#
 	step = IntProperty(name = "Step", default=1, description="Pixel step", min=1)
+
+	buildFaces = BoolProperty(name="Build faces", default=True, description='Build quad faces connecting pixel point cloud')
 
 	def draw(self, context):
 		#Function used by blender to draw the panel.
@@ -149,9 +162,12 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				else:
 					layout.label("There isn't georef mesh to apply on")
 			layout.prop(self, 'subdivision')
+			if self.subdivision == 'mesh':
+				layout.prop(self, 'step')
 			layout.prop(self, 'fillNodata')
 		#
 		if self.importMode == 'DEM_RAW':
+			layout.prop(self, 'buildFaces')
 			layout.prop(self, 'step')
 			layout.prop(self, 'clip')
 			if self.clip:
@@ -160,50 +176,65 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				else:
 					layout.label("There isn't georef mesh to refer")
 		#
+		if geoscn.isPartiallyGeoref:
+			layout.prop(self, 'reprojection')
+			if self.reprojection:
+				self.crsInputLayout(context)
+			#
+			georefManagerLayout(self, context)
+		else:
+			self.crsInputLayout(context)
+
+	def crsInputLayout(self, context):
+		layout = self.layout
 		row = layout.row(align=True)
-		#row.prop(self, "rastCRS", text='CRS')
 		split = row.split(percentage=0.35, align=True)
 		split.label('CRS:')
 		split.prop(self, "rastCRS", text='')
 		row.operator("bgis.add_predef_crs", text='', icon='ZOOMIN')
-		if geoscn.isPartiallyGeoref:
-			georefManagerLayout(self, context)
-
 
 	def err(self, msg):
 		'''Report error throught a Blender's message box'''
 		self.report({'ERROR'}, msg)
-		return {'FINISHED'}
+		return {'CANCELLED'}
+
+	@classmethod
+	def poll(cls, context):
+		return context.mode == 'OBJECT'
 
 	def execute(self, context):
 		prefs = bpy.context.user_preferences.addons[PKG].preferences
-		try:
-			bpy.ops.object.mode_set(mode='OBJECT')
-		except:
-			pass
+
 		bpy.ops.object.select_all(action='DESELECT')
 		#Get scene and some georef data
 		scn = bpy.context.scene
 		geoscn = GeoScene(scn)
 		if geoscn.isBroken:
 			self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
-			return {'FINISHED'}
+			return {'CANCELLED'}
+
+		scale = geoscn.scale #TODO
+
 		if geoscn.isGeoref:
 			dx, dy = geoscn.getOriginPrj()
-		scale = geoscn.scale #TODO
-		if not geoscn.hasCRS:
+			if self.reprojection:
+				rastCRS = self.rastCRS
+			else:
+				rastCRS = geoscn.crs
+		else: #if not geoscn.hasCRS
+			rastCRS = self.rastCRS
 			try:
-				geoscn.crs = self.rastCRS
+				geoscn.crs = rastCRS
 			except Exception as e:
 				self.report({'ERROR'}, str(e))
-				return {'FINISHED'}
+				return {'CANCELLED'}
 
 		#Raster reprojection throught UV mapping
 		#build reprojector objects
-		if geoscn.crs != self.rastCRS:
+		if geoscn.crs != rastCRS:
 			rprj = True
-			rprjToRaster = Reproj(geoscn.crs, self.rastCRS)
-			rprjToScene = Reproj(self.rastCRS, geoscn.crs)
+			rprjToRaster = Reproj(geoscn.crs, rastCRS)
+			rprjToScene = Reproj(rastCRS, geoscn.crs)
 		else:
 			rprj = False
 			rprjToRaster = None
@@ -217,7 +248,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 		if self.importMode == 'PLANE':#on plane
 			#Load raster
 			try:
-				rast = GeoRaster(filePath)
+				rast = bpyGeoRaster(filePath)
 			except IOError as e:
 				return self.err(str(e))
 			#Get or set georef dx, dy
@@ -246,7 +277,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				return self.err("Raster reprojection not possible in background mode") #TODO, do gdal true reproj
 			#Load raster
 			try:
-				rast = GeoRaster(filePath)
+				rast = bpyGeoRaster(filePath)
 			except IOError as e:
 				return self.err(str(e))
 			#Check pixel size and rotation
@@ -292,7 +323,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				subBox = rprjToRaster.bbox(subBox)
 			#Load raster
 			try:
-				rast = GeoRaster(filePath, subBoxGeo=subBox)
+				rast = bpyGeoRaster(filePath, subBoxGeo=subBox)
 			except (IOError, OverlapError) as e:
 				return self.err(str(e))
 			# Add UV map texture layer
@@ -327,18 +358,21 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 
 			# Load raster
 			try:
-				grid = GeoRaster(filePath, subBoxGeo=subBox, clip=self.clip, fillNodata=self.fillNodata, useGDAL=HAS_GDAL)
+				grid = bpyGeoRaster(filePath, subBoxGeo=subBox, clip=self.clip, fillNodata=self.fillNodata, useGDAL=HAS_GDAL)
 			except (IOError, OverlapError) as e:
 				return self.err(str(e))
 
-			# If no reference, create a new plane object from raster extent
+			# If needed, create a new plane object from raster extent
 			if not self.demOnMesh:
 				if not geoscn.isGeoref:
 					dx, dy = grid.center.x, grid.center.y
 					if rprj:
 						dx, dy = rprjToScene.pt(dx, dy)
 					geoscn.setOriginPrj(dx, dy)
-				mesh = rasterExtentToMesh(name, grid, dx, dy, pxLoc='CENTER', reproj=rprjToScene) #use pixel center to avoid displacement glitch
+				if self.subdivision == 'mesh':#Mesh cut
+					mesh = exportAsMesh(grid, dx, dy, self.step, reproj=rprjToScene, flat=True)
+				else:
+					mesh = rasterExtentToMesh(name, grid, dx, dy, pxLoc='CENTER', reproj=rprjToScene) #use pixel center to avoid displacement glitch
 				obj = placeObj(mesh, name)
 				subBox = getBBOX.fromObj(obj).toGeo(geoscn)
 
@@ -351,26 +385,12 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			if previousUVmapIdx != -1:
 				mesh.uv_textures.active_index = previousUVmapIdx
 			#Make subdivision
-			if self.subdivision == 'mesh':#Mesh cut
-				#if len(mesh.polygons) == 1:
-				bpy.ops.object.mode_set(mode='EDIT')
-				bpy.ops.mesh.select_all(action='SELECT')
-				#nbCuts = int(max(grid.size.xy))
-				#bpy.ops.mesh.subdivide(number_cuts=nbCuts)
-				#WIP make a better sudivision : we need one vertex / pixel
-				ul = grid.georef.pxFromGeo(*subBox.ul)
-				ul = grid.georef.geoFromPx(ul.x+1, ul.y+1)
-				bpy.ops.mesh.loopcut(number_cuts = grid.size.x - 1, edge_index = 1)
-				bpy.ops.mesh.loopcut(number_cuts = grid.size.y - 1, edge_index = 2)
-				bpy.ops.object.mode_set(mode='OBJECT')
-			elif self.subdivision == 'subsurf':#Add subsurf modifier
+			if self.subdivision == 'subsurf':#Add subsurf modifier
 				if not 'SUBSURF' in [mod.type for mod in obj.modifiers]:
 					subsurf = obj.modifiers.new('DEM', type='SUBSURF')
 					subsurf.subdivision_type = 'SIMPLE'
 					subsurf.levels = 6
 					subsurf.render_levels = 6
-			elif self.subdivision == 'None':
-				pass
 			#Set displacer
 			dsp = setDisplacer(obj, grid, uvTxtLayer)
 
@@ -390,7 +410,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 
 			# Load raster
 			try:
-				grid = GeoRaster(filePath, subBoxGeo=subBox, clip=self.clip, useGDAL=HAS_GDAL)
+				grid = GeoRaster(filePath, subBoxGeo=subBox, useGDAL=HAS_GDAL)
 			except (IOError, OverlapError) as e:
 				return self.err(str(e))
 
@@ -399,9 +419,9 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				if rprj:
 					dx, dy = rprjToScene.pt(dx, dy)
 				geoscn.setOriginPrj(dx, dy)
-			mesh = grid.exportAsMesh(dx, dy, self.step, reproj=rprjToScene)
+			mesh = exportAsMesh(grid, dx, dy, self.step, reproj=rprjToScene, subset=self.clip, flat=False, buildFaces=self.buildFaces)
 			obj = placeObj(mesh, name)
-			grid.unload()
+			#grid.unload()
 
 		######################################
 		#Flag is a new object as been created...

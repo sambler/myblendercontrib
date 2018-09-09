@@ -1,10 +1,55 @@
 
 import bpy
-from mathutils import Vector
+from mathutils import Vector, Matrix
 from bpy_extras.view3d_utils import region_2d_to_location_3d, region_2d_to_vector_3d
 
 from ...core import BBOX
 
+def isTopView(context):
+	if context.area.type == 'VIEW_3D':
+		reg3d = context.region_data
+	else:
+		return False
+	return reg3d.view_perspective == 'ORTHO' and tuple(reg3d.view_matrix.to_euler()) == (0,0,0)
+
+def mouseTo3d(context, x, y):
+	'''Convert event.mouse_region to world coordinates'''
+	if context.area.type != 'VIEW_3D':
+		raise Exception('Wrong context')
+	coords = (x, y)
+	reg = context.region
+	reg3d = context.region_data
+	vec = region_2d_to_vector_3d(reg, reg3d, coords)
+	loc = region_2d_to_location_3d(reg, reg3d, coords, vec) #WARNING, this function return indeterminate value when view3d clip distance is too large
+	return loc
+
+class DropToGround():
+	'''A class to perform raycasting accross z axis'''
+
+	def __init__(self, scn, ground):
+		self.scn = scn
+		self.ground = ground
+		self.bbox = getBBOX.fromObj(ground, applyTransform=True)
+		self.mw = self.ground.matrix_world
+		self.mwi = self.mw.inverted()
+
+	def rayCast(self, x, y, elseZero=False):
+		#Hit vector
+		offset = 100
+		orgWldSpace = Vector((x, y, self.bbox.zmax + offset))
+		orgObjSpace = self.mwi * orgWldSpace
+		direction = Vector((0,0,-1)) #down
+		#build ray cast hit namespace object
+		class RayCastHit(): pass
+		rcHit = RayCastHit()
+		#raycast
+		rcHit.hit, rcHit.loc, rcHit.normal, rcHit.faceIdx = self.ground.ray_cast(orgObjSpace, direction)
+		#adjust values
+		if not rcHit.hit:
+			rcHit.loc = Vector((orgWldSpace.x, orgWldSpace.y, 0))
+		rcHit.loc = self.mw * rcHit.loc
+
+		return rcHit
 
 def placeObj(mesh, objName):
 	'''Build and add a new object from a given mesh'''
@@ -174,15 +219,10 @@ class getBBOX():
 			print("View3d must be in top ortho")
 			return None
 		#
-		w, h = area.width, area.height
-		coords = (w, h)
-		vec = region_2d_to_vector_3d(reg, reg3d, coords)
-		loc_ne = region_2d_to_location_3d(reg, reg3d, coords, vec)
-		xmax, ymax = loc_ne.x, loc_ne.y
+		loc = mouseTo3d(context, area.width, area.height)
+		xmax, ymax = loc.x, loc.y
 		#
-		coords = (0, 0)
-		vec = region_2d_to_vector_3d(reg, reg3d, coords)
-		loc_sw = region_2d_to_location_3d(reg, reg3d, coords, vec)
-		xmin, ymin = loc_sw.x, loc_sw.y
+		loc = mouseTo3d(context, 0, 0)
+		xmin, ymin = loc.x, loc.y
 		#
 		return BBOX(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
