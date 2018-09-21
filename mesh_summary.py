@@ -30,7 +30,7 @@
 bl_info = {
     "name": "Mesh Summary",
     "author": "sambler",
-    "version": (1,0),
+    "version": (1,1),
     "blender": (2, 66, 0),
     "location": "Properties > Scene > Object Info Panel",
     "description": "Summarize details about the mesh objects in this file.",
@@ -79,6 +79,12 @@ def us(qty):
         if qty<1000:
             return "%3.1f%s" % (qty, suf)
 
+choice_types = [
+    ('ALL','All','',1),
+    ('SELECTED','Selected','',2),
+    ('VISIBLE','Visible','',3),
+    ]
+
 class Properties_meshinfo(bpy.types.Panel):
     bl_label = "Mesh Information"
     bl_space_type = "PROPERTIES"
@@ -89,20 +95,36 @@ class Properties_meshinfo(bpy.types.Panel):
         prefs = context.user_preferences.addons[__name__].preferences
         layout = self.layout
 
-        meshes = [o for o in context.scene.objects if o.type == 'MESH']
+        row = layout.row()
+        row.prop(context.scene, 'show_choice', text='Show')
+
+        if context.scene.show_choice == 'SELECTED':
+            meshes = [o for o in context.scene.objects if o.type == 'MESH' and o.select == True]
+            choice_desc = 'selected '
+            total_desc = 'Selected Totals:'
+        elif context.scene.show_choice == 'VISIBLE':
+            meshes = [o for o in context.scene.objects if o.type == 'MESH' and o.hide == False]
+            choice_desc = 'visible '
+            total_desc = 'Visible Totals:'
+        else:
+            meshes = [o for o in context.scene.objects if o.type == 'MESH']
+            choice_desc = ''
+            total_desc = 'Scene Totals:'
+
         row = layout.row()
         if len(meshes) == 1:
-            row.label(text="1 Mesh object in this scene.", icon='OBJECT_DATA')
+            row.label(text="1 {}mesh object in this scene.".format(choice_desc), icon='OBJECT_DATA')
         else:
-            row.label(text=us(len(meshes))+" Mesh objects in this scene.", icon='OBJECT_DATA')
+            row.label(text=us(len(meshes))+" {}mesh objects in this scene.".format(choice_desc), icon='OBJECT_DATA')
             row = layout.row()
             if len(meshes) > prefs.display_limit:
-                row.label(text="Top %d mesh objects." % prefs.display_limit)
+                row.label(text="Top {} {}mesh objects.".format(prefs.display_limit,choice_desc))
             else:
-                row.label(text="Top %d mesh objects." % len(meshes))
+                row.label(text="Top {} {}mesh objects.".format(len(meshes), choice_desc))
 
         row = layout.row()
         row.prop(prefs,"calculate_modifier_verts")
+
         if len(meshes) > 0:
             dataCols = []
             row = layout.row()
@@ -147,7 +169,7 @@ class Properties_meshinfo(bpy.types.Panel):
             fTotal = sum([len(o.data.polygons) for o in meshes])
 
             totRow = dataCols[0].row()
-            totRow.label(text="Scene totals:")
+            totRow.label(text=total_desc)
             totRow = dataCols[1].row()
             totRow.label(text=us(vTotal))
             totRow = dataCols[3].row()
@@ -158,10 +180,12 @@ class Properties_meshinfo(bpy.types.Panel):
 def register():
     bpy.utils.register_class(MeshSummaryPreferences)
     bpy.utils.register_class(Properties_meshinfo)
+    bpy.types.Scene.show_choice = bpy.props.EnumProperty(items=choice_types, default='ALL')
 
 def unregister():
     bpy.utils.unregister_class(MeshSummaryPreferences)
     bpy.utils.unregister_class(Properties_meshinfo)
+    del bpy.types.Scene.show_choice
 
 if __name__ == "__main__":
     register()
