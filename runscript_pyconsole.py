@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Run Script in PyConsole",
     "author": "CoDEmanX, SAmbler",
-    "version": (1, 2),
+    "version": (1, 2, 1),
     "blender": (2, 67, 0),
     "location": "Python Console > Console > Run Script",
     "description": "Execute the code of a textblock or file within the python console.",
@@ -163,16 +163,25 @@ def draw_item_file(self, context):
     layout = self.layout
     layout.menu(CONSOLE_MT_load_script.bl_idname)
 
+classes = (
+    RunScriptPreferences,
+    CONSOLE_OT_run_script,
+    CONSOLE_MT_run_script,
+    CONSOLE_OT_load_script,
+    CONSOLE_MT_load_script,
+    )
 
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
     bpy.types.CONSOLE_MT_console.prepend(draw_item_block)
     bpy.types.CONSOLE_MT_console.prepend(draw_item_file)
 
 def unregister():
     bpy.types.CONSOLE_MT_console.remove(draw_item_block)
     bpy.types.CONSOLE_MT_console.remove(draw_item_file)
-    bpy.utils.unregister_module(__name__)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":
