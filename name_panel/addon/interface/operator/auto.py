@@ -16,7 +16,7 @@ class operator(Operator):
     '''
     bl_idname = 'view3d.auto_name'
     bl_label = 'Auto Name'
-    bl_description = 'Automatically name datablocks based on type.'
+    bl_description = 'Automatically name datablocks based on type'
     bl_options = {'UNDO'}
 
     # count
@@ -148,6 +148,11 @@ class operator(Operator):
         # column
         column = layout.column()
 
+        # separate
+        column.separator()
+        column.separator()
+        column.separator()
+
         # label
         column.label(text='Name Settings:')
 
@@ -168,6 +173,11 @@ class operator(Operator):
 
         # column
         column = layout.column(align=True)
+
+        # separate
+        column.separator()
+        column.separator()
+        column.separator()
 
         # sort
         shared.sort(column, context.window_manager.BatchShared)
@@ -211,7 +221,7 @@ class objects(Operator):
     '''
     bl_idname = 'view3d.auto_name_object_names'
     bl_label = 'Object Names:'
-    bl_description = 'Change the names used for objects.'
+    bl_description = 'Change the names used for objects'
     bl_options = {'UNDO'}
 
     # draw
@@ -321,7 +331,7 @@ class constraints(Operator):
     '''
     bl_idname = 'view3d.auto_name_constraint_names'
     bl_label = 'Constraint Names:'
-    bl_description = 'Change the names used for constraints.'
+    bl_description = 'Change the names used for constraints'
     bl_options = {'UNDO'}
 
     # draw
@@ -517,7 +527,7 @@ class modifiers(Operator):
     '''
     bl_idname = 'view3d.auto_name_modifier_names'
     bl_label = 'Modifier Names:'
-    bl_description = 'Change the names used for modifiers.'
+    bl_description = 'Change the names used for modifiers'
     bl_options = {'UNDO'}
 
     # draw
@@ -823,7 +833,7 @@ class objectData(Operator):
     '''
     bl_idname = 'view3d.auto_name_object_data_names'
     bl_label = 'Object Data Names:'
-    bl_description = 'Change the names used for objects data.'
+    bl_description = 'Change the names used for objects data'
     bl_options = {'UNDO'}
 
     # draw

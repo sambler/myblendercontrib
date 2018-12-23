@@ -22,3 +22,6 @@ class TextSyncPanel(bpy.types.Panel):
         # changed on disk.
         if context.edit_text.is_modified:
             row.operator("text.text_upsync")
+
+classes = [TextSyncPanel]
+register, unregister = bpy.utils.register_classes_factory(classes)

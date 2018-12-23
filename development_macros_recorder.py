@@ -20,7 +20,7 @@
 bl_info = {
     "name": "Macros Recorder",
     "author": "dairin0d",
-    "version": (1, 4, 5),
+    "version": (1, 4, 6),
     "blender": (2, 6, 0),
     "location": "Text Editor -> Text -> Record Macro",
     "description": "Record macros to text blocks",
@@ -34,6 +34,8 @@ bl_info = {
 import bpy
 
 from mathutils import Vector, Matrix, Quaternion, Euler, Color
+
+from collections import namedtuple
 
 #============================================================================#
 
@@ -163,6 +165,18 @@ def types2props(tp, empty_enum_to_string=True):
     
     return pp
 
+def get_instance_type_or_emulator(obj):
+    if hasattr(obj, "get_instance"): return type(obj.get_instance())
+    rna_type = obj.get_rna_type()
+    rna_props = rna_type.properties
+    # namedtuple fields can't start with underscores, but so do rna props
+    return namedtuple(rna_type.identifier, rna_props.keys())(*rna_props.values()) # For Blender 2.79.6
+
+def get_rna_type(obj):
+    if hasattr(obj, "rna_type"): return obj.rna_type
+    if hasattr(obj, "get_rna"): return obj.get_rna().rna_type
+    return obj.get_rna_type() # For Blender 2.79.6
+
 def get_op(idname):
     category_name, op_name = idname.split(".")
     category = getattr(bpy.ops, category_name)
@@ -172,7 +186,7 @@ class CurrentGeneratorProperties(bpy.types.PropertyGroup):
     pass
 
 def repr_props(obj, limit_to=None):
-    rna_props = obj.rna_type.properties
+    rna_props = get_rna_type(obj).properties
     
     args = {}
     
@@ -551,9 +565,8 @@ class RegenerateProceduralObject(bpy.types.Operator):
         op_idname, op_params = self.idname_params(obj)
         
         op = get_op(".".join(op_idname))
-        op_class = type(op.get_instance())
-        rna = op.get_rna()
-        rna_props = rna.rna_type.properties
+        op_class = get_instance_type_or_emulator(op)
+        rna_props = get_rna_type(op).properties
         
         for k in dir(op_class):
             if not (k.startswith("__") or (k in forbidden)):

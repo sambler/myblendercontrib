@@ -108,10 +108,6 @@ class ConsoleShortCutButtons(bpy.types.Operator):
         set_keymap()
         return {'FINISHED'}
 
+classes = [TextSyncOps, ConsoleDoAction, ConsoleShortCutButtons]
+register, unregister = bpy.utils.register_classes_factory(classes)
 
-def register():
-    bpy.utils.register_module(__name__)
-
-
-def unregister():
-    bpy.utils.unregister_module(__name__)

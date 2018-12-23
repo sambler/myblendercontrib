@@ -12,7 +12,7 @@ class reset(Operator):
     '''
     bl_idname = 'wm.reset_name_panel_settings'
     bl_label = 'Reset Settings'
-    bl_description = 'Reset settings to the default values.'
+    bl_description = 'Reset settings to the default values'
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     # panel

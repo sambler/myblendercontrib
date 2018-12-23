@@ -370,9 +370,7 @@ def filters(self, context, layout, panel):
         if panel.hideReplace:
 
             # operator; batch name
-            op = row.operator('wm.batch_name', text='', icon='SORTALPHA')
-            op.simple = False
-            op.quickBatch = False
+            row.operator('wm.batch_name', text='', icon='SORTALPHA')
 
         else:
 
@@ -389,14 +387,10 @@ def filters(self, context, layout, panel):
             sub.scale_x = 0.15
 
             # operator; batch name
-            op = sub.operator('wm.batch_name', text='OK')
-            op.simple = True
-            op.quickBatch = False
+            sub.operator('wm.batch_name', text='OK')
 
             # operator; batch name
-            op = row.operator('wm.batch_name', text='', icon='SORTALPHA')
-            op.simple = False
-            op.quickBatch = False
+            row.operator('wm.batch_name', text='', icon='SORTALPHA')
 
     # is dispay names
     if panel.displayNames:
@@ -1494,7 +1488,7 @@ class block:
                         if slot.material != None:
 
                             # textures
-                            textures = [tslot.texture.name for tslot in slot.material.texture_slots if hasattr(tslot, 'texture')]
+                            textures = [tslot.texture.name for tslot in slot.material.texture_slots if hasattr(tslot, 'texture') and tslot.texture]
 
                             # is search
                             if search == '' or re.search(search, slot.material.name, re.I) or [re.search(search, item, re.I) for item in textures if re.search(search, item, re.I) != None]:
@@ -1603,6 +1597,40 @@ class block:
 
                     # bone
                     Bone(self, context, layout, context.active_bone, context.active_object, panel)
+
+                    # constraints
+                    try: constraints = [item.name for item in context.active_pose_bone.constraints]
+                    except: constraints = []
+
+                    # is bone constraints
+                    if panel.boneConstraints:
+
+                        # is mode pose
+                        if object.mode in 'POSE':
+
+                            # bone
+                            bone = context.active_pose_bone
+
+                            # is bone
+                            if bone:
+
+                                # for constraint
+                                for constraint in bone.constraints:
+
+                                    # is search
+                                    if search == '' or re.search(search, constraint.name, re.I):
+
+                                        # constraint
+                                        Constraint(self, context, layout, constraint, object, bone, panel)
+
+                                # is constraints
+                                if constraints != []:
+
+                                    # row
+                                    row = layout.row()
+
+                                    # separate
+                                    row.separator()
 
             # is pin active bone
             if option.pinActiveBone and panel.displayBones:
@@ -1727,7 +1755,7 @@ class block:
                                                     row.separator()
 
             # isnt pin active bone
-            else:
+            elif panel.displayBones:
 
                 # is display bones
                 if panel.displayBones:

@@ -1,8 +1,8 @@
 bl_info = {
     "name": "Dynamic Slideshow",
     "author": "Philipp (Hapit) Hemmer",
-    "version": (0, 6),
-    "blender": (2, 72, 0),
+    "version": (0, 7),
+    "blender": (2, 79, 0),
     "location": "View3D > Tool shelf > Slideshow (Tab)",
     "description": "Addon for creating dynamic slideshows. Inspired by a CG Cookie Tutorial, this addon creates cameras and sequences for a slideshow. It uses the 'images as planes' addon for adding pictures.",
     #"warning": "",
@@ -75,12 +75,6 @@ def get_sorted_scene_cameras_list():
             scene_cameras.append(obj)
     scene_cameras.sort(key=lambda cam: cam.location.x+cam.delta_location.x)
     return scene_cameras
-
-def is_camera_count_zero():
-    for obj in bpy.context.scene.objects:
-        if obj.type == 'CAMERA':
-            return False
-    return True
 
 def has_multiple_cameras():
     cam_count = 0
@@ -159,58 +153,6 @@ def set_sequence_active_for_camera(camera):
             if area.type == 'SEQUENCE_EDITOR':
                 area.tag_redraw()
 
-def compair_version_arrays(vArr1, vArr2):
-    # return -1 if vArr1 is smaller than vArr2
-    # return 0 if both arrays are equal
-    # return 1 if vArr1 is greater than vArr2
-    if len(vArr1) < 2 or len(vArr2) < 2:
-        print('Error in compair_version_arrays')
-        return 0 # error should not happen
-    if vArr1[0] < vArr2[0]:
-        return -1
-    elif vArr1[0] > vArr2[0]:
-        return 1
-    # first version number is equal
-    if vArr1[1] < vArr2[1]:
-        return -1
-    elif vArr1[1] > vArr2[1]:
-        return 1
-    # second version number is equal, check vor third version number
-    if len(vArr1) > 2 and len(vArr2) > 2:
-        if vArr1[2] < vArr2[2]:
-            return -1
-        elif vArr1[2] > vArr2[2]:
-            return 1
-        else:
-            return 0
-    elif len(vArr1) > 2 and len(vArr2) <= 2:
-        return 1
-    elif len(vArr1) <= 2 and len(vArr2) > 2:
-        return -1
-    return 0
-
-def compair_against_online_version():
-    # check_version against online version file
-    # check_version returns True if addon version is equal or higher than the online version
-    try:
-        latestversion = urllib.request.urlopen('https://raw.githubusercontent.com/hapit/blender_addon_dynamic_slideshow/master/version.txt')
-        latestversion = latestversion.readline()
-        latestversion = latestversion.decode("utf-8")
-        
-        latestversionStrArray = latestversion.split('.')
-        latestversionArray = []
-        for str in latestversionStrArray:
-            latestversionArray.append(int(str))
-        
-        return compair_version_arrays(bl_info['version'], latestversionArray)
-    except BaseException as e:
-        print('except' + str(e))
-        return 0
-
-def check_version(operator):
-    if compair_against_online_version() < 0:
-        operator.report({'INFO'}, bl_info['name'] + ' - Newer version available!')
-
 def get_effect_type(index):
     # retruns EffectCollection item
     scene = bpy.context.scene
@@ -258,7 +200,6 @@ class InitSceneOperator(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
-        check_version(self)
         bpy.context.scene.cursor_location = (0.0, 0.0, 0.0)
         bpy.context.scene.render.engine = 'BLENDER_RENDER'
         
@@ -266,46 +207,21 @@ class InitSceneOperator(bpy.types.Operator):
         bpy.context.scene.game_settings.material_mode = 'GLSL'
         bpy.context.space_data.show_textured_solid = True
         bpy.ops.view3d.viewnumpad(type='TOP', align_active=False)
+
+        # clean scene, remove everything
+        bpy.ops.object.select_all(action='SELECT')
+        bpy.ops.object.delete() 
         
         # N-Panel Screen Preview/Render
-        bpy.context.scene.render.use_sequencer_gl_preview = True
         bpy.context.scene.render.sequencer_gl_preview = 'SOLID'
         bpy.context.scene.render.use_sequencer_gl_textured_solid = True
         
-        return {'FINISHED'}
-
-
-class AddCameraOperator(bpy.types.Operator):
-    """Add Camera"""
-    
-    bl_idname = "dyn_slideshow.add_cameras"
-    bl_label = "Add Camera"
-    bl_options = {'REGISTER', 'UNDO'}
-    
-    def execute(self, context):
-        check_version(self)
-        wm = context.window_manager
-        
         bpy.ops.object.camera_add(location=(0,0,2),rotation=(0,0,0))
-        
-        if is_draw_type_handling():
-            for mesh_obj in bpy.context.scene.objects:
-                if mesh_obj.type == 'MESH':
-                    for mat_slot in mesh_obj.material_slots:
-                        mat_slot.material.use_shadeless = True
-                    mesh_obj.draw_type = 'WIRE'
-                    if mesh_obj.location == Vector((0.0, 0.0, 0.0)):
-                        mesh_obj.draw_type = 'SOLID'
         
         bpy.context.space_data.viewport_shade = 'SOLID'
         return {'FINISHED'}
-    
-    @classmethod
-    def poll(cls, context):
-        return is_camera_count_zero()
 
 def execute_init_cameras(self, context):
-    check_version(self)
     cameraCount = 0
     cameraObj = None
     for obj in bpy.context.scene.objects:
@@ -369,9 +285,7 @@ def execute_init_cameras(self, context):
     
     return True
 
-
 def execute_init_sequences(self, context):
-    check_version(self)
     wm = context.window_manager
     
     scene_sequence_name = 'scene'
@@ -441,6 +355,16 @@ class SetupSlideshowOperator(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
+        # set shadeless and wire
+        if is_draw_type_handling():
+            for mesh_obj in bpy.context.scene.objects:
+                if mesh_obj.type == 'MESH':
+                    for mat_slot in mesh_obj.material_slots:
+                        mat_slot.material.use_shadeless = True
+                    mesh_obj.draw_type = 'WIRE'
+                    if mesh_obj.location == Vector((0.0, 0.0, 0.0)):
+                        mesh_obj.draw_type = 'SOLID'
+
         if not has_multiple_cameras():
             result1 = execute_init_cameras(self, context)
         else:
@@ -677,10 +601,6 @@ class ManualAddEffectsTypeOperator(bpy.types.Operator):
                 effect_index += 1
             seq1 = s
         
-        # Workaround for bug https://developer.blender.org/T43271
-        if len(sequence_list) > 0:
-            sequence_list[0].frame_final_end = sequence_list[0].frame_final_end
-            
         return {'FINISHED'}
 
 ################ UI code
@@ -780,9 +700,7 @@ class DynamicSlideshowPanel(bpy.types.Panel):
             layout.operator('import_image.to_plane', ' Images as Planes', icon='TEXTURE')
         else:
             layout.label("Activate 'Images as Planes'")
-        
-        layout.operator(AddCameraOperator.bl_idname, 'Add camera')
-        
+                
         layout.separator()
         
         box = layout.box()

@@ -322,50 +322,30 @@ def recursive_enable_inputs(node, prop_names, enable=True):
 # take a set of condtional visops and make a python string
 
 
-def parse_conditional_visop(hintdict):
+def parse_conditional_visop(hintdict, op_prefix='conditionalVis'):
+    '''This method takes some conditional visop and makes it into a python 
+        string which can be eval'ed.  Looking up values'''
     op_map = {
         'notEqualTo': "!=",
         'equalTo': '==',
         'greaterThan': '>',
         'lessThan': '<'
     }
-    visop = hintdict.find("string[@name='conditionalVisOp']").attrib['value']
+    visop = hintdict.find("string[@name='%sOp']" % op_prefix).attrib['value']
     if visop in ('and', 'or'):
-        vis1op = hintdict.find(
-            "string[@name='conditionalVis1Op']").attrib['value']
-        vis1path = hintdict.find(
-            "string[@name='conditionalVis1Path']").attrib['value']
-        vis1Value = hintdict.find(
-            "string[@name='conditionalVis1Value']").attrib['value']
-        vis2op = hintdict.find(
-            "string[@name='conditionalVis2Op']").attrib['value']
-        vis2path = hintdict.find(
-            "string[@name='conditionalVis2Path']").attrib['value']
-        vis2Value = hintdict.find(
-            "string[@name='conditionalVis2Value']").attrib['value']
-
-        vis1 = ''
-        vis2 = ''
-        if vis1Value.isalpha():
-            vis1 = "getattr(node, '%s') %s '%s'" % \
-                (vis1path.rsplit('/', 1)[-1], op_map[vis1op], vis1Value)
-        else:
-            vis1 = "float(getattr(node, '%s')) %s float(%s)" % \
-                (vis1path.rsplit('/', 1)[-1], op_map[vis1op], vis1Value)
-
-        if vis2Value.isalpha():
-            vis2 = "getattr(node, '%s') %s '%s'" % \
-                (vis2path.rsplit('/', 1)[-1], op_map[vis2op], vis2Value)
-        else:
-            vis2 = "float(getattr(node, '%s')) %s float(%s)" % \
-                (vis2path.rsplit('/', 1)[-1], op_map[vis2op], vis2Value)
-
-        return "%s %s %s" % (vis1, visop, vis2)
+        # get the prefixes for left and right
+        left_prefix = hintdict.find("string[@name='%sLeft']" % op_prefix).attrib['value']
+        right_prefix = hintdict.find("string[@name='%sRight']" % op_prefix).attrib['value']
+        # recursively get string
+        vis_left = parse_conditional_visop(hintdict, op_prefix=left_prefix)
+        vis_right = parse_conditional_visop(hintdict, op_prefix=left_prefix)
+        # do something here
+        return "%s %s %s" % (vis_left, visop, vis_right)
     else:
         vispath = hintdict.find(
-            "string[@name='conditionalVisPath']").attrib['value']
+            "string[@name='%sPath']" % op_prefix).attrib['value']
         visValue = hintdict.find(
-            "string[@name='conditionalVisValue']").attrib['value']
+            "string[@name='%sValue']" % op_prefix).attrib['value']
         if visValue.isalpha() or not visValue:
             return "getattr(node, '%s') %s '%s'" % \
                 (vispath.rsplit('/', 1)[-1], op_map[visop], visValue)
@@ -441,6 +421,7 @@ def generate_property(sp):
             sp.attrib['connectable'].lower() == 'false'):
         prop_meta['__noconnection'] = True
 
+    #print(param_name)
     # if has conditionalVisOps parse them
     if sp.find("hintdict[@name='conditionalVisOps']"):
         prop_meta['conditionalVisOp'] = parse_conditional_visop(

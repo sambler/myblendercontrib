@@ -11,7 +11,7 @@ class operator(Operator):
     '''
     bl_idname = 'wm.name_panel_defaults'
     bl_label = 'Name Panel Defaults'
-    bl_description = 'Current settings for name panel.'
+    bl_description = 'Current settings for name panel'
     bl_options = {'INTERNAL'}
 
     # check
@@ -138,9 +138,7 @@ class operator(Operator):
             if panel.hideReplace:
 
                 # operator; batch name
-                op = row.operator('wm.batch_name', text='', icon='SORTALPHA')
-                op.simple = False
-                op.quickBatch = False
+                row.operator('wm.batch_name', text='', icon='SORTALPHA')
 
             else:
 
@@ -157,14 +155,10 @@ class operator(Operator):
                 sub.scale_x = 0.15
 
                 # operator; batch name
-                op = sub.operator('wm.batch_name', text='OK')
-                op.simple = True
-                op.quickBatch = False
+                sub.operator('wm.batch_name', text='OK')
 
                 # operator; batch name
-                op = row.operator('wm.batch_name', text='', icon='SORTALPHA')
-                op.simple = False
-                op.quickBatch = False
+                row.operator('wm.batch_name', text='', icon='SORTALPHA')
 
         # separate
         column.separator()

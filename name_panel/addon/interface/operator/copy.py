@@ -11,7 +11,7 @@ class operator(Operator):
     '''
     bl_idname = 'view3d.transfer_name'
     bl_label = 'Transfer Names'
-    bl_description = 'Transfer names from some types of datablocks to others.'
+    bl_description = 'Transfer names from some types of datablocks to others'
     bl_options = {'UNDO'}
 
     # poll

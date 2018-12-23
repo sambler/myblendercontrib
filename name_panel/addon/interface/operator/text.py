@@ -11,7 +11,7 @@ class generate(Operator):
     '''
     bl_idname = 'wm.regular_expression_cheatsheet'
     bl_label = 'Create Cheatsheet'
-    bl_description = 'Create a text reference for regular expressions.'
+    bl_description = 'Create a text reference for regular expressions'
     bl_options = {'UNDO', 'INTERNAL'}
 
     # execute

@@ -10,7 +10,7 @@ class operator(Operator):
     '''
     bl_idname = 'wm.auto_name_defaults'
     bl_label = 'Auto Name Defaults'
-    bl_description = 'Current settings for the auto name operator.'
+    bl_description = 'Current settings for the auto name operator'
     bl_options = {'INTERNAL'}
 
     # check

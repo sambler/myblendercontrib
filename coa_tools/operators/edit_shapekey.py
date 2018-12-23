@@ -234,6 +234,9 @@ class EditShapekeyMode(bpy.types.Operator):
         self.sprite_object.coa_edit_shapekey = True
         self.sprite_object.coa_edit_mode = "SHAPEKEY"
         bpy.ops.object.mode_set(mode="SCULPT")
+        context.scene.tool_settings.sculpt.use_symmetry_x = False
+        context.scene.tool_settings.sculpt.use_symmetry_y = False
+        context.scene.tool_settings.sculpt.use_symmetry_z = False
         
         for brush in bpy.data.brushes:
             if brush.sculpt_tool == "GRAB":

@@ -9,6 +9,4 @@ def batchName(self, context):
     row = self.layout
 
     # operator; batch name
-    op = row.operator('wm.batch_name', icon='SORTALPHA')
-    op.simple = False
-    op.quickBatch = False
+    row.operator('wm.batch_name', icon='SORTALPHA')

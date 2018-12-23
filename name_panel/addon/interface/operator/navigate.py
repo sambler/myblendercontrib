@@ -11,7 +11,7 @@ class previous(Operator):
     '''
     bl_idname = 'view3d.name_panel_previous'
     bl_label = 'Back'
-    bl_description = 'Return to previous settings context.'
+    bl_description = 'Return to previous settings context'
     bl_options = {'UNDO', 'INTERNAL'}
 
     # poll

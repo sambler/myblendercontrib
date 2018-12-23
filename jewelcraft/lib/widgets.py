@@ -53,7 +53,7 @@ def handler_toggle(self, context):
 
     if context.area.type == "VIEW_3D":
 
-        if context.window_manager.jewelcraft.widget_toggle:
+        if self.widget_toggle:
             handler_add(self, context)
         else:
             handler_del()
@@ -93,7 +93,7 @@ def draw_callback_px(self, context):
             radius = max(ob.dimensions[:2]) / 2 + settings["distance"]
 
             mat_loc = Matrix.Translation(ob.matrix_world.translation)
-            mat_rot = ob.matrix_world.to_euler().to_matrix().to_4x4()
+            mat_rot = ob.matrix_world.to_quaternion().to_matrix().to_4x4()
             mat = mat_loc * mat_rot
 
             coords = circle_coords(radius)

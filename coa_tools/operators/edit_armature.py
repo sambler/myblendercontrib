@@ -503,6 +503,61 @@ class SetStretchBone(bpy.types.Operator):
         return{'FINISHED'}
 
 ######################################################################################################################################### Set IK Constraint 
+
+class RemoveIK(bpy.types.Operator):
+    bl_idname = "coa_tools.remove_ik"
+    bl_label = "Remove IK"
+    bl_description = "Remove Bone IK"
+    bl_options = {"REGISTER"}
+
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        obj = context.active_object
+        pose_bone = bpy.context.active_pose_bone
+        if obj.type == "ARMATURE":
+            
+            ik_const_found = False
+            for bone in obj.pose.bones:
+                for const in bone.constraints:
+                    if const.type == "IK" and const.subtarget == pose_bone.name:
+                        ik_const_found = True
+            if ik_const_found == False:
+                self.report({"WARNING"}, "No IK Constraint found to delete.")
+                return{"CANCELLED"}            
+                        
+            
+            for bone in obj.pose.bones:
+                copy_loc = None
+                copy_rot = None
+                
+                for const in bone.constraints:
+                    if const.type == "COPY_LOCATION":
+                        copy_loc = const
+                    if const.type == "COPY_ROTATION":
+                        copy_rot = const
+                    if const.type == "IK":
+                        if const.subtarget == pose_bone.name:
+                            bone.constraints.remove(const)
+                if copy_loc != None and copy_rot != None:
+                    bone.constraints.remove(copy_loc)
+                    bone.constraints.remove(copy_rot)
+                    obj.data.bones[bone.name].layers[0] = True
+                    obj.data.bones[bone.name].layers[1] = False
+                    obj.data.bones.active = obj.data.bones[bone.name]
+                    obj.data.bones[bone.name].select = True
+                    
+            bpy.ops.object.mode_set(mode="EDIT")
+            obj.data.edit_bones.remove(obj.data.edit_bones[pose_bone.name])
+            bpy.ops.object.mode_set(mode="POSE")
+                            
+            
+        return {"FINISHED"}
+        
+
 class SetIK(bpy.types.Operator):
     bl_idname = "object.coa_set_ik"
     bl_label = "Set IK Bone"
@@ -626,7 +681,12 @@ class CreateStretchIK(bpy.types.Operator):
     def execute(self, context):
         obj = context.active_object
         
+        if len(context.selected_pose_bones) < 3:
+            self.report({'WARNING'},"Select 3 bones at least.")
+            return{"CANCELLED"}
+        
         ####################### create all needed bones #######################
+        
         bpy.ops.object.mode_set(mode="EDIT")
         bones = context.selected_bones[:]
         

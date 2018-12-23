@@ -19,10 +19,10 @@
 bl_info = {"name": "Fast Wavefront (.obj)",
            "description": "Import/Export single mesh as Wavefront OBJ. Only active mesh is exported. Only single mesh is expected on import. Supported obj features: UVs, normals, shading, vertex colors using MRGB format (ZBrush) or so called 'extended' format when each vertex is defined by 6 values (x, y, z, r, g, b).",
            "author": "Jakub Uhlik",
-           "version": (0, 1, 2),
-           "blender": (2, 78, 0),
+           "version": (0, 2, 0),
+           "blender": (2, 80, 0),
            "location": "File > Import/Export > Fast Wavefront (.obj)",
-           "warning": "",
+           "warning": "work in progress",
            "wiki_url": "",
            "tracker_url": "",
            "category": "Import-Export", }
@@ -57,7 +57,7 @@ class FastOBJWriter():
         log("prepare..", 1)
         me = None
         if(apply_modifiers):
-            me = o.to_mesh(bpy.context.scene, apply_modifiers, 'RENDER', calc_tessface=False, calc_undeformed=False, )
+            me = o.to_mesh(context.depsgraph, apply_modifiers, )
         
         bm = bmesh.new()
         if(me is not None):
@@ -148,7 +148,8 @@ class FastOBJWriter():
                     ls = f.loops
                     for l in ls:
                         vi = l.vert.index
-                        c = l[col_layer]
+                        # get rgb only
+                        c = l[col_layer][:3]
                         cols[vi].append(c)
             # average color values
             for cl in cols:
@@ -157,9 +158,9 @@ class FastOBJWriter():
                 b = 0
                 l = len(cl)
                 for c in cl:
-                    r += c.r
-                    g += c.g
-                    b += c.b
+                    r += c[0]
+                    g += c[1]
+                    b += c[2]
                 
                 def limit(v):
                     if(v < 0.0):
@@ -193,7 +194,8 @@ class FastOBJWriter():
                     ls = f.loops
                     for l in ls:
                         vi = l.vert.index
-                        c = l[col_layer]
+                        # get rgb only
+                        c = l[col_layer][:3]
                         cols[vi].append(c)
             
             # average colors and convert to 0-255 format and then to hexadecimal values, leave 'm' to ff
@@ -203,9 +205,9 @@ class FastOBJWriter():
                 b = 0
                 l = len(cl)
                 for c in cl:
-                    r += c.r
-                    g += c.g
-                    b += c.b
+                    r += c[0]
+                    g += c[1]
+                    b += c[2]
                 
                 def limit(v):
                     if(v < 0):
@@ -363,19 +365,29 @@ class FastOBJReader():
         def add_object(name, data, ):
             so = bpy.context.scene.objects
             for i in so:
-                i.select = False
+                i.select_set(False)
+            
             o = bpy.data.objects.new(name, data)
-            so.link(o)
-            o.select = True
-            if(so.active is None or so.active.mode == 'OBJECT'):
-                so.active = o
+            # so.link(o)
+            
+            context = bpy.context
+            view_layer = context.view_layer
+            collection = view_layer.active_layer_collection.collection
+            collection.objects.link(o)
+            
+            view_layer.objects.active = o
+            
+            # o.select = True
+            o.select_set(True)
+            # if(so.active is None or so.active.mode == 'OBJECT'):
+            #     so.active = o
             return o
         
-        def activate_object(obj, ):
-            bpy.ops.object.select_all(action='DESELECT')
-            sc = bpy.context.scene
-            obj.select = True
-            sc.objects.active = obj
+        # def activate_object(obj, ):
+        #     bpy.ops.object.select_all(action='DESELECT')
+        #     sc = bpy.context.scene
+        #     obj.select = True
+        #     sc.objects.active = obj
         
         log("reading..", 1)
         ls = None
@@ -507,7 +519,7 @@ class FastOBJReader():
         log("{} {}".format("{}: ".format("with_uv").ljust(log_args_align, "."), with_uv), 1)
         if(len(tverts) > 0):
             log("making uv map..", 1)
-            me.uv_textures.new("UVMap")
+            me.uv_layers.new(name="UVMap")
             loops = me.uv_layers[0].data
             i = 0
             for j in range(len(tfaces)):
@@ -526,7 +538,7 @@ class FastOBJReader():
             vc = me.vertex_colors.active
             vcd = vc.data
             for l in me.loops:
-                vcd[l.index].color = vcols[l.vertex_index]
+                vcd[l.index].color = vcols[l.vertex_index] + (1.0, )
         
         log("{} {}".format("{}: ".format("convert_axes").ljust(log_args_align, "."), convert_axes), 1)
         log("{} {}".format("{}: ".format("apply_conversion").ljust(log_args_align, "."), apply_conversion), 1)
@@ -559,7 +571,9 @@ class FastOBJReader():
                 axis_forward = '-Z'
                 axis_up = 'Y'
                 cm = axis_conversion(from_forward=axis_forward, from_up=axis_up).to_4x4()
-                self.object.matrix_world *= cm
+                m = self.object.matrix_world
+                mm = m @ cm
+                self.object.matrix_world = mm
         
         log("{} {}".format("{}: ".format("with_shading").ljust(log_args_align, "."), with_shading), 1)
         if(with_shading):
@@ -573,7 +587,7 @@ class FastOBJReader():
             o = self.object
             me = o.data
             for k, v in groups.items():
-                o.vertex_groups.new(k)
+                o.vertex_groups.new(name=k)
                 vg = o.vertex_groups[k]
                 vg.add(list(set(v)), 1.0, 'REPLACE')
         
@@ -590,20 +604,20 @@ class ExportFastOBJ(Operator, ExportHelper):
     
     # filepath = StringProperty(name="File Path", description="Filepath used for exporting the file", maxlen=1024, subtype='FILE_PATH', )
     filename_ext = ".obj"
-    filter_glob = StringProperty(default="*.obj", options={'HIDDEN'}, )
+    filter_glob: StringProperty(default="*.obj", options={'HIDDEN'}, )
     check_extension = True
     
-    apply_modifiers = BoolProperty(name="Apply Modifiers", default=False, description="Apply all modifiers.", )
-    apply_transformation = BoolProperty(name="Apply Transformation", default=True, description="Zero-out mesh transformation.", )
-    convert_axes = BoolProperty(name="Convert Axes", default=True, description="Convert from blender (y forward, z up) to forward -z, up y.", )
-    triangulate = BoolProperty(name="Triangulate", default=False, description="", )
-    use_uv = BoolProperty(name="With UV", default=True, description="Export active UV layout.", )
-    use_shading = BoolProperty(name="With Shading", default=False, description="Export face shading.", )
-    use_vertex_colors = BoolProperty(name="With Vertex Colors", default=False, description="Export vertex colors, this is not part of official file format specification.", )
-    use_vcols_mrgb = BoolProperty(name="VCols MRGB", default=True, description="Use ZBrush vertex colors style.", )
-    use_vcols_ext = BoolProperty(name="VCols Ext", default=False, description="Use 'Extended Vertex' vertex colors style.", )
-    global_scale = FloatProperty(name="Scale", default=1.0, precision=3, description="", )
-    precision = IntProperty(name="Precision", default=6, description="", )
+    apply_modifiers: BoolProperty(name="Apply Modifiers", default=False, description="Apply all modifiers.", )
+    apply_transformation: BoolProperty(name="Apply Transformation", default=True, description="Zero-out mesh transformation.", )
+    convert_axes: BoolProperty(name="Convert Axes", default=True, description="Convert from blender (y forward, z up) to forward -z, up y.", )
+    triangulate: BoolProperty(name="Triangulate", default=False, description="", )
+    use_uv: BoolProperty(name="With UV", default=True, description="Export active UV layout.", )
+    use_shading: BoolProperty(name="With Shading", default=False, description="Export face shading.", )
+    use_vertex_colors: BoolProperty(name="With Vertex Colors", default=False, description="Export vertex colors, this is not part of official file format specification.", )
+    use_vcols_mrgb: BoolProperty(name="VCols MRGB", default=True, description="Use ZBrush vertex colors style.", )
+    use_vcols_ext: BoolProperty(name="VCols Ext", default=False, description="Use 'Extended Vertex' vertex colors style.", )
+    global_scale: FloatProperty(name="Scale", default=1.0, precision=3, description="", )
+    precision: IntProperty(name="Precision", default=6, description="", )
     
     @classmethod
     def poll(cls, context):
@@ -655,19 +669,19 @@ class ImportFastOBJ(Operator, ImportHelper):
     
     # filepath = StringProperty(name="File Path", description="Filepath used for exporting the file", maxlen=1024, subtype='FILE_PATH', )
     filename_ext = ".obj"
-    filter_glob = StringProperty(default="*.obj", options={'HIDDEN'}, )
+    filter_glob: StringProperty(default="*.obj", options={'HIDDEN'}, )
     check_extension = True
     
-    convert_axes = BoolProperty(name="Convert Axes", default=True, description="Convert from blender (y forward, z up) to forward -z, up y.", )
-    with_uv = BoolProperty(name="With UV", default=True, description="Import texture coordinates.", )
-    with_shading = BoolProperty(name="With Shading", default=False, description="Import face shading.", )
-    with_vertex_colors = BoolProperty(name="With Vertex Colors", default=False, description="Import vertex colors, this is not part of official file format specification.", )
-    use_vcols_mrgb = BoolProperty(name="VCols MRGB", default=True, description="Use ZBrush vertex colors style.", )
-    use_mask_as_vertex_group = BoolProperty(name="Mask as Vertex Group", default=False, description="Import ZBrush mask as vertex group.", )
-    use_vcols_ext = BoolProperty(name="VCols Ext", default=False, description="Use 'Extended Vertex' vertex colors style.", )
-    with_polygroups = BoolProperty(name="With Polygroups", default=False, description="", )
-    global_scale = FloatProperty(name="Scale", default=1.0, precision=3, description="", )
-    apply_conversion = BoolProperty(name="Apply Conversion", default=False, description="Apply new axes directly to mesh or only transform at object level.", )
+    convert_axes: BoolProperty(name="Convert Axes", default=True, description="Convert from blender (y forward, z up) to forward -z, up y.", )
+    with_uv: BoolProperty(name="With UV", default=True, description="Import texture coordinates.", )
+    with_shading: BoolProperty(name="With Shading", default=False, description="Import face shading.", )
+    with_vertex_colors: BoolProperty(name="With Vertex Colors", default=False, description="Import vertex colors, this is not part of official file format specification.", )
+    use_vcols_mrgb: BoolProperty(name="VCols MRGB", default=True, description="Use ZBrush vertex colors style.", )
+    use_mask_as_vertex_group: BoolProperty(name="Mask as Vertex Group", default=False, description="Import ZBrush mask as vertex group.", )
+    use_vcols_ext: BoolProperty(name="VCols Ext", default=False, description="Use 'Extended Vertex' vertex colors style.", )
+    with_polygroups: BoolProperty(name="With Polygroups", default=False, description="", )
+    global_scale: FloatProperty(name="Scale", default=1.0, precision=3, description="", )
+    apply_conversion: BoolProperty(name="Apply Conversion", default=False, description="Apply new axes directly to mesh or only transform at object level.", )
     
     def draw(self, context):
         l = self.layout
@@ -749,18 +763,28 @@ def setup():
     write_presets("import_mesh.fast_obj", import_presets, defines)
 
 
+classes = (
+    ExportFastOBJ,
+    ImportFastOBJ,
+)
+
+
 def register():
-    bpy.utils.register_module(__name__)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
     
     setup()
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+    
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":

@@ -2763,7 +2763,32 @@ def export_camera_matrix(ri, scene, ob, motion_data=[]):
 
     export_motion_end(ri, motion_data)
 
-
+def export_metadata(ri, scene, params):
+    rm = scene.renderman
+    cam = bpy.data.cameras["Camera"]
+    obj = bpy.data.objects["Camera"]
+    if cam.dof_object:
+        dof_distance = (obj.location - cam.dof_object.location).length
+    else:
+        dof_distance = cam.dof_distance
+    output_dir = os.path.dirname(user_path(rm.path_rib_output, scene=scene))
+    statspath=os.path.join(output_dir, 'stats.%04d.xml' % scene.frame_current)
+    params = {'string exrheader_dcc': 'Blender %s\nRenderman for Blender %s' % (bpy.app.version, bl_info['version']),
+    'float exrheader_fstop': cam.renderman.fstop,
+    'float exrheader_focaldistance': dof_distance,
+    'float exrheader_focal': cam.lens,
+    'float exrheader_haperture': cam.sensor_width,
+    'float exrheader_vaperture': cam.sensor_height,
+    'string exrheader_renderscene': bpy.data.filepath,
+    'string exrheader_user': os.getenv('USERNAME'),
+    'string exrheader_statistics': statspath,
+    'string exrheader_integrator': rm.integrator,
+    'float[2] exrheader_samples': [rm.min_samples, rm.max_samples],
+    'float exrheader_pixelvariance': rm.pixel_variance,
+    'string exrheader_comment': rm.custom_metadata
+    }
+    return params
+    
 def export_camera(ri, scene, instances, camera_to_use=None):
     r = scene.render
     if camera_to_use:
@@ -3158,16 +3183,18 @@ def export_display(ri, rpass, scene):
     debug("info", "Main_display: " + main_display)
 
     # just going to always output rgba
-    dspy_info = {}
-
+    display_params = {'int asrgba': 1}
+    
     # if it inject some image info
     if display_driver == 'it':
         dspy_info = make_dspy_info(scene)
-
-    ri.Display(main_display, display_driver, "rgba", dspy_info)
+    if rm.use_metadata:
+        display_params = export_metadata(ri, scene, display_params)
+    ri.Display(main_display, display_driver, "rgba", display_params)
     rpass.output_files.append(main_display)
 
-    display_params = {'int asrgba': 1}
+    
+
 
     for layer in scene.render.layers:
         # custom aovs
@@ -3293,7 +3320,6 @@ def export_display(ri, rpass, scene):
                 else:
                     ri.DisplayChannel(source_type + ' %s' %
                                       channel_name, params)
-
             # if this is a multilayer combine em!
             if rm_rl.export_multilayer and rpass.external_render:
                 channels = []
@@ -3312,6 +3338,8 @@ def export_display(ri, rpass, scene):
                     params["string compression"] = rm_rl.exr_compression
                 if channels[0] == "Ci,a" and not rm.spool_denoise_aov and not rm.enable_checkpoint:
                     params["int asrgba"] = 1
+                if rm.use_metadata:
+                    params = export_metadata(ri, scene, params)
                 dspy_name = user_path(
                     addon_prefs.path_aov_image, scene=scene, display_driver=rpass.display_driver,
                     layer_name=layer_name, pass_name='multilayer')
@@ -3328,9 +3356,11 @@ def export_display(ri, rpass, scene):
                     if layer == scene.render.layers[0] and aov == 'rgba':
                         # we already output this skip
                         continue
-
+                    
                     params = {
                         "int asrgba": 1} if not rm.spool_denoise_aov and not rm.enable_checkpoint else {}
+                    if rm.use_metadata:
+                        params = export_metadata(ri, scene, params)
                     dspy_name = user_path(
                         addon_prefs.path_aov_image, scene=scene, display_driver=rpass.display_driver,
                         layer_name=layer_name, pass_name=aov_name)
@@ -3370,13 +3400,15 @@ def export_display(ri, rpass, scene):
                 params['string statistics'] = statistics
             if do_filter:
                 params['string filter'] = rm.pixelfilter
+            #{"string storage": "tiled"}
             ri.DisplayChannel('%s %s' % (declare_type, aov), params)
-
+        if rm.use_metadata:
+           display_params = export_metadata(ri, scene, display_params)
         # output denoise_data.exr
         image_base, ext = main_display.rsplit('.', 1)
         ri.Display('+' + image_base + '.variance.exr', 'openexr',
                    "Ci,a,mse,albedo,albedo_var,diffuse,diffuse_mse,specular,specular_mse,z,z_var,normal,normal_var,forward,backward",
-                   {"string storage": "tiled"})
+                   display_params)
 
 
 def export_hider(ri, rpass, scene, preview=False):

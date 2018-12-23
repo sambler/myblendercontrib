@@ -23,7 +23,7 @@
 bl_info = {
     "name": "Plancher",
     "author": "Cédric Brandin",
-    "version": (0, 0, 30),
+    "version": (0, 0, 31),
     "blender": (2, 72, 0),
 	  "location": "",
     "description": "Create a floor board",
@@ -742,12 +742,10 @@ bpy.types.Object.switch = BoolProperty(
 bpy.types.Object.lengthparquet = FloatProperty(
                name="Length",
                description="Length of the floor",
-               min=0.01, max=100.0,
+               min=0.01, max=10000000.0,
                default=4.0,
                precision=2,
                subtype='DISTANCE',
-               unit='LENGTH',
-               step=0.001,
                update=create_plancher)
 
     # Number of row
@@ -762,12 +760,10 @@ bpy.types.Object.nbrboards = IntProperty(
 bpy.types.Object.lengthboard = FloatProperty(
                name="Length",
                description="Length of a board",
-               min=0.01, max=100.0,
+               min=0.01, max=1000000000.0,
                default=2.0,
                precision=2,
                subtype='DISTANCE',
-               unit='LENGTH',
-               step=0.001,
                update=create_plancher)
 
     # Height of the floor        
@@ -778,8 +774,6 @@ bpy.types.Object.height = FloatProperty(
               default=0.01,
               precision=2,
               subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.1,
               update=create_plancher)
 
     # Add random to the height
@@ -801,8 +795,6 @@ bpy.types.Object.width = FloatProperty(
               default=0.18,
               precision=3,
               subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.1,
               update=create_plancher)
 
     # Add random to the width         
@@ -825,8 +817,6 @@ bpy.types.Object.gapx = FloatProperty(
               default=0.01,
               precision=2,
               subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.001,
               update=create_plancher)
               
     # Add a gap between the row (Y) (for the transversal's boards)
@@ -836,9 +826,7 @@ bpy.types.Object.gapy = FloatProperty(
               min=0.00, max=100.0,
               default=0.01,
               precision=2,
-              subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.001,              
+              subtype='DISTANCE',          
               update=create_plancher)
                           
     # Shift the columns
@@ -895,8 +883,6 @@ bpy.types.Object.lengthtrans = FloatProperty(
               default=2,
               precision=2,
               subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.1,
               update=create_plancher)
 
     # Number of transversals in the interval
@@ -915,8 +901,6 @@ bpy.types.Object.gaptrans = FloatProperty(
               default=0.01,
               precision=2,
               subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.001,
               update=create_plancher)
 
     # Add random to the width         

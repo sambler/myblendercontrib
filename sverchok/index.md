@@ -10,7 +10,7 @@
 > Failing to follow these points will break the node category parser.
 
 ## Generator
-    SvLineNodeMK2
+    SvLineNodeMK3
     SvPlaneNodeMK2
     SvNGonNode
     SvBoxNode
@@ -42,6 +42,7 @@
     SvTorusKnotNode
     SvRingNode
     SvEllipseNode
+    SvSmoothLines
 
 ## Analyzers
     SvBBoxNode
@@ -63,6 +64,7 @@
     SvProportionalEditNode
     SvRaycasterLiteNode
     SvOBJInsolationNode
+    EvaluateImageNode
 
 ## Transforms
     SvRotationNode
@@ -77,6 +79,7 @@
     SvRemoveDoublesNode
     SvSeparateMeshNode
     SvLimitedDissolve
+    SvMeshBeautify
     ---
     PolygonBoomNode
     Pols2EdgsNode
@@ -132,6 +135,7 @@
     SvListModifierNode
     SvFixEmptyObjectsNode
     SvDatetimeStrings
+    SvPolygonSortNode
 
 ## List Main
     ListJoinNode
@@ -142,6 +146,7 @@
     ListMatchNode
     ListFuncNode
     SvListDecomposeNode
+    SvListStatisticsNode
 
 ## List Struct
     ShiftNodeMK2
@@ -308,6 +313,7 @@
     SvSetCustomMeshNormals
     ---
     SvSpiralNode
+    SvExportGcodeNode
 
 ## Alpha Nodes
     SvCurveViewerNode
@@ -338,4 +344,3 @@
     SvOffsetLineNode
     SvContourNode
     SvPlanarEdgenetToPolygons
-    

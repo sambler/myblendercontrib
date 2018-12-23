@@ -18,8 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 bl_info = {
     "name": "VSE Crossfades",
-    "author": "Nathan Craddock",
-    "version": (1, 0, 0),
+    "author": "Nathan Craddock / David Lomas",
+    "version": (1, 1, 0),
     "blender": (2, 7, 3),
     "location": "VSE >> Properties Panel >> VSE Crossfade",
     "description": "Allows the user to select a directory, and it adds the files in the directory to the VSE with crossfades.",
@@ -98,8 +98,6 @@ class vseCrossfadesPanel(bpy.types.Panel):
         col = split.column(align = True)
         col.prop(context.scene, "vsec_clear_sequencer")
         row = layout.row()
-        row.prop(context.scene, "vsec_start_frame")
-        row = layout.row()
         row.operator("tools.vse_crossfade_addon")
         
 
@@ -149,63 +147,64 @@ class vseCrossfades(bpy.types.Operator):
         if context.scene.vsec_clear_sequencer:
             bpy.context.scene.sequence_editor_clear()
 
-        offset = context.scene.vsec_start_frame
+        offset = bpy.context.scene.frame_current
         channel_offset = 1
-        strip_number = 1
+        in_clip = ''
+        out_clip = ''
 
         for i in range(0, len(strips)):
             
-            #Change the channel offset
-            if strip_number % 2 == 1:
-                channel_offset = 1
-            else:
+            # Change the channel offset
+            if i % 2 == 1:
                 channel_offset = 2
+            else:
+                channel_offset = 1
             
             if mode == 'vid':
                 bpy.ops.sequencer.movie_strip_add(filepath = strips[i], frame_start = offset, channel = channel_offset)
             elif mode == 'img':
                 print("created")
-                bpy.ops.sequencer.image_strip_add(directory = path, files = [{"name" : file_list[i]}], frame_start = offset, frame_end = offset + context.scene.vsec_image_length, channel = channel_offset)
+                bpy.ops.sequencer.image_strip_add(directory = path, files = [{"name" : file_list[i]}], frame_start = offset, frame_end = offset + context.scene.vsec_image_length - 1, channel = channel_offset)
             
-            #Make into meta strip if video
+            # Make into meta strip if video
             if mode == "vid":
                 bpy.ops.sequencer.meta_make()
-            
-            #Rename for easy selecting
-            bpy.context.selected_sequences[0].name = str(strip_number)
-            
-            #crossfade
-            if len(bpy.context.sequences) > 1:
+
+            # Store the previous 2 names, ready for the fade            
+            out_clip = in_clip
+            in_clip = bpy.context.selected_sequences[0].name
+
+            # crossfade
+            if i > 0:
                 print("adding crossfade")
                 
-                #Deselect everything
+                # Deselect everything
                 bpy.ops.sequencer.select_all()
                 
-                bpy.data.scenes["Scene"].sequence_editor.sequences_all[str(strip_number)].select = True
-                bpy.data.scenes["Scene"].sequence_editor.sequences_all[str(strip_number - 1)].select = True
+                bpy.data.scenes["Scene"].sequence_editor.sequences_all[out_clip].select = True
+                bpy.data.scenes["Scene"].sequence_editor.sequences_all[in_clip].select = True
                 
                 bpy.ops.sequencer.effect_strip_add(type='CROSS')
                 
                 bpy.ops.sequencer.select_all()
                 
-                bpy.data.scenes["Scene"].sequence_editor.sequences_all[str(strip_number)].select = True
+                bpy.data.scenes["Scene"].sequence_editor.sequences_all[in_clip].select = True
             
             
-            #Add the length of the current strip to the offset
+            # Add the length of the current strip to the offset
             randInt = random.randint(0, 1)
             if randInt == 0:
                 offset += bpy.context.selected_sequences[0].frame_final_duration - (frame_offset - random.randint(0, frame_offset_random))
             else:
                 offset += bpy.context.selected_sequences[0].frame_final_duration - (frame_offset + random.randint(0, frame_offset_random))
-            
-            strip_number += 1
+                        
+        bpy.ops.sequencer.select_all()
+        bpy.data.scenes["Scene"].sequence_editor.sequences_all[in_clip].select = True
+        last_frame = bpy.context.selected_sequences[0].frame_final_end
+        bpy.ops.sequencer.select_all()
 
-            
         #Set the length of the timeline to the duration
         if context.scene.vsec_auto_timeline:
-            bpy.ops.sequencer.select_all()
-            bpy.data.scenes["Scene"].sequence_editor.sequences_all[str(strip_number - 1)].select = True
-            last_frame = bpy.context.selected_sequences[0].frame_final_end
             bpy.context.area.type = 'VIEW_3D'
             bpy.context.scene.frame_end = last_frame - 1
             
@@ -214,7 +213,8 @@ class vseCrossfades(bpy.types.Operator):
             bpy.ops.time.view_all()
         
             bpy.context.area.type = 'SEQUENCE_EDITOR'
-            
+        
+        bpy.context.scene.frame_current = last_frame    
         return {'FINISHED'}
         
 def register():
@@ -224,7 +224,6 @@ def register():
     bpy.types.Scene.vsec_crossfade_length_range = bpy.props.IntProperty(name="Variation", description="How much variation to add to the crossfade length", default=0, min=0)
     bpy.types.Scene.vsec_image_length = bpy.props.IntProperty(name="Image Length", description="How long should each image be?", default=75, min=1)
     bpy.types.Scene.vsec_image_length_range = bpy.props.IntProperty(name="Variation", description="How much variation to add to the image length", default=0, min=0)
-    bpy.types.Scene.vsec_start_frame = bpy.props.IntProperty(name="Start Frame", description="What frame to start on", default=1, min=1)
     bpy.types.Scene.vsec_auto_timeline = bpy.props.BoolProperty(name="Auto Timeline", description="Automatically set the end frame.", default = True)
     bpy.types.Scene.vsec_clear_sequencer = bpy.props.BoolProperty(name="Clear Sequencer", description="Clear the sequencer before running", default = True)
     bpy.types.Scene.vsec_directory_path = bpy.props.StringProperty(name="Directory", description="Choose the folder where the video files are located", default="", subtype='DIR_PATH')

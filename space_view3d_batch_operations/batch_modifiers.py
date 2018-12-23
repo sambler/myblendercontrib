@@ -62,8 +62,7 @@ class BatchOperations:
     clipbuffer = None
     
     _all_types_enum = BlRna.serialize_value(
-        bpy.ops.object.modifier_add.get_rna().
-        bl_rna.properties["type"].enum_items)
+        BlRna(bpy.ops.object.modifier_add).properties["type"].enum_items)
     
     @classmethod
     def clean_name(cls, md):

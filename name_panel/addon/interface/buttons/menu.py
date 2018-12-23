@@ -17,9 +17,7 @@ def menu(self, context):
     layout.operator('view3d.auto_name', icon='AUTO')
 
     # bath name
-    op = layout.operator('wm.batch_name', icon='SORTALPHA')
-    op.simple = False
-    op.quickBatch = False
+    layout.operator('wm.batch_name', icon='SORTALPHA')
 
     # batch copy
     layout.operator('view3d.transfer_name', icon='COPYDOWN')

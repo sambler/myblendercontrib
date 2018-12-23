@@ -25,7 +25,7 @@ bl_info = {
     "name": "Console Prompt",
     "author": "Dealga McArdle",
     "version": (0, 1, 3),
-    "blender": (2, 7, 4),
+    "blender": (2, 80, 0),
     "location": "Console - keystrokes",
     "description": "Adds feature to intercept console input and parse accordingly.",
     "wiki_url": "",
@@ -87,10 +87,18 @@ def text_toolblock_func(self, context):
 
 def console_buttons_func(self, context):
     self.layout.operator('wm.set_editmode_shortcuts', text='123')
+    row = self.layout.row()
+    row.alert = True
+    row.operator("script.reload", text="Refresh Python")
+
+# this files have ops that need registration
+module_files = [bc_operators, bc_panels, bc_TEXT_utils]
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    for module in module_files:
+        module.register()
+
     bpy.types.VIEW3D_MT_edit_curve_specials.append(menu_func)
     bpy.types.CONSOLE_HT_header.append(console_buttons_func)
     bpy.types.TEXT_MT_toolbox.prepend(text_toolblock_func)
@@ -99,7 +107,9 @@ def register():
 
 def unregister():
     console_keymaps.remove_keymap()
-    bpy.utils.unregister_module(__name__)
+
     bpy.types.VIEW3D_MT_edit_curve_specials.remove(menu_func)
     bpy.types.CONSOLE_HT_header.remove(console_buttons_func)
     bpy.types.TEXT_MT_toolbox.remove(text_toolblock_func)
+    for module in module_files[::-1]:
+        module.register()    

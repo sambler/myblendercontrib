@@ -89,10 +89,3 @@ def do_console_rewriter(ctx, m):
     if not (msg == fail):
         ctx.space_data.history[-1].body = msg
 
-
-def register():
-    bpy.utils.register_module(__name__)
-
-
-def unregister():
-    bpy.utils.unregister_module(__name__)

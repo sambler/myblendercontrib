@@ -563,6 +563,11 @@ class RENDER_PT_renderman_advanced_settings(PRManButtonsPanel, Panel):
 
         layout.separator()
         col = layout.column()
+        col.prop(rm, "use_metadata")
+        if rm.use_metadata:
+            col.prop(rm, "custom_metadata")        
+        layout.separator()
+        col = layout.column()
         row = col.row()
         row.prop(rm, "use_statistics", text="Output stats")
         row.operator('rman.open_stats')
@@ -1444,6 +1449,7 @@ class RENDER_PT_layer_custom_aovs(CollectionPanel, Panel):
             split = layout.split()
             col = split.column()
             rl = active_layer
+            col.prop(rl, "use_metadata")
             col.prop(rl, "use_pass_combined")
             col.prop(rl, "use_pass_z")
             col.prop(rl, "use_pass_normal")

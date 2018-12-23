@@ -19,9 +19,9 @@
 bl_info = {"name": "Tube UV Unwrap",
            "description": "UV unwrap tube-like meshes (all quads, no caps, fixed number of vertices in each ring)",
            "author": "Jakub Uhlik",
-           "version": (0, 2, 5),
-           "blender": (2, 70, 0),
-           "location": "Edit mode > Mesh > UV Unwrap... > Tube UV Unwrap",
+           "version": (0, 3, 0),
+           "blender": (2, 80, 0),
+           "location": "Edit mode > UV > Tube UV Unwrap",
            "warning": "",
            "wiki_url": "",
            "tracker_url": "",
@@ -29,6 +29,8 @@ bl_info = {"name": "Tube UV Unwrap",
 
 import bpy
 import bmesh
+from bpy.types import Operator
+from bpy.props import BoolProperty
 from mathutils import Vector
 
 # notes:
@@ -50,6 +52,7 @@ from mathutils import Vector
 #   5 optionally check/uncheck 'Mark Seams' or 'Flip' in operator properties
 
 # changelog:
+# 2018.12.16 updated to blender 2.8
 # 2014.10.08 removed 'Rectangular' option, it was buggy and now i really don't
 #            see why would anyone need this.. sorry if you used it, but i guess
 #            nobody will miss that..
@@ -136,18 +139,6 @@ def tube_unwrap(operator, context, mark_seams, flip, ):
             # hmm, better to read docs thoroughly, didn't know about this until now..
             r.append(le.other_vert(v))
         return r
-    
-    # recursion limit will be reached on larger meshes
-    '''
-    def walk(v, l):
-        linked.append(v)
-        ns = get_neighbours(v)
-        for n in ns:
-            if(n not in linked):
-                walk(n, linked)
-
-    walk(active2, linked)
-    '''
     
     # changed to iteration, it is a bit slow i think, searching for element in list twice in row and removing from list by value..
     def walk(v, linked):
@@ -327,54 +318,6 @@ def tube_unwrap(operator, context, mark_seams, flip, ):
         for i in range(num_loops - 1):
             r = get_next_ring(rings)
             rings.append(r)
-        
-        # obsolete now
-        '''
-        # and now.. it's.. advanced selection validation
-        def validate_selection():
-            # all verts in rings selected (haven't i checked that already?)
-            for r in rings:
-                for v in r:
-                    if(not v.select):
-                        raise SelectionError("Selection is not continuous. Select all rings you want to unwrap without gaps.")
-            
-            def is_boundary(v):
-                if(v.is_boundary):
-                    return True
-                le = v.link_edges
-                stats = [False] * len(le)
-                for i, e in enumerate(le):
-                    a = e.verts[0]
-                    b = e.verts[1]
-                    if(v == a):
-                        if(b.select):
-                            stats[i] = True
-                    else:
-                        if(a.select):
-                            stats[i] = True
-                if(sum(stats) != len(stats) - 1):
-                    return False
-                return True
-            
-            # 2 boundary rings, first and last
-            rf = rings[0]
-            rl = rings[len(rings) - 1]
-            for v in rf:
-                if(not is_boundary(v)):
-                    raise SelectionError("Selection is not continuous. Select all rings you want to unwrap without gaps.")
-            for v in rl:
-                if(not is_boundary(v)):
-                    raise SelectionError("Selection is not continuous. Select all rings you want to unwrap without gaps.")
-            
-            # no gaps between rings
-            for i in range(1, len(rings) - 1, 1):
-                r = rings[i]
-                for v in r:
-                    if(is_boundary(v)):
-                        raise SelectionError("Selection is not continuous. Select all rings you want to unwrap without gaps.")
-        
-        validate_selection()
-        '''
         
         # and seam vertices
         def get_seam():
@@ -574,7 +517,7 @@ def tube_unwrap(operator, context, mark_seams, flip, ):
                     e.seam = True
         
         mark_seam(seam)
-        me.show_edge_seams = True
+        # me.show_edge_seams = True
         
         def mark_additional_seams(r):
             for i in range(len(r) - 1):
@@ -593,27 +536,20 @@ def tube_unwrap(operator, context, mark_seams, flip, ):
     # put back
     bmesh.update_edit_mesh(me)
     
-    # note for myself, good to know, no more crashes :)
-    # https://developer.blender.org/T39121
-    # bmesh.from_edit_mesh() does not create a bmesh, it returns the one associated with given mesh
-    # (that’s why mesh has to be in EditMode, else it has no bmesh associated with it). So the bmesh
-    # you get must never be freed!!! This is internal Blender data, created when entering EditMode
-    # and freed when leaving it.
-    
     # cleanup
     bm2.free()
     
     return True
 
 
-class TubeUVUnwrapOperator(bpy.types.Operator):
+class TUVUW_OT_tube_uv_unwrap(Operator):
     bl_idname = "uv.tube_uv_unwrap"
     bl_label = "Tube UV Unwrap"
     bl_description = "UV unwrap tube-like mesh selection. Selection must be all quads, no caps, fixed number of vertices in each ring."
     bl_options = {'REGISTER', 'UNDO'}
     
-    mark_seams = bpy.props.BoolProperty(name="Mark seams", description="Marks seams around all island edges.", default=True, )
-    flip = bpy.props.BoolProperty(name="Flip", description="Flip unwrapped island.", default=False, )
+    mark_seams: BoolProperty(name="Mark seams", description="Marks seams around all island edges.", default=True, )
+    flip: BoolProperty(name="Flip", description="Flip unwrapped island.", default=False, )
     
     @classmethod
     def poll(cls, context):
@@ -660,19 +596,26 @@ class TubeUVUnwrapOperator(bpy.types.Operator):
 def menu_func(self, context):
     l = self.layout
     l.separator()
-    l.operator(TubeUVUnwrapOperator.bl_idname, text=TubeUVUnwrapOperator.bl_label)
+    l.operator(TUVUW_OT_tube_uv_unwrap.bl_idname, text=TUVUW_OT_tube_uv_unwrap.bl_label)
+
+
+classes = (TUVUW_OT_tube_uv_unwrap, )
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    
     bpy.types.IMAGE_MT_uvs.append(menu_func)
     bpy.types.VIEW3D_MT_uv_map.append(menu_func)
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
     bpy.types.IMAGE_MT_uvs.remove(menu_func)
     bpy.types.VIEW3D_MT_uv_map.remove(menu_func)
+    
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":

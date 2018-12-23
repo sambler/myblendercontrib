@@ -58,6 +58,7 @@ _ru = {
         "Show density": "Показать плотность",
         "Materials list": "Список материалов",
         "Composition": "Состав",
+        "Use view layers": "Учитывать слои",
         # Popup dialogs
         "Asset Name": "Название ассета",
         "Category Name": "Название категории",
@@ -83,8 +84,8 @@ _ru = {
         "Width Offset": "Отступ ширины",
         "Position Offset": "Отступ позиции",
         "Start Up": "Начало сверху",
-        "Adjust Rotation": "Регулировать вращение",
         "Mirror Axis": "Оси отражения",
+        "Select Children": "Выделить потомков",
         # Tooltips
         "Add gemstone to the scene": "Добавить камень в сцену",
         "Edit selected gems": "Редактировать выделенные камни",
@@ -101,7 +102,7 @@ _ru = {
         "Object for weight reference": "Объект для определения веса изделия",
         "Save product report to text file": "Сохранить отчёт изделия в текстовый файл",
         "Select gems by trait": "Выделить камни по характеристике",
-        "Select duplicated gems (located in the same spot)\nWARNING: it does not work with dupli-faces, objects only": "Выделить дубликаты (находящиеся на одной координате)\nПРЕДУПРЕЖДЕНИЕ: не работает с dupli-faces, только с объектами",
+        "Select duplicated gems (located in the same spot)\nWARNING: does not work with dupli-faces": "Выделить дубликаты (находящиеся на одной координате)\nПРЕДУПРЕЖДЕНИЕ: не работает с dupli-faces",
         "Search stone by name": "Искать камень по названию",
         "Search asset by name": "Искать ассет по названию",
         "Scatter selected object along active curve": "Распределить выделенный объект по активной кривой",
@@ -161,6 +162,7 @@ _ru = {
         "Move each object individually": "Переместить каждый объект по отдельности",
         "Enable material for weighting and product report": "Использовать материал для оценки веса и отчёта изделия",
         "Clear materials list": "Очистить список материалов",
+        "Ignore gems located in hidden view layers": "Игнорировать камни расположенные в скрытых слоях",
         # Reports
         "WARNING": "ПРЕДУПРЕЖДЕНИЕ",
         "Possible gem dupli-face leftovers": "Возможные остатки Dupli-face камней",
@@ -176,7 +178,7 @@ _ru = {
         "At least one gem object must be selected": "Как минимум один объект камня должен быть выделен",
         "At least one mesh object must be selected": "Как минимум один mesh объект должен быть выделен",
         "Active object must be a curve": "Активный объект должен быть кривой",
-        "Active object does not have a Follow Path constraint": "Активный объект не имеет ограничение Follow Path",
+        "Selected objects do not have Follow Path constraint": "Выделенные объекты не имеют ограничение Follow Path",
         "File not found": "Файл не найден",
         "Name must be specified": "Имя должно быть указано",
         # Cuts

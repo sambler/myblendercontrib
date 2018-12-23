@@ -10,7 +10,7 @@ class operator(Operator):
     '''
     bl_idname = 'wm.copy_name_defaults'
     bl_label = 'Copy Name Defaults'
-    bl_description = 'Current settings used for the copy name operator.'
+    bl_description = 'Current settings used for the copy name operator'
     bl_options = {'INTERNAL'}
 
     # check

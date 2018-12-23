@@ -24,6 +24,8 @@ import bpy
 
 from mathutils import Vector, Matrix, Quaternion, Euler, Color
 
+from collections import namedtuple
+
 from .utils_python import issubclass_safe
 from .utils_math import matrix_flatten, matrix_unflatten
 from .utils_text import compress_whitespace
@@ -260,7 +262,15 @@ class BlRna:
         try:
             return obj.get_rna().bl_rna
         except (AttributeError, TypeError, KeyError):
-            return None
+            pass
+        
+        # There is no bl_rna or get_rna() in Blender 2.79.6
+        try:
+            return obj.get_rna_type()
+        except (AttributeError, TypeError, KeyError):
+            pass
+        
+        return None
     
     @staticmethod
     def parent(obj, n=-1, coerce=True):
@@ -933,7 +943,14 @@ class BpyOp:
         # that's declared in the corresponding addon module.
         # It contains operator's bpy.props declarations and
         # functions like draw().
-        self.type = type(op.get_instance())
+        if hasattr(op, "get_instance"):
+            self.type = type(op.get_instance())
+        else:
+            # There is no get_instance() in Blender 2.79.6
+            rna_type = op.get_rna_type()
+            rna_props = rna_type.properties
+            # namedtuple fields can't start with underscores, but so do rna props
+            self.type = namedtuple(rna_type.identifier, rna_props.keys())(*rna_props.values())
         
         return self
 

@@ -914,23 +914,19 @@ class SmartView3D:
         radius = int(radius)
         search = (radius > 0)
         
-        # Before 2.77, ray_cast returns: result, object, matrix, location, normal
-        # In 2.77, ray_cast returns: result, location, normal, index, object, matrix
         def interpret(rc):
-            if bpy.app.version < (2, 77, 0):
-                return RaycastResult(rc[0], obj=rc[1], location=rc[-2], normal=rc[-1])
             return RaycastResult(rc[0], obj=rc[-2], location=rc[1], normal=rc[2], elem_index=rc[3])
         
         if not search:
             ray = self.ray(xy, coords=coords)
-            rc = scene.ray_cast(ray[0], ray[1])
+            rc = BlUtil.Scene.line_cast(scene, ray[0], ray[1])
             return interpret(rc)
         else:
             x, y = xy
             for dxy in self.__search_pattern(pattern):
                 if dxy[2] > radius: break
                 ray = self.ray((x+dxy[0], y+dxy[1]), coords=coords)
-                rc = scene.ray_cast(ray[0], ray[1])
+                rc = BlUtil.Scene.line_cast(scene, ray[0], ray[1])
                 if rc[0]: return interpret(rc)
             return RaycastResult()
     
@@ -1036,17 +1032,9 @@ class SmartView3D:
             if raycast_face: snaps.discard('FACE')
             
             if raycast_face:
-                # Before 2.77: location, normal, index
-                # In 2.77: result, location, normal, index
-                def ray_cast(obj, ray0, ray1):
-                    res = obj.ray_cast(ray0, ray1)
-                    if bpy.app.version < (2, 77, 0):
-                        return ((res[-1] >= 0), res[0], res[1], res[2])
-                    return res
-                
                 ray0 = m_inv * ray[0]
                 ray1 = m_inv * ray[1]
-                success, location, normal, index = ray_cast(baked_obj, ray0, ray1)
+                success, location, normal, index = BlUtil.Object.line_cast(baked_obj, ray0, ray1)
                 
                 if success:
                     polygon = baked_obj.data.polygons[index]

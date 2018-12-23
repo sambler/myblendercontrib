@@ -43,12 +43,15 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
     stone = EnumProperty(name="Stone", items=dynamic_lists.stones)
     cut = EnumProperty(name="Cut", items=dynamic_lists.cuts)
 
+    use_extend = BoolProperty(name="Extend", description="Extend selection")
+    use_select_children = BoolProperty(name="Select Children")
+
     def draw(self, context):
         layout = self.layout
 
         split = layout.split()
         split.prop(self, "filter_size")
-        split.prop(self, "size")
+        split.prop(self, "size", text="")
 
         split = layout.split()
         split.prop(self, "filter_stone")
@@ -58,37 +61,60 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
         split.prop(self, "filter_cut", text="Cut", text_ctxt="JewelCraft")
         split.template_icon_view(self, "cut", show_labels=True)
 
+        layout.prop(self, "use_extend")
+        layout.prop(self, "use_select_children")
+
     def execute(self, context):
-        obs = context.visible_objects
+        visible = context.visible_objects
         size = round(self.size, 2)
+        selected = []
+        app = selected.append
 
-        expr = "for ob in obs:"
-        expr += "\n if 'gem' in ob"
+        expr = (
+            "for ob in visible:"
+            "\n    if 'gem' in ob {size} {stone} {cut}:"
+            "\n        ob.select = True"
+            "\n        app(ob)"
+            "\n    {else_deselect}"
+        )
 
-        if self.filter_size:
-            expr += " and round(ob.dimensions[1], 2) == size"
-        if self.filter_stone:
-            expr += " and ob['gem']['stone'] == self.stone"
-        if self.filter_cut:
-            expr += " and ob['gem']['cut'] == self.cut"
-
-        expr += ": ob.select = True"
-        expr += "\n else: ob.select = False"
+        expr = expr.format(
+            size="and round(ob.dimensions[1], 2) == size" if self.filter_size  else "",
+            stone="and ob['gem']['stone'] == self.stone"  if self.filter_stone else "",
+            cut="and ob['gem']['cut'] == self.cut"        if self.filter_cut   else "",
+            else_deselect="" if self.use_extend else "else: ob.select = False",
+        )
 
         exec(expr)
+
+        if selected:
+
+            if not context.active_object.select:
+                context.scene.objects.active = selected[0]
+
+            if self.use_select_children:
+                visible = set(visible)
+
+                for ob in selected:
+                    if ob.children:
+                        for child in ob.children:
+                            if child in visible:
+                                child.select = True
 
         return {"FINISHED"}
 
     def invoke(self, context, event):
         ob = context.active_object
 
-        if self.filter_similar and ob and "gem" in ob:
-            self.filter_size = True
-            self.filter_stone = True
-            self.filter_cut = True
+        if ob and "gem" in ob:
             self.size = ob.dimensions[1]
             self.stone = ob["gem"]["stone"]
             self.cut = ob["gem"]["cut"]
+
+        if self.filter_similar:
+            self.filter_size = True
+            self.filter_stone = True
+            self.filter_cut = True
 
         return self.execute(context)
 
@@ -97,7 +123,7 @@ class OBJECT_OT_jewelcraft_select_doubles(Operator):
     bl_label = "JewelCraft Select Doubles"
     bl_description = (
         "Select duplicated gems (located in the same spot)\n"
-        "WARNING: it does not work with dupli-faces, objects only"
+        "WARNING: does not work with dupli-faces"
     )
     bl_idname = "object.jewelcraft_select_doubles"
     bl_options = {"REGISTER", "UNDO"}

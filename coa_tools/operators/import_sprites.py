@@ -132,7 +132,7 @@ class LoadJsonData(bpy.types.Operator):
                             bpy.ops.coa_tools.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=scale,pos=pos,tilesize=tilesize,offset=offset)
                     
                     
-                    obj = context.active_object
+                    obj = bpy.data.objects[sprite["name"]]
                     obj.parent = sprite_object
                 
         context.scene.objects.active = sprite_object    
@@ -320,7 +320,7 @@ class ImportSprites(bpy.types.Operator, ImportHelper):
                 if not self.replace or i.name not in bpy.data.objects:
                     bpy.ops.coa_tools.coa_import_sprite(path=filepath,parent=sprite_object.name,scale=get_addon_prefs(context).sprite_import_export_scale)
                 else:
-                    bpy.ops.coa_tools.coa_reimport_sprite(filepath=filepath,name=i.name)
+                    bpy.ops.coa_tools.coa_reimport_sprite(filepath=filepath,name=i.name, reposition=False)
         else:
             data_file = open(self.filepath)
             sprite_data = json.load(data_file)
@@ -357,20 +357,25 @@ class ReImportSprite(bpy.types.Operator, ImportHelper):
     pos = FloatVectorProperty(default=Vector((0,0,0)))
     scale = FloatProperty(default=.01)
     offset = FloatVectorProperty(default=Vector((0,0,0)))
+    reposition = BoolProperty(default=True)
     
     def move_verts(self,obj,ratio_x,ratio_y):
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.ops.mesh.reveal()
         bpy.ops.object.mode_set(mode="OBJECT")
         
-        data = obj.data.vertices
+        shapekeys = [obj.data.vertices]
         if obj.data.shape_keys != None:
-            data = obj.data.shape_keys.key_blocks[0].data
+            shapekeys = []
+            for shapekey in obj.data.shape_keys.key_blocks:
+                shapekeys.append(shapekey.data)
         
-        for vert in data:
-            co_x = vert.co[0] * ratio_x
-            co_y = vert.co[2] * ratio_y
-            vert.co = Vector((co_x,0,co_y))
+        for shapekey in shapekeys:
+            for vert in shapekey:
+                co_x = vert.co[0] * ratio_x
+                co_y = vert.co[2] * ratio_y
+                vert.co = Vector((co_x,0,co_y))
+            
             
         obj.coa_sprite_dimension = Vector((get_local_dimension(obj)[0],0,get_local_dimension(obj)[1]))
         obj.coa_tiles_x = self.tiles_x
@@ -389,8 +394,6 @@ class ReImportSprite(bpy.types.Operator, ImportHelper):
     
     def execute(self, context):
         
-        
-        
         sprite_found = False
         for image in bpy.data.images:
             if os.path.exists(bpy.path.abspath(image.filepath)) and os.path.exists(self.filepath):
@@ -404,35 +407,40 @@ class ReImportSprite(bpy.types.Operator, ImportHelper):
         
         
         scale = get_addon_prefs(context).sprite_import_export_scale
-        active_obj = bpy.data.objects[context.active_object.name]
-        obj = context.active_object
-        if self.name != "" and self.name in bpy.data.objects:
-            obj = bpy.data.objects[self.name]
-            bpy.context.scene.objects.active = obj
-        mat = obj.active_material
-        tex = mat.texture_slots[0].texture
-        tex.image = img
-        tiles_x = int(obj.coa_tiles_x)
-        tiles_y = int(obj.coa_tiles_y)
-        
-        obj.coa_tiles_x = 1
-        obj.coa_tiles_y = 1
-        
-        img_dimension = img.size
-        
-        obj_dimension = Vector(obj.dimensions)
-        obj_dimension[0] /= obj.scale[0]
-        obj_dimension[1] /= obj.scale[1]
-        obj_dimension[2] /= obj.scale[2]
-        
-        pos = self.pos
-        obj.location = Vector((pos[0],pos[1],-pos[2]))*self.scale + Vector((self.offset[0],self.offset[1],self.offset[2]))*self.scale
-        
-        sprite_dimension = Vector(obj_dimension) * (1/scale)
+        if self.name in bpy.data.objects:
+            active_obj = bpy.data.objects[self.name]
+            obj_hide = active_obj.hide
+            active_obj.hide = False
+            obj = context.active_object
+            if self.name != "" and self.name in bpy.data.objects:
+                obj = bpy.data.objects[self.name]
+                bpy.context.scene.objects.active = obj
+            mat = obj.active_material
+            tex = mat.texture_slots[0].texture
+            tex.image = img
+            tiles_x = int(obj.coa_tiles_x)
+            tiles_y = int(obj.coa_tiles_y)
+            
+            obj.coa_tiles_x = 1
+            obj.coa_tiles_y = 1
+            
+            img_dimension = img.size
+            
+            obj_dimension = Vector(obj.dimensions)
+            obj_dimension[0] /= obj.scale[0]
+            obj_dimension[1] /= obj.scale[1]
+            obj_dimension[2] /= obj.scale[2]
+            
+            pos = self.pos
+            if self.reposition:
+                obj.location = Vector((pos[0],pos[1],-pos[2]))*self.scale + Vector((self.offset[0],self.offset[1],self.offset[2]))*self.scale
+            
+            sprite_dimension = Vector(obj_dimension) * (1/scale)
 
-        ratio_x = img_dimension[0] / sprite_dimension[0]
-        ratio_y = img_dimension[1] / sprite_dimension[2]
-        self.move_verts(obj,ratio_x,ratio_y)
+            ratio_x = img_dimension[0] / sprite_dimension[0]
+            ratio_y = img_dimension[1] / sprite_dimension[2]
+            self.move_verts(obj,ratio_x,ratio_y)
 
-        bpy.context.scene.objects.active = active_obj
+            bpy.context.scene.objects.active = active_obj
+            active_obj.hide = obj_hide
         return {'FINISHED'}

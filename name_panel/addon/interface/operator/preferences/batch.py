@@ -11,15 +11,8 @@ class operator(Operator):
     '''
     bl_idname = 'wm.batch_name_defaults'
     bl_label = 'Batch Name Defaults'
-    bl_description = 'Current settings used for the batch name operator.'
+    bl_description = 'Current settings used for the batch name operator'
     bl_options = {'INTERNAL'}
-
-    # quick batch
-    quickBatch = BoolProperty(
-        name = 'Quick Batch',
-        description = 'Quickly batch name datablocks visible in the name panel',
-        default = False
-    )
 
     # check
     def check(self, context):

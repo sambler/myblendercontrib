@@ -41,6 +41,7 @@ from bpy.props import PointerProperty, StringProperty, BoolProperty, \
 
 from . import engine
 from bpy.app.handlers import persistent
+import traceback
 
 integrator_names = []
 
@@ -659,6 +660,14 @@ class RendermanSceneSettings(bpy.types.PropertyGroup):
         name="Max Diffuse Depth",
         description="Maximum number of diffuse ray bounces",
         min=0, max=32, default=1)
+    use_metadata = BoolProperty(
+        name="Use Metadata",
+        description="The output file will contain extra image metadata that can aid with production workflows. Information includes camera (focallength, fstop, sensor size and focal distance), version (Blender and RfB), username, blender scene path, statistic xml path and integrator settings.",
+        default=True)
+    custom_metadata = StringProperty(
+        name="Metadata Comment",
+        description="Add a custom comment to the EXR Metadata.",
+        default='')    
     use_statistics = BoolProperty(
         name="Statistics",
         description="Print statistics to stats.xml after render",
@@ -2528,8 +2537,11 @@ def register_plugin_types():
         if not args_xml:
             continue
 
-        register_plugin_to_parent(ntype, name, args_xml, plugin_type, parent)
-
+        try:
+            register_plugin_to_parent(ntype, name, args_xml, plugin_type, parent)
+        except Exception as e:
+            print("Error registering plugin ", name)
+            traceback.print_exc()
 
 @persistent
 def initial_groups(scene):

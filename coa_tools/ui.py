@@ -429,9 +429,23 @@ class CutoutAnimationObjectProperties(bpy.types.Panel):
                         else:
                             row.prop(sprite_object,"coa_show_export_box",text="Json Export Properties",icon="TRIA_RIGHT",emboss=False)    
                     
+                    
+                    ### remove bone ik constraints
+                    pose_bone = context.active_pose_bone
+                    if pose_bone != None:
+                        for bone in context.active_object.pose.bones:
+                            for const in bone.constraints:
+                                if const.type == "IK":
+                                    if const.subtarget == pose_bone.name:
+                                        row = col.row()
+                                        row.operator("coa_tools.remove_ik",text="Remove Bone IK", icon="CONSTRAINT_BONE")
+                            
+                            
+                            
+                    ### remove bone stretch ik constraints            
                     if context.active_pose_bone != None and "coa_stretch_ik_data" in context.active_pose_bone:
                         col = layout.box().column(align=True)
-                        
+        
                         for bone in obj.pose.bones:
                             if "coa_stretch_ik_data" in bone:
                                 if eval(bone["coa_stretch_ik_data"])[0] == eval(context.active_pose_bone["coa_stretch_ik_data"])[0]:

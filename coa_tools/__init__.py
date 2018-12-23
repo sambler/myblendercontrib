@@ -22,7 +22,7 @@ bl_info = {
     "name": "COA Tools",
     "description": "This Addon provides a Toolset for a 2D Animation Workflow.",
     "author": "Andreas Esau",
-    "version": (1, 0, 3),
+    "version": (1, 0, 4),
     "blender": (2, 79, 0),
     "location": "View 3D > Tools > Cutout Animation Tools",
     "warning": "",
@@ -54,7 +54,7 @@ from . functions import *
 
 import traceback
 
-class ExampleAddonPreferences(bpy.types.AddonPreferences):
+class COAToolsPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
     
     alpha_update_frequency = bpy.props.IntProperty(name="Alpha Update Frequency",default=1,min=1,description="Updates alpha on each x frame.")

@@ -729,8 +729,14 @@ def reset(context, panel, auto, names, name, copy):
         # regex
         option.regex = default['regex']
 
+        # find only
+        option.findOnly = default['find only']
+
         # replace
         option.replace = default['replace']
+
+        # on found
+        option.onFound = default['on found']
 
         # prefix
         option.prefix = default['prefix']

@@ -19,9 +19,9 @@ def run_operator_register(a, b):
     add_scrollback(msg, 'INFO')
 
 
-def register():
-    bpy.utils.register_module(__name__)
+# def register():
+#     bpy.utils.register_module(__name__)
 
 
-def unregister():
-    bpy.utils.unregister_module(__name__)
+# def unregister():
+#     bpy.utils.unregister_module(__name__)

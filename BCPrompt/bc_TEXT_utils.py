@@ -73,7 +73,7 @@ class TEXT_Cycle_TextBlocks(bpy.types.Operator):
     bl_label = "switch text content of current viewer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction = bpy.props.IntProperty(default=-1)
+    direction: bpy.props.IntProperty(default=-1)
 
     def execute(self, context):
         edit_text = bpy.context.edit_text
@@ -106,3 +106,7 @@ class TEXT_Duplicate_Textblock(bpy.types.Operator):
         t.from_string(edit_text.as_string())
         context.space_data.text = t
         return {'FINISHED'}
+
+
+classes = [TEXT_Duplicate_Textblock, TEXT_Cycle_TextBlocks, TEXT_OT_do_comment]
+register, unregister = bpy.utils.register_classes_factory(classes)

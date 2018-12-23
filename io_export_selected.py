@@ -18,7 +18,7 @@
 bl_info = {
     "name": "Export Selected",
     "author": "dairin0d, rking, moth3r",
-    "version": (2, 2, 1),
+    "version": (2, 2, 2),
     "blender": (2, 7, 0),
     "location": "File > Export > Selected",
     "description": "Export selected objects to a chosen format",
@@ -37,6 +37,8 @@ import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
 from mathutils import Vector, Matrix, Quaternion, Euler
+
+from collections import namedtuple
 
 import os
 import json
@@ -293,6 +295,25 @@ def iter_exporters():
             if "export" not in idname: continue
             yield (idname, getattr(op_category, name))
 
+def get_instance_type_or_emulator(obj):
+    if hasattr(obj, "get_instance"): return type(obj.get_instance())
+    rna_type = obj.get_rna_type()
+    rna_props = rna_type.properties
+    # namedtuple fields can't start with underscores, but so do rna props
+    return namedtuple(rna_type.identifier, rna_props.keys())(*rna_props.values()) # For Blender 2.79.6
+
+def get_rna_type(obj):
+    if hasattr(obj, "rna_type"): return obj.rna_type
+    if hasattr(obj, "get_rna"): return obj.get_rna().rna_type
+    return obj.get_rna_type() # For Blender 2.79.6
+
+def get_filter_glob(op, default_filter):
+    if hasattr(op, "get_rna"):
+        rna = op.get_rna()
+        return getattr(rna, "filter_glob", default_filter)
+    # There is no get_rna() in Blender 2.79.6
+    return op.get_rna_type().properties.get("filter_glob", default_filter)
+
 def iter_exporter_info():
     # Special case: unconventional "exporter"
     yield ('BLEND', "Blend", ".blend", "*.blend")
@@ -304,23 +325,21 @@ def iter_exporter_info():
     yield ('wm.alembic_export', "Alembic", ".abc", "*.abc")
     
     for idname, op in iter_exporters():
-        op_class = type(op.get_instance())
+        op_class = get_instance_type_or_emulator(op)
         if not hasattr(op_class, "filepath"): continue # e.g. sketchfab
-        rna = op.get_rna()
-        name = rna.rna_type.name
+        name = get_rna_type(op).name
         if name.lower().startswith("export "): name = name[len("export "):]
         filename_ext = getattr(op_class, "filename_ext", "")
         if not isinstance(filename_ext, str): # can be a bpy prop
             filename_ext = filename_ext[1].get("default", "")
         if not filename_ext: filename_ext = "."+idname.split(".")[-1]
-        filter_glob = getattr(rna, "filter_glob", "*"+filename_ext)
+        filter_glob = get_filter_glob(op, "*"+filename_ext)
         yield (idname, name, filename_ext, filter_glob)
 
 def get_exporter_name(idname):
     if idname == 'BLEND': return "Blend"
     op = get_op(idname)
-    rna = op.get_rna()
-    name = rna.rna_type.name
+    name = get_rna_type(op).name
     if name.lower().startswith("export "): name = name[len("export "):]
     return name
 
@@ -333,7 +352,7 @@ def get_exporter_class(idname):
         return AlembicExportEmulator
     else:
         op = get_op(idname)
-        return type(op.get_instance())
+        return get_instance_type_or_emulator(op)
 
 class BlendExportEmulator:
     # Special case: Blend
