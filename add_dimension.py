@@ -1748,10 +1748,10 @@ def createCurve(vertArray, self, align_matrix):
 
     bpy.ops.object.mode_set(mode = 'OBJECT')
 
-    if group_name in bpy.data.groups:
-        group = bpy.data.groups[group_name]
+    if group_name in bpy.data.collections:
+        group = bpy.data.collections[group_name]
     else:
-        group = bpy.data.groups.new(group_name)
+        group = bpy.data.collections.new(group_name)
 
     if not DimensionCurve.name in group.objects:
         group.objects.link(DimensionCurve)
@@ -3182,14 +3182,14 @@ def Dimension_button(self, context):
 def register():
     bpy.utils.register_module(__name__)
 
-    bpy.types.INFO_MT_curve_add.append(Dimension_button)
+    bpy.types.VIEW3D_MT_curve_add.append(Dimension_button)
 
     DimensionVariables()
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
-    bpy.types.INFO_MT_curve_add.remove(Dimension_button)
+    bpy.types.VIEW3D_MT_curve_add.remove(Dimension_button)
 
 if __name__ == "__main__":
     register()
