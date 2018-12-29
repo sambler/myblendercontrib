@@ -5,8 +5,8 @@
 bl_info = {
     "name": "Run Script in PyConsole",
     "author": "CoDEmanX, SAmbler",
-    "version": (1, 2, 1),
-    "blender": (2, 67, 0),
+    "version": (2, 0),
+    "blender": (2, 80, 0),
     "location": "Python Console > Console > Run Script",
     "description": "Execute the code of a textblock or file within the python console.",
     "warning": "",
@@ -23,7 +23,7 @@ def clear_menu_items(self, context):
     script_menu_items = {}
 
 def update_script_menu():
-    prefs = bpy.context.user_preferences.addons[__name__].preferences
+    prefs = bpy.context.preferences.addons[__name__].preferences
     if prefs.scripts_folder.startswith('//') or not prefs.scripts_folder.startswith('/'):
         folder = bpy.path.abspath(prefs.scripts_folder)
     else:
@@ -108,7 +108,7 @@ class CONSOLE_MT_run_script(bpy.types.Menu):
         visible, invisible = texts['visible'], texts['invisible']
 
         if not (visible or invisible):
-            layout.label("No text blocks!")
+            layout.label(text="No text blocks!")
         else:
             if invisible:
                 for t in invisible:
@@ -182,7 +182,6 @@ def unregister():
     bpy.types.CONSOLE_MT_console.remove(draw_item_file)
     for cls in classes:
         bpy.utils.unregister_class(cls)
-
 
 if __name__ == "__main__":
     register()
