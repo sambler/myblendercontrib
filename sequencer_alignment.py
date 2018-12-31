@@ -32,8 +32,8 @@
 bl_info = {
     'name': 'Sequencer Alignment',
     'author': 'sambler',
-    'version': (1, 1),
-    'blender': (2, 66, 0),
+    'version': (1, 2),
+    'blender': (2, 80, 0),
     'location': 'Video Sequencer',
     'description': 'Align sequencer strips.',
     'wiki_url': 'https://github.com/sambler/addonsByMe/blob/master/sequencer_alignment.py',
@@ -44,12 +44,12 @@ bl_info = {
 import bpy
 
 alignment = [
-    ('TOP', 'Top', '', 1),
-    ('LEFT', 'Left', '', 2),
-    ('BOTTOM', 'Bottom', '', 3),
-    ('RIGHT', 'Right', '', 4),
-    ('VERT','Centre Height','',5),
-    ('HORIZ','Centre Width','',6),
+    ('TOP', 'Top', 'Align top edges', 1),
+    ('LEFT', 'Left', 'Align left edges', 2),
+    ('BOTTOM', 'Bottom', 'Align bottom edges', 3),
+    ('RIGHT', 'Right', 'Align right edges', 4),
+    ('VERT','Centre Height','Align vertical centre',5),
+    ('HORIZ','Centre Width','Align horizontal centre',6),
     ]
 
 class VSEStripAlignment(bpy.types.Operator):
@@ -57,7 +57,7 @@ class VSEStripAlignment(bpy.types.Operator):
     bl_label = 'Align sequencer strips.'
     bl_options = {'REGISTER','UNDO'}
 
-    direction = bpy.props.EnumProperty(items=alignment)
+    direction : bpy.props.EnumProperty(items=alignment)
 
     def execute(self, context):
         scene = context.scene
@@ -136,7 +136,7 @@ class VSEAlignmentPanel(bpy.types.Panel):
     def draw(self, context):
         row = self.layout.row()
         row.prop(context.scene, 'vse_align_active', text='Align to active.')
-        if context.scene.vse_align_active:
+        if context.scene.vse_align_active and context.scene.sequence_editor.active_strip:
             row = self.layout.row()
             row.label(text=context.scene.sequence_editor.active_strip.name)
         row = self.layout.row()
@@ -148,7 +148,7 @@ class VSEAlignmentPanel(bpy.types.Panel):
         row.operator(VSEStripAlignment.bl_idname, text='Bottom').direction = 'BOTTOM'
         row = self.layout.row()
         row.alignment = 'CENTER'
-        row.label('Centre')
+        row.label(text='Centre')
         row = self.layout.row()
         row.operator(VSEStripAlignment.bl_idname, text='^Height^').direction = 'VERT'
         row = self.layout.row()
@@ -162,6 +162,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(VSEAlignmentPanel)
     bpy.utils.unregister_class(VSEStripAlignment)
+    del bpy.types.Scene.vse_align_active
 
 if __name__ == '__main__':
     register()
