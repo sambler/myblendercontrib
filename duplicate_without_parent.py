@@ -32,8 +32,8 @@ import bpy
 bl_info = {
     "name": "Duplicate object(s) without parenting",
     "author": "sambler",
-    "version": (1,0),
-    "blender": (2, 65, 0),
+    "version": (1,1),
+    "blender": (2, 80, 0),
     "location": "Shift-Alt-D",
     "description": "Duplicate selected objects or bones without copying the parent connection",
     "warning": "",
@@ -65,7 +65,7 @@ class DuplicateWithoutParent(bpy.types.Operator):
 addon_keymaps = []
 
 def register():
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(DuplicateWithoutParent)
 
     if bpy.app.background: return
 
@@ -87,7 +87,7 @@ def unregister():
         km.keymap_items.remove(kmi)
     addon_keymaps.clear()
 
-    bpy.utils.unregister_module(__name__)
+    bpy.utils.unregister_class(DuplicateWithoutParent)
 
 if __name__ == "__main__":
     register()
