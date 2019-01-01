@@ -1,8 +1,8 @@
 bl_info = {
     "name": "Split Shape Key",
     "author": "Eduardo Teixeira, SAmbler",
-    "version": (1, 0),
-    "blender": (2, 73, 0),
+    "version": (1, 1),
+    "blender": (2, 80, 0),
     "location": "Object > Animation > Split Shape Key",
     "description": "Takes a shape key and splits its vertices translation into three new shape keys, one per axis, preserving the original",
     "warning": "",
@@ -61,7 +61,6 @@ class SplitShapePanel(bpy.types.Panel):
 
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
-    bl_category = 'Animation'
     bl_label = "Split Shape Key"
     bl_context = "objectmode"
     bl_options = {'DEFAULT_CLOSED'}
@@ -83,7 +82,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(SplitShapeKey)
     bpy.types.VIEW3D_MT_object_animation.append(menu_func)
-    bpy.utils.register_class(SplitShapePanel)
+    bpy.utils.unregister_class(SplitShapePanel)
 
 if __name__ == "__main__":
     register()
