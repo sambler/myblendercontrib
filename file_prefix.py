@@ -30,8 +30,8 @@
 bl_info = {
     "name": "Save File Prefix",
     "author": "sambler",
-    "version": (1,0),
-    "blender": (2, 71, 0),
+    "version": (1,1),
+    "blender": (2, 80, 0),
     "location": "File->Save Prefixed Blendfile",
     "description": "Add a prefix to the filename before saving.",
     "warning": "Runs user specified python code",
@@ -47,14 +47,20 @@ import time, datetime
 class PrefixSavePreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
-    prefix = bpy.props.StringProperty(name="Prefix calculation",
-                    description="Python string that calculates the file prefix.",
+    prefix : bpy.props.StringProperty(name="Prefix calculation",
+                    description="Python string that calculates the file prefix",
                     default="timestamp().strftime('%Y_%m_%d_%H_%M_%S') + '_'")
+
+    copies : bpy.props.BoolProperty(name="Save as copies",
+                    description="Save prefixed copies instead of renaming the existing file",
+                    default=True)
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
 
+        row = col.row()
+        row.prop(self,"copies")
         row = col.row()
         row.prop(self,"prefix")
 
@@ -62,20 +68,20 @@ def timestamp():
     # convienience function that is available to the user in their calculations
     return datetime.datetime.fromtimestamp(time.time())
 
-def fn_prefix(context):
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__name__].preferences
-    return eval(addon_prefs.prefix)
-
 class PrefixFileSave(bpy.types.Operator):
     """Set a filename prefix before saving the file"""
     bl_idname = "wm.save_prefix"
     bl_label = "Save Prefixed Blendfile"
 
     def execute(self, context):
-        outname = fn_prefix(context) + bpy.path.basename(bpy.data.filepath)
+        user_preferences = context.preferences
+        addon_prefs = user_preferences.addons[__name__].preferences
+        outname = eval(addon_prefs.prefix) + bpy.path.basename(bpy.data.filepath)
         outpath = os.path.dirname(bpy.path.abspath(bpy.data.filepath))
         print(os.path.join(outpath, outname))
+        if addon_prefs.copies:
+            return bpy.ops.wm.save_as_mainfile(filepath=os.path.join(outpath, outname),
+                    check_existing=True, copy=True)
         return bpy.ops.wm.save_mainfile(filepath=os.path.join(outpath, outname),
                     check_existing=True)
 
@@ -83,10 +89,11 @@ def menu_save_prefix(self, context):
     self.layout.operator(PrefixFileSave.bl_idname, text=PrefixFileSave.bl_label, icon="FILE_TICK")
 
 def register():
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(PrefixSavePreferences)
+    bpy.utils.register_class(PrefixFileSave)
 
     # add the menuitem to the top of the file menu
-    bpy.types.INFO_MT_file.prepend(menu_save_prefix)
+    bpy.types.TOPBAR_MT_file.prepend(menu_save_prefix)
 
     wm = bpy.context.window_manager
     win_keymaps = wm.keyconfigs.user.keymaps.get('Window')
@@ -111,9 +118,10 @@ def unregister():
             if kmi.idname == PrefixFileSave.bl_idname:
                 win_keymaps.keymap_items.remove(kmi)
 
-    bpy.types.INFO_MT_file.remove(menu_save_prefix)
+    bpy.types.TOPBAR_MT_file.remove(menu_save_prefix)
 
-    bpy.utils.unregister_module(__name__)
+    bpy.utils.unregister_class(PrefixFileSave)
+    bpy.utils.unregister_class(PrefixSavePreferences)
 
 if __name__ == "__main__":
     register()
