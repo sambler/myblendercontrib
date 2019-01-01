@@ -27,8 +27,8 @@
 bl_info = {
     "name": "Node Colours",
     "author": "sambler",
-    "version": (1, 0),
-    "blender": (2, 67, 0),
+    "version": (1, 1),
+    "blender": (2, 80, 0),
     "location": "SpaceBar Search -> Turn on/off all node colours",
     "description": "Turn on/off all custom node colours. Currently only for custom node trees.",
     "warning": "",
@@ -42,19 +42,19 @@ from bpy.props import BoolProperty
 class NodeColourPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
-    set_custom_nodes = BoolProperty(name="Set custom nodes",
+    set_custom_nodes : BoolProperty(name="Set custom nodes",
                               description="Include custom nodes",
                               default=True)
 
-    set_compositing_nodes = BoolProperty(name="Set compositing nodes",
+    set_compositing_nodes : BoolProperty(name="Set compositing nodes",
                               description="Include compositing nodes",
                               default=True)
 
-    set_material_nodes = BoolProperty(name="Set material nodes",
+    set_material_nodes : BoolProperty(name="Set material nodes",
                             description="Include material nodes",
                             default=True)
 
-    set_texture_nodes = BoolProperty(name="Set texture nodes",
+    set_texture_nodes : BoolProperty(name="Set texture nodes",
                             description="Include texture nodes",
                             default=True)
 
@@ -74,7 +74,7 @@ class NodeColourPreferences(bpy.types.AddonPreferences):
 def setNodeColourOption(setOption):
     """Enable/Disable the custom node colour for all nodes"""
 
-    prefs = bpy.context.user_preferences.addons[__name__].preferences
+    prefs = bpy.context.preferences.addons[__name__].preferences
 
     if prefs.set_compositing_nodes:
         for n in bpy.context.scene.node_tree.nodes:
