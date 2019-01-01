@@ -31,8 +31,8 @@
 bl_info = {
     "name": "Auto Blend Save",
     "author": "sambler",
-    "version": (1, 1),
-    "blender": (2, 75, 0),
+    "version": (1, 2),
+    "blender": (2, 80, 0),
     "location": "blender",
     "description": "Automatically save multiple copies of a blend file",
     "warning": "Deletes old files - check your settings.",
@@ -55,25 +55,25 @@ last_saved = None
 class AutoBlendSavePreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
-    save_after_open = bpy.props.BoolProperty(name='Save on open',
+    save_after_open : bpy.props.BoolProperty(name='Save on open',
                     description='Save a copy of file after opening it',
                     default=True)
-    save_before_close = bpy.props.BoolProperty(name='Save before close',
+    save_before_close : bpy.props.BoolProperty(name='Save before close',
                     description='Save the current file before opening another file',
                     default=True)
-    save_on_interval = bpy.props.BoolProperty(name='Save at intervals',
+    save_on_interval : bpy.props.BoolProperty(name='Save at intervals',
                     description='Save the file at timed intervals',
                     default=True)
-    save_interval = bpy.props.IntProperty(name='Save interval',
+    save_interval : bpy.props.IntProperty(name='Save interval',
                     description='Number of minutes between each save',
                     default=5, min=1, max=120, soft_max=30)
-    save_to_path = bpy.props.StringProperty(name='Save to path',
+    save_to_path : bpy.props.StringProperty(name='Save to path',
                     description='Path to auto save files into',
                     default='//AutoSave')
-    max_save_files = bpy.props.IntProperty(name='Max save files',
+    max_save_files : bpy.props.IntProperty(name='Max save files',
                     description='Maximum number of copies to save, 0 means unlimited',
                     default=10, min=0, max=100)
-    compress_backups = bpy.props.BoolProperty(name='Compress backups',
+    compress_backups : bpy.props.BoolProperty(name='Compress backups',
                     description='Save backups with compression enabled',
                     default=True)
 
@@ -103,7 +103,7 @@ class AutoBlendSavePreferences(bpy.types.AddonPreferences):
         row.prop(self,'compress_backups')
 
 def prefs():
-    user_preferences = bpy.context.user_preferences
+    user_preferences = bpy.context.preferences
     return user_preferences.addons[__name__].preferences
 
 def time_since_save():
@@ -179,12 +179,12 @@ def register():
     bpy.utils.register_class(AutoBlendSavePreferences)
     bpy.app.handlers.load_pre.append(save_pre_close)
     bpy.app.handlers.load_post.append(save_post_open)
-    bpy.app.handlers.scene_update_post.append(timed_save)
+    bpy.app.handlers.depsgraph_update_post.append(timed_save)
 
 def unregister():
     bpy.app.handlers.load_pre.remove(save_pre_close)
     bpy.app.handlers.load_post.remove(save_post_open)
-    bpy.app.handlers.scene_update_post.remove(timed_save)
+    bpy.app.handlers.depsgraph_update_post.remove(timed_save)
     bpy.utils.unregister_class(AutoBlendSavePreferences)
 
 if __name__ == "__main__":
