@@ -35,8 +35,8 @@
 bl_info = {
     "name": "Create multi Bounding Box",
     "author": "sambler",
-    "version": (1,1),
-    "blender": (2, 73, 0),
+    "version": (1,2),
+    "blender": (2, 80, 0),
     "location": "View3D > Add > Mesh > Create Bounding Box",
     "description": "Create an individual mesh cube matching the bounding box of each selected object",
     "warning": "",
@@ -59,15 +59,15 @@ class CreateMultiBoundingBox(bpy.types.Operator, object_utils.AddObjectHelper):
     bl_options = {'REGISTER', 'UNDO'}
 
     # generic transform props
-    view_align = BoolProperty(
+    view_align : BoolProperty(
             name="Align to View",
             default=False,
             )
-    location = FloatVectorProperty(
+    location : FloatVectorProperty(
             name="Location",
             subtype='TRANSLATION',
             )
-    rotation = FloatVectorProperty(
+    rotation : FloatVectorProperty(
             name="Rotation",
             subtype='EULER',
             )
@@ -108,9 +108,9 @@ class CreateMultiBoundingBox(bpy.types.Operator, object_utils.AddObjectHelper):
             self.rotation = obj.rotation_euler
             bbox = object_utils.object_data_add(context, mesh, operator=self)
             # does a bounding box need to display more than the bounds??
-            bbox.object.draw_type = 'BOUNDS'
-            bbox.object.scale = obj.scale
-            bbox.object.hide_render = True
+            bbox.display_type = 'BOUNDS'
+            bbox.scale = obj.scale
+            bbox.hide_render = True
 
         return {'FINISHED'}
 
@@ -119,11 +119,11 @@ def menu_boundbox(self, context):
 
 def register():
     bpy.utils.register_class(CreateMultiBoundingBox)
-    bpy.types.INFO_MT_mesh_add.append(menu_boundbox)
+    bpy.types.VIEW3D_MT_mesh_add.append(menu_boundbox)
 
 def unregister():
     bpy.utils.unregister_class(CreateMultiBoundingBox)
-    bpy.types.INFO_MT_mesh_add.remove(menu_boundbox)
+    bpy.types.VIEW3D_MT_mesh_add.remove(menu_boundbox)
 
 if __name__ == "__main__":
     register()

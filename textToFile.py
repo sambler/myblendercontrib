@@ -35,8 +35,8 @@
 bl_info = {
     "name": "Text conversion",
     "author": "sambler",
-    "version": (1,0),
-    "blender": (2, 65, 0),
+    "version": (1,1),
+    "blender": (2, 80, 0),
     "location": "View3D > Object > Convert text object",
     "description": "Create a text file from the contents of a text object, or set the object contents from a file.",
     "warning": "",

@@ -29,8 +29,8 @@
 # http://blender.stackexchange.com/q/49541/935
 
 bl_info = {
-    "version": (1, 1),
-    "blender": (2, 75, 0),
+    "version": (1, 2),
+    "blender": (2, 80, 0),
     "author": "sambler",
     "name": "Change Keying Sets",
     "location": "3D view -> properties region",
@@ -48,7 +48,7 @@ class SetKeyingSetOperator(bpy.types.Operator):
     bl_idname = 'anim.set_keyingset'
     bl_label = 'Set the active keying set'
 
-    type = bpy.props.StringProperty(default='LocRotScale')
+    type : bpy.props.StringProperty(default='LocRotScale')
 
     def execute(self, context):
         ks = context.scene.keying_sets_all

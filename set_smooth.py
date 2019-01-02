@@ -27,8 +27,8 @@
 bl_info = {
     "name": "Set Smooth",
     "author": "sambler",
-    "version": (1, 1),
-    "blender": (2, 75, 0),
+    "version": (1, 2),
+    "blender": (2, 80, 0),
     "location": "Render panel",
     "description": "Easily set smooth/flat shading to all objects.",
     "wiki_url": "https://github.com/sambler/addonsByMe/blob/master/set_smooth.py",
@@ -42,18 +42,13 @@ class SetShading(bpy.types.Operator):
     bl_idname = 'object.set_all_shading'
     bl_label = 'Set shading of all objects'
 
-    smooth = bpy.props.BoolProperty()
+    smooth : bpy.props.BoolProperty()
 
     def execute(self, context):
-        cur_selected = context.selected_objects.copy()
-        bpy.ops.object.select_all(action='SELECT')
-        if self.smooth:
-            bpy.ops.object.shade_smooth()
-        else:
-            bpy.ops.object.shade_flat()
-        bpy.ops.object.select_all(action='DESELECT')
-        for o in cur_selected:
-            o.select = True
+        for o in context.scene.objects:
+            if o.type == 'MESH':
+                for f in o.data.polygons:
+                    f.use_smooth = self.smooth
         return {'FINISHED'}
 
 def add_change_shading(self, context):
@@ -62,7 +57,7 @@ def add_change_shading(self, context):
 
 def register():
     bpy.utils.register_class(SetShading)
-    bpy.types.RENDER_PT_render.prepend(add_change_shading)
+    bpy.types.TOPBAR_MT_render.prepend(add_change_shading)
 
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
@@ -83,7 +78,7 @@ def unregister():
             if kmi.idname == SetShading.bl_idname:
                 km.keymap_items.remove(kmi)
 
-    bpy.types.RENDER_PT_render.remove(add_change_shading)
+    bpy.types.TOPBAR_MT_render.remove(add_change_shading)
     bpy.utils.unregister_class(SetShading)
 
 if __name__ == "__main__":

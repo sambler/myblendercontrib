@@ -30,14 +30,14 @@
 bl_info = {
     "name": "Mesh Summary",
     "author": "sambler",
-    "version": (1,1),
-    "blender": (2, 66, 0),
+    "version": (1,2),
+    "blender": (2, 80, 0),
     "location": "Properties > Scene > Object Info Panel",
     "description": "Summarize details about the mesh objects in this file.",
     "warning": "",
     "wiki_url": "https://github.com/sambler/addonsByMe/blob/master/mesh_summary.py",
     "tracker_url": "https://github.com/sambler/addonsByMe/issues",
-    "category": "System",
+    "category": "Scene",
 }
 
 import bpy
@@ -48,10 +48,10 @@ from operator import itemgetter
 class MeshSummaryPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
-    display_limit = IntProperty(name="Display limit",
+    display_limit : IntProperty(name="Display limit",
                         description="Maximum number of items to list",
                         default=5, min=2, max=20)
-    calculate_modifier_verts = BoolProperty(name="Calculate mod. vertices",
+    calculate_modifier_verts : BoolProperty(name="Calculate mod. vertices",
                         description="Calculate vertex count after applying modifiers.",
                         default=False)
 
@@ -80,9 +80,9 @@ def us(qty):
             return "%3.1f%s" % (qty, suf)
 
 choice_types = [
-    ('ALL','All','',1),
-    ('SELECTED','Selected','',2),
-    ('VISIBLE','Visible','',3),
+    ('ALL','All','Show information for all mesh objects',1),
+    ('SELECTED','Selected','Show information for selected mesh objects',2),
+    ('VISIBLE','Visible','Show information for visible mesh objects',3),
     ]
 
 class Properties_meshinfo(bpy.types.Panel):
@@ -92,18 +92,20 @@ class Properties_meshinfo(bpy.types.Panel):
     bl_context = "scene"
 
     def draw(self, context):
-        prefs = context.user_preferences.addons[__name__].preferences
+        prefs = context.preferences.addons[__name__].preferences
         layout = self.layout
 
         row = layout.row()
         row.prop(context.scene, 'show_choice', text='Show')
 
         if context.scene.show_choice == 'SELECTED':
-            meshes = [o for o in context.scene.objects if o.type == 'MESH' and o.select == True]
+            meshes = [o for o in context.scene.objects
+                        if o.type == 'MESH' and o.select_get() == True]
             choice_desc = 'selected '
             total_desc = 'Selected Totals:'
         elif context.scene.show_choice == 'VISIBLE':
-            meshes = [o for o in context.scene.objects if o.type == 'MESH' and o.hide == False]
+            meshes = [o for o in context.scene.objects
+                        if o.type == 'MESH' and o.hide_viewport == False]
             choice_desc = 'visible '
             total_desc = 'Visible Totals:'
         else:
@@ -156,7 +158,7 @@ class Properties_meshinfo(bpy.types.Panel):
                 if prefs.calculate_modifier_verts:
                     detailRow = dataCols[2].row()
                     bm = bmesh.new()
-                    bm.from_object(mo[0], context.scene)
+                    bm.from_object(mo[0], context.depsgraph)
                     detailRow.label(text="("+us(len(bm.verts))+")")
                     bm.free()
                 detailRow = dataCols[3].row()
