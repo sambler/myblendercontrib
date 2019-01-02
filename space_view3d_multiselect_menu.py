@@ -25,8 +25,8 @@
 bl_info = {
     "name": "3D View: Multiselect Menu",
     "author": "Sean Olson (liquidApe)",
-    "version": (1, 2),
-    "blender": (2, 61, 0),
+    "version": (1, 3),
+    "blender": (2, 80, 0),
     "location": "View3D > Mouse > Menu ",
     "warning":"",
     "description": "Added options for multiselect to the ctrl-tab menu",
@@ -69,7 +69,7 @@ class VIEW3D_MT_Multiselect_Menu(bpy.types.Menu):
         prop.data_path = "tool_settings.mesh_select_mode"
 
         prop = layout.operator("wm.context_set_value",
-            text="Vertex & Face Select", icon='ORTHO')
+            text="Vertex & Face Select" , icon='SURFACE_NCIRCLE') #, icon='ORTHO')
         prop.value = "(True, False, True)"
         prop.data_path = "tool_settings.mesh_select_mode"
 
@@ -86,8 +86,8 @@ class VIEW3D_MT_Multiselect_Menu(bpy.types.Menu):
         layout.separator()
 
 def register():
-    bpy.utils.register_module(__name__)
-    
+    bpy.utils.register_class(VIEW3D_MT_Multiselect_Menu)
+
     #add multiselect keybinding
     km = bpy.context.window_manager.keyconfigs.active.keymaps['Mesh']
     kmi = km.keymap_items.new('wm.call_menu', 'TAB', 'PRESS', ctrl=True)
@@ -102,8 +102,6 @@ def register():
                 break
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-
     #remove multiselect keybinding
     km = bpy.context.window_manager.keyconfigs.active.keymaps['Mesh']
     for kmi in km.keymap_items:
@@ -116,6 +114,7 @@ def unregister():
     km = bpy.context.window_manager.keyconfigs.active.keymaps['Mesh']
     kmi = km.keymap_items.new('wm.call_menu', 'TAB', 'PRESS', ctrl=True)
     kmi.properties.name = "VIEW3D_MT_edit_mesh_select_mode"
+    bpy.utils.unregister_class(VIEW3D_MT_Multiselect_Menu)
 
 if __name__ == "__main__":
     register()
