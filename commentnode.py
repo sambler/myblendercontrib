@@ -6,8 +6,8 @@
 bl_info = {
     "name": "Comment Node",
     "author": "CoDEmanX",
-    "version": (1, 1),
-    "blender": (2, 67, 0),
+    "version": (1, 2),
+    "blender": (2, 80, 0),
     "location": "Node Editor > Add > Commenting > Comment",
     "description": "Add a comment node to keep notes with a node tree.",
     "warning": "",
@@ -23,7 +23,7 @@ class NodeComment(Operator):
     bl_idname = "node.comment"
     bl_label = "Node Comment"
 
-    index = IntProperty(default=-1)
+    index : IntProperty(default=-1)
 
     @classmethod
     def poll(cls, context):
@@ -56,8 +56,8 @@ class CommentNode(Node):
     # Icon identifier
     bl_icon = 'GREASEPENCIL'
 
-    myBoolProperty = bpy.props.BoolProperty(name="Edit")
-    myCollProperty = bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
+    myBoolProperty : bpy.props.BoolProperty(name="Edit")
+    myCollProperty : bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
 
     def init(self, context):
         self.width = 300
@@ -74,17 +74,17 @@ class CommentNode(Node):
     def draw_buttons(self, context, layout):
         #layout.label("Node settings")
 
-        row = layout.row(True)
-        row.operator(NodeComment.bl_idname, text="Add", icon="ZOOMIN").index = -1
+        row = layout.row(align=True)
+        row.operator(NodeComment.bl_idname, text="Add", icon="ZOOM_IN").index = -1
         row.prop(self, "myBoolProperty", text="", icon="GREASEPENCIL")
 
-        col = layout.column(True)
+        col = layout.column(align=True)
 
         if self.myBoolProperty:
             for i, line in enumerate(self.myCollProperty):
-                row = col.row(True)
+                row = col.row(align=True)
                 row.prop(line, "name", text="")
-                row.operator(NodeComment.bl_idname, text="", icon="ZOOMOUT").index = i
+                row.operator(NodeComment.bl_idname, text="", icon="ZOOM_OUT").index = i
         else:
             for line in self.myCollProperty:
                 col.label(line.name)
