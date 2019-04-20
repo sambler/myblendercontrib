@@ -22,7 +22,7 @@ bl_info = {
     "name": "Dynamic Toolshelf Menu",
     "author": "meta-androcto",
     "version": (3, 0, 2),
-    "blender": (2, 7, 7),
+    "blender": (2, 77, 0),
     "location": "View3D > Spacebar Key, Dynamic Tab",
     "description": "Context Sensitive Toolshelf Menu",
     "warning": "",
@@ -96,7 +96,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             if context.gpencil_data and context.gpencil_data.use_stroke_edit_mode:
                 layout.menu("VIEW3D_MT_Edit_Gpencil2", icon='GREASEPENCIL')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
@@ -128,7 +128,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_EditCursorMenu2", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_UV_Map2", icon='MOD_UVPROJECT')
-            layout.menu("VIEW3D_MT_edit_mesh_specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_edit_mesh_context_menu", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_edit_mesh_extrude", icon='XRAY')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.modifier_add", "type", icon='MODIFIER')
@@ -234,7 +234,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.modifier_add", "type", icon='MODIFIER')
@@ -297,7 +297,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             layout.operator_menu_enum("object.modifier_add", "type", icon='MODIFIER')
             layout.operator_menu_enum("object.constraint_add", "type", text="Add Constraint", icon='CONSTRAINT')
@@ -359,7 +359,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.constraint_add", "type", text="Add Constraint", icon='CONSTRAINT')
@@ -419,7 +419,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.modifier_add", "type", icon='MODIFIER')
@@ -470,7 +470,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.constraint_add", "type", text="Add Constraint", icon='CONSTRAINT')
@@ -500,7 +500,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.constraint_add", "type", text="Add Constraint", icon='CONSTRAINT')
@@ -531,7 +531,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.constraint_add", "type", text="Add Constraint", icon='CONSTRAINT')
@@ -564,7 +564,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_MirrorMenu2", icon='MOD_MIRROR')
             layout.menu("VIEW3D_MT_CursorMenuLite2", icon='PIVOT_CURSOR')
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
-            layout.menu("VIEW3D_MT_armature_specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_armature_context_menu", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_edit_armature_roll",
                         icon='BONE_DATA')
             UseSeparator(self, context)
@@ -601,7 +601,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_pose_apply", icon='AUTO')
             layout.operator("pose.relax", icon='ARMATURE_DATA')
             layout.menu("VIEW3D_MT_KeyframeMenu2", icon='KEY_HLT')
-            layout.menu("VIEW3D_MT_pose_specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_pose_context_menu", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_pose_group", icon='GROUP_BONE')
             UseSeparator(self, context)
             layout.operator_menu_enum("pose.constraint_add", "type", text="Add Constraint", icon='CONSTRAINT_BONE')
@@ -631,7 +631,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.modifier_add", "type", icon='MODIFIER')
@@ -690,7 +690,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
             layout.menu("VIEW3D_MT_ParentMenu2", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu2", icon='GROUP')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
+            layout.menu("VIEW3D_MT_object_context_menu", text="Specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_Camera_Options2", icon='OUTLINER_OB_CAMERA')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.constraint_add", "type", text="Add Constraint", icon='CONSTRAINT')
@@ -750,7 +750,7 @@ class VIEW3D_PT_Toolshelf_menu(View3DPanel, Panel):
                                   icon="SMOOTHCURVE")
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_particle", icon='PARTICLEMODE')
-            layout.menu("VIEW3D_MT_particle_specials", text="Hair Specials", icon='HAIR')
+            layout.menu("VIEW3D_MT_particle_context_menu", text="Hair Specials", icon='HAIR')
             UseSeparator(self, context)
             layout.operator("object.delete", text="Delete Object", icon='X')
             UseSeparator(self, context)
@@ -878,26 +878,26 @@ class VIEW3D_MT_MirrorMenu2(Menu):
         layout.operator_context = 'INVOKE_REGION_WIN'
         props = layout.operator("transform.mirror", text="X Global")
         props.constraint_axis = (True, False, False)
-        props.constraint_orientation = 'GLOBAL'
+        props.orient_type = 'GLOBAL'
         props = layout.operator("transform.mirror", text="Y Global")
         props.constraint_axis = (False, True, False)
-        props.constraint_orientation = 'GLOBAL'
+        props.orient_type = 'GLOBAL'
         props = layout.operator("transform.mirror", text="Z Global")
         props.constraint_axis = (False, False, True)
-        props.constraint_orientation = 'GLOBAL'
+        props.orient_type = 'GLOBAL'
 
         if context.edit_object:
 
             UseSeparator(self, context)
             props = layout.operator("transform.mirror", text="X Local")
             props.constraint_axis = (True, False, False)
-            props.constraint_orientation = 'LOCAL'
+            props.orient_type = 'LOCAL'
             props = layout.operator("transform.mirror", text="Y Local")
             props.constraint_axis = (False, True, False)
-            props.constraint_orientation = 'LOCAL'
+            props.orient_type = 'LOCAL'
             props = layout.operator("transform.mirror", text="Z Local")
             props.constraint_axis = (False, False, True)
-            props.constraint_orientation = 'LOCAL'
+            props.orient_type = 'LOCAL'
             UseSeparator(self, context)
             layout.operator("object.vertex_group_mirror")
 
@@ -2799,7 +2799,7 @@ def edgeIntersect(context, operator):
         return
 
     point = line[0].lerp(line[1], 0.5)
-    context.scene.cursor_location = obj.matrix_world * point
+    context.scene.cursor.location = obj.matrix_world * point
 
 
 # Cursor Edge Intersection Operator #
@@ -2830,7 +2830,7 @@ class SetObjectMode2(Operator):
     bl_description = "I set the interactive mode of object"
     bl_options = {'REGISTER'}
 
-    mode = bpy.props.StringProperty(name="Interactive mode", default="OBJECT")
+    mode: bpy.props.StringProperty(name="Interactive mode", default="OBJECT")
 
     def execute(self, context):
         if (context.active_object):
@@ -2847,16 +2847,16 @@ class SetObjectMode2(Operator):
 # Origin To Selected Edit Mode #
 def vfeOrigin(context):
     try:
-        cursorPositionX = context.scene.cursor_location[0]
-        cursorPositionY = context.scene.cursor_location[1]
-        cursorPositionZ = context.scene.cursor_location[2]
+        cursorPositionX = context.scene.cursor.location[0]
+        cursorPositionY = context.scene.cursor.location[1]
+        cursorPositionZ = context.scene.cursor.location[2]
         bpy.ops.view3d.snap_cursor_to_selected()
         bpy.ops.object.mode_set()
         bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
         bpy.ops.object.mode_set(mode='EDIT')
-        context.scene.cursor_location[0] = cursorPositionX
-        context.scene.cursor_location[1] = cursorPositionY
-        context.scene.cursor_location[2] = cursorPositionZ
+        context.scene.cursor.location[0] = cursorPositionX
+        context.scene.cursor.location[1] = cursorPositionY
+        context.scene.cursor.location[2] = cursorPositionZ
         return True
     except:
         return False
@@ -2892,7 +2892,7 @@ class SnapCursSelToCenter2(Operator):
         return (context.area.type == "VIEW_3D" and context.mode == "OBJECT")
 
     def execute(self, context):
-        context.space_data.cursor_location = (0, 0, 0)
+        context.space_data.cursor.location = (0, 0, 0)
         for obj in context.selected_objects:
             obj.location = (0, 0, 0)
         return {'FINISHED'}
@@ -2902,7 +2902,7 @@ class SnapCursSelToCenter2(Operator):
 
 # Draw Separator #
 def UseSeparator(operator, context):
-    useSep = bpy.context.user_preferences.addons[__name__].preferences.use_separators
+    useSep = bpy.context.preferences.addons[__name__].preferences.use_separators
     if useSep:
         operator.layout.separator()
 
@@ -2910,7 +2910,7 @@ def UseSeparator(operator, context):
 # Use compact brushes menus #
 def UseBrushesLists():
     # separate function just for more convience
-    useLists = bpy.context.user_preferences.addons[__name__].preferences.use_brushes_lists
+    useLists = bpy.context.preferences.addons[__name__].preferences.use_brushes_lists
 
     return bool(useLists)
 
@@ -2919,14 +2919,14 @@ def UseBrushesLists():
 class VIEW3D_MT_Space_Dynamic_Menu_Pref2(bpy.types.AddonPreferences):
     bl_idname = __name__
 
-    use_separators = bpy.props.BoolProperty(
+    use_separators: bpy.props.BoolProperty(
         name="Use Separators in the menus",
         default=True,
         description=("Use separators in the menus, a trade-off between \n"
                      "readability vs. using more space for displaying items")
     )
 
-    use_brushes_lists = bpy.props.BoolProperty(
+    use_brushes_lists: bpy.props.BoolProperty(
         name="Use compact menus for brushes",
         default=False,
         description=("Use more compact menus instead  \n"
@@ -2946,12 +2946,12 @@ def update_panel(self, context):
         bpy.utils.unregister_class(VIEW3D_PT_Toolshelf_menu)
     except:
         pass
-    VIEW3D_PT_Toolshelf_menu.bl_category = context.user_preferences.addons[__name__].preferences.category
+    VIEW3D_PT_Toolshelf_menu.bl_category = context.preferences.addons[__name__].preferences.category
     bpy.utils.register_class(VIEW3D_PT_Toolshelf_menu)
 
 # Draw Separator #
 def UseSeparator(operator, context):
-    useSep = bpy.context.user_preferences.addons[__name__].preferences.use_separators
+    useSep = bpy.context.preferences.addons[__name__].preferences.use_separators
     if useSep:
         operator.layout.separator()
 
@@ -2959,7 +2959,7 @@ def UseSeparator(operator, context):
 # Use compact brushes menus #
 def UseBrushesLists():
     # separate function just for more convience
-    useLists = bpy.context.user_preferences.addons[__name__].preferences.use_brushes_lists
+    useLists = bpy.context.preferences.addons[__name__].preferences.use_brushes_lists
 
     return bool(useLists)
 
@@ -2969,20 +2969,20 @@ class ToolshelfMenuAddonPreferences(AddonPreferences):
     bl_idname = __name__
 
 
-    category = bpy.props.StringProperty(
+    category: bpy.props.StringProperty(
             name="Category",
             description="Choose a name for the category of the panel",
             default="Dynamic",
             update=update_panel)
 
-    use_separators = bpy.props.BoolProperty(
+    use_separators: bpy.props.BoolProperty(
         name="Use Separators in the menus",
         default=False,
         description=("Use separators in the menus, a trade-off between \n"
                      "readability vs. using more space for displaying items")
     )
 
-    use_brushes_lists = bpy.props.BoolProperty(
+    use_brushes_lists: bpy.props.BoolProperty(
         name="Use compact menus for brushes",
         default=True,
         description=("Use more compact menus instead  \n"

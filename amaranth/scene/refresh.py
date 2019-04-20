@@ -31,11 +31,11 @@ class AMTH_SCENE_OT_refresh(bpy.types.Operator):
     bl_label = "Refresh!"
 
     def execute(self, context):
-        get_addon = "amaranth" in context.user_preferences.addons.keys()
+        get_addon = "amaranth" in context.preferences.addons.keys()
         if not get_addon:
             return {"CANCELLED"}
 
-        preferences = context.user_preferences.addons["amaranth"].preferences
+        preferences = context.preferences.addons["amaranth"].preferences
         scene = context.scene
 
         if preferences.use_scene_refresh:
@@ -47,11 +47,11 @@ class AMTH_SCENE_OT_refresh(bpy.types.Operator):
 
 
 def button_refresh(self, context):
-    get_addon = "amaranth" in context.user_preferences.addons.keys()
+    get_addon = "amaranth" in context.preferences.addons.keys()
     if not get_addon:
         return
 
-    if context.user_preferences.addons["amaranth"].preferences.use_scene_refresh:
+    if context.preferences.addons["amaranth"].preferences.use_scene_refresh:
         self.layout.separator()
         self.layout.operator(AMTH_SCENE_OT_refresh.bl_idname,
                              text="Refresh!",
@@ -60,7 +60,7 @@ def button_refresh(self, context):
 
 def register():
     bpy.utils.register_class(AMTH_SCENE_OT_refresh)
-    bpy.types.VIEW3D_MT_object_specials.append(button_refresh)
+    bpy.types.VIEW3D_MT_object_context_menu.append(button_refresh)
     kc = bpy.context.window_manager.keyconfigs.addon
     km = kc.keymaps.new(name="Window")
     kmi = km.keymap_items.new("scene.refresh", "F5", "PRESS",
@@ -70,7 +70,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(AMTH_SCENE_OT_refresh)
-    bpy.types.VIEW3D_MT_object_specials.remove(button_refresh)
+    bpy.types.VIEW3D_MT_object_context_menu.remove(button_refresh)
     for km, kmi in KEYMAPS:
         km.keymap_items.remove(kmi)
     KEYMAPS.clear()
