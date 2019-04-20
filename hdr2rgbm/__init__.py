@@ -1,8 +1,8 @@
 bl_info = {
     "name": "HDR 2 RGBM",
-    "author": "Yusuf Umar",
+    "author": "Yusuf Umar, Henrik Melsom",
     "version": (0, 0, 0),
-    "blender": (2, 74, 0),
+    "blender": (2, 80, 0),
     "location": "Anywhere",
     "description": "Encode (and decode) HDR image into RGBM format",
     "wiki_url": "http://twitter.com/ucupumar",
@@ -21,7 +21,7 @@ def saturate(num, floats=True):
     return num 
 
 class EncodeToRGBM(bpy.types.Operator):
-    """Nice Useful Tooltip"""
+    """Encodes the currently viewed HDR image to RGBM format"""
     bl_idname = "image.encode_to_rgbm"
     bl_label = "Encode HDR to RGBM"
     bl_description = "Encode HDR/float image to RGBM format. Create new image with '_RGBM.png' prefix"
@@ -80,12 +80,12 @@ def draw(self, context):
     row.operator("image.encode_to_rgbm")
 
 def register():
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(EncodeToRGBM)
     bpy.types.IMAGE_PT_image_properties.append(draw)
 
 def unregister():
     bpy.types.IMAGE_PT_image_properties.remove(draw)
-    bpy.utils.unregister_module(__name__)
+    bpy.utils.unregister_class(EncodeToRGBM)
 
 
 @persistent

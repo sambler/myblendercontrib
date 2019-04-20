@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -44,6 +44,7 @@ translations = {
         ("*", "Action pairings:"): "Acción de emparejamiento",
         ("*", "Events"): "Eventos",
         ("*", "Time+Volume"): "Tiempo y Volumen",
+        ("*", "Volume Type"): "Tipo de volumen",
         ("*", "Road"): "Camino",
         ("*", "Bidirectional"): "Bidireccional",
         ("Operator", "Breadth First Search To Direct Edges"): "Primera búsqueda de aplitud para Direccionar Bordes",
@@ -71,7 +72,7 @@ translations = {
         ("*", "Days"): "Días",
         ("*", "Hours"): "Horas",
         ("*", "Minutes"): "Minutos",
-        ("Operator", "Check now for crowdmaster update"): "Comprobar para Actualizar CrowdMaster",
+        ("Operator", "Check now for crowdmaster update"): "Comprobar ahora para Actualizar CrowdMaster",
         ("Operator", "Install latest develop / old version"): "Instalar versión de desarrollo / Versión anterior",
         ("Operator", "Restore addon backup (none found)"): "Restaurar Resguardo del Addon (No encontrado)",
         ("Operator", "Run Short Tests"): "Ejecutar Tests Cortos",
@@ -89,18 +90,23 @@ translations = {
         ("*", "Random Material"): "Material Aleatorio",
         ("*", "Set Tag"): "Configurar Tag",
         ("*", "Positioning"): "Posicionamiento",
+        ("*", "Positioning Modifier"): "Modificador de posición",
+        ("*", "Template Modifier"): "Modelo de modificador",
+        ("*", "Mesh Positioning"): "Posicionamiento de la malla",
+        ("*", "Vertex Colors Positioning"): "Posicionamiento de vértice por color",
+        ("*", "Path Positioning"): "ruta de la posición",
         ("*", "Formation"): "Formación",
         ("*", "Ground"): "Terreno",
         # simulation
         ("*", "Print"): "Impresión",
         ("*", "Graph"): "Gráfico",
-        ("*", "Map"): "Mapeado",
         ("*", "Logic"): "Lógica",
-        ("*", "Strong"): "Fuerte",
-        ("*", "Weak"): "Débil",
         # Node props
         # simulation
-        ("*", "Agent Info"): "Información del Agente",
+        ("*", "Other Agent Info"): "Info de otro agente",
+        ("*", "Agent State"): "Estado de agente",
+        ("*", "Control"): "Control",
+        ("*", "Elapsed"): "Tiempo transcurrido",
         ("*", "Agent Info Options"): "Opciones de Información del Agente",
         ("*", "Get Tag Name"): "Obtener Nombre de etiqueta",
         ("*", "Get Tag"): "Obtener Etiqueta",
@@ -131,6 +137,7 @@ translations = {
         ("*", "Shape Key Name"): "Forma nombre de clave",
         ("*", "Multi Input Type"): "Tipo de Entrada Múltiple",
         ("*", "Save To File"): "Guardar en Archivo",
+        ("*", "Show Current Frame"): "Mostrar frame actual",
         ("*", "Output Filepath"): "Salida de Ruta de Archivo",
         ("*", "Lower Input"): "Entrada mas Baja",
         ("*", "Upper Input"): "Entrada mas Alta",
@@ -139,21 +146,20 @@ translations = {
         ("*", "Single Output"): "Salida Simple",
         ("*", "Include All"): "Incluir Todo",
         ("*", "State Length"): "Tamaño de Estado",
-        ("*", "Cycle State"): "EStado del Ciclo",
+        ("*", "Cycle State"): "Estado del Ciclo",
         ("*", "Action Name"): "Nombre de la Acción",
         ("*", "Interupt State"): "Estado de Interrupción",
         ("*", "Sync State"): "Estado Síncrono",
         ("*", "Random wait time:"): "Espera de Tiempo Aleatorio",
-        ("*", "Not equal"): "No es Igual",
-        ("*", "Less than"): "Menos que",
-        ("*", "Greater than"): "Mas grande que",
-        ("*", "Least only"): "Sólo menos",
-        ("*", "Most only"): "Sólo la Mayoría",
+        ("*", "Not Equal"): "No es Igual",
+        ("*", "Less Than"): "Menos que",
+        ("*", "Greater Than"): "Mas grande que",
+        ("*", "Least Only"): "Sólo menos",
+        ("*", "Most Only"): "Sólo la Mayoría",
         ("*", "Set To"): "Configurado a",
         ("*", "Tag Name"): "Nombre de Etiqueta",
         ("*", "Use Threshold"): "Usar Límite",
         ("*", "Note Text"): "Texto de nota",
-        ("Operator", "Grab Text From Clipboard"): "Agarrar Texto de ClipBoard",
         ("*", "Rotation Axis"): "Eje de Rotación",
         ("*", "Formation Options"): "Opciones de Formación",
         ("*", "Ground Ahead Offset"): "Encabezado de Desplazamiento",
@@ -168,7 +174,6 @@ translations = {
         ("*", "Target Options"): "Opciones del Objetivo",
         ("*", "Arrived"): "Lllegada",
         ("*", "Event Name"): "Nombre de Evento",
-        ("*", "Size Average"): "Tamaño Promedio",
         ("*", "Sum"): "Suma",
         ("*", "Lower Zero"): "Cero Bajo",
         ("*", "Lower One"): "único Bajo",
@@ -219,12 +224,10 @@ translations = {
 
 
 def register():
-    # Register translations
     bpy.app.translations.register(__name__, translations)
 
 
 def unregister():
-    # Unregister translations
     bpy.app.translations.unregister(__name__)
 
 

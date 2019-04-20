@@ -55,8 +55,6 @@ def vert_neighbors(bmvert):
     return neighbors
 
 
-
-
 #https://blender.stackexchange.com/questions/92406/circular-order-of-edges-around-vertex
 # Return edges around param vertex in counter-clockwise order
 def connectedEdgesFromVertex_CCW(vertex):
@@ -234,9 +232,7 @@ def flood_island_within_selected_verts(bme, selected_verts, seed_element, max_it
         print('max iterations reached') 
            
     return flood_selection
-    
-    
-    
+       
 def flood_selection_vertex_perimeter(bme, perimeter_verts, seed_element, max_iters = 10000):
     '''
     bme - bmesh
@@ -385,13 +381,7 @@ def flood_selection_edge_loop(bme, edge_loop, seed_face, max_iters = 1000):
         
     total_selection = set()
     total_selection.add(seed_face)
-    
-    #face_levy = set()
-    #for e in edge_loop:
-    #    face_levy.update([f for f in e.link_faces])  #it's funny because it stops the flood :-)
-
-    
-    
+        
     new_faces = set(face_neighbors_by_edge(seed_face)) #- face_levy
     iters = 0
     while iters < max_iters and new_faces:
@@ -416,6 +406,55 @@ def flood_selection_edge_loop(bme, edge_loop, seed_face, max_iters = 1000):
         
 
     return total_selection
+
+def grow_selection(bme, start_faces, max_iters = 1000):
+    '''
+    a simple "select more" if oyu pass None for stop_face and
+    max_iters = number of times to select more
+    
+    args:
+        bme - BMesh
+        start_faces = List or Set of BMFaces
+        max_iters = Int, number of times to select more
+        
+    return
+        set(BMFaces)
+    '''
+
+    print('there are %i start_faces' % len(start_faces))
+    if isinstance(start_faces, list):
+        total_selection = set(start_faces)
+        new_faces = set()
+        for f in start_faces:
+            new_faces.update(face_neighbors_by_vert(f))
+    
+        print('there are %i new_faces' % len(new_faces))
+        
+    elif isinstance(start_faces, set):
+        total_selection = set()
+        total_selection.update(start_faces)
+        
+        new_faces = set()
+        for f in start_faces:
+            new_faces.update(face_neighbors_by_vert(f))
+    
+        print('there are %i new_faces' % len(new_faces))
+    
+    iters = 0
+    while iters < max_iters and len(new_faces):
+        iters += 1
+        candidates = set()
+        for f in new_faces:
+            candidates.update(face_neighbors(f))
+        
+        new_faces = candidates - total_selection   
+        if new_faces:
+            total_selection |= new_faces
+             
+    if iters == max_iters:
+        print('max iterations reached')
+            
+    return total_selection 
 
 def grow_selection_to_find_face(bme, start_face, stop_face, max_iters = 1000):
     '''

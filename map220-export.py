@@ -1,7 +1,7 @@
 bl_info = {
     "name": "MAP 220 Geometry Export",
     "author": "nemyax",
-    "version": (0, 1, 20180714),
+    "version": (0, 2, 20190214),
     "blender": (2, 7, 9),
     "location": "File > Import-Export",
     "description": "Export Half-Life map editor brushes based on scene geometry",
@@ -53,7 +53,7 @@ def tex_vecs_from_pts(a3d, b3d, c3d, a2d, b2d, c2d, x_res, y_res):
     mtx = mtx_texplane_to_final * mtx_3dtri_to_texplane
     return mtx[0], -mtx[1]
 
-def do_tri(tri, uv, pattern, tx_lookup):
+def do_tri(tri, uv, pattern, tx_lookup, thickness):
     item = "{\n"
     tx_name, x_res, y_res = tx_lookup[tri.material_index]
     la, lb, lc = tri.loops
@@ -63,20 +63,12 @@ def do_tri(tri, uv, pattern, tx_lookup):
     ax, ay, az = a3d
     bx, by, bz = b3d
     cx, cy, cz = c3d
-    fl_z_vec = tri.normal * 16
+    fl_z_vec = tri.normal * thickness
     apex = fl_z_vec + mu.Vector((
         (ax + bx + cx) * 0.333333,
         (ay + by + cy) * 0.333333,
         (az + bz + cz) * 0.333333))
-    sa = a3d + fl_z_vec
-    sa += ((apex - sa) * 0.75)
-    sb = b3d + fl_z_vec
-    sb += ((apex - sb) * 0.75)
-    sc = c3d + fl_z_vec
-    sc += ((apex - sc) * 0.75)
-    sax, say, saz = [round(i, 3) for i in sa]
-    sbx, sby, sbz = [round(i, 3) for i in sb]
-    scx, scy, scz = [round(i, 3) for i in sc]
+    dx, dy, dz = [round(i, 3) for i in apex]
     a2d = la[uv].uv
     b2d = lb[uv].uv
     c2d = lc[uv].uv
@@ -94,15 +86,11 @@ def do_tri(tri, uv, pattern, tx_lookup):
         "NULL",
         -vec0[0], -vec0[1], -vec0[2], -vec0[3],
         vec1[0], vec1[1], vec1[2], vec1[3])
-    item += coords.format(bx, by, bz, ax, ay, az, sax, say, saz)
+    item += coords.format(bx, by, bz, ax, ay, az, dx, dy, dz)
     item += fluff
-    item += coords.format(ax, ay, az, cx, cy, cz, sax, say, saz)
+    item += coords.format(ax, ay, az, cx, cy, cz, dx, dy, dz)
     item += fluff
-    item += coords.format(sax, say, saz, scx, scy, scz, sbx, sby, sbz)
-    item += fluff
-    item += coords.format(cx, cy, cz, bx, by, bz, sbx, sby, sbz)
-    item += fluff
-    item += coords.format(cx, cy, cz, bx, by, bz, sbx, sby, sbz)
+    item += coords.format(cx, cy, cz, bx, by, bz, dx, dy, dz)
     item += fluff
     item += "}\n"
     return item
@@ -112,7 +100,7 @@ def append_text(file_path, text):
     fh.write(text)
     fh.close()
 
-def do_tris(bm, file_path, tx_lookup):
+def do_tris(bm, file_path, tx_lookup, thickness):
     num_tris = len(bm.faces)
     uv = bm.loops.layers.uv.verify()
     pattern = "( {:5f} {:5f} {:5f} ) " * 3 + \
@@ -121,7 +109,7 @@ def do_tris(bm, file_path, tx_lookup):
     queued = ""
     num_done = 0
     for f in bm.faces:
-        queued += do_tri(f, uv, pattern, tx_lookup)
+        queued += do_tri(f, uv, pattern, tx_lookup, thickness)
         num_done += 1
         if (num_done % 500) == 0:
             append_text(file_path, queued)
@@ -203,16 +191,20 @@ def prep_combined_mesh(objs):
         matrices.append(o.matrix_world)
     return combine_meshes(bms, matrices), modify_lookup(mat_lookup, dummy_idx)
 
-def export_mesh(bm, file_path, tx_lookup):
+def export_mesh(bm, file_path, tx_lookup, options):
+    map_start = "{\n"
+    map_start += "\"classname\" \"worldspawn\"\n"
+    map_start += "\"mapversion\" \"220\"\n"
+    map_start += "\"_generator\" \"Blender (MAP exporter by nemyax)\"\n"
+    map_end = "}\n"
+    if options['detail']:
+        map_start += "}\n{\n"
+        map_start += "\"classname\" \"func_detail\"\n"
     fh = open(file_path, 'w')
-    fh.write("""{
-"classname" "worldspawn"
-"mapversion" "220"
-"_generator" "Blender (MAP exporter by nemyax)"
-""")
+    fh.write(map_start)
     fh.close()
-    do_tris(bm, file_path, tx_lookup)
-    append_text(file_path, "}\n")
+    do_tris(bm, file_path, tx_lookup, options['thickness'])
+    append_text(file_path, map_end)
 
 def do_export(file_path, options):
     if options['vis_layers']:
@@ -231,7 +223,7 @@ def do_export(file_path, options):
         bpy.ops.object.mode_set()
     bm, tx_lookup = prep_combined_mesh(objs)
     bm.transform(mu.Matrix.Scale(options['scale'], 4))
-    export_mesh(bm, file_path, tx_lookup)
+    export_mesh(bm, file_path, tx_lookup, options)
     bm.free()
     if was_in_edit_mode:
         bpy.ops.object.mode_set(mode='EDIT')
@@ -251,18 +243,32 @@ class ExportMap220(bpy.types.Operator, ExportHelper):
     path_mode = path_reference_mode
     check_extension = True
     path_mode = path_reference_mode
-    vis_layers = BoolProperty(
-        name="Export only from visible layers",
-        default=True,
-        description="Objects on hidden layers will be ignored")
     scale = FloatProperty(
         name="Scale",
         default=1.0,
         max=10000.0,
         min=1.0,
         description="Scale all data")
+    thickness = FloatProperty(
+        name="Brush thickness",
+        default=4.0,
+        max=32.0,
+        min=1.0,
+        description="Create brushes that are this many units thick")
+    vis_layers = BoolProperty(
+        name="Export only from visible layers",
+        default=True,
+        description="Objects on hidden layers will be ignored")
+    detail = BoolProperty(
+        name="Wrap in func_detail",
+        default=True,
+        description="Good for making prefabs")
     def execute(self, context):
-        options = {'vis_layers':self.vis_layers,'scale':self.scale}
+        options = {
+            'vis_layers':self.vis_layers,
+            'scale'     :self.scale,
+            'detail'    :self.detail,
+            'thickness' :self.thickness}
         msg, result = do_export(self.filepath, options)
         if result == {'CANCELLED'}:
             self.report({'ERROR'}, msg)

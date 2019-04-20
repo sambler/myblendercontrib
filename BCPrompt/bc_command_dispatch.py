@@ -75,7 +75,7 @@ permitted for scrollabck are : INPUT OUTPUT INFO ERROR
 
 
 history_append = bpy.ops.console.history_append
-addon_enable = bpy.ops.wm.addon_enable
+addon_enable = bpy.ops.preferences.addon_enable
 
 
 # this to be used for addons which are definitely present..
@@ -331,7 +331,7 @@ def in_core_dev_commands(context, m):
 
     elif m == 'ico':
         try:
-            bpy.ops.wm.addon_enable(module="development_icon_get")
+            addon_enable(module="development_icon_get")
             add_scrollback('added icons to TextEditor', 'OUTPUT')
         except:
             self.report({'INFO'}, "ico addon not present!")
@@ -535,7 +535,7 @@ def in_modeling_tools(context, m):
 
     elif m.startswith('enable '):
         command, addon = m.split()
-        t = bpy.ops.wm.addon_enable(module=addon)
+        t = addon_enable(module=addon)
         if t == {'FINISHED'}:
             msg = 'enabled {0}'.format(addon)
         elif t == {'CANCELLED'}:

@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -114,10 +114,11 @@ class Channel:
         """Collect data and use clusterMatch to work out pairings"""
         objs = bpy.data.objects
 
-        def agAccess(x): return (objs[x].location.x, objs[x].location.y,
-                                 objs[x].location.z)
+        def agAccess(x):
+            return (objs[x].location.x, objs[x].location.y, objs[x].location.z)
 
-        def tgAccess(x): return (x.x, x.y, x.z)
+        def tgAccess(x):
+            return (x.x, x.y, x.z)
         setOfTargets = set([tgAccess(x) for x in self.targets])
         if self.lastCalcd:
             # TODO if the same agents are inputed the same result as last time

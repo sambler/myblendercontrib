@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  Commotion motion graphics add-on for Blender.
-#  Copyright (C) 2014-2018  Mikhail Rachinskiy
+#  Copyright (C) 2014-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -22,9 +22,9 @@
 bl_info = {
     "name": "Commotion",
     "author": "Mikhail Rachinskiy",
-    "version": (1, 7, 2),
-    "blender": (2, 77, 0),
-    "location": "3D View > Tool Shelf",
+    "version": (2, 0, 0),
+    "blender": (2, 80, 0),
+    "location": "3D View > Sidebar",
     "description": "Animation offset tools for motion graphics.",
     "wiki_url": "https://github.com/mrachinskiy/commotion#readme",
     "tracker_url": "https://github.com/mrachinskiy/commotion/issues",
@@ -36,76 +36,77 @@ if "bpy" in locals():
     import os
     import importlib
 
-    for entry in os.scandir(os.path.dirname(__file__)):
+    for entry in os.scandir(var.ADDON_DIR):
 
         if entry.is_file() and entry.name.endswith(".py") and not entry.name.startswith("__"):
             module = os.path.splitext(entry.name)[0]
             importlib.reload(eval(module))
 
-        elif entry.is_dir() and not entry.name.startswith((".", "__")) and not entry.name.endswith("updater"):
+        elif entry.is_dir() and not entry.name.startswith((".", "__")):
 
             for subentry in os.scandir(entry.path):
-
-                if subentry.name.endswith(".py"):
-                    module = "{}.{}".format(entry.name, os.path.splitext(subentry.name)[0])
+                if subentry.is_file() and subentry.name.endswith(".py"):
+                    if subentry.name == "__init__.py":
+                        module = os.path.splitext(entry.name)[0]
+                    else:
+                        module = entry.name + "." + os.path.splitext(subentry.name)[0]
                     importlib.reload(eval(module))
 else:
     import bpy
     from bpy.props import PointerProperty, CollectionProperty
+
     from . import (
+        var,
+        preferences,
+        lib,
         proxy_effector,
-        settings,
-        ui,
+        op_offset,
         ops_anim,
         ops_proxy,
         ops_shapekey,
-        ops_slow_parent,
-        ops_utils,
-        addon_updater_ops,
+        ui,
+        mod_update,
     )
-    from .op_offset import offset_op
 
+
+var.UPDATE_CURRENT_VERSION = bl_info["version"]
 
 classes = (
-    settings.CommotionShapeKeyCollection,
-    settings.CommotionPreferences,
-    settings.CommotionPropertiesScene,
-    settings.CommotionPropertiesWm,
+    preferences.CommotionShapeKeyCollection,
+    preferences.CommotionPreferences,
+    preferences.CommotionPropertiesScene,
+    preferences.CommotionPropertiesWm,
     ui.VIEW3D_PT_commotion_update,
-    ui.VIEW3D_PT_commotion_shape_keys,
     ui.VIEW3D_PT_commotion_animation_offset,
-    ui.VIEW3D_PT_commotion_slow_parent,
+    ui.VIEW3D_PT_commotion_animation_utils,
+    ui.VIEW3D_PT_commotion_shape_keys,
     ui.VIEW3D_PT_commotion_proxy_effector,
-    offset_op.ANIM_OT_commotion_animation_offset,
+    op_offset.ANIM_OT_commotion_animation_offset,
     ops_shapekey.OBJECT_OT_commotion_sk_coll_refresh,
     ops_shapekey.OBJECT_OT_commotion_sk_interpolation_set,
-    ops_shapekey.ANIM_OT_commotion_sk_auto_keyframes,
+    ops_shapekey.ANIM_OT_commotion_sk_generate_keyframes,
     ops_anim.ANIM_OT_commotion_animation_copy,
     ops_anim.ANIM_OT_commotion_animation_link,
     ops_anim.ANIM_OT_commotion_animation_convert,
     ops_proxy.ANIM_OT_commotion_bake,
     ops_proxy.ANIM_OT_commotion_bake_remove,
-    ops_slow_parent.OBJECT_OT_commotion_slow_parent_offset,
-    ops_slow_parent.OBJECT_OT_commotion_slow_parent_toggle,
-    ops_utils.OBJECT_OT_commotion_preset_apply,
-    ops_utils.OBJECT_OT_commotion_add_to_group_animated,
-    ops_utils.OBJECT_OT_commotion_add_to_group_effector,
+    mod_update.WM_OT_commotion_update_check,
+    mod_update.WM_OT_commotion_update_download,
+    mod_update.WM_OT_commotion_update_whats_new,
 )
 
 
 def register():
-    addon_updater_ops.register(bl_info)
-
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Scene.commotion = PointerProperty(type=settings.CommotionPropertiesScene)
-    bpy.types.WindowManager.commotion = PointerProperty(type=settings.CommotionPropertiesWm)
+    bpy.types.Scene.commotion = PointerProperty(type=preferences.CommotionPropertiesScene)
+    bpy.types.WindowManager.commotion = PointerProperty(type=preferences.CommotionPropertiesWm)
+
+    mod_update.update_init_check()
 
 
 def unregister():
-    addon_updater_ops.unregister()
-
     for cls in classes:
         bpy.utils.unregister_class(cls)
 

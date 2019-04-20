@@ -5,11 +5,14 @@ all_bones = hand_l = hand_r = arm_l = arm_r = leg_l = leg_r = foot_l = foot_r = 
 
 ########### UI Controls
 
-class BlenRig_5_Interface(bpy.types.Panel):
+class BLENRIG_PT_BlenRig_5_Interface(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
+    bl_region_type = 'UI'
     bl_label = 'BlenRig 5 Controls'
     bl_category = "BlenRig 5"
+    
+    
+    
     
     @classmethod
     def poll(cls, context):
@@ -48,7 +51,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
             if not all_bones:
                 all_bones = []
                 for bone in armobj.pose.bones:
-                     all_bones.append(bone.name)
+                    all_bones.append(bone.name)
 
                 hand_l=[]
                 for bone in all_bones[:]:
@@ -115,22 +118,22 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col = layout.column(align=1)
                     row = col.row()
                     row.alignment = 'CENTER'                                        
-                    row.label("Armature needs Update!")    
+                    row.label(text="Armature needs Update!")    
                     row = col.row()
                     row.alignment = 'CENTER'                      
-                    row.label("Current Ver. " + str(arm['rig_version']))   
+                    row.label(text="Current Ver. " + str(arm['rig_version']))   
                     row = col.row()
                     row.alignment = 'CENTER'                     
-                    row.label("Update to Ver. 1.005")         
+                    row.label(text="Update to Ver. 1.005")         
                     row = col.row()
                     row.alignment = 'CENTER'                                       
-                    row.label('Backup the file!')
+                    row.label(text='Backup the file!')
                     row = col.row(align=1)
                     row.alignment = 'CENTER'                    
                     row.operator("blenrig5.biped_updater", text="UPDATE ", icon = "ERROR", emboss = 1)
                     row = col.row()
                     row.alignment = 'CENTER'    
-                    row.label('(To skip update, edit rig_version property in Armature Data)')                    
+                    row.label(text='(To skip update, edit rig_version property in Armature Data)')                    
                                         
                 
 
@@ -229,7 +232,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
 
                 col3 = box.row()
                 col3.alignment = 'LEFT'
-                col3.prop(armobj, "show_x_ray")
+                col3.prop(armobj, "show_in_front")
                 box.separator()
                          
                 # collapsed box
@@ -283,31 +286,31 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         row_label.scale_x = 1
                         row_label.scale_y = 1    
                         row_label.alignment = 'LEFT'                
-                        row_label.label("Free")
+                        row_label.label(text="Free")
                         
                         row_label = row_look_title.row(align = 1)
                         row_label.scale_x = 1
                         row_label.scale_y = 1    
                         row_label.alignment = 'CENTER'            
-                        row_label.label("Body")
+                        row_label.label(text="Body")
                         
                         row_label = row_look_title.row(align = 1)
                         row_label.scale_x = 1
                         row_label.scale_y = 1    
                         row_label.alignment = 'CENTER'            
-                        row_label.label("Torso")         
+                        row_label.label(text="Torso")         
                         
                         row_label = row_look_title.column(align = 1)  
                         row_label.scale_x = 1
                         row_label.scale_y = 1            
                         row_label.alignment = 'RIGHT'              
-                        row_label.label("Head")
+                        row_label.label(text="Head")
                       
                         row_look = box_body.row()
                         row_look.scale_x = 1
                         row_look.scale_y = 1
                         row_look.alignment = 'CENTER'           
-                        row_look.prop(arm_bones['properties_head'], 'look_switch', "Eyes Target", slider=True)
+                        row_look.prop(arm_bones['properties_head'], 'look_switch', text="Eyes Target", slider=True)
 
                         col_space = box_body.column()  
                         col_space.scale_x = 1
@@ -328,8 +331,8 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_toon.scale_x = 0.5
                     col_toon.scale_y = 0.5   
                     col_toon.alignment = 'CENTER'         
-                    col_toon.operator("operator.head_stretch", text="", icon = "SPACE2", emboss = 0) 
-                    col_toon.operator("operator.head_toon", text="", icon = "SPACE3", emboss = 0) 
+                    col_toon.operator("operator.head_stretch", text="", icon = "KEYFRAME_HLT", emboss = 0) 
+                    col_toon.operator("operator.head_toon", text="", icon = "KEYFRAME", emboss = 0) 
                     
                     row_head_main = col_head_main.row(align = 1)    
                     row_head_main.alignment = 'CENTER'   
@@ -338,10 +341,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_1.scale_x = 0.5
                     col_1.scale_y = 0.5   
                     col_1.alignment = 'CENTER'   
-                    col_1.operator("operator.head_top_ctrl", text="", icon = "SPACE2", emboss = 0) 
-                    col_1.operator("operator.head_mid_ctrl", text="", icon = "SPACE2", emboss = 0)  
-                    col_1.operator("operator.head_mid_curve", text="", icon = "SPACE2", emboss = 0) 
-                    col_1.operator("operator.mouth_str_ctrl", text="", icon = "SPACE2", emboss = 0)                   
+                    col_1.operator("operator.head_top_ctrl", text="", icon = "KEYFRAME_HLT", emboss = 0) 
+                    col_1.operator("operator.head_mid_ctrl", text="", icon = "KEYFRAME_HLT", emboss = 0)  
+                    col_1.operator("operator.head_mid_curve", text="", icon = "KEYFRAME_HLT", emboss = 0) 
+                    col_1.operator("operator.mouth_str_ctrl", text="", icon = "KEYFRAME_HLT", emboss = 0)                   
                         
                     col_2 = row_head_main.column(align = 1)    
                     col_2.scale_x = 1
@@ -354,26 +357,27 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     row_eyes.alignment = 'CENTER'                  
                     box_eyes = row_eyes.box()     
                         
-                    row = box_eyes.row() 
+                    row = box_eyes.row()
+                    row = box_eyes.row()
                     row.alignment = 'CENTER'
 
                     col_eye_R = row.column() 
-                    col_eye_R.scale_x = 0.75
-                    col_eye_R.scale_y = 0.75   
+                    col_eye_R.scale_x = 1
+                    col_eye_R.scale_y = 1   
                     col_eye_R.alignment = 'CENTER'    
-                    col_eye_R.operator("operator.look_r", text="", icon="RESTRICT_VIEW_OFF") 
+                    col_eye_R.operator("operator.look_r", text="", icon="HIDE_OFF") 
 
                     col_look = row.column() 
-                    col_look.scale_x = 0.5
-                    col_look.scale_y = 1
+                    col_look.scale_x = 0.7
+                    col_look.scale_y = 1.6
                     col_look.alignment = 'CENTER'
                     col_look.operator("operator.look", text="") 
 
                     col_eye_L = row.column() 
-                    col_eye_L.scale_x = 0.75
-                    col_eye_L.scale_y = 0.75             
+                    col_eye_L.scale_x = 1
+                    col_eye_L.scale_y = 1             
                     col_eye_L.alignment = 'CENTER'
-                    col_eye_L.operator("operator.look_l", text="", icon="RESTRICT_VIEW_OFF")  
+                    col_eye_L.operator("operator.look_l", text="", icon="HIDE_OFF")  
                     
                     col_fk = col_2.row(align = 1)   
                     col_fk.scale_x = 1.1
@@ -391,15 +395,15 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_toon.scale_x = 1
                     col_toon.scale_y = 0.15
                     col_toon.alignment = 'CENTER'           
-                    col_toon.operator("operator.neck_4_toon", text="", icon = "SPACE2", emboss = 0)  
+                    col_toon.operator("operator.neck_4_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                                           
                     col_3 = row_head_main.column()     
                     col_3.scale_x = 0.5
                     col_3.scale_y = 0.5   
                     col_3.alignment = 'CENTER'   
-                    col_3.operator("operator.face_toon_up", text="", icon = "SPACE3", emboss = 0) 
-                    col_3.operator("operator.face_toon_mid", text="", icon = "SPACE3", emboss = 0)  
-                    col_3.operator("operator.face_toon_low", text="", icon = "SPACE3", emboss = 0)          
+                    col_3.operator("operator.face_toon_up", text="", icon = "KEYFRAME", emboss = 0) 
+                    col_3.operator("operator.face_toon_mid", text="", icon = "KEYFRAME", emboss = 0)  
+                    col_3.operator("operator.face_toon_low", text="", icon = "KEYFRAME", emboss = 0)          
                           
                     # Neck
                       
@@ -423,7 +427,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_toon_2.scale_x = 1
                     col_toon_2.scale_y = 0.15
                     col_toon_2.alignment = 'CENTER'          
-                    col_toon_2.operator("operator.neck_3_toon", text="", icon = "SPACE2", emboss = 0)   
+                    col_toon_2.operator("operator.neck_3_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                     
                     row_neck_2 = col_neck_fk.row(align = 1)   
                     row_neck_2.scale_x = 1
@@ -435,7 +439,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_toon_3.scale_x = 1
                     col_toon_3.scale_y = 0.15
                     col_toon_3.alignment = 'CENTER'          
-                    col_toon_3.operator("operator.neck_2_toon", text="", icon = "SPACE2", emboss = 0)     
+                    col_toon_3.operator("operator.neck_2_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)     
                     
                     row_neck_3 = col_neck_fk.row(align = 1)   
                     row_neck_3.scale_x = 1
@@ -467,16 +471,16 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_toon.scale_x = 0.25
                     col_toon.scale_y = 0.75
                     col_toon.alignment = 'CENTER'           
-                    col_toon.operator("operator.clavi_toon_r", text = "", icon = "SPACE2", emboss = 0)
+                    col_toon.operator("operator.clavi_toon_r", text = "", icon = "KEYFRAME_HLT", emboss = 0)
                     
                     col_ik = row_shoulder_R.column(align = 1)
-                    col_ik.scale_x = 0.75
-                    col_ik.scale_y = 0.75
+                    col_ik.scale_x = 0.8
+                    col_ik.scale_y = 0.8
                     col_ik.alignment = 'CENTER'         
                     col_ik.operator("operator.shoulder_rot_r", text="IK")         
                     
                     col_fk = row_shoulder_R.column(align = 1)
-                    col_fk.scale_x = 1
+                    col_fk.scale_x = 1.2
                     col_fk.scale_y = 0.75
                     col_fk.alignment = 'CENTER'         
                     col_fk.operator("operator.shoulder_r", text="Shldr FK")
@@ -485,7 +489,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     row_neck_scale.scale_x = 1
                     row_neck_scale.scale_y = 0.75
                     row_neck_scale.alignment = 'CENTER' 
-                    row_neck_scale.operator("operator.head_scale", text = "", icon = "MAN_SCALE", emboss = 1)           
+                    row_neck_scale.operator("operator.head_scale", text = "", icon = "UV_SYNC_SELECT", emboss = 1)           
 
                     row_shoulder_L = col_2.row(align = 1)  
                     row_shoulder_L.scale_x = 1
@@ -493,14 +497,14 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     row_shoulder_L.alignment = 'CENTER' 
                           
                     col_fk = row_shoulder_L.column(align = 1)
-                    col_fk.scale_x = 1
+                    col_fk.scale_x = 1.2
                     col_fk.scale_y = 0.75
                     col_fk.alignment = 'CENTER'         
                     col_fk.operator("operator.shoulder_l", text="Shldr FK")
                     
                     col_ik = row_shoulder_L.column(align = 1)
-                    col_ik.scale_x = 0.75
-                    col_ik.scale_y = 0.75
+                    col_ik.scale_x = 0.8
+                    col_ik.scale_y = 0.8
                     col_ik.alignment = 'CENTER'         
                     col_ik.operator("operator.shoulder_rot_l", text="IK")
                     
@@ -508,7 +512,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_toon.scale_x = 0.25
                     col_toon.scale_y = 0.75
                     col_toon.alignment = 'CENTER'           
-                    col_toon.operator("operator.clavi_toon_l", text="", icon = "SPACE2", emboss = 0)          
+                    col_toon.operator("operator.clavi_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)          
                     
                     # Arm R
                     if arm['rig_type'] == "Biped":                  
@@ -531,14 +535,14 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_toon_R.separator()            
                         col_arm_toon_R.separator()         
                         col_arm_toon_R.separator()               
-                        col_arm_toon_R.operator("operator.arm_toon_r", text="", icon = "SPACE2", emboss = 0)     
+                        col_arm_toon_R.operator("operator.arm_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)     
                         col_arm_toon_R.separator()  
                         col_arm_toon_R.separator()              
-                        col_arm_toon_R.operator("operator.elbow_pole_r", text="", icon = "INLINK", emboss = 0)                 
+                        col_arm_toon_R.operator("operator.elbow_pole_r", text="", icon = "PROP_ON", emboss = 0)                 
                         col_arm_toon_R.separator()         
                         col_arm_toon_R.separator()        
                         col_arm_toon_R.separator()    
-                        col_arm_toon_R.operator("operator.forearm_toon_r", text="", icon = "SPACE2", emboss = 0)               
+                        col_arm_toon_R.operator("operator.forearm_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)               
                         
                         col_arm_main_R = col_arm_R.column(align = 1)
                         col_arm_main_R.scale_x = 1.2
@@ -549,7 +553,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_scale_R.scale_x = 1.2
                         col_arm_scale_R.scale_y = 1
                         col_arm_scale_R.alignment = 'CENTER'   
-                        col_arm_scale_R.operator("operator.arm_scale_r", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_arm_scale_R.operator("operator.arm_scale_r", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_arm_fk_R = col_arm_main_R.row(align = 1)
                         col_arm_fk_R.scale_x = 1
@@ -567,7 +571,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_elbow_toon_R.scale_x = 1
                         col_elbow_toon_R.scale_y = 0.25
                         col_elbow_toon_R.alignment = 'CENTER'            
-                        col_elbow_toon_R.operator("operator.elbow_toon_r", text="", icon = "SPACE2", emboss = 0)    
+                        col_elbow_toon_R.operator("operator.elbow_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)    
                         
                         col_forearm_fk_R = col_arm_main_R.row(align = 1)
                         col_forearm_fk_R.scale_x = 1
@@ -585,7 +589,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hand_toon_R.scale_x = 1
                         col_hand_toon_R.scale_y = 0.25
                         col_hand_toon_R.alignment = 'CENTER'             
-                        col_hand_toon_R.operator("operator.hand_toon_r", text="", icon = "SPACE2", emboss = 0)                            
+                        col_hand_toon_R.operator("operator.hand_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)                            
 
                     # Arm R Quadruped
                     
@@ -607,16 +611,16 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_toon_R.separator()    
                         col_arm_toon_R.separator() 
                         col_arm_toon_R.separator()     
-                        col_arm_toon_R.operator("operator.arm_toon_r", text="", icon = "SPACE2", emboss = 0)     
+                        col_arm_toon_R.operator("operator.arm_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)     
                         col_arm_toon_R.separator()    
                         col_arm_toon_R.separator() 
-                        col_arm_toon_R.operator("operator.elbow_pole_r", text="", icon = "INLINK", emboss = 0)            
+                        col_arm_toon_R.operator("operator.elbow_pole_r", text="", icon = "PROP_ON", emboss = 0)            
                         col_arm_toon_R.separator()           
-                        col_arm_toon_R.operator("operator.forearm_toon_r", text="", icon = "SPACE2", emboss = 0)              
+                        col_arm_toon_R.operator("operator.forearm_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)              
                         col_arm_toon_R.separator()    
                         col_arm_toon_R.separator()    
                         col_arm_toon_R.separator()                  
-                        col_arm_toon_R.operator("operator.carpal_toon_r", text="", icon = "SPACE2", emboss = 0) 
+                        col_arm_toon_R.operator("operator.carpal_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0) 
                         
                         col_arm_main_R = col_arm_R.column(align = 1)
                         col_arm_main_R.scale_x = 1.2
@@ -627,7 +631,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_scale_R.scale_x = 1.2
                         col_arm_scale_R.scale_y = 1
                         col_arm_scale_R.alignment = 'CENTER'   
-                        col_arm_scale_R.operator("operator.arm_scale_r", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_arm_scale_R.operator("operator.arm_scale_r", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_arm_fk_R = col_arm_main_R.row(align = 1)
                         col_arm_fk_R.scale_x = 1
@@ -645,7 +649,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_elbow_toon_R.scale_x = 1
                         col_elbow_toon_R.scale_y = 0.25
                         col_elbow_toon_R.alignment = 'CENTER'            
-                        col_elbow_toon_R.operator("operator.elbow_toon_r", text="", icon = "SPACE2", emboss = 0)    
+                        col_elbow_toon_R.operator("operator.elbow_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)    
                         
                         col_forearm_fk_R = col_arm_main_R.row(align = 1)
                         col_forearm_fk_R.scale_x = 1
@@ -663,7 +667,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_ankle_toon_R.scale_x = 1
                         col_ankle_toon_R.scale_y = 0.25
                         col_ankle_toon_R.alignment = 'CENTER'            
-                        col_ankle_toon_R.operator("operator.ankle_toon_r", text="", icon = "SPACE2", emboss = 0)    
+                        col_ankle_toon_R.operator("operator.ankle_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)    
                         
                         col_carpal_fk_R = col_arm_main_R.row(align = 1)
                         col_carpal_fk_R.scale_x = 1
@@ -681,7 +685,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hand_toon_R.scale_x = 1
                         col_hand_toon_R.scale_y = 0.25
                         col_hand_toon_R.alignment = 'CENTER'             
-                        col_hand_toon_R.operator("operator.hand_toon_r", text="", icon = "SPACE2", emboss = 0)                                               
+                        col_hand_toon_R.operator("operator.hand_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)                                               
 
                     # Spine
                     
@@ -706,7 +710,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_spine_toon_4.scale_x = 1
                     col_spine_toon_4.scale_y = 0.35
                     col_spine_toon_4.alignment = 'CENTER'   
-                    col_spine_toon_4.operator("operator.spine_4_toon", text="", icon = "SPACE2", emboss = 0)   
+                    col_spine_toon_4.operator("operator.spine_4_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                                 
                     col_spine_3 = col_torso.row(align = 1)  
                     col_spine_3.scale_x = 1.5
@@ -727,7 +731,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_spine_toon_3.scale_x = 1
                     col_spine_toon_3.scale_y = 0.35
                     col_spine_toon_3.alignment = 'CENTER'   
-                    col_spine_toon_3.operator("operator.spine_3_toon", text="", icon = "SPACE2", emboss = 0)
+                    col_spine_toon_3.operator("operator.spine_3_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)
                         
                     col_spine_2 = col_torso.row(align = 1)  
                     col_spine_2.scale_x = 1.5
@@ -739,7 +743,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_spine_toon_2.scale_x = 1
                     col_spine_toon_2.scale_y = 0.35
                     col_spine_toon_2.alignment = 'CENTER'   
-                    col_spine_toon_2.operator("operator.spine_2_toon", text="", icon = "SPACE2", emboss = 0)
+                    col_spine_toon_2.operator("operator.spine_2_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)
                         
                     col_spine_1 = col_torso.row(align = 1)  
                     col_spine_1.scale_x = 1.5
@@ -751,21 +755,21 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_spine_toon_1.scale_x = 1
                     col_spine_toon_1.scale_y = 0.25
                     col_spine_toon_1.alignment = 'CENTER'   
-                    col_spine_toon_1.operator("operator.spine_1_toon", text="", icon = "SPACE2", emboss = 0)           
+                    col_spine_toon_1.operator("operator.spine_1_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)           
 
                     if props.gui_picker_body_props:
                         col_torso_inv_props = col_torso.row(align = 0)  
                         col_torso_inv_props.scale_x = 1
                         col_torso_inv_props.scale_y = 0.75
                         col_torso_inv_props.alignment = 'CENTER' 
-                        col_torso_inv_props.prop(arm_bones['properties_torso'], 'inv_torso', "Invert", toggle=True, icon_only = 1, emboss = 1)                                 
+                        col_torso_inv_props.prop(arm_bones['properties_torso'], 'inv_torso', text="Invert", toggle=True, icon_only = 1, emboss = 1)                                 
 
                         col_torso_props = col_torso.row(align = 0)  
                         col_torso_props.scale_x = 0.5
                         col_torso_props.scale_y = 0.75
                         col_torso_props.alignment = 'CENTER'             
-                        col_torso_props.prop(arm_bones['properties_torso'], 'ik_torso', "IK/FK", toggle=True, icon_only = 1, emboss = 1)     
-                        col_torso_props.prop(arm_bones['properties_torso'], 'toon_torso', "Str IK", toggle=True, icon_only = 1, emboss = 1)   
+                        col_torso_props.prop(arm_bones['properties_torso'], 'ik_torso', text="IK/FK", toggle=True, icon_only = 1, emboss = 1)     
+                        col_torso_props.prop(arm_bones['properties_torso'], 'toon_torso', text="Str IK", toggle=True, icon_only = 1, emboss = 1)   
 
                         col_mstr_torso_ctrls = col_torso.row(align = 1)  
                         col_mstr_torso_ctrls.scale_x = 4
@@ -807,7 +811,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_pelvis_toon.scale_x = 1
                     col_pelvis_toon.scale_y = 0.25
                     col_pelvis_toon.alignment = 'CENTER'    
-                    col_pelvis_toon.operator("operator.pelvis_toon", text="", icon = "SPACE2", emboss = 0)            
+                    col_pelvis_toon.operator("operator.pelvis_toon", text="", icon = "KEYFRAME_HLT", emboss = 0)            
                     
                     col_pelvis = col_torso.row(align = 0)  
                     col_pelvis.scale_x = 1.8
@@ -831,7 +835,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_scale_L.scale_x = 1.2
                         col_arm_scale_L.scale_y = 1
                         col_arm_scale_L.alignment = 'CENTER'   
-                        col_arm_scale_L.operator("operator.arm_scale_l", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_arm_scale_L.operator("operator.arm_scale_l", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_arm_fk_L = col_arm_main_L.row(align = 1)
                         col_arm_fk_L.scale_x = 1
@@ -849,7 +853,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_elbow_toon_L.scale_x = 1
                         col_elbow_toon_L.scale_y = 0.25
                         col_elbow_toon_L.alignment = 'CENTER'            
-                        col_elbow_toon_L.operator("operator.elbow_toon_l", text="", icon = "SPACE2", emboss = 0)    
+                        col_elbow_toon_L.operator("operator.elbow_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)    
                         
                         col_forearm_fk_L = col_arm_main_L.row(align = 1)
                         col_forearm_fk_L.scale_x = 1
@@ -867,7 +871,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hand_toon_L.scale_x = 1
                         col_hand_toon_L.scale_y = 0.25
                         col_hand_toon_L.alignment = 'CENTER'             
-                        col_hand_toon_L.operator("operator.hand_toon_l", text="", icon = "SPACE2", emboss = 0)                            
+                        col_hand_toon_L.operator("operator.hand_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)                            
                         
                         col_arm_toon_L = col_arm_L.column()
                         col_arm_toon_L.scale_x = 1
@@ -878,15 +882,15 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_toon_L.separator()  
                         col_arm_toon_L.separator()            
                         col_arm_toon_L.separator()      
-                        col_arm_toon_L.operator("operator.arm_toon_l", text="", icon = "SPACE2", emboss = 0)     
+                        col_arm_toon_L.operator("operator.arm_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)     
                         col_arm_toon_L.separator()    
                         col_arm_toon_L.separator() 
-                        col_arm_toon_L.operator("operator.elbow_pole_l", text="", icon = "INLINK", emboss = 0)            
+                        col_arm_toon_L.operator("operator.elbow_pole_l", text="", icon = "PROP_ON", emboss = 0)            
                         col_arm_toon_L.separator()         
                         col_arm_toon_L.separator()    
 
                         col_arm_toon_L.separator()    
-                        col_arm_toon_L.operator("operator.forearm_toon_l", text="", icon = "SPACE2", emboss = 0)  
+                        col_arm_toon_L.operator("operator.forearm_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)  
 
                     # Arm L Quadruped
                     
@@ -905,7 +909,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_scale_L.scale_x = 1.2
                         col_arm_scale_L.scale_y = 1
                         col_arm_scale_L.alignment = 'CENTER'   
-                        col_arm_scale_L.operator("operator.arm_scale_l", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_arm_scale_L.operator("operator.arm_scale_l", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_arm_fk_L = col_arm_main_L.row(align = 1)
                         col_arm_fk_L.scale_x = 1
@@ -923,7 +927,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_elbow_toon_L.scale_x = 1
                         col_elbow_toon_L.scale_y = 0.25
                         col_elbow_toon_L.alignment = 'CENTER'            
-                        col_elbow_toon_L.operator("operator.elbow_toon_l", text="", icon = "SPACE2", emboss = 0)    
+                        col_elbow_toon_L.operator("operator.elbow_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)    
                         
                         col_forearm_fk_L = col_arm_main_L.row(align = 1)
                         col_forearm_fk_L.scale_x = 1
@@ -941,7 +945,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_ankle_toon_L.scale_x = 1
                         col_ankle_toon_L.scale_y = 0.25
                         col_ankle_toon_L.alignment = 'CENTER'            
-                        col_ankle_toon_L.operator("operator.ankle_toon_l", text="", icon = "SPACE2", emboss = 0)    
+                        col_ankle_toon_L.operator("operator.ankle_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)    
                         
                         col_carpal_fk_L = col_arm_main_L.row(align = 1)
                         col_carpal_fk_L.scale_x = 1
@@ -959,7 +963,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hand_toon_L.scale_x = 1
                         col_hand_toon_L.scale_y = 0.25
                         col_hand_toon_L.alignment = 'CENTER'             
-                        col_hand_toon_L.operator("operator.hand_toon_l", text="", icon = "SPACE2", emboss = 0)                                              
+                        col_hand_toon_L.operator("operator.hand_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)                                              
                         
                         col_arm_toon_L = col_arm_L.column()
                         col_arm_toon_L.scale_x = 1
@@ -968,16 +972,16 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_toon_L.separator()    
                         col_arm_toon_L.separator() 
                         col_arm_toon_L.separator()     
-                        col_arm_toon_L.operator("operator.arm_toon_l", text="", icon = "SPACE2", emboss = 0)     
+                        col_arm_toon_L.operator("operator.arm_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)     
                         col_arm_toon_L.separator()    
                         col_arm_toon_L.separator() 
-                        col_arm_toon_L.operator("operator.elbow_pole_l", text="", icon = "INLINK", emboss = 0)            
+                        col_arm_toon_L.operator("operator.elbow_pole_l", text="", icon = "PROP_ON", emboss = 0)            
                         col_arm_toon_L.separator()           
-                        col_arm_toon_L.operator("operator.forearm_toon_l", text="", icon = "SPACE2", emboss = 0)              
+                        col_arm_toon_L.operator("operator.forearm_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)              
                         col_arm_toon_L.separator()    
                         col_arm_toon_L.separator()    
                         col_arm_toon_L.separator()                  
-                        col_arm_toon_L.operator("operator.carpal_toon_l", text="", icon = "SPACE2", emboss = 0)  
+                        col_arm_toon_L.operator("operator.carpal_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                                  
                     # Hand R
 
@@ -1004,8 +1008,8 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         row_hand_main_R.scale_y = 1
                         row_hand_main_R.alignment = 'CENTER'  
                                      
-                        col_spread_R = row_hand_main_R.column(align = 1)       
-                        col_spread_R.scale_x = 0.25
+                        col_spread_R = row_hand_main_R.column(align = 0)       
+                        col_spread_R.scale_x = 0.8
                         col_spread_R.scale_y = 2
                         col_spread_R.alignment = 'CENTER'  
                         col_spread_R.operator("operator.fing_spread_r", text="")            
@@ -1159,7 +1163,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         
                         col_index_R = col_fingers_R.column(align = 0)      
                         col_index_R.scale_x = 1.5
-                        col_index_R.scale_y = 0.9
+                        col_index_R.scale_y = 0.8
                         col_index_R.alignment = 'CENTER'            
                         col_index_R.operator("operator.fing_ind_2_r", text="")  
                         col_index_R.operator("operator.fing_ind_3_r", text="")  
@@ -1172,7 +1176,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_thumb_ctrl_R.operator("operator.fing_thumb_ctrl_r", text="")          
                         
                         col_thumb_R = col_fingers_R.column(align = 0)      
-                        col_thumb_R.scale_x = 1
+                        col_thumb_R.scale_x = 1.5
                         col_thumb_R.scale_y = 0.5
                         col_thumb_R.alignment = 'CENTER'            
                         col_thumb_R.operator("operator.fing_thumb_1_r", text="")  
@@ -1243,17 +1247,17 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_leg_toon_R.separator()     
                         col_leg_toon_R.separator() 
                         col_leg_toon_R.separator()                  
-                        col_leg_toon_R.operator("operator.thigh_toon_r", text="", icon = "SPACE2", emboss = 0)   
+                        col_leg_toon_R.operator("operator.thigh_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         col_leg_toon_R.separator()    
                         col_leg_toon_R.separator() 
                         col_leg_toon_R.separator() 
                         col_leg_toon_R.separator() 
                         col_leg_toon_R.separator()                      
-                        col_leg_toon_R.operator("operator.knee_pole_r", text="", icon = "INLINK", emboss = 0)                
+                        col_leg_toon_R.operator("operator.knee_pole_r", text="", icon = "PROP_ON", emboss = 0)                
                         col_leg_toon_R.separator()    
                         col_leg_toon_R.separator()    
                         col_leg_toon_R.separator()    
-                        col_leg_toon_R.operator("operator.shin_toon_r", text="", icon = "SPACE2", emboss = 0)              
+                        col_leg_toon_R.operator("operator.shin_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)              
                         
                         col_leg_main_R = row_leg_main_R.column(align = 1)
                         col_leg_main_R.scale_x = 1
@@ -1264,13 +1268,13 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_pelvis_toon_R.scale_x = 1
                         col_pelvis_toon_R.scale_y = 0.1
                         col_pelvis_toon_R.alignment = 'CENTER'           
-                        col_pelvis_toon_R.operator("operator.pelvis_toon_r", text="", icon = "SPACE2", emboss = 0)   
+                        col_pelvis_toon_R.operator("operator.pelvis_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         
                         col_leg_scale_R = col_leg_main_R.row(align = 1)
                         col_leg_scale_R.scale_x = 2
                         col_leg_scale_R.scale_y = 1
                         col_leg_scale_R.alignment = 'CENTER'   
-                        col_leg_scale_R.operator("operator.leg_scale_r", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_leg_scale_R.operator("operator.leg_scale_r", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_leg_fk_R = col_leg_main_R.row(align = 1)
                         col_leg_fk_R.scale_x = 1
@@ -1288,7 +1292,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_knee_toon_R.scale_x = 1
                         col_knee_toon_R.scale_y = 0.25
                         col_knee_toon_R.alignment = 'CENTER'             
-                        col_knee_toon_R.operator("operator.knee_toon_r", text="", icon = "SPACE2", emboss = 0)  
+                        col_knee_toon_R.operator("operator.knee_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                         
                         col_shin_fk_R = col_leg_main_R.row(align = 1)
                         col_shin_fk_R.scale_x = 1
@@ -1306,7 +1310,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_foot_toon_R.scale_x = 1
                         col_foot_toon_R.scale_y = 0.25
                         col_foot_toon_R.alignment = 'CENTER'             
-                        col_foot_toon_R.operator("operator.foot_toon_r", text="", icon = "SPACE2", emboss = 0)                            
+                        col_foot_toon_R.operator("operator.foot_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)                            
 
                     # Quadruped Leg R
                     if arm['rig_type'] == "Quadruped":                   
@@ -1329,17 +1333,17 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_leg_toon_R.separator()     
                         col_leg_toon_R.separator() 
                         col_leg_toon_R.separator()                  
-                        col_leg_toon_R.operator("operator.thigh_toon_r", text="", icon = "SPACE2", emboss = 0)   
+                        col_leg_toon_R.operator("operator.thigh_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         col_leg_toon_R.separator()    
                         col_leg_toon_R.separator()                   
-                        col_leg_toon_R.operator("operator.knee_pole_r", text="", icon = "INLINK", emboss = 0)                
+                        col_leg_toon_R.operator("operator.knee_pole_r", text="", icon = "PROP_ON", emboss = 0)                
                         col_leg_toon_R.separator()      
-                        col_leg_toon_R.operator("operator.shin_toon_r", text="", icon = "SPACE2", emboss = 0)   
+                        col_leg_toon_R.operator("operator.shin_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         col_leg_toon_R.separator()    
                         col_leg_toon_R.separator()    
                         col_leg_toon_R.separator()  
                         col_leg_toon_R.separator()                         
-                        col_leg_toon_R.operator("operator.tarsal_toon_r", text="", icon = "SPACE2", emboss = 0)                                  
+                        col_leg_toon_R.operator("operator.tarsal_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)                                  
                         
                         col_leg_main_R = row_leg_main_R.column(align = 1)
                         col_leg_main_R.scale_x = 1
@@ -1350,13 +1354,13 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_pelvis_toon_R.scale_x = 1
                         col_pelvis_toon_R.scale_y = 0.1
                         col_pelvis_toon_R.alignment = 'CENTER'           
-                        col_pelvis_toon_R.operator("operator.pelvis_toon_r", text="", icon = "SPACE2", emboss = 0)   
+                        col_pelvis_toon_R.operator("operator.pelvis_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         
                         col_leg_scale_R = col_leg_main_R.row(align = 1)
                         col_leg_scale_R.scale_x = 2
                         col_leg_scale_R.scale_y = 1
                         col_leg_scale_R.alignment = 'CENTER'   
-                        col_leg_scale_R.operator("operator.leg_scale_r", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_leg_scale_R.operator("operator.leg_scale_r", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_leg_fk_R = col_leg_main_R.row(align = 1)
                         col_leg_fk_R.scale_x = 1
@@ -1374,7 +1378,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_knee_toon_R.scale_x = 1
                         col_knee_toon_R.scale_y = 0.25
                         col_knee_toon_R.alignment = 'CENTER'             
-                        col_knee_toon_R.operator("operator.knee_toon_r", text="", icon = "SPACE2", emboss = 0)  
+                        col_knee_toon_R.operator("operator.knee_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                         
                         col_shin_fk_R = col_leg_main_R.row(align = 1)
                         col_shin_fk_R.scale_x = 1
@@ -1392,7 +1396,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hock_toon_R.scale_x = 1
                         col_hock_toon_R.scale_y = 0.25
                         col_hock_toon_R.alignment = 'CENTER'             
-                        col_hock_toon_R.operator("operator.hock_toon_r", text="", icon = "SPACE2", emboss = 0)  
+                        col_hock_toon_R.operator("operator.hock_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                         
                         col_tarsal_fk_R = col_leg_main_R.row(align = 1)
                         col_tarsal_fk_R.scale_x = 1
@@ -1410,7 +1414,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_foot_toon_R.scale_x = 1
                         col_foot_toon_R.scale_y = 0.25
                         col_foot_toon_R.alignment = 'CENTER'             
-                        col_foot_toon_R.operator("operator.foot_toon_r", text="", icon = "SPACE2", emboss = 0)                            
+                        col_foot_toon_R.operator("operator.foot_toon_r", text="", icon = "KEYFRAME_HLT", emboss = 0)                            
 
 
                     # Leg L
@@ -1429,13 +1433,13 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_pelvis_toon_L.scale_x = 1
                         col_pelvis_toon_L.scale_y = 0.1
                         col_pelvis_toon_L.alignment = 'CENTER'           
-                        col_pelvis_toon_L.operator("operator.pelvis_toon_l", text="", icon = "SPACE2", emboss = 0)  
+                        col_pelvis_toon_L.operator("operator.pelvis_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                         
                         col_leg_scale_L = col_leg_main_L.row(align = 1)
                         col_leg_scale_L.scale_x = 2
                         col_leg_scale_L.scale_y = 1
                         col_leg_scale_L.alignment = 'CENTER'   
-                        col_leg_scale_L.operator("operator.leg_scale_l", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_leg_scale_L.operator("operator.leg_scale_l", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_leg_fk_L = col_leg_main_L.row(align = 1)
                         col_leg_fk_L.scale_x = 1
@@ -1453,7 +1457,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_knee_toon_L.scale_x = 1
                         col_knee_toon_L.scale_y = 0.25
                         col_knee_toon_L.alignment = 'CENTER'             
-                        col_knee_toon_L.operator("operator.knee_toon_l", text="", icon = "SPACE2", emboss = 0)  
+                        col_knee_toon_L.operator("operator.knee_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                         
                         col_shin_fk_L = col_leg_main_L.row(align = 1)
                         col_shin_fk_L.scale_x = 1
@@ -1471,7 +1475,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_foot_toon_L.scale_x = 1
                         col_foot_toon_L.scale_y = 0.25
                         col_foot_toon_L.alignment = 'CENTER'             
-                        col_foot_toon_L.operator("operator.foot_toon_l", text="", icon = "SPACE2", emboss = 0)                            
+                        col_foot_toon_L.operator("operator.foot_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)                            
 
                         
                         col_leg_toon_L = row_leg_main_L.column()
@@ -1483,17 +1487,17 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_leg_toon_L.separator()     
                         col_leg_toon_L.separator()  
                         col_leg_toon_L.separator()                  
-                        col_leg_toon_L.operator("operator.thigh_toon_l", text="", icon = "SPACE2", emboss = 0)   
+                        col_leg_toon_L.operator("operator.thigh_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         col_leg_toon_L.separator()    
                         col_leg_toon_L.separator() 
                         col_leg_toon_L.separator()  
                         col_leg_toon_L.separator() 
                         col_leg_toon_L.separator()                   
-                        col_leg_toon_L.operator("operator.knee_pole_l", text="", icon = "INLINK", emboss = 0)                 
+                        col_leg_toon_L.operator("operator.knee_pole_l", text="", icon = "PROP_ON", emboss = 0)                 
                         col_leg_toon_L.separator()    
                         col_leg_toon_L.separator()    
                         col_leg_toon_L.separator()    
-                        col_leg_toon_L.operator("operator.shin_toon_l", text="", icon = "SPACE2", emboss = 0)              
+                        col_leg_toon_L.operator("operator.shin_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)              
 
                     # Quadruped Leg L
                     if arm['rig_type'] == "Quadruped":                   
@@ -1516,13 +1520,13 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_pelvis_toon_L.scale_x = 1
                         col_pelvis_toon_L.scale_y = 0.1
                         col_pelvis_toon_L.alignment = 'CENTER'           
-                        col_pelvis_toon_L.operator("operator.pelvis_toon_l", text="", icon = "SPACE2", emboss = 0)   
+                        col_pelvis_toon_L.operator("operator.pelvis_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         
                         col_leg_scale_L = col_leg_main_L.row(align = 1)
                         col_leg_scale_L.scale_x = 2
                         col_leg_scale_L.scale_y = 1
                         col_leg_scale_L.alignment = 'CENTER'   
-                        col_leg_scale_L.operator("operator.leg_scale_l", text = "", icon = "MAN_SCALE", emboss = 1)    
+                        col_leg_scale_L.operator("operator.leg_scale_l", text = "", icon = "UV_SYNC_SELECT", emboss = 1)    
                         
                         col_leg_fk_L = col_leg_main_L.row(align = 1)
                         col_leg_fk_L.scale_x = 1
@@ -1540,7 +1544,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_knee_toon_L.scale_x = 1
                         col_knee_toon_L.scale_y = 0.25
                         col_knee_toon_L.alignment = 'CENTER'             
-                        col_knee_toon_L.operator("operator.knee_toon_l", text="", icon = "SPACE2", emboss = 0)  
+                        col_knee_toon_L.operator("operator.knee_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                         
                         col_shin_fk_L = col_leg_main_L.row(align = 1)
                         col_shin_fk_L.scale_x = 1
@@ -1558,7 +1562,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hock_toon_L.scale_x = 1
                         col_hock_toon_L.scale_y = 0.25
                         col_hock_toon_L.alignment = 'CENTER'             
-                        col_hock_toon_L.operator("operator.hock_toon_l", text="", icon = "SPACE2", emboss = 0)  
+                        col_hock_toon_L.operator("operator.hock_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                         
                         col_tarsal_fk_L = col_leg_main_L.row(align = 1)
                         col_tarsal_fk_L.scale_x = 1
@@ -1576,7 +1580,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_foot_toon_L.scale_x = 1
                         col_foot_toon_L.scale_y = 0.25
                         col_foot_toon_L.alignment = 'CENTER'             
-                        col_foot_toon_L.operator("operator.foot_toon_l", text="", icon = "SPACE2", emboss = 0)                            
+                        col_foot_toon_L.operator("operator.foot_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)                            
 
                         
                         col_leg_toon_L = row_leg_main_L.column()
@@ -1588,17 +1592,17 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_leg_toon_L.separator()     
                         col_leg_toon_L.separator() 
                         col_leg_toon_L.separator()                  
-                        col_leg_toon_L.operator("operator.thigh_toon_l", text="", icon = "SPACE2", emboss = 0)   
+                        col_leg_toon_L.operator("operator.thigh_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         col_leg_toon_L.separator()    
                         col_leg_toon_L.separator()                   
-                        col_leg_toon_L.operator("operator.knee_pole_l", text="", icon = "INLINK", emboss = 0)                
+                        col_leg_toon_L.operator("operator.knee_pole_l", text="", icon = "PROP_ON", emboss = 0)                
                         col_leg_toon_L.separator()      
-                        col_leg_toon_L.operator("operator.shin_toon_l", text="", icon = "SPACE2", emboss = 0)   
+                        col_leg_toon_L.operator("operator.shin_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)   
                         col_leg_toon_L.separator()    
                         col_leg_toon_L.separator()    
                         col_leg_toon_L.separator()  
                         col_leg_toon_L.separator()                         
-                        col_leg_toon_L.operator("operator.tarsal_toon_l", text="", icon = "SPACE2", emboss = 0)  
+                        col_leg_toon_L.operator("operator.tarsal_toon_l", text="", icon = "KEYFRAME_HLT", emboss = 0)  
                       
                     # Hand L
                     
@@ -1769,7 +1773,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_ring_L.operator("operator.fing_ring_2_l", text="")  
                         col_ring_L.operator("operator.fing_ring_3_l", text="")  
                         col_ring_L.operator("operator.fing_ring_4_l", text="")    
-                              
+
                         col_ring_ctrl_L = col_fingers_L.column(align = 0)      
                         col_ring_ctrl_L.scale_x = 1.5
                         col_ring_ctrl_L.scale_y = 2.5
@@ -1783,9 +1787,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_lit_L.operator("operator.fing_lit_2_l", text="")  
                         col_lit_L.operator("operator.fing_lit_3_l", text="")  
                         col_lit_L.operator("operator.fing_lit_4_l", text="")     
-                              
+
                         col_lit_ctrl_L = col_fingers_L.column(align = 0)       
-                        col_lit_ctrl_L.scale_x = 0.5
+                        col_lit_ctrl_L.scale_x = 1.5
                         col_lit_ctrl_L.scale_y = 2
                         col_lit_ctrl_L.alignment = 'CENTER'         
                         col_lit_ctrl_L.operator("operator.fing_lit_ctrl_l", text="")  
@@ -1837,7 +1841,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     #Hand Spread L
                     if arm['rig_type'] == "Biped":     
                         col_spread_R = row_hand_main_L.column(align = 0)       
-                        col_spread_R.scale_x = 0.25
+                        col_spread_R.scale_x = 0.8
                         col_spread_R.scale_y = 2
                         col_spread_R.alignment = 'CENTER'  
                         col_spread_R.operator("operator.fing_spread_l", text="")   
@@ -1868,27 +1872,27 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     row_foot_R.alignment = 'CENTER' 
                     
                     col_toe_1_R = row_foot_R.row(align = 1)     
-                    col_toe_1_R.scale_x = 0.4
+                    col_toe_1_R.scale_x = 0.8
                     col_toe_1_R.scale_y = 0.75
                     col_toe_1_R.alignment = 'CENTER'              
                     col_toe_1_R.operator("operator.toes_ik_ctrl_r", text="")
                     col_toe_1_R.operator("operator.toe_2_fk_r", text="")                
 
                     col_toe_roll_2_R = row_foot_R.row(align = 1)    
-                    col_toe_roll_2_R.scale_x = 0.5
+                    col_toe_roll_2_R.scale_x = 0.8
                     col_toe_roll_2_R.scale_y = 0.75
                     col_toe_roll_2_R.alignment = 'CENTER'             
                     col_toe_roll_2_R.operator("operator.toe_roll_2_r", text="", icon = "LOOP_BACK", emboss = 0)         
 
                     col_toe_2_R = row_foot_R.row(align = 1)     
-                    col_toe_2_R.scale_x = 0.4
+                    col_toe_2_R.scale_x = 0.8
                     col_toe_2_R.scale_y = 0.75
                     col_toe_2_R.alignment = 'CENTER'              
                     col_toe_2_R.operator("operator.toes_ik_ctrl_mid_r", text="")            
                     col_toe_2_R.operator("operator.toe_1_fk_r", text="")                        
 
                     col_toe_roll_1_R = row_foot_R.row(align = 1)    
-                    col_toe_roll_1_R.scale_x = 0.5
+                    col_toe_roll_1_R.scale_x = 0.8
                     col_toe_roll_1_R.scale_y = 0.75
                     col_toe_roll_1_R.alignment = 'CENTER'             
                     col_toe_roll_1_R.operator("operator.toe_roll_1_r", text="", icon = "LOOP_BACK", emboss = 0) 
@@ -1904,7 +1908,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     # FootRoll R
                     
                     col_foot_roll_R = row_foot_R.column(align = 0)     
-                    col_foot_roll_R.scale_x = 0.5
+                    col_foot_roll_R.scale_x = 0.8
                     col_foot_roll_R.scale_y = 0.75
                     col_foot_roll_R.alignment = 'CENTER'              
                     col_foot_roll_R.operator("operator.foot_roll_ctrl_r", text="", icon = "LOOP_BACK", emboss = 0)         
@@ -2038,26 +2042,26 @@ class BlenRig_5_Interface(bpy.types.Panel):
                       # Toes L
 
                     col_toe_roll_1_L = row_foot_L.row(align = 1)       
-                    col_toe_roll_1_L.scale_x = 0.5
+                    col_toe_roll_1_L.scale_x = 0.8
                     col_toe_roll_1_L.scale_y = 0.75
                     col_toe_roll_1_L.alignment = 'CENTER'             
                     col_toe_roll_1_L.operator("operator.toe_roll_1_l", text="", icon = "LOOP_FORWARDS", emboss = 0)
                     
                     col_toe_1_L = row_foot_L.row(align = 1)    
-                    col_toe_1_L.scale_x = 0.4
+                    col_toe_1_L.scale_x = 0.8
                     col_toe_1_L.scale_y = 0.75
                     col_toe_1_L.alignment = 'CENTER'              
                     col_toe_1_L.operator("operator.toe_1_fk_l", text="")
                     col_toe_1_L.operator("operator.toes_ik_ctrl_mid_l", text="")                
 
                     col_toe_roll_2_L = row_foot_L.row(align = 1)       
-                    col_toe_roll_2_L.scale_x = 0.5
+                    col_toe_roll_2_L.scale_x = 0.8
                     col_toe_roll_2_L.scale_y = 0.75
                     col_toe_roll_2_L.alignment = 'CENTER'             
                     col_toe_roll_2_L.operator("operator.toe_roll_2_l", text="", icon = "LOOP_FORWARDS", emboss = 0)
 
                     col_toe_2_L = row_foot_L.row(align = 1)    
-                    col_toe_2_L.scale_x = 0.4
+                    col_toe_2_L.scale_x = 0.8
                     col_toe_2_L.scale_y = 0.75
                     col_toe_2_L.alignment = 'CENTER'              
                     col_toe_2_L.operator("operator.toe_2_fk_l", text="")
@@ -2180,7 +2184,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     col_sole_R.operator("operator.sole_ctrl_r", text="Sole R")         
                     
                     col_sole_pivot_R = row_sole_R.column(align = 1)    
-                    col_sole_pivot_R.scale_x = 0.25
+                    col_sole_pivot_R.scale_x = 0.5
                     col_sole_pivot_R.scale_y = 0.75
                     col_sole_pivot_R.alignment = 'CENTER'                     
                     col_sole_pivot_R.operator("operator.sole_pivot_point_r", text="")   
@@ -2193,7 +2197,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     row_sole_L.alignment = 'CENTER'  
 
                     col_sole_pivot_L = row_sole_L.column(align = 1)    
-                    col_sole_pivot_L.scale_x = 0.25
+                    col_sole_pivot_L.scale_x = 0.5
                     col_sole_pivot_L.scale_y = 0.75
                     col_sole_pivot_L.alignment = 'CENTER'                     
                     col_sole_pivot_L.operator("operator.sole_pivot_point_l", text="")     
@@ -2247,7 +2251,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     row_model_res.scale_x = 0.7
                     row_model_res.scale_y = 1
                     row_model_res.alignment = 'CENTER'  
-                    row_model_res.prop(arm_bones['properties'], '["model_res"]', "Model_Res", toggle=True)
+                    row_model_res.prop(arm_bones['properties'], '["model_res"]', text="Model_Res", toggle=True)
 
 
                     if props.gui_picker_body_props:                      
@@ -2269,17 +2273,17 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_head_props.scale_x = 2.5
                         col_head_props.scale_y = 0.75
                         col_head_props.alignment = 'CENTER'   
-                        col_head_props.label("HEAD")    
+                        col_head_props.label(text="HEAD")    
                         col_head_props.prop(arm_bones['properties_head'], 'ik_head', text="{}".format("FK" if arm_bones['properties_head']['ik_head'] == 1 else "IK"), toggle=True, icon_only = 1, emboss = 1)                           
-                        col_head_props.prop(arm_bones['properties_head'], 'hinge_head', "Hinge", toggle=True, icon_only = 1, emboss = 1) 
-                        col_head_props.prop(arm_bones['properties_head'], 'toon_head', "Str IK", toggle=True, icon_only = 1, emboss = 1)                               
+                        col_head_props.prop(arm_bones['properties_head'], 'hinge_head', text="Hinge", toggle=True, icon_only = 1, emboss = 1) 
+                        col_head_props.prop(arm_bones['properties_head'], 'toon_head', text="Str IK", toggle=True, icon_only = 1, emboss = 1)                               
                         
                         col_neck_props = col_sliders_R.column()
                         col_neck_props.scale_x = 2.5
                         col_neck_props.scale_y = 0.75
                         col_neck_props.alignment = 'CENTER'   
-                        col_neck_props.label("NECK")                                                                               
-                        col_neck_props.prop(arm_bones['properties_head'], 'hinge_neck', "Hinge", toggle=True, icon_only = 1, emboss = 1) 
+                        col_neck_props.label(text="NECK")                                                                               
+                        col_neck_props.prop(arm_bones['properties_head'], 'hinge_neck', text="Hinge", toggle=True, icon_only = 1, emboss = 1) 
                         
                         col_space = col_sliders_R.column()
                         col_space.scale_x = 2.5
@@ -2291,10 +2295,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_R_props.scale_x = 2.5
                         col_arm_R_props.scale_y = 0.75
                         col_arm_R_props.alignment = 'CENTER'   
-                        col_arm_R_props.label("ARM_R")                                                                            
+                        col_arm_R_props.label(text="ARM_R")                                                                            
                         col_arm_R_props.prop(arm_bones['properties_arm_R'], 'ik_arm_R', text="{}".format("FK" if arm_bones['properties_arm_R']['ik_arm_R'] == 1 else "IK"), toggle=True, icon_only = 1, emboss = 1)                            
-                        col_arm_R_props.prop(arm_bones['properties_arm_R'], 'hinge_arm_R', "Hinge", toggle=True, icon_only = 1, emboss = 1)  
-                        col_arm_R_props.prop(arm_bones['properties_arm_R'], 'toon_arm_R', "Str IK", toggle=True, icon_only = 1, emboss = 1)                               
+                        col_arm_R_props.prop(arm_bones['properties_arm_R'], 'hinge_arm_R', text="Hinge", toggle=True, icon_only = 1, emboss = 1)  
+                        col_arm_R_props.prop(arm_bones['properties_arm_R'], 'toon_arm_R', text="Str IK", toggle=True, icon_only = 1, emboss = 1)                               
 
                         col_space = col_sliders_R.column()
                         col_space.scale_x = 2.5
@@ -2306,8 +2310,8 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hand_R_props.scale_x = 2.5
                         col_hand_R_props.scale_y = 0.75
                         col_hand_R_props.alignment = 'CENTER'   
-                        col_hand_R_props.label("HAND_R")                                                                              
-                        col_hand_R_props.prop(arm_bones['properties_arm_R'], 'hinge_hand_R', "Hinge", toggle=True, icon_only = 1, emboss = 1)                           
+                        col_hand_R_props.label(text="HAND_R")                                                                              
+                        col_hand_R_props.prop(arm_bones['properties_arm_R'], 'hinge_hand_R', text="Hinge", toggle=True, icon_only = 1, emboss = 1)                           
 
                         col_space = col_sliders_R.column()
                         col_space.scale_x = 2.5
@@ -2319,9 +2323,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_fing_R_props.scale_x = 2.5
                         col_fing_R_props.scale_y = 0.75
                         col_fing_R_props.alignment = 'CENTER'   
-                        col_fing_R_props.label("FING_R")                                                                              
+                        col_fing_R_props.label(text="FING_R")                                                                              
                         col_fing_R_props.prop(arm_bones['properties_arm_R'], 'ik_fing_all_R', text="{}".format("IK" if arm_bones['properties_arm_R']['ik_fing_all_R'] == 1 else "FK"), toggle=True, icon_only = 1, emboss = 1)                          
-                        col_fing_R_props.prop(arm_bones['properties_arm_R'], 'hinge_fing_all_R', "Hinge", toggle=True, icon_only = 1, emboss = 1)  
+                        col_fing_R_props.prop(arm_bones['properties_arm_R'], 'hinge_fing_all_R', text="Hinge", toggle=True, icon_only = 1, emboss = 1)  
 
                         col_space = col_sliders_R.column()
                         col_space.scale_x = 2.5
@@ -2333,10 +2337,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_leg_R_props.scale_x = 2.5
                         col_leg_R_props.scale_y = 0.75
                         col_leg_R_props.alignment = 'CENTER'   
-                        col_leg_R_props.label("LEG_R")                                                                            
+                        col_leg_R_props.label(text="LEG_R")                                                                            
                         col_leg_R_props.prop(arm_bones['properties_leg_R'], 'ik_leg_R', text="{}".format("FK" if arm_bones['properties_leg_R']['ik_leg_R'] == 1 else "IK"), toggle=True, icon_only = 1, emboss = 1)                            
-                        col_leg_R_props.prop(arm_bones['properties_leg_R'], 'hinge_leg_R', "Hinge", toggle=True, icon_only = 1, emboss = 1)  
-                        col_leg_R_props.prop(arm_bones['properties_leg_R'], 'toon_leg_R', "Str IK", toggle=True, icon_only = 1, emboss = 1)  
+                        col_leg_R_props.prop(arm_bones['properties_leg_R'], 'hinge_leg_R', text="Hinge", toggle=True, icon_only = 1, emboss = 1)  
+                        col_leg_R_props.prop(arm_bones['properties_leg_R'], 'toon_leg_R', text="Str IK", toggle=True, icon_only = 1, emboss = 1)  
                       
                         col_space = col_sliders_R.column()
                         col_space.scale_x = 2.5
@@ -2348,9 +2352,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_foot_R_props.scale_x = 2.5
                         col_foot_R_props.scale_y = 0.75
                         col_foot_R_props.alignment = 'CENTER'   
-                        col_foot_R_props.label("TOES_R")                                                                              
+                        col_foot_R_props.label(text="TOES_R")                                                                              
                         col_foot_R_props.prop(arm_bones['properties_leg_R'], 'ik_toes_all_R', text="{}".format("FK" if arm_bones['properties_leg_R']['ik_toes_all_R'] == 1 else "IK"), toggle=True, icon_only = 1, emboss = 1)   
-                        col_foot_R_props.prop(arm_bones['properties_leg_R'], 'hinge_toes_all_R', "Hinge", toggle=True, icon_only = 1, emboss = 1)                          
+                        col_foot_R_props.prop(arm_bones['properties_leg_R'], 'hinge_toes_all_R', text="Hinge", toggle=True, icon_only = 1, emboss = 1)                          
 
                       # Sliders_L
                   
@@ -2369,10 +2373,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_arm_L_props.scale_x = 2.5
                         col_arm_L_props.scale_y = 0.75
                         col_arm_L_props.alignment = 'CENTER'   
-                        col_arm_L_props.label("ARM_L")                                                                            
+                        col_arm_L_props.label(text="ARM_L")                                                                            
                         col_arm_L_props.prop(arm_bones['properties_arm_L'], 'ik_arm_L', text="{}".format("FK" if arm_bones['properties_arm_L']['ik_arm_L'] == 1 else "IK"), toggle=True, icon_only = 1, emboss = 1)                            
-                        col_arm_L_props.prop(arm_bones['properties_arm_L'], 'hinge_arm_L', "Hinge", toggle=True, icon_only = 1, emboss = 1)  
-                        col_arm_L_props.prop(arm_bones['properties_arm_L'], 'toon_arm_L', "Str IK", toggle=True, icon_only = 1, emboss = 1)                               
+                        col_arm_L_props.prop(arm_bones['properties_arm_L'], 'hinge_arm_L', text="Hinge", toggle=True, icon_only = 1, emboss = 1)  
+                        col_arm_L_props.prop(arm_bones['properties_arm_L'], 'toon_arm_L', text="Str IK", toggle=True, icon_only = 1, emboss = 1)                               
 
                         col_space = col_sliders_L.column()
                         col_space.scale_x = 2.5
@@ -2384,8 +2388,8 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_hand_L_props.scale_x = 2.5
                         col_hand_L_props.scale_y = 0.75
                         col_hand_L_props.alignment = 'CENTER'   
-                        col_hand_L_props.label("HAND_L")                                                                              
-                        col_hand_L_props.prop(arm_bones['properties_arm_L'], 'hinge_hand_L', "Hinge", toggle=True, icon_only = 1, emboss = 1)                           
+                        col_hand_L_props.label(text="HAND_L")                                                                              
+                        col_hand_L_props.prop(arm_bones['properties_arm_L'], 'hinge_hand_L', text="Hinge", toggle=True, icon_only = 1, emboss = 1)                           
 
                         col_space = col_sliders_L.column()
                         col_space.scale_x = 2.5
@@ -2397,9 +2401,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_fing_L_props.scale_x = 2.5
                         col_fing_L_props.scale_y = 0.75
                         col_fing_L_props.alignment = 'CENTER'   
-                        col_fing_L_props.label("FING_L")                                                                              
+                        col_fing_L_props.label(text="FING_L")                                                                              
                         col_fing_L_props.prop(arm_bones['properties_arm_L'], 'ik_fing_all_L', text="{}".format("IK" if arm_bones['properties_arm_L']['ik_fing_all_L'] == 1 else "FK"), toggle=True, icon_only = 1, emboss = 1)                          
-                        col_fing_L_props.prop(arm_bones['properties_arm_L'], 'hinge_fing_all_L', "Hinge", toggle=True, icon_only = 1, emboss = 1)  
+                        col_fing_L_props.prop(arm_bones['properties_arm_L'], 'hinge_fing_all_L', text="Hinge", toggle=True, icon_only = 1, emboss = 1)  
 
                         col_space = col_sliders_L.column()
                         col_space.scale_x = 2.5
@@ -2411,10 +2415,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_leg_L_props.scale_x = 2.5
                         col_leg_L_props.scale_y = 0.75
                         col_leg_L_props.alignment = 'CENTER'   
-                        col_leg_L_props.label("LEG_L")                                                                            
+                        col_leg_L_props.label(text="LEG_L")                                                                            
                         col_leg_L_props.prop(arm_bones['properties_leg_L'], 'ik_leg_L', text="{}".format("FK" if arm_bones['properties_leg_L']['ik_leg_L'] == 1 else "IK"), toggle=True, icon_only = 1, emboss = 1)                            
-                        col_leg_L_props.prop(arm_bones['properties_leg_L'], 'hinge_leg_L', "Hinge", toggle=True, icon_only = 1, emboss = 1)  
-                        col_leg_L_props.prop(arm_bones['properties_leg_L'], 'toon_leg_L', "Str IK", toggle=True, icon_only = 1, emboss = 1)  
+                        col_leg_L_props.prop(arm_bones['properties_leg_L'], 'hinge_leg_L', text="Hinge", toggle=True, icon_only = 1, emboss = 1)  
+                        col_leg_L_props.prop(arm_bones['properties_leg_L'], 'toon_leg_L', text="Str IK", toggle=True, icon_only = 1, emboss = 1)  
                       
                         col_space = col_sliders_L.column()
                         col_space.scale_x = 2.5
@@ -2426,9 +2430,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         col_foot_L_props.scale_x = 2.5
                         col_foot_L_props.scale_y = 0.75
                         col_foot_L_props.alignment = 'CENTER'   
-                        col_foot_L_props.label("TOES_L")                                                                              
+                        col_foot_L_props.label(text="TOES_L")                                                                              
                         col_foot_L_props.prop(arm_bones['properties_leg_L'], 'ik_toes_all_L', text="{}".format("FK" if arm_bones['properties_leg_L']['ik_toes_all_L'] == 1 else "IK"), toggle=True, icon_only = 1, emboss = 1)       
-                        col_foot_L_props.prop(arm_bones['properties_leg_L'], 'hinge_toes_all_L', "Hinge", toggle=True, icon_only = 1, emboss = 1)                      
+                        col_foot_L_props.prop(arm_bones['properties_leg_L'], 'hinge_toes_all_L', text="Hinge", toggle=True, icon_only = 1, emboss = 1)                      
 
                     col_snap = box.column()
                     col_snap.alignment ='LEFT'
@@ -2440,7 +2444,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                         if is_selected(head) or props.gui_snap_all:
 
                             box = col_snap.column()    
-                            box.label("SNAP HEAD")                      
+                            box.label(text="SNAP HEAD")                      
                             col = box.column()
                             row = col.row() 
                             col2 = row.column()        
@@ -2449,7 +2453,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                             
                         if is_selected(torso) or props.gui_snap_all:      
                             box = col_snap.column()    
-                            box.label("SNAP TORSO")                      
+                            box.label(text="SNAP TORSO")                      
                             col = box.column()
                             row = col.row() 
                             col2 = row.column()  
@@ -2462,7 +2466,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                                                                                   
                         if is_selected(arm_l + hand_l) or props.gui_snap_all:  
                             box = col_snap.column()    
-                            box.label("SNAP ARM LEFT")                    
+                            box.label(text="SNAP ARM LEFT")                    
                             col = col_snap.column()
                             row = col.row() 
                             col2 = row.column()          
@@ -2471,7 +2475,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                             
                         if is_selected(arm_r + hand_r) or props.gui_snap_all:   
                             box = col_snap.column()    
-                            box.label("SNAP ARM RIGHT")                      
+                            box.label(text="SNAP ARM RIGHT")                      
                             col = col_snap.column()
                             row = col.row() 
                             col2 = row.column()        
@@ -2480,7 +2484,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                                         
                         if is_selected(leg_l + foot_l) or props.gui_snap_all:   
                             box = col_snap.column()    
-                            box.label("SNAP LEG LEFT")                      
+                            box.label(text="SNAP LEG LEFT")                      
                             col = col_snap.column()
                             row = col.row() 
                             col2 = row.column()               
@@ -2489,7 +2493,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                                              
                         if is_selected(leg_r + foot_r) or props.gui_snap_all:  
                             box = col_snap.column()   
-                            box.label("SNAP LEG RIGHT")                       
+                            box.label(text="SNAP LEG RIGHT")                       
                             col = col_snap.column()
                             row = col.row() 
                             col2 = row.column()         
@@ -2600,10 +2604,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     brow_ctrls_R.scale_x = 1
                     brow_ctrls_R.scale_y = 0.5
                     brow_ctrls_R.alignment = 'CENTER'                     
-                    brow_ctrls_R.operator("operator.brow_ctrl_4_r", text="", icon='LINK', emboss=0)   
-                    brow_ctrls_R.operator("operator.brow_ctrl_3_r", text="", icon='LINK', emboss=0) 
-                    brow_ctrls_R.operator("operator.brow_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    brow_ctrls_R.operator("operator.brow_ctrl_1_r", text="", icon='LINK', emboss=0)   
+                    brow_ctrls_R.operator("operator.brow_ctrl_4_r", text="", icon='DOT', emboss=0)   
+                    brow_ctrls_R.operator("operator.brow_ctrl_3_r", text="", icon='DOT', emboss=0) 
+                    brow_ctrls_R.operator("operator.brow_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    brow_ctrls_R.operator("operator.brow_ctrl_1_r", text="", icon='DOT', emboss=0)   
 
                     # Brow Ctrl R
                     brow_ctrl_R = brow_R.row()        
@@ -2617,14 +2621,14 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     brow_toon_R.scale_x = 2
                     brow_toon_R.scale_y = 0.5
                     brow_toon_R.alignment = 'CENTER'                 
-                    brow_toon_R.operator("operator.toon_brow_r", text="", icon='SPACE2', emboss=0)                                    
+                    brow_toon_R.operator("operator.toon_brow_r", text="", icon='KEYFRAME_HLT', emboss=0)                                    
 
                     # Brow Frown
                     brow_frown = brow_mid.column()      
                     brow_frown.scale_x = 2
                     brow_frown.scale_y = 0.5
                     brow_frown.alignment = 'CENTER'                 
-                    brow_frown.operator("operator.frown_ctrl", text="", icon='LINK', emboss=0)                                                                                                               
+                    brow_frown.operator("operator.frown_ctrl", text="", icon='DOT', emboss=0)                                                                                                               
                     brow_frown.separator()
                     brow_frown.operator("operator.nose_bridge_1_ctrl", text="")   
                     
@@ -2634,10 +2638,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     brow_ctrls_L.scale_x = 1
                     brow_ctrls_L.scale_y = 0.5
                     brow_ctrls_L.alignment = 'CENTER'                     
-                    brow_ctrls_L.operator("operator.brow_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    brow_ctrls_L.operator("operator.brow_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    brow_ctrls_L.operator("operator.brow_ctrl_3_l", text="", icon='LINK', emboss=0) 
-                    brow_ctrls_L.operator("operator.brow_ctrl_4_l", text="", icon='LINK', emboss=0)   
+                    brow_ctrls_L.operator("operator.brow_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    brow_ctrls_L.operator("operator.brow_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    brow_ctrls_L.operator("operator.brow_ctrl_3_l", text="", icon='DOT', emboss=0) 
+                    brow_ctrls_L.operator("operator.brow_ctrl_4_l", text="", icon='DOT', emboss=0)   
 
                     # Brow Ctrl R
                     brow_ctrl_L = brow_L.row()       
@@ -2651,7 +2655,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     brow_toon_L.scale_x = 2
                     brow_toon_L.scale_y = 0.5
                     brow_toon_L.alignment = 'CENTER'                 
-                    brow_toon_L.operator("operator.toon_brow_l", text="", icon='SPACE2', emboss=0)   
+                    brow_toon_L.operator("operator.toon_brow_l", text="", icon='KEYFRAME_HLT', emboss=0)   
                     box_face.separator()
                     
                     col_space = box_face.column()
@@ -2693,22 +2697,22 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     eyelid_up_ctrls_R.scale_x = 1.2
                     eyelid_up_ctrls_R.scale_y = 0.5
                     eyelid_up_ctrls_R.alignment = 'CENTER'                     
-                    eyelid_up_ctrls_R.operator("operator.eyelid_up_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    eyelid_up_ctrls_R.operator("operator.eyelid_up_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    eyelid_up_ctrls_R.operator("operator.eyelid_up_ctrl_1_r", text="", icon='LINK', emboss=0) 
+                    eyelid_up_ctrls_R.operator("operator.eyelid_up_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    eyelid_up_ctrls_R.operator("operator.eyelid_up_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    eyelid_up_ctrls_R.operator("operator.eyelid_up_ctrl_1_r", text="", icon='DOT', emboss=0) 
                     
                     # Eye_R
                     eye_R_row_1 = col_R.row()   
                     eye_R_row_1.scale_x = 0.8
                     eye_R_row_1.scale_y = 1
                     eye_R_row_1.alignment = 'CENTER'  
-                    eye_R_row_1.operator("operator.toon_eye_up_r", text="", icon='SPACE2', emboss=0)     
+                    eye_R_row_1.operator("operator.toon_eye_up_r", text="", icon='KEYFRAME_HLT', emboss=0)     
                     
                     eye_R_row_2 = col_R.row()   
                     eye_R_row_2.scale_x = 0.5
                     eye_R_row_2.scale_y = 1
                     eye_R_row_2.alignment = 'CENTER' 
-                    eye_R_row_2.operator("operator.toon_eye_out_r", text="", icon='SPACE2', emboss=0)   
+                    eye_R_row_2.operator("operator.toon_eye_out_r", text="", icon='KEYFRAME_HLT', emboss=0)   
                     
                     eye_R_box = eye_R_row_2.box()
                     eye_R_box.scale_x = 1.2
@@ -2716,26 +2720,26 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     eye_R_box.alignment = 'CENTER'                 
                     eye_R = eye_R_box.row()
                     eye_R.operator("operator.pupil_ctrl_r", text="", icon='RADIOBUT_ON', emboss=0)  
-                    eye_R.operator("operator.eye_ctrl_r", text="", icon='RESTRICT_VIEW_OFF', emboss=0)  
-                    eye_R.operator("operator.iris_ctrl_r", text="", icon='INLINK', emboss=0)  
-                    eye_R_row_2.operator("operator.toon_eye_in_r", text="", icon='SPACE2', emboss=0)                  
+                    eye_R.operator("operator.eye_ctrl_r", text="", icon='HIDE_OFF', emboss=0)  
+                    eye_R.operator("operator.iris_ctrl_r", text="", icon='PROP_ON', emboss=0)  
+                    eye_R_row_2.operator("operator.toon_eye_in_r", text="", icon='KEYFRAME_HLT', emboss=0)                  
                     
                     eye_R_row_3 = col_R.row()   
                     eye_R_row_3.scale_x = 0.8
                     eye_R_row_3.scale_y = 1
                     eye_R_row_3.alignment = 'CENTER'                                                               
-                    eye_R_row_3.operator("operator.toon_eye_low_r", text="", icon='SPACE2', emboss=0)   
+                    eye_R_row_3.operator("operator.toon_eye_low_r", text="", icon='KEYFRAME_HLT', emboss=0)   
 
                     # Eyelid Low Ctrls R
                     eyelid_low_ctrls_R = col_R.row()   
                     eyelid_low_ctrls_R.scale_x = 0.8
                     eyelid_low_ctrls_R.scale_y = 0.5
                     eyelid_low_ctrls_R.alignment = 'CENTER'                     
-                    eyelid_low_ctrls_R.operator("operator.eyelid_ctrl_out_r", text="", icon='LINK', emboss=0)   
-                    eyelid_low_ctrls_R.operator("operator.eyelid_low_ctrl_3_r", text="", icon='LINK', emboss=0) 
-                    eyelid_low_ctrls_R.operator("operator.eyelid_low_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    eyelid_low_ctrls_R.operator("operator.eyelid_low_ctrl_1_r", text="", icon='LINK', emboss=0) 
-                    eyelid_low_ctrls_R.operator("operator.eyelid_ctrl_in_r", text="", icon='LINK', emboss=0)                 
+                    eyelid_low_ctrls_R.operator("operator.eyelid_ctrl_out_r", text="", icon='DOT', emboss=0)   
+                    eyelid_low_ctrls_R.operator("operator.eyelid_low_ctrl_3_r", text="", icon='DOT', emboss=0) 
+                    eyelid_low_ctrls_R.operator("operator.eyelid_low_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    eyelid_low_ctrls_R.operator("operator.eyelid_low_ctrl_1_r", text="", icon='DOT', emboss=0) 
+                    eyelid_low_ctrls_R.operator("operator.eyelid_ctrl_in_r", text="", icon='DOT', emboss=0)                 
 
                     # Eyelid Low Ctrl R
                     eyelid_low_R = col_R.row()      
@@ -2775,49 +2779,49 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     eyelid_up_ctrls_L.scale_x = 1.2
                     eyelid_up_ctrls_L.scale_y = 0.5
                     eyelid_up_ctrls_L.alignment = 'CENTER'                     
-                    eyelid_up_ctrls_L.operator("operator.eyelid_up_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    eyelid_up_ctrls_L.operator("operator.eyelid_up_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    eyelid_up_ctrls_L.operator("operator.eyelid_up_ctrl_3_l", text="", icon='LINK', emboss=0) 
+                    eyelid_up_ctrls_L.operator("operator.eyelid_up_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    eyelid_up_ctrls_L.operator("operator.eyelid_up_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    eyelid_up_ctrls_L.operator("operator.eyelid_up_ctrl_3_l", text="", icon='DOT', emboss=0) 
        
                     # Eye_L
                     eye_L_row_1 = col_L.row()   
                     eye_L_row_1.scale_x = 0.8
                     eye_L_row_1.scale_y = 1
                     eye_L_row_1.alignment = 'CENTER'  
-                    eye_L_row_1.operator("operator.toon_eye_up_l", text="", icon='SPACE2', emboss=0)     
+                    eye_L_row_1.operator("operator.toon_eye_up_l", text="", icon='KEYFRAME_HLT', emboss=0)     
                     
                     eye_L_row_2 = col_L.row()   
                     eye_L_row_2.scale_x = 0.5
                     eye_L_row_2.scale_y = 1
                     eye_L_row_2.alignment = 'CENTER' 
-                    eye_L_row_2.operator("operator.toon_eye_in_l", text="", icon='SPACE2', emboss=0)   
+                    eye_L_row_2.operator("operator.toon_eye_in_l", text="", icon='KEYFRAME_HLT', emboss=0)   
                     
                     eye_L_box = eye_L_row_2.box()
                     eye_L_box.scale_x = 1.2
                     eye_L_box.scale_y = 1
                     eye_L_box.alignment = 'CENTER'                 
                     eye_L = eye_L_box.row()
-                    eye_L.operator("operator.iris_ctrl_l", text="", icon='INLINK', emboss=0)  
-                    eye_L.operator("operator.eye_ctrl_l", text="", icon='RESTRICT_VIEW_OFF', emboss=0)  
+                    eye_L.operator("operator.iris_ctrl_l", text="", icon='PROP_ON', emboss=0)  
+                    eye_L.operator("operator.eye_ctrl_l", text="", icon='HIDE_OFF', emboss=0)  
                     eye_L.operator("operator.pupil_ctrl_l", text="", icon='RADIOBUT_ON', emboss=0)  
-                    eye_L_row_2.operator("operator.toon_eye_out_l", text="", icon='SPACE2', emboss=0)                  
+                    eye_L_row_2.operator("operator.toon_eye_out_l", text="", icon='KEYFRAME_HLT', emboss=0)                  
                     
                     eye_L_row_3 = col_L.row()   
                     eye_L_row_3.scale_x = 0.8
                     eye_L_row_3.scale_y = 1
                     eye_L_row_3.alignment = 'CENTER'                                                               
-                    eye_L_row_3.operator("operator.toon_eye_low_l", text="", icon='SPACE2', emboss=0)   
+                    eye_L_row_3.operator("operator.toon_eye_low_l", text="", icon='KEYFRAME_HLT', emboss=0)   
 
                     # Eyelid Low Ctrls L
                     eyelid_low_ctrls_L = col_L.row()   
                     eyelid_low_ctrls_L.scale_x = 0.8
                     eyelid_low_ctrls_L.scale_y = 0.5
                     eyelid_low_ctrls_L.alignment = 'CENTER'                     
-                    eyelid_low_ctrls_L.operator("operator.eyelid_ctrl_in_l", text="", icon='LINK', emboss=0)   
-                    eyelid_low_ctrls_L.operator("operator.eyelid_low_ctrl_1_l", text="", icon='LINK', emboss=0) 
-                    eyelid_low_ctrls_L.operator("operator.eyelid_low_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    eyelid_low_ctrls_L.operator("operator.eyelid_low_ctrl_3_l", text="", icon='LINK', emboss=0) 
-                    eyelid_low_ctrls_L.operator("operator.eyelid_ctrl_out_l", text="", icon='LINK', emboss=0)                 
+                    eyelid_low_ctrls_L.operator("operator.eyelid_ctrl_in_l", text="", icon='DOT', emboss=0)   
+                    eyelid_low_ctrls_L.operator("operator.eyelid_low_ctrl_1_l", text="", icon='DOT', emboss=0) 
+                    eyelid_low_ctrls_L.operator("operator.eyelid_low_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    eyelid_low_ctrls_L.operator("operator.eyelid_low_ctrl_3_l", text="", icon='DOT', emboss=0) 
+                    eyelid_low_ctrls_L.operator("operator.eyelid_ctrl_out_l", text="", icon='DOT', emboss=0)                 
 
                     # Eyelid Low Ctrl L
                     eyelid_low_L = col_L.row()      
@@ -2890,9 +2894,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_R.scale_x = 1.5
                     cheek_ctrls_R.scale_y = 0.5
                     cheek_ctrls_R.alignment = 'CENTER'                     
-                    cheek_ctrls_R.operator("operator.cheek_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_R.operator("operator.cheek_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_R.operator("operator.cheek_ctrl_1_r", text="", icon='LINK', emboss=0)    
+                    cheek_ctrls_R.operator("operator.cheek_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_R.operator("operator.cheek_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_R.operator("operator.cheek_ctrl_1_r", text="", icon='DOT', emboss=0)    
                     
                     # Cheek Ctrls 2 R
                     col_R.separator()
@@ -2900,9 +2904,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_2_R.scale_x = 1.5
                     cheek_ctrls_2_R.scale_y = 0.5
                     cheek_ctrls_2_R.alignment = 'CENTER'                     
-                    cheek_ctrls_2_R.operator("operator.cheek2_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_2_R.operator("operator.cheek2_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_2_R.operator("operator.cheek2_ctrl_1_r", text="", icon='LINK', emboss=0)        
+                    cheek_ctrls_2_R.operator("operator.cheek2_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_2_R.operator("operator.cheek2_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_2_R.operator("operator.cheek2_ctrl_1_r", text="", icon='DOT', emboss=0)        
                    
                     # Cheek Ctrls 3 R
                     col_R.separator()
@@ -2910,9 +2914,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_3_R.scale_x = 1.5
                     cheek_ctrls_3_R.scale_y = 0.5
                     cheek_ctrls_3_R.alignment = 'CENTER'                     
-                    cheek_ctrls_3_R.operator("operator.lip_up3_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_3_R.operator("operator.lip_up3_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_3_R.operator("operator.lip_up3_ctrl_1_r", text="", icon='LINK', emboss=0) 
+                    cheek_ctrls_3_R.operator("operator.lip_up3_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_3_R.operator("operator.lip_up3_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_3_R.operator("operator.lip_up3_ctrl_1_r", text="", icon='DOT', emboss=0) 
 
                     # Cheek Ctrls 4 R
                     col_R.separator()
@@ -2920,9 +2924,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_4_R.scale_x = 1.5
                     cheek_ctrls_4_R.scale_y = 0.5
                     cheek_ctrls_4_R.alignment = 'CENTER'                     
-                    cheek_ctrls_4_R.operator("operator.lip_up2_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_4_R.operator("operator.lip_up2_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_4_R.operator("operator.lip_up2_ctrl_1_r", text="", icon='LINK', emboss=0)                                                             
+                    cheek_ctrls_4_R.operator("operator.lip_up2_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_4_R.operator("operator.lip_up2_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_4_R.operator("operator.lip_up2_ctrl_1_r", text="", icon='DOT', emboss=0)                                                             
                     
                     # Nose
                     col_mid.separator()
@@ -2932,16 +2936,16 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     nose.scale_x = 1.2
                     nose.scale_y = 0.8
                     nose.alignment = 'CENTER'                                
-                    nose.operator("operator.nostril_ctrl_r", text="", icon='LINK', emboss=0) 
+                    nose.operator("operator.nostril_ctrl_r", text="", icon='DOT', emboss=0) 
                     nose.operator("operator.nose_ctrl", text="")                 
-                    nose.operator("operator.nostril_ctrl_l", text="", icon='LINK', emboss=0)    
+                    nose.operator("operator.nostril_ctrl_l", text="", icon='DOT', emboss=0)    
                   
                     # Lip Up Ctrls  
                     col_mid.separator()
                     lip_up_ctrls = col_mid.column()
                     lip_up_ctrls.scale_x = 0.25
                     lip_up_ctrls.scale_y = 0.5                   
-                    lip_up_ctrls.operator("operator.lip_up3_ctrl_mid", text="", icon='LINK', emboss=0)  
+                    lip_up_ctrls.operator("operator.lip_up3_ctrl_mid", text="", icon='DOT', emboss=0)  
                     
                     lip_up_3_ctrl = col_mid.column()
                     lip_up_3_ctrl.scale_x = 0.25
@@ -2951,7 +2955,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     lip_up_2_ctrl = col_mid.column()
                     lip_up_2_ctrl.scale_x = 0.25
                     lip_up_2_ctrl.scale_y = 0.3   
-                    lip_up_2_ctrl.operator("operator.lip_up2_ctrl_mid", text="", icon='LINK', emboss=0)  
+                    lip_up_2_ctrl.operator("operator.lip_up2_ctrl_mid", text="", icon='DOT', emboss=0)  
                     lip_up_2_ctrl.operator("operator.lip_up2_ctrl", text="")                                                                                                                                                      
                     
                     # Cheek Ctrl L
@@ -2966,9 +2970,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_L.scale_x = 1.5
                     cheek_ctrls_L.scale_y = 0.5
                     cheek_ctrls_L.alignment = 'CENTER'                     
-                    cheek_ctrls_L.operator("operator.cheek_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_L.operator("operator.cheek_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_L.operator("operator.cheek_ctrl_3_l", text="", icon='LINK', emboss=0)  
+                    cheek_ctrls_L.operator("operator.cheek_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_L.operator("operator.cheek_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_L.operator("operator.cheek_ctrl_3_l", text="", icon='DOT', emboss=0)  
 
                     # Cheek Ctrls 2 L
                     col_L.separator()
@@ -2976,9 +2980,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_2_L.scale_x = 1.5
                     cheek_ctrls_2_L.scale_y = 0.5
                     cheek_ctrls_2_L.alignment = 'CENTER'                     
-                    cheek_ctrls_2_L.operator("operator.cheek2_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_2_L.operator("operator.cheek2_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_2_L.operator("operator.cheek2_ctrl_3_l", text="", icon='LINK', emboss=0)        
+                    cheek_ctrls_2_L.operator("operator.cheek2_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_2_L.operator("operator.cheek2_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_2_L.operator("operator.cheek2_ctrl_3_l", text="", icon='DOT', emboss=0)        
                    
                     # Cheek Ctrls 3 L
                     col_L.separator()
@@ -2986,9 +2990,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_3_L.scale_x = 1.5
                     cheek_ctrls_3_L.scale_y = 0.5
                     cheek_ctrls_3_L.alignment = 'CENTER'                     
-                    cheek_ctrls_3_L.operator("operator.lip_up3_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_3_L.operator("operator.lip_up3_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_3_L.operator("operator.lip_up3_ctrl_3_l", text="", icon='LINK', emboss=0) 
+                    cheek_ctrls_3_L.operator("operator.lip_up3_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_3_L.operator("operator.lip_up3_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_3_L.operator("operator.lip_up3_ctrl_3_l", text="", icon='DOT', emboss=0) 
 
                     # Cheek Ctrls 4 L
                     col_L.separator()
@@ -2996,9 +3000,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_4_L.scale_x = 1.5
                     cheek_ctrls_4_L.scale_y = 0.5
                     cheek_ctrls_4_L.alignment = 'CENTER'                     
-                    cheek_ctrls_4_L.operator("operator.lip_up2_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_4_L.operator("operator.lip_up2_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_4_L.operator("operator.lip_up2_ctrl_3_l", text="", icon='LINK', emboss=0)    
+                    cheek_ctrls_4_L.operator("operator.lip_up2_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_4_L.operator("operator.lip_up2_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_4_L.operator("operator.lip_up2_ctrl_3_l", text="", icon='DOT', emboss=0)    
                     
                     col_space = box_face.column()
                     col_space.scale_y = 4    
@@ -3037,10 +3041,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     lip_mid_ctrls_R.scale_x = 1.5
                     lip_mid_ctrls_R.scale_y = 0.5
                     lip_mid_ctrls_R.alignment = 'CENTER'                     
-                    lip_mid_ctrls_R.operator("operator.cheek_ctrl_4_r", text="", icon='LINK', emboss=0)   
-                    lip_mid_ctrls_R.operator("operator.cheek2_ctrl_4_r", text="", icon='LINK', emboss=0) 
-                    lip_mid_ctrls_R.operator("operator.lip_up3_ctrl_4_r", text="", icon='LINK', emboss=0)  
-                    lip_mid_ctrls_R.operator("operator.lip_up2_ctrl_4_r", text="", icon='LINK', emboss=0) 
+                    lip_mid_ctrls_R.operator("operator.cheek_ctrl_4_r", text="", icon='DOT', emboss=0)   
+                    lip_mid_ctrls_R.operator("operator.cheek2_ctrl_4_r", text="", icon='DOT', emboss=0) 
+                    lip_mid_ctrls_R.operator("operator.lip_up3_ctrl_4_r", text="", icon='DOT', emboss=0)  
+                    lip_mid_ctrls_R.operator("operator.lip_up2_ctrl_4_r", text="", icon='DOT', emboss=0) 
                     
                     # Mouth Ctrls
                     
@@ -3104,13 +3108,13 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     lip_up_ctrls.scale_x = 0.3
                     lip_up_ctrls.scale_y = 0.4
                     lip_up_ctrls.alignment = 'CENTER'                 
-                    lip_up_ctrls.operator("operator.lip_up_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    lip_up_ctrls.operator("operator.lip_up_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    lip_up_ctrls.operator("operator.lip_up_ctrl_1_r", text="", icon='LINK', emboss=0)  
-                    lip_up_ctrls.operator("operator.lip_up_ctrl_mid", text="", icon='LINK', emboss=0)  
-                    lip_up_ctrls.operator("operator.lip_up_ctrl_1_l", text="", icon='LINK', emboss=0) 
-                    lip_up_ctrls.operator("operator.lip_up_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    lip_up_ctrls.operator("operator.lip_up_ctrl_3_l", text="", icon='LINK', emboss=0)                                 
+                    lip_up_ctrls.operator("operator.lip_up_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    lip_up_ctrls.operator("operator.lip_up_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    lip_up_ctrls.operator("operator.lip_up_ctrl_1_r", text="", icon='DOT', emboss=0)  
+                    lip_up_ctrls.operator("operator.lip_up_ctrl_mid", text="", icon='DOT', emboss=0)  
+                    lip_up_ctrls.operator("operator.lip_up_ctrl_1_l", text="", icon='DOT', emboss=0) 
+                    lip_up_ctrls.operator("operator.lip_up_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    lip_up_ctrls.operator("operator.lip_up_ctrl_3_l", text="", icon='DOT', emboss=0)                                 
                     lip_up_col.separator()
                     
                     # Mouth Ctrl
@@ -3131,7 +3135,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     mouth_ctrl_row_1.scale_x = 0.5
                     mouth_ctrl_row_1.scale_y = 1
                     mouth_ctrl_row_1.alignment = 'CENTER'     
-                    mouth_ctrl_row_1.operator("operator.lip_up_ctrl_4_r", text="", icon='LINK', emboss=0)
+                    mouth_ctrl_row_1.operator("operator.lip_up_ctrl_4_r", text="", icon='DOT', emboss=0)
                                        
                     mouth_ctrl_row_2 = mouth_ctrl_row.row(align=1)
                     mouth_ctrl_row_2.scale_x = 1
@@ -3143,7 +3147,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     mouth_ctrl_row_3.scale_x = 0.5
                     mouth_ctrl_row_3.scale_y = 1
                     mouth_ctrl_row_3.alignment = 'CENTER'                                              
-                    mouth_ctrl_row_3.operator("operator.lip_up_ctrl_4_l", text="", icon='LINK', emboss=0)  
+                    mouth_ctrl_row_3.operator("operator.lip_up_ctrl_4_l", text="", icon='DOT', emboss=0)  
                     
                     mouth_low_ctrl = mouth_ctrl_col.row()     
                     mouth_low_ctrl.scale_x = 1.5
@@ -3160,13 +3164,13 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     lip_low_ctrls.scale_x = 0.3
                     lip_low_ctrls.scale_y = 0.5
                     lip_low_ctrls.alignment = 'CENTER'                 
-                    lip_low_ctrls.operator("operator.lip_low_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    lip_low_ctrls.operator("operator.lip_low_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    lip_low_ctrls.operator("operator.lip_low_ctrl_1_r", text="", icon='LINK', emboss=0)  
-                    lip_low_ctrls.operator("operator.lip_low_ctrl_mid", text="", icon='LINK', emboss=0)  
-                    lip_low_ctrls.operator("operator.lip_low_ctrl_1_l", text="", icon='LINK', emboss=0) 
-                    lip_low_ctrls.operator("operator.lip_low_ctrl_2_l", text="", icon='LINK', emboss=0)   
-                    lip_low_ctrls.operator("operator.lip_low_ctrl_3_l", text="", icon='LINK', emboss=0)                                                   
+                    lip_low_ctrls.operator("operator.lip_low_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    lip_low_ctrls.operator("operator.lip_low_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    lip_low_ctrls.operator("operator.lip_low_ctrl_1_r", text="", icon='DOT', emboss=0)  
+                    lip_low_ctrls.operator("operator.lip_low_ctrl_mid", text="", icon='DOT', emboss=0)  
+                    lip_low_ctrls.operator("operator.lip_low_ctrl_1_l", text="", icon='DOT', emboss=0) 
+                    lip_low_ctrls.operator("operator.lip_low_ctrl_2_l", text="", icon='DOT', emboss=0)   
+                    lip_low_ctrls.operator("operator.lip_low_ctrl_3_l", text="", icon='DOT', emboss=0)                                                   
 
                     mouth_mstr_low = mouth_col_mid.column(align=1)      
                     mouth_mstr_low.scale_x = 1
@@ -3212,10 +3216,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     lip_mid_ctrls_L.scale_x = 1.5
                     lip_mid_ctrls_L.scale_y = 0.5
                     lip_mid_ctrls_L.alignment = 'CENTER'                     
-                    lip_mid_ctrls_L.operator("operator.lip_up2_ctrl_4_l", text="", icon='LINK', emboss=0)   
-                    lip_mid_ctrls_L.operator("operator.lip_up3_ctrl_4_l", text="", icon='LINK', emboss=0) 
-                    lip_mid_ctrls_L.operator("operator.cheek2_ctrl_4_l", text="", icon='LINK', emboss=0)  
-                    lip_mid_ctrls_L.operator("operator.cheek_ctrl_4_l", text="", icon='LINK', emboss=0)                                                    
+                    lip_mid_ctrls_L.operator("operator.lip_up2_ctrl_4_l", text="", icon='DOT', emboss=0)   
+                    lip_mid_ctrls_L.operator("operator.lip_up3_ctrl_4_l", text="", icon='DOT', emboss=0) 
+                    lip_mid_ctrls_L.operator("operator.cheek2_ctrl_4_l", text="", icon='DOT', emboss=0)  
+                    lip_mid_ctrls_L.operator("operator.cheek_ctrl_4_l", text="", icon='DOT', emboss=0)                                                    
 
                     # Jaw             
                     jaw = box_face.row()              
@@ -3250,9 +3254,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_R.scale_x = 1.5
                     cheek_ctrls_R.scale_y = 0.5
                     cheek_ctrls_R.alignment = 'CENTER'                     
-                    cheek_ctrls_R.operator("operator.lip_low2_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_R.operator("operator.lip_low2_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_R.operator("operator.lip_low2_ctrl_1_r", text="", icon='LINK', emboss=0)  
+                    cheek_ctrls_R.operator("operator.lip_low2_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_R.operator("operator.lip_low2_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_R.operator("operator.lip_low2_ctrl_1_r", text="", icon='DOT', emboss=0)  
 
                     # Jaw Ctrls 2 R
                     col_R.separator()
@@ -3260,9 +3264,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_2_R.scale_x = 1.5
                     cheek_ctrls_2_R.scale_y = 0.5
                     cheek_ctrls_2_R.alignment = 'CENTER'                     
-                    cheek_ctrls_2_R.operator("operator.lip_low3_ctrl_3_r", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_2_R.operator("operator.lip_low3_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_2_R.operator("operator.lip_low3_ctrl_1_r", text="", icon='LINK', emboss=0)        
+                    cheek_ctrls_2_R.operator("operator.lip_low3_ctrl_3_r", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_2_R.operator("operator.lip_low3_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_2_R.operator("operator.lip_low3_ctrl_1_r", text="", icon='DOT', emboss=0)        
                    
                     # Jaw Ctrls 3 R
                     col_R.separator()
@@ -3270,10 +3274,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_3_R.scale_x = 1
                     cheek_ctrls_3_R.scale_y = 0.5
                     cheek_ctrls_3_R.alignment = 'CENTER'                     
-                    cheek_ctrls_3_R.operator("operator.cheek_ctrl_5_r", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_3_R.operator("operator.chin_ctrl_3_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_3_R.operator("operator.chin_ctrl_2_r", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_3_R.operator("operator.chin_ctrl_1_r", text="", icon='LINK', emboss=0)                                                               
+                    cheek_ctrls_3_R.operator("operator.cheek_ctrl_5_r", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_3_R.operator("operator.chin_ctrl_3_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_3_R.operator("operator.chin_ctrl_2_r", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_3_R.operator("operator.chin_ctrl_1_r", text="", icon='DOT', emboss=0)                                                               
                                   
                     # Lip Low Ctrls  
                     col_mid.separator()
@@ -3281,7 +3285,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     lip_low_ctrls = col_mid.column()
                     lip_low_ctrls.scale_x = 0.25
                     lip_low_ctrls.scale_y = 1                  
-                    lip_low_ctrls.operator("operator.lip_low2_ctrl_mid", text="", icon='LINK', emboss=0)  
+                    lip_low_ctrls.operator("operator.lip_low2_ctrl_mid", text="", icon='DOT', emboss=0)  
                     
                     lip_low_2_ctrl = col_mid.column()
                     lip_low_2_ctrl.scale_x = 0.25
@@ -3291,9 +3295,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     lip_low_3_ctrl = col_mid.column()
                     lip_low_3_ctrl.scale_x = 0.25
                     lip_low_3_ctrl.scale_y = 0.3   
-                    lip_low_3_ctrl.operator("operator.lip_low3_ctrl_mid", text="", icon='LINK', emboss=0)  
+                    lip_low_3_ctrl.operator("operator.lip_low3_ctrl_mid", text="", icon='DOT', emboss=0)  
                     lip_low_3_ctrl.operator("operator.lip_low3_ctrl", text="")                                                                                                                                                      
-                    lip_low_3_ctrl.operator("operator.chin_ctrl_mid", text="", icon='LINK', emboss=0) 
+                    lip_low_3_ctrl.operator("operator.chin_ctrl_mid", text="", icon='DOT', emboss=0) 
                     
                     # Mouth Frown L
                     cheek_ctrl_L = col_L.row()      
@@ -3307,9 +3311,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_L.scale_x = 1.5
                     cheek_ctrls_L.scale_y = 0.5
                     cheek_ctrls_L.alignment = 'CENTER'                     
-                    cheek_ctrls_L.operator("operator.lip_low2_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_L.operator("operator.lip_low2_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_L.operator("operator.lip_low2_ctrl_3_l", text="", icon='LINK', emboss=0)  
+                    cheek_ctrls_L.operator("operator.lip_low2_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_L.operator("operator.lip_low2_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_L.operator("operator.lip_low2_ctrl_3_l", text="", icon='DOT', emboss=0)  
 
                     # Jaw Ctrls 2 L
                     col_L.separator()
@@ -3317,9 +3321,9 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_2_L.scale_x = 1.5
                     cheek_ctrls_2_L.scale_y = 0.5
                     cheek_ctrls_2_L.alignment = 'CENTER'                     
-                    cheek_ctrls_2_L.operator("operator.lip_low3_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_2_L.operator("operator.lip_low3_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_2_L.operator("operator.lip_low3_ctrl_3_l", text="", icon='LINK', emboss=0)        
+                    cheek_ctrls_2_L.operator("operator.lip_low3_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_2_L.operator("operator.lip_low3_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_2_L.operator("operator.lip_low3_ctrl_3_l", text="", icon='DOT', emboss=0)        
                    
                     # Jaw Ctrls 3 L
                     col_L.separator()
@@ -3327,10 +3331,10 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     cheek_ctrls_3_L.scale_x = 1
                     cheek_ctrls_3_L.scale_y = 0.5
                     cheek_ctrls_3_L.alignment = 'CENTER'                     
-                    cheek_ctrls_3_L.operator("operator.chin_ctrl_1_l", text="", icon='LINK', emboss=0)   
-                    cheek_ctrls_3_L.operator("operator.chin_ctrl_2_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_3_L.operator("operator.chin_ctrl_3_l", text="", icon='LINK', emboss=0) 
-                    cheek_ctrls_3_L.operator("operator.cheek_ctrl_5_l", text="", icon='LINK', emboss=0)                
+                    cheek_ctrls_3_L.operator("operator.chin_ctrl_1_l", text="", icon='DOT', emboss=0)   
+                    cheek_ctrls_3_L.operator("operator.chin_ctrl_2_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_3_L.operator("operator.chin_ctrl_3_l", text="", icon='DOT', emboss=0) 
+                    cheek_ctrls_3_L.operator("operator.cheek_ctrl_5_l", text="", icon='DOT', emboss=0)                
 
                     col_space = box_face.column()
                     col_space.scale_y = 4    
@@ -3406,7 +3410,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     inner_col.scale_x = 1
                     inner_col.scale_y = 1
                     inner_col.alignment = 'CENTER'   
-                    inner_col.label('Inner Mouth')      
+                    inner_col.label(text='Inner Mouth')      
                     inner_col.separator()                       
                     
                     inner_row = inner_col.row(align = 1)
@@ -3518,7 +3522,7 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     row_model_res.scale_x = 0.7
                     row_model_res.scale_y = 1
                     row_model_res.alignment = 'CENTER'  
-                    row_model_res.prop(arm_bones['properties'], '["model_res"]', "Model_Res", toggle=True)                          
+                    row_model_res.prop(arm_bones['properties'], '["model_res"]', text="Model_Res", toggle=True)                          
                           
                 # collapsed box 
               
@@ -3543,35 +3547,35 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     if props.gui_extra_props_head:
                         head_col = box.box()     
                         head_col.scale_x = 1
-                        head_col.scale_y = 0.5
+                        head_col.scale_y = 1
                         head_col.alignment = 'CENTER'                 
-                        head_col.label('Teeth - Follow Smile')   
+                        head_col.label(text='Teeth - Follow Smile')   
                         teeth_row = head_col.row()
                         col_1 = teeth_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'                           
                         col_2 = teeth_row.column()   
                         col_2.scale_x = 1
-                        col_2.scale_y = 0.8
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'                           
-                        col_1.prop(arm_bones['properties_head'], '["toon_teeth_up"]', "Upper Teeth", slider=True)
-                        col_2.prop(arm_bones['properties_head'], '["toon_teeth_low"]', "Lower Teeth", slider=True) 
+                        col_1.prop(arm_bones['properties_head'], '["toon_teeth_up"]', text="Upper Teeth", slider=True)
+                        col_2.prop(arm_bones['properties_head'], '["toon_teeth_low"]', text="Lower Teeth", slider=True) 
                         head_col.separator()
 
                         # Fleshy Eyes          
-                        head_col.label('Fleshy Eyes')   
+                        head_col.label(text='Fleshy Eyes')   
                         fleshy_row = head_col.row()
                         col_1 = fleshy_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'                           
                         col_2 = fleshy_row.column()   
                         col_2.scale_x = 1
-                        col_2.scale_y = 0.8
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'                           
-                        col_1.prop(arm_bones['look_R'], '["FLESHY_EYE_R"]', "Eye_R", slider=True)
-                        col_2.prop(arm_bones['look_L'], '["FLESHY_EYE_L"]', "Eye_L", slider=True) 
+                        col_1.prop(arm_bones['look_R'], '["FLESHY_EYE_R"]', text="Eye_R", slider=True)
+                        col_2.prop(arm_bones['look_L'], '["FLESHY_EYE_L"]', text="Eye_L", slider=True) 
                         head_col.separator()    
 
                 
@@ -3580,38 +3584,38 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     if props.gui_extra_props_arms:                        
                         arms_col = box.box()     
                         arms_col.scale_x = 1
-                        arms_col.scale_y = 0.5
+                        arms_col.scale_y = 1
                         arms_col.alignment = 'CENTER'                 
-                        arms_col.label('Curved Arms')   
+                        arms_col.label(text='Curved Arms')   
                         arms_row = arms_col.row()
                         col_1 = arms_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'                           
                         col_2 = arms_row.column()   
                         col_2.scale_x = 1
-                        col_2.scale_y = 0.8
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'                           
-                        col_1.prop(arm_bones['properties_arm_R'], '["curved_arm_R"]', "Curve_R", slider=True)
-                        col_1.prop(arm_bones['properties_arm_R'], '["curved_arm_tweak_R"]', "Tweak_R", slider=True)             
-                        col_2.prop(arm_bones['properties_arm_L'], '["curved_arm_L"]', "Curve_L", slider=True) 
-                        col_2.prop(arm_bones['properties_arm_L'], '["curved_arm_tweak_L"]', "Tweak_L", slider=True)                    
+                        col_1.prop(arm_bones['properties_arm_R'], '["curved_arm_R"]', text="Curve_R", slider=True)
+                        col_1.prop(arm_bones['properties_arm_R'], '["curved_arm_tweak_R"]', text="Tweak_R", slider=True)             
+                        col_2.prop(arm_bones['properties_arm_L'], '["curved_arm_L"]', text="Curve_L", slider=True) 
+                        col_2.prop(arm_bones['properties_arm_L'], '["curved_arm_tweak_L"]', text="Tweak_L", slider=True)                    
                         arms_col.separator()
                         arms_col.separator()                
 
                         # Elbow Poles       
-                        arms_col.label('Elbow Poles')   
+                        arms_col.label(text='Elbow Poles')   
                         elbows_row = arms_col.row()
                         col_1 = elbows_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'                           
                         col_2 = elbows_row.column()   
                         col_2.scale_x = 1
-                        col_2.scale_y = 0.8
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'                           
-                        col_1.prop(arm_bones['elbow_pole_R'], '["FOLLOW_TORSO_R"]', "Follow_Torso_R", slider=True)
-                        col_2.prop(arm_bones['elbow_pole_L'], '["FOLLOW_TORSO_L"]', "Follow_Torso_L", slider=True) 
+                        col_1.prop(arm_bones['elbow_pole_R'], '["FOLLOW_TORSO_R"]', text="Follow_Torso_R", slider=True)
+                        col_2.prop(arm_bones['elbow_pole_L'], '["FOLLOW_TORSO_L"]', text="Follow_Torso_L", slider=True) 
                         arms_col.separator()                 
 
                 # Fingers
@@ -3619,71 +3623,66 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     if props.gui_extra_props_fingers:                    
                         hands_col = box.box()     
                         hands_col.scale_x = 1
-                        hands_col.scale_y = 0.5
+                        hands_col.scale_y = 1
                         hands_col.alignment = 'CENTER'                  
                         hands_row = hands_col.row()
                         col_1 = hands_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'   
                         col_2 = hands_row.column()   
-                        col_2.scale_x = 0.8
-                        col_2.scale_y = 0.8
+                        col_2.scale_x = 1
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'                                                                    
-                        col_2.label('IK_R')                                                       
+                        col_2.label(text='IK_R')                                                       
                         col_3 = hands_row.column()   
-                        col_3.scale_x = 0.8
-                        col_3.scale_y = 0.8
+                        col_3.scale_x = 1
+                        col_3.scale_y = 1
                         col_3.alignment = 'CENTER'  
-                        col_3.label('Hinge_R')                   
+                        col_3.label(text='Hinge_R')                   
                         col_4 = hands_row.column()   
-                        col_4.scale_x = 0.8
-                        col_4.scale_y = 0.8
+                        col_4.scale_x = 1
+                        col_4.scale_y = 1
                         col_4.alignment = 'CENTER'   
-                        col_4.label('IK_L')                 
+                        col_4.label(text='IK_L')                 
                         col_5 = hands_row.column()   
-                        col_5.scale_x = 0.8
-                        col_5.scale_y = 0.8
+                        col_5.scale_x = 1
+                        col_5.scale_y = 1
                         col_5.alignment = 'CENTER'   
-                        col_5.label('Hinge_L')                
+                        col_5.label(text='Hinge_L')                
                         col_1.separator()
                         col_1.separator()  
                         col_1.separator()                     
-                        col_1.label('All')                           
-                        col_1.label('Thumb')  
-                        col_1.label('Index')  
-                        col_1.label('Middle')  
-                        col_1.label('Ring')  
-                        col_1.label('Little')  
-                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_all_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_thumb_R', "", toggle=True, icon_only = 1, emboss = 1)                           
-                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_ind_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_mid_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_ring_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_lit_R', "", toggle=True, icon_only = 1, emboss = 1)      
-                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_all_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_thumb_R', "", toggle=True, icon_only = 1, emboss = 1)                           
-                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_ind_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_mid_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_ring_R', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_lit_R', "", toggle=True, icon_only = 1, emboss = 1)         
-                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_all_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_thumb_L', "", toggle=True, icon_only = 1, emboss = 1)                           
-                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_ind_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_mid_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_ring_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_lit_L', "", toggle=True, icon_only = 1, emboss = 1)      
-                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_all_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_thumb_L', "", toggle=True, icon_only = 1, emboss = 1)                           
-                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_ind_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_mid_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_ring_L', "", toggle=True, icon_only = 1, emboss = 1)   
-                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_lit_L', "", toggle=True, icon_only = 1, emboss = 1)                                                                                                                    
-                        hands_col.separator()   
-                        hands_col.separator()                                                      
-                        hands_col.separator()   
-                        hands_col.separator()           
-                        hands_col.separator()   
+                        col_1.label(text='All')                           
+                        col_1.label(text='Thumb')  
+                        col_1.label(text='Index')  
+                        col_1.label(text='Middle')  
+                        col_1.label(text='Ring')  
+                        col_1.label(text='Little')  
+                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_all_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_thumb_R', text="", toggle=True, icon_only = 1, emboss = 1)                           
+                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_ind_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_mid_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_ring_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_2.prop(arm_bones['properties_arm_R'], 'ik_fing_lit_R', text="", toggle=True, icon_only = 1, emboss = 1)      
+                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_all_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_thumb_R', text="", toggle=True, icon_only = 1, emboss = 1)                           
+                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_ind_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_mid_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_ring_R', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_3.prop(arm_bones['properties_arm_R'], 'hinge_fing_lit_R', text="", toggle=True, icon_only = 1, emboss = 1)         
+                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_all_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_thumb_L', text="", toggle=True, icon_only = 1, emboss = 1)                           
+                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_ind_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_mid_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_ring_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_4.prop(arm_bones['properties_arm_L'], 'ik_fing_lit_L', text="", toggle=True, icon_only = 1, emboss = 1)      
+                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_all_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_thumb_L', text="", toggle=True, icon_only = 1, emboss = 1)                           
+                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_ind_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_mid_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_ring_L', text="", toggle=True, icon_only = 1, emboss = 1)   
+                        col_5.prop(arm_bones['properties_arm_L'], 'hinge_fing_lit_L', text="", toggle=True, icon_only = 1, emboss = 1)
                         hands_col.separator()  
 
                     # Legs
@@ -3691,38 +3690,38 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     if props.gui_extra_props_legs:                    
                         legs_col = box.box()     
                         legs_col.scale_x = 1
-                        legs_col.scale_y = 0.5
+                        legs_col.scale_y = 1
                         legs_col.alignment = 'CENTER'                 
-                        legs_col.label('Curved Legs')   
+                        legs_col.label(text='Curved Legs')   
                         legs_row = legs_col.row()
                         col_1 = legs_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'                           
                         col_2 = legs_row.column()   
                         col_2.scale_x = 1
-                        col_2.scale_y = 0.8
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'                           
-                        col_1.prop(arm_bones['properties_leg_R'], '["curved_leg_R"]', "Curve_R", slider=True)
-                        col_1.prop(arm_bones['properties_leg_R'], '["curved_leg_tweak_R"]', "Tweak_R", slider=True)             
-                        col_2.prop(arm_bones['properties_leg_L'], '["curved_leg_L"]', "Curve_L", slider=True) 
-                        col_2.prop(arm_bones['properties_leg_L'], '["curved_leg_tweak_L"]', "Tweak_L", slider=True)               
+                        col_1.prop(arm_bones['properties_leg_R'], '["curved_leg_R"]', text="Curve_R", slider=True)
+                        col_1.prop(arm_bones['properties_leg_R'], '["curved_leg_tweak_R"]', text="Tweak_R", slider=True)             
+                        col_2.prop(arm_bones['properties_leg_L'], '["curved_leg_L"]', text="Curve_L", slider=True) 
+                        col_2.prop(arm_bones['properties_leg_L'], '["curved_leg_tweak_L"]', text="Tweak_L", slider=True)               
                         legs_col.separator()   
                         legs_col.separator()                          
 
                         # Knee Poles       
-                        legs_col.label('Knee Poles')   
+                        legs_col.label(text='Knee Poles')   
                         knees_row = legs_col.row()
                         col_1 = knees_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'                           
                         col_2 = knees_row.column()   
                         col_2.scale_x = 1
-                        col_2.scale_y = 0.8
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'                           
-                        col_1.prop(arm_bones['knee_pole_R'], '["FOLLOW_FOOT_R"]', "Follow_foot_R", slider=True)
-                        col_2.prop(arm_bones['knee_pole_L'], '["FOLLOW_FOOT_L"]', "Follow_foot_L", slider=True) 
+                        col_1.prop(arm_bones['knee_pole_R'], '["FOLLOW_FOOT_R"]', text="Follow_foot_R", slider=True)
+                        col_2.prop(arm_bones['knee_pole_L'], '["FOLLOW_FOOT_L"]', text="Follow_foot_L", slider=True) 
                         legs_col.separator()                                           
 
                     # Accessories
@@ -3730,22 +3729,22 @@ class BlenRig_5_Interface(bpy.types.Panel):
                     if props.gui_extra_props_accessories:                    
                         accessories_col = box.box()     
                         accessories_col.scale_x = 1
-                        accessories_col.scale_y = 0.5
+                        accessories_col.scale_y = 1
                         accessories_col.alignment = 'CENTER'   
-                        accessories_col.label('Toggle Sticky or Free')               
+                        accessories_col.label(text='Toggle Sticky or Free')               
                         accessories_row = accessories_col.row()
                         col_1 = accessories_row.column()      
                         col_1.scale_x = 1
-                        col_1.scale_y = 0.8
+                        col_1.scale_y = 1
                         col_1.alignment = 'CENTER'                                         
                         col_2 = accessories_row.column()   
                         col_2.scale_x = 1
-                        col_2.scale_y = 0.8
+                        col_2.scale_y = 1
                         col_2.alignment = 'CENTER'    
-                        col_1.prop(arm_bones['properties_head'], '["hat_free"]', "Hat", toggle=True, icon_only = 0, emboss = 1)                                                
-                        col_1.prop(arm_bones['properties_arm_R'], '["hand_accessory_R"]', "Hand_R", slider=True, icon_only = 0, emboss = 1)  
-                        col_2.prop(arm_bones['properties_head'], '["glasses_free"]', "Glasses", toggle=True, icon_only = 0, emboss = 1)                 
-                        col_2.prop(arm_bones['properties_arm_L'], '["hand_accessory_L"]', "Hand_L", slider=True, icon_only = 0, emboss = 1)                                                       
+                        col_1.prop(arm_bones['properties_head'], '["hat_free"]', text="Hat", toggle=True, icon_only = 0, emboss = 1)                                                
+                        col_1.prop(arm_bones['properties_arm_R'], '["hand_accessory_R"]', text="Hand_R", slider=True, icon_only = 0, emboss = 1)  
+                        col_2.prop(arm_bones['properties_head'], '["glasses_free"]', text="Glasses", toggle=True, icon_only = 0, emboss = 1)                 
+                        col_2.prop(arm_bones['properties_arm_L'], '["hand_accessory_L"]', text="Hand_L", slider=True, icon_only = 0, emboss = 1)                                                       
                         accessories_col.separator()   
                         accessories_col.separator()                                                      
 
@@ -3822,31 +3821,31 @@ class BlenRig_5_Interface(bpy.types.Panel):
                 # expanded box
                 if "gui_muscle" in arm and arm["gui_muscle"]:
                     row.operator("gui.blenrig_5_tabs", icon="FORCE_LENNARDJONES", emboss = 1).tab = "gui_muscle"
-                    row.label("MUSCLE SYSTEM")
+                    row.label(text="MUSCLE SYSTEM")
                     # System Toggle
                     col = box.column()
                     row = col.row()
-                    row.label("Off")
+                    row.label(text="Off")
                     row = row.row()
                     row.alignment = "RIGHT"
-                    row.label("On")
-                    col.prop(arm_bones['properties'], '["muscle_system"]', "Muscles", toggle=True)
+                    row.label(text="On")
+                    col.prop(arm_bones['properties'], '["muscle_system"]', text="Muscles", toggle=True)
 
                     box.separator()
 
                     # Resolution
                     col = box.column()
-                    col.prop(arm_bones['properties'], '["muscle_res"]', "Muscle Resolution", toggle=True)
+                    col.prop(arm_bones['properties'], '["muscle_res"]', text="Muscle Resolution", toggle=True)
 
                     box.separator()
 
                     # Extras Deformation
                     col = box.column()
-                    col.prop(arm_bones['properties'], '["deformation_extras"]', "Deformation Extras", toggle=True)              
+                    col.prop(arm_bones['properties'], '["deformation_extras"]', text="Deformation Extras", toggle=True)              
 
                 # collapsed box
                 elif "gui_muscle" in arm:
                     row.operator("gui.blenrig_5_tabs", icon="FORCE_LENNARDJONES", emboss = 1).tab = "gui_muscle"
-                    row.label("MUSCLE SYSTEM")
+                    row.label(text="MUSCLE SYSTEM")
                                                        
                

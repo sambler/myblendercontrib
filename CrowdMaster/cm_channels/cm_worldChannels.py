@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -62,29 +62,44 @@ class World(Mc):
                         result = False
                 if e.category == "Volume" or e.category == "Time+Volume":
                     if result:
-                        volObj = bpy.data.objects[e.volume]
-                        pt = bpy.data.objects[self.userid].location
-                        localPt = volObj.matrix_world.inverted() * pt
-                        d = mathutils.Vector()
-                        d.x = volObj.dimensions.x / volObj.scale.x
-                        d.y = volObj.dimensions.y / volObj.scale.y
-                        d.z = volObj.dimensions.z / volObj.scale.z
+                        result = False
+                        if e.volumeType == "Object":
+                            volObj = bpy.data.objects[e.volume]
+                            pt = bpy.data.objects[self.userid].location
+                            localPt = volObj.matrix_world.inverted() * pt
+                            d = mathutils.Vector()
+                            d.x = volObj.dimensions.x / volObj.scale.x
+                            d.y = volObj.dimensions.y / volObj.scale.y
+                            d.z = volObj.dimensions.z / volObj.scale.z
 
-                        if not (-(d.x / 2) <= localPt.x <= (d.x / 2) and
+                            if (-(d.x / 2) <= localPt.x <= (d.x / 2) and
                                 -(d.y / 2) <= localPt.y <= (d.y / 2) and
-                                -(d.z / 2) <= localPt.z <= (d.z / 2)):
-                            result = False
+                                    -(d.z / 2) <= localPt.z <= (d.z / 2)):
+                                result = True
+                        elif e.volumeType == "Group":
+                            for volObj in bpy.data.groups[e.volume].objects:
+                                pt = bpy.data.objects[self.userid].location
+                                localPt = volObj.matrix_world.inverted() * pt
+                                d = mathutils.Vector()
+                                d.x = volObj.dimensions.x / volObj.scale.x
+                                d.y = volObj.dimensions.y / volObj.scale.y
+                                d.z = volObj.dimensions.z / volObj.scale.z
+
+                                if (-(d.x / 2) <= localPt.x <= (d.x / 2) and
+                                    -(d.y / 2) <= localPt.y <= (d.y / 2) and
+                                        -(d.z / 2) <= localPt.z <= (d.z / 2)):
+                                    result = True
                 if result:
                     if eventType == "control":
-                        return {"None": 1}
+                        return {"": 1}
                     elif eventType == "duration":
                         duration = e.timeMax - e.timeMin
-                        return {"None": duration}
+                        return {"": duration}
                     elif eventType == "elapsed":
                         elapsed = bpy.context.scene.frame_current - e.timeMin
-                        return {"None": elapsed}
+                        return {"": elapsed}
 
-        return {"None": 0}
+        return {"": 0}
 
 
 class Channel:
@@ -114,12 +129,9 @@ class Channel:
 
         target = to.location - ag.location
 
-        z = mathutils.Matrix.Rotation(ag.rotation_euler[2], 4, 'Z')
-        y = mathutils.Matrix.Rotation(ag.rotation_euler[1], 4, 'Y')
-        x = mathutils.Matrix.Rotation(ag.rotation_euler[0], 4, 'X')
-
-        rotation = x * y * z
-        relative = target * rotation
+        t = ag.rotation_euler.to_matrix()
+        t.invert()
+        relative = t * target
 
         changez = math.atan2(relative[0], relative[1]) / math.pi
         changex = math.atan2(relative[2], relative[1]) / math.pi

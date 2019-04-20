@@ -404,14 +404,14 @@ def register():
     bpy.utils.register_class(BooleanState)
     bpy.utils.register_class(RenameTiles)
     bpy.utils.register_class(CutterAdd)
-    bpy.types.INFO_MT_add.prepend(menu_func)
+    bpy.types.VIEW3D_MT_add.prepend(menu_func)
 
 
 def unregister():
     bpy.utils.unregister_class(BooleanState)
     bpy.utils.unregister_class(RenameTiles)
     bpy.utils.unregister_class(CutterAdd)
-    bpy.types.INFO_MT_add.remove(menu_func)
+    bpy.types.VIEW3D_MT_add.remove(menu_func)
 
 if __name__ == '__main__':
     register()

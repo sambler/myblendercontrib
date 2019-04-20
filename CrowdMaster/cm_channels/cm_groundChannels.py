@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -20,7 +20,7 @@
 import math
 
 import bpy
-from mathutils import *
+from mathutils import Vector, bvhtree
 
 from .cm_masterChannels import MasterChannel as Mc
 from .cm_masterChannels import timeChannel
@@ -86,16 +86,18 @@ class Channel:
                 self.groundTrees[gnd.name] = BVHTree.FromObject(gnd, sce)
             inverseTransform = gnd.matrix_world.inverted()
             point = (inverseTransform * s.location.to_4d()).to_3d()
-            direc = Vector((0, 0, 1))
+            direc = s.rotation_euler.to_matrix() * Vector((0, 0, 1))
             direc.rotate(inverseTransform.to_euler())
-            calcd = self.groundTrees[gnd.name].ray_cast(point,
-                                                        tuple(-x for x in direc))
+
+            calcd = self.groundTrees[gnd.name].ray_cast(
+                point, tuple(-x for x in direc))
             if calcd[0]:
                 loc, norm, ind, dist = calcd
                 loc = gnd.matrix_world * loc
                 norm = gnd.matrix_world * norm
                 dist = (s.location - loc).length
-                results.append((loc, norm, ind, dist))
+                results.append((loc, norm, ind, -dist))
+
             calcd = self.groundTrees[gnd.name].ray_cast(
                 point, tuple(x for x in direc))
             if calcd[0]:
@@ -103,7 +105,7 @@ class Channel:
                 loc = gnd.matrix_world * loc
                 norm = gnd.matrix_world * norm
                 dist = (s.location - loc).length
-                results.append((loc, norm, ind, -dist))
+                results.append((loc, norm, ind, dist))
 
         if len(results) > 0:
             loc, norm, ind, dist = min(results, key=lambda x: abs(x[3]))
@@ -120,6 +122,30 @@ class Channel:
         if not self.calcd:
             self.calcground()
         return self.store["distance"]
+        
+    @timeChannel("Ground")
+    def ry(self):
+        ag = bpy.context.scene.objects[self.userid]
+        if not self.calcd:
+            self.calcground()
+        normal = self.store["normal"]
+        t = ag.rotation_euler.to_matrix()
+        t.invert()
+        relative = t * normal
+        changey = math.atan2(relative[0], relative[2]) / math.pi
+        return changey    
+            
+    @timeChannel("Ground")
+    def rx(self):
+        ag = bpy.context.scene.objects[self.userid]
+        if not self.calcd:
+            self.calcground()
+        normal = self.store["normal"]
+        t = ag.rotation_euler.to_matrix()
+        t.invert()
+        relative = t * normal
+        changex = math.atan2(relative[1], relative[2]) / math.pi
+        return changex
 
     def calcAhead(self, offset):
         s = bpy.context.scene.objects[self.userid]

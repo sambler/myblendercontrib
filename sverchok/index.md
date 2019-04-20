@@ -16,6 +16,7 @@
     SvBoxNode
     SvCircleNode
     CylinderNode
+    SvCylinderNodeMK2
     SphereNode
     SvIcosphereNode
     SvTorusNode
@@ -42,6 +43,7 @@
     SvTorusKnotNode
     SvRingNode
     SvEllipseNode
+    SvSuperEllipsoidNode
     SvSmoothLines
 
 ## Analyzers
@@ -49,6 +51,7 @@
     SvVolumeNode
     AreaNode
     DistancePPNode
+    SvPathLengthNode
     CentersPolsNodeMK2
     CentersPolsNodeMK3
     GetNormalsNode
@@ -65,6 +68,7 @@
     SvRaycasterLiteNode
     SvOBJInsolationNode
     EvaluateImageNode
+    SvDeformationNode
 
 ## Transforms
     SvRotationNode
@@ -84,6 +88,7 @@
     PolygonBoomNode
     Pols2EdgsNode
     SvMeshJoinNode
+    SvMeshSwitchNode
     ---
     SvBevelNode
     SvSubdivideNode
@@ -168,6 +173,7 @@
     ScalarMathNode
     SvScalarMathNodeMK2
     Formula2Node
+    SvFormulaNodeMk3
     SvExecNodeMod
     ---
     GenListRangeIntNode
@@ -180,7 +186,7 @@
     SvRndNumGen
     RandomNode
     SvEasingNode
-    SvMixNumbersNode
+    SvMixInputsNode
 
 ## Vector
     GenVectorsNode
@@ -222,6 +228,7 @@
 ## Logic
     SvLogicNode
     SvSwitchNode
+    SvInputSwitchNode
     SvNeuroElman1LNode
 
 ## Viz
@@ -279,7 +286,7 @@
     ConverterNode
 
 ## Network
-    UdpClientNode
+    SvUdpClientNodeMK2
 
 ## Beta Nodes
     SvFormulaShapeNode
@@ -314,6 +321,7 @@
     ---
     SvSpiralNode
     SvExportGcodeNode
+    SvCombinatoricsNode
 
 ## Alpha Nodes
     SvCurveViewerNode
@@ -344,3 +352,7 @@
     SvOffsetLineNode
     SvContourNode
     SvPlanarEdgenetToPolygons
+    ---
+    SvQuaternionOutNode
+    SvQuaternionInNode
+    SvQuaternionMathNode

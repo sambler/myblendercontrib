@@ -21,8 +21,8 @@
 bl_info = {
     "name": "Timelapse Toolbox",
     "author": "Bassam Kurdali",
-    "version": (1, 0, 4),
-    "blender": (2, 77, 0),
+    "version": (1, 0, 5),
+    "blender": (2, 80, 0),
     "location": "View3D > Ctrl F1, Add Menu",
     "description": "Tools to Help Timelapse Animators",
     "warning": "",
@@ -58,30 +58,34 @@ class VIEW3D_PIE_Timelapse_Tools(bpy.types.Menu):
             key = [key for key in pbone.keys() if not key == '_RNA_UI'][0]
             pie.operator_context = 'EXEC_DEFAULT'
             curves_to_drivers = pie.operator(
-                "anim.copy_curves_drivers", "Curves To Drivers")
+                "anim.copy_curves_drivers", text="Curves To Drivers")
             curves_to_drivers.driver = key
             curves_to_drivers.forward = True
             drivers_to_curves = pie.operator(
-                "anim.copy_curves_drivers", "Drivers To Curves")
+                "anim.copy_curves_drivers", text="Drivers To Curves")
             drivers_to_curves.driver = key
             drivers_to_curves.forward = False
         elif bone_selected and len(pbone.keys()) > 2:
             pie.operator_context = 'INVOKE_DEFAULT'
             pie.operator(
-                "anim.copy_curves_drivers", "Drive Curves").forward = True
+                "anim.copy_curves_drivers", text="Drive Curves").forward = True
             pie.operator(
-                "anim.copy_curves_drivers", "Curve Drivers").forward = False
+                "anim.copy_curves_drivers",
+                text="Curve Drivers").forward = False
         else:
             pie.operator(
-                "anim.copy_curves_drivers", "Activate a Bone").forward = True
+                "anim.copy_curves_drivers",
+                text="Activate a Bone").forward = True
             pie.operator(
-                "anim.copy_curves_drivers", "Activate a Bone").forward = False
+                "anim.copy_curves_drivers",
+                text="Activate a Bone").forward = False
         pie.operator(
-            "anim.hide_to_render", "Render To Display").forward = False
-        pie.operator("anim.hide_to_render", "Display To Render").forward = True
-        pie.operator("anim.undrive", "Un-Drive")
-        pie.operator("anim.uncurve", "Un-Curve")
-        pie.operator("object.boolean_state", "Show Bools")
+            "anim.hide_to_render", text="Render To Display").forward = False
+        pie.operator(
+            "anim.hide_to_render", text="Display To Render").forward = True
+        pie.operator("anim.undrive", text="Un-Drive")
+        pie.operator("anim.uncurve", text="Un-Curve")
+        pie.operator("object.boolean_state", text="Show Bools")
 
 
 class NODE_EDITOR_PIE_Timelapse_Tools(bpy.types.Menu):
@@ -99,13 +103,13 @@ class NODE_EDITOR_PIE_Timelapse_Tools(bpy.types.Menu):
         pie.operator_context = 'INVOKE_DEFAULT'
         pie.operator(
             group_shaders.GroupAnimatedMake.bl_idname,
-            "Create a Time-driven Group")
+            text="Create a Time-driven Group")
         pie.operator(
             group_shaders.GroupRamp.bl_idname,
-            "Turn Ramp Node into a Group")
+            text="Turn Ramp Node into a Group")
         pie.operator(
             group_shaders.AddRampChannel.bl_idname,
-            "Add a new Channel to ramp group")
+            text="Add a new Channel to ramp group")
 
 
 def add_hotkey(

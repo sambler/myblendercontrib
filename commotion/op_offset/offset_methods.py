@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  Commotion motion graphics add-on for Blender.
-#  Copyright (C) 2014-2018  Mikhail Rachinskiy
+#  Copyright (C) 2014-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,22 +21,8 @@
 
 import random
 
-import bpy
-
 
 class OffsetMethods:
-
-    def offset_from_random(self, context):
-        selected = list(context.selected_objects)
-        obs = []
-        app = obs.append
-
-        random.Random(self.seed).shuffle(selected)
-
-        for i, ob in enumerate(selected):
-            app((ob, i))
-
-        self.offset_simple(obs)
 
     def offset_from_cursor(self, context):
         obs = []
@@ -57,13 +43,23 @@ class OffsetMethods:
 
         self.offset_simple(obs)
 
-    def offset_from_multi(self, context):
-        animated = bpy.data.groups[self.group_animated].objects
-        effectors = bpy.data.groups[self.group_effectors].objects
-        obs = [[] for x in effectors]
-        effector_loc = [(i, x.matrix_world.translation) for i, x in enumerate(effectors)]
+    def offset_from_random(self, context):
+        selected = list(context.selected_objects)
+        obs = []
+        app = obs.append
 
-        for ob in animated:
+        random.Random(self.seed).shuffle(selected)
+
+        for i, ob in enumerate(selected):
+            app((ob, i))
+
+        self.offset_simple(obs)
+
+    def offset_from_multi(self, context):
+        obs = [[] for x in self.coll_effectors.objects]
+        effector_loc = [(i, x.matrix_world.translation) for i, x in enumerate(self.coll_effectors.objects)]
+
+        for ob in self.coll_animated.objects:
             ob_loc = ob.matrix_world.translation
             eff_to_ob_dist = []
 
@@ -83,8 +79,6 @@ class OffsetMethods:
                 if self.ad_offset(ob, offset) is False:
                     continue
 
-                self.preset_add(ob)
-
                 if i < self.threshold:
                     i += 1
                 else:
@@ -92,8 +86,8 @@ class OffsetMethods:
                     i = 1
 
     def offset_from_multi_proxy(self, context):
-        animated = bpy.data.groups[self.group_animated].objects
-        effectors = bpy.data.groups[self.group_effectors].objects
+        animated = self.coll_animated.objects
+        effectors = self.coll_effectors.objects
         scene = context.scene
         self.frame = 0
         frame = scene.frame_start
@@ -126,8 +120,5 @@ class OffsetMethods:
         for ob in (ob for i, ob, flag in obs if not flag):
             if self.ad_offset(ob, frame_end) is False:
                 continue
-
-        for ob in animated:
-            self.preset_add(ob)
 
         scene.frame_set(scene.frame_start)

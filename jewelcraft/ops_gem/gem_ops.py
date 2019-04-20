@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  JewelCraft jewelry design toolkit for Blender.
-#  Copyright (C) 2015-2018  Mikhail Rachinskiy
+#  Copyright (C) 2015-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@ import bpy
 from bpy.props import EnumProperty, FloatProperty
 from bpy.types import Operator
 
-from .. import var, dynamic_lists
-from ..lib import asset
+from .. import var
+from ..lib import asset, dynamic_list
 
 
 class OBJECT_OT_jewelcraft_gem_add(Operator):
@@ -33,63 +33,66 @@ class OBJECT_OT_jewelcraft_gem_add(Operator):
     bl_idname = "object.jewelcraft_gem_add"
     bl_options = {"REGISTER", "UNDO"}
 
-    cut = EnumProperty(name="Cut", items=dynamic_lists.cuts)
-    stone = EnumProperty(name="Stone", items=dynamic_lists.stones)
-    size = FloatProperty(name="Size", description="Gem size", default=1.0, min=0.0001, step=10, precision=2, unit="LENGTH")
+    cut: EnumProperty(name="Cut", items=dynamic_list.cuts)
+    stone: EnumProperty(name="Stone", items=dynamic_list.stones)
+    size: FloatProperty(
+        name="Size",
+        default=1.0,
+        min=0.0001,
+        step=5,
+        precision=2,
+        unit="LENGTH",
+    )
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
-        split = layout.split()
-        split.label("Size")
-        split.prop(self, "size", text="")
-
-        split = layout.split()
-        split.label("Stone")
-        split.prop(self, "stone", text="")
-
-        split = layout.split()
-        split.label("Cut", text_ctxt="JewelCraft")
+        layout.prop(self, "size")
+        layout.prop(self, "stone")
+        split = layout.split(factor=0.49)
+        split.row()
         split.template_icon_view(self, "cut", show_labels=True)
 
     def execute(self, context):
         scene = context.scene
+        view_layer = context.view_layer
+        space_data = context.space_data
         stone_name = asset.get_name(self.stone)
         cut_name = asset.get_name(self.cut)
         color = var.STONE_COLOR.get(self.stone) or self.color
 
-        for ob in scene.objects:
-            ob.select = False
+        for ob in context.selected_objects:
+            ob.select_set(False)
 
         imported = asset.asset_import(filepath=var.GEM_ASSET_FILEPATH, ob_name=cut_name)
         ob = imported.objects[0]
-        scene.objects.link(ob)
+        context.collection.objects.link(ob)
 
-        ob.layers = self.view_layers
-        ob.scale = ob.scale * self.size
-        ob.location = scene.cursor_location
-        ob.select = True
+        if space_data.local_view:
+            ob.local_view_set(space_data, True)
+
+        ob.scale *= self.size
+        ob.location = scene.cursor.location
+        ob.select_set(True)
         ob["gem"] = {"cut": self.cut, "stone": self.stone}
 
-        asset.add_material(ob, mat_name=stone_name, color=color, is_gem=True)
+        asset.add_material(ob, name=stone_name, color=color, is_gem=True)
 
         if context.mode == "EDIT_MESH":
-            asset.ob_copy_to_pos(ob)
+            asset.ob_copy_to_faces(ob)
             bpy.ops.object.mode_set(mode="OBJECT")
 
-        scene.objects.active = ob
+        view_layer.objects.active = ob
 
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        props = context.window_manager.jewelcraft
-        self.stone = props.gem_stone
-        self.cut = props.gem_cut
         self.color = asset.color_rnd()
-        self.view_layers = [False for x in range(20)]
-        self.view_layers[context.scene.active_layer] = True
 
-        return self.execute(context)
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
 
 
 class OBJECT_OT_jewelcraft_gem_edit(Operator):
@@ -98,18 +101,17 @@ class OBJECT_OT_jewelcraft_gem_edit(Operator):
     bl_idname = "object.jewelcraft_gem_edit"
     bl_options = {"REGISTER", "UNDO"}
 
-    cut = EnumProperty(name="Cut", items=dynamic_lists.cuts, options={"SKIP_SAVE"})
-    stone = EnumProperty(name="Stone", items=dynamic_lists.stones, options={"SKIP_SAVE"})
+    cut: EnumProperty(name="Cut", items=dynamic_list.cuts, options={"SKIP_SAVE"})
+    stone: EnumProperty(name="Stone", items=dynamic_list.stones, options={"SKIP_SAVE"})
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
-        split = layout.split()
-        split.label("Stone")
-        split.prop(self, "stone", text="")
-
-        split = layout.split()
-        split.label("Cut", text_ctxt="JewelCraft")
+        layout.prop(self, "stone")
+        split = layout.split(factor=0.49)
+        split.row()
         split.template_icon_view(self, "cut", show_labels=True)
 
     def execute(self, context):
@@ -151,16 +153,16 @@ class OBJECT_OT_jewelcraft_gem_edit(Operator):
                         ob.data = ob.data.copy()
 
                     ob["gem"]["stone"] = self.stone
-                    asset.add_material(ob, mat_name=stone_name, color=color, is_gem=True)
+                    asset.add_material(ob, name=stone_name, color=color, is_gem=True)
 
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        if not context.selected_objects or not context.active_object:
+        if not context.selected_objects or not context.object:
             self.report({"ERROR"}, "At least one gem object must be selected")
             return {"CANCELLED"}
 
-        ob = context.active_object
+        ob = context.object
 
         if "gem" in ob:
             self.cut = ob["gem"]["cut"]
@@ -180,18 +182,17 @@ class OBJECT_OT_jewelcraft_gem_id_add(Operator):
     bl_idname = "object.jewelcraft_gem_id_add"
     bl_options = {"REGISTER", "UNDO"}
 
-    cut = EnumProperty(name="Cut", items=dynamic_lists.cuts)
-    stone = EnumProperty(name="Stone", items=dynamic_lists.stones)
+    cut: EnumProperty(name="Cut", items=dynamic_list.cuts)
+    stone: EnumProperty(name="Stone", items=dynamic_list.stones)
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
-        split = layout.split()
-        split.label("Stone")
-        split.prop(self, "stone", text="")
-
-        split = layout.split()
-        split.label("Cut", text_ctxt="JewelCraft")
+        layout.prop(self, "stone")
+        split = layout.split(factor=0.49)
+        split.row()
         split.template_icon_view(self, "cut", show_labels=True)
 
     def execute(self, context):
@@ -231,7 +232,7 @@ class OBJECT_OT_jewelcraft_gem_id_convert_deprecated(Operator):
 
                 if ob.data.users > 1:
                     for link in obs:
-                        if link.data == ob.data:
+                        if link.data is ob.data:
                             link["gem"] = ob["gem"]
 
         return {"FINISHED"}

@@ -6,7 +6,7 @@ from bpy.types import Operator
 from bpy.props import IntProperty, BoolProperty, FloatProperty, EnumProperty, PointerProperty, StringProperty, CollectionProperty
 
 
-from .tk_utils import groups as group_utils
+from .tk_utils import collections as collection_utils
 from .tk_utils import select as select_utils
 from .tk_utils import locations as loc_utils
 from .tk_utils import object_ops
@@ -14,8 +14,8 @@ from .tk_utils import object_transform
 from . import tag_ops
 from .export_utils import ReplaceSystemChar, CheckSystemChar, CheckAnimation, AddTriangulate, RemoveTriangulate
 
-class CAP_ExportAssets(Operator):
-    """Exports all objects and groups in the scene that are marked for export."""
+class CAPSULE_OT_ExportAssets(Operator):
+    """Exports all objects and collections in the scene that are marked for export."""
 
     bl_idname = "scene.cap_export"
     bl_label = "Export"
@@ -45,17 +45,25 @@ class CAP_ExportAssets(Operator):
             bpy.ops.object.select_all(action='DESELECT')
             select_utils.FocusObject(item)
 
+
             # based on the export location, send it to the right place
             if self.exportPreset.format_type == 'FBX':
                 self.exportPreset.data_fbx.export(self.exportPreset, self.exportPass, individualFilePath)
 
-
             elif self.exportPreset.format_type == 'OBJ':
                 self.exportPreset.data_obj.export(self.exportPreset, self.exportPass, individualFilePath)
-            
 
             elif self.exportPreset.format_type == 'GLTF':
                 self.exportPreset.data_gltf.export(context, self.exportPreset, self.exportPass, individualFilePath)
+            
+            elif self.exportPreset.format_type == 'Alembic':
+                self.exportPreset.data_abc.export(context, self.exportPreset, self.exportPass, individualFilePath)
+
+            elif self.exportPreset.format_type == 'Collada':
+                self.exportPreset.data_dae.export(self.exportPreset, self.exportPass, individualFilePath)
+
+            elif self.exportPreset.format_type == 'STL':
+                self.exportPreset.data_stl.export(context, self.exportPreset, self.exportPass, individualFilePath)
 
 
             # tick up the exports and move the object back.
@@ -86,15 +94,27 @@ class CAP_ExportAssets(Operator):
         objectFilePath = path + exportName + suffix
         print("Final File Path.", objectFilePath)
 
+
         # based on the export location, send it to the right place
         if self.exportPreset.format_type == 'FBX':
             self.exportPreset.data_fbx.export(self.exportPreset, self.exportPass, objectFilePath)
 
         elif self.exportPreset.format_type == 'OBJ':
-                self.exportPreset.data_obj.export(self.exportPreset, self.exportPass, objectFilePath)
+            self.exportPreset.data_obj.export(self.exportPreset, self.exportPass, objectFilePath)
 
         elif self.exportPreset.format_type == 'GLTF':
-                self.exportPreset.data_gltf.export(context, self.exportPreset, self.exportPass, path, exportName + suffix)
+            self.exportPreset.data_gltf.export(context, self.exportPreset, self.exportPass, path, exportName + suffix)
+
+        elif self.exportPreset.format_type == 'Alembic':
+            self.exportPreset.data_abc.export(context, self.exportPreset, self.exportPass, objectFilePath)
+
+        elif self.exportPreset.format_type == 'Collada':
+            self.exportPreset.data_dae.export(self.exportPreset, self.exportPass, objectFilePath)
+        
+        elif self.exportPreset.format_type == 'STL':
+            self.exportPreset.data_stl.export(context, self.exportPreset, self.exportPass, objectFilePath)
+        
+       
 
         self.exportedFiles += 1
 
@@ -222,6 +242,12 @@ class CAP_ExportAssets(Operator):
         self.active = None
         self.selected = []
 
+        # If the current context isn't the 3D View, we need to change that before anything else.
+        self.previous_area_type = bpy.context.area.type
+        if self.previous_area_type != 'VIEW_3D':
+            bpy.context.area.type = 'VIEW_3D'
+
+        # We also need to store current 3D View selections.
         if context.active_object is not None:
             for sel in context.selected_objects:
                 if sel.name != context.active_object.name:
@@ -233,20 +259,26 @@ class CAP_ExportAssets(Operator):
         self.active = context.active_object
 
         # Save the current cursor location
-        cursor_loc = bpy.data.scenes[bpy.context.scene.name].cursor_location
+        cursor_loc = bpy.data.scenes[bpy.context.scene.name].cursor.location
         self.cursorLocation = [cursor_loc[0], cursor_loc[1], cursor_loc[2]]
 
         # Keep a record of the current object mode
-        mode = bpy.context.mode
+        self.view_mode = bpy.context.mode
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        # Ensure all layers are visible
-        self.layersBackup = []
-        for layer in context.scene.layers:
-            layerVisibility = layer
-            self.layersBackup.append(layerVisibility)
 
-        context.scene.layers = (True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True)
+        # not sure if I need this anymore with view layers, test and report back.
+        # ======================
+        # Ensure all layers are visible
+
+        # self.layersBackup = []
+        # for layer in context.scene.layers:
+        #     layerVisibility = layer
+        #     self.layersBackup.append(layerVisibility)
+
+        # context.scene.layers = (True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True)
+
+        # ======================
 
         # Record object visibility
         self.hiddenList = []
@@ -255,7 +287,7 @@ class CAP_ExportAssets(Operator):
 
         for item in context.scene.objects:
             self.hiddenObjectList.append(item)
-            isHidden = item.hide
+            isHidden = item.hide_viewport
             self.hiddenList.append(isHidden)
             isSelectable = item.hide_select
             self.selectList.append(isSelectable)
@@ -372,14 +404,17 @@ class CAP_ExportAssets(Operator):
             hide = self.hiddenList.pop()
             hide_select = self.selectList.pop()
 
-            item.hide = hide
+            item.hide_viewport = hide
             item.hide_select = hide_select
 
-        # Turn off all other layers
-        i = 0
-        while i < 20:
-            context.scene.layers[i] = self.layersBackup[i]
-            i += 1
+        # Not sure if I need this anymore with view layers.  Test and report back.
+        # ======================
+        # # Turn off all other layers
+        # i = 0
+        # while i < 20:
+        #     context.scene.layers[i] = self.layersBackup[i]
+        #     i += 1
+        
 
         # If an object has locked Location/Rotation/Scale values, store them and turn it on
         while len(self.translateList) != 0:
@@ -412,8 +447,15 @@ class CAP_ExportAssets(Operator):
         if self.active is None and len(self.selected) == 0:
             bpy.ops.object.select_all(action='DESELECT')
 
+        # Restore the 3D view mode
+        bpy.ops.object.mode_set(mode=self.view_mode)
+
         # Restore the 3D cursor
-        bpy.data.scenes[bpy.context.scene.name].cursor_location = self.cursorLocation
+        bpy.data.scenes[bpy.context.scene.name].cursor.location = self.cursorLocation
+
+        # Restore the panel type if necessary
+        if self.previous_area_type != 'VIEW_3D':
+            bpy.context.area.type = self.previous_area_type
 
         print("Rawr")
 
@@ -471,7 +513,7 @@ class CAP_ExportAssets(Operator):
 
         if self.use_scene_origin is False:
             print("Moving scene...")
-            object_transform.MoveAll(target, context, Vector((0.0, 0.0, 0.0)))
+            object_transform.MoveAll(target, context, [0.0, 0.0, 0.0])
 
     def FinishSceneMovement(self, context, target, targetObjects, targetLoc, targetRot):
         """
@@ -618,8 +660,8 @@ class CAP_ExportAssets(Operator):
         # Ensures that the scene is setup with correct settings, before proceeding
         # with the export.
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Check all active file presets for valid directory names
@@ -682,31 +724,31 @@ class CAP_ExportAssets(Operator):
         #                 return statement
 
 
-        # Check all scene groups for potential errors
-        for group in group_utils.GetSceneGroups(context.scene, True):
-            if group.CAPGrp.enable_export is True:
+        # Check all scene collections for potential errors
+        for collection in collection_utils.GetSceneCollections(context.scene, True):
+            if collection.CAPCol.enable_export is True:
 
                 # Check Export Key
-                expKey = int(group.CAPGrp.export_default) - 1
+                expKey = int(collection.CAPCol.export_default) - 1
                 if expKey == -1:
                     bpy.ops.object.select_all(action='DESELECT')
-                    for item in group.objects:
+                    for item in collection.all_objects:
                         select_utils.SelectObject(item)
-                    statement = "The selected group " + group.name + " has no export default selected.  Please define!"
+                    statement = "The selected collection " + collection.name + " has no export default selected.  Please define!"
                     return statement
 
                 # Check Export Sub-Directory
                 export = exp.file_presets[expKey]
                 if export.use_sub_directory is True:
-                    name = group.name
-                    nameCheck.append([" Group Name", name, " Preset", export.name])
+                    name = collection.name
+                    nameCheck.append([" Collection Name", name, " Preset", export.name])
 
-                # Check Location Default
-                if int(group.CAPGrp.location_default) == 0:
+                # Check Export Location
+                if int(collection.CAPCol.location_default) == 0:
                     bpy.ops.object.select_all(action='DESELECT')
-                    for item in group.objects:
+                    for item in collection.all_objects:
                         select_utils.SelectObject(item)
-                    statement =  "The selected group " + group.name + " has no location preset defined, please define one!"
+                    statement =  "The selected collection " + collection.name + " has no location preset defined, please define one!"
                     return statement
 
                 self.exportCount += 1
@@ -753,27 +795,6 @@ class CAP_ExportAssets(Operator):
                     statement = "The" + name[0] + " " + name[1] + ", belonging to the export, " + name[3] + characterlead + returnStatement + end
                     return statement
 
-        # Check that GLTF is installed if needed.
-        # Currently bundled with the plugin, leaving for later if needed
-
-        # if gltfRequired == True:
-        #     print(bpy.context.user_preferences.addons.keys())
-        #     foundName = False
-        #     moduleName = ""
-
-        #     for mod_name in bpy.context.user_preferences.addons.keys():
-        #         print(mod_name)
-
-        #         if "blendergltf" in mod_name:
-        #             foundName = True
-        #             self.GLTFModuleName = mod_name
-        #             continue
-
-        #     if foundName == False:
-        #         statement =  "In order to use the GLTF format, you need to install the plugin from GitHub.  View the Capsule GitHub for more info!"
-        #         select_utils.FocusObject(object)
-        #         return statement
-
 
         return None
 
@@ -782,8 +803,8 @@ class CAP_ExportAssets(Operator):
     ###############################################################
     def execute(self, context):
         scn = context.scene.CAPScn
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = None
 
         # For the new pie menu, we need to see if any data exists before continuing
@@ -800,7 +821,7 @@ class CAP_ExportAssets(Operator):
         # Set export counts here just in case
         self.exportCount = 0
         self.exportedObjects = 0
-        self.exportedGroups = 0
+        self.exportedCollections = 0
         self.exportedFiles = 0
 
         print("")
@@ -819,7 +840,10 @@ class CAP_ExportAssets(Operator):
 
         # Setup and store scene variables, to be restored when complete
         self.SetupScene(context)
-        context.window_manager.progress_begin(0, self.exportCount)
+        
+        # 2.80 - Commenting out until I fix the rest
+        # context.window_manager.progress_begin(0, self.exportCount)
+        
 
 
         ###############################################################
@@ -865,18 +889,18 @@ class CAP_ExportAssets(Operator):
 
                 # Need to get the movement location.  If the user wants to use the scene origin though,
                 # just make it 0
-                root_object_location = Vector((0.0, 0.0, 0.0))
-                root_object_rotation = (0.0, 0.0, 0.0)
+                root_object_location = [0.0, 0.0, 0.0]
+                root_object_rotation = [0.0, 0.0, 0.0]
 
                 if self.use_scene_origin is False:
 
                     tempROL = loc_utils.FindWorldSpaceObjectLocation(self.root_object, context)
-                    root_object_location = Vector((tempROL[0], 
-                                                   tempROL[1], 
-                                                   tempROL[2]))
-                    root_object_rotation = (self.root_object.rotation_euler[0], 
+                    root_object_location = [tempROL[0], 
+                                            tempROL[1], 
+                                            tempROL[2]]
+                    root_object_rotation = [self.root_object.rotation_euler[0], 
                                             self.root_object.rotation_euler[1], 
-                                            self.root_object.rotation_euler[2])
+                                            self.root_object.rotation_euler[2]]
 
 
                 # Get the object's base name
@@ -1055,7 +1079,7 @@ class CAP_ExportAssets(Operator):
                         bpy.ops.view3d.snap_cursor_to_center()
                         bpy.ops.object.select_all(action='DESELECT')
                         bpy.ops.object.empty_add(type='PLAIN_AXES')
-                        sceneOrigin = bpy.context.scene.objects.active
+                        sceneOrigin = bpy.context.view_layer.objects.active
                         self.StartSceneMovement(context, sceneOrigin, movedObjects, root_object_rotation)
 
 
@@ -1118,40 +1142,40 @@ class CAP_ExportAssets(Operator):
                 if len(self.exportPreset.passes) > 0:
                     self.exportedObjects += 1
                     self.exportCount += 1
-                    context.window_manager.progress_update(self.exportCount)
+                    # context.window_manager.progress_update(self.exportCount)
                     print(">>> Object Export Complete <<<")
 
 
         ###############################################################
-        # GROUP CYCLE
+        # COLLECTION CYCLE
         ###############################################################
-        # Now hold up, its group time!
-        for group in group_utils.GetSceneGroups(context.scene, True):
-            if group.CAPGrp.enable_export is True:
+        # Now hold up, its collection time!
+        for collection in collection_utils.GetSceneCollections(context.scene, True):
+            if collection.CAPCol.enable_export is True:
 
                 print("-"*79)
                 print("NEW JOB", "-"*70)
                 print("-"*79)
-                print(group.name)
+                print(collection.name)
 
                 # Before we do anything, check that a root object exists
                 self.root_object = None
                 self.root_object_name = ""
                 self.root_object_type = 0
                 self.use_scene_origin = False
-                rootObjectInGroup = False
+                rootObjectInCollection = False
 
-                # Find the root object in a group, if thats where it's located
-                for item in group.objects:
-                    if item.name == group.CAPGrp.root_object:
+                # Find the root object in a collection, if thats where it's located
+                for item in collection.all_objects:
+                    if item.name == collection.CAPCol.root_object:
                         self.root_object = item
                         self.root_object_name = item.name
-                        rootObjectInGroup = True
+                        rootObjectInCollection = True
 
                 # Otherwise, find it elsewhere
-                if rootObjectInGroup == False:
+                if rootObjectInCollection == False:
                     for item in context.scene.objects:
-                        if item.name == group.CAPGrp.root_object:
+                        if item.name == collection.CAPCol.root_object:
                             self.root_object = item
                             self.root_object_name = item.name
 
@@ -1160,16 +1184,16 @@ class CAP_ExportAssets(Operator):
                     print("No root object is currently being used, proceed!")
 
                 #Get the export default for the object
-                expKey = int(group.CAPGrp.export_default) - 1
+                expKey = int(collection.CAPCol.export_default) - 1
 
                 if expKey == -1:
-                    statement = "The group " + group.name + " has no export default selected.  Please define!"
+                    statement = "The collection " + collection.name + " has no export default selected.  Please define!"
                     self.report({'WARNING'}, statement)
                     self.RestoreScene(context)
                     return {'FINISHED'}
 
                 # Collect hidden defaults to restore afterwards.
-                object_name = group.name
+                object_name = collection.name
 
                 self.exportPreset = self.exportInfo.file_presets[expKey]
                 self.use_blend_directory = self.exportPreset.use_blend_directory
@@ -1184,13 +1208,13 @@ class CAP_ExportAssets(Operator):
                     print("Root type is...", self.root_object_type)
 
                 # Get the root object location for later use
-                root_object_location = Vector((0.0, 0.0, 0.0))
-                root_object_rotation = (0.0, 0.0, 0.0)
+                root_object_location = [0.0, 0.0, 0.0]
+                root_object_rotation = [0.0, 0.0, 0.0]
 
                 if self.root_object != None:
                     tempROL = loc_utils.FindWorldSpaceObjectLocation(self.root_object, context)
-                    root_object_location = Vector((tempROL[0], tempROL[1], tempROL[2]))
-                    root_object_rotation = (self.root_object.rotation_euler[0], self.root_object.rotation_euler[1], self.root_object.rotation_euler[2])
+                    root_object_location = [tempROL[0], tempROL[1], tempROL[2]]
+                    root_object_rotation = [self.root_object.rotation_euler[0], self.root_object.rotation_euler[1], self.root_object.rotation_euler[2]]
 
                 #/////////////////// - PASSES - /////////////////////////////////////////////////
                 for object_pass in self.exportPreset.passes:
@@ -1204,7 +1228,7 @@ class CAP_ExportAssets(Operator):
                     print("-"*59)
                     print("NEW PASS", "-"*50)
                     print("-"*59)
-                    print("Export pass", object_pass.name, "being used on the group", group.name)
+                    print("Export pass", object_pass.name, "being used on the collection", collection.name)
                     print("Root object.....", self.root_object_name)
 
                     activeTags = []
@@ -1244,7 +1268,7 @@ class CAP_ExportAssets(Operator):
                     # Lets see if the root object can be exported...
                     expRoot = False
                     print("Checking Root Exportability...")
-                    if self.root_object != None and rootObjectInGroup is True:
+                    if self.root_object != None and rootObjectInCollection is True:
                         print("Well we have a root...")
                         if len(activeTags) == 0:
                             expRoot = True
@@ -1257,7 +1281,7 @@ class CAP_ExportAssets(Operator):
 
 
                     #/////////////////// - FILE NAME - /////////////////////////////////////////////////
-                    path = self.CalculateFilePath(context, group.CAPGrp.location_default, object_name, subDirectory)
+                    path = self.CalculateFilePath(context, collection.CAPCol.location_default, object_name, subDirectory)
 
                     if path.find("WARNING") == 0:
                         path = path.replace("WARNING: ", "")
@@ -1269,7 +1293,7 @@ class CAP_ExportAssets(Operator):
 
 
                     #/////////////////// - FIND OBJECTS - /////////////////////////////////////////////////
-                    # First we have to find all objects in the group that are of type MESHHH
+                    # First we have to find all objects in the collection that are of type MESHHH
                     # If auto-assignment is on, use the names to filter into lists, otherwise forget it.
 
                     print(">>>> Collecting Objects <<<<")
@@ -1281,7 +1305,7 @@ class CAP_ExportAssets(Operator):
                             print("Current tag...", tag.name)
                             list = []
 
-                            for item in group.objects:
+                            for item in collection.all_objects:
                                 print("Found item...", item.name)
                                 checkItem = tag_ops.CompareObjectWithTag(context, item, tag)
 
@@ -1312,7 +1336,7 @@ class CAP_ExportAssets(Operator):
                     # If not, export everything
                     else:
                         print("No tags found, processing objects...")
-                        for item in group.objects:
+                        for item in collection.all_objects:
                             if item.name != self.root_object_name:
                                 if self.exportPreset.filter_render == False:
                                     print("ITEM FOUND: ", item.name)
@@ -1340,7 +1364,7 @@ class CAP_ExportAssets(Operator):
                         bpy.ops.view3d.snap_cursor_to_center()
                         bpy.ops.object.select_all(action='DESELECT')
                         bpy.ops.object.empty_add(type='PLAIN_AXES')
-                        sceneOrigin = bpy.context.scene.objects.active
+                        sceneOrigin = bpy.context.view_layer.objects.active
                         self.StartSceneMovement(context, sceneOrigin, movedObjects, root_object_rotation)
 
 
@@ -1383,7 +1407,7 @@ class CAP_ExportAssets(Operator):
                                 self.PrepareExportIndividual(context, finalExportList, path, suffix)
 
                             else:
-                                self.PrepareExportCombined(context, finalExportList, path, group.name, suffix)
+                                self.PrepareExportCombined(context, finalExportList, path, collection.name, suffix)
 
                     bpy.ops.object.select_all(action='DESELECT')
 
@@ -1409,18 +1433,21 @@ class CAP_ExportAssets(Operator):
                     print(">>> Pass Complete <<<")
 
                 if len(self.exportPreset.passes) > 0:
-                    self.exportedGroups += 1
+                    self.exportedCollections += 1
                     self.exportCount += 1
-                    context.window_manager.progress_update(self.exportCount)
+                    # context.window_manager.progress_update(self.exportCount)
 
-                    print(">>> Group Export Complete <<<")
+                    print(">>> Collection Export Complete <<<")
 
 
         self.RestoreScene(context)
-        context.window_manager.progress_end()
+        # context.window_manager.progress_end()
 
-        textGroupSingle = " group"
-        textGroupMultiple = " groups"
+        # 2.80 BONUS TEST TIME
+        bpy.context.area.type = 'VIEW_3D'
+
+        textCollectionSingle = " collection"
+        textCollectionPlural = " collections"
 
         output = "Finished processing "
 
@@ -1429,12 +1456,12 @@ class CAP_ExportAssets(Operator):
         elif self.exportedObjects == 1:
             output += str(self.exportedObjects) + " object"
 
-        if self.exportedObjects > 0 and self.exportedGroups > 0:
+        if self.exportedObjects > 0 and self.exportedCollections > 0:
             output += " and "
-        if self.exportedGroups > 1:
-            output += str(self.exportedGroups) + " groups"
-        elif self.exportedGroups == 1:
-            output += str(self.exportedGroups) + " group"
+        if self.exportedCollections > 1:
+            output += str(self.exportedCollections) + " collections"
+        elif self.exportedCollections == 1:
+            output += str(self.exportedCollections) + " collection"
 
         output += ".  "
         output += "Total of "
@@ -1445,7 +1472,7 @@ class CAP_ExportAssets(Operator):
             output += str(self.exportedFiles) + " file."
 
         # Output a nice report
-        if self.exportedObjects == 0 and self.exportedGroups == 0:
+        if self.exportedObjects == 0 and self.exportedCollections == 0:
             self.report({'WARNING'}, 'No objects were exported.  Ensure you have objects tagged for export, and at least one pass in your export presets.')
 
         else:
@@ -1453,3 +1480,12 @@ class CAP_ExportAssets(Operator):
 
 
         return {'FINISHED'}
+
+# ////////////////////// - CLASS REGISTRATION - ////////////////////////
+# decided to do it all in __init__ instead, skipping for now.
+
+# def register():
+#     bpy.utils.register_class(CAPSULE_OT_ExportAssets)
+
+# def unregister():
+#     bpy.utils.unregister_class(CAPSULE_OT_ExportAssets)

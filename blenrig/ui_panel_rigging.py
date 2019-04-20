@@ -2,11 +2,12 @@ import bpy
 
 ####### BlenRig 5 Rigging Panel
 
-class BlenRig_5_rigging_panel(bpy.types.Panel):
-    bl_label = "BlenRig 5 Rigging Panel"
+class BLENRIG_PT_BlenRig_5_rigging_panel(bpy.types.Panel):
+    bl_label = "BlenRig 5 Rigging Control"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
-    bl_context = "data"
+    bl_context = "data"    
+    
 
     @classmethod
     def poll(cls, context):
@@ -38,7 +39,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             col.prop(props, "gui_body_ik_rot", text = 'IK:')            
             if props.gui_body_ik_rot:
                 box = col.box()    
-                box.label("IK Initial Rotation:")                                 
+                box.label(text="IK Initial Rotation:")                                 
                 row_props = box.row()
                 col_R = row_props.column()
                 col_L = row_props.column()                                
@@ -56,7 +57,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             col.prop(props, "gui_body_auto_move", text = 'Automated Movement:')            
             if props.gui_body_auto_move:           
                 box = col.box()    
-                box.label("IK Auto Shoulder:")                                 
+                box.label(text="IK Auto Shoulder:")                                 
                 row_props = box.row()
                 col_R = row_props.column()
                 col_L = row_props.column()                                
@@ -76,25 +77,25 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                 row_props = box.row()            
                 col_R = row_props.column()
                 col_L = row_props.column()                                                                          
-                col_R.label('Torso FK Ctrl Influence:')                                               
-                col_R.prop(p_bones['spine_1_fk'], '["fk_follow_main"]', "Spine 1", toggle=True)   
-                col_R.prop(p_bones['spine_2_fk'], '["fk_follow_main"]', "Spine 2", toggle=True)  
-                col_R.prop(p_bones['spine_3_fk'], '["fk_follow_main"]', "Spine 3", toggle=True)
-                col_R.label('Torso INV Ctrl Influence:')                   
-                col_R.prop(p_bones['spine_2_inv'], '["fk_follow_main"]', "Spine 2 inv", toggle=True)   
-                col_R.prop(p_bones['spine_1_inv'], '["fk_follow_main"]', "Spine 1 inv", toggle=True)  
-                col_R.prop(p_bones['pelvis_inv'], '["fk_follow_main"]', "Pelvis inv", toggle=True)  
-                col_L.label('Neck FK Ctrl Influence:')                   
-                col_L.prop(p_bones['neck_1_fk'], '["fk_follow_main"]', "Neck 1", toggle=True)   
-                col_L.prop(p_bones['neck_2_fk'], '["fk_follow_main"]', "Neck 2", toggle=True)  
-                col_L.prop(p_bones['neck_3_fk'], '["fk_follow_main"]', "Neck 3", toggle=True)                               
+                col_R.label(text='Torso FK Ctrl Influence:')                                               
+                col_R.prop(p_bones['spine_1_fk'], '["fk_follow_main"]', text="Spine 1", toggle=True)   
+                col_R.prop(p_bones['spine_2_fk'], '["fk_follow_main"]', text="Spine 2", toggle=True)  
+                col_R.prop(p_bones['spine_3_fk'], '["fk_follow_main"]', text="Spine 3", toggle=True)
+                col_R.label(text='Torso INV Ctrl Influence:')                   
+                col_R.prop(p_bones['spine_2_inv'], '["fk_follow_main"]', text="Spine 2 inv", toggle=True)   
+                col_R.prop(p_bones['spine_1_inv'], '["fk_follow_main"]', text="Spine 1 inv", toggle=True)  
+                col_R.prop(p_bones['pelvis_inv'], '["fk_follow_main"]', text="Pelvis inv", toggle=True)  
+                col_L.label(text='Neck FK Ctrl Influence:')                   
+                col_L.prop(p_bones['neck_1_fk'], '["fk_follow_main"]', text="Neck 1", toggle=True)   
+                col_L.prop(p_bones['neck_2_fk'], '["fk_follow_main"]', text="Neck 2", toggle=True)  
+                col_L.prop(p_bones['neck_3_fk'], '["fk_follow_main"]', text="Neck 3", toggle=True)                               
                 
                 box = col.box()                                                      
                 row_props = box.row()            
                 col_R = row_props.column()
                 col_L = row_props.column()                                   
-                col_R.label('Foot Roll R:')                                          
-                col_L.label('Foot Roll L:')                                          
+                col_R.label(text='Foot Roll R:')                                          
+                col_L.label(text='Foot Roll L:')                                          
                 for b in p_bones:
                     if 'foot_roll_ctrl_R' in b.name:   
                         for cust_prop in b.keys():
@@ -110,7 +111,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             col.prop(props, "gui_body_rj", text = 'Realistic Joints:')            
             if props.gui_body_rj:                
                 box = col.box()   
-                box.label("Bone Movement")                                                       
+                box.label(text="Bone Movement")                                                       
                 row_props = box.row()            
                 col_R = row_props.column()
                 col_L = row_props.column()               
@@ -387,19 +388,19 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                 box = col.box()                                                        
                 row_props = box.row()
                 col_1 = row_props.column()
-                col_1.label("Follow Left Corner")
+                col_1.label(text="Follow Left Corner")
                 col_2 = row_props.column() 
                 col_2.scale_x = 0.6
-                col_2.label("X:")      
+                col_2.label(text="X:")      
                 col_3 = row_props.column()
-                col_3.label("Y:")         
+                col_3.label(text="Y:")         
                 col_3.scale_x = 0.6                  
                 col_4 = row_props.column()  
-                col_4.label("Z:")     
+                col_4.label(text="Z:")     
                 col_4.scale_x = 0.6                                                                                       
                 for b in p_bones:
                     if 'lip_up_ctrl_1_mstr_L' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -409,7 +410,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)  
                 for b in p_bones:
                     if 'lip_low_ctrl_1_mstr_L' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -419,7 +420,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_up_ctrl_2_mstr_L' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -429,7 +430,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_low_ctrl_2_mstr_L' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -439,7 +440,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_up_ctrl_3_mstr_L' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -449,7 +450,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_low_ctrl_3_mstr_L' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -459,19 +460,19 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)                                                                                                                                                                                                                   
                 row_props = box.row()
                 col_1 = row_props.column()
-                col_1.label("Follow Right Corner")
+                col_1.label(text="Follow Right Corner")
                 col_2 = row_props.column() 
                 col_2.scale_x = 0.6
-                col_2.label("X:")      
+                col_2.label(text="X:")      
                 col_3 = row_props.column()
-                col_3.label("Y:")         
+                col_3.label(text="Y:")         
                 col_3.scale_x = 0.6                  
                 col_4 = row_props.column()  
-                col_4.label("Z:")     
+                col_4.label(text="Z:")     
                 col_4.scale_x = 0.6                                                                                       
                 for b in p_bones:
                     if 'lip_up_ctrl_1_mstr_R' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -481,7 +482,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)  
                 for b in p_bones:
                     if 'lip_low_ctrl_1_mstr_R' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -491,7 +492,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_up_ctrl_2_mstr_R' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -501,7 +502,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_low_ctrl_2_mstr_R' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -511,7 +512,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_up_ctrl_3_mstr_R' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -521,7 +522,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_4.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True,  toggle=True)     
                 for b in p_bones:
                     if 'lip_low_ctrl_3_mstr_R' in b.name: 
-                        col_1.label("{}".format(b.name.replace('_mstr', '')))
+                        col_1.label(text="{}".format(b.name.replace('_mstr', '')))
                         for cust_prop in b.keys():
                             if '_X_' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = '%', icon_only = True, toggle=True) 
@@ -551,18 +552,18 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             row_props.scale_y = 0.75  
             row_props.scale_x = 1                     
             row_props.alignment = 'LEFT'           
-            row_props.prop(arm_data, '["layers_count"]', "Layers", toggle=True)
+            row_props.prop(arm_data, '["layers_count"]', text="Layers", toggle=True)
             if arm_data['bone_auto_hide'] == 1:
                 row_props.operator("gui.blenrig_5_tabs",text = "  Bone Auto Hiding", icon="CHECKBOX_HLT", emboss = 0).tab = "bone_auto_hide"   
             else:
                 row_props.operator("gui.blenrig_5_tabs",text = "  Bone Auto Hiding", icon="CHECKBOX_DEHLT", emboss = 0).tab = "bone_auto_hide"     
-            col_2.label('Layers Schemes:')   
+            col_2.label(text='Layers Schemes:')   
             row_schemes = col_2.row()
             row_schemes.operator("blenrig5.layers_scheme_compact", text="Compact")
             row_schemes.operator("blenrig5.layers_scheme_expanded", text="Expanded")                             
-            col_2.label('Layers Names: (Always keep 32 items)')  
+            col_2.label(text='Layers Names: (Always keep 32 items)')  
             row_layers = col_2.row()
-            row_layers.prop(arm_data, '["layer_list"]', "", toggle=True)                                 
+            row_layers.prop(arm_data, '["layer_list"]', text="", toggle=True)                                 
         else:
             row.operator("gui.blenrig_5_tabs", icon="RENDER_RESULT", emboss = 1).tab = "gui_rig_layers"
             row.label(text="LAYERS SETTING")  
@@ -582,7 +583,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             col_1 = row_props.column()
             col_1.scale_x = 0.5
             col_2 = row_props.column() 
-            col_2.label("Head:")
+            col_2.label(text="Head:")
             col_2.scale_x = 2                      
             col_3 = row_props.column()   
             col_3.scale_x = 0.5                                                     
@@ -592,7 +593,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                         if 'flex' in cust_prop:
                             if 'head' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_head_', '')),  toggle=True)    
-            col_2.label("Neck:")    
+            col_2.label(text="Neck:")    
             for b in p_bones:
                 if 'properties_head' in b.name:   
                     for cust_prop in b.keys():
@@ -601,11 +602,11 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_neck_', '')),  toggle=True)                                         
             row_props = box.row()
             col_1 = row_props.column()
-            col_1.label("Arm_R:")
+            col_1.label(text="Arm_R:")
             col_2 = row_props.column()    
-            col_2.label("Torso:")               
+            col_2.label(text="Torso:")               
             col_3 = row_props.column()    
-            col_3.label("Arm_L:")                                                    
+            col_3.label(text="Arm_L:")                                                    
             for b in p_bones:
                 if 'properties_arm_R' in b.name:   
                     for cust_prop in b.keys():
@@ -613,14 +614,14 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                             if 'forearm' not in cust_prop:
                                 if 'hand' not in  cust_prop:
                                     col_1.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_arm_', '')),  toggle=True) 
-            col_1.label("Forearm_R:")    
+            col_1.label(text="Forearm_R:")    
             for b in p_bones:
                 if 'properties_arm_R' in b.name:   
                     for cust_prop in b.keys():
                         if 'flex' in cust_prop:
                             if 'forearm' in cust_prop:
                                 col_1.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_forearm_', '')),  toggle=True)  
-            col_1.label("Hand_R:")    
+            col_1.label(text="Hand_R:")    
             for b in p_bones:
                 if 'properties_arm_R' in b.name:   
                     for cust_prop in b.keys():
@@ -633,28 +634,28 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                         if 'flex' in cust_prop:
                             if 'torso' in cust_prop:                            
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_torso_', '')),  toggle=True)     
-            col_2.label("Chest:")   
+            col_2.label(text="Chest:")   
             for b in p_bones:
                 if 'properties_torso' in b.name:   
                     for cust_prop in b.keys():
                         if 'flex' in cust_prop:
                             if 'chest' in cust_prop:                            
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_chest_', '')),  toggle=True)        
-            col_2.label("Ribs:")   
+            col_2.label(text="Ribs:")   
             for b in p_bones:
                 if 'properties_torso' in b.name:   
                     for cust_prop in b.keys():
                         if 'flex' in cust_prop:
                             if 'ribs' in cust_prop:                            
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_ribs_', '')),  toggle=True)   
-            col_2.label("waist:")   
+            col_2.label(text="waist:")   
             for b in p_bones:
                 if 'properties_torso' in b.name:   
                     for cust_prop in b.keys():
                         if 'flex' in cust_prop:
                             if 'waist' in cust_prop:                            
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_waist_', '')),  toggle=True)   
-            col_2.label("pelvis:")   
+            col_2.label(text="pelvis:")   
             for b in p_bones:
                 if 'properties_torso' in b.name:   
                     for cust_prop in b.keys():
@@ -668,14 +669,14 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                             if 'forearm' not in cust_prop:
                                 if 'hand' not in  cust_prop:
                                     col_3.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_arm_', '')),  toggle=True) 
-            col_3.label("Forearm_L:")    
+            col_3.label(text="Forearm_L:")    
             for b in p_bones:
                 if 'properties_arm_L' in b.name:   
                     for cust_prop in b.keys():
                         if 'flex' in cust_prop:
                             if 'forearm' in cust_prop:
                                 col_3.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_forearm_', '')),  toggle=True)  
-            col_3.label("Hand_L:")    
+            col_3.label(text="Hand_L:")    
             for b in p_bones:
                 if 'properties_arm_L' in b.name:   
                     for cust_prop in b.keys():
@@ -685,10 +686,10 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             row_props = box.row()
             col_1 = row_props.column()          
             col_2 = row_props.column()    
-            col_2.label("Leg_R:")       
+            col_2.label(text="Leg_R:")       
             col_2.scale_x = 4        
             col_3 = row_props.column()    
-            col_3.label("Leg_L:")    
+            col_3.label(text="Leg_L:")    
             col_3.scale_x = 4              
             col_4 = row_props.column()                                                                                 
             for b in p_bones:
@@ -699,14 +700,14 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_leg_', '')),  toggle=True) 
                             if 'thigh' in  cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_thigh_', '')),  toggle=True)                                 
-            col_2.label("Shin_R:")    
+            col_2.label(text="Shin_R:")    
             for b in p_bones:
                 if 'properties_leg_R' in b.name:   
                     for cust_prop in b.keys():
                         if 'flex' in cust_prop:
                             if 'shin' in cust_prop:
                                 col_2.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_shin_', '')),  toggle=True)  
-            col_2.label("Foot_R:")    
+            col_2.label(text="Foot_R:")    
             for b in p_bones:
                 if 'properties_leg_R' in b.name:   
                     for cust_prop in b.keys():
@@ -721,14 +722,14 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
                                 col_3.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_leg_', '')),  toggle=True)                             
                             if 'thigh' in  cust_prop:
                                 col_3.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_thigh_', '')),  toggle=True) 
-            col_3.label("Shin_L:")    
+            col_3.label(text="Shin_L:")    
             for b in p_bones:
                 if 'properties_leg_L' in b.name:   
                     for cust_prop in b.keys():
                         if 'flex' in cust_prop:
                             if 'shin' in cust_prop:
                                 col_3.prop(b, '["{}"]'.format(cust_prop), text = "{}".format(cust_prop.replace('flex_shin_', '')),  toggle=True)  
-            col_3.label("Foot_L:")    
+            col_3.label(text="Foot_L:")    
             for b in p_bones:
                 if 'properties_leg_L' in b.name:   
                     for cust_prop in b.keys():
@@ -751,19 +752,19 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             row = col.row()
         # expanded box                
         if "gui_rig_optimize" in arm_data and arm_data["gui_rig_optimize"]:
-            row.operator("gui.blenrig_5_tabs", icon="POSE_HLT", emboss = 1).tab = "gui_rig_optimize"                    
+            row.operator("gui.blenrig_5_tabs", icon="TOOL_SETTINGS", emboss = 1).tab = "gui_rig_optimize"                    
             row.label(text="RIG OPTIMIZATIONS")
             col.separator
             box = col.box()                                                      
             row_props = box.row()      
             col_R = row_props.column()
             col_L = row_props.column()                         
-            col_R.prop(arm_data, 'toggle_face_drivers', "Enable Face Drivers",)    
-            col_L.prop(arm_data, 'toggle_body_drivers', "Enable Body Drivers",)          
-            col_R.prop(arm_data, 'toggle_flex_drivers', "Enable Flex Scaling",)             
+            col_R.prop(arm_data, 'toggle_face_drivers', text="Enable Face Drivers",)    
+            col_L.prop(arm_data, 'toggle_body_drivers', text="Enable Body Drivers",)          
+            col_R.prop(arm_data, 'toggle_flex_drivers', text="Enable Flex Scaling",)             
                                      
         else:
-            row.operator("gui.blenrig_5_tabs", icon="POSE_DATA", emboss = 1).tab = "gui_rig_optimize"
+            row.operator("gui.blenrig_5_tabs", icon="TOOL_SETTINGS", emboss = 1).tab = "gui_rig_optimize"
             row.label(text="RIG OPTIMIZATIONS")                                            
 ####### Rigging & Baking
         if "gui_rig_bake" in arm_data:
@@ -773,17 +774,30 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             row = col.row()
         # expanded box                
         if "gui_rig_bake" in arm_data and arm_data["gui_rig_bake"]:
-            row.operator("gui.blenrig_5_tabs", icon="SCRIPTWIN", emboss = 1).tab = "gui_rig_bake"                    
+            row.operator("gui.blenrig_5_tabs", icon="PREFERENCES", emboss = 1).tab = "gui_rig_bake"                    
             row.label(text="RIGGING & BAKING")
             col.separator()
             box = col.box()
-            box.prop(arm_data, 'reproportion', "Reproportion Mode", toggle=True, icon_only=True, icon='SCRIPTWIN')               
-            col.separator()            
-            col.label("Baking:")
+            box.prop(arm_data, 'reproportion', text="Reproportion Mode", toggle=True, icon_only=True, icon='SHADERFX')
+            # col.label(text="Setup:")
+            # box = col.box()              
+            # split = box.split()
+            # row = split.row()
+            # row.operator("blenrig5.reset_constraints", text="Paste Pose Flipped")
+            # row = box.row() 
+            # row.prop(props,"align_selected_only",text="Hide Left Side")
+            # row = box.row()               
+            # row.prop(props,"align_selected_only",text="Hide Rigth Side")
+            # scn = bpy.context.scene
+            # rs = row.split(factor=0.8, align=True) 
+            # rs.prop(scn, "comboBox", text="")
+            # row = box.row()
+
+            col.label(text="Baking:")
             box = col.box()            
             row = box.row()
             row.operator("blenrig5.armature_baker", text="Bake Armature")    
-            box.label("Fix Alignment (Edit Mode):")                       
+            box.label(text="Fix Alignment (Edit Mode):")                       
             row = box.row()               
             row.operator("blenrig5.fix_misaligned_bones", text="Fix Joints")     
             row.operator("blenrig5.auto_bone_roll", text="Calc Rolls")  
@@ -794,7 +808,7 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             row = box.row()              
             row.prop(props, "align_selected_only")
             row.prop(arm_data, "use_mirror_x")
-            col.label("Extras:")
+            col.label(text="Extras:")
             box = col.box()              
             split = box.split()
             row = split.row()
@@ -802,21 +816,22 @@ class BlenRig_5_rigging_panel(bpy.types.Panel):
             row.operator("blenrig5.reset_deformers", text="Reset Deformers")                 
             col.separator()                                     
         else:
-            row.operator("gui.blenrig_5_tabs", icon="SCRIPTWIN", emboss = 1).tab = "gui_rig_bake"
+            row.operator("gui.blenrig_5_tabs", icon="PREFERENCES", emboss = 1).tab = "gui_rig_bake"
             row.label(text="RIGGING & BAKING")
             
 ####### Rig Version Info
         col = layout.column()
         row = col.row()
-        row.label("Armature Ver. " + str(arm_data['rig_version']))                
+        row.label(text="Armature Ver. " + str(arm_data['rig_version']))                
 
 ####### Object Baking Panel
 
-class BlenRig_5_mesh_panel(bpy.types.Panel):
+class BLENRIG_PT_BlenRig_5_mesh_panel(bpy.types.Panel):
     bl_label = "BlenRig 5 Mesh Baking Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "data"
+    
 
     @classmethod
     def poll(cls, context):
@@ -842,7 +857,7 @@ class BlenRig_5_mesh_panel(bpy.types.Panel):
 
 ####### Lattice & Curves Panel
 
-class BlenRig_5_lattice_panel(bpy.types.Panel):
+class BLENRIG_PT_BlenRig_5_lattice_panel(bpy.types.Panel):
     bl_label = "BlenRig 5 Lattice & Curves Panel"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'

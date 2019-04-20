@@ -27,56 +27,56 @@ import math
 
 # bpy.mifthTools = dict()
 
-class MFTPanelPose(bpy.types.Panel):
-    bl_label = "Bones"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
-    bl_context = "posemode"
-    bl_category = 'Mifth'
-    # bl_options = {'DEFAULT_CLOSED'}
+#class MFTPanelPose(bpy.types.Panel):
+    #bl_label = "Bones"
+    #bl_space_type = 'VIEW_3D'
+    #bl_region_type = 'TOOLS'
+    #bl_context = "posemode"
+    #bl_category = 'Mifth'
+    ## bl_options = {'DEFAULT_CLOSED'}
 
-    def draw(self, context):
-        layout = self.layout
-        mifthTools = context.scene.mifthTools
+    #def draw(self, context):
+        #layout = self.layout
+        #mifthTools = context.scene.mifthTools
 
-        op = layout.operator("mft.copy_bones_transform", text="CopyBonesTransform")
-        op.mode = 'Copy'
-        op = layout.operator("mft.copy_bones_transform", text="PasteBonesTransform")
-        op.mode = 'Paste'
+        #op = layout.operator("mft.copy_bones_transform", text="CopyBonesTransform")
+        #op.mode = 'Copy'
+        #op = layout.operator("mft.copy_bones_transform", text="PasteBonesTransform")
+        #op.mode = 'Paste'
 
-class MFTPanelAnimation(bpy.types.Panel):
-    bl_label = "Animations"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
-    bl_context = "objectmode"
-    bl_category = 'Mifth'
-    # bl_options = {'DEFAULT_CLOSED'}
+#class MFTPanelAnimation(bpy.types.Panel):
+    #bl_label = "Animations"
+    #bl_space_type = 'VIEW_3D'
+    #bl_region_type = 'TOOLS'
+    #bl_context = "objectmode"
+    #bl_category = 'Mifth'
+    ## bl_options = {'DEFAULT_CLOSED'}
 
-    def draw(self, context):
-        layout = self.layout
-        mifthTools = context.scene.mifthTools
+    #def draw(self, context):
+        #layout = self.layout
+        #mifthTools = context.scene.mifthTools
 
-        layout.operator("mft.curveanimator", text="Curve Animator")
-        layout.prop(mifthTools, "doUseSceneFrames", text='UseSceneFrames')
-        row = layout.row()
-        row.prop(mifthTools, "curveAniStartFrame", text='Start')
-        row.prop(mifthTools, "curveAniEndFrame", text='End')
-        row = layout.row()
-        row.prop(mifthTools, "curveAniStepFrame", text='Steps')
-        row.prop(mifthTools, "curveAniInterpolation", text='Interpolation')
+        #layout.operator("mft.curveanimator", text="Curve Animator")
+        #layout.prop(mifthTools, "doUseSceneFrames", text='UseSceneFrames')
+        #row = layout.row()
+        #row.prop(mifthTools, "curveAniStartFrame", text='Start')
+        #row.prop(mifthTools, "curveAniEndFrame", text='End')
+        #row = layout.row()
+        #row.prop(mifthTools, "curveAniStepFrame", text='Steps')
+        #row.prop(mifthTools, "curveAniInterpolation", text='Interpolation')
 
-        layout.separator()
-        layout.separator()
-        layout.operator("mft.morfcreator", text="Morfer")
-        layout.prop(mifthTools, "morfCreatorNames")
-        layout.prop(mifthTools, "morfUseWorldMatrix", text='useWorldMatrix')
-        layout.prop(mifthTools, "morfApplyModifiers", text='applyModifiers')
+        #layout.separator()
+        #layout.separator()
+        #layout.operator("mft.morfcreator", text="Morfer")
+        #layout.prop(mifthTools, "morfCreatorNames")
+        #layout.prop(mifthTools, "morfUseWorldMatrix", text='useWorldMatrix')
+        #layout.prop(mifthTools, "morfApplyModifiers", text='applyModifiers')
 
 
 class MFTPanelPlaykot(bpy.types.Panel):
     bl_label = "PlaykotTools"
     bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'TOOLS'
+    bl_region_type = 'UI'
     bl_context = "objectmode"
     bl_category = 'Mifth'
     # bl_options = {'DEFAULT_CLOSED'}

@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -17,24 +17,25 @@
 # along with CrowdMaster.  If not, see <http://www.gnu.org/licenses/>.
 # ##### END GPL LICENSE BLOCK #####
 
+import logging
 import math
 import os
 import random
-import re
+import time
 from collections import OrderedDict
 from math import radians
-import time
 
 import bmesh
 import bpy
 import mathutils
 from mathutils import Euler
 
+from .. import SCENE_OT_cm_agent_add, cm_timings
 from ..cm_channels import Path
 from ..libs.ins_octree import createOctreeFromBPYObjs
 from ..libs.ins_vector import Vector
-from .. import cm_timings
-from .. import SCENE_OT_cm_agent_add
+
+logger = logging.getLogger("CrowdMaster")
 
 BVHTree = mathutils.bvhtree.BVHTree
 KDTree = mathutils.kdtree.KDTree
@@ -175,6 +176,7 @@ class GeoTemplateOBJECT(GeoTemplate):
         objects = bpy.context.scene.objects
         if (nobject in objects) and (objects[nobject].type == 'MESH'):
             return self.settings["inputObject"] in bpy.context.scene.objects
+        logger.debug("The chosen object must exist and be of type MESH.")
         return False
 
 
@@ -194,7 +196,8 @@ class GeoTemplateGROUP(GeoTemplate):
         gp = [o for o in dat.groups[self.settings["inputGroup"]].objects]
         group_objects = [o.copy() for o in gp]
 
-        def zaxis(x): return x.location[2]
+        def zaxis(x):
+            return x.location[2]
 
         if deferGeo:
             for obj in dat.groups[self.settings["inputGroup"]].objects:
@@ -264,7 +267,11 @@ class GeoTemplateGROUP(GeoTemplate):
         return GeoReturn(topObj)
 
     def check(self):
-        return self.settings["inputGroup"] in bpy.data.groups
+        if self.settings["inputGroup"] in bpy.data.groups:
+            if len(bpy.data.groups[self.settings["inputGroup"]].objects) != 0:
+                return True
+        logger.debug("The chosen group must exist and have 1 or more objects.")
+        return False
 
 
 class GeoTemplateLINKGROUPNODE(GeoTemplate):
@@ -308,7 +315,10 @@ class GeoTemplateLINKGROUPNODE(GeoTemplate):
 
     def check(self):
         # TODO check if file exists
-        return self.settings["duplicatesDirectory"] != ""
+        if self.settings["duplicatesDirectory"] == "":
+            logger.debug("The Duplicates Directory must not be empty.")
+            return False
+        return True
 
     def duplicateProxyLink(self, dupDir, sourceBlend, sourceGroup, sourceRig,
                            additionalGroup):
@@ -445,12 +455,16 @@ class GeoTemplateCONSTRAINBONE(GeoTemplate):
 
     def check(self):
         if "Parent Group" not in self.inputs:
+            logger.debug("There must be a Parent Group input.")
             return False
         if "Child Object" not in self.inputs:
+            logger.debug("There must be a Child Object input.")
             return False
         if not isinstance(self.inputs["Parent Group"], GeoTemplate):
+            logger.debug("The Parent Group input is not a GeoTemplate type.")
             return False
         if not isinstance(self.inputs["Child Object"], GeoTemplate):
+            logger.debug("The Child Object input is not a GeoTemplate type.")
             return False
         # TODO check that object is in parent group
         return True
@@ -472,8 +486,10 @@ class GeoTemplateMODIFYBONE(GeoTemplate):
 
     def check(self):
         if "Objects" not in self.inputs:
+            logger.debug("There must be an Objects input.")
             return False
         if not isinstance(self.inputs["Objects"], GeoTemplate):
+            logger.debug("The Objects input is not a GeoTemplate type.")
             return False
         return True
 
@@ -489,12 +505,16 @@ class GeoTemplateSWITCH(GeoTemplate):
 
     def check(self):
         if "Object 1" not in self.inputs:
+            logger.debug("There must be an Object 1 input.")
             return False
         if "Object 2" not in self.inputs:
+            logger.debug("There must be an Object 2 input.")
             return False
         if not isinstance(self.inputs["Object 1"], GeoTemplate):
+            logger.debug("The Object 1 input is not a GeoTemplate type.")
             return False
         if not isinstance(self.inputs["Object 2"], GeoTemplate):
+            logger.debug("The Object 2 input is not a GeoTemplate type.")
             return False
         return True
 
@@ -513,11 +533,15 @@ class GeoTemplatePARENT(GeoTemplate):
         if self.settings["parentMode"] == "bone":
             con = child.constraints.new("CHILD_OF")
             con.target = parent
-            con.subtarget = self.settings["parentTo"]
-            bone = parent.pose.bones[self.settings["parentTo"]]
-            con.inverse_matrix = bone.matrix.inverted()
-            if child.data:
-                child.data.update()
+            try:
+                con.subtarget = self.settings["parentTo"]
+                bone = parent.pose.bones[self.settings["parentTo"]]
+                con.inverse_matrix = bone.matrix.inverted()
+                if child.data:
+                    child.data.update()
+            except:
+                logger.info(
+                    "The chosed bone was not found in the parent armature!")
         else:
             child.parent = parent
             mod = child.modifiers.get("Armature")
@@ -533,12 +557,16 @@ class GeoTemplatePARENT(GeoTemplate):
 
     def check(self):
         if "Parent Group" not in self.inputs:
+            logger.debug("There must be a Parent Group input.")
             return False
         if "Child Object" not in self.inputs:
+            logger.debug("There must be a Child Object input.")
             return False
         if not isinstance(self.inputs["Parent Group"], GeoTemplate):
+            logger.debug("The Parent Group input is not a GeoTemplate type.")
             return False
         if not isinstance(self.inputs["Child Object"], GeoTemplate):
+            logger.debug("The Child Object input is not a GeoTemplate type.")
             return False
         # TODO check that object is in parent group
         return True
@@ -575,12 +603,17 @@ class TemplateADDTOGROUP(Template):
 
     def check(self):
         if "Template" not in self.inputs:
+            logger.debug("There must be a Template input.")
             return False
         if not isinstance(self.inputs["Template"], Template):
+            logger.debug("The Template input is not a Template type.")
             return False
         if isinstance(self.inputs["Template"], GeoTemplate):
+            logger.debug(
+                "The Teplate input must be a Template, not GeoTemplate type.")
             return False
         if self.settings["groupName"].strip() == "":
+            logger.debug("The Group Name must not be empty.")
             return False
         return True
 
@@ -605,10 +638,14 @@ class TemplateRANDOMMATERIAL(Template):
 
     def check(self):
         if "Template" not in self.inputs:
+            logger.debug("There must be a Template input.")
             return False
         if not isinstance(self.inputs["Template"], Template):
+            logger.debug("The Template input is not a Template type.")
             return False
         if isinstance(self.inputs["Template"], GeoTemplate):
+            logger.debug(
+                "The Teplate input must be a Template, not GeoTemplate type.")
             return False
         return True
 
@@ -681,8 +718,10 @@ class TemplateAGENT(Template):
 
     def check(self):
         if "Objects" not in self.inputs:
+            logger.debug("There must be an Objects input.")
             return False
         if not isinstance(self.inputs["Objects"], GeoTemplate):
+            logger.debug("The Objects input is not a GeoTemplate type.")
             return False
         return True
 
@@ -698,16 +737,24 @@ class TemplateSWITCH(Template):
 
     def check(self):
         if "Template 1" not in self.inputs:
+            logger.debug("There must be a Template 2 input.")
             return False
         if "Template 2" not in self.inputs:
+            logger.debug("There must be a Template 2 input.")
             return False
         if not isinstance(self.inputs["Template 1"], Template):
+            logger.debug("The Template 1 input is not a Template type.")
             return False
         if isinstance(self.inputs["Template 1"], GeoTemplate):
+            logger.debug(
+                "The Teplate 1 input must be a Template, not GeoTemplate type.")
             return False
         if not isinstance(self.inputs["Template 2"], Template):
+            logger.debug("The Template 2 input is not a Template type.")
             return False
         if isinstance(self.inputs["Template 2"], GeoTemplate):
+            logger.debug(
+                "The Teplate 2 input must be a Template, not GeoTemplate type.")
             return False
         return True
 
@@ -740,13 +787,17 @@ class TemplateOFFSET(Template):
 
     def check(self):
         if "Template" not in self.inputs:
+            logger.debug("There must be a Template input.")
             return False
         if not isinstance(self.inputs["Template"], Template):
+            logger.debug("The Template input is not a Template type.")
             return False
         if isinstance(self.inputs["Template"], GeoTemplate):
+            logger.debug("The Teplate input must be a Template, not GeoTemplate type.")
             return False
         ref = self.settings["referenceObject"]
         if ref != "" and ref not in bpy.context.scene.objects:
+            logger.debug("The Reference object must exist.")
             return False
         return True
 
@@ -1013,18 +1064,18 @@ class TemplateVCOLPOSITIONING(Template):
         invert = self.settings["invert"]
         data = guide.data
         polys = []
-        mesh = data
 
-        vcol_layer = mesh.vertex_colors[self.settings["vcols"]]
+        vcol_layer = data.vertex_colors[self.settings["vcols"]]
 
-        for poly in mesh.polygons:
+        for poly in data.polygons:
             for loop_index in poly.loop_indices:
-                loop_vert_index = mesh.loops[loop_index].vertex_index
+                loop_vert_index = data.loops[loop_index].vertex_index
+                diff = vcol_layer.data[loop_index].color - self.settings["vcolor"]
                 if not invert:
-                    if vcol_layer.data[loop_index].color == self.settings["vcolor"]:
+                    if abs(diff.r) < 0.01 and abs(diff.g) < 0.01 and abs(diff.b) < 0.01:
                         polys.append(poly)
                 else:
-                    if not vcol_layer.data[loop_index].color == self.settings["vcolor"]:
+                    if not (abs(diff.r) < 0.01 and abs(diff.g) < 0.01 and abs(diff.b) < 0.01):
                         polys.append(poly)
 
         wrld = guide.matrix_world
@@ -1098,13 +1149,13 @@ class TemplateVCOLPOSITIONING(Template):
 
             point = buildRequest.pos
             loc, norm, ind, dist = self.bvhtree.find_nearest(point)
-            poly = mesh.polygons[ind]
+            poly = data.polygons[ind]
 
             cm_timings.placement["TemplateVCOLPOSITIONING"] += time.time() - t
             cm_timings.placementNum["TemplateVCOLPOSITIONING"] += 1
 
             for loop_index in poly.loop_indices:
-                loop_vert_index = mesh.loops[loop_index].vertex_index
+                loop_vert_index = data.loops[loop_index].vertex_index
                 if not invert:
                     if vcol_layer.data[loop_index].color == self.settings["vcolor"]:
                         self.inputs["Template"].build(buildRequest)
@@ -1116,6 +1167,8 @@ class TemplateVCOLPOSITIONING(Template):
         if "Template" not in self.inputs:
             return False
         if self.settings["guideMesh"] not in bpy.context.scene.objects:
+            return False
+        if self.settings["vcols"] == "":
             return False
         if bpy.context.scene.objects[self.settings["guideMesh"]].type != 'MESH':
             return False
@@ -1231,6 +1284,19 @@ class TemplatePATH(Template):
                 newBuildRequest.cm_group += "_" + self.settings["nodeName"] + \
                                             "_" + str(island)
             self.inputs["Template"].build(newBuildRequest)
+
+    def check(self):
+        if "Template" not in self.inputs:
+            return False
+        if not isinstance(self.inputs["Template"], Template):
+            return False
+        if isinstance(self.inputs["Template"], GeoTemplate):
+            return False
+        pathEntry = bpy.context.scene.cm_paths.coll.get(
+            self.settings["pathName"])
+        obj = bpy.context.scene.objects[pathEntry.objectName]
+        if not obj.type == 'MESH':
+            return False
 
 
 class TemplateFORMATION(Template):

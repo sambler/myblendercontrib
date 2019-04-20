@@ -73,21 +73,25 @@ class SlotData(bpy.types.PropertyGroup):
     name = StringProperty()
     active = BoolProperty(update=change_slot_mesh)
     index = IntProperty()
-    
+
 class Event(bpy.types.PropertyGroup):
-    def change_event_order(self,context):
-        events = self.id_data.coa_anim_collections[self.id_data.coa_anim_collections_index].event
-        for i,event in enumerate(events):
-            if i+1 < len(events):
-                if events[i].frame == events[i+1].frame:
-                    events.remove(i+1)
-                if events[i].frame > events[i+1].frame:
-                    events.move(i,i+1)
-    
-    frame = IntProperty(default=0,min=0,update=change_event_order)
-    event = StringProperty(default="")
-    sound = StringProperty(default="")
-    action = StringProperty(default="")
+    name = StringProperty()
+    type = EnumProperty(name="Object Type",default="SOUND",items=(("SOUND","Sound","Sound","SOUND",0),("EVENT","Event","Event","PHYSICS",1)))
+    value = StringProperty(description="Define which sound or event key is triggered.")
+
+class TimelineEvent(bpy.types.PropertyGroup):
+    def change_event_order(self, context):
+        timeline_events = self.id_data.coa_anim_collections[self.id_data.coa_anim_collections_index].timeline_events
+        for i, event in enumerate(timeline_events):
+            event_next = None
+            if i < len(timeline_events)-1:
+                event_next = timeline_events[i+1]
+            if event_next != None and event_next.frame < event.frame:
+                timeline_events.move(i+1, i)
+
+    event = CollectionProperty(type=Event)
+    frame = IntProperty(default=0, min=0, update=change_event_order)
+    collapsed = BoolProperty(default=False)
 
 class AnimationCollections(bpy.types.PropertyGroup):
     def set_frame_start(self,context):
@@ -103,23 +107,36 @@ class AnimationCollections(bpy.types.PropertyGroup):
             for item in sprite_object.coa_anim_collections:
                 name_array.append(item.name_old)
             self.name_change_to = check_name(name_array,self.name)
-            self.name = self.name_change_to 
-        
-        for child in get_children(context,sprite_object,ob_list=[]):
+            self.name = self.name_change_to
+
+        children = get_children(context,sprite_object,ob_list=[])
+        objs = []
+        if sprite_object.type == "ARMATURE":
+            objs.append(sprite_object)
+        for child in children:
+            objs.append(child)
+
+        for child in objs:
             action_name = self.name_old + "_" + child.name
             action_name_new = self.name + "_" + child.name
-            if action_name in bpy.data.actions:
+
+            # if action_name_new in bpy.data.actions:
+            #     bpy.data.actions.remove(bpy.data.actions[action_name])
+            if action_name_new in bpy.data.actions:
+                print(child.name,"",action_name_new , " -- ",action_name_new in bpy.data.actions)
+            if action_name_new not in bpy.data.actions and action_name in bpy.data.actions:
                 action = bpy.data.actions[action_name]
                 action.name = action_name_new
         self.name_old = self.name
-    
+        self.id_data.coa_anim_collections_index = self.id_data.coa_anim_collections_index
+
     name = StringProperty(update=check_name)
     name_change_to = StringProperty()
     name_old = StringProperty()
     action_collection = BoolProperty(default=False)
     frame_start = IntProperty(default=0 ,update=set_frame_start)
     frame_end = IntProperty(default=250 ,min=1,update=set_frame_end)
-    event = CollectionProperty(type=Event)
+    timeline_events = CollectionProperty(type=TimelineEvent)
     event_index = IntProperty(default=-1,max=-1)
         
 
@@ -628,7 +645,7 @@ class CutoutAnimationTools(bpy.types.Panel):
             row.prop(wm,"coa_show_help",text="",icon="INFO")    
         
         
-        if sprite_object != None:            
+        if obj!= None and sprite_object != None:            
             ### draw Edit Mode Operator
             if obj.mode in ["OBJECT","POSE"]:
                 row = layout.row()
@@ -736,7 +753,7 @@ class CutoutAnimationTools(bpy.types.Panel):
                         row = layout.row(align=True)
                         row.operator("coa_tools.leave_sculptmode",text="Finish Edit Shapekey",icon="SHAPEKEY_DATA")  
                     row = layout.row(align=True)
-                    draw_sculpt_ui(self,context,row)
+                    draw_sculpt_ui(self, context, row)
                     
                 if sprite_object.coa_edit_mesh == False and sprite_object.coa_edit_shapekey == False and sprite_object.coa_edit_armature == False and sprite_object.coa_edit_weights == False and not(obj.type == "MESH" and obj.mode in ["EDIT","SCULPT"]) and (sprite_object) != None:
                     pass
@@ -769,11 +786,11 @@ class CutoutAnimationTools(bpy.types.Panel):
                 operator = row.operator("coa_tools.generate_mesh_from_edges_and_verts",text="Generate Mesh",icon="OUTLINER_OB_SURFACE")
                 
                 row = layout.row(align=True)
-                operator = row.operator("object.coa_fill",text="Normal Fill",icon="OUTLINER_OB_SURFACE")
+                operator = row.operator("coa_tools.fill_edge_loop",text="Normal Fill",icon="OUTLINER_OB_SURFACE")
                 operator.triangulate = False
                 
                 row = layout.row(align=True)
-                operator = row.operator("object.coa_fill",text="Triangle Fill",icon="OUTLINER_OB_SURFACE")
+                operator = row.operator("coa_tools.fill_edge_loop",text="Triangle Fill",icon="OUTLINER_OB_SURFACE")
                 operator.triangulate = True
             
             
@@ -822,18 +839,34 @@ class UIListEventCollection(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         ob = data
         slot = item
-        col = layout.column(align=False)
-        
-        row = col.row(align=True)
-        row.label(text="",icon="TIME")
-        row.prop(item,"frame",emboss=False,text="Frame")
-        op = row.operator("coa_tools.remove_timeline_event",text="",icon="PANEL_CLOSE",emboss=False)
+        # col = layout.column(align=False)
+        box = layout.box()
+        col = box.column(align=False)
+
+        row = col.row(align=False)
+        # row.label(text="", icon="TIME")
+        if item.collapsed:
+            row.prop(item,"collapsed",emboss=False, text="", icon="TRIA_RIGHT")
+        else:
+            row.prop(item, "collapsed", emboss=False, text="", icon="TRIA_DOWN")
+        row.prop(item, "frame", emboss=True, text="Frame")
+        op = row.operator("coa_tools.remove_timeline_event", text="", icon="PANEL_CLOSE", emboss=False)
         op.index = index
-        
-        row = col.row(align=True)
-        row.prop(item,"event",emboss=True,text="Event")
-        row.prop(item,"action",emboss=True,text="Action")
-        row.prop(item,"sound",emboss=True,text="Sound")
+
+
+        # row = col.row(align=True)
+        if not item.collapsed:
+            row = col.row(align=True)
+            # row.alignment = "RIGHT"
+            op = row.operator("coa_tools.add_event", icon="ZOOMIN", text="Add new Event", emboss=True)
+            op.index = index
+            for i, event in enumerate(item.event):
+                row = col.row(align=True)
+                row.prop(event, "type",text="")
+                row.prop(event, "value",text="")
+                op = row.operator("coa_tools.remove_event", icon="PANEL_CLOSE", text="", emboss=True)
+                op.index = index
+                op.event_index = i
         
         
 
@@ -1123,13 +1156,13 @@ class CutoutAnimationCollections(bpy.types.Panel):
                 row.prop(item,"frame_end",text="Animation Length")
                 
                 
-                if get_addon_prefs(context).dragon_bones_export:
-                    row = layout.row(align=True)
-                    row.label(text="Timeline Events",icon="TIME")
-                    row = layout.row(align=False)
-                    row.template_list("UIListEventCollection","dummy",item, "event", item, "event_index",rows=1,maxrows=10,type='DEFAULT')
-                    col = row.column(align=True)
-                    col.operator("coa_tools.add_timeline_event",text="",icon="ZOOMIN")  
+                # if get_addon_prefs(context).dragon_bones_export:
+                row = layout.row(align=True)
+                row.label(text="Timeline Events",icon="TIME")
+                row = layout.row(align=False)
+                row.template_list("UIListEventCollection","dummy",item, "timeline_events", item, "event_index",rows=1,maxrows=10,type='DEFAULT')
+                col = row.column(align=True)
+                col.operator("coa_tools.add_timeline_event",text="",icon="ZOOMIN")
             
             row = layout.row(align=True)
             if context.scene.coa_nla_mode == "ACTION":

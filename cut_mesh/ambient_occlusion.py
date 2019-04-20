@@ -23,9 +23,12 @@ http://www.inf.u-szeged.hu/~palagyi/skel/skel.html
 for color management in the blender API
 https://blenderartists.org/t/easy-way-to-access-vertex-colors-in-python-bmesh/543789/3
 
+material management
+https://blenderartists.org/t/removing-specific-material-slots/540802/13
 
 '''
 import random
+import time
 
 import bpy
 import bmesh
@@ -100,9 +103,6 @@ def bake_ambient_object(context, ob):
         mat.use_shadeless = True
         mat.use_vertex_color_paint = True
         
-        
-        
-        
     if "AO" not in ob.data.materials:
         ob.data.materials.append(mat)
         
@@ -114,8 +114,10 @@ def bake_ambient_object(context, ob):
     
     ao_scene.objects.active = ob
     ob.select = True
+    start = time.time()
     bpy.ops.object.bake_image()
-    
+    finish = time.time()
+    print('took %f seconds to bake' % (finish-start))
     #put the active scene back
     context.screen.scene = current_scene
     

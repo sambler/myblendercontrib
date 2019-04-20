@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -23,8 +23,9 @@ import textwrap
 import bpy
 import nodeitems_utils
 from bpy.props import (BoolProperty, EnumProperty, FloatProperty,
-                       FloatVectorProperty, IntProperty, StringProperty)
-from bpy.types import Node, NodeSocket, NodeTree, Operator
+                       FloatVectorProperty, IntProperty, StringProperty,
+                       CollectionProperty)
+from bpy.types import Node, NodeSocket, NodeTree, Operator, PropertyGroup
 from nodeitems_utils import NodeCategory, NodeItem
 
 from .cm_iconLoad import cicon
@@ -36,7 +37,10 @@ class CrowdMasterTree(NodeTree):
     bl_label = 'CrowdMaster Agent Simulation'
     bl_icon = 'OUTLINER_OB_ARMATURE'
 
-    savedOnce = BoolProperty(default=False)
+    savedOnce: BoolProperty(default=False)
+
+    def update(self):
+        pass
 
 
 class DefaultSocket(NodeSocket):
@@ -44,14 +48,14 @@ class DefaultSocket(NodeSocket):
     bl_idname = 'DefaultSocketType'
     bl_label = 'Default CrowdMaster Node Socket'
 
-    filterProperty = EnumProperty(items=[("AVERAGE", "Average", "", 1),
+    filterProperty: EnumProperty(items=[("AVERAGE", "Average", "", 1),
                                          ("MAX", "Max", "", 2),
                                          ("MIN", "Min", "", 3)])
-    defaultValueProperty = FloatProperty(default=1.0)
-    randomInputValue = BoolProperty(default=False)
+    defaultValueProperty: FloatProperty(default=1.0)
+    randomInputValue: BoolProperty(default=False)
 
     def draw(self, context, layout, node, text):
-        preferences = context.user_preferences.addons[__package__].preferences
+        preferences = context.preferences.addons[__package__].preferences
         if not self.is_output and isinstance(node, StateNode):
             row = layout.row(align=True)
             if node.syncState:
@@ -64,7 +68,7 @@ class DefaultSocket(NodeSocket):
                         row.prop(self, "randomInputValue", icon="FILE_REFRESH",
                                  icon_only=True)
                 else:
-                    row.label(text)
+                    row.label(text=text)
             else:
                 if self.is_linked:
                     row.prop(self, "filterProperty", text=text)
@@ -77,7 +81,7 @@ class DefaultSocket(NodeSocket):
                     row.prop(self, "randomInputValue", icon="FILE_REFRESH",
                              icon_only=True)
         else:
-            layout.label(text)
+            layout.label(text=text)
 
     # Socket color
     def draw_color(self, context, node):
@@ -93,7 +97,7 @@ class StateSocket(NodeSocket):
     bl_label = 'CrowdMaster State Node Socket'
 
     def draw(self, context, layout, node, text):
-        layout.label(text)
+        layout.label(text=text)
 
     def draw_color(self, context, node):
         return (0.0, 0.0, 0.5, 1.0)
@@ -105,7 +109,7 @@ class DependanceSocket(NodeSocket):
     bl_label = 'CrowdMaster Dependance Node Socket'
 
     def draw(self, context, layout, node, text):
-        layout.label(text)
+        layout.label(text=text)
 
     def draw_color(self, context, node):
         return (0.8, 0.5, 0.0, 0.9)
@@ -117,7 +121,8 @@ class CrowdMasterNode(Node):
 
     @classmethod
     def poll(cls, ntree):
-        return ntree.bl_idname == 'CrowdMasterTreeType'
+        if ntree.bl_idname in {'CrowdMasterTreeType', 'CrowdMasterGroupTreeType'}:
+            return True
 
 
 class LogicNode(CrowdMasterNode):
@@ -142,8 +147,8 @@ class NewInputNode(LogicNode):
     bl_label = "Input"
     bl_width_default = 350.0
 
-    InputSource = EnumProperty(name="Input Channel",
-                               items=[("AGENTINFO", "Agent Info", "Get information about other agents in the scene", 10),
+    InputSource: EnumProperty(name="Input Channel",
+                               items=[("AGENTINFO", "Other Agent Info", "Get information about other agents in the scene", 10),
                                       ("CONSTANT", "Constant",
                                        "Get a single value that does not change per frame", 1),
                                       ("FLOCK", "Flock",
@@ -158,115 +163,118 @@ class NewInputNode(LogicNode):
                                        "Get information relating to path following", 6),
                                       ("SOUND", "Sound",
                                        "Get sound information from each agent", 7),
-                                      ("STATE", "State",
+                                      ("STATE", "Agent State",
                                        "Get state information from each agent", 8),
                                       ("WORLD", "World", "Get world information from the scene", 9)],
                                description="Which channel the input data should be pulled from",
                                default="CONSTANT")
 
-    Constant = FloatProperty(name="Constant", precision=5)
+    Constant: FloatProperty(name="Constant", precision=5)
 
-    Flocking = EnumProperty(name="Flocking Input",
+    Flocking: EnumProperty(name="Flocking Input",
                             items=[("SEPARATE", "Separate", "The direction the agent needs to move to move away from other nearby agent", 1),
                                    ("ALIGN", "Align", "The rotation about the X and Z axes needed to align to the average heading of nearby agents", 2),
                                    ("COHERE", "Cohere", "The direction the agent needs to move to move towards the average position of neighbours", 3)])
-    RotationAxis = EnumProperty(name="Rotation Axis",
-                                items=[("RZ", "rz", "Rotate on the z axis", 1),
-                                       ("RX", "rx", "Rotate on the x axis", 2)])
-    TranslationAxis = EnumProperty(name="Translation Axis",
-                                   items=[("TX", "tx", "Translate on the x axis", 1),
-                                          ("TY", "ty", "Translate on the y axis", 2),
-                                          ("TZ", "tz", "Translate on the z axis", 3)])
+    RotationAxis: EnumProperty(name="Rotation Axis",
+                                items=[("RZ", "Rotation Z", "Rotate on the z axis", 1),
+                                       ("RX", "Rotation X", "Rotate on the x axis", 2)])
+    TranslationAxis: EnumProperty(name="Translation Axis",
+                                   items=[("TX", "Translation X", "Translate on the x axis", 1),
+                                          ("TY", "Translation Y", "Translate on the y axis", 2),
+                                          ("TZ", "Translation Z", "Translate on the z axis", 3)])
 
-    FormationGroup = StringProperty(name="Formation Group")
-    FormationOptions = EnumProperty(name="Formation Options",
-                                    items=[("RZ", "rz", "", 1),
-                                           ("RX", "rx", "", 2),
-                                           ("DIST", "dist", "", 3)])
+    FormationGroup: StringProperty(name="Formation Group")
+    FormationOptions: EnumProperty(name="Formation Options",
+                                    items=[("RZ", "Rotation Z", "", 1),
+                                           ("RX", "Rotation X", "", 2),
+                                           ("DIST", "Distance", "", 3)])
 
-    GroundGroup = StringProperty(name="Ground Group")
-    GroundOptions = EnumProperty(name="Ground Options",
-                                 items=[("DH", "dh", "", 1),
-                                        ("ARZ", "ahead rz", "", 2),
-                                        ("ARX", "ahead rx", "", 3)])
-    GroundAheadOffset = FloatVectorProperty(name="Ground Ahead Offset",
+    GroundGroup: StringProperty(name="Ground Group")
+    GroundOptions: EnumProperty(name="Ground Options",
+                                 items=[("DH", "Height Difference", "", 1),
+                                        ("ARZ", "Ahead Rotation Z", "", 2),
+                                        ("ARX", "Ahead Rotation X", "", 3),
+                                        ("RX", "rx", "", 4),
+                                        ("RY", "ry", "", 5),
+                                        ])
+    GroundAheadOffset: FloatVectorProperty(name="Ahead Offset",
                                             description="Position relative to the agent to check the ground mesh",
                                             default=(0, 1, 0))
 
-    NoiseOptions = EnumProperty(name="Noise Options",
+    NoiseOptions: EnumProperty(name="Noise Options",
                                 items=[("RANDOM", "Random", "", 1),
                                        ("AGENTRANDOM", "Agent Random", "", 2),
                                        ("WAVE", "Wave", "", 3)])
 
-    WaveLength = FloatProperty(name="Wavelength", default=24.0, min=0.0)
-    WaveOffset = FloatProperty(name="Offset", default=0.0, min=0.0, max=1.0)
+    WaveLength: FloatProperty(name="Rate", default=24.0, min=0.0)
+    WaveOffset: FloatProperty(name="Offset", default=0.0, min=0.0, max=1.0)
 
-    PathName = StringProperty(name="Path Name")
-    PathOptions = EnumProperty(name="Path Options",
-                               items=[("RZ", "rz", "", 1),
-                                      ("RX", "rx", "", 2),
-                                      ("INLANE", "In lane", "", 3)])
-    PathLaneSearchDistance = FloatProperty(name="Search Distance", min=0)
+    PathName: StringProperty(name="Path Name")
+    PathOptions: EnumProperty(name="Path Options",
+                               items=[("RZ", "Rotation Z", "", 1),
+                                      ("RX", "Rotation X", "", 2),
+                                      ("INLANE", "In Lane", "", 3)])
+    PathLaneSearchDistance: FloatProperty(name="Search Distance", min=0)
 
-    SoundFrequency = StringProperty(name="Sound Frequency")
-    SoundMode = EnumProperty(name="Sound mode",
+    SoundFrequency: StringProperty(name="Sound Frequency")
+    SoundMode: EnumProperty(name="Sound mode",
                              items=[("BASIC", "Basic", "", 1),
                                     ("PREDICTION", "Prediction", "", 2),
                                     ("STEERING", "Steering", "", 3)])
-    SoundOptions = EnumProperty(name="Sound Options",
-                                items=[("RZ", "rz", "", 1),
-                                       ("RX", "rx", "", 2),
-                                       ("DIST", "dist", "", 3),
-                                       ("CLOSE", "close", "", 4),
-                                       ("DB", "db", "", 5)])
-    PredictionOptions = EnumProperty(name="Sound Prediction Options",
-                                     items=[("RZ", "rz", "", 1),
-                                            ("RX", "rx", "", 2),
-                                            ("DIST", "dist", "", 3),
-                                            ("CLOSE", "close", "", 4),
-                                            ("DB", "db", "", 5),
-                                            ("CERT", "cert", "", 6)])
-    SteeringOptions = EnumProperty(name="Sound steering Options",
-                                   items=[("RZ", "rz", "", 1),
-                                          ("RX", "rx", "", 2),
-                                          ("DIST", "dist", "", 3),
-                                          ("CLOSE", "close", "", 4),
-                                          ("DB", "db", "", 5),
-                                          ("CERT", "cert", "", 6),
-                                          ("ACC", "acc", "", 7),
-                                          ("OVER", "over", "", 8)])
-    MinusRadius = BoolProperty(name="Minus Radius", default=True)
+    SoundOptions: EnumProperty(name="Sound Options",
+                                items=[("RZ", "Rotation Z", "", 1),
+                                       ("RX", "Rotation X", "", 2),
+                                       ("DIST", "Distance", "", 3),
+                                       ("CLOSE", "Close", "", 4),
+                                       ("DB", "Decibel", "", 5)])
+    PredictionOptions: EnumProperty(name="Sound Prediction Options",
+                                     items=[("RZ", "Rotation Z", "", 1),
+                                            ("RX", "Rotation X", "", 2),
+                                            ("DIST", "Distance", "", 3),
+                                            ("CLOSE", "Close", "", 4),
+                                            ("DB", "Decibel", "", 5),
+                                            ("CERT", "Certainty", "", 6)])
+    SteeringOptions: EnumProperty(name="Sound Steering Options",
+                                   items=[("RZ", "Rotation Z", "", 1),
+                                          ("RX", "Rotation X", "", 2),
+                                          ("DIST", "Distance", "", 3),
+                                          ("CLOSE", "Close", "", 4),
+                                          ("DB", "Decibel", "", 5),
+                                          ("CERT", "Certainty", "", 6),
+                                          ("ACC", "Acceleration", "", 7),
+                                          ("OVER", "Over", "", 8)])
+    MinusRadius: BoolProperty(name="Minus Radius", default=True)
 
-    StateOptions = EnumProperty(name="State Options",
+    StateOptions: EnumProperty(name="State Options",
                                 items=[("RADIUS", "Radius", "", 1),
                                        ("SPEED", "Speed", "", 2),
-                                       ("GLOBALVELX", "Global Vel X", "", 3),
-                                       ("GLOBALVELY", "Global Vel Y", "", 4),
-                                       ("GLOBALVELZ", "Global Vel Z", "", 5),
-                                       ("QUERYTAG", "Query tag", "", 6)])
-    StateTagName = StringProperty(name="Tag Name")
+                                       ("GLOBALVELX", "Global Velocity X", "", 3),
+                                       ("GLOBALVELY", "Global Velocity Y", "", 4),
+                                       ("GLOBALVELZ", "Global Velocity Z", "", 5),
+                                       ("QUERYTAG", "Query Tag", "", 6)])
+    StateTagName: StringProperty(name="Tag Name")
 
-    WorldOptions = EnumProperty(name="World Options",
+    WorldOptions: EnumProperty(name="World Options",
                                 items=[("TIME", "Time", "", 1),
                                        ("TARGET", "Target", "", 2),
                                        ("EVENT", "Event", "", 3)])
-    TargetObject = StringProperty(name="Target Object")
-    TargetOptions = EnumProperty(name="Target Options",
-                                 items=[("RZ", "rz", "", 1),
-                                        ("RX", "rx", "", 2),
+    TargetObject: StringProperty(name="Target Object")
+    TargetOptions: EnumProperty(name="Target Options",
+                                 items=[("RZ", "Rotation Z", "", 1),
+                                        ("RX", "Rotation X", "", 2),
                                         ("ARRIVED", "Arrived", "", 3)])
-    EventName = StringProperty(name="Event Name")
-    EventOptions = EnumProperty(name="Event Options",
+    EventName: StringProperty(name="Event Name")
+    EventOptions: EnumProperty(name="Event Options",
                                 items=[("duration", "Duration", "", 1),
                                        ("elapsed", "Elapsed", "", 2),
                                        ("control", "Control", "", 3)],
                                 default="control")
 
-    AgentInfoOptions = EnumProperty(name="Agent Info Options",
+    AgentInfoOptions: EnumProperty(name="Agent Info Options",
                                     items=[("GETTAG", "Get Tag", "", 1),
-                                           ("HEADRZ", "Heading rz", "", 2),
-                                           ("HEADRX", "Heading rx", "", 3)])
-    GetTagName = StringProperty(name="Get Tag Name")
+                                           ("HEADRZ", "Heading Rotation Z", "", 2),
+                                           ("HEADRX", "Heading Rotation X", "", 3)])
+    GetTagName: StringProperty(name="Tag Name")
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "InputSource", text="Input")
@@ -401,7 +409,7 @@ class GraphNode(LogicNode):
     bl_width_default = 200.0
 
     Multiply = FloatProperty(
-        name="Multiply", description="Multiply the outputted value by this number", default=1.0)
+        name="Multiply", description="Multiply the outputted value by this number (post invert)", default=1.0)
     Invert = BoolProperty(
         name="Invert", description="Invert the output of the graph", default=False)
 
@@ -454,25 +462,36 @@ class MathNode(LogicNode):
     bl_width_default = 225.0
 
     operation = EnumProperty(name="Operation", items=[
-                             ("add", "Add", "Add the two numbers together"),
-                             ("sub", "Subtract",
-                              "Subtract the two numbers from each other"),
-                             ("mul", "Multiply", "Multiply the two numbers"),
-                             ("div", "Divide", "Divide the two numbers"),
-                             ("set", "Set To", "Set all inputs to this number")],
+        ("add", "Add", "Add the two numbers together"),
+        ("sub", "Subtract", "Subtract the two numbers from each other"),
+        ("mul", "Multiply", "Multiply the two numbers"),
+        ("div", "Divide", "Divide the two numbers"),
+        ("mod", "Modulo", "Calculate the modulo of the two numbers"),        
+        ("set", "Set To", "Set all inputs to this number"),
+        ("clamp", "Clamp", "Clamp the input values to a specified range")],
                              default="mul",
                              description="which mathematical operation to use.")
 
     num1 = FloatProperty(name="Number 1", default=1.0,
-                         description="Input is added/subtracted/multiplied/divided to this number")
+                         description="Input is added/subtracted/multiplied/divided/set to this number")
+
+    ClampMin = FloatProperty(name="Clamp Min", default=0.0)
+    ClampMax = FloatProperty(name="Clamp Max", default=1.0)
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "operation")
-        layout.prop(self, "num1")
+
+        if self.operation == "clamp":
+            layout.prop(self, "ClampMin")
+            layout.prop(self, "ClampMax")
+        else:
+            layout.prop(self, "num1")
 
     def getSettings(self, node):
         node.settings["operation"] = self.operation
         node.settings["num1"] = self.num1
+        node.settings["ClampMin"] = self.ClampMin
+        node.settings["ClampMax"] = self.ClampMax
 
 
 class AndNode(LogicNode):
@@ -480,7 +499,7 @@ class AndNode(LogicNode):
     bl_label = "And"
 
     Method = EnumProperty(name="Method",
-                          items=[("MUL", "Mul", "", 1),
+                          items=[("MUL", "Prod", "", 1),
                                  ("MIN", "Min", "", 2)])
     SingleOutput = BoolProperty(name="Single Output", default=False)
     IncludeAll = BoolProperty(name="Include All", default=True)
@@ -501,7 +520,7 @@ class OrNode(LogicNode):
     bl_label = "Or"
 
     Method = EnumProperty(name="Method",
-                          items=[("MUL", "Mul", "", 1),
+                          items=[("MUL", "Prod", "", 1),
                                  ("MAX", "Max", "", 2)])
     SingleOutput = BoolProperty(name="Single Output", default=True)
     IncludeAll = BoolProperty(name="Include All", default=True)
@@ -522,16 +541,6 @@ class NotNode(LogicNode):
     bl_label = "Not"
 
 
-class StrongNode(LogicNode):
-    """CrowdMaster Strong node. Makes 1's and 0's stronger"""
-    bl_label = "Strong"
-
-
-class WeakNode(LogicNode):
-    """CrowdMaster Weak node. Relaxes 1's and 0's"""
-    bl_label = "Weak"
-
-
 class SetTagNode(LogicNode):
     """CrowdMaster Set Tag node"""
     bl_label = "Set Tag"
@@ -543,7 +552,7 @@ class SetTagNode(LogicNode):
     Action = EnumProperty(name="Action",
                           items=[("ADD", "Add", "", 1),
                                  ("REMOVE", "Remove", "", 2)
-                                 ])
+                                ])
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "Tag")
@@ -566,12 +575,13 @@ class FilterNode(LogicNode):
 
     Operation = EnumProperty(name="Operation",
                              items=[("EQUAL", "Equal", "", 1),
-                                    ("NOT EQUAL", "Not equal", "", 2),
-                                    ("LESS", "Less than", "", 3),
-                                    ("GREATER", "Greater than", "", 4),
-                                    ("LEAST", "Least only", "", 5),
-                                    ("MOST", "Most only", "", 6),
-                                    ("AVERAGE", "Average", "", 7)])
+                                    ("NOT EQUAL", "Not Equal", "", 2),
+                                    ("LESS", "Less Than", "", 3),
+                                    ("GREATER", "Greater Than", "", 4),
+                                    ("LEAST", "Least Only", "", 5),
+                                    ("MOST", "Most Only", "", 6),
+                                    ("AVERAGE", "Average", "", 7),
+                                    ("SUM", "Sum", "", 8)])
     Tag = BoolProperty(name="Tag", default=False)
     TagName = StringProperty(name="Tag Name", default="")
     Value = FloatProperty(name="Value", default=0.0)
@@ -627,28 +637,57 @@ class OutputNode(LogicNode):
                                  ("px", "Position X", "", 4),
                                  ("py", "Position Y", "", 5),
                                  ("pz", "Position Z", "", 6),
-                                 ("sk", "Shape Key", "", 7)
-                                 ],
+                                 ("sk", "Shape Key", "", 7),
+                                 ("sx", "Scale X", "", 8),
+                                 ("sy", "Scale Y", "", 9),
+                                 ("sz", "Scale Z", "", 10),
+                                 ("tag", "Tag", "", 11),
+                                 ("rna", "RNA Value", "", 12)
+                                ],
                           default="py")
     SKName = StringProperty(name="Shape Key Name",
                             description="The name of the shape key")
+    #RNAPath = StringProperty(name="RNA Path",
+    #                        description="The datapath to the item")
     MultiInputType = EnumProperty(name="Multi Input Type",
                                   items=[("AVERAGE", "Average", "", 1),
                                          ("MAX", "Max", "", 2),
-                                         ("SIZEAVERAGE", "Size Average", "", 3),
-                                         ("SUM", "Sum", "", 4)
-                                         ])
+                                         ("SUM", "Sum", "", 3)
+                                        ])
+
+    Tag = StringProperty(name="Tag", default="default")
+    RNAPath = StringProperty(name="RNA Path")
+    UseThreshold = BoolProperty(name="Use Threshold", default=True)
+    Threshold = FloatProperty(name="Threshold", default=0.5)
+    Action = EnumProperty(name="Action",
+                          items=[("ADD", "Add", "", 1),
+                                 ("REMOVE", "Remove", "", 2)
+                                ])
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "Output")
         if self.Output == "sk":
             layout.prop(self, "SKName")
-        layout.prop(self, "MultiInputType")
+        elif self.Output == "rna":
+            layout.prop(self, "RNAPath")
+        elif self.Output == "tag":
+            layout.prop(self, "Tag")
+            layout.prop(self, "UseThreshold")
+            if self.UseThreshold:
+                layout.prop(self, "Threshold")
+            layout.prop(self, "Action")
+        if self.Output != "tag":
+            layout.prop(self, "MultiInputType")
 
     def getSettings(self, node):
         node.settings["SKName"] = self.SKName
+        node.settings["RNAPath"] = self.RNAPath
         node.settings["Output"] = self.Output
         node.settings["MultiInputType"] = self.MultiInputType
+        node.settings["Tag"] = self.Tag
+        node.settings["UseThreshold"] = self.UseThreshold
+        node.settings["Threshold"] = self.Threshold
+        node.settings["Action"] = self.Action
 
 
 class PrintNode(LogicNode):
@@ -664,6 +703,12 @@ class PrintNode(LogicNode):
         default=False,
     )
 
+    show_current_frame = BoolProperty(
+        name="Show Current Frame",
+        description="Show the curent frame when printing.",
+        default=True,
+    )
+
     output_filepath = StringProperty(
         name="Output Filepath",
         default="",
@@ -675,12 +720,14 @@ class PrintNode(LogicNode):
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "Label")
+        layout.prop(self, "show_current_frame")
         layout.prop(self, "save_to_file")
         if self.save_to_file:
             layout.prop(self, "output_filepath")
 
     def getSettings(self, node):
         node.settings["Label"] = self.Label
+        node.settings["show_current_frame"] = self.show_current_frame
         node.settings["save_to_file"] = self.save_to_file
         node.settings["output_filepath"] = self.output_filepath
 
@@ -771,7 +818,7 @@ class StartState(StateNode):
 
     def draw_buttons(self, context, layout):
         row = layout.row()
-        row.label("Random wait time:")
+        row.label(text="Random wait time:")
         row = layout.row(align=True)
         row.prop(self, "minRandWait")
         row.prop(self, "maxRandWait")
@@ -810,7 +857,7 @@ class ActionState(StateNode):
         item.randomActionFromGroup = self.randomActionFromGroup
 
     def draw_buttons(self, context, layout):
-        preferences = context.user_preferences.addons[__package__].preferences
+        preferences = context.preferences.addons[__package__].preferences
         if self.actionName == "":
             layout.prop(self, "stateLength")
         layout.prop(self, "cycleState")
@@ -837,32 +884,19 @@ TEXT_WIDTH = 6
 TW = textwrap.TextWrapper()
 
 
-def get_lines(text_file):
-    for line in text_file.lines:
-        yield line.body
-
-
 class NoteNode(CrowdMasterNode):
     """For keeping the graph well organised"""
     bl_idname = 'LogicNoteNode'
     bl_label = 'Note'
 
     text = StringProperty(
-        name='Note Text', description="Text to show, if set will overide file")
-
-    text_file = StringProperty(description="Textfile to show")
+        name='Note Text', description="Text to show in the node")
 
     def format_text(self):
         global TW
         out = []
         if self.text:
             lines = self.text.splitlines()
-        elif self.text_file:
-            text_file = bpy.data.texts.get(self.text_file)
-            if text_file:
-                lines = get_lines(text_file)
-            else:
-                return []
         else:
             return []
         width = self.width
@@ -878,7 +912,7 @@ class NoteNode(CrowdMasterNode):
         self.use_custom_color = True
 
     def draw_buttons(self, context, layout):
-        has_text = self.text or self.text_file
+        has_text = self.text
         if has_text:
             col = layout.column(align=True)
             text_lines = self.format_text()
@@ -886,24 +920,21 @@ class NoteNode(CrowdMasterNode):
                 if l:
                     col.label(text=l)
             col = layout.column()
-            col.operator("node.sim_note_clear", icon="X_VEC")
+            col.operator("node.sim_note_clear", icon="X")
 
         else:
             col = layout.column()
             col.prop(self, "text")
 
-            col = layout.column(align=True)
-            col.operator("node.sim_note_from_clipboard", icon="TEXT")
-            col.operator("node.sim_note_clear", icon="X_VEC")
+            col = layout.column()
+            col.operator("node.sim_note_clear", icon="X")
 
     def draw_buttons_ext(self, context, layout):
         layout.prop(self, "text", text="Text")
-        layout.operator("node.sim_note_from_clipboard", icon="TEXT")
-        layout.operator("node.sim_note_clear", icon="X_VEC")
+        layout.operator("node.sim_note_clear", icon="X")
 
     def clear(self):
         self.text = ""
-        self.text_file = ""
 
     def to_text(self):
         text_name = "Note Text"
@@ -912,22 +943,6 @@ class NoteNode(CrowdMasterNode):
             text = bpy.data.texts.new(text_name)
         text.clear()
         text.write(self.text)
-
-
-class SimNoteTextFromClipboard(Operator):
-    """Grab whatever text is in the clipboard"""
-    bl_idname = "node.sim_note_from_clipboard"
-    bl_label = "Grab Text From Clipboard"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        text = bpy.context.window_manager.clipboard
-        if not text:
-            self.report({"INFO"}, "No text selected")
-            return {'CANCELLED'}
-        node = context.node
-        node.text = text
-        return {'FINISHED'}
 
 
 class SimNoteClear(Operator):
@@ -942,10 +957,70 @@ class SimNoteClear(Operator):
         return {'FINISHED'}
 
 
+class CrowdMasterMuteSimNodes(Operator):
+    """Mutes the selected simulation nodes"""
+    bl_idname = "node.cm_sim_mute"
+    bl_label = "Mute the Selected Simulation Nodes"
+
+    @classmethod
+    def poll(cls, context):
+        tree_type = context.space_data.tree_type
+        if tree_type == 'CrowdMasterTreeType':
+            return True
+
+    def execute(self, context):
+
+        ng = context.space_data.edit_tree
+        nodes = [n for n in ng.nodes if n.select]
+
+        if not nodes:
+            self.report({"ERROR_INVALID_INPUT"}, "No nodes selected")
+            return {'CANCELLED'}
+
+        for node in nodes:
+            node.mute = not node.mute
+
+        return {'FINISHED'}
+
+
 class MyNodeCategory(NodeCategory):
     @classmethod
     def poll(cls, context):
         return context.space_data.tree_type == 'CrowdMasterTreeType'
+
+
+class SeparatorItem:
+    @staticmethod
+    def draw(item, col, context):
+        col.separator()
+
+
+def groupCategory(context):
+    if context is None:
+        return
+    space = context.space_data
+    if not space:
+        return
+    ntree = space.edit_tree
+    if not ntree:
+        return
+
+    if ntree.bl_idname == "CrowdMasterGroupTreeType":
+        yield NodeItem("GroupInputs")
+        yield NodeItem("GroupOutputs")
+
+    yield NodeItem("GroupNode")
+
+    if len(context.blend_data.node_groups) > 0:
+        separator = False
+
+        for group in context.blend_data.node_groups:
+            if group.bl_idname == "CrowdMasterGroupTreeType":
+                if not separator:
+                    separator = True
+                    yield SeparatorItem()
+                yield NodeItem("GroupNode", label=group.name,
+                               settings={"groupName": repr(group.name)})
 
 
 node_categories = [
@@ -958,33 +1033,32 @@ node_categories = [
     ]),
     MyNodeCategory("BASIC", "Basic", items=[
         NodeItem("GraphNode"),
-        NodeItem("MapNode"),
-        NodeItem("PriorityNode")
+        NodeItem("PriorityNode"),
+        NodeItem("FilterNode")
     ]),
     MyNodeCategory("LOGIC", "Logic", items=[
         NodeItem("AndNode"),
         NodeItem("OrNode"),
         NodeItem("NotNode")
     ]),
-    MyNodeCategory("STRENGTH", "Strength", items=[
-        NodeItem("StrongNode"),
-        NodeItem("WeakNode")
-    ]),
     MyNodeCategory("STATE", "State", items=[
         NodeItem("ActionState"),
         NodeItem("StartState")
     ]),
     MyNodeCategory("OTHER", "Other", items=[
-        NodeItem("FilterNode"),
         NodeItem("MathNode"),
-        NodeItem("SetTagNode"),
+        NodeItem("MapNode")
     ]),
     MyNodeCategory("LAYOUT", "Layout", items=[
         NodeItem("NodeFrame"),
         NodeItem("LogicNoteNode"),
         NodeItem("NodeReroute"),
-    ])
+    ]),
+    MyNodeCategory("GROUP", "Group", items=groupCategory)
 ]
+
+keyMap = None
+keyMapItems = []
 
 
 def register():
@@ -1001,8 +1075,6 @@ def register():
     bpy.utils.register_class(AndNode)
     bpy.utils.register_class(OrNode)
     bpy.utils.register_class(NotNode)
-    bpy.utils.register_class(StrongNode)
-    bpy.utils.register_class(WeakNode)
     bpy.utils.register_class(SetTagNode)
     bpy.utils.register_class(FilterNode)
     bpy.utils.register_class(MapNode)
@@ -1014,14 +1086,33 @@ def register():
     bpy.utils.register_class(ActionState)
 
     bpy.utils.register_class(NoteNode)
-    bpy.utils.register_class(SimNoteTextFromClipboard)
     bpy.utils.register_class(SimNoteClear)
+
+    bpy.utils.register_class(CrowdMasterMuteSimNodes)
 
     nodeitems_utils.register_node_categories(
         "CrowdMaster_NODES", node_categories)
 
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+    if kc:
+        global keyMap
+        keyMap = kc.keymaps.new(name='Node Editor', space_type='NODE_EDITOR')
+
+        kmi = keyMap.keymap_items.new('node.cm_sim_mute', 'M', 'PRESS')
+        keyMapItems.append(kmi)
+
 
 def unregister():
+    global keyMap
+    if keyMap:
+        for kmi in keyMapItems:
+            try:
+                keyMap.keymap_items.remove(kmi)
+            except Exception:
+                pass
+    keyMapItems.clear()
+
     nodeitems_utils.unregister_node_categories("CrowdMaster_NODES")
 
     bpy.utils.unregister_class(CrowdMasterTree)
@@ -1037,8 +1128,6 @@ def unregister():
     bpy.utils.unregister_class(AndNode)
     bpy.utils.unregister_class(OrNode)
     bpy.utils.unregister_class(NotNode)
-    bpy.utils.unregister_class(StrongNode)
-    bpy.utils.unregister_class(WeakNode)
     bpy.utils.unregister_class(SetTagNode)
     bpy.utils.unregister_class(FilterNode)
     bpy.utils.unregister_class(MapNode)
@@ -1050,8 +1139,9 @@ def unregister():
     bpy.utils.unregister_class(ActionState)
 
     bpy.utils.unregister_class(NoteNode)
-    bpy.utils.unregister_class(SimNoteTextFromClipboard)
     bpy.utils.unregister_class(SimNoteClear)
+
+    bpy.utils.unregister_class(CrowdMasterMuteSimNodes)
 
 
 if __name__ == "__main__":

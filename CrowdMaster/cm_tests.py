@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -27,16 +27,16 @@ from .cm_syncManager import SyncManagerTestCase
 
 class AddonRegisterTestCase(unittest.TestCase):
     def setUp(self):
-        self.play_animation = bpy.context.user_preferences.addons[
+        self.play_animation = bpy.context.preferences.addons[
             __package__].preferences.play_animation
         bpy.ops.wm.read_homefile()
-        bpy.context.user_preferences.addons[__package__].preferences.play_animation = False
+        bpy.context.preferences.addons[__package__].preferences.play_animation = False
 
     def tearDown(self):
-        bpy.context.user_preferences.addons[__package__].preferences.play_animation = self.play_animation
+        bpy.context.preferences.addons[__package__].preferences.play_animation = self.play_animation
 
     def testStartStopSim(self):
-        pa = bpy.context.user_preferences.addons[__package__].preferences.play_animation
+        pa = bpy.context.preferences.addons[__package__].preferences.play_animation
         bpy.ops.scene.cm_start()
         bpy.ops.scene.cm_stop()
 

@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -24,53 +24,41 @@ from bpy.props import (BoolProperty, CollectionProperty, EnumProperty,
 from bpy.types import Operator, Panel, PropertyGroup, UIList
 
 
-def updateStartFrame(self, context):
-    start = context.scene.cm_sim_start_frame
-    end = context.scene.cm_sim_end_frame
-    if start >= end:
-        start = end
-
-
-def updateEndFrame(self, context):
-    start = context.scene.cm_sim_start_frame
-    end = context.scene.cm_sim_end_frame
-    if end <= start:
-        end = start
-
-
 bpy.types.Scene.cm_sim_start_frame = IntProperty(
     name="Simulation Start Frame",
-    default=1,
-    update=updateStartFrame,
+    default=-1,
+    min=-1,
+    max=1048574
 )
 bpy.types.Scene.cm_sim_end_frame = IntProperty(
     name="Simulation End Frame",
-    default=250,
-    update=updateEndFrame,
+    default=-1,
+    min=-1,
+    max=1048574
 )
 
 
 class modifyBoneProperty(PropertyGroup):
     """For storing bone - tag pairs"""
     # name - Name of the bone
-    tag = StringProperty()  # Name of tag to attach value to
-    attribute = StringProperty()
+    tag: StringProperty()  # Name of tag to attach value to
+    attribute: StringProperty()
 
 
 class initialTagProperty(PropertyGroup):
     """For storing a dictionary like structure of initial tags."""
     # name - Name of the tag
-    value = FloatProperty()
+    value: FloatProperty()
 
 
 class agent_entry(PropertyGroup):
     """The data structure for the agent entries."""
     # name - The name of the blender object
-    geoGroup = StringProperty()
-    initialTags = CollectionProperty(type=initialTagProperty)
-    rigOverwrite = StringProperty()
-    constrainBone = StringProperty()
-    modifyBones = CollectionProperty(type=modifyBoneProperty)
+    geoGroup: StringProperty()
+    initialTags: CollectionProperty(type=initialTagProperty)
+    rigOverwrite: StringProperty()
+    constrainBone: StringProperty()
+    modifyBones: CollectionProperty(type=modifyBoneProperty)
 
 
 class agent_type_entry(PropertyGroup):
@@ -78,24 +66,24 @@ class agent_type_entry(PropertyGroup):
     Useful to separate into agents of each type to make collecting statistics
     easier/more efficient."""
     # name - The type of brain contained in this list
-    agents = CollectionProperty(type=agent_entry)
+    agents: CollectionProperty(type=agent_entry)
 
 
 class group_entry(PropertyGroup):
     """For storing data about the groups created by the generation nodes."""
     # name - The label given to this group
-    agentTypes = CollectionProperty(type=agent_type_entry)
-    totalAgents = IntProperty(default=0)
-    groupType = EnumProperty(items=[("auto", "Auto", "Created by nodes"),
+    agentTypes: CollectionProperty(type=agent_type_entry)
+    totalAgents: IntProperty(default=0)
+    groupType: EnumProperty(items=[("auto", "Auto", "Created by nodes"),
                                     ("manual", "Manual", "Manually added")], default="auto")
-    freezePlacement = BoolProperty(name="Freeze Placement", default=False)
-    freezeAnimation = BoolProperty(name="Freeze Animation", default=False)
+    freezePlacement: BoolProperty(name="Freeze Placement", default=False)
+    freezeAnimation: BoolProperty(name="Freeze Animation", default=False)
 
 
 class manual_props(PropertyGroup):
     """All settings for manually adding agents."""
-    groupName = StringProperty()
-    brainType = StringProperty()
+    groupName: StringProperty()
+    brainType: StringProperty()
 
 
 def registerTypes():

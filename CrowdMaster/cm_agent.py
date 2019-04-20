@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -20,9 +20,11 @@
 import copy
 import logging
 import time
+import math
 
 import bpy
 import mathutils
+from mathutils import Vector
 
 from . import cm_timings
 from .cm_compileBrain import compileBrain
@@ -33,16 +35,16 @@ logger = logging.getLogger("CrowdMaster")
 class Agent:
     """Represents each of the agents in the scene."""
 
-    def __init__(self, blenderid, nodeGroup, sim, rigOverwrite, constrainBone,
-                 tags=None, modifyBones=None, freezeAnimation=False, geoGroup=None):
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+    def __init__(self, ag, nodeGroup, sim, freezeAnimation=False):
+        preferences = bpy.context.preferences.addons[__package__].preferences
         if preferences.show_debug_options:
             t = time.time()
-        self.id = blenderid
-        self.brain = compileBrain(nodeGroup, sim, blenderid, freezeAnimation)
+        self.id = ag.name
+        self.brain = compileBrain(nodeGroup, sim, self.id, freezeAnimation)
+        self.nodeGroupName = nodeGroup.name
         self.sim = sim
         self.external = {"id": self.id, "tags": {
-            t.name: t.value for t in tags}}
+            t.name: t.value for t in ag.initialTags}}
         """self.external modified by the agent and then coppied to self.access
         at the end of the frame so that the updated values can be accessed by
         other agents"""
@@ -50,13 +52,13 @@ class Agent:
 
         self.freezeAnimation = freezeAnimation
 
-        self.geoGroup = geoGroup
+        self.geoGroup = ag.geoGroup
 
-        self.rigOverwrite = rigOverwrite
-        self.constrainBone = constrainBone
+        self.rigOverwrite = ag.rigOverwrite
+        self.constrainBone = ag.constrainBone
         self.modifyBones = {}
-        if modifyBones is not None:
-            for m in modifyBones:
+        if ag.modifyBones is not None:
+            for m in ag.modifyBones:
                 if m.name not in self.modifyBones:
                     self.modifyBones[m.name] = {}
                 self.modifyBones[m.name][m.attribute] = m.tag
@@ -64,51 +66,61 @@ class Agent:
         objs = bpy.data.objects
 
         """Set the dimensions of this object"""
-        self.dimensions = objs[blenderid].dimensions
+        self.dimensions = objs[self.id].dimensions
         self.radius = max(self.dimensions) / 2
 
         """ar - absolute rot, r - change rot by, rs - rot speed"""
-        self.arx = objs[blenderid].rotation_euler[0]
+        self.arx = objs[self.id].rotation_euler[0]
         self.rx = 0
         self.rsx = 0
         self.arxKey = True  # True if a keyframe was set last frame
 
-        self.ary = objs[blenderid].rotation_euler[1]
+        self.ary = objs[self.id].rotation_euler[1]
         self.ry = 0
         self.rsy = 0
         self.aryKey = True  # True if a keyframe was set last frame
 
-        self.arz = objs[blenderid].rotation_euler[2]
+        self.arz = objs[self.id].rotation_euler[2]
         self.rz = 0
         self.rsz = 0
         self.arzKey = True  # True if a keyframe was set last frame
 
         """ap - absolute pos, p - change pos by, s - speed"""
-        self.apx = objs[blenderid].location[0]
+        self.apx = objs[self.id].location[0]
         self.px = 0
         self.sx = 0
         self.apxKey = True  # True if a keyframe was set last frame
 
-        self.apy = objs[blenderid].location[1]
+        self.apy = objs[self.id].location[1]
         self.py = 0
         self.sy = 0
         self.apyKey = True  # True if a keyframe was set last frame
 
-        self.apz = objs[blenderid].location[2]
+        self.apz = objs[self.id].location[2]
         self.pz = 0
         self.sz = 0
         self.apzKey = True  # True if a keyframe was set last frame
+
+        self.scalex = objs[self.id].scale[0]
+        self.scaley = objs[self.id].scale[1]
+        self.scalez = objs[self.id].scale[2]
+        self.scalexKey = True
+        self.scaleyKey = True
+        self.scalezKey = True
 
         self.globalVelocity = mathutils.Vector([0, 0, 0])
 
         self.shapeKeys = {}
         self.lastShapeKeys = set()
 
+        self.rnaPaths = {}
+        self.lastRNAPath = set()
+
         """Clear out the nla"""
         if not freezeAnimation:
-            objs[blenderid].animation_data_clear()
-            objs[blenderid].keyframe_insert(data_path="location", frame=1)
-            objs[blenderid].keyframe_insert(
+            objs[self.id].animation_data_clear()
+            objs[self.id].keyframe_insert(data_path="location", frame=1)
+            objs[self.id].keyframe_insert(
                 data_path="rotation_euler", frame=1)
 
         # Keyframe everything so agent return to the same position.
@@ -126,12 +138,22 @@ class Agent:
                         else:
                             bone.keyframe_insert("rotation_euler")
                 obj.keyframe_insert("location")
+                obj.keyframe_insert("scale")
                 if obj.rotation_mode == "QUATERNION":
                     obj.keyframe_insert("rotation_quaternion")
                 elif obj.rotation_mode == "AXIS_ANGLE":
                     obj.keyframe_insert("rotation_axis_angle")
                 else:
                     obj.keyframe_insert("rotation_euler")
+
+                action = obj.animation_data.action
+                if action is not None:
+                    track = obj.animation_data.nla_tracks.new()
+                    st = track.strips.new(action.name,
+                                          action.frame_range[0], action)
+                    obj.animation_data.action = None
+                    st.extrapolation = 'NOTHING'
+                    st.blend_out = 1
         else:
             # ie. auto generated agent
             for obj in bpy.data.groups[self.geoGroup].objects:
@@ -145,12 +167,22 @@ class Agent:
                         else:
                             bone.keyframe_insert("rotation_euler")
                 obj.keyframe_insert("location")
+                obj.keyframe_insert("scale")
                 if obj.rotation_mode == "QUATERNION":
                     obj.keyframe_insert("rotation_quaternion")
                 elif obj.rotation_mode == "AXIS_ANGLE":
                     obj.keyframe_insert("rotation_axis_angle")
                 else:
                     obj.keyframe_insert("rotation_euler")
+
+                action = obj.animation_data.action
+                if action is not None:
+                    track = obj.animation_data.nla_tracks.new()
+                    st = track.strips.new(action.name,
+                                          action.frame_range[0], action)
+                    obj.animation_data.action = None
+                    st.extrapolation = 'NOTHING'
+                    st.blend_out = 1
 
         if preferences.show_debug_options and preferences.show_debug_timings:
             cm_timings.agent["init"] += time.time() - t
@@ -159,7 +191,7 @@ class Agent:
         """Called each frame of the simulation."""
 
         objs = bpy.data.objects
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
 
         rot = objs[self.id].rotation_euler
 
@@ -173,32 +205,47 @@ class Agent:
                 logger.debug("ID: {} Tags: {} outvars: {}".format(
                     self.id, self.brain.tags, self.brain.outvars))
             # TODO show this in the UI
-        if preferences.show_debug_options:
-            t = time.time()
-        if objs[self.id] == bpy.context.active_object:
-            self.brain.hightLight(bpy.context.scene.frame_current)
-        if preferences.show_debug_options and preferences.show_debug_timings:
-            cm_timings.agent["highLight"] += time.time() - t
-            t = time.time()
 
         self.rx = self.brain.outvars["rx"] if self.brain.outvars["rx"] else 0
         self.ry = self.brain.outvars["ry"] if self.brain.outvars["ry"] else 0
         self.rz = self.brain.outvars["rz"] if self.brain.outvars["rz"] else 0
 
-        self.arx += self.rx + self.rsx
+        xaxis = Vector((1, 0, 0))
+        xaxis.rotate(rot)
+        yaxis = Vector((0, 1, 0))
+        yaxis.rotate(rot)
+        zaxis = Vector((0, 0, 1))
+        zaxis.rotate(rot)
+        
+        x_rot = rotation_matrix_about_axis(xaxis, self.rx)
+        y_rot = rotation_matrix_about_axis(yaxis, self.ry)
+        z_rot = rotation_matrix_about_axis(zaxis, self.rz)
+        
+        rot = rot.copy()
+        rot.rotate(x_rot)
+        rot.rotate(y_rot)
+        rot.rotate(z_rot)
+
+        self.arx = rot[0]
         self.rx = 0
 
-        self.ary += self.ry + self.rsy
+        self.ary = rot[1]
         self.ry = 0
 
-        self.arz += self.rz + self.rsz
+        self.arz = rot[2]
         self.rz = 0
 
         self.px = self.brain.outvars["px"] if self.brain.outvars["px"] else 0
         self.py = self.brain.outvars["py"] if self.brain.outvars["py"] else 0
         self.pz = self.brain.outvars["pz"] if self.brain.outvars["pz"] else 0
 
+        self.scalex = self.brain.outvars["sx"] if self.brain.outvars["sx"] is not None else self.scalex
+        self.scaley = self.brain.outvars["sy"] if self.brain.outvars["sy"] is not None else self.scaley
+        self.scalez = self.brain.outvars["sz"] if self.brain.outvars["sz"] is not None else self.scalez
+
         self.shapeKeys = self.brain.outvars["sk"]
+
+        self.rnaPaths = self.brain.outvars["rna"]
 
         self.external["tags"] = self.brain.tags
 
@@ -227,7 +274,7 @@ class Agent:
     def apply(self):
         """Called in single thread after all agent.step() calls are done"""
         obj = bpy.data.objects[self.id]
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
 
         self.access = copy.deepcopy(self.external)
 
@@ -239,11 +286,11 @@ class Agent:
 
         if obj.animation_data:
             obj.animation_data.action_extrapolation = 'HOLD_FORWARD'
-            obj.animation_data.action_blend_type = 'ADD'
+            obj.animation_data.action_blend_type = 'REPLACE'
             for track in obj.animation_data.nla_tracks:
                 track.mute = False
 
-        """Set objects shape key value, rotation and location"""
+        """Set objects RNA data paths, shape key value, rotation and location"""
 
         lastFrame = bpy.context.scene.frame_current - 1
         thisFrame = bpy.context.scene.frame_current
@@ -271,6 +318,46 @@ class Agent:
                             else:
                                 if skNm in self.lastShapeKeys:
                                     self.lastShapeKeys.remove(skNm)
+
+        # RNA datapath output goes here
+        for rnaNm in self.rnaPaths:
+            rnaNewVal = self.rnaPaths[rnaNm]
+
+            if "." in rnaNm:
+                propPath, propAttr = rnaNm.rpartition('.')[0::2]
+                objPath = obj.path_resolve(propPath)
+            else:
+                # single attribute such as name, location... etc
+                objPath = obj
+                propAttr = str(rnaNm)
+
+            if hasattr(objPath, propAttr):
+                # check the input type (rnaNewVal) is valid for the property
+
+                rnaNewVal_type = type(rnaNewVal)
+                propAttr_type = type(getattr(objPath, propAttr))
+                setNewVal = False
+
+                if propAttr_type == rnaNewVal_type:
+                    setNewVal = True
+                elif propAttr_type == int:
+                    setNewVal = True
+                    rnaNewVal = round(rnaNewVal)
+                elif propAttr_type == bool:
+                    if (rnaNewVal >= 0.0) and (rnaNewVal <= 1.0):
+                        setNewVal = True
+                        rnaNewVal = round(rnaNewVal)
+                else:
+                    pass
+                    # colour the node red - bad value trying to be assigned (e.g. float to an object property)! (to do)
+
+                if setNewVal:
+                    setattr(objPath, propAttr, rnaNewVal)
+                    obj.keyframe_insert(data_path=str(rnaNm),
+                                        frame=thisFrame)
+             #else:
+                # pass
+                # colour the node red - bad path! (to do)
 
         if abs(self.arx - obj.rotation_euler[0]) > 0.000001:
             if not self.arxKey:
@@ -349,6 +436,45 @@ class Agent:
                                 frame=thisFrame)
         else:
             self.apzKey = False
+            
+        if abs(self.scalex - obj.scale[0]) > 0.000001:
+            if not self.scalexKey:
+                obj.keyframe_insert(data_path="scale",
+                                    index=0,
+                                    frame=lastFrame)
+                self.scalexKey = True
+            obj.scale[0] = self.scalex
+            obj.keyframe_insert(data_path="scale",
+                                index=0,
+                                frame=thisFrame)
+        else:
+            self.scalexKey = False
+            
+        if abs(self.scaley - obj.scale[1]) > 0.000001:
+            if not self.scaleyKey:
+                obj.keyframe_insert(data_path="scale",
+                                    index=1,
+                                    frame=lastFrame)
+                self.scaleyKey = True
+            obj.scale[1] = self.scaley
+            obj.keyframe_insert(data_path="scale",
+                                index=1,
+                                frame=thisFrame)
+        else:
+            self.scaleyKey = False
+            
+        if abs(self.scalez - obj.scale[2]) > 0.000001:
+            if not self.scalezKey:
+                obj.keyframe_insert(data_path="scale",
+                                    index=2,
+                                    frame=lastFrame)
+                self.scalezKey = True
+            obj.scale[2] = self.scalez
+            obj.keyframe_insert(data_path="scale",
+                                index=2,
+                                frame=thisFrame)
+        else:
+            self.scalezKey = False
 
         objs = bpy.context.scene.objects
 
@@ -389,3 +515,26 @@ class Agent:
     def highLight(self):
         for n in self.brain.neurons.values():
             n.highLight(bpy.context.scene.frame_current)
+
+            
+def rotation_matrix_about_axis(axis, angle):
+    """https://sites.google.com/site/glennmurray/Home/rotation-matrices-and-formulas/rotation-about-an-arbitrary-axis-in-3-dimensions"""
+    ct = math.cos(angle)
+    st = math.sin(angle)
+    
+    u, v, w = axis
+    l2 = u**2 + v**2 + w**2
+    l = math.sqrt(l2)
+
+    m = mathutils.Matrix()
+    m[0][0] = (u**2+(v**2+w**2)*ct)/l2
+    m[0][1] = (u*v*(1-ct) - w*l*st)/l2
+    m[0][2] = (u*w*(1-ct) + v*l*st)/l2
+    m[1][0] = (u*v*(1-ct)+w*l*st)/l2
+    m[1][1] = (v**2+(u**2+w**2)*ct)/l2
+    m[1][2] = (v*w*(1-ct)-u*l*st)/l2
+    m[2][0] = (u*w*(1-ct)-v*l*st)/l2
+    m[2][1] = (v*w*(1-ct)+u*l*st)/l2
+    m[2][2] = (w**2 + (u**2+v**2)*ct)/l2
+    
+    return m

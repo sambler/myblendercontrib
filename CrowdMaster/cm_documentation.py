@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -52,7 +52,6 @@ documentation_mapping = (
     ("bpy.ops.view3d.draw_path_operator",
      "simulation/toolbars/paths.html#draw-directions"),
     # TODO - nodes
-
     # PROPS
     # toolbar
     ("bpy.types.Scene.cm_sim_start_frame",

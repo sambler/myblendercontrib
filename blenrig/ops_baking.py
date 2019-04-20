@@ -28,7 +28,7 @@ class ARMATURE_OT_mesh_pose_baker(bpy.types.Operator):
             if name in bpy.data.objects:
                 ob = bpy.data.objects[name]
                 
-            bpy.context.scene.objects.active = ob
+            bpy.context.view_layer.objects.active = ob
             
             # Turn off SUBSURF for baking
             for mod in ob.modifiers:
@@ -38,9 +38,7 @@ class ARMATURE_OT_mesh_pose_baker(bpy.types.Operator):
             
             
             # --- get a mesh from the object ---
-            apply_modifiers = True
-            settings = 'PREVIEW'
-            mesh = ob.to_mesh(bpy.context.scene, apply_modifiers, settings)            
+            mesh = ob.to_mesh(bpy.context.depsgraph, apply_modifiers = True, calc_undeformed=False)            
             
             for mod in ob.modifiers:
                 if mod.type == 'SUBSURF':
@@ -97,7 +95,7 @@ class ARMATURE_OT_mesh_pose_baker(bpy.types.Operator):
         # Remove unused baked mesh               
         bpy.data.meshes.remove(mesh)                         
         
-        bpy.context.scene.objects.active = old_ob
+        bpy.context.view_layer.objects.active = old_ob
                
         
     #Unbind Mdef modifier if object is bound    
@@ -111,7 +109,7 @@ class ARMATURE_OT_mesh_pose_baker(bpy.types.Operator):
         for name in bake_meshes:
             if name in bpy.data.objects:
                 ob = bpy.data.objects[name]
-            bpy.context.scene.objects.active = ob
+            bpy.context.view_layer.objects.active = ob
            
             # unbind mdef modifiers
             for i in range(len(ob.modifiers)):
@@ -120,7 +118,7 @@ class ARMATURE_OT_mesh_pose_baker(bpy.types.Operator):
                     if mod.is_bound == True:
                         bpy.ops.object.meshdeform_bind(modifier=mod.name)      
                              
-        bpy.context.scene.objects.active = old_ob                           
+        bpy.context.view_layer.objects.active = old_ob                           
 
     def execute(self, context):
         self.bake(context)     
@@ -149,7 +147,7 @@ class ARMATURE_OT_reset_hooks(bpy.types.Operator):
             if name in bpy.data.objects:
                 ob = bpy.data.objects[name]
                 
-            bpy.context.scene.objects.active = ob
+            bpy.context.view_layer.objects.active = ob
 
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.lattice.select_all(action='SELECT')
@@ -164,7 +162,7 @@ class ARMATURE_OT_reset_hooks(bpy.types.Operator):
             if name in bpy.data.objects:
                 ob = bpy.data.objects[name]
                 
-            bpy.context.scene.objects.active = ob
+            bpy.context.view_layer.objects.active = ob
 
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.curve.select_all(action='SELECT')
@@ -199,12 +197,12 @@ class ARMATURE_OT_reset_deformers(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         old_active = bpy.context.active_object
         old_selected = bpy.context.selected_objects
-        old_layers = [i for i in bpy.context.scene.layers]
+        old_visible_collections = [coll.name for coll in bpy.data.collections if coll.hide_viewport == False  ]
         for ob in old_selected:
-            ob.select = False
+            ob.select_set(False)
                             
         # Armature related lattices and curves
-        
+        deformers_collection = []
         selected_deformers = []
         
         for ob in bpy.data.objects:
@@ -212,30 +210,37 @@ class ARMATURE_OT_reset_deformers(bpy.types.Operator):
                 for mod in ob.modifiers:
                     if mod.type in 'HOOK':
                         if mod.object.name == bpy.context.object.name:
-                            # Toggle on active layers
-                            for i in range(len(ob.layers)):
-                                layer = ob.layers[i]
-                                if layer == True:
-                                    bpy.context.scene.layers[i] = True                                    
-                            ob.select = True
+                            # Toggle on active collections
+                            for coll in bpy.data.collections:
+                                for coll_ob in coll.objects:
+                                    if ob.name == coll_ob.name:
+                                        deformers_collection.append(coll.name)
+                            for coll in bpy.data.collections:
+                                if coll.name in deformers_collection:                                  
+                                    coll.hide_viewport = False
+                            ob.select_set(True)
                             selected_deformers.append(ob.name)
                                  
         for name in selected_deformers:
             if name in bpy.data.objects:
                 ob = bpy.data.objects[name]
                 
-            bpy.context.scene.objects.active = ob
+            bpy.context.view_layer.objects.active = ob
 
-        # Reset Hooks
-        bpy.ops.blenrig5.reset_hooks()                               
+            # Reset Hooks
+            bpy.ops.blenrig5.reset_hooks()                               
                      
         #Back to Armature
         for ob in bpy.context.selected_objects:
-            ob.select = False
-        bpy.context.scene.layers = old_layers
-        bpy.context.scene.objects.active = old_active
+            ob.select_set(False)
+        for coll in bpy.data.collections:
+            coll.hide_viewport = True
+        for coll in bpy.data.collections:
+            if coll.name in old_visible_collections:
+                coll.hide_viewport = False
+        bpy.context.view_layer.objects.active = old_active
         for ob in old_selected:
-            ob.select = True        
+            ob.select_set(True)        
         bpy.ops.object.mode_set(mode='POSE')  
         #Hack for updating objects
         bpy.context.scene.frame_set(bpy.context.scene.frame_current)                                                   
@@ -268,32 +273,35 @@ class ARMATURE_OT_armature_baker(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         old_active = bpy.context.active_object
         old_selected = bpy.context.selected_objects
-        old_layers = [i for i in bpy.context.scene.layers]
+        old_visible_collections = [coll.name for coll in bpy.context.view_layer.layer_collection.children if coll.hide_viewport == False  ]
         for ob in old_selected:
-            ob.select = False
+            ob.select_set(False)
 
                 
         # unparenting external objects related to the armature
+        deformers_collection = []
         parent_pairs = []
         for ob in bpy.data.objects:
             if ob.parent is not None:
                 if ob.parent.name == bpy.context.object.name:           
-                    # Toggle on active layers
-                    for i in range(len(ob.layers)):
-                        layer = ob.layers[i]
-                        if layer == True:
-                            bpy.context.scene.layers[i] = True       
-                    ob.select = True
+                    # Toggle on active collections
+                    for coll in bpy.context.scene.collection.children:
+                        for coll_ob in coll.objects:
+                            if ob.name == coll_ob.name:
+                                deformers_collection.append(coll.name)
+                    for coll in bpy.context.view_layer.layer_collection.children:
+                        if coll.name in deformers_collection:
+                            coll.hide_viewport = False
+                    ob.select_set(True)
                     parent_pairs.append([ob, ob.parent, ob.parent_bone])
                     bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
                     
         #Back to Armature
         for ob in bpy.context.selected_objects:
-            ob.select = False
-        bpy.context.scene.layers = old_layers
-        bpy.context.scene.objects.active = old_active
+            ob.select_set(False)
+        bpy.context.view_layer.objects.active = old_active
         for ob in old_selected:
-            ob.select = True                         
+            ob.select_set(True)                         
         
         bpy.ops.object.mode_set(mode='POSE')
         posebones = bpy.context.object.pose.bones
@@ -312,20 +320,20 @@ class ARMATURE_OT_armature_baker(bpy.types.Operator):
                     con.distance = 0
                 elif con.type == 'STRETCH_TO':
                     con.rest_length = 0
-                elif con.type == 'CHILD_OF':
-                    bpy.ops.object.mode_set(mode='EDIT')
-                    arm.edit_bones.active = arm.edit_bones[b.name]
-                    bpy.ops.object.mode_set(mode='POSE')
-                    print ('"{}"'.format(con.name))
-                    bpy.ops.constraint.childof_clear_inverse(constraint=con.name, owner='BONE')
-                    bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
-                    # somehow it only works if you run it twice
-                    bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
-                    bpy.ops.object.mode_set(mode='EDIT')
-                    arm.edit_bones[b.name].select = False
+                #elif con.type == 'CHILD_OF':
+                    #bpy.ops.object.mode_set(mode='EDIT')
+                    #arm.edit_bones.active = arm.edit_bones[b.name]
+                    #bpy.ops.object.mode_set(mode='POSE')
+                    #print ('"{}"'.format(con.name))
+                    #bpy.ops.constraint.childof_clear_inverse(constraint=con.name, owner='BONE')
+                    #bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
+                    ## somehow it only works if you run it twice
+                    #bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
+                    #bpy.ops.object.mode_set(mode='EDIT')
+                    #arm.edit_bones[b.name].select = False
         bpy.ops.object.mode_set(mode='OBJECT')
         for ob in bpy.context.selected_objects:
-            ob.select = False        
+            ob.select_set(False)        
         
         # re-parenting external objects related to the armature
         for pp in parent_pairs:
@@ -334,18 +342,23 @@ class ARMATURE_OT_armature_baker(bpy.types.Operator):
             ob.parent_type = 'BONE'
             ob.parent_bone == bone 
             #Reseting Hooks
-            ob.select = True  
+            ob.select_set(True)  
             bpy.ops.blenrig5.reset_hooks()    
             
         #Back to Armature
         for ob in bpy.context.selected_objects:
-            ob.select = False
-        bpy.context.scene.layers = old_layers
-        bpy.context.scene.objects.active = old_active
+            ob.select_set(False)
+        #Set to visible collections back    
+        for coll in bpy.context.view_layer.layer_collection.children:
+            coll.hide_viewport = True
+        for coll in bpy.context.view_layer.layer_collection.children:
+            if coll.name in old_visible_collections:
+                coll.hide_viewport = False
+        bpy.context.view_layer.objects.active = old_active
         for ob in old_selected:
-            ob.select = True                         
+            ob.select_set(True)                         
         
-        bpy.ops.object.mode_set(mode='POSE')                  
+        bpy.ops.object.mode_set(mode='POSE')
              
                        
 
@@ -370,11 +383,14 @@ class ARMATURE_OT_reset_constraints(bpy.types.Operator):
     
     def invoke(self, context, event):
         pbones = context.active_object.pose.bones
+        edit_bones = context.active_object.data.edit_bones
         if len(pbones) < 1:
             self.report({'INFO'}, "No bones found")
             return{'FINISHED'}
         
         amount = 0
+        arm = bpy.context.object.data
+        
         for pbone in pbones:
             for con in pbone.constraints:
                 if con.type == 'LIMIT_DISTANCE':
@@ -383,17 +399,18 @@ class ARMATURE_OT_reset_constraints(bpy.types.Operator):
                 elif con.type == 'STRETCH_TO':
                     amount += 1
                     con.rest_length = 0
-#                elif con.type == 'CHILD_OF':
-#                    bpy.ops.object.mode_set(mode='EDIT')
-#                    arm.edit_bones.active = arm.edit_bones[b.name]
-#                    bpy.ops.object.mode_set(mode='POSE')
-#                    bpy.ops.constraint.childof_clear_inverse(constraint=con.name, owner='BONE')
-#                    bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
-#                    # somehow it only works if you run it twice
-#                    bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
-#                    bpy.ops.object.mode_set(mode='EDIT')
-#                    arm.edit_bones[b.name].select = False       
-#                    bpy.ops.object.mode_set(mode='POSE')                                 
+                #elif con.type == 'CHILD_OF':
+                    #bpy.ops.object.mode_set(mode='EDIT')
+                    #arm.edit_bones.active = arm.edit_bones[pbone.name]
+                    #bpy.ops.object.mode_set(mode='POSE')
+                    #print ('"{}"'.format(con.name))
+                    #bpy.ops.constraint.childof_clear_inverse(constraint=con.name, owner='BONE')
+                    #bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
+                    ## somehow it only works if you run it twice
+                    #bpy.ops.constraint.childof_set_inverse(constraint=con.name, owner='BONE')
+                    #bpy.ops.object.mode_set(mode='EDIT')
+                    #arm.edit_bones[b.name].select = False     
+                    #bpy.ops.object.mode_set(mode='POSE')                                 
         self.report({'INFO'}, str(amount) + " constraints reset")
         
         return{'FINISHED'}

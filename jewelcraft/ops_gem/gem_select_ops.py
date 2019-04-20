@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  JewelCraft jewelry design toolkit for Blender.
-#  Copyright (C) 2015-2018  Mikhail Rachinskiy
+#  Copyright (C) 2015-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,13 +19,12 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-import collections
-
 from bpy.props import EnumProperty, FloatProperty, BoolProperty
 from bpy.types import Operator
 from bpy.app.translations import pgettext_tip as _
+from mathutils import Matrix
 
-from .. import dynamic_lists
+from ..lib import asset, dynamic_list
 
 
 class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
@@ -34,20 +33,29 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
     bl_idname = "object.jewelcraft_select_gems_by_trait"
     bl_options = {"REGISTER", "UNDO"}
 
-    filter_size = BoolProperty(name="Size", options={"SKIP_SAVE"})
-    filter_stone = BoolProperty(name="Stone", options={"SKIP_SAVE"})
-    filter_cut = BoolProperty(name="Cut", options={"SKIP_SAVE"})
-    filter_similar = BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
+    filter_size: BoolProperty(name="Size", options={"SKIP_SAVE"})
+    filter_stone: BoolProperty(name="Stone", options={"SKIP_SAVE"})
+    filter_cut: BoolProperty(name="Cut", options={"SKIP_SAVE"})
+    filter_similar: BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
 
-    size = FloatProperty(name="Size", default=1.0, min=0.0, step=10, precision=2, unit="LENGTH")
-    stone = EnumProperty(name="Stone", items=dynamic_lists.stones)
-    cut = EnumProperty(name="Cut", items=dynamic_lists.cuts)
+    size: FloatProperty(
+        name="Size",
+        default=1.0,
+        min=0.0,
+        step=10,
+        precision=2,
+        unit="LENGTH",
+    )
+    stone: EnumProperty(name="Stone", items=dynamic_list.stones)
+    cut: EnumProperty(name="Cut", items=dynamic_list.cuts)
 
-    use_extend = BoolProperty(name="Extend", description="Extend selection")
-    use_select_children = BoolProperty(name="Select Children")
+    use_extend: BoolProperty(name="Extend", description="Extend selection")
+    use_select_children: BoolProperty(name="Select Children")
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
         split = layout.split()
         split.prop(self, "filter_size")
@@ -73,7 +81,7 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
         expr = (
             "for ob in visible:"
             "\n    if 'gem' in ob {size} {stone} {cut}:"
-            "\n        ob.select = True"
+            "\n        ob.select_set(True)"
             "\n        app(ob)"
             "\n    {else_deselect}"
         )
@@ -82,15 +90,15 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
             size="and round(ob.dimensions[1], 2) == size" if self.filter_size  else "",
             stone="and ob['gem']['stone'] == self.stone"  if self.filter_stone else "",
             cut="and ob['gem']['cut'] == self.cut"        if self.filter_cut   else "",
-            else_deselect="" if self.use_extend else "else: ob.select = False",
+            else_deselect="" if self.use_extend else "else: ob.select_set(False)",
         )
 
         exec(expr)
 
         if selected:
 
-            if not context.active_object.select:
-                context.scene.objects.active = selected[0]
+            if not context.object.select_get():
+                context.view_layer.objects.active = selected[0]
 
             if self.use_select_children:
                 visible = set(visible)
@@ -99,12 +107,12 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
                     if ob.children:
                         for child in ob.children:
                             if child in visible:
-                                child.select = True
+                                child.select_set(True)
 
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        ob = context.active_object
+        ob = context.object
 
         if ob and "gem" in ob:
             self.size = ob.dimensions[1]
@@ -119,38 +127,71 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
         return self.execute(context)
 
 
-class OBJECT_OT_jewelcraft_select_doubles(Operator):
-    bl_label = "JewelCraft Select Doubles"
-    bl_description = (
-        "Select duplicated gems (located in the same spot)\n"
-        "WARNING: does not work with dupli-faces"
-    )
-    bl_idname = "object.jewelcraft_select_doubles"
+class OBJECT_OT_jewelcraft_select_overlapping(Operator):
+    bl_label = "JewelCraft Select Overlapping"
+    bl_description = "Select gems that are less than 0.1 mm distance from each other or overlapping"
+    bl_idname = "object.jewelcraft_select_overlapping"
     bl_options = {"REGISTER", "UNDO"}
 
-    def execute(self, context):
-        doubles = collections.defaultdict(list)
+    threshold: FloatProperty(
+        name="Threshold",
+        default=0.1,
+        soft_min=0.0,
+        step=1,
+        precision=2,
+        unit="LENGTH",
+    )
 
-        for ob in context.visible_objects:
-            ob.select = False
+    def execute(self, context):
+        obs = []
+        ob_data = []
+
+        context.scene.update()
+
+        for dup in context.depsgraph.object_instances:
+
+            if dup.is_instance:
+                ob = dup.instance_object.original
+            else:
+                ob = dup.object.original
+
+            ob.select_set(False)
 
             if "gem" in ob:
-                loc = ob.matrix_world.to_translation().to_tuple()
-                doubles[loc].append(ob)
+                loc = dup.matrix_world.to_translation()
+                rad = max(ob.dimensions[:2]) / 2
 
-        doubles = {k: v for k, v in doubles.items() if len(v) > 1}
+                if dup.is_instance:
+                    mat = dup.matrix_world.copy()
 
-        if doubles:
-            d = 0
+                    if ob.parent and ob.parent.is_instancer:
+                        sel = ob.parent
+                    else:
+                        sel = None
+                else:
+                    mat_loc = Matrix.Translation(loc)
+                    mat_rot = dup.matrix_world.to_quaternion().to_matrix().to_4x4()
+                    mat = mat_loc @ mat_rot
 
-            for obs in doubles.values():
-                for ob in obs[:-1]:
-                    ob.select = True
-                    d += 1
+                    sel = ob
 
-            self.report({"WARNING"}, _("{} duplicates found").format(d))
+                loc.freeze()
+                mat.freeze()
+
+                obs.append(sel)
+                ob_data.append((loc, rad, mat))
+
+        overlaps = asset.gem_overlap(ob_data, threshold=self.threshold)
+
+        if overlaps:
+            for i in overlaps:
+                ob = obs[i]
+                if ob:
+                    ob.select_set(True)
+
+            self.report({"WARNING"}, _("{} overlaps found").format(len(overlaps)))
 
         else:
-            self.report({"INFO"}, _("{} duplicates found").format(0))
+            self.report({"INFO"}, _("{} overlaps found").format(0))
 
         return {"FINISHED"}

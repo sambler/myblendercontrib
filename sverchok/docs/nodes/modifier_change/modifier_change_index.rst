@@ -18,6 +18,7 @@ Modifier Change
    iterate
    mesh_join
    mesh_separate
+   mesh_switch
    objects_along_edge
    bend_along_path
    bend_along_surface

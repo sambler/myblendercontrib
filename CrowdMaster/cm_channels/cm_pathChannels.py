@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -288,7 +288,7 @@ class Path(Mc):
 
             index = nextIndex
             if nextVert is None:
-                logger.info("no next {}".format(index))
+                logger.info("No next {}".format(index))
             nextIndex = nextVert.index
 
     def alignToPath(self, pathEntry, point, nDirec):
@@ -417,7 +417,7 @@ class Path(Mc):
     def inlane(self, pathName, length, agents):
         context = bpy.context
 
-        pathEntry = bpy.context.scene.cm_paths.coll.get(pathName)
+        pathEntry = context.scene.cm_paths.coll.get(pathName)
         pathObject = pathEntry.objectName
         radius = pathEntry.radius
         laneSep = pathEntry.laneSeparation
@@ -467,7 +467,7 @@ class draw_path_directions_operator(Operator):
     bl_idname = "view3d.draw_path_operator"
     bl_label = "Draw Directions"
 
-    pathName = StringProperty(name="Name Of Path")
+    pathName: StringProperty(name="Name Of Path")
 
     def drawCallback(self, context, path):
         with cm_draw.bglWrapper:
@@ -497,13 +497,13 @@ class draw_path_directions_operator(Operator):
                 self._handle_3d, 'WINDOW')
             activePath = None
             # Hack to force redraw
-            bpy.context.scene.objects.active = bpy.context.scene.objects.active
+            context.scene.objects.active = context.scene.objects.active
             return {'CANCELLED'}
         if activePath != self.pathName:
             bpy.types.SpaceView3D.draw_handler_remove(
                 self._handle_3d, 'WINDOW')
             # Hack to force redraw
-            bpy.context.scene.objects.active = bpy.context.scene.objects.active
+            context.scene.objects.active = context.scene.objects.active
             return {'CANCELLED'}
 
         return {'PASS_THROUGH'}
@@ -511,7 +511,7 @@ class draw_path_directions_operator(Operator):
     def invoke(self, context, event):
         global activePath
         activePath = self.pathName
-        args = (context, bpy.context.scene.cm_paths.coll[self.pathName])
+        args = (context, context.scene.cm_paths.coll[self.pathName])
 
         self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(
             self.drawCallback, args, 'WINDOW', 'POST_VIEW')
@@ -520,26 +520,26 @@ class draw_path_directions_operator(Operator):
         context.window_manager.modal_handler_add(self)
 
         # Hack to force redraw
-        bpy.context.scene.objects.active = bpy.context.scene.objects.active
+        context.scene.objects.active = context.scene.objects.active
         return {'RUNNING_MODAL'}
 
 
 class path_entry(PropertyGroup):
     """For storing a single path"""
     # name - aliase given to the path
-    objectName = StringProperty(name="Object Name")
-    radius = FloatProperty(name="Radius", min=0)
-    mode = EnumProperty(name="Mode",
+    objectName: StringProperty(name="Object Name")
+    radius: FloatProperty(name="Radius", min=0)
+    mode: EnumProperty(name="Mode",
                         items=[("bidirectional", "Bidirectional", "", 1),
                                ("road", "Road", "", 2),
                                ("directional", "Directional", "", 3)])
-    laneSeparation = FloatProperty(name="Lane Separation")
-    revDirec = CollectionProperty(name="Directions", type=PropertyGroup)
+    laneSeparation: FloatProperty(name="Lane Separation")
+    revDirec: CollectionProperty(name="Directions", type=PropertyGroup)
 
 
 class paths_collection(PropertyGroup):
-    coll = CollectionProperty(type=path_entry)
-    index = IntProperty()
+    coll: CollectionProperty(type=path_entry)
+    index: IntProperty()
 
 
 class SCENE_OT_cm_path_populate(Operator):
@@ -580,7 +580,7 @@ class SCENE_UL_cm_path(UIList):
         if item.mode == "road":
             layout.prop(item, "laneSeparation")
         if item.mode == "directional":
-            if bpy.context.scene.objects.active == bpy.data.objects[item.objectName]:
+            if context.scene.objects.active == bpy.data.objects[item.objectName]:
                 oper = layout.operator("view3d.draw_path_operator")
                 oper.pathName = item.name
 
@@ -590,14 +590,14 @@ class SCENE_PT_path(Panel):
     bl_label = "Paths"
     bl_idname = "SCENE_PT_path"
     bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = "CrowdMaster"
+    bl_region_type = 'UI'
+    bl_category = "Simulation"
     bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(self, context):
         try:
-            return bpy.context.space_data.tree_type == 'CrowdMasterTreeType', bpy.context.space_data.tree_type == 'CrowdMasterGenTreeType'
+            return context.space_data.tree_type == 'CrowdMasterTreeType', context.space_data.tree_type == 'CrowdMasterGenTreeType'
         except (AttributeError, KeyError, TypeError):
             return False
 
@@ -619,11 +619,11 @@ class SCENE_PT_path(Panel):
                           "coll", sce.cm_paths, "index")
 
         col = row.column()
-        sub = col.column(True)
+        sub = col.column(align=True)
         blid_ap = SCENE_OT_cm_path_populate.bl_idname
-        sub.operator(blid_ap, text="", icon="ZOOMIN")
+        sub.operator(blid_ap, text="", icon="ADD")
         blid_ar = SCENE_OT_cm_path_remove.bl_idname
-        sub.operator(blid_ar, text="", icon="ZOOMOUT")
+        sub.operator(blid_ar, text="", icon="REMOVE")
 
 # ==========================================================================
 #                       Path editing operators
@@ -640,19 +640,18 @@ class Switch_Selected_Path(Operator):
     @classmethod
     def poll(cls, context):
         global activePath
-        C = bpy.context
-        if activePath is None or activePath not in C.scene.cm_paths.coll:
+        if activePath is None or activePath not in context.scene.cm_paths.coll:
             return False
-        pathEntry = C.scene.cm_paths.coll[activePath]
+        pathEntry = context.scene.cm_paths.coll[activePath]
         if pathEntry.mode != "directional":
             return False
-        if C.active_object.mode != "EDIT":
+        if context.active_object.mode != "EDIT":
             return False
         return True
 
     def invoke(self, context, event):
-        bm = bmesh.from_edit_mesh(bpy.context.object.data)
-        revDirec = bpy.context.scene.cm_paths.coll[activePath].revDirec
+        bm = bmesh.from_edit_mesh(context.object.data)
+        revDirec = context.scene.cm_paths.coll[activePath].revDirec
         for edge in bm.edges:
             if edge.select:
                 indexStr = str(edge.index)
@@ -663,7 +662,7 @@ class Switch_Selected_Path(Operator):
                     revEdge.name = indexStr
 
         # Hack to force redraw
-        bpy.context.scene.objects.active = bpy.context.scene.objects.active
+        context.scene.objects.active = context.scene.objects.active
         return {'FINISHED'}
 
 
@@ -674,21 +673,19 @@ class Switch_Connected_Path(Operator):
     @classmethod
     def poll(cls, context):
         global activePath
-        C = bpy.context
-        if activePath is None or activePath not in C.scene.cm_paths.coll:
+        if activePath is None or activePath not in context.scene.cm_paths.coll:
             return False
-        pathEntry = C.scene.cm_paths.coll[activePath]
+        pathEntry = context.scene.cm_paths.coll[activePath]
         if pathEntry.mode != "directional":
             return False
-        if C.active_object.mode != "EDIT":
+        if context.active_object.mode != "EDIT":
             return False
         return True
 
     def invoke(self, context, event):
         global activePath
-        C = bpy.context
-        pathEntry = C.scene.cm_paths.coll[activePath]
-        bm = bmesh.from_edit_mesh(bpy.context.object.data)
+        pathEntry = context.scene.cm_paths.coll[activePath]
+        bm = bmesh.from_edit_mesh(context.object.data)
         fringe = {v for v in bm.verts if v.select}
         seenEdges = {e for e in bm.edges if e.select}
         while len(fringe) > 0:
@@ -709,7 +706,7 @@ class Switch_Connected_Path(Operator):
             fringe = nextFrige
 
         # Hack to force redraw
-        bpy.context.scene.objects.active = bpy.context.scene.objects.active
+        context.scene.objects.active = context.scene.objects.active
         return {'FINISHED'}
 
 
@@ -720,21 +717,19 @@ class cm_path_bfs(Operator):
     @classmethod
     def poll(cls, context):
         global activePath
-        C = bpy.context
-        if activePath is None or activePath not in C.scene.cm_paths.coll:
+        if activePath is None or activePath not in context.scene.cm_paths.coll:
             return False
-        pathEntry = C.scene.cm_paths.coll[activePath]
+        pathEntry = context.scene.cm_paths.coll[activePath]
         if pathEntry.mode != "directional":
             return False
-        if C.active_object.mode != "EDIT":
+        if context.active_object.mode != "EDIT":
             return False
         return True
 
     def execute(self, context):
         global activePath
-        C = bpy.context
-        pathEntry = C.scene.cm_paths.coll[activePath]
-        bm = bmesh.from_edit_mesh(C.active_object.data)
+        pathEntry = context.scene.cm_paths.coll[activePath]
+        bm = bmesh.from_edit_mesh(context.active_object.data)
 
         fringe = {v for v in bm.verts if v.select}
         seen = {v for v in bm.verts if v.select}
@@ -758,7 +753,7 @@ class cm_path_bfs(Operator):
             fringe = nextFrige
 
         # Hack to force redraw
-        bpy.context.scene.objects.active = bpy.context.scene.objects.active
+        context.scene.objects.active = context.scene.objects.active
         return {'FINISHED'}
 
 
@@ -769,13 +764,12 @@ class cm_path_dfs(Operator):
     @classmethod
     def poll(cls, context):
         global activePath
-        C = bpy.context
-        if activePath is None or activePath not in C.scene.cm_paths.coll:
+        if activePath is None or activePath not in context.scene.cm_paths.coll:
             return False
-        pathEntry = C.scene.cm_paths.coll[activePath]
+        pathEntry = context.scene.cm_paths.coll[activePath]
         if pathEntry.mode != "directional":
             return False
-        if C.active_object.mode != "EDIT":
+        if context.active_object.mode != "EDIT":
             return False
         return True
 
@@ -800,16 +794,15 @@ class cm_path_dfs(Operator):
 
     def execute(self, context):
         global activePath
-        C = bpy.context
-        self.pathEntry = C.scene.cm_paths.coll[activePath]
-        bm = bmesh.from_edit_mesh(C.active_object.data)
+        self.pathEntry = context.scene.cm_paths.coll[activePath]
+        bm = bmesh.from_edit_mesh(context.active_object.data)
 
         self.seen = {e for e in bm.edges if e.select}
         for v in {v for v in bm.verts if v.select}:
             self.dfs(v)
 
         # Hack to force redraw
-        bpy.context.scene.objects.active = bpy.context.scene.objects.active
+        context.scene.objects.active = context.scene.objects.active
         return {'FINISHED'}
 
 

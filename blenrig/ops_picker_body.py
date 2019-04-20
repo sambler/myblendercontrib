@@ -11,11 +11,21 @@ class Operator_Zoom_Selected(bpy.types.Operator):
     bl_label = "BlenRig Zoom to Selected"   
     bl_description = "Zoom to selected / View All"  
 
-    def invoke(self, context, event):     
+    def invoke(self, context, event):    
+        #Context Override 
+        areas  = [area for area in bpy.context.screen.areas if area.type == 'VIEW_3D']
+
+        if areas:
+            regions = [region for region in areas[0].regions if region.type == 'WINDOW']
+
+            if regions:
+                override = {'area': areas[0],
+                            'region': regions[0]}   
+                                  
         if event.ctrl == False and event.shift == False:
-            bpy.ops.view3d.view_selected()
+            bpy.ops.view3d.view_selected(override, use_all_regions=False)
         else:
-            bpy.ops.view3d.view_all()              
+            bpy.ops.view3d.view_all(override, center=False)              
         return {"FINISHED"}
  
  

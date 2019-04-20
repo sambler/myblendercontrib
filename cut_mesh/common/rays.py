@@ -54,6 +54,24 @@ def ray_cast(ob, imx, ray_origin, ray_target, also_do_this):
 
     return [loc, no, face_ind]
 
+def ray_cast_bvh(bvh, imx, ray_origin, ray_target, also_do_this=None):
+    '''
+    cast ray from to view to specified target on object.
+    '''
+    if bversion() < '002.077.000':
+        print('NO GOING BACK TO 2.77')
+        return None, None, None
+    else:
+        loc, no, face_ind, d = bvh.ray_cast(imx * ray_origin, imx * ray_target - imx * ray_origin)
+        if loc == None:
+            if also_do_this:
+                also_do_this()
+                return [None, None, None]
+            else:
+                pass
+
+    return [loc, no, face_ind]
+
 def ray_cast_region2d(region, rv3d, screen_coord, ob, settings):
     '''
     performs ray casting on object given region, rv3d, and coords wrt region.

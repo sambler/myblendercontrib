@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -35,9 +35,20 @@ class Simulation:
     """The object that contains everything once the simulation starts"""
 
     def __init__(self):
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.resetTimings()
         self.agents = {}
-        self.framelast = bpy.context.scene.cm_sim_start_frame
+        if bpy.context.scene.cm_sim_start_frame != -1:
+            self.frameLast = bpy.context.scene.cm_sim_start_frame
+            self.startFrame = bpy.context.scene.cm_sim_start_frame
+        else:
+            self.frameLast = bpy.context.scene.frame_start
+            self.startFrame = bpy.context.scene.frame_start
+        if bpy.context.scene.cm_sim_end_frame != -1:
+            self.endFrame = bpy.context.scene.cm_sim_end_frame
+        else:
+            self.endFrame = bpy.context.scene.frame_end
         self.compbrains = {}
         Noise = chan.Noise(self)
         Sound = chan.Sound(self)
@@ -67,6 +78,14 @@ class Simulation:
 
         self.syncManager = syncManager()
 
+        self.lastHighlightTree = None
+        self.lastHighlightFrame = None
+        self.lastHighlightActive = None
+        for nodeTree in bpy.data.node_groups:
+            if nodeTree.bl_idname == "CrowdMasterTreeType":
+                for node in nodeTree.nodes:
+                    node.use_custom_color = False
+
     def setupActions(self):
         """Set up the actions"""
         self.actions, self.actionGroups = getmotions()
@@ -86,16 +105,14 @@ class Simulation:
                     self.syncManager.actionPair(s, t)
                     self.syncManager.actionPair(t, s)
 
-    def newagent(self, name, brain, rigOverwrite, constrainBone, initialTags,
-                 modifyBones, freezeAnimation, geoGroup):
+    def newagent(self, agent, brain, freezeAnimation):
         """Set up an agent"""
         nGps = bpy.data.node_groups
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         if brain in nGps and nGps[brain].bl_idname == "CrowdMasterTreeType":
-            ag = Agent(name, nGps[brain], self, rigOverwrite, constrainBone,
-                       tags=initialTags, modifyBones=modifyBones,
-                       freezeAnimation=freezeAnimation, geoGroup=geoGroup)
-            self.agents[name] = ag
+            ag = Agent(agent, nGps[brain], self,
+                       freezeAnimation=freezeAnimation)
+            self.agents[agent.name] = ag
         else:
             logger.debug("No such brain type: {}".format(brain))
 
@@ -103,13 +120,11 @@ class Simulation:
         """Set up all the agents at the beginning of the simulation"""
         for ty in group.agentTypes:
             for ag in ty.agents:
-                self.newagent(ag.name, ty.name, ag.rigOverwrite,
-                              ag.constrainBone, ag.initialTags,
-                              ag.modifyBones, group.freezeAnimation, ag.geoGroup)
+                self.newagent(ag, ty.name, group.freezeAnimation)
 
     def step(self, scene):
         """Called when the next frame is moved to"""
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         if preferences.show_debug_options:
             t = time.time()
             logger.debug("NEWFRAME {}".format(bpy.context.scene.frame_current))
@@ -149,23 +164,38 @@ class Simulation:
 
     def frameChangeHandler(self, scene):
         """Given to Blender to call whenever the scene moves to a new frame"""
-        if bpy.context.scene.cm_sim_end_frame <= bpy.context.scene.frame_current:
+        if self.endFrame <= bpy.context.scene.frame_current:
             self.stopFrameHandler()
             bpy.ops.screen.animation_cancel(restore_frame=False)
-        elif self.framelast + 1 == bpy.context.scene.frame_current:
-            self.framelast = bpy.context.scene.frame_current
+        elif self.frameLast + 1 == bpy.context.scene.frame_current:
+            self.frameLast = bpy.context.scene.frame_current
             self.step(scene)
 
     def frameChangeHighlight(self, scene):
         """Not unregistered when simulation stopped"""
-        if self.framelast >= bpy.context.scene.frame_current:
-            active = bpy.context.active_object
-            if active and active in self.agents:
-                self.agents[bpy.context.active_object.name].highLight()
+        lastTree = self.lastHighlightTree
+        lastActive = self.lastHighlightActive
+        lastFrame = self.lastHighlightFrame
+        currentFrame = bpy.context.scene.frame_current
+        if lastActive != bpy.context.active_object or lastFrame != currentFrame:
+            if self.startFrame <= currentFrame <= self.frameLast:
+                active = bpy.context.active_object
+                if active and active.name in self.agents:
+                    agent = self.agents[bpy.context.active_object.name]
+                    if lastTree is not None:
+                        if lastTree != agent.nodeGroupName:
+                            for node in bpy.data.node_groups[lastTree].nodes:
+                                node.use_custom_color = False
+                            self.lastHighlightTree = agent.nodeGroupName
+                    else:
+                        self.lastHighlightTree = agent.nodeGroupName
+                    agent.highLight()
+            self.lastHighlightActive = bpy.context.active_object
+            self.lastHighlightFrame = currentFrame
 
     def startFrameHandler(self):
         """Add self.frameChangeHandler to the Blender event handlers"""
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         if preferences.show_debug_options:
             self.totalTime = 0
             self.totalFrames = 0
@@ -173,13 +203,20 @@ class Simulation:
         if self.frameChangeHandler in bpy.app.handlers.frame_change_pre:
             bpy.app.handlers.frame_change_pre.remove(self.frameChangeHandler)
         bpy.app.handlers.frame_change_pre.append(self.frameChangeHandler)
-        if self.frameChangeHighlight not in bpy.app.handlers.frame_change_post:
-            bpy.app.handlers.frame_change_post.append(
-                self.frameChangeHighlight)
+        toRemove = []
+        for func in bpy.app.handlers.scene_update_post:
+            if hasattr(func, "__self__") and isinstance(func.__self__, self.__class__):
+                if func.__name__ == "frameChangeHighlight":
+                    toRemove.append(func)
+        for rem in toRemove:
+            bpy.app.handlers.scene_update_post.remove(rem)
+        if preferences.use_node_color:
+            if self.frameChangeHighlight not in bpy.app.handlers.scene_update_post:
+                bpy.app.handlers.scene_update_post.append(self.frameChangeHighlight)
 
     def stopFrameHandler(self):
         """Remove self.frameChangeHandler from Blenders event handlers"""
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         if self.frameChangeHandler in bpy.app.handlers.frame_change_pre:
             logger.debug("Unregistering frame change handler")
             bpy.app.handlers.frame_change_pre.remove(self.frameChangeHandler)

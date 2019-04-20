@@ -28,7 +28,7 @@ bl_info = {
     "warning": "",
     "wiki_url": "https://github.com/ndee85/coa_tools/wiki",
     "tracker_url": "https://github.com/ndee85/coa_tools/issues",
-    "category": "Node Tools" }
+    "category": "Ndee Tools" }
 
 
 import bpy
@@ -174,8 +174,8 @@ def register():
     bpy.app.handlers.load_post.append(coa_startup)
 
     register_keymaps()
-    
-    
+
+
 def unregister():
     for pcoll in preview_collections.values():
         bpy.utils.previews.remove(pcoll)

@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -22,31 +22,32 @@ import random
 import time
 
 import bpy
-import mathutils
 from bpy.props import BoolProperty
+import mathutils
 
 from . import cm_timings
 
 logger = logging.getLogger("CrowdMaster")
 
 
-class Neuron():
+class Neuron:
     """The representation of the nodes. Not to be used on own"""
 
-    def __init__(self, brain, bpyNode):
+    def __init__(self, brain, bpyNode, nodeKey):
         self.brain = brain  # type: Brain
         self.neurons = self.brain.neurons  # type: List[Neuron]
         self.inputs = []  # type: List[str] - strings are names of neurons
         self.result = None  # type: None | ImpulseContainer - Cache for current
-        self.resultLog = [(0, 0, 0), (0, 0, 0)]  # type: List[(int, int, int)]
+        self.resultLog = {brain.sim.startFrame: (0, 0, 0)}  # type: Dict[int, (int, int, int)]
         self.fillOutput = BoolProperty(default=True)
         self.bpyNode = bpyNode  # type: cm_bpyNodes.LogicNode
         self.settings = {}  # type: Dict[str, bpy.props.*]
         self.dependantOn = []  # type: List[str] - strings are names of neurons
+        self.nodeKey = nodeKey
 
     def evaluate(self):
         """Called by any neurons that take this neuron as an input"""
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
         if preferences.show_debug_options:
             t = time.time()
         if self.result:
@@ -81,7 +82,7 @@ class Neuron():
             if output is None:
                 output = {}
             elif not (isinstance(output, dict) or output is None):
-                output = {"None": output}
+                output = {"": output}
         else:
             output = None
         self.result = output
@@ -119,30 +120,31 @@ class Neuron():
             val = 0.5
         if preferences.show_debug_options and preferences.show_debug_timings:
             cm_timings.neuron["sumColour"] += time.time() - t
-        self.resultLog[-1] = (hue, sat, val)
+        self.resultLog[self.brain.sim.frameLast] = (hue, sat, val)
 
         return output
 
     def newFrame(self):
         self.result = None
-        self.resultLog.append((0, 0, 0.5))
+        self.resultLog[self.brain.sim.frameLast] = (0, 0, 0.5)
 
     def highLight(self, frame):
         """Colour the nodes in the interface to reflect the output"""
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
-        if preferences.use_node_color:
+        if frame in self.resultLog:
             hue, sat, val = self.resultLog[frame]
             self.bpyNode.use_custom_color = True
             c = mathutils.Color()
             c.hsv = hue, sat, val
             self.bpyNode.color = c
             self.bpyNode.keyframe_insert("color")
+        else:
+            self.bpyNode.use_custom_color = False
 
 
 class State:
     """The basic element of the state machine. Abstract class"""
 
-    def __init__(self, brain, bpyNode, name):
+    def __init__(self, brain, bpyNode, name, nodeKey):
         """A lot of the fields are modified by the compileBrain function"""
         self.name = name
         self.brain = brain
@@ -159,7 +161,9 @@ class State:
         self.currentFrame = 0
 
         self.bpyNode = bpyNode
-        self.resultLog = {0: (0, 0, 0), 1: (0, 0, 0)}
+        self.resultLog = {brain.sim.startFrame: (0, 0, 0)}
+
+        self.nodeKey = nodeKey
 
     def query(self):
         """If this state is a valid next move return float > 0"""
@@ -226,10 +230,10 @@ class State:
             complete = self.currentFrame / self.length
             complete = 0.5 + complete / 2
         sceneFrame = bpy.context.scene.frame_current
-        self.resultLog[sceneFrame] = ((0.15, 0.4, complete))
+        self.resultLog[sceneFrame] = (0.15, 0.4, complete)
 
         if self.currentFrame < self.length - 1:
-            return False, self.name
+            return False, self.nodeKey
 
         # ==== Will stop here is this state hasn't reached its end ====
 
@@ -241,10 +245,10 @@ class State:
 
         # If the cycleState button is checked then add a contection back to
         #    this state again.
-        if self.cycleState and self.name not in self.outputs:
-            val = self.neurons[self.name].query()
+        if self.cycleState and self.nodeKey not in self.outputs:
+            val = self.neurons[self.nodeKey].query()
             if val is not None:
-                options.append((self.name, val))
+                options.append((self.nodeKey, val))
 
         if len(options) > 0:
             if len(options) == 1:
@@ -258,22 +262,18 @@ class State:
         self.finalValueCalcd = False
 
     def highLight(self, frame):
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
-        if preferences.use_node_color:
-            if frame in self.resultLog:
-                hue, sat, val = self.resultLog[frame]
-            else:
-                hue = 0.0
-                sat = 0.0
-                val = 1.0
+        if frame in self.resultLog:
+            hue, sat, val = self.resultLog[frame]
             self.bpyNode.use_custom_color = True
             c = mathutils.Color()
             c.hsv = hue, sat, val
             self.bpyNode.color = c
             self.bpyNode.keyframe_insert("color")
+        else:
+            self.bpyNode.use_custom_color = False
 
 
-class Brain():
+class Brain:
     """An executable brain object. One created per agent"""
 
     def __init__(self, sim, userid, freezeAnimation):
@@ -300,17 +300,19 @@ class Brain():
 
     def reset(self):
         self.outvars = {"rx": 0, "ry": 0, "rz": 0,
-                        "px": 0, "py": 0, "pz": 0, "sk": {}}
+                        "px": 0, "py": 0, "pz": 0, 
+                        "sx": None, "sy": None, "sz": None,
+                        "sk": {}, "rna": {}}
         self.tags = self.sim.agents[self.userid].access["tags"]
 
     def execute(self):
         """Called for each time the agents needs to evaluate"""
-        preferences = bpy.context.user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences.addons[__package__].preferences
 
         actv = bpy.context.active_object
         self.isActiveSelection = actv is not None and actv.name == self.userid
         self.reset()
-        randstate = hash(self.userid) + self.sim.framelast
+        randstate = hash(self.userid) + self.sim.frameLast
         random.seed(randstate)
 
         if preferences.show_debug_options:
@@ -353,4 +355,7 @@ class Brain():
     def hightLight(self, frame):
         """This will be called for the agent that is the active selection"""
         for n in self.neurons.values():
-            n.highLight(frame)
+            preferences = bpy.context.preferences.addons[__package__].preferences
+            if preferences.use_node_color:
+                if n.nodeKey[0] is None:
+                    n.highLight(frame)

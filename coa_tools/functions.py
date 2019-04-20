@@ -462,7 +462,14 @@ def set_action(context,item=None):
         item = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
     
     children = get_children(context,sprite_object,ob_list=[])
+
+    animation_objects = []
+    if sprite_object.type == "ARMATURE":
+        animation_objects.append(sprite_object)
     for child in children:
+        animation_objects.append(child)
+
+    for child in animation_objects:
         clear_pose(child)
         if child.animation_data != None:
             child.animation_data.action = None

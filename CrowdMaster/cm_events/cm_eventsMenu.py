@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -26,20 +26,24 @@ from bpy.types import Operator, Panel, PropertyGroup, UIList
 class event_entry(PropertyGroup):
     """The data structure for the event entries"""
     eventname = StringProperty()
-    timeMin = IntProperty(name="Time Min")
-    timeMax = IntProperty(name="Time Max")
+    timeMin = IntProperty(name="Time Min", min=0, default=1)
+    timeMax = IntProperty(name="Time Max", min=0, default=10)
     index = IntProperty(min=0)
     category = EnumProperty(items=(
         ("Time", "Time", "Time"),
         ("Volume", "Volume", "Volume"),
         ("Time+Volume", "Time+Volume", "Time+Volume"))
-    )
+                           )
+    volumeType = EnumProperty(name="Volume Type",
+                              items=(("Object", "Object", "Object"),
+                                     ("Group", "Group", "Group")),
+                              default="Object")
     volume = StringProperty(name="Volume")
 
 
 class events_collection(PropertyGroup):
-    coll = CollectionProperty(type=event_entry)
-    index = IntProperty()
+    coll: CollectionProperty(type=event_entry)
+    index: IntProperty()
 
 
 class SCENE_OT_cm_events_populate(Operator):
@@ -72,10 +76,10 @@ class SCENE_OT_event_move(Operator):
     bl_idname = "scene.cm_events_move"
     bl_label = "Move"
 
-    direction = EnumProperty(items=(
+    direction: EnumProperty(items=(
         ('UP', "Up", "Move up"),
         ('DOWN', "Down", "Move down"))
-    )
+                            )
 
     @classmethod
     def poll(cls, context):
@@ -102,7 +106,12 @@ class SCENE_UL_event(UIList):
                 layout.prop(item, "timeMin", text="Start")
                 layout.prop(item, "timeMax", text="End")
             if item.category == "Volume" or item.category == "Time+Volume":
-                layout.prop_search(item, "volume", bpy.data, "objects")
+                layout.prop(item, "volumeType")
+                if item.volumeType == "Object":
+                    layout.prop_search(item, "volume", bpy.data, "objects")
+                elif item.volumeType == "Group":
+                    layout.prop_search(
+                        item, "volume", bpy.data, "groups", text="Volumes")
             # this draws each row in the list. Each line is a widget
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
@@ -115,39 +124,33 @@ class SCENE_PT_event(Panel):
     bl_label = "Events"
     bl_idname = "SCENE_PT_event"
     bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = "CrowdMaster"
+    bl_region_type = 'UI'
+    bl_category = "Simulation"
     bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(self, context):
         try:
-            return bpy.context.space_data.tree_type == 'CrowdMasterTreeType', bpy.context.space_data.tree_type == 'CrowdMasterGenTreeType'
+            return context.space_data.tree_type == 'CrowdMasterTreeType', context.space_data.tree_type == 'CrowdMasterGenTreeType'
         except (AttributeError, KeyError, TypeError):
             return False
 
     def draw(self, context):
         layout = self.layout
+        sce = context.scene
 
         row = layout.row()
-
-        row.label("Events")
-
-        row = layout.row()
-
-        sce = bpy.context.scene
-
         row.template_list("SCENE_UL_event", "", sce.cm_events,
                           "coll", sce.cm_events, "index")
 
         col = row.column()
-        sub = col.column(True)
+        sub = col.column(align=True)
         blid_ap = SCENE_OT_cm_events_populate.bl_idname
-        sub.operator(blid_ap, text="", icon="ZOOMIN")
+        sub.operator(blid_ap, text="", icon="ADD")
         blid_ar = SCENE_OT_event_remove.bl_idname
-        sub.operator(blid_ar, text="", icon="ZOOMOUT")
+        sub.operator(blid_ar, text="", icon="REMOVE")
 
-        sub = col.column(True)
+        sub = col.column(align=True)
         sub.separator()
         blid_am = SCENE_OT_event_move.bl_idname
         sub.operator(blid_am, text="", icon="TRIA_UP").direction = 'UP'

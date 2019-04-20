@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  JewelCraft jewelry design toolkit for Blender.
-#  Copyright (C) 2015-2018  Mikhail Rachinskiy
+#  Copyright (C) 2015-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -20,21 +20,20 @@
 
 
 import os
-import json
 
 import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty
 from bpy.app.translations import pgettext_iface as _
 
-from .. import var, dynamic_lists
-from ..lib import asset
+from .. import var
+from ..lib import asset, dynamic_list
 
 
 class Setup:
 
     def __init__(self):
-        self.prefs = bpy.context.user_preferences.addons[var.ADDON_ID].preferences
+        self.prefs = bpy.context.preferences.addons[var.ADDON_ID].preferences
         self.props = bpy.context.window_manager.jewelcraft
         self.materials = self.prefs.weighting_materials
         self.filename = self.props.weighting_set
@@ -51,6 +50,7 @@ class EditCheck:
 
 
 def materials_export_to_file(materials, filepath):
+    import json
 
     with open(filepath, "w", encoding="utf-8") as file:
 
@@ -79,14 +79,15 @@ class WM_OT_jewelcraft_weighting_set_add(Operator, Setup):
     bl_idname = "wm.jewelcraft_weighting_set_add"
     bl_options = {"INTERNAL"}
 
-    set_name = StringProperty(options={"SKIP_SAVE"})
+    set_name: StringProperty(name="Set Name", options={"SKIP_SAVE"})
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
         layout.separator()
-        row = layout.row()
-        row.label("Set Name")
-        row.prop(self, "set_name", text="")
+        layout.prop(self, "set_name")
         layout.separator()
 
     def execute(self, context):
@@ -102,7 +103,7 @@ class WM_OT_jewelcraft_weighting_set_add(Operator, Setup):
 
         materials_export_to_file(self.materials, filepath)
 
-        dynamic_lists.weighting_set_refresh()
+        dynamic_list.weighting_set_refresh()
         self.props.weighting_set = set_name
 
         return {"FINISHED"}
@@ -135,15 +136,15 @@ class WM_OT_jewelcraft_weighting_set_del(Operator, Setup, EditCheck):
     bl_options = {"INTERNAL"}
 
     def execute(self, context):
-        list_ = [x[0] for x in dynamic_lists.weighting_set(self, context)]
+        list_ = [x[0] for x in dynamic_list.weighting_set(self, context)]
         index = max(0, list_.index(self.filename) - 1)
 
         if os.path.exists(self.filepath):
             os.remove(self.filepath)
 
-        dynamic_lists.weighting_set_refresh()
+        dynamic_list.weighting_set_refresh()
 
-        list_ = [x[0] for x in dynamic_lists.weighting_set(self, context)]
+        list_ = [x[0] for x in dynamic_list.weighting_set(self, context)]
         if list_:
             self.props.weighting_set = list_[index]
 
@@ -160,7 +161,7 @@ class WM_OT_jewelcraft_weighting_set_rename(Operator, Setup, EditCheck):
     bl_idname = "wm.jewelcraft_weighting_set_rename"
     bl_options = {"INTERNAL"}
 
-    set_name = StringProperty(options={"SKIP_SAVE"})
+    set_name: StringProperty(name="Set Name", options={"SKIP_SAVE"})
 
     def __init__(self):
         super().__init__()
@@ -168,10 +169,11 @@ class WM_OT_jewelcraft_weighting_set_rename(Operator, Setup, EditCheck):
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
         layout.separator()
-        row = layout.row()
-        row.label("Set Name")
-        row.prop(self, "set_name", text="")
+        layout.prop(self, "set_name")
         layout.separator()
 
     def execute(self, context):
@@ -187,7 +189,7 @@ class WM_OT_jewelcraft_weighting_set_rename(Operator, Setup, EditCheck):
             return {"CANCELLED"}
 
         os.rename(self.filepath, filepath_new)
-        dynamic_lists.weighting_set_refresh()
+        dynamic_list.weighting_set_refresh()
         self.props.weighting_set = filename_new
 
         return {"FINISHED"}
@@ -205,14 +207,12 @@ class WM_OT_jewelcraft_weighting_set_refresh(Operator):
     bl_options = {"INTERNAL"}
 
     def execute(self, context):
-        dynamic_lists.weighting_set_refresh()
+        dynamic_list.weighting_set_refresh()
         return {"FINISHED"}
 
 
 class WeightingSetLoad:
     bl_options = {"INTERNAL"}
-
-    clear_materials = False
 
     @classmethod
     def poll(cls, context):
@@ -220,6 +220,7 @@ class WeightingSetLoad:
         return bool(props.weighting_set)
 
     def execute(self, context):
+        import json
 
         if self.clear_materials:
             self.materials.clear()
@@ -258,3 +259,5 @@ class WM_OT_jewelcraft_weighting_set_load_append(Operator, Setup, WeightingSetLo
     bl_label = "Append"
     bl_description = "Append weighting set at the end of the current materials list"
     bl_idname = "wm.jewelcraft_weighting_set_load_append"
+
+    clear_materials = False

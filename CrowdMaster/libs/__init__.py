@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,6 +18,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
+from . import cm_draw
 
 logger = logging.getLogger("CrowdMaster")
 
@@ -35,5 +36,3 @@ try:
     from . import ins_octree
 except Exception:
     logger.error("ERROR importing ins_octree")
-
-from . import cm_draw

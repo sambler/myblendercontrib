@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -47,7 +47,7 @@ class GeoSocket(NodeSocket):
     bl_label = 'Geo Node Socket'
 
     def draw(self, context, layout, node, text):
-        layout.label(text)
+        layout.label(text=text)
 
     def draw_color(self, context, node):
         return (0.125, 0.125, 0.575, 1.0)
@@ -59,7 +59,7 @@ class TemplateSocket(NodeSocket):
     bl_label = 'Template Node Socket'
 
     def draw(self, context, layout, node, text):
-        layout.label(text)
+        layout.label(text=text)
 
     def draw_color(self, context, node):
         return (0.125, 0.575, 0.125, 1.0)
@@ -82,7 +82,7 @@ class GenerateNode(CrowdMasterAGenTreeNode):
         self.inputs[0].link_limit = 4095
 
     def draw_buttons(self, context, layout):
-        preferences = context.user_preferences.addons["CrowdMaster"].preferences
+        preferences = context.preferences.addons[__package__.split(".", 1)[0]].preferences
         layout.scale_y = 1.5
         if preferences.use_custom_icons:
             oper = layout.operator("scene.cm_agent_nodes_generate",
@@ -109,7 +109,7 @@ class AddToGroupNode(CrowdMasterAGenTreeNode):
         self.outputs.new("TemplateSocketType", "Template")
 
     def draw_buttons(self, context, layout):
-        layout.label("Group name:")
+        layout.label(text="Group name:")
         layout.prop(self, "groupName", text="cm_")
 
     def getSettings(self):
@@ -253,7 +253,7 @@ class GeoSwitchNode(CrowdMasterAGenTreeNode):
     bl_icon = 'SOUND'
 
     switchAmount = FloatProperty(
-        name="Amount", default=0.5, min=0.0, max=1.0, precision=0)
+        name="Amount", default=0.5, min=0.0, max=1.0, precision=1)
 
     def init(self, context):
         self.inputs.new('GeoSocketType', "Object 1")
@@ -277,7 +277,7 @@ class TemplateSwitchNode(CrowdMasterAGenTreeNode):
     bl_icon = 'SOUND'
 
     switchAmount = FloatProperty(
-        name="Amount", default=0.5, min=0.0, max=1.0, precision=0)
+        name="Amount", default=0.5, min=0.0, max=1.0, precision=1)
 
     def init(self, context):
         self.inputs.new('TemplateSocketType', "Template 1")
@@ -326,7 +326,7 @@ class ParentNode(CrowdMasterAGenTreeNode):
         if self.parentMode == "bone":
             layout.prop(self, "parentTo")
         else:
-            layout.label("Bind To:")
+            layout.label(text="Bind To:")
             row = layout.row(align=True)
             row.prop(self, "bindToVGroups")
             row.prop(self, "bindToBEnvelopes")
@@ -344,7 +344,7 @@ class material_entry(PropertyGroup):
                            description="Weight for weighted probability when randomly selecting material")
 
 
-class material_UIList(UIList):
+class SCENE_UL_material_UIList(UIList):
     """for drawing each row"""
 
     def draw_item(self, context, layout, data, item, icon, active_data,
@@ -404,13 +404,13 @@ class RandomMaterialNode(CrowdMasterAGenTreeNode):
         row = layout.row()
         row.template_list("material_UIList", "", self, "materialList", self,
                           "materialIndex")
-        sub = row.column().column(True)
+        sub = row.column().column(align=True)
         oper = sub.operator("scene.cm_materialsnode_add", text="",
-                            icon="ZOOMIN")
+                            icon="ADD")
         oper.nodeName = self.name
         oper.nodeTreeName = self.id_data.name
         oper = sub.operator("scene.cm_materialsnode_remove", text="",
-                            icon="ZOOMOUT")
+                            icon="REMOVE")
         oper.nodeName = self.name
         oper.nodeTreeName = self.id_data.name
 
@@ -714,7 +714,7 @@ class RandomPositionNode(CrowdMasterAGenTreeNode):
 class MeshPositionNode(CrowdMasterAGenTreeNode):
     """The mesh positioning node"""
     bl_idname = 'MeshPositionNodeType'
-    bl_label = 'Mesh'
+    bl_label = 'Mesh Positioning'
     bl_icon = 'SOUND'
     bl_width_default = 250.0
 
@@ -748,7 +748,7 @@ class MeshPositionNode(CrowdMasterAGenTreeNode):
         self.outputs.new('TemplateSocketType', "Template")
 
     def draw_buttons(self, context, layout):
-        layout.prop_search(self, "guideMesh", bpy.context.scene, "objects")
+        layout.prop_search(self, "guideMesh", context.scene, "objects")
         layout.prop(self, "noToPlace")
         layout.prop(self, "overwritePosition")
 
@@ -769,20 +769,18 @@ class MeshPositionNode(CrowdMasterAGenTreeNode):
 class VCOLPositionNode(CrowdMasterAGenTreeNode):
     """The vertex colors positioning node"""
     bl_idname = 'VCOLPositionNodeType'
-    bl_label = 'Vertex Colors'
+    bl_label = 'Vertex Colors Positioning'
     bl_icon = 'SOUND'
-    bl_width_default = 260.0
+    bl_width_default = 270.0
 
     paintMode = EnumProperty(name="Paint Mode", description="Decide how the node acts", items=[
         ('place', "Place", 'Place agents based on the vertex colors'),
-        ('edit', "Edit", 'Edit the positions inputter from other nodes')])
+        ('edit', "Edit", 'Edit the positions inputted from other nodes')])
 
     guideMesh = StringProperty(name="Guide Mesh",
                                description="The mesh to scatter points over")
 
-    vcols = IntProperty(name="VCols ID",
-                        description="The ID of the vertex colors slot to use",
-                        default=0, min=0)
+    vcols = StringProperty(name="VCols", description="The name of the vertex colors slot to use")
 
     vcolor = FloatVectorProperty(name="Color",
                                  description="The the color on which the agents shoud be placed",
@@ -825,7 +823,7 @@ class VCOLPositionNode(CrowdMasterAGenTreeNode):
         layout.prop(self, "paintMode", expand=True)
 
         row = layout.row(align=True)
-        row.prop_search(self, "guideMesh", bpy.context.scene, "objects")
+        row.prop_search(self, "guideMesh", context.scene, "objects")
         if self.invert:
             row.prop(self, "invert", icon="STICKY_UVS_VERT", icon_only=True)
         else:
@@ -860,7 +858,7 @@ class VCOLPositionNode(CrowdMasterAGenTreeNode):
 class PathPositionNode(CrowdMasterAGenTreeNode):
     """The path positioning node"""
     bl_idname = 'PathPositionNodeType'
-    bl_label = 'Path'
+    bl_label = 'Path Positioning'
     bl_icon = 'SOUND'
     bl_width_default = 250.0
 
@@ -893,7 +891,7 @@ class PathPositionNode(CrowdMasterAGenTreeNode):
 
     def draw_buttons(self, context, layout):
         layout.prop_search(
-            self, "pathName", bpy.context.scene.cm_paths, "coll")
+            self, "pathName", context.scene.cm_paths, "coll")
         layout.prop(self, "noToPlace")
 
         layout.prop(self, "relax")
@@ -1071,32 +1069,18 @@ class SettagNode(CrowdMasterAGenTreeNode):
 TEXT_WIDTH = 6
 TW = textwrap.TextWrapper()
 
-
-def get_lines(text_file):
-    for line in text_file.lines:
-        yield line.body
-
-
 class NoteNode(CrowdMasterAGenTreeNode):
     """For keeping the graph well organised"""
     bl_label = 'Note'
 
     text = StringProperty(
-        name='Note Text', description="Text to show, if set will overide file")
-
-    text_file = StringProperty(description="Textfile to show")
+        name='Note Text', description="Text to show in the node")
 
     def format_text(self):
         global TW
         out = []
         if self.text:
             lines = self.text.splitlines()
-        elif self.text_file:
-            text_file = bpy.data.texts.get(self.text_file)
-            if text_file:
-                lines = get_lines(text_file)
-            else:
-                return []
         else:
             return []
         width = self.width
@@ -1112,7 +1096,7 @@ class NoteNode(CrowdMasterAGenTreeNode):
         self.use_custom_color = True
 
     def draw_buttons(self, context, layout):
-        has_text = self.text or self.text_file
+        has_text = self.text
         if has_text:
             col = layout.column(align=True)
             text_lines = self.format_text()
@@ -1120,24 +1104,21 @@ class NoteNode(CrowdMasterAGenTreeNode):
                 if l:
                     col.label(text=l)
             col = layout.column()
-            col.operator("node.gen_note_clear", icon="X_VEC")
+            col.operator("node.gen_note_clear", icon="X")
 
         else:
             col = layout.column()
             col.prop(self, "text")
 
-            col = layout.column(align=True)
-            col.operator("node.gen_note_from_clipboard", icon="TEXT")
-            col.operator("node.gen_note_clear", icon="X_VEC")
+            col = layout.column()
+            col.operator("node.gen_note_clear", icon="X")
 
     def draw_buttons_ext(self, context, layout):
         layout.prop(self, "text", text="Text")
-        layout.operator("node.gen_note_from_clipboard", icon="TEXT")
-        layout.operator("node.gen_note_clear", icon="X_VEC")
+        layout.operator("node.gen_note_clear", icon="X")
 
     def clear(self):
         self.text = ""
-        self.text_file = ""
 
     def to_text(self):
         text_name = "Note Text"
@@ -1146,22 +1127,6 @@ class NoteNode(CrowdMasterAGenTreeNode):
             text = bpy.data.texts.new(text_name)
         text.clear()
         text.write(self.text)
-
-
-class GenNoteTextFromClipboard(Operator):
-    """Grab whatever text is in the clipboard"""
-    bl_idname = "node.gen_note_from_clipboard"
-    bl_label = "Grab Text From Clipboard"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        text = bpy.context.window_manager.clipboard
-        if not text:
-            self.report({"INFO"}, "No text selected")
-            return {'CANCELLED'}
-        node = context.node
-        node.text = text
-        return {'FINISHED'}
 
 
 class GenNoteClear(Operator):
@@ -1196,22 +1161,26 @@ agen_node_categories = [
         NodeItem("TemplateNodeType"),
         NodeItem("AddToGroupNodeType"),
         NodeItem("CombineNodeType"),
-        NodeItem("PointTowardsNodeType"),
-        NodeItem("RandomNodeType"),
         NodeItem("RandomMaterialNodeType"),
         NodeItem("SettagNodeType"),
         NodeItem("TemplateSwitchNodeType", label="Switch")
     ]),
+    CrowdMasterAGenCategories("tmodifier", "Template Modifier", items=[
+        NodeItem("PointTowardsNodeType"),
+        NodeItem("RandomNodeType")
+    ]),
     CrowdMasterAGenCategories("position", "Positioning", items=[
-        NodeItem("FormationPositionNodeType", label="Formation"),
-        NodeItem("GroundNodeType"),
+        NodeItem("FormationPositionNodeType"),
         NodeItem("MeshPositionNodeType"),
-        NodeItem("ObstacleNodeType"),
-        NodeItem("OffsetNodeType"),
-        NodeItem("PathPositionNodeType"),
-        NodeItem("RandomPositionNodeType", label="Random"),
-        NodeItem("TargetPositionNodeType", label="Target"),
+        NodeItem("RandomPositionNodeType"),
         NodeItem("VCOLPositionNodeType"),
+        NodeItem("PathPositionNodeType"),
+        NodeItem("TargetPositionNodeType"),
+    ]),
+    CrowdMasterAGenCategories("pmodifier", "Positioning Modifier", items=[
+        NodeItem("OffsetNodeType"),
+        NodeItem("ObstacleNodeType"),
+        NodeItem("GroundNodeType")
     ]),
     CrowdMasterAGenCategories("output", "Output", items=[
         NodeItem("GenerateNodeType")
@@ -1241,7 +1210,7 @@ def register():
     bpy.utils.register_class(TemplateSwitchNode)
     bpy.utils.register_class(ParentNode)
     bpy.utils.register_class(material_entry)
-    bpy.utils.register_class(material_UIList)
+    bpy.utils.register_class(SCENE_UL_material_UIList)
     bpy.utils.register_class(SCENE_OT_cm_materialsNode_add)
     bpy.utils.register_class(SCENE_OT_cm_materialsNode_remove)
     bpy.utils.register_class(RandomMaterialNode)
@@ -1261,7 +1230,6 @@ def register():
     bpy.utils.register_class(SettagNode)
 
     bpy.utils.register_class(NoteNode)
-    bpy.utils.register_class(GenNoteTextFromClipboard)
     bpy.utils.register_class(GenNoteClear)
 
     nodeitems_utils.register_node_categories(
@@ -1287,7 +1255,7 @@ def unregister():
     bpy.utils.unregister_class(TemplateSwitchNode)
     bpy.utils.unregister_class(ParentNode)
     bpy.utils.unregister_class(material_entry)
-    bpy.utils.unregister_class(material_UIList)
+    bpy.utils.unregister_class(SCENE_UL_material_UIList)
     bpy.utils.unregister_class(SCENE_OT_cm_materialsNode_add)
     bpy.utils.unregister_class(SCENE_OT_cm_materialsNode_remove)
     bpy.utils.unregister_class(RandomMaterialNode)
@@ -1307,7 +1275,6 @@ def unregister():
     bpy.utils.unregister_class(SettagNode)
 
     bpy.utils.unregister_class(NoteNode)
-    bpy.utils.unregister_class(GenNoteTextFromClipboard)
     bpy.utils.unregister_class(GenNoteClear)
 
 

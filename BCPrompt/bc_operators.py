@@ -15,7 +15,7 @@ from .bc_utils import set_keymap
 
 
 history_append = bpy.ops.console.history_append
-addon_enable = bpy.ops.wm.addon_enable
+addon_enable = bpy.ops.preferences.addon_enable
 
 
 def print_most_useful():

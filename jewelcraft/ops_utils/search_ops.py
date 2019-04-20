@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  JewelCraft jewelry design toolkit for Blender.
-#  Copyright (C) 2015-2018  Mikhail Rachinskiy
+#  Copyright (C) 2015-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -22,26 +22,7 @@
 from bpy.types import Operator
 from bpy.props import EnumProperty
 
-from .. import dynamic_lists
-
-
-class VIEW3D_OT_jewelcraft_search_stone(Operator):
-    bl_label = "Search Stone"
-    bl_description = "Search stone by name"
-    bl_idname = "view3d.jewelcraft_search_stone"
-    bl_property = "stone"
-    bl_options = {"INTERNAL"}
-
-    stone = EnumProperty(items=dynamic_lists.stones)
-
-    def execute(self, context):
-        context.window_manager.jewelcraft.gem_stone = self.stone
-        context.area.tag_redraw()
-        return {"FINISHED"}
-
-    def invoke(self, context, event):
-        context.window_manager.invoke_search_popup(self)
-        return {"FINISHED"}
+from ..lib import dynamic_list
 
 
 class VIEW3D_OT_jewelcraft_search_asset(Operator):
@@ -51,7 +32,7 @@ class VIEW3D_OT_jewelcraft_search_asset(Operator):
     bl_property = "asset"
     bl_options = {"INTERNAL"}
 
-    asset = EnumProperty(items=dynamic_lists.assets)
+    asset: EnumProperty(items=dynamic_list.assets)
 
     def execute(self, context):
         context.window_manager.jewelcraft.asset_list = self.asset

@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  JewelCraft jewelry design toolkit for Blender.
-#  Copyright (C) 2015-2018  Mikhail Rachinskiy
+#  Copyright (C) 2015-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -25,8 +25,7 @@ import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty
 
-from .. import dynamic_lists
-from ..lib import asset
+from ..lib import asset, dynamic_list
 
 
 class Setup:
@@ -43,14 +42,15 @@ class WM_OT_jewelcraft_asset_folder_create(Operator, Setup):
     bl_idname = "wm.jewelcraft_asset_folder_create"
     bl_options = {"INTERNAL"}
 
-    folder_name = StringProperty(name="Category Name", description="Category name", options={"SKIP_SAVE"})
+    folder_name: StringProperty(name="Category Name", description="Category name", options={"SKIP_SAVE"})
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
         layout.separator()
-        row = layout.row()
-        row.label("Category Name")
-        row.prop(self, "folder_name", text="")
+        layout.prop(self, "folder_name")
         layout.separator()
 
     def execute(self, context):
@@ -62,7 +62,7 @@ class WM_OT_jewelcraft_asset_folder_create(Operator, Setup):
 
         if not os.path.exists(folder):
             os.makedirs(folder)
-            dynamic_lists.asset_folder_list_refresh()
+            dynamic_list.asset_folder_list_refresh()
             self.props.asset_folder = self.folder_name
 
         return {"FINISHED"}
@@ -78,14 +78,15 @@ class WM_OT_jewelcraft_asset_folder_rename(Operator, Setup):
     bl_idname = "wm.jewelcraft_asset_folder_rename"
     bl_options = {"INTERNAL"}
 
-    folder_name = StringProperty(name="Category Name", description="Category name", options={"SKIP_SAVE"})
+    folder_name: StringProperty(name="Category Name", description="Category name", options={"SKIP_SAVE"})
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
         layout.separator()
-        row = layout.row()
-        row.label("Category Name")
-        row.prop(self, "folder_name", text="")
+        layout.prop(self, "folder_name")
         layout.separator()
 
     def execute(self, context):
@@ -97,7 +98,7 @@ class WM_OT_jewelcraft_asset_folder_rename(Operator, Setup):
 
         if os.path.exists(self.folder):
             os.rename(self.folder, folder_new)
-            dynamic_lists.asset_folder_list_refresh()
+            dynamic_list.asset_folder_list_refresh()
             self.props.asset_folder = self.folder_name
 
         return {"FINISHED"}
@@ -114,6 +115,6 @@ class WM_OT_jewelcraft_asset_ui_refresh(Operator):
     bl_options = {"INTERNAL"}
 
     def execute(self, context):
-        dynamic_lists.asset_folder_list_refresh()
-        dynamic_lists.asset_list_refresh(hard=True)
+        dynamic_list.asset_folder_list_refresh()
+        dynamic_list.asset_list_refresh(hard=True)
         return {"FINISHED"}

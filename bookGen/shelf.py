@@ -18,10 +18,13 @@
 import bpy
 from mathutils import Vector, Matrix
 
-from math import cos, tan, radians, sin
+from math import cos, tan, radians, sin, degrees, sqrt
 import random
+import logging
 
 from .book import Book
+
+from .utils import get_shelf_collection
 
 
 class Shelf:
@@ -29,84 +32,59 @@ class Shelf:
     direction = Vector((1, 0, 0))
     width = 3.0
     parameters = {}
+    books = []
+    log = logging.getLogger("bookGen.Shelf")
 
-    def __init__(self, origin, direction, width, parameters):
-        self.origin = origin
-        self.direction = direction
-        self.width = width
+    def __init__(self, name, start, end, normal, parameters):
+        end = Vector(end)
+        start = Vector(start)
+        
+        self.name = name
+        self.origin = start
+        self.direction = (end - start).normalized()
+        self.rotationMatrix = Matrix([self.direction, self.direction.cross(normal), normal]).transposed()
+        self.rotation = self.rotationMatrix.to_euler()
+        self.width = (end - start).length
         self.parameters = parameters
+        self.collection = get_shelf_collection(self.name)
 
-    def add_book(self, first,
-                 align_offset,
-                 book_height,
-                 cover_thickness,
-                 book_depth,
-                 textblock_height,
-                 textblock_depth,
-                 textblock_thickness,
-                 spline_curl,
-                 hinge_inset,
-                 hinge_width,
-                 spacing,
-                 book_width,
-                 lean,
-                 lean_angle
-                 ):
+    def add_book(self, book, first):
 
-        book = Book(book_height,
-                    cover_thickness,
-                    book_depth,
-                    textblock_height,
-                    textblock_depth,
-                    textblock_thickness,
-                    spline_curl,
-                    hinge_inset,
-                    hinge_width,
-                    unwrap=self.parameters["unwrap"]).b_object
+        obj = book.to_object()
 
-        book.select = True
+        self.collection.objects.link(obj)
 
-        if(self.parameters["subsurf"]):
-            book.modifiers.new("subd", type='SUBSURF')
-            book.modifiers['subd'].levels = 1
-        if(self.parameters["smooth"]):
-            bpy.ops.object.shade_smooth()
+        self.books.append(book)
+
+        if first:
+            self.align_offset = book.depth / 2
 
         # book alignment
         offset_dir = -1 if self.parameters["alignment"] == "1" else 1
-
         if(not first and not self.parameters["alignment"] == "2"):
             # location alignment
-            book.location += Vector((0, offset_dir * (book_depth / 2 - align_offset), 0))
+            book.obj.location += Vector((0, offset_dir * (book.depth / 2 - self.align_offset), 0))
 
-        book.location += Vector((0, 0, book_height / 2))
+        book.obj.location += Vector((0, 0, book.height / 2))
 
         # leaning
-        if lean_angle < 0:
-                book.location += Vector((book_width / 2, 0, 0))
+        if book.lean_angle < 0:
+                book.obj.location += Vector((book.width / 2, 0, 0))
         else:
-            book.location += Vector((-book_width / 2, 0, 0))
+            book.obj.location += Vector((-book.width / 2, 0, 0))
+        book.obj.location = Matrix.Rotation(book.lean_angle, 3, 'Y') @ book.obj.location
 
-        book.location = Matrix.Rotation(lean_angle, 3, 'Y') * book.location
-
-        book.rotation_euler[1] = lean_angle
-
-        if lean_angle < 0:
-            pass
-            # book.location += Vector((-book_width/2, 0,0 ))
-        else:
-            pass
-            # book.location += Vector((book_width/2, 0,0))
+        book.obj.rotation_euler[1] = book.lean_angle
 
         # distribution
-        book.location += Vector((self.cur_offset, 0, 0))
-        book.location = Matrix.Rotation(self.direction, 3, 'Z') * book.location
 
-        book.rotation_euler[2] = self.direction
+        book.obj.location += Vector((self.cur_offset, 0, 0))
+        book.obj.location = self.rotationMatrix @ book.obj.location
 
-        book.location += self.origin
+        book.obj.rotation_euler = self.rotation
+        book.obj.rotation_euler[1] += book.lean_angle
 
-        return (book_width, lean_angle if lean else 0, book_height)
+        book.obj.location += self.origin 
 
     def fill(self):
         self.cur_width = 0
@@ -114,47 +92,118 @@ class Shelf:
 
         random.seed(self.parameters["seed"])
 
-        first = False
+        first = True
+
         params = self.apply_parameters()
+        current = Book(*(list(params.values())), self.parameters["unwrap"], self.parameters["subsurf"], self.parameters["smooth"])
+        if current.lean_angle >= 0:
+            self.cur_offset = cos(current.lean_angle)*current.width
+        else:
+            self.cur_offset = current.height * sin(abs(current.lean_angle))
+        self.add_book(current, first)
 
-        align_offset = params["book_depth"] / 2
-
-        print("=============================")
-
-        old_lean_angle = 0.0
-        old_corner_height = 0.0
-        corner_height = 0.0
-
-        while(self.cur_width + params["book_width"] < self.width * self.parameters["scale"]):
-
-            print("lean old: " + str(old_lean_angle))
-            print("lean    : " + str(params["lean_angle"]))
-
-            print("height old: " + str(old_corner_height))
-            print("height    : " + str(corner_height))
-
-            old_width, old_lean_angle, old_height = self.add_book(first, align_offset, **params)
+        while(self.cur_width < self.width  ):  # TODO add current book width to cur_width
+            self.log.debug("remaining width to be filled: %.3f"%(self.width - self.cur_width))
             params = self.apply_parameters()
+            last = current
+            current = Book(*(list(params.values())), self.parameters["unwrap"], self.parameters["subsurf"], self.parameters["smooth"])
 
-            self.cur_width += old_width + params["book_width"]
+            # gathering parameters for the next book
 
-            old_corner_height = old_height * cos(old_lean_angle)
-
-            corner_height = cos(params["lean_angle"]) * (params["book_height"] + params["book_width"] / tan(radians(90) - params["lean_angle"]))
-
-            if(old_corner_height <= corner_height and old_lean_angle >= params["lean_angle"]):
-                print("case 1 ")
-                self.cur_offset += sin(old_lean_angle) * old_height - cos(old_lean_angle) * old_height / (tan(radians(90) - params["lean_angle"])) + params["book_width"] / cos(params["lean_angle"])
-            elif(old_lean_angle < params["lean_angle"]):
-                print("case 2")
-                self.cur_offset += cos(params["lean_angle"]) * params["book_width"] + sin(params["lean_angle"]) * params["book_width"] / tan(radians(90) - old_lean_angle)
-            elif(old_corner_height > corner_height and old_lean_angle >= params["lean_angle"]):
-                print("case 3")
-                self.cur_offset += (cos(params["lean_angle"]) * params["book_height"] + sin(params["lean_angle"]) * params["book_width"]) / tan(radians(90) - old_lean_angle) + params["book_width"] / cos(params["lean_angle"]) - sin(params["lean_angle"]) * (params["book_height"] + params["book_width"] / tan(radians(90) - params["lean_angle"]))
+            if last.lean_angle <= 0:
+                self.log.debug("case A")
+                last.corner_height_left = cos(last.lean_angle)*last.height
+                last.corner_height_right =  cos(last.lean_angle) * last.height + sin(abs(last.lean_angle))*last.width
             else:
-                print("doesn't fit a designed case")
+                self.log.debug("case B")
+                last.corner_height_left =  cos(last.lean_angle) * last.height + sin(abs(last.lean_angle))*last.width
+                last.corner_height_right = cos(last.lean_angle)*last.height
+
+            
+
+            if current.lean_angle < 0:
+                self.log.debug("case B")
+                current.corner_height_left = cos(current.lean_angle)*current.height
+                current.corner_height_right = cos(current.lean_angle) * current.height + sin(abs(current.lean_angle))*current.width
+
+            else:
+                self.log.debug("case A")
+                current.corner_height_left = cos(current.lean_angle) * current.height + sin(abs(current.lean_angle))*current.width
+                current.corner_height_right = cos(current.lean_angle)*current.height
+
+            self.log.debug("last - angle: %.3f left: %.3f   right: %.3f"%(degrees(last.lean_angle), last.corner_height_left, last.corner_height_right))
+
+            self.log.debug("current - angle: %.3f left: %.3f   right: %.3f"%(degrees(current.lean_angle), current.corner_height_left, current.corner_height_right))
+
+            same_dir = (last.lean_angle >= 0 and current.lean_angle >= 0) or (last.lean_angle < 0 and current.lean_angle < 0)
+
+            self.log.debug("same dir: %r" % same_dir)
+
+            switched = False
+
+            def switch(last, current):
+                last.corner_height_left, last.corner_height_right = last.corner_height_right, last.corner_height_left
+                current.corner_height_left, current.corner_height_right = current.corner_height_right, current.corner_height_left
+                return current, last
+
+            # mirror everything both books lean to the left
+            if same_dir and last.lean_angle < 0:
+                switched = True
+                current, last = switch(current, last)
+
+            self.log.debug("switched: %r" % switched)
+
+            offset = 0
+            
+            if same_dir and abs(last.lean_angle) >= abs(current.lean_angle) and last.corner_height_right < current.corner_height_left:
+                self.log.debug("case 1")
+                offset = sin(abs(last.lean_angle)) * last.height  - (tan(abs(current.lean_angle))*last.corner_height_right - current.width/cos(abs(current.lean_angle)))
+            elif same_dir and abs(last.lean_angle) >= abs(current.lean_angle) and last.corner_height_right > current.corner_height_left:
+                self.log.debug("case 2")
+                offset = current.corner_height_left/tan(radians(90)-abs(last.lean_angle)) - (current.corner_height_left/tan(radians(90)-abs(current.lean_angle))) + current.width/cos(abs(current.lean_angle))
+            elif not same_dir and last.lean_angle > current.lean_angle:
+                self.log.debug("case 3")
+                if last.corner_height_right > current.corner_height_left:
+                    switched = True
+                    current, last = switch(current, last)
+                offset = cos(radians(90) - abs(last.lean_angle))*last.height + last.corner_height_right/tan(radians(90)-abs(current.lean_angle)) 
+            elif not same_dir and last.lean_angle < current.lean_angle:
+                self.log.debug("case 4")
+                offset = sin(radians(90)-abs(last.lean_angle)) * last.width  - (tan(abs(current.lean_angle))*sin(abs(last.lean_angle))*last.width - current.width/cos(abs(current.lean_angle)))
+            elif same_dir and abs(last.lean_angle) < abs(current.lean_angle):
+                self.log.debug("case 5")
+                offset = (cos(current.lean_angle)*current.width) + (sin(current.lean_angle)*current.width/tan(radians(90)-last.lean_angle))
+            else:
+                self.log.warning("leaning hit a unusual case. This should not happen")
+
+            if switched:
+                last , current = current, last
+            
+            # effective width of the book changes based on the lean angle.
+            if current.lean_angle > 0:
+                width = offset + sin(abs(current.lean_angle))*current.height
+            elif current.lean_angle < 0:
+                width = offset + cos(current.lean_angle)*current.width
+            else:
+                # books that don't lean are aligned right.
+                width = offset
+            
+
+            self.cur_width = self.cur_offset + width
+
+            self.cur_offset += offset
+
+            if self.cur_width < self.width:
+                self.add_book(current, first)
 
             first = False
+
+    def clean(self):
+        col = self.collection
+        for obj in col.objects:
+            col.objects.unlink(obj)
+            bpy.data.meshes.remove(obj.data)
+
 
     def apply_parameters(self):
         """Return book parameters with all randomization applied"""

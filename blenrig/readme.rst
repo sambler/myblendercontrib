@@ -1,5 +1,5 @@
 ************************************
-BlenRig 5 Rigging System for Blender
+BlenRig 5 Rigging System for Blender 2.8
 ************************************
 
 **Author:** Juan Pablo Bouza
@@ -26,7 +26,7 @@ Usage
 
 You will find the rig in the **Object Add Panel**, under the **Armature Menu**.
 
-In the **View3d Tools Panel** you will find all the animation controls. In the **Armature Data Panel** you will find all the rigging related tools.
+In the **View3d Sidebar** you will find all the animation controls. In the **Armature Data Panel** you will find all the rigging related tools.
 
 You can find more information at https://cloud.blender.org/p/blenrig/
 
@@ -95,3 +95,14 @@ V 1.002
         - Fix for timeline scrubbing slowdown bug
         
         - Fix for error when adding BlenRig to the scene while using local view or local layers
+        
+ V 1.003
+=======
+
+    - Scropt spaces cleanup
+    
+V 1.004
+=======
+
+    - Port to Blender 2.80  
+    - Note that for the "Reset Deformers" operator to have an effect on the lattices, you must have the lattices collection turned on in the viewport. (This will be fixed later)

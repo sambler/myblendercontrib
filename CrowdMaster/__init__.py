@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -19,12 +19,12 @@
 
 bl_info = {
     "name": "CrowdMaster",
-    "author": "Peter Noble, John Roper, Jake Dube, Patrick Crawford",
-    "version": (1, 3, 2),
-    "blender": (2, 78, 0),
+    "author": "Peter Noble, John Roper, Andrew Buttery, Christian Campos Angulo, Patrick Crawford, Jake Dube",
+    "version": (1, 3, 3),
+    "blender": (2, 80, 0),
     "location": "Node Editor > CrowdMaster Node Trees",
     "description": "Crowd Simulation for the Masses",
-    "warning": "",
+    "warning": "This is a development version of CrowdMaster! Some things may appear, dissapear, and fail at random times.",
     "wiki_url": "http://crowdmaster.org/docs/",
     "tracker_url": "https://github.com/johnroper100/CrowdMaster/issues",
     "category": "Simulation"
@@ -52,11 +52,11 @@ class SCENE_UL_group(UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data,
                   active_propname):
-        # layout.label(item.name)
+        # layout.label(text=item.name)
         op = layout.operator(SCENE_OT_CrowdMasterSelectGroup.bl_idname,
                              text=item.name)
         op.groupName = item.name
-        layout.label(str(item.totalAgents) + " | " + item.groupType)
+        layout.label(text=str(item.totalAgents) + " | " + item.groupType)
         if item.freezePlacement:
             if item.freezeAnimation:
                 label = "Anim frozen"
@@ -64,7 +64,7 @@ class SCENE_UL_group(UIList):
                 label = "Geo frozen"
         else:
             label = "Unlocked"
-        layout.label(label)
+        layout.label(text=label)
 
 
 class SCENE_UL_agent_type(UIList):
@@ -73,8 +73,8 @@ class SCENE_UL_agent_type(UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data,
                   active_propname):
-        layout.label(item.name)
-        layout.label(str(len(item.agents)))
+        layout.label(text=item.name)
+        layout.label(text=str(len(item.agents)))
 
 
 class SCENE_OT_cm_groups_reset(Operator):
@@ -82,16 +82,18 @@ class SCENE_OT_cm_groups_reset(Operator):
     bl_idname = "scene.cm_groups_reset"
     bl_label = "Reset Group"
 
-    groupName = StringProperty()
+    groupName: StringProperty()
 
     def execute(self, context):
-        context.scene.frame_set(context.scene.cm_sim_start_frame)
+        if context.scene.cm_sim_start_frame != -1:
+            context.scene.frame_set(context.scene.cm_sim_start_frame)
+        else:
+            context.scene.frame_set(context.scene.frame_start)
         bpy.ops.scene.cm_stop()
 
-        if bpy.context.active_object is not None:
+        if context.active_object is not None:
             bpy.ops.object.mode_set(mode='OBJECT')
         scene = context.scene
-        preferences = context.user_preferences.addons[__package__].preferences
 
         group = scene.cm_groups.get(self.groupName)
         for obj in bpy.context.selected_objects:
@@ -131,14 +133,14 @@ class SCENE_OT_cm_agent_add(Operator):
     bl_idname = "scene.cm_agent_add"
     bl_label = "Add single agent to CM agents list"
 
-    agentName = StringProperty()
-    brainType = StringProperty()
-    groupName = StringProperty()
-    geoGroupName = StringProperty()
-    initialTags = CollectionProperty(type=initialTagProperty)
-    rigOverwrite = StringProperty()
-    constrainBone = StringProperty()
-    modifyBones = CollectionProperty(type=modifyBoneProperty)
+    agentName: StringProperty()
+    brainType: StringProperty()
+    groupName: StringProperty()
+    geoGroupName: StringProperty()
+    initialTags: CollectionProperty(type=initialTagProperty)
+    rigOverwrite: StringProperty()
+    constrainBone: StringProperty()
+    modifyBones: CollectionProperty(type=modifyBoneProperty)
 
     @staticmethod
     def _execute(context, agentName, brainType, groupName, geoGroupName,
@@ -191,12 +193,11 @@ class SCENE_OT_cm_agent_add_selected(Operator):
     bl_idname = "scene.cm_agent_add_selected"
     bl_label = "Create Manual Agents"
 
-    groupName = StringProperty(name="New Group Name")
-    brainType = StringProperty(name="Brain Type")
+    groupName: StringProperty(name="New Group Name")
+    brainType: StringProperty(name="Brain Type")
 
     def execute(self, context):
         scene = context.scene
-        preferences = context.user_preferences.addons[__package__].preferences
 
         if self.groupName.strip() == "" or self.brainType.strip() == "":
             return {'CANCELLED'}
@@ -252,7 +253,7 @@ class SCENE_OT_cm_start(Operator):
         global customOutline
         global customRLines
 
-        preferences = context.user_preferences.addons[__package__].preferences
+        preferences = context.preferences.addons[__package__].preferences
         if (preferences.ask_to_save) and (bpy.data.is_dirty):
             self.report({'ERROR'}, "You must save your file first!")
             return {'CANCELLED'}
@@ -261,14 +262,17 @@ class SCENE_OT_cm_start(Operator):
         bpy.context.scene.sync_mode = 'NONE'
 
         if bpy.context.screen is not None:
-            for area in bpy.context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    customOutline = area.spaces[0].show_outline_selected
-                    customRLines = area.spaces[0].show_relationship_lines
-                    area.spaces[0].show_outline_selected = False
-                    area.spaces[0].show_relationship_lines = False
+            for area in bpy.data.screens:
+                customOutline = area.overlay.show_outline_selected
+                customRLines = area.overlay.show_relationship_lines
+                if preferences.disable_outline_selected:
+                    area.overlay.show_outline_selected = False
+                    area.overlay.show_relationship_lines = False
 
-        scene.frame_current = scene.cm_sim_start_frame
+        if context.scene.cm_sim_start_frame != -1:
+            scene.frame_set(scene.cm_sim_start_frame)
+        else:
+            scene.frame_set(scene.frame_start)
 
         global sim
         if "sim" in globals():
@@ -294,7 +298,7 @@ class SCENE_OT_cm_stop(Operator):
     bl_label = "Stop Simulation"
 
     def execute(self, context):
-        preferences = context.user_preferences.addons[__package__].preferences
+        preferences = context.preferences.addons[__package__].preferences
         global customSyncMode
         global customOutline
         global customRLines
@@ -323,8 +327,8 @@ class SCENE_PT_CrowdMaster(Panel):
     bl_label = "Main"
     bl_idname = "SCENE_PT_CrowdMaster"
     bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = "CrowdMaster"
+    bl_region_type = 'UI'
+    bl_category = "Simulation"
 
     @classmethod
     def poll(self, context):
@@ -336,7 +340,7 @@ class SCENE_PT_CrowdMaster(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        preferences = context.user_preferences.addons[__package__].preferences
+        preferences = context.preferences.addons[__package__].preferences
 
         row = layout.row()
         row.scale_y = 1.5
@@ -389,8 +393,8 @@ class SCENE_PT_CrowdMasterAgents(Panel):
     bl_label = "Agents"
     bl_idname = "SCENE_PT_CrowdMasterAgents"
     bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = "CrowdMaster"
+    bl_region_type = 'UI'
+    bl_category = "Simulation"
 
     @classmethod
     def poll(self, context):
@@ -402,12 +406,12 @@ class SCENE_PT_CrowdMasterAgents(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        preferences = context.user_preferences.addons[__package__].preferences
+        preferences = context.preferences.addons[__package__].preferences
 
         row = layout.row()
-        row.label("Group Name")
-        row.label("Number | Origin")
-        row.label("Status")
+        row.label(text="Group Name")
+        row.label(text="Number | Origin")
+        row.label(text="Status")
 
         layout.template_list("SCENE_UL_group", "", scene,
                              "cm_groups", scene, "cm_groups_index")
@@ -429,7 +433,7 @@ class SCENE_PT_CrowdMasterAgents(Panel):
                                   "agentTypes", scene, "cm_view_details_index")
 
                 if group.name == "cm":
-                    box.label("cm: To freeze use add to group")
+                    box.label(text="cm: To freeze use add to group")
                 else:
                     if group.groupType == "auto":
                         box.prop(group, "freezePlacement")
@@ -444,7 +448,7 @@ class SCENE_PT_CrowdMasterAgents(Panel):
                     op = box.operator(SCENE_OT_cm_groups_reset.bl_idname)
                 op.groupName = group.name
             else:
-                box.label("No group selected")
+                box.label(text="No group selected")
 
 
 class SCENE_OT_CrowdMasterSelectGroup(Operator):
@@ -452,7 +456,7 @@ class SCENE_OT_CrowdMasterSelectGroup(Operator):
     bl_idname = "scene.cm_groups_select"
     bl_label = "Select Group"
 
-    groupName = StringProperty()
+    groupName: StringProperty()
 
     @classmethod
     def poll(cls, context):
@@ -491,8 +495,8 @@ class SCENE_PT_CrowdMasterManualAgents(Panel):
     bl_label = "Manual Agents"
     bl_idname = "SCENE_PT_CrowdMasterManualAgents"
     bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = "CrowdMaster"
+    bl_region_type = 'UI'
+    bl_category = "Simulation"
     bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
@@ -505,7 +509,7 @@ class SCENE_PT_CrowdMasterManualAgents(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        preferences = context.user_preferences.addons[__package__].preferences
+        preferences = context.preferences.addons[__package__].preferences
 
         layout.prop(scene.cm_manual, "groupName", text="Group Name")
         layout.prop(scene.cm_manual, "brainType", text="Brain Type")
@@ -573,6 +577,10 @@ def register():
     from . import cm_bpyNodes
     cm_bpyNodes.register()
 
+    global cm_nodeGroups
+    from . import cm_nodeGroups
+    cm_nodeGroups.register()
+
     global cm_generation
     from . import cm_generation
     cm_generation.register()
@@ -599,7 +607,7 @@ def register():
     if nodeTreeSetFakeUser not in bpy.app.handlers.save_pre:
         bpy.app.handlers.save_pre.append(nodeTreeSetFakeUser)
 
-    preferences = bpy.context.user_preferences.addons[__package__].preferences
+    preferences = bpy.context.preferences.addons[__package__].preferences
     if preferences.show_debug_options:
         logging.basicConfig(level=logging.DEBUG, format='%(message)s')
     else:
@@ -628,6 +636,7 @@ def unregister():
 
     addon_updater_ops.unregister()
     cm_bpyNodes.unregister()
+    cm_nodeGroups.unregister()
     cm_generation.unregister()
     cm_utilities.unregister()
     cm_prefs.unregister()
@@ -639,8 +648,8 @@ def unregister():
     cm_pieMenus.unregister()
 
     if "sim" in globals():
-        if sim.frameChangeHighlight in bpy.app.handlers.frame_change_post:
-            bpy.app.handlers.frame_change_post.remove(sim.frameChangeHighlight)
+        if sim.frameChangeHighlight in bpy.app.handlers.scene_update_post:
+            bpy.app.handlers.scene_update_post.remove(sim.frameChangeHighlight)
 
     cm_documentation.unregister()
     cm_translations.unregister()

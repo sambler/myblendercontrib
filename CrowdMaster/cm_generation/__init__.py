@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -34,8 +34,8 @@ class SCENE_OT_agent_nodes_generate(Operator):
     bl_label = "Generate Agents"
     bl_options = {'REGISTER', 'UNDO'}
 
-    nodeName = StringProperty(name="node name")
-    nodeTreeName = StringProperty(name="node tree")
+    nodeName: StringProperty(name="node name")
+    nodeTreeName: StringProperty(name="node tree")
 
     def getInput(self, inp):
         fr = inp.links[0].from_node
@@ -66,6 +66,7 @@ class SCENE_OT_agent_nodes_generate(Operator):
             if not tmpt.check():
                 current.use_custom_color = True
                 current.color = (255, 0, 0)
+                self.report({'ERROR'}, "Generation stopped! Red colored nodes have errors that need to be fixed before continuing.")
                 return False, None
             if len(current.outputs[0].links) > 1:
                 cache[self.name] = tmpt
@@ -74,14 +75,18 @@ class SCENE_OT_agent_nodes_generate(Operator):
         else:
             current.use_custom_color = True
             current.color = (255, 0, 0)
+            self.report({'ERROR'}, "Generation stopped! Red colored nodes have errors that need to be fixed before continuing.")
             return False, None
 
     def execute(self, context):
-        if bpy.context.active_object is not None:
+        preferences = context.preferences.addons[__package__.split(".", 1)[0]].preferences
+        if preferences.show_debug_options and preferences.show_debug_timings:
+            cm_timings.resetTimings()
+
+        if context.active_object is not None and context.active_object.hide is not True:
             bpy.ops.object.mode_set(mode='OBJECT')
         ntree = bpy.data.node_groups[self.nodeTreeName]
         generateNode = ntree.nodes[self.nodeName]
-        preferences = context.user_preferences.addons["CrowdMaster"].preferences
 
         cache = {}
         genSpaces = {}

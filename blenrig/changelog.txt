@@ -36,4 +36,14 @@ V 1.002
         
         - Fix for error when adding BlenRig to the scene while using local view or local layers
         
+ V 1.003
+=======
+
+    - Scropt spaces cleanup
+    
+V 1.004
+=======
+
+    - Port to Blender 2.80          
+        
     

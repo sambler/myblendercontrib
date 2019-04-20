@@ -43,10 +43,10 @@ class Operator_Torso_Snap_IK_FK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -98,10 +98,10 @@ class Operator_Torso_Snap_FK_IK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -157,10 +157,10 @@ class Operator_Torso_Snap_INV_UP(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -222,10 +222,10 @@ class Operator_Torso_Snap_UP_INV(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -282,10 +282,10 @@ class Operator_Head_Snap_IK_FK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -336,10 +336,10 @@ class Operator_Head_Snap_FK_IK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -394,10 +394,10 @@ class Operator_Arm_L_Snap_IK_FK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -483,10 +483,10 @@ class Operator_Arm_L_Snap_FK_IK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -594,10 +594,10 @@ class Operator_Arm_R_Snap_IK_FK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -683,10 +683,10 @@ class Operator_Arm_R_Snap_FK_IK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -794,10 +794,10 @@ class Operator_Leg_L_Snap_IK_FK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -881,10 +881,10 @@ class Operator_Leg_L_Snap_FK_IK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -1003,10 +1003,10 @@ class Operator_Leg_R_Snap_IK_FK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object
@@ -1090,10 +1090,10 @@ class Operator_Leg_R_Snap_FK_IK(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        if not bpy.context.object:
-            return False
-        else:
+        if context.active_object is not None:
             return (bpy.context.object.type=='ARMATURE' and context.mode=='POSE')
+        else:
+            return False
                     
     def execute(self, context):         
         arm = bpy.context.active_object

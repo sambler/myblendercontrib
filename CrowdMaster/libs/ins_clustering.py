@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -18,7 +18,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import logging
-from random import choice, randrange
+from random import choice
 
 logger = logging.getLogger("CrowdMaster")
 

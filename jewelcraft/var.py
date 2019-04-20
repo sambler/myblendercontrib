@@ -1,7 +1,7 @@
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  JewelCraft jewelry design toolkit for Blender.
-#  Copyright (C) 2015-2018  Mikhail Rachinskiy
+#  Copyright (C) 2015-2019  Mikhail Rachinskiy
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,16 +23,12 @@ import os
 import sys
 
 
-preview_collections = {}  # Store icons
-
-
 ADDON_ID = __package__
 ADDON_DIR = os.path.dirname(__file__)
 
 ICONS_DIR = os.path.join(ADDON_DIR, "assets", "icons")
 GEM_ASSET_DIR = os.path.join(ADDON_DIR, "assets", "gems")
 GEM_ASSET_FILEPATH = os.path.join(GEM_ASSET_DIR, "gems.blend")
-
 
 if sys.platform == "win32":
     LOCAL_PATH = os.getenv("LOCALAPPDATA")
@@ -44,7 +40,6 @@ else:
 USER_ASSET_DIR = os.path.join(LOCAL_PATH, "Blender", "JewelCraft", "Asset Library")
 USER_ASSET_DIR_OBJECT = os.path.join(USER_ASSET_DIR, "Object")
 USER_ASSET_DIR_WEIGHTING = os.path.join(USER_ASSET_DIR, "Weighting")
-
 
 DEFAULT_WEIGHTING_SETS = {
     "JCASSET_PRECIOUS": (
@@ -142,21 +137,41 @@ CUT_VOLUME_CORRECTION = {
 
 STONE_COLOR = {
     # White
-    "DIAMOND": (1.0, 1.0, 1.0),
-    "CUBIC_ZIRCONIA": (1.0, 1.0, 1.0),
+    "DIAMOND": (1.0, 1.0, 1.0, 1.0),
+    "CUBIC_ZIRCONIA": (1.0, 1.0, 1.0, 1.0),
     # Red
-    "RUBY": (0.57, 0.011, 0.005),
-    "SPINEL": (0.57, 0.011, 0.005),
+    "RUBY": (0.57, 0.011, 0.005, 1.0),
+    "SPINEL": (0.57, 0.011, 0.005, 1.0),
     # Blue
-    "SAPPHIRE": (0.004, 0.019, 0.214),
-    "TANZANITE": (0.004, 0.019, 0.214),
+    "SAPPHIRE": (0.004, 0.019, 0.214, 1.0),
+    "TANZANITE": (0.004, 0.019, 0.214, 1.0),
     # Other
-    "ALEXANDRITE": (0.153, 0.0705, 0.595),
-    "AMETHYST": (0.415, 0.041, 0.523),
-    "AQUAMARINE": (0.0, 0.748, 1.0),
-    "CITRINE": (1.0, 0.355, 0.0),
-    "EMERALD": (0.062, 0.748, 0.057),
-    "GARNET": (0.319, 0.0, 0.0),
-    "MORGANITE": (0.41, 0.21, 0.09),
-    "PERIDOT": (0.201, 0.748, 0.026),
+    "ALEXANDRITE": (0.153, 0.0705, 0.595, 1.0),
+    "AMETHYST": (0.415, 0.041, 0.523, 1.0),
+    "AQUAMARINE": (0.0, 0.748, 1.0, 1.0),
+    "CITRINE": (1.0, 0.355, 0.0, 1.0),
+    "EMERALD": (0.062, 0.748, 0.057, 1.0),
+    "GARNET": (0.319, 0.0, 0.0, 1.0),
+    "MORGANITE": (0.41, 0.21, 0.09, 1.0),
+    "PERIDOT": (0.201, 0.748, 0.026, 1.0),
 }
+
+preview_collections = {}
+
+
+# mod_update
+# --------------------------------
+
+
+UPDATE_SAVE_STATE_FILEPATH = os.path.join(ADDON_DIR, "update_state.json")
+UPDATE_RELEASES_URL = "https://api.github.com/repos/mrachinskiy/jewelcraft/releases"
+UPDATE_MAX_VERSION = None
+UPDATE_CURRENT_VERSION = None
+
+update_available = False
+update_in_progress = False
+update_completed = False
+update_days_passed = None
+update_version = ""
+update_download_url = ""
+update_html_url = ""

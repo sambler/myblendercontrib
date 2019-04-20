@@ -2,7 +2,7 @@
 import bpy, bmesh, time
 from math import *
 
-from .tk_utils import groups as group_utils
+from .tk_utils import collections as collection_utils
 from .tk_utils import select as select_utils
 
 def CAP_Update_ObjectExport(self, context):
@@ -12,8 +12,8 @@ def CAP_Update_ObjectExport(self, context):
     assignment using "UpdateObjectList"
     """
 
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
     scn = context.scene.CAPScn
 
     print("Inside EnableExport (Object)")
@@ -68,8 +68,8 @@ def CAP_Update_SceneOrigin(self, context):
     """
     Updates the "Use Scene Origin" property for all selected objects.
     """
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
 
     if addon_prefs.object_multi_edit is True:
         # Acts as its own switch to prevent endless recursion
@@ -98,8 +98,8 @@ def CAP_Update_FocusObject(self, context):
     EDITME: The camera movement interpolation no longer works.
     """
 
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
 
     for object in context.scene.objects:
         if object.name == self.name:
@@ -119,7 +119,7 @@ def CAP_Update_FocusObject(self, context):
                                         'screen': bpy.context.screen, 
                                         'window': bpy.context.window}
 
-                            bpy.ops.view3d.view_selected(override)
+                            bpy.ops.view3d.view_selected()
     return None
 
 
@@ -128,8 +128,8 @@ def CAP_Update_SelectObject(self, context):
     Selects (but doesn't focus) the given object.
     """
 
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
 
     for object in context.scene.objects:
         if object.name == self.name:
@@ -149,7 +149,7 @@ def CAP_Update_ObjectListName(self, context):
     print("Finding object name to replace")
     scn = context.scene.CAPScn
 
-    # Set the name of the item to the group name
+    # Set the name of the item to the collection name
     for item in context.scene.objects:
         if item.name == self.prev_name:
             print("Found object name ", item.name)
@@ -170,14 +170,14 @@ def CAP_Update_ObjectListExport(self, context):
 
     print("Changing Enable Export... (List)")
 
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
     scn = context.scene.CAPScn
     scn.enable_list_active = True
 
     if scn.enable_sel_active == False:
         print("Rawr")
-        # Set the name of the item to the group name
+        # Set the name of the item to the collection name
         for item in context.scene.objects:
             if item.name == self.name:
                 print("Found object name ", item.name)
@@ -192,8 +192,8 @@ def CAP_Update_ObjectListSelect(self, context):
     Used to turn off multi-select-enabled update functions if they were instead activated from a 
     list entry instead of another UI element.  Sneaky usability enhancements be here... <w<
     """
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
 
     if self.object_list_index != -1:
         print("Selection in list, turning off multi edit...")
@@ -247,8 +247,8 @@ def CAP_Update_LocationDefault(self, context):
     Updates the object's Location Default property.
     """
 
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
 
     if addon_prefs.object_multi_edit is True:
         # Acts as its own switch to prevent endless recursion
@@ -275,8 +275,8 @@ def CAP_Update_ExportDefault(self, context):
     """
     Updates the object's Export Default property.
     """
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
 
     if addon_prefs.object_multi_edit is True:
         # Acts as its own switch to prevent endless recursion
@@ -303,8 +303,8 @@ def CAP_Update_Normals(self, context):
     Updates the object's Normals property.
     FIXME: This needs to be categorised under a FBX-specific property panel
     """
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__package__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
 
     if addon_prefs.object_multi_edit is True:
         # Acts as its own switch to prevent endless recursion

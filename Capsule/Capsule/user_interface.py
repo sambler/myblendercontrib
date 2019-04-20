@@ -5,24 +5,24 @@ from bpy.types import Menu, Panel, AddonPreferences, PropertyGroup, UIList
 from rna_prop_ui import PropertyPanel
 
 from .tk_utils import select
-from .tk_utils import groups as group_utils
+from .tk_utils import collections as collection_utils
 
-class GEX_Name_UIList(UIList):
+class CAPSULE_UL_Name(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
             layout.prop(item, "name", text="", emboss=False)
 
-class GEX_TagFilter_UIList(UIList):
+class CAPSULE_UL_TagFilter(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
             layout.prop(item, "name", text="", emboss=False)
             layout.prop(item, "use_tag", text="")
 
-class Object_UIList(UIList):
+class CAPSULE_UL_Object(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         scn = context.scene.CAPScn
 
         layout.prop(item, "name", text="", emboss=False)
@@ -39,17 +39,17 @@ class Object_UIList(UIList):
         # Nothing much to say here, it's usual UI code...
         row = layout.row()
 
-class Group_UIList(UIList):
+class CAPSULE_UL_Collection(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         scn = context.scene.CAPScn
 
         layout.prop(item, "name", text="", emboss=False)
         layout.prop(item, "enable_export", text="")
 
-        # A switch to change the extra tool on the Group list entries.
+        # A switch to change the extra tool on the Collection list entries.
         if addon_prefs.list_feature != 'none':
             layout.prop(item, addon_prefs.list_feature, text="", emboss=False, icon='FULLSCREEN_EXIT')
 
@@ -59,38 +59,38 @@ class Group_UIList(UIList):
         # Nothing much to say here, it's usual UI code...
         row = layout.row()
 
-class Path_Default_UIList(UIList):
+class CAPSULE_UL_Path_Default(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
         scn = context.scene.CAPScn
         layout.prop(item, "name", text="", emboss=False)
 
-class Saved_Default_UIList(UIList):
+class CAPSULE_UL_Saved_Default(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
         scn = context.scene.CAPScn
         layout.prop(item, "name", text="", emboss=False)
 
-class Export_Default_UIList(UIList):
+class CAPSULE_UL_Export_Default(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
         scn = context.scene.CAPScn
         layout.prop(item, "name", text="", emboss=False)
 
-class Tag_Default_UIList(UIList):
+class CAPSULE_UL_Tag_Default(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
         scn = context.scene.CAPScn
         layout.prop(item, "name", text="", emboss=False)
 
-class Pass_Default_UIList(UIList):
+class CAPSULE_UL_Pass_Default(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
         scn = context.scene.CAPScn
         layout.prop(item, "enable", text="")
         layout.prop(item, "name", text="", emboss=False)
 
-class Action_UIList(UIList):
+class CAPSULE_UL_Action(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
 
         scn = context.scene.CAPScn
@@ -108,17 +108,34 @@ class Action_UIList(UIList):
 
 #//////////////////////// - USER INTERFACE - ////////////////////////
 
-class CAP_Selection(Panel):
+class CAPSULE_PT_Header(Panel):
+    bl_space_type = "PROPERTIES"
+    bl_region_type = 'WINDOW'
+    bl_context = "render"
+    bl_label = "Capsule"
+
+    def draw(self, context):
+        pass
+
+
+class CAPSULE_PT_Selection(Panel):
     bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
+    bl_region_type = "UI"
+    bl_category = "View"
     bl_context = "objectmode"
-    bl_label = "Selection"
-    bl_category = "Capsule"
+    bl_label = "Capsule"
+    
+
+    # bl_space_type = "PROPERTIES"
+    # bl_region_type = "WINDOW"
+    # bl_context = "render"
+    # bl_label = "Selection"
+    # bl_parent_id = "CAPSULE_PT_Header"
 
     def draw(self, context):
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
 
         # UI Prompt for when the .blend Capsule data can no longer be found.
         try:
@@ -126,8 +143,8 @@ class CAP_Selection(Panel):
         except KeyError:
             layout = self.layout
             col_export = layout.column(align=True)
-            col_export.label("No Capsule for this .blend file has been found,")
-            col_export.label("Please press the button below to generate new data.")
+            col_export.label(text="No Capsule for this .blend file has been found,")
+            col_export.label(text="Please press the button below to generate new data.")
             col_export.separator()
             col_export.separator()
             col_export.operator("cap.exportdata_create")
@@ -206,9 +223,9 @@ class CAP_Selection(Panel):
                 obj_settings.prop(obj, "use_scene_origin")
                 obj_settings.separator()
                 obj_settings.separator()
-                obj_settings.label(text="Location:")
+                obj_settings.label(text="Export Location:")
                 obj_settings.separator()
-                obj_settings.prop(obj, "location_default", icon="FILESEL", text="")
+                obj_settings.prop(obj, "location_default", icon="FILE_FOLDER", text="")
                 obj_settings.separator()
                 obj_settings.label(text="Export Preset:")
                 obj_settings.separator()
@@ -218,6 +235,9 @@ class CAP_Selection(Panel):
                 #obj_settings.separator()
                 #obj_settings.prop(obj, "normals", text="")
                 #obj_settings.separator()
+
+                obj_settings.separator()
+                obj_settings.operator("scene.cap_export")
 
             # If no object was eventually found, bring up warning labels.
             else:
@@ -229,72 +249,62 @@ class CAP_Selection(Panel):
 
 
         #/////////////////////////////////////////////////////////////////
-        #////////////////////////// GROUP UI /////////////////////////////
+        #////////////////////////// COLLECTION UI /////////////////////////////
         #/////////////////////////////////////////////////////////////////
         elif selectTab is 2:
 
-            # Get the first group pointer we need
+            # Get the first collection pointer we need
             grp = None
             gr = None
 
-            # If the multi-edit isnt on, just grab the list group
-            if addon_prefs.group_multi_edit is False:
-                if len(scn.group_list) > 0:
-                    entry = scn.group_list[scn.group_list_index]
+            # If the multi-edit isnt on, just grab the list collection
+            if addon_prefs.collection_multi_edit is False:
+                if len(scn.collection_list) > 0:
+                    entry = scn.collection_list[scn.collection_list_index]
 
-                    for group in group_utils.GetSceneGroups(context.scene, True):
-                        if group.name == entry.name:
-                            grp = group.CAPGrp
-                            gr = group
+                    for collection in collection_utils.GetSceneCollections(context.scene, True):
+                        if collection.name == entry.name:
+                            grp = collection.CAPCol
+                            gr = collection
 
                 if gr is not None:
                     col_selection_item_box = layout.box()
-                    group_label = col_selection_item_box.column(align=True)
-                    group_label.alignment = 'EXPAND'
-                    group_label.label(text=gr.name, icon="MOD_ARRAY")
+                    collection_label = col_selection_item_box.column(align=True)
+                    collection_label.alignment = 'EXPAND'
+                    collection_label.label(text=gr.name, icon="MOD_ARRAY")
 
 
             # Otherwise, just find it in a selection
             elif context.active_object is not None or len(context.selected_objects) > 0:
-                groups_found = []
-                groupLabel = ""
-                for item in context.selected_objects:
-                    for group in item.users_group:
-                        groupAdded = False
+                collections_found = collection_utils.GetSelectedObjectCollections()
+                collection_info = ""
 
-                        for found_group in groups_found:
-                            if found_group.name == group.name:
-                                groupAdded = True
+                if len(collections_found) == 1:
+                    collection_info = collections_found[0].name + " collection found."
 
-                        if groupAdded == False:
-                            groups_found.append(group)
-
-                if len(groups_found) == 1:
-                    groupLabel = groups_found[0].name + " group selected."
-
-                elif len(groups_found) > 1:
-                    groupLabel = str(len(groups_found)) + " groups found."
+                elif len(collections_found) > 1:
+                    collection_info = str(len(collections_found)) + " collections found."
 
                 if context.active_object is not None:
-                    if len(context.active_object.users_group) > 0:
-                        for group in context.active_object.users_group:
-                            gr = group
-                            grp = group.CAPGrp
+                    if len(context.active_object.users_collection) > 0:
+                        for collection in context.active_object.users_collection:
+                            gr = collection
+                            grp = collection.CAPCol
                             break
 
-                if gr is not None and len(groups_found) == 0:
-                    groupLabel = gr.name + " group selected."
+                if gr is not None and len(collections_found) == 0:
+                    collection_info = gr.name + " collection selected."
 
-                if groupLabel != "":
+                if collection_info != "":
                     col_selection_item_box = layout.box()
-                    group_label = col_selection_item_box.column(align=True)
-                    group_label.alignment = 'EXPAND'
-                    group_label.label(text=groupLabel, icon="MOD_ARRAY")
+                    collection_label = col_selection_item_box.column(align=True)
+                    collection_label.alignment = 'EXPAND'
+                    collection_label.label(text=collection_info, icon="MOD_ARRAY")
 
 
 
-            #Get the group so we can obtain preference data from it
-            #With Multi-Edit, we have to find a flexible approach to obtaining group data
+            #Get the collection so we can obtain preference data from it
+            #With Multi-Edit, we have to find a flexible approach to obtaining collection data
             if grp != None:
                 rawr = layout.column(align=True)
                 rawr.separator()
@@ -309,9 +319,9 @@ class CAP_Selection(Panel):
                 rawr_row.operator("scene.cap_clearroot", text="", icon="X")
 
                 rawr_other = layout.column(align=True)
-                rawr_other.label(text="Location:")
+                rawr_other.label(text="Export Location:")
                 rawr_other.separator()
-                rawr_other.prop(grp, "location_default", icon="FILESEL", text="")
+                rawr_other.prop(grp, "location_default", icon="FILE_FOLDER", text="")
                 rawr_other.separator()
                 rawr_other.label(text="Export Preset:")
                 rawr_other.separator()
@@ -321,11 +331,11 @@ class CAP_Selection(Panel):
                 #rawr_other.separator()
                 #rawr_other.prop(grp, "normals", text="")
 
-            # If no group was eventually found, bring up warning labels.
+            # If no collection was eventually found, bring up warning labels.
             else:
-                group_info = layout.column(align=True)
-                group_info.separator()
-                group_info.label(text="No groups selected.")
+                collection_info = layout.column(align=True)
+                collection_info.separator()
+                collection_info.label(text="No groups selected.")
 
             layout.separator()
 
@@ -340,7 +350,7 @@ class CAP_Selection(Panel):
         # Currently broken, un-comment at your own peril!
 
         #col_location = layout.row(align=True)
-        #col_location.template_list("Action_UIList", "rawr", ui, "action_list", ui, "action_list_index", rows=3, maxrows=10)
+        #col_location.template_list("CAPSULE_UL_Action", "rawr", ui, "action_list", ui, "action_list_index", rows=3, maxrows=10)
 
         #col_location.separator()
 
@@ -349,17 +359,17 @@ class CAP_Selection(Panel):
 
         #layout.separator()
 
-class CAP_List(Panel):
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
-    bl_context = "objectmode"
+class CAPSULE_PT_List(Panel):
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "render"
     bl_label = "Export List"
-    bl_category = "Capsule"
+    bl_parent_id = "CAPSULE_PT_Header"
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         try:
             exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
         except KeyError:
@@ -367,8 +377,8 @@ class CAP_List(Panel):
         return True
 
     def draw(self, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         scn = context.scene.CAPScn
 
         layout = self.layout
@@ -380,9 +390,9 @@ class CAP_List(Panel):
         col_location = layout.column(align=True)
 
         if listTab == 1:
-            col_location.template_list("Object_UIList", "rawr", scn, "object_list", scn, "object_list_index", rows=3, maxrows=10)
+            col_location.template_list("CAPSULE_UL_Object", "rawr", scn, "object_list", scn, "object_list_index", rows=3, maxrows=10)
         elif listTab == 2:
-            col_location.template_list("Group_UIList", "rawr", scn, "group_list", scn, "group_list_index", rows=3, maxrows=10)
+            col_location.template_list("CAPSULE_UL_Collection", "rawr", scn, "collection_list", scn, "collection_list_index", rows=3, maxrows=10)
 
         col_location_options = layout.row(align=True)
         col_location_options.operator("scene.cap_clearlist", icon="X")
@@ -393,17 +403,17 @@ class CAP_List(Panel):
         layout.separator()
 
 
-class CAP_Location(Panel):
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
-    bl_context = "objectmode"
+class CAPSULE_PT_Location(Panel):
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "render"
     bl_label = "Locations"
-    bl_category = "Capsule"
+    bl_parent_id = "CAPSULE_PT_Header"
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
 
         try:
             exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
@@ -414,20 +424,20 @@ class CAP_Location(Panel):
     def draw(self, context):
         layout = self.layout
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
         scn = context.scene.CAPScn
         ob = context.object
 
         col_location = layout.row(align=True)
-        col_location.template_list("Path_Default_UIList", "default", exp, "location_presets", exp, "location_presets_listindex", rows=3, maxrows=6)
+        col_location.template_list("CAPSULE_UL_Path_Default", "default", exp, "location_presets", exp, "location_presets_listindex", rows=3, maxrows=6)
 
         col_location.separator()
 
         row_location = col_location.column(align=True)
-        row_location.operator("scene.cap_addpath", text="", icon="ZOOMIN")
-        row_location.operator("scene.cap_deletepath", text="", icon="ZOOMOUT")
+        row_location.operator("scene.cap_addpath", text="", icon="ADD")
+        row_location.operator("scene.cap_deletepath", text="", icon="REMOVE")
         #row_location.operator("scene.cap_shiftup", text="", icon="TRIA_UP")
         #row_location.operator("scene.cap_shiftdown", text="", icon="TRIA_DOWN")
 
@@ -439,6 +449,12 @@ class CAP_Location(Panel):
             count += 1
 
         if exp.location_presets_listindex > -1 and exp.location_presets_listindex < count:
-            file.label("File Path:")
+            file.label(text="File Path:")
             file.separator()
             file.prop(exp.location_presets[exp.location_presets_listindex], "path", text="")
+
+# def register():
+#     bpy.utils.register_module(__name__)
+
+# def unregister():
+#     bpy.utils.unregister_module(__name__)

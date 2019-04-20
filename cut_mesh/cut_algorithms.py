@@ -22,7 +22,7 @@ def list_shift(seq, n):
     return seq[n:] + seq[:n]
 
 
-def find_bmedges_crossing_plane(pt, no, edges, epsilon):
+def find_bmedges_crossing_plane(pt, no, edges, epsilon, sort = False):
     '''
     pt - pt on cutting plane: mathutils.Vector
     no - normal of cutting plane: mathutils.Vector
@@ -69,11 +69,19 @@ def find_bmedges_crossing_plane(pt, no, edges, epsilon):
         i_edges += [edge]
         intersects += [i]
         ds += [d]
-            
-    if len(i_edges) > 2:  #a concave ngon with 4,6,8.. crossings
+    
+    if len(i_edges) == 3:
+        print('\n\nTHE THREE EDGE ERROR')
+        print('3 edges crossing plane')
+        sorted_edges = []
+        sorted_is = []         
+    elif len(i_edges) > 3:  #a concave ngon with 4,6,8.. crossings
         
         print('There are %i crossed edges' % len(i_edges))
         print('There are %i total edges' % len(edges))
+        
+        if len(i_edges) == 3:
+            return 
         #all the crossings are colinear if ngon is planar, so sorting them is easy
         min_i = intersects[ds.index(min(ds))]
         min_ed = i_edges[ds.index(min(ds))]
@@ -103,8 +111,14 @@ def find_bmedges_crossing_plane(pt, no, edges, epsilon):
         sorted_edges = []
         sorted_is = [] 
     else:
-        sorted_edges = i_edges
-        sorted_is = intersects        
+        if sort:
+            #[x for (y,x) in sorted(zip(Y,X))]  X sorted by Y
+            sorted_edges = [ed for (d, ed) in sorted(zip(ds, i_edges))]
+            sorted_is = [i for (d, i) in sorted(zip(ds, intersects))]
+        else:
+            sorted_edges = i_edges
+            sorted_is = intersects
+           
     return list(zip(sorted_edges,sorted_is))
 
 def find_distant_bmedge_crossing_plane(pt, no, edges, epsilon, e_ind_from, co_from):
@@ -262,7 +276,8 @@ def cross_section_walker_endpoints(bme, pt, no, f_ind_from, e_ind_from, co_from,
     # returned values
     verts = [co_from]
     eds_crossed = [bme.edges[e_ind_from]]
-    faces_crossed = [bme.faces[f_ind_from]]
+    #faces_crossed = [bme.faces[f_ind_from]]  #don't record first face because we did not cross it?
+    faces_crossed = []
     looped = False
     found = False
     error = None
@@ -330,6 +345,9 @@ def cross_section_walker_endpoints(bme, pt, no, f_ind_from, e_ind_from, co_from,
         
         # get next face, edge, co
         f_next = next(f for f in edge.link_faces if f.index != find_current)
+        
+        if f_next == f_end:
+            print('we found the last face without end_edge_dict catching it')
         faces_crossed += [f_next]
         find_next = f_next.index
         eind_next = edge.index
@@ -344,7 +362,15 @@ def cross_section_walker_endpoints(bme, pt, no, f_ind_from, e_ind_from, co_from,
                     # loop is P-shaped (loop with a tail)
                     print('p shaped loop len %i, clipping tail %i' % (len(verts), f_inds_dict[find_next]))
                     verts = verts[f_inds_dict[find_next]:]      # clip off tail
+                    faces_crossed = faces_crossed[f_inds_dict[find_next]:]
+                    eds_crossed = eds_crossed[f_inds_dict[find_next]:]
+                    
                     error = 'P_LOOP'
+                    
+                    print('do we need to do more clipping')
+                    print(len(verts))
+                    print(len(faces_crossed))
+                    print(len(eds_crossed))
                     break
             
             elif len(bme.faces[find_next].edges) > 4 and f_inds_dict[find_next] == 0:
@@ -412,7 +438,9 @@ def cross_section_walker_dynamic_endpoints(bme, f_ind_from, e_ind_from, co_from,
     # returned values
     verts = [co_from]
     eds_crossed = [bme.edges[e_ind_from]]
-    faces_crossed = [bme.faces[f_ind_from]]
+    #faces_crossed = [bme.faces[f_ind_from]] #we do not want to use the seed face in this dict, we didn't "cross" that face
+    
+    faces_crossed  = []
     looped = False
     found = False
     
@@ -496,6 +524,16 @@ def cross_section_walker_dynamic_endpoints(bme, f_ind_from, e_ind_from, co_from,
         
         # get next face, edge, co
         f_next = next(f for f in edge.link_faces if f.index != find_current)
+        
+        if f_next == f_end:
+            
+            print('you somehow found f_end without end_edges_dict catching it')
+            error = None
+            found = True
+            break
+        
+        
+        #we tested to see if we met up with the final face 
         faces_crossed += [f_next]
         find_next = f_next.index
         eind_next = edge.index
@@ -510,7 +548,15 @@ def cross_section_walker_dynamic_endpoints(bme, f_ind_from, e_ind_from, co_from,
                     # loop is P-shaped (loop with a tail)
                     print('p shaped loop len %i, clipping tail %i' % (len(verts), f_inds_dict[find_next]))
                     verts = verts[f_inds_dict[find_next]:]      # clip off tail
+                    faces_crossed = faces_crossed[f_inds_dict[find_next]:]
+                    eds_crossed = eds_crossed[f_inds_dict[find_next]:]
                     error = 'P_LOOP'
+                    
+                    print('do we need to do more clipping')
+                    print(len(verts))
+                    print(len(faces_crossed))
+                    print(len(eds_crossed))
+                    
                     break
             
             elif len(bme.faces[find_next].edges) > 4 and f_inds_dict[find_next] == 0:
@@ -646,7 +692,7 @@ def path_between_2_points(bme, bvh, pt_a, pt_b,
     if found0 and found1:
         print('Found target both directions')
         print('Len of path0:   %i' % len(verts0))
-        print('Len of path1:   %i' % len(verts0))
+        print('Len of path1:   %i' % len(verts1))
         #great!  return the shortest path (TODO  shortest by path length)
         if len(verts0) < len(verts1):
             nv = len(verts0)
@@ -702,6 +748,150 @@ def path_between_2_points(bme, bvh, pt_a, pt_b,
         print('Error 0: ' + error0)
         print('Error 1: ' + error1)
         return([], [], [], [], error)
+    
+
+
+def path_between_2_points_clean(bme, loc_a, ind_a,
+                                loc_b, ind_b,
+                                max_tests = 10000, 
+                                debug = True, 
+                                prev_face = None, 
+                                use_limit = True,
+                                epsilon = 0.00001):
+    '''
+    Takes a bmesh and associated 
+    world matrix of the object 
+    
+    returns list of locations and edges
+        
+    Args:
+        bme: Blender BMesh
+        bvh:  BVH from Bmesh.  mathutils.bvhtree.BVHTree
+        
+        mx:   World matrix (type Mathutils.Matrix)
+        pt_A: any point close to the  bmesh surface
+        pt_b:  any point close to the bmesh surface
+        
+    '''
+    times = [time.time()]
+
+
+    no_a = bme.faces[ind_a].normal
+    no_b = bme.faces[ind_a].normal
+    
+    if prev_face and (prev_face.index == ind_a or prev_face.index == ind_b):
+        print('dumb rule!')
+        prev_face = None
+        
+    if use_limit:
+        #grow selection from A to B and from B to A this way we get good connectivity
+        faces_a = grow_selection_to_find_face(bme, bme.faces[ind_a], bme.faces[ind_b])
+        faces_b = grow_selection_to_find_face(bme, bme.faces[ind_b], bme.faces[ind_a])
+        faces_set = faces_a & faces_b
+        times.append(time.time())
+        step = times[-1] - times[-2]
+        #print('did connectivity growing in %f' % step) 
+    else:
+        faces_set = None
+    
+
+    verts = {}
+    
+    vec = loc_b - loc_a
+    loc_tip = loc_a
+    loc_tail = loc_b
+    cut_no_a = no_a.cross(vec)
+    cut_no_b = no_b.cross(vec)
+    
+    # find intersections of edges and cutting plane
+    bmface = bme.faces[ind_a]
+    bmedges = bmface.edges
+    ei_init = find_bmedges_crossing_plane(loc_a, cut_no_a, bmedges, epsilon)
+    
+    if len(ei_init) < 2:
+        print('warning: it should not reach here! len(ei_init) = %d' % len(ei_init))
+        print('lengths = ' + str([(edge.verts[0].co-edge.verts[1].co).length for edge in bmedges]))
+        return ([],[],[], False, 'NO_INTITIAL_CROSSES')
+    elif len(ei_init) == 2:
+        # simple case
+        ei0_max, ei1_max = ei_init
+    else:
+        #complex case, no difference except we need to pull out the first 2
+        ei0_max, ei1_max = ei_init[0], ei_init[1]
+        
+    # start walking one way around bmesh
+    if (prev_face and prev_face not in ei0_max[0].link_faces) or not prev_face:
+        verts0, crossed_eds0, crossed_faces0, looped0, found0, error0 = cross_section_walker_dynamic_endpoints(bme, ind_a, ei0_max[0].index, ei0_max[1], ind_b, loc_b, epsilon, limit_set = faces_set)
+    else:
+        print('prev face prevented walking in the Verts0 direction')
+        verts0, crossed_eds0, crossed_faces0, looped0, found0, error0 = [], [], [], False, False, 'PREV_FACE'
+        
+    if (prev_face and prev_face not in ei1_max[0].link_faces) or not prev_face:
+        verts1, crossed_eds1, crossed_faces1, looped1, found1, error1 = cross_section_walker_dynamic_endpoints(bme, ind_a, ei1_max[0].index, ei1_max[1], ind_b, loc_b, epsilon, limit_set = faces_set)
+    else:
+        print('prev face prevented walking in the Verts1 direction')
+        verts1, crossed_eds1, crossed_faces1, looped1, found1, error1 = [], [], [], False, False, 'PREV_FACE'
+        
+    if found0 and found1:
+        print('Found target both directions')
+        print('Len of path0:   %i' % len(verts0))
+        print('Len of path1:   %i' % len(verts1))
+        #great!  return the shortest path (TODO  shortest by path length)
+        if len(verts0) < len(verts1):
+            nv = len(verts0)
+            edges = [(i,i+1) for i in range(nv-1)]
+            return (verts0, edges, crossed_eds0, crossed_faces0, 'BOTH_DIR')
+        else:
+            nv = len(verts1)
+            edges = [(i,i+1) for i in range(nv-1)]
+            return (verts1, edges, crossed_eds1, crossed_faces1, 'BOTH_DIR')
+            
+    elif found0 and not found1:
+        #print('found other face only one direction verts0')
+        nv = len(verts0)
+        edges = [(i,i+1) for i in range(nv-1)]
+        return (verts0, edges, crossed_eds0, crossed_faces0, None)
+    
+    
+    elif found1 and not found0:
+        #print('found other face only one direction verts1')
+        nv = len(verts1)
+        edges = [(i,i+1) for i in range(nv-1)]
+        return (verts1, edges, crossed_eds1, crossed_faces1, None)
+    
+    else:
+        if len(verts0) and error0 == 'P_LOOP':
+            'P_LOOP usualy means poorly behaved mesh'
+            nv = len(verts0)
+            edges = [(i,i+1) for i in range(nv-1)]
+            return ([], [], [], [], 'P_LOOP')
+        
+        elif len(verts1) and error1 == 'P_LOOP':
+            'P_LOOP usualy means poorly behaved mesh'
+            nv = len(verts1)
+            edges = [(i,i+1) for i in range(nv-1)]
+            return ([], [], [], [], 'P_LOOP')
+        
+        elif len(verts0) and len(verts1) and (error0 == 'LIMIT_SET' and error1 == 'LIMIT_SET'):
+            if len(verts0) >= len(verts1):
+                nv = len(verts0)
+                edges = [(i,i+1) for i in range(nv-1)]
+                return (verts0, edges, crossed_eds0, crossed_faces0, 'LIMIT_SET')
+            else:
+                nv = len(verts1)
+                edges = [(i,i+1) for i in range(nv-1)]
+                return (verts1, edges, crossed_eds1, crossed_faces1, 'LIMIT_SET')
+        
+        if error0 == 'EPSILON' or error1 == 'EPSILON':
+            error = 'EPSILON'
+        else:
+            error = 'TOTAL'
+            
+        print('unable to walk at all')
+        print('Error 0: ' + error0)
+        print('Error 1: ' + error1)
+        return([], [], [], [], error)
+    
     
     
 def cross_section_2seeds_ver1(bme, point, normal, 

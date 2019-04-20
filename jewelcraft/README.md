@@ -12,20 +12,25 @@ Video:
 
 * [Demo v1.0](https://youtu.be/XZ6uIdNnrHk)
 * [Prongs & Cutters v2.0](https://youtu.be/AZlCFg8bDSg)
-* New in v2.1:
-  * [Weighting + Asset Manager](https://youtu.be/LApwGXBoSXc) / [Оценка веса + Менеджер ассетов](https://youtu.be/w2VWn8UlmPM)
-  * [Viewport Widgets](https://youtu.be/5ux0o1ABgTk) / [Виджеты](https://youtu.be/Ck26lgKQ64Y)
+* [Widgets v2.3](https://youtu.be/9VN_-seau3k)
 
-[More videos][2] / [Больше видео][3]
+[More videos][playlist_en] | [Больше видео][playlist_ru]
 
 
 How to install
 ==========================
 
-1. Blender 2.79 or newer is required to install the add-on.
-2. [Download the add-on.][1]<sup>1</sup>
-3. Go to Blender `User Preferences` → `Add-ons` category.
-4. Use `Install Add-on from File` to install add-on from downloaded zip archive.
+### Blender 2.80
+
+1. [Download JewelCraft v2.3.1 (April 8 pre-release).][v2_3_1]<sup>1</sup>
+2. Open `Edit` → `Preferences` → `Add-ons` category.
+3. Use `Install` to install add-on from downloaded zip archive.
+
+### Blender 2.79
+
+1. [Download JewelCraft v2.2.1.][v2_2_1]<sup>1</sup>
+2. Open `File` → `User Preferences` → `Add-ons` category.
+3. Use `Install Add-on from File` to install add-on from downloaded zip archive.
 
 <sup>1</sup> Note for mac users: Safari browser will automatically unpack downloaded zip archive, so in order to install the add-on, you have to pack folder with add-on files back into zip archive. Or use a different browser to download add-on.
 
@@ -33,14 +38,48 @@ How to install
 Установка
 ==========================
 
-1. Для установки аддона требуется Blender 2.79 или новее.
-2. [Загрузите аддон.][1]<sup>1</sup>
-3. Зайдите в настройки Blender `User Preferences` → `Add-ons`.
-4. Воспользуйтесь `Install Add-on from File` чтобы установить аддон из загруженного архива.
+### Blender 2.80
+
+1. [Загрузите JewelCraft v2.3.1 (пре-релиз от 8-04).][v2_3_1]<sup>1</sup>
+2. Откройте `Edit` → `Preferences` → `Add-ons`.
+3. Воспользуйтесь `Install` чтобы установить аддон из загруженного архива.
+
+### Blender 2.79
+
+1. [Загрузите JewelCraft v2.2.1.][v2_2_1]<sup>1</sup>
+2. Откройте `File` → `User Preferences` → `Add-ons`.
+3. Воспользуйтесь `Install Add-on from File` чтобы установить аддон из загруженного архива.
 
 <sup>1</sup> Примечание для пользователей mac: браузер Safari автоматически распаковывает скачиваемые zip архивы, поэтому, чтобы установить аддон, необходимо запаковать папку с файлами аддона обратно в zip архив. Или используйте другой браузер для скачивания аддона.
 
 
-[1]: https://github.com/mrachinskiy/jewelcraft/archive/master.zip
-[2]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KhfestF7xCic1jf5YjXiVh
-[3]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KQ0cobvQLR2q3sYF6fH2lh
+Contributing
+==========================
+
+### Did you find a bug?
+
+* Ensure the bug can be reproduced in the latest add-on version.
+* If error occurs on add-on installation or activation, check [how to install][install_guide] guide.
+* [Open new issue][new_issue], be sure to include Blender and add-on versions, and screenshot showing the error message.
+
+### Translations
+
+* Get `localization/ru.py` translation dictionary from repository and use it as an example template for your translation.
+* Example:
+  ```
+  "Save to file": "Сохранить в файл",
+  "{} duplicates found": "{} дубликатов обнаружено",
+  "Use Show Hidden/Alt H": "Используйте Show Hidden/Alt H",
+  ```
+  * On the left is the original English message, on the right is Russian translation of that message.
+  * Note that no every word has to be translated, in this example `Show Hidden` is not translated because it referencing Blender tool name.
+  * Do not add additional key value pairs to the dictionary, or change formatting.
+* After translation is done submit it back through email or pull request.
+
+
+[v2_3_1]: https://github.com/mrachinskiy/jewelcraft/releases/download/v2.3.1/jewelcraft-2_3_1.zip
+[v2_2_1]: https://github.com/mrachinskiy/jewelcraft/releases/download/v2.2.1/jewelcraft-2_2_1.zip
+[playlist_en]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KhfestF7xCic1jf5YjXiVh
+[playlist_ru]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KQ0cobvQLR2q3sYF6fH2lh
+[install_guide]: https://github.com/mrachinskiy/jewelcraft#how-to-install
+[new_issue]: https://github.com/mrachinskiy/jewelcraft/issues/new

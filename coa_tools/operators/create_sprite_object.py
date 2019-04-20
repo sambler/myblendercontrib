@@ -44,11 +44,16 @@ class CreateSpriteObject(bpy.types.Operator):
         
         if context.active_object != None and obj.type == "ARMATURE" and obj.mode == "POSE":
             context.scene.objects.active = None
-        bpy.ops.object.empty_add(type='PLAIN_AXES', radius=1, view_align=False, location=context.scene.cursor_location)
-        empty = bpy.context.active_object
-        empty.name = "SpriteObject"
-        empty.show_name = True
-        empty.show_x_ray = True
-        empty["sprite_object"] = True
+        bpy.ops.object.armature_add(view_align=False, enter_editmode=False)
+        sprite_object = bpy.context.active_object
+        sprite_object.name = "SpriteObject"
+        sprite_object.show_name = True
+        sprite_object.show_x_ray = True
+        sprite_object["sprite_object"] = True
+        sprite_object.show_axis = True
+        bpy.ops.object.mode_set(mode="EDIT")
+        for bone in sprite_object.data.edit_bones:
+            sprite_object.data.edit_bones.remove(bone)
+        bpy.ops.object.mode_set(mode="OBJECT")
         bpy.ops.ed.undo_push(message="Create Sprite Object")
         return{"FINISHED"}

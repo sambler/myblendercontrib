@@ -254,7 +254,7 @@ def vtx_specials(self, m):
 
     if not addon_enabled:
         try:
-            bpy.ops.wm.addon_enable(module="mesh_tinyCAD")
+            bpy.ops.preferences.addon_enable(module="mesh_tinyCAD")
         except:
             print('tinyCAD addon not found.')
             return
@@ -305,7 +305,7 @@ def test_dl_run(packaged, invoke_type=None):
 
     if not addon_enabled:
         try:
-            bpy.ops.wm.addon_enable(module=_module)
+            bpy.ops.preferences.addon_enable(module=_module)
             # getattr(_ops, _name)()
             run_addon(_ops, _name, invoke_type)
             return
@@ -333,7 +333,7 @@ def test_dl_run(packaged, invoke_type=None):
 
         # try one last time to enable and run.
         try:
-            bpy.ops.wm.addon_enable(module=_module)
+            bpy.ops.preferences.addon_enable(module=_module)
             # getattr(_ops, _name)()
             run_addon(_ops, _name, invoke_type)
             return

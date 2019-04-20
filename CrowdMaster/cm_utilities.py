@@ -1,4 +1,4 @@
-# Copyright 2017 CrowdMaster Developer Team
+# Copyright 2019 CrowdMaster Development Team
 #
 # ##### BEGIN GPL LICENSE BLOCK ######
 # This file is part of CrowdMaster.
@@ -17,13 +17,9 @@
 # along with CrowdMaster.  If not, see <http://www.gnu.org/licenses/>.
 # ##### END GPL LICENSE BLOCK #####
 
-import time
-
 import bpy
 from bpy.props import BoolProperty
 from bpy.types import Operator
-
-from .cm_iconLoad import cicon
 
 bpy.types.Scene.show_utilities = BoolProperty(
     name="Show or hide the utilities",
@@ -39,8 +35,6 @@ class Crowdmaster_place_deferred_geo(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        preferences = context.user_preferences.addons[__package__].preferences
-
         groups = bpy.data.groups
         objects = context.scene.objects
         for group in context.scene.cm_groups:
@@ -68,7 +62,7 @@ class Crowdmaster_place_deferred_geo(Operator):
                                     newObj.data.update()
                             if not child:
                                 newObj.matrix_world = obj.matrix_world
-                            bpy.context.scene.objects.link(newObj)
+                            context.scene.objects.link(newObj)
                             for user_group in obj.users_group:
                                 user_group.objects.link(newObj)
                         elif "cm_deferGroup" in obj:
@@ -94,7 +88,7 @@ class Crowdmaster_place_deferred_geo(Operator):
                                             nObj.parent)]
 
                                     groups[agent.geoGroup].objects.link(nObj)
-                                    bpy.context.scene.objects.link(nObj)
+                                    context.scene.objects.link(nObj)
                                     if nObj.type == 'MESH' and len(nObj.modifiers) > 0:
                                         for mod in nObj.modifiers:
                                             if mod.type == "ARMATURE":
@@ -112,7 +106,7 @@ class Crowdmaster_place_deferred_geo(Operator):
                                         nObj.parent = obj
 
                                     groups[agent.geoGroup].objects.link(nObj)
-                                    bpy.context.scene.objects.link(nObj)
+                                    context.scene.objects.link(nObj)
                             if "cm_materials" in obj:
                                 materials = obj["cm_materials"]
                                 for nObj in newObjs:
@@ -131,11 +125,11 @@ class Crowdmaster_switch_dupli_group(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        for obj in bpy.context.selected_objects:
+        for obj in context.selected_objects:
             if obj.dupli_type == "GROUP":
-                suffix = bpy.context.scene.cm_switch_dupli_group_suffix
+                suffix = context.scene.cm_switch_dupli_group_suffix
                 if obj.dupli_group.name[-len(suffix):] == suffix:
-                    target = bpy.context.scene.cm_switch_dupli_group_target
+                    target = context.scene.cm_switch_dupli_group_target
                     replaceName = obj.dupli_group.name[:-len(suffix)] + target
                     replaceSource = obj.dupli_group.library
                     for grp in bpy.data.groups:

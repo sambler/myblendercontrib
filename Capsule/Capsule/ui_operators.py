@@ -5,14 +5,14 @@ from mathutils import Vector
 from bpy.types import Operator
 from bpy.props import IntProperty, BoolProperty, FloatProperty, EnumProperty, PointerProperty, StringProperty, CollectionProperty
 
-from .tk_utils import groups as group_utils
+from .tk_utils import collections as collection_utils
 from .tk_utils import select as select_utils
 from .export_formats import CAP_ExportFormat
 from . import export_presets
 
 #///////////////// - LOCATION DEFAULTS - ///////////////////////////////////////////
 
-class CAP_Add_Path(Operator):
+class CAPSULE_OT_Add_Path(Operator):
     """Create a new location."""
 
     bl_idname = "scene.cap_addpath"
@@ -21,8 +21,8 @@ class CAP_Add_Path(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         newPath = exp.location_presets.add()
@@ -41,7 +41,7 @@ class CAP_Add_Path(Operator):
 
         return {'FINISHED'}
 
-class CAP_Delete_Path(Operator):
+class CAPSULE_OT_Delete_Path(Operator):
     """Delete the selected location from the list."""
 
     bl_idname = "scene.cap_deletepath"
@@ -50,8 +50,8 @@ class CAP_Delete_Path(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         exp.location_presets.remove(exp.location_presets_listindex)
@@ -59,7 +59,7 @@ class CAP_Delete_Path(Operator):
         return {'FINISHED'}
 
 
-class CAP_Add_Export(Operator):
+class CAPSULE_OT_Add_Export(Operator):
     """Create a new file preset."""
 
     bl_idname = "scene.cap_addexport"
@@ -77,8 +77,8 @@ class CAP_Add_Export(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
 
@@ -92,7 +92,7 @@ class CAP_Add_Export(Operator):
 
         return {'FINISHED'}
 
-class CAP_Delete_Export(Operator):
+class CAPSULE_OT_Delete_Export(Operator):
     """Delete the selected file preset from the list."""
 
     bl_idname = "scene.cap_deleteexport"
@@ -102,8 +102,8 @@ class CAP_Delete_Export(Operator):
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         if len(exp.file_presets) > 0:
@@ -114,8 +114,8 @@ class CAP_Delete_Export(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # remove the data from both lists
@@ -128,7 +128,7 @@ class CAP_Delete_Export(Operator):
         return {'FINISHED'}
 
 
-class CAP_Add_Tag(Operator):
+class CAPSULE_OT_Add_Tag(Operator):
     """Create a new tag."""
 
     bl_idname = "scene.cap_addtag"
@@ -138,8 +138,8 @@ class CAP_Add_Tag(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Add the tag into the main list
@@ -158,7 +158,7 @@ class CAP_Add_Tag(Operator):
 
         return {'FINISHED'}
 
-class CAP_Delete_Tag(Operator):
+class CAPSULE_OT_Delete_Tag(Operator):
     """Delete the selected tag from the list."""
 
     bl_idname = "scene.cap_deletetag"
@@ -166,8 +166,8 @@ class CAP_Delete_Tag(Operator):
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         export = exp.file_presets[exp.file_presets_listindex]
@@ -183,8 +183,8 @@ class CAP_Delete_Tag(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         export = exp.file_presets[exp.file_presets_listindex]
@@ -200,7 +200,7 @@ class CAP_Delete_Tag(Operator):
         return {'FINISHED'}
 
 
-class CAP_Add_Pass(Operator):
+class CAPSULE_OT_Add_Pass(Operator):
     """Create a new pass."""
 
     bl_idname = "scene.cap_addpass"
@@ -209,8 +209,8 @@ class CAP_Add_Pass(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         export = exp.file_presets[exp.file_presets_listindex]
@@ -229,7 +229,7 @@ class CAP_Add_Pass(Operator):
 
         return {'FINISHED'}
 
-class CAP_Delete_Pass(Operator):
+class CAPSULE_OT_Delete_Pass(Operator):
     """Delete the selected pass from the list."""
 
     bl_idname = "scene.cap_deletepass"
@@ -237,8 +237,8 @@ class CAP_Delete_Pass(Operator):
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         export = exp.file_presets[exp.file_presets_listindex]
@@ -250,8 +250,8 @@ class CAP_Delete_Pass(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         export = exp.file_presets[exp.file_presets_listindex]
@@ -262,7 +262,7 @@ class CAP_Delete_Pass(Operator):
 
         return {'FINISHED'}
 
-class CAP_Shift_Path_Up(Operator):
+class CAPSULE_OT_Shift_Path_Up(Operator):
     """Move the current entry in the list up by one"""
 
     bl_idname = "scene.cap_shiftup"
@@ -279,7 +279,7 @@ class CAP_Shift_Path_Up(Operator):
 
         return {'FINISHED'}
 
-class CAP_Shift_Path_Down(Operator):
+class CAPSULE_OT_Shift_Path_Down(Operator):
     """Move the current entry in the list down by one"""
 
     bl_idname = "scene.cap_shiftdown"
@@ -296,7 +296,7 @@ class CAP_Shift_Path_Down(Operator):
 
         return {'FINISHED'}
 
-class CAP_Set_Root_Object(Operator):
+class CAPSULE_OT_Set_Root_Object(Operator):
     """Allows you to set the Origin Object through an interactive tool.  Right-Click: Select the object you wish to be the origin point for the scene.  Esc - Quit the tool."""
 
     bl_idname = "scene.cap_setroot"
@@ -311,32 +311,32 @@ class CAP_Set_Root_Object(Operator):
     def execute(self, context):
         scn = context.scene.CAPScn
 
-        user_preferences = context.user_preferences
-        self.addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        self.addon_prefs = preferences.addons[__package__].preferences
 
-        self.groups = []
+        self.collections = []
         self.object = None
         self.list_item = 0
         context.window_manager.modal_handler_add(self)
 
         # If multi-edit is on, get info from the scene
-        if self.addon_prefs.group_multi_edit is True:
+        if self.addon_prefs.collection_multi_edit is True:
             print("Multi-edit on")
             self.object = context.scene.objects.active
             for object in context.selected_objects:
-                for foundGroup in object.users_group:
-                    self.groups.append(foundGroup)
+                for found_collection in object.users_collection:
+                    self.collections.append(found_collection)
 
         # Otherwise, find it in the scene
         else:
             print("Multi-edit off")
-            self.list_item = context.scene.CAPScn.group_list_index
-            item = context.scene.CAPScn.group_list[context.scene.CAPScn.group_list_index]
-            for foundGroup in tk_utils.groups.GetSceneGroups(context.scene, True):
-                if foundGroup.name == item.name:
-                    self.groups.append(foundGroup)
+            self.list_item = context.scene.CAPScn.collection_list_index
+            item = context.scene.CAPScn.collection_list[context.scene.CAPScn.collection_list_index]
+            for found_collection in collection_utils.GetSceneCollections(context.scene, True):
+                if found_collection.name == item.name:
+                    self.collections.append(found_collection)
 
-        print("Groups found....", self.groups)
+        print("Collections found....", self.collections)
         self._timer = context.window_manager.event_timer_add(0.05, context.window)
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -359,12 +359,12 @@ class CAP_Set_Root_Object(Operator):
 
             # Check only one object was selected
             if context.selected_objects != None and len(context.selected_objects) == 1:
-                for group in self.groups:
-                    group.CAPGrp.root_object = context.scene.objects.active.name
+                for collection in self.collections:
+                    collection.CAPCol.root_object = context.scene.objects.active.name
                 if self.object != None:
                     select_utils.FocusObject(self.object)
                 else:
-                    context.scene.CAPScn.group_list_index = self.list_item
+                    context.scene.CAPScn.collection_list_index = self.list_item
                 self.finish()
 
                 return{'FINISHED'}
@@ -376,8 +376,8 @@ class CAP_Set_Root_Object(Operator):
         return {'FINISHED'}
 
 
-class CAP_Clear_Root_Object(Operator):
-    """Clear the currently chosen origin object for the group."""
+class CAPSULE_OT_Clear_Root_Object(Operator):
+    """Clear the currently chosen origin object for the collection."""
 
     bl_idname = "scene.cap_clearroot"
     bl_label = "Remove"
@@ -387,28 +387,28 @@ class CAP_Clear_Root_Object(Operator):
 
         scn = context.scene.CAPScn
         obj = context.active_object.CAPObj
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
 
         # If multi-edit is on, get info from the scene
-        if addon_prefs.group_multi_edit is True:
+        if addon_prefs.collection_multi_edit is True:
             print("Multi-edit on")
             for object in context.selected_objects:
-                for foundGroup in object.users_group:
-                    foundGroup.CAPGrp.root_object = ""
+                for found_collection in object.users_collection:
+                    found_collection.CAPCol.root_object = ""
 
         # Otherwise, find it in the scene
         else:
             print("Multi-edit off")
-            item = context.scene.CAPScn.group_list[context.scene.CAPScn.group_list_index]
-            for foundGroup in groups.GetSceneGroups(context.scene, True):
-                if foundGroup.name == item.name:
-                    foundGroup.CAPGrp.root_object = ""
+            item = context.scene.CAPScn.collection_list[context.scene.CAPScn.collection_list_index]
+            for found_collection in collection_utils.GetSceneCollections(context.scene, True):
+                if found_collection.name == item.name:
+                    found_collection.CAPCol.root_object = ""
 
         return {'FINISHED'}
 
 
-class CAP_Clear_List(Operator):
+class CAPSULE_OT_Clear_List(Operator):
     """Delete all objects from the export list, and un-mark them for export"""
 
     bl_idname = "scene.cap_clearlist"
@@ -428,19 +428,19 @@ class CAP_Clear_List(Operator):
             scn.object_list.clear()
 
         elif objectTab == 2:
-            for group in group_utils.GetSceneGroups(context.scene, True):
-                grp = group.CAPGrp
-                grp.enable_export = False
-                grp.in_export_list = False
-            scn.group_list.clear()
+            for collection in collection_utils.GetSceneCollections(context.scene, True):
+                col = objectTab.CAPCol
+                col.enable_export = False
+                col.in_export_list = False
+            scn.collection_list.clear()
 
         scn.enable_sel_active = False
         scn.enable_list_active = False
 
         return {'FINISHED'}
 
-class CAP_Refresh_List(Operator):
-    """Rebuild the list based on available objects or groups in the scene."""
+class CAPSULE_OT_Refresh_List(Operator):
+    """Rebuild the list based on available objects or collections in the scene."""
 
     bl_idname = "scene.cap_refreshlist"
     bl_label = "Refresh"
@@ -462,13 +462,13 @@ class CAP_Refresh_List(Operator):
 
 
         elif objectTab == 2:
-            scn.group_list.clear()
-            for group in group_utils.GetSceneGroups(context.scene, True):
-                if group.CAPGrp.in_export_list is True:
-                        entry = scn.group_list.add()
-                        entry.name = group.name
-                        entry.prev_name = group.name
-                        entry.enable_export = group.CAPGrp.enable_export
+            scn.collection_list.clear()
+            for collection in collection_utils.GetSceneCollections(context.scene, True):
+                if collection.CAPCol.in_export_list is True:
+                        entry = scn.collection_list.add()
+                        entry.name = collection.name
+                        entry.prev_name = collection.name
+                        entry.enable_export = collection.CAPCol.enable_export
 
         scn.enable_sel_active = False
         scn.enable_list_active = False
@@ -476,8 +476,8 @@ class CAP_Refresh_List(Operator):
         return {'FINISHED'}
 
 
-class CAP_Reset_Scene(Operator):
-    """Reset all object and group variables in the scene.  Use at your own peril!"""
+class CAPSULE_OT_Reset_Scene(Operator):
+    """Reset all object and collection variables in the scene.  Use at your own peril!"""
 
     bl_idname = "scene.cap_resetsceneprops"
     bl_label = "Reset Scene"
@@ -497,13 +497,13 @@ class CAP_Reset_Scene(Operator):
 
         active = context.active_object
 
-        for group in tk_utils.groups.GetSceneGroups(context.scene, False):
-            grp = group.CAPGrp
-            grp.enable_export = False
-            grp.root_object = ""
-            grp.location_default = '0'
-            grp.export_default = '0'
-            grp.normals = '1'
+        for collection in collection_utils.GetSceneCollections(context.scene, False):
+            col = collection.CAPCol
+            col.enable_export = False
+            col.root_object = ""
+            col.location_default = '0'
+            col.export_default = '0'
+            col.normals = '1'
 
         for object in context.scene.objects:
             obj = object.CAPObj
@@ -524,7 +524,7 @@ class CAP_Reset_Scene(Operator):
 
         return {'FINISHED'}
 
-class CAP_Reset_Defaults(Operator):
+class CAPSULE_OT_Reset_Defaults(Operator):
     """Reset all location and export defaults in the file"""
 
     bl_idname = "scene.cap_resetprefs"
@@ -533,8 +533,8 @@ class CAP_Reset_Defaults(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
 
         if addon_prefs == None:
             print("ADDON COULD NOT START, CONTACT DEVELOPER FOR ASSISTANCE")
@@ -549,17 +549,17 @@ class CAP_Reset_Defaults(Operator):
         bpy.ops.object.select_all(action='DESELECT')
         bpy.ops.object.empty_add(type='PLAIN_AXES')
 
-        defaultDatablock = bpy.context.scene.objects.active
+        defaultDatablock = bpy.context.view_layer.objects.active
         defaultDatablock.name = addon_prefs.default_datablock
-        defaultDatablock.hide = True
+        defaultDatablock.hide_viewport = True
         defaultDatablock.hide_render = True
         defaultDatablock.hide_select = True
 
 
         return {'FINISHED'}
 
-class CAP_UI_Group_Separate(Operator):
-    """Toggle the drop-down menu for separate group export options"""
+class CAPSULE_OT_UI_Group_Separate(Operator):
+    """Toggle the drop-down menu for separate collection export options"""
 
     bl_idname = "scene.cap_grpseparate"
     bl_label = ""
@@ -577,8 +577,8 @@ class CAP_UI_Group_Separate(Operator):
 
         return {'FINISHED'}
 
-class CAP_UI_Group_Options(Operator):
-    """Toggle the drop-down menu for separate group export options"""
+class CAPSULE_OT_UI_Group_Options(Operator):
+    """Toggle the drop-down menu for separate collection export options"""
 
     bl_idname = "scene.cap_grpoptions"
     bl_label = ""
@@ -597,8 +597,8 @@ class CAP_UI_Group_Options(Operator):
         return {'FINISHED'}
 
 
-class CAP_Refresh_Actions(Operator):
-    """Generate a list of groups to browse"""
+class CAPSULE_OT_Refresh_Actions(Operator):
+    """Generate a list of collections to browse"""
 
     bl_idname = "scene.cap_refactions"
     bl_label = "Refresh"
@@ -655,11 +655,11 @@ class CAP_Refresh_Actions(Operator):
 
         return {'FINISHED'}
 
-class CAP_Tutorial_Tags(Operator):
+class CAPSULE_OT_Tutorial_Tags(Operator):
     """Delete the selected file preset from the list."""
 
     bl_idname = "cap_tutorial.tags"
-    bl_label = "Tags let you automatically split objects in your passes by defining an object suffix/prefix and/or object type, that objects in the pass it's used in need to match in order to be included for export, enabiling you to create multiple different versions of an object or group export, without having to manually define them."
+    bl_label = "Tags let you automatically split objects in your passes by defining an object suffix/prefix and/or object type, that objects in the pass it's used in need to match in order to be included for export, enabiling you to create multiple different versions of an object or collection export without having to manually define them."
 
     StringProperty(default="Are you sure you wish to delete the selected preset?")
 
@@ -674,7 +674,7 @@ class CAP_Tutorial_Tags(Operator):
 
         return {'FINISHED'}
 
-class CAP_Create_ExportData(Operator):
+class CAPSULE_OT_Create_ExportData(Operator):
     """Create a new empty object for which Capsule data is stored, and where both file presets and other scene data is stored."""
 
     bl_idname = "cap.exportdata_create"
@@ -683,8 +683,8 @@ class CAP_Create_ExportData(Operator):
     def execute(self, context):
         print(self)
 
-        user_preferences = bpy.context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = bpy.context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
 
         # Figure out if an object already exists, if yes do nothing
         for object in bpy.data.objects:
@@ -697,9 +697,9 @@ class CAP_Create_ExportData(Operator):
         bpy.ops.object.select_all(action='DESELECT')
         bpy.ops.object.empty_add(type='PLAIN_AXES')
 
-        defaultDatablock = bpy.context.scene.objects.active
+        defaultDatablock = bpy.context.view_layer.objects.active
         defaultDatablock.name = addon_prefs.default_datablock
-        defaultDatablock.hide = True
+        defaultDatablock.hide_viewport = True
         defaultDatablock.hide_render = True
         defaultDatablock.hide_select = True
         defaultDatablock.CAPExp.is_storage_object = True
@@ -709,15 +709,15 @@ class CAP_Create_ExportData(Operator):
         return {'FINISHED'}
 
 
-class CAP_Add_Stored_Presets(Operator):
+class CAPSULE_OT_Add_Stored_Presets(Operator):
     """Add the currently selected saved preset into the file presets list, enabling it's use for exports in this .blend file."""
     bl_idname = "cap.create_current_preset"
     bl_label = "Default Presets"
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         if len(addon_prefs.saved_presets) > 0:
@@ -729,8 +729,8 @@ class CAP_Add_Stored_Presets(Operator):
     def execute(self, context):
 
         # Get the current export data
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Obtain the selected preset
@@ -739,15 +739,15 @@ class CAP_Add_Stored_Presets(Operator):
 
         return {'FINISHED'}
 
-class CAP_Delete_Presets(Operator):
+class CAPSULE_OT_Delete_Presets(Operator):
     """Delete the currently selected saved preset."""
     bl_idname = "cap.delete_global_preset"
     bl_label = "Store Preset"
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
 
         if len(addon_prefs.saved_presets) > 0:
             export = addon_prefs.saved_presets[addon_prefs.saved_presets_index]
@@ -760,8 +760,8 @@ class CAP_Delete_Presets(Operator):
     def execute(self, context):
 
         # Get the current export data
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Obtain the selected preset
@@ -773,15 +773,15 @@ class CAP_Delete_Presets(Operator):
 
         return {'FINISHED'}
 
-class CAP_Store_Presets(Operator):
+class CAPSULE_OT_Store_Presets(Operator):
     """Store the currently selected export preset as a saved preset, to enable it's use in across .blend files."""
     bl_idname = "cap.add_global_preset"
     bl_label = "Store Preset"
 
     @classmethod
     def poll(cls, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         if len(exp.file_presets) > 0:
@@ -794,8 +794,8 @@ class CAP_Store_Presets(Operator):
     def execute(self, context):
 
         # Get the current export data
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__package__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Obtain the selected preset
@@ -803,5 +803,44 @@ class CAP_Store_Presets(Operator):
         export_presets.CopyPreset(exp.file_presets[exp.file_presets_listindex], new_preset)
 
         return {'FINISHED'}
+
+
+# ////////////////////// - CLASS REGISTRATION - ////////////////////////
+# decided to do it all in __init__ instead, skipping for now.
+
+# classes = (
+#     CAPSULE_OT_Add_Path,
+#     CAPSULE_OT_Delete_Path,
+#     CAPSULE_OT_Add_Export,
+#     CAPSULE_OT_Delete_Export,
+#     CAPSULE_OT_Add_Tag,
+#     CAPSULE_OT_Delete_Tag,
+#     CAPSULE_OT_Add_Pass,
+#     CAPSULE_OT_Delete_Pass,
+#     CAPSULE_OT_Shift_Path_Up,
+#     CAPSULE_OT_Shift_Path_Down,
+#     CAPSULE_OT_Set_Root_Object,
+#     CAPSULE_OT_Clear_Root_Object,
+#     CAPSULE_OT_Clear_List,
+#     CAPSULE_OT_Refresh_List,
+#     CAPSULE_OT_Reset_Scene,
+#     CAPSULE_OT_Reset_Defaults,
+#     CAPSULE_OT_UI_Group_Separate,
+#     CAPSULE_OT_UI_Group_Options,
+#     CAPSULE_OT_Refresh_Actions,
+#     CAPSULE_OT_Tutorial_Tags,
+#     CAPSULE_OT_Create_ExportData,
+#     CAPSULE_OT_Add_Stored_Presets,
+#     CAPSULE_OT_Delete_Presets,
+#     CAPSULE_OT_Store_Presets,
+# )
+
+# def register():
+#     for cls in classes:
+#         bpy.utils.register_class(cls)
+
+# def unregister():
+#     for cls in reversed(classes):
+#         bpy.utils.unregister_class(cls)
 
 

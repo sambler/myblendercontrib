@@ -3,13 +3,16 @@ import bmesh
 import math
 import mathutils as mathu
 
-from bpy.props import IntProperty, FloatProperty
+from bpy.props import (
+    IntProperty,
+    FloatProperty
+)
 
 bl_info = {
     "name": "Quick Pipe",
     "author": "floatvoid (Jeremy Mitchell), Pavel Geraskin",
     "version": (1, 0),
-    "blender": (2, 79, 0),
+    "blender": (2, 80, 0),
     "location": "View3D > Edit Mode",
     "description": "Quickly converts an edge selection to an extruded curve.",
     "warning": "",
@@ -22,8 +25,8 @@ class jmPipeTool(bpy.types.Operator):
     bl_label = "Quick Pipe"
     bl_options = {'REGISTER', 'UNDO'}
 
-    first_mouse_x = IntProperty()
-    first_value = FloatProperty()
+    first_mouse_x : IntProperty()
+    first_value : FloatProperty()
 
     def modal(self, context, event):
         if event.type in {'RIGHTMOUSE', 'ESC', 'LEFTMOUSE'}:
@@ -56,15 +59,16 @@ class jmPipeTool(bpy.types.Operator):
                 bpy.ops.mesh.duplicate_move()
                 bpy.ops.mesh.separate(type='SELECTED')
                 bpy.ops.object.editmode_toggle()
-                bpy.ops.object.select_all(action='DESELECT')
 
-                pipe = bpy.context.scene.objects[0]
-                pipe.select = True
-                bpy.context.scene.objects.active = pipe
+                #pipe = context.view_layer.objects[-1]
+                pipe = context.selected_objects[-1]
+                bpy.ops.object.select_all(action='DESELECT')
+                pipe.select_set(state=True)
+                context.view_layer.objects.active = pipe
                 bpy.ops.object.convert(target='CURVE')
 
                 pipe.data.fill_mode = 'FULL'
-                #pipe.data.splines[0].use_smooth = True
+                pipe.data.splines[0].use_smooth = True
                 pipe.data.bevel_resolution = 1
                 pipe.data.bevel_depth = 0.1
 
@@ -81,29 +85,49 @@ class jmPipeTool(bpy.types.Operator):
             return {'CANCELLED'}
 
 
-class VIEW3D_PT_tools_jmPipeTool(bpy.types.Panel):
+#class VIEW3D_PT_tools_jmPipeTool(bpy.types.Panel):
 
-    bl_label = "Quick Pipe"
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
-    bl_category = 'Tools'
-    bl_context = "mesh_edit"
-    bl_options = {'DEFAULT_CLOSED'}
+    #bl_label = "Quick Pipe"
+    #bl_space_type = 'VIEW_3D'
+    #bl_region_type = 'TOOLS'
+    #bl_category = 'Tools'
+    #bl_context = "mesh_edit"
+    #bl_options = {'DEFAULT_CLOSED'}
     
-    def draw(self, context):
-        layout = self.layout
+    #def draw(self, context):
+        #layout = self.layout
         
-        row = layout.row()        
-        row.operator("object.quickpipe")
+        #row = layout.row()        
+        #row.operator("object.quickpipe")
 
 
+def menu_func(self, context):
+    layout = self.layout
+    layout.operator_context = "INVOKE_DEFAULT"
+    self.layout.operator(jmPipeTool.bl_idname, text="Quick Pipe")
+
+classes = (
+    jmPipeTool,
+)
+
+
+# Register
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    #  update_panel(None, bpy.context)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.append(menu_func)  # Mesh Context Menu
+    #bpy.types.VIEW3D_MT_edit_mesh_vertices.append(menu_func)  # Vertices Menu(CTRL+V)
+    bpy.types.VIEW3D_MT_edit_mesh_edges.append(menu_func)  # Edge Menu(CTRL+E)
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
+
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(menu_func)
+    #bpy.types.VIEW3D_MT_edit_mesh_vertices.remove(menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh_edges.remove(menu_func)
 
 if __name__ == "__main__":
     register()
-    
