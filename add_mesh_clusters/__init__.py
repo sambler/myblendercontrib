@@ -84,7 +84,8 @@ class CLASS_PT_atom_cluster_panel(Panel):
     bl_label       = "Atomic Blender - Cluster"
     bl_space_type  = "VIEW_3D"
     bl_region_type = "UI"
-
+    bl_category = "Create"
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(self, context):
