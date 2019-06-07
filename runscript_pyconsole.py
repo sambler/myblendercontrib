@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Run Script in PyConsole",
     "author": "CoDEmanX, SAmbler",
-    "version": (2, 0),
+    "version": (2, 1),
     "blender": (2, 80, 0),
     "location": "Python Console > Console > Run Script",
     "description": "Execute the code of a textblock or file within the python console.",
@@ -74,7 +74,7 @@ def main(self, context):
 class RunScriptPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
-    scripts_folder = bpy.props.StringProperty(name="Scripts Folder",
+    scripts_folder : bpy.props.StringProperty(name="Scripts Folder",
                         description="Folder containing scripts to add to the menu.",
                         default='//scripts', update=clear_menu_items)
 
@@ -88,7 +88,7 @@ class CONSOLE_OT_run_script(bpy.types.Operator):
     bl_idname = "console.run_code"
     bl_label = "Run script"
 
-    text = bpy.props.StringProperty()
+    text : bpy.props.StringProperty()
 
     @classmethod
     def poll(cls, context):
@@ -124,7 +124,7 @@ class CONSOLE_OT_load_script(bpy.types.Operator):
     bl_idname = "console.run_code_file"
     bl_label = "Run script from file"
 
-    filepath = bpy.props.StringProperty()
+    filepath : bpy.props.StringProperty()
 
     @classmethod
     def poll(cls, context):
