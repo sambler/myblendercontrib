@@ -8,7 +8,7 @@ from .utils import getBBOX
 from ..core.maths.interpo import scale
 
 
-class Analysis_nodes(Operator):
+class TERRAIN_ANALYSIS_OT_build_nodes(Operator):
 	'''Create material node thee to analysis height, slope and aspect'''
 	bl_idname = "analysis.nodes"
 	bl_description  = "Create height, slope and aspect material nodes setup for Cycles"
@@ -17,7 +17,7 @@ class Analysis_nodes(Operator):
 	def execute(self, context):
 		scn = context.scene
 		scn.render.engine = 'CYCLES' #force Cycles render
-		obj = scn.objects.active
+		obj = context.view_layer.objects.active
 		if obj is None:
 			self.report({'ERROR'}, "No active object")
 			return {'CANCELLED'}
@@ -357,3 +357,9 @@ class Analysis_nodes(Operator):
 			faces.material_index = obj.active_material_index
 
 		return {'FINISHED'}
+
+def register():
+	bpy.utils.register_class(TERRAIN_ANALYSIS_OT_build_nodes)
+
+def unregister():
+	bpy.utils.unregister_class(TERRAIN_ANALYSIS_OT_build_nodes)

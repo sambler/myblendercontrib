@@ -19,17 +19,23 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from math import pi
+from math import pi, tau
 
 import bpy
 from bpy.types import Operator
-from bpy.props import FloatProperty, BoolProperty, EnumProperty
+from bpy.props import (
+    FloatProperty,
+    IntProperty,
+    BoolProperty,
+    EnumProperty,
+    StringProperty,
+)
 from mathutils import Matrix
 
 from ..lib import asset
 
 
-class OBJECT_OT_jewelcraft_mirror(Operator):
+class OBJECT_OT_mirror(Operator):
     bl_label = "JewelCraft Mirror"
     bl_description = "Mirror selected objects around one or more axes, keeping object data linked"
     bl_idname = "object.jewelcraft_mirror"
@@ -38,7 +44,6 @@ class OBJECT_OT_jewelcraft_mirror(Operator):
     x: BoolProperty(name="X", options={"SKIP_SAVE"})
     y: BoolProperty(name="Y", options={"SKIP_SAVE"})
     z: BoolProperty(name="Z", options={"SKIP_SAVE"})
-
     use_cursor: BoolProperty(name="Use 3D Cursor")
 
     def draw(self, context):
@@ -50,6 +55,7 @@ class OBJECT_OT_jewelcraft_mirror(Operator):
         layout.prop(self, "x")
         layout.prop(self, "y")
         layout.prop(self, "z")
+
         layout.label(text="Pivot Point")
         layout.prop(self, "use_cursor")
 
@@ -76,6 +82,12 @@ class OBJECT_OT_jewelcraft_mirror(Operator):
 
             ob = ob_orig.copy()
 
+            duplimap[ob_orig] = ob
+
+            if ob.parent:
+                children[ob] = ob.parent
+                ob.parent = None
+
             if not is_gem and ob.data:
                 ob.data = ob_orig.data.copy()
 
@@ -85,19 +97,13 @@ class OBJECT_OT_jewelcraft_mirror(Operator):
             if use_local_view:
                 ob.local_view_set(space_data, True)
 
-            ob.select_set(True)
-            ob_orig.select_set(False)
-            ob.matrix_world = ob_orig.matrix_world
-
-            duplimap[ob_orig] = ob
-
-            if ob.parent:
-                children[ob] = ob.parent
-                ob.parent = None
-
             if ob.constraints:
                 for con in ob.constraints:
                     ob.constraints.remove(con)
+
+            ob.select_set(True)
+            ob_orig.select_set(False)
+            ob.matrix_world = ob_orig.matrix_world
 
             for i in axes:
 
@@ -149,7 +155,95 @@ class OBJECT_OT_jewelcraft_mirror(Operator):
         return wm.invoke_props_popup(self, event)
 
 
-class OBJECT_OT_jewelcraft_make_dupliface(Operator):
+class OBJECT_OT_radial_instance(Operator):
+    bl_label = "JewelCraft Radial Instance"
+    bl_description = (
+        "Make collection instances in radial order\n"
+        "(Shortcut: hold Alt when using the tool to use existing collection)"
+    )
+    bl_idname = "object.jewelcraft_radial_instance"
+    bl_options = {"REGISTER", "UNDO"}
+
+    axis: EnumProperty(
+        name="Axis",
+        items=(
+            ("0", "X", ""),
+            ("1", "Y", ""),
+            ("2", "Z", ""),
+        ),
+        default="2",
+    )
+    number: IntProperty(name="Number", default=1, min=1, options={"SKIP_SAVE"})
+    angle: FloatProperty(name="Angle", default=tau, step=10, unit="ROTATION", options={"SKIP_SAVE"})
+    use_cursor: BoolProperty(name="Use 3D Cursor")
+    collection_name: StringProperty(name="Collection", options={"SKIP_SAVE"})
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        layout.separator()
+
+        if self.use_new:
+            layout.prop(self, "collection_name", text="Collection Name")
+        else:
+            layout.prop_search(self, "collection_name", bpy.data, "collections")
+        layout.prop(self, "number")
+        layout.prop(self, "angle")
+        layout.row().prop(self, "axis", expand=True)
+
+        layout.label(text="Pivot Point")
+        layout.prop(self, "use_cursor")
+
+    def execute(self, context):
+        if self.number == 1 or not self.collection_name:
+            return {"FINISHED"}
+
+        if self.use_new:
+            coll = bpy.data.collections.new(self.collection_name)
+            context.scene.collection.children.link(coll)
+
+            for ob in context.selected_objects:
+                for coll_orig in ob.users_collection:
+                    coll_orig.objects.unlink(ob)
+                coll.objects.link(ob)
+                ob.select_set(False)
+        else:
+            coll = bpy.data.collections[self.collection_name]
+
+        dup_number = self.number - 1
+        is_cyclic = round(self.angle, 2) == round(tau, 2)
+        angle_offset = self.angle / (self.number if is_cyclic else dup_number)
+        i = int(self.axis)
+        angle = angle_offset
+
+        for _ in range(dup_number):
+            ob = bpy.data.objects.new(coll.name, None)
+            context.collection.objects.link(ob)
+
+            ob.instance_type = "COLLECTION"
+            ob.instance_collection = coll
+            ob.rotation_euler[i] = angle
+            ob.select_set(True)
+
+            angle += angle_offset
+
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        self.use_new = not event.alt
+
+        if self.use_new:
+            if not context.selected_objects:
+                return {"CANCELLED"}
+            self.collection_name = context.object.name
+
+        wm = context.window_manager
+        return wm.invoke_props_popup(self, event)
+
+
+class OBJECT_OT_make_dupliface(Operator):
     bl_label = "JewelCraft Make Dupli-face"
     bl_description = "Create dupli-face for selected objects"
     bl_idname = "object.jewelcraft_make_dupliface"
@@ -211,7 +305,7 @@ class OBJECT_OT_jewelcraft_make_dupliface(Operator):
         return self.execute(context)
 
 
-class OBJECT_OT_jewelcraft_lattice_project(Operator):
+class OBJECT_OT_lattice_project(Operator):
     bl_label = "JewelCraft Lattice Project"
     bl_description = "Project selected objects onto active object using Lattice"
     bl_idname = "object.jewelcraft_lattice_project"
@@ -331,7 +425,7 @@ class OBJECT_OT_jewelcraft_lattice_project(Operator):
         return wm.invoke_props_popup(self, event)
 
 
-class OBJECT_OT_jewelcraft_lattice_profile(Operator):
+class OBJECT_OT_lattice_profile(Operator):
     bl_label = "JewelCraft Lattice Profile"
     bl_description = "Deform active object profile with Lattice"
     bl_idname = "object.jewelcraft_lattice_profile"
@@ -466,7 +560,7 @@ def update_size(self, context):
     self.size = context.object.dimensions[int(self.axis)]
 
 
-class OBJECT_OT_jewelcraft_resize(Operator):
+class OBJECT_OT_resize(Operator):
     bl_label = "JewelCraft Resize"
     bl_description = "Scale selected objects to given size"
     bl_idname = "object.jewelcraft_resize"
@@ -481,7 +575,7 @@ class OBJECT_OT_jewelcraft_resize(Operator):
         ),
         update=update_size,
     )
-    size: FloatProperty(name="Size", min=0.0, unit="LENGTH")
+    size: FloatProperty(name="Size", min=0.0, step=10, unit="LENGTH")
 
     def draw(self, context):
         layout = self.layout
@@ -504,7 +598,7 @@ class OBJECT_OT_jewelcraft_resize(Operator):
 
         self.dim_orig = dim.to_tuple()
         self.size = dim[int(self.axis)]
-        self.pivot = context.object.location.to_tuple()
+        self.pivot = context.object.matrix_world.translation.to_tuple()
 
         wm = context.window_manager
         return wm.invoke_props_dialog(self)

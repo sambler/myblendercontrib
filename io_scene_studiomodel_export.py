@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Export SMD: Valve studiomodel source format",
     "author": "nemyax",
-    "version": (0, 2, 20180520),
+    "version": (0, 2, 20190421),
     "blender": (2, 7, 7),
     "location": "File > Import-Export",
     "description": "Export Valve studiomodel sources",
@@ -233,18 +233,22 @@ def write_qc(path, ranges):
 
 def write_batch(path, prerequisites, multi, name_filter, weighting, qc):
     write_smd_mesh(path, prerequisites, weighting)
-    orig_action = prerequisites[0].animation_data.action
+    arm = prerequisites[0]
+    orig_action = None
+    if arm:
+        orig_action = arm.animation_data.action
     if multi:
         ranges = get_ranges_multiaction(name_filter)
     else:
         ranges = get_ranges(name_filter)
     if not ranges:
-        ranges = {'idle':(1,1)}
+        ranges = {'idle':(1,1,None)}
     for r in ranges:
         folder = os.path.dirname(path)
         anim_file = os.path.join(folder, r + ".smd")
         write_smd_anim(anim_file, prerequisites, ranges[r])
-    prerequisites[0].animation_data.action = orig_action
+    if arm:
+        arm.animation_data.action = orig_action
     if qc:
         write_qc(path, ranges)
     return {'FINISHED'}

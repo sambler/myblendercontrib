@@ -23,46 +23,50 @@ dictionary = {
     "*": {
         # Interface
         "Asset Manager": "Менеджер ассетов",
-        "Asset name from active object": "Использовать имя активного объекта для нового ассета",
-        "Display asset name": "Показывать название ассета",
+        "Display Asset Name": "Показывать название ассета",
         "Product Report": "Отчёт изделия",
         "Report Language": "Язык отчёта",
-        "Display in a new window": "Отобразить в новом окне",
-        "Save to file": "Сохранить в файл",
-        "Use custom library folder": "Использовать пользовательский каталог библиотеки",
+        "Save To File": "Сохранить в файл",
+        "Use Custom Library Folder": "Использовать пользовательский каталог библиотеки",
         "Gems": "Камни",
         "Assets": "Ассеты",
         "Select Gems By...": "Выделить камни по...",
         "Jeweling": "Вставки",
         "Weighting": "Оценка веса",
         "Weighting Set": "Набор материалов",
-        "Hide default sets": "Спрятать стандартные наборы",
+        "Hide Default Sets": "Спрятать стандартные наборы",
         "[JewelCraft] Precious": "[JewelCraft] Драгоценные",
         "[JewelCraft] Precious RU (ГОСТ 30649-99)": "[JewelCraft] Драгоценные RU (ГОСТ 30649-99)",
         "[JewelCraft] Base": "[JewelCraft] Недрагоценные",
-        "Sizes": "Размеры",
         "Prongs": "Крапана",
         "Cutter": "Выборка",
         "Library Folder Path": "Путь к каталогу библиотеки",
         "Widgets": "Виджеты",
-        "Use overrides": "Использовать переопределения",
+        "Use Overrides": "Использовать переопределения",
         "Widget Color": "Цвет виджета",
         "Line Width": "Ширина линии",
-        "Show composition": "Показать состав",
-        "Show density": "Показать плотность",
+        "Show Composition": "Показать состав",
+        "Show Density": "Показать плотность",
         "Materials list": "Список материалов",
         "Composition": "Состав",
         "Warnings": "Предупреждения",
-        "Hidden gems": "Скрытые камни",
-        "Show all": "Показать все",
+        "Hidden Gems": "Скрытые камни",
+        "Show All": "Показать все",
         "Scene scale is not optimal": "Масштаб сцены не оптимален",
         "Unsupported unit system": "Неподдерживаемая система единиц измерения",
-        # Popup dialogs
+        "Overlapping Gems": "Пересекающиеся камни",
+        "Limit By Selection": "Ограничить выделением",
+        "Save To Image": "Сохранить в изображение",
+        "Gem Map": "Карта камней",
+        "Gem Table": "Таблица камней",
+        "Gem Size": "Размер камня",
+        "Viewport Text Size": "Размер текста вьюпорта",
+        "Weight": "Вес",
+        # Operator popup
         "Asset Name": "Название ассета",
         "Category Name": "Название категории",
         "Set Name": "Название набора",
         "Curvature Scale": "Масштаб кривизны",
-        # Operator redo
         "Use Automated Presets": "Использовать автоматические пресеты",
         "Prong Number": "Количество корнеров",
         "Detalization": "Детализация",
@@ -84,6 +88,14 @@ dictionary = {
         "Mirror Axis": "Оси отражения",
         "Select Children": "Выделить потомков",
         "Parent to selected": "Привязать к выделению",
+        "Use 3D Cursor": "Использовать 3D курсор",
+        "Collection Name": "Имя коллекции",
+        "Ring Size": "Размер кольца",
+        "USA": "США",
+        "Britain": "Британия",
+        "Swiss": "Швейцария",
+        "Japan": "Япония",
+        "Circumference": "Окружность",
         # Tooltips
         "Add gemstone to the scene": "Добавить камень в сцену",
         "Edit selected gems": "Редактировать выделенные камни",
@@ -96,15 +108,9 @@ dictionary = {
         "Set of base metal alloys, physical properties taken directly from suppliers":
             "Сплавы из недрагоценных металлов, физические свойства взяты напрямую у поставщиков",
 
-        "Display product report in new window": "Отобразить отчёт изделия в новом окне",
         "Save product report to file in project folder": "Сохранить отчёт изделия в файл в каталоге проекта",
         "Product report language": "Язык отчёта изделия",
         "Use user preferences language setting": "Использовать язык заданный в настройках пользователя",
-        "Object for ring inner diameter reference": "Объект для определения внутреннего диаметра кольца",
-        "Object for shank width and height reference": "Объект для определения ширины и толщины шинки",
-        "Object for dimensions reference": "Объект для определения габаритов изделия",
-        "Object for weight reference": "Объект для определения веса изделия",
-        "Save product report to text file": "Сохранить отчёт изделия в текстовый файл",
         "Select gems by trait": "Выделить камни по характеристике",
         "Search stone by name": "Искать камень по названию",
         "Search asset by name": "Искать ассет по названию",
@@ -165,10 +171,6 @@ dictionary = {
 
         "Custom library folder path": "Путь к пользовательскому каталогу библиотеки",
         "Display asset name in Tool Shelf": "Показывать название ассета в панели инструментов",
-
-        "Use active object name when creating new asset":
-            "Использовать имя активного объекта при создании нового ассета",
-
         "Enable widgets drawing": "Активировать отображение виджетов",
         "Use object defined widget overrides": "Использовать переопределения виджетов заданные на объектах",
 
@@ -181,7 +183,6 @@ dictionary = {
             "Удалить настройки переопределяющие отображение виджетов с выделенных объектов",
 
         "Add new material to the list": "Добавить новый материал в список",
-        "Remove material from the list": "Удалить материал из списка",
         "Display material density in the list": "Отображать в списке плотность материала",
         "Display material composition in the list": "Отображать в списке состав материала",
         "Create weighting set from materials list": "Создать набор материалов из списка материалов",
@@ -215,11 +216,6 @@ dictionary = {
         "Enable material for weighting and product report":
             "Использовать материал для оценки веса и отчёта изделия",
 
-        "Clear materials list": "Очистить список материалов",
-
-        "Show warning if there are hidden gem objects in the scene":
-            "Показать предупреждение, если в сцене есть скрытые объекты камней",
-
         "Parent imported asset to selected objects (Shortcut: hold Alt when using the tool)": (
             "Привязать импортированный ассет к выделенным объектам "
             "(Горячая клавиша: удерживайте Alt при использовании инструмента)"
@@ -233,10 +229,32 @@ dictionary = {
         "Set optimal unit settings for jewelry modelling":
             "Задать оптимальные настройки единиц измерения для моделирования ювелирных изделий",
 
+        "Enable or disable given warning": "Включить или отключить данное предупреждение",
+
+        "Compose gem table and map it to gems in the scene":
+            "Составить таблицу камней и сопоставить её с камнями в сцене",
+
+        "Present summary information about the product, including gems, sizes and weight":
+            "Предоставить суммарную информацию об изделии, включая камни, размеры и вес",
+
+        "Add a new measurement": "Добавить новый замер",
+        "Remove selected item": "Удалить выбранный элемент",
+        "Remove all list items": "Удалить все элементы списка",
+        "Move selected item up/down in the list": "Переместить выбранный элемент вверх/вниз по списку",
+        "Measured object": "Измеряемый объект",
+        "Measurement type": "Тип замера",
+        "Select material": "Выбрать материал",
+
+        "Make collection instances in radial order\n"
+        "(Shortcut: hold Alt when using the tool to use existing collection)":
+            "Создать экземпляры коллекции в радиальном порядке\n"
+            "(Горячая клавиша: удерживайте клавишу Alt при использовании инструмента "
+            "для использования существующей коллекции)",
+
         # Reports
         "WARNING": "ПРЕДУПРЕЖДЕНИЕ",
         "Possible gem dupli-face leftovers": "Возможные остатки Dupli-face камней",
-        "Hidden gems (use Show Hidden/Alt H)": "Скрытые камни (используйте Show Hidden/Alt H)",
+        "Hidden gems": "Скрытые камни",
 
         "Deprecated gem IDs (use Convert Deprecated Gem IDs from Operator Search menu)":
             "Устаревшие идентификаторы камней (используйте Convert Deprecated Gem IDs из меню Operator Search)",
@@ -245,12 +263,6 @@ dictionary = {
             "Неизвестные идентификаторы камней, караты не рассчитываются для отмеченных камней (*)",
 
         "Curve Length": "Длина кривой",
-
-        "Text file successfully created in the project folder":
-            "Текстовый файл успешно создан в каталоге проекта",
-
-        "Could not create text file, project folder does not exist":
-            "Не удалось создать текстовый файл, каталог проекта не существует",
 
         "At least two objects must be selected": "Как минимум два объекта должны быть выделены",
         "At least one gem object must be selected": "Как минимум один объект камня должен быть выделен",
@@ -265,6 +277,14 @@ dictionary = {
         "Overlapping gems": "Пересекающиеся камни",
         "{} overlaps found": "{} пересечений обнаружено",
         "Optimal unit settings are in use": "Используются оптимальные настройки единиц измерения",
+        "Volume": "Объём",
+        "Settings": "Вставки",
+        "Gem": "Камень",
+        "Cut": "Огранка",
+        "Qty": "Количество",
+        "Carats": "Караты",
+        "Materials": "Материалы",
+        "Additional Notes": "Дополнительные примечания",
         # Cuts
         "Round": "Кр-57",
         "Oval": "Овал",
@@ -335,26 +355,15 @@ dictionary = {
         "Bronze": "Бронза",
         "Steel Stainless": "Сталь нержавеющая",
         "Titanium": "Титан",
-        # Product report
-        "Size": "Размер",
-        "Shank": "Шинка",
-        "Dimensions": "Габариты",
-        "Weight": "Вес",
-        "Volume": "Объём",
-        "Settings": "Вставки",
-        "Gem": "Камень",
-        "Cut": "Огранка",
-        "Qty": "Количество",
         # Units
-        "pcs": "шт.",
         "mm": "мм",
         "mm³": "мм³",
         "g": "г",
         "ct.": "кар",
+        "pcs": "шт.",
     },
     "JewelCraft": {
         "Cut": "Огранка",
-        "Dimensions": "Габариты",
         "Round": "Кр-57",
         "Spacing": "Расстояние",
     },
@@ -394,5 +403,10 @@ dictionary = {
         "Rename Set": "Переименовать набор",
         "Overlapping": "Пересекающиеся",
         "Set Units": "Задать единицы измерения",
+        "Gem Map": "Карта Камней",
+        "Append": "Добавить",
+        "Add New Measurement": "Добавить новый замер",
+        "Save To Preferences": "Сохранить в настройках",
+        "Load From Preferences": "Загрузить из настроек",
     },
 }

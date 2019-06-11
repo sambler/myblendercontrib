@@ -1,6 +1,9 @@
 import os
 import time
 
+import logging
+log = logging.getLogger(__name__)
+
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
@@ -18,7 +21,7 @@ from ..core.settings import getSetting
 USER_AGENT = getSetting('user_agent')
 
 
-class SRTM_QUERY(Operator):
+class IMPORTGIS_OT_srtm_query(Operator):
 	"""Import NASA SRTM elevation data from OpenTopography RESTful Web service"""
 
 	bl_idname = "importgis.srtm_query"
@@ -52,21 +55,28 @@ class SRTM_QUERY(Operator):
 		#Validate selection
 		objs = bpy.context.selected_objects
 		aObj = context.active_object
-		if isTopView(context):
-			onMesh = False
-			bbox = getBBOX.fromTopView(context).toGeo(geoscn)
-		elif len(objs) == 1 and aObj.type == 'MESH':
+		if len(objs) == 1 and aObj.type == 'MESH':
 			onMesh = True
 			bbox = getBBOX.fromObj(aObj).toGeo(geoscn)
+		elif isTopView(context):
+			onMesh = False
+			bbox = getBBOX.fromTopView(context).toGeo(geoscn)
 		else:
 			self.report({'ERROR'}, "Please define the query extent in orthographic top view or by selecting a reference object")
 			return {'CANCELLED'}
 
-		if bbox.dimensions.x > 20000 or bbox.dimensions.y > 20000:
+		if bbox.dimensions.x > 1000000 or bbox.dimensions.y > 1000000:
 			self.report({'ERROR'}, "Too large extent")
 			return {'CANCELLED'}
 
 		bbox = reprojBbox(geoscn.crs, 4326, bbox)
+
+		if bbox.ymin > 60:
+			self.report({'ERROR'}, "SRTM is not available beyond 60 degrees north")
+			return {'CANCELLED'}
+		if bbox.ymax < -56:
+			self.report({'ERROR'}, "SRTM is not available below 56 degrees south")
+			return {'CANCELLED'}
 
 		#Set cursor representation to 'loading' icon
 		w = context.window
@@ -82,6 +92,7 @@ class SRTM_QUERY(Operator):
 		s = 'south={}'.format(ymin)
 		n = 'north={}'.format(ymax)
 		url = 'http://opentopo.sdsc.edu/otr/getdem?demtype=SRTMGL3&' + '&'.join([w,e,s,n]) + '&outputFormat=GTiff'
+		log.debug(url)
 
 		# Download the file from url and save it locally
 		# opentopo return a geotiff object in wgs84
@@ -98,8 +109,8 @@ class SRTM_QUERY(Operator):
 				data = response.read() # a `bytes` object
 				outFile.write(data) #
 		except (URLError, HTTPError) as err:
-			#print(err.code, err.reason, err.headers)
-			self.report({'ERROR'}, "Cannot reach OpenTopography web service at {} : {}".format(url, err))
+			log.error('Http request fails url:{}, code:{}, error:{}'.format(url, err.code, err.reason))
+			self.report({'ERROR'}, "Cannot reach OpenTopography web service, check logs for more infos")
 			return {'CANCELLED'}
 
 		if not onMesh:
@@ -119,7 +130,7 @@ class SRTM_QUERY(Operator):
 			importMode = 'DEM',
 			subdivision = 'subsurf',
 			demOnMesh = True,
-			objectsLst = [str(i) for i, obj in enumerate(scn.objects) if obj.name == bpy.context.active_object.name][0],
+			objectsLst = [str(i) for i, obj in enumerate(scn.collection.objects) if obj.name == bpy.context.active_object.name][0],
 			clip = False,
 			fillNodata = False)
 
@@ -127,3 +138,10 @@ class SRTM_QUERY(Operator):
 		adjust3Dview(context, bbox, zoomToSelect=False)
 
 		return {'FINISHED'}
+
+
+def register():
+	bpy.utils.register_class(IMPORTGIS_OT_srtm_query)
+
+def unregister():
+	bpy.utils.unregister_class(IMPORTGIS_OT_srtm_query)

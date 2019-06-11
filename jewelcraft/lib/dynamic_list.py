@@ -40,6 +40,10 @@ def _iface_lang(context):
     return "DEFAULT"
 
 
+# Gems
+# ---------------------------
+
+
 def cuts(self, context):
     lang = _iface_lang(context)
 
@@ -156,7 +160,7 @@ def weighting_set(self, context):
         for entry in os.scandir(folder):
             if entry.is_file() and entry.name.endswith(".json"):
                 id_ = entry.name
-                name_ = os.path.splitext(entry.name)[0] + " "  # Add trailing space so UI translation won't apply
+                name_ = os.path.splitext(entry.name)[0] + " "  # Add trailing space to deny UI translation
                 list_.append((id_, name_, ""))
 
     if not list_:
@@ -167,9 +171,35 @@ def weighting_set(self, context):
     return list_
 
 
+def weighting_materials(self, context):
+
+    if "weighting_materials__list" in _cache:
+        return _cache["weighting_materials__list"]
+
+    props = context.scene.jewelcraft
+    list_ = []
+
+    for i, mat in enumerate(props.weighting_materials.values()):
+        id_ = str(i)
+        name_ = mat.name + " "  # Add trailing space to deny UI translation
+        list_.append((id_, name_, ""))
+
+    if not list_:
+        list_ = [("", "", "")]
+
+    _cache["weighting_materials__list"] = list_
+
+    return list_
+
+
 def weighting_set_refresh(self=None, context=None):
     if "weighting_set__list" in _cache:
         del _cache["weighting_set__list"]
+
+
+def weighting_materials_refresh(self=None, context=None):
+    if "weighting_materials__list" in _cache:
+        del _cache["weighting_materials__list"]
 
 
 # Assets
@@ -193,7 +223,7 @@ def asset_folders(self, context):
 
         if entry.is_dir() and not entry.name.startswith("."):
             id_ = entry.name
-            name_ = entry.name + " "  # Add trailing space so UI translation won't apply
+            name_ = entry.name + " "  # Add trailing space to deny UI translation
             list_.append((id_, name_, ""))
 
     if not list_:
@@ -231,7 +261,7 @@ def assets(self, context):
         if entry.is_file() and entry.name.endswith(".blend"):
             filename = os.path.splitext(entry.name)[0]
             id_ = filename
-            name_ = filename + " "  # Add trailing space so UI translation won't apply
+            name_ = filename + " "  # Add trailing space to deny UI translation
 
             preview_id = category + filename
             preview_path = os.path.splitext(entry.path)[0] + ".png"
@@ -283,3 +313,19 @@ def asset_list_refresh(preview_id=False, hard=False):
 
     if "assets__list" in _cache:
         del _cache["assets__list"]
+
+
+# Other
+# ---------------------------
+
+
+def abc(self, context):
+    if "abc__list" in _cache:
+        return _cache["abc__list"]
+
+    import string
+
+    list_ = tuple((f"{i}", char + " ", "") for i, char in enumerate(string.ascii_uppercase))
+    _cache["abc__list"] = list_
+
+    return list_

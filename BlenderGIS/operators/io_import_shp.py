@@ -7,6 +7,8 @@ import bmesh
 import math
 from mathutils import Vector
 
+import logging
+log = logging.getLogger(__name__)
 
 from ..core.lib.shapefile import Reader as shpReader
 
@@ -48,7 +50,7 @@ dbf fields type:
 """
 
 
-class IMPORT_SHP_FILE_DIALOG(Operator):
+class IMPORTGIS_OT_shapefile_file_dialog(Operator):
 	"""Select shp file, loads the fields and start importgis.shapefile_props_dialog operator"""
 
 	bl_idname = "importgis.shapefile_file_dialog"
@@ -57,7 +59,7 @@ class IMPORT_SHP_FILE_DIALOG(Operator):
 	bl_options = {'INTERNAL'}
 
 	# Import dialog properties
-	filepath = StringProperty(
+	filepath: StringProperty(
 		name="File Path",
 		description="Filepath used for importing the file",
 		maxlen=1024,
@@ -65,7 +67,7 @@ class IMPORT_SHP_FILE_DIALOG(Operator):
 
 	filename_ext = ".shp"
 
-	filter_glob = StringProperty(
+	filter_glob: StringProperty(
 			default = "*.shp",
 			options = {'HIDDEN'} )
 
@@ -75,19 +77,19 @@ class IMPORT_SHP_FILE_DIALOG(Operator):
 
 	def draw(self, context):
 		layout = self.layout
-		layout.label("Options will be available")
-		layout.label("after selecting a file")
+		layout.label(text="Options will be available")
+		layout.label(text="after selecting a file")
 
 	def execute(self, context):
 		if os.path.exists(self.filepath):
 			bpy.ops.importgis.shapefile_props_dialog('INVOKE_DEFAULT', filepath=self.filepath)
 		else:
-			self.report({'ERROR'}, "Invalid file")
+			self.report({'ERROR'}, "Invalid filepath")
 		return{'FINISHED'}
 
 
 
-class IMPORT_SHP_PROPS_DIALOG(Operator):
+class IMPORTGIS_OT_shapefile_props_dialog(Operator):
 	"""Shapefile importer properties dialog"""
 
 	bl_idname = "importgis.shapefile_props_dialog"
@@ -95,7 +97,7 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 	bl_label = "Import SHP"
 	bl_options = {"INTERNAL"}
 
-	filepath = StringProperty()
+	filepath: StringProperty()
 
 	#special function to auto redraw an operator popup called through invoke_props_dialog
 	def check(self, context):
@@ -106,7 +108,7 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 		try:
 			shp = shpReader(self.filepath)
 		except Exception as e:
-			print("Warning : unable to read shapefile {}".format(e))
+			log.warning("Unable to read shapefile fields", exc_info=True)
 			return fieldsItems
 		fields = [field for field in shp.fields if field[0] != 'DeletionFlag'] #ignore default DeletionFlag field
 		for i, field in enumerate(fields):
@@ -123,21 +125,21 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 		for index, object in enumerate(bpy.context.scene.objects):
 			if object.type == 'MESH':
 				#put each object in a tuple (key, label, tooltip) and add this to the objects list
-				objs.append((str(index), object.name, "Object named " +object.name))
+				objs.append((object.name, object.name, "Object named " + object.name))
 		return objs
 
-	reprojection = BoolProperty(
+	reprojection: BoolProperty(
 			name="Specifiy shapefile CRS",
 			description="Specifiy shapefile CRS if it's different from scene CRS",
 			default=False )
-	shpCRS = EnumProperty(
+
+	shpCRS: EnumProperty(
 		name = "Shapefile CRS",
 		description = "Choose a Coordinate Reference System",
 		items = listPredefCRS)
 
-
 	# Elevation source
-	vertsElevSource = EnumProperty(
+	vertsElevSource: EnumProperty(
 			name="Elevation source",
 			description="Select the source of vertices z value",
 			items=[
@@ -149,52 +151,53 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 			default='GEOM')
 
 	# Elevation object
-	objElevLst = EnumProperty(
+	objElevLst: EnumProperty(
 		name="Elev. object",
 		description="Choose the mesh from which extract z elevation",
 		items=listObjects )
 
 	# Elevation field
 	'''
-	useFieldElev = BoolProperty(
+	useFieldElev: BoolProperty(
 			name="Elevation from field",
 			description="Extract z elevation value from an attribute field",
 			default=False )
 	'''
-	fieldElevName = EnumProperty(
+	fieldElevName: EnumProperty(
 		name = "Elev. field",
 		description = "Choose field",
 		items = listFields )
 
 	#Extrusion field
-	useFieldExtrude = BoolProperty(
+	useFieldExtrude: BoolProperty(
 			name="Extrusion from field",
 			description="Extract z extrusion value from an attribute field",
 			default=False )
-	fieldExtrudeName = EnumProperty(
+
+	fieldExtrudeName: EnumProperty(
 		name = "Field",
 		description = "Choose field",
 		items = listFields )
 
 	#Extrusion axis
-	extrusionAxis = EnumProperty(
+	extrusionAxis: EnumProperty(
 			name="Extrude along",
 			description="Select extrusion axis",
 			items=[ ('Z', 'z axis', "Extrude along Z axis"),
 			('NORMAL', 'Normal', "Extrude along normal")] )
 
 	#Create separate objects
-	separateObjects = BoolProperty(
+	separateObjects: BoolProperty(
 			name="Separate objects",
-			description="Import to separate objects instead one large object",
+			description="Warning : can be very slow with lot of features",
 			default=False )
 
 	#Name objects from field
-	useFieldName = BoolProperty(
+	useFieldName: BoolProperty(
 			name="Object name from field",
 			description="Extract name for created objects from an attribute field",
 			default=False )
-	fieldObjName = EnumProperty(
+	fieldObjName: EnumProperty(
 		name = "Field",
 		description = "Choose field",
 		items = listFields )
@@ -228,7 +231,7 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 			layout.prop(self, 'fieldObjName')
 		#
 		geoscn = GeoScene()
-		#geoscnPrefs = context.user_preferences.addons['geoscene'].preferences
+		#geoscnPrefs = context.preferences.addons['geoscene'].preferences
 		if geoscn.isPartiallyGeoref:
 			layout.prop(self, 'reprojection')
 			if self.reprojection:
@@ -243,10 +246,10 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 		layout = self.layout
 		row = layout.row(align=True)
 		#row.prop(self, "shpCRS", text='CRS')
-		split = row.split(percentage=0.35, align=True)
-		split.label('CRS:')
+		split = row.split(factor=0.35, align=True)
+		split.label(text='CRS:')
 		split.prop(self, "shpCRS", text='')
-		row.operator("bgis.add_predef_crs", text='', icon='ZOOMIN')
+		row.operator("bgis.add_predef_crs", text='', icon='ADD')
 
 
 	def invoke(self, context, event):
@@ -263,14 +266,14 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 				self.report({'ERROR'}, "No elevation object")
 				return {'CANCELLED'}
 			else:
-				objElevIdx = int(self.objElevLst)
+				objElevName = self.objElevLst
 		else:
-			objElevIdx = 0 #will not be used
+			objElevName = '' #will not be used
 
 		geoscn = GeoScene()
 		if geoscn.isBroken:
-				self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
-				return {'CANCELLED'}
+			self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
+			return {'CANCELLED'}
 
 		if geoscn.isGeoref:
 			if self.reprojection:
@@ -282,16 +285,17 @@ class IMPORT_SHP_PROPS_DIALOG(Operator):
 
 		try:
 			bpy.ops.importgis.shapefile('INVOKE_DEFAULT', filepath=self.filepath, shpCRS=shpCRS, elevSource=self.vertsElevSource,
-				fieldElevName=elevField, objElevIdx=objElevIdx, fieldExtrudeName=extrudField, fieldObjName=nameField,
+				fieldElevName=elevField, objElevName=objElevName, fieldExtrudeName=extrudField, fieldObjName=nameField,
 				extrusionAxis=self.extrusionAxis, separateObjects=self.separateObjects)
 		except Exception as e:
-			self.report({'ERROR'}, str(e))
+			log.error('Shapefile import fails', exc_info=True)
+			self.report({'ERROR'}, 'Shapefile import fails, check logs.')
 			return {'CANCELLED'}
 
 		return{'FINISHED'}
 
 
-class IMPORT_SHP(Operator):
+class IMPORTGIS_OT_shapefile(Operator):
 	"""Import from ESRI shapefile file format (.shp)"""
 
 	bl_idname = "importgis.shapefile" # important since its how bpy.ops.import.shapefile is constructed (allows calling operator from python console or another script)
@@ -300,26 +304,26 @@ class IMPORT_SHP(Operator):
 	bl_label = "Import SHP"
 	bl_options = {"UNDO"}
 
-	filepath = StringProperty()
+	filepath: StringProperty()
 
-	shpCRS = StringProperty(name = "Shapefile CRS", description = "Coordinate Reference System")
+	shpCRS: StringProperty(name = "Shapefile CRS", description = "Coordinate Reference System")
 
-	elevSource = StringProperty(name = "Elevation source", description = "Elevation source", default='GEOM') # [NONE, GEOM, OBJ, FIELD]
-	objElevIdx = IntProperty(name = "Elevation object index", description = "")
+	elevSource: StringProperty(name = "Elevation source", description = "Elevation source", default='GEOM') # [NONE, GEOM, OBJ, FIELD]
+	objElevName: StringProperty(name = "Elevation object name", description = "")
 
-	fieldElevName = StringProperty(name = "Elevation field", description = "Field name")
-	fieldExtrudeName = StringProperty(name = "Extrusion field", description = "Field name")
-	fieldObjName = StringProperty(name = "Objects names field", description = "Field name")
+	fieldElevName: StringProperty(name = "Elevation field", description = "Field name")
+	fieldExtrudeName: StringProperty(name = "Extrusion field", description = "Field name")
+	fieldObjName: StringProperty(name = "Objects names field", description = "Field name")
 
 	#Extrusion axis
-	extrusionAxis = EnumProperty(
+	extrusionAxis: EnumProperty(
 			name="Extrude along",
 			description="Select extrusion axis",
 			items=[ ('Z', 'z axis', "Extrude along Z axis"),
 			('NORMAL', 'Normal', "Extrude along normal")]
 			)
 	#Create separate objects
-	separateObjects = BoolProperty(
+	separateObjects: BoolProperty(
 			name="Separate objects",
 			description="Import to separate objects instead one large object",
 			default=False
@@ -331,7 +335,7 @@ class IMPORT_SHP(Operator):
 
 	def execute(self, context):
 
-		prefs = bpy.context.user_preferences.addons[PKG].preferences
+		prefs = bpy.context.preferences.addons[PKG].preferences
 
 		#Set cursor representation to 'loading' icon
 		w = context.window
@@ -344,16 +348,17 @@ class IMPORT_SHP(Operator):
 		shpName = os.path.basename(self.filepath)[:-4]
 
 		#Get shp reader
-		print("Read shapefile...")
+		log.info("Read shapefile...")
 		try:
 			shp = shpReader(self.filepath)
 		except Exception as e:
-			self.report({'ERROR'}, "Unable to read shapefile : " + str(e))
+			log.error("Unable to read shapefile", exc_info=True)
+			self.report({'ERROR'}, "Unable to read shapefile, check logs")
 			return {'CANCELLED'}
 
 		#Check shape type
 		shpType = featureType[shp.shapeType]
-		print('Feature type : ' + shpType)
+		log.info('Feature type : ' + shpType)
 		if shpType not in ['Point','PolyLine','Polygon','PointZ','PolyLineZ','PolygonZ']:
 			self.report({'ERROR'}, "Cannot process multipoint, multipointZ, pointM, polylineM, polygonM and multipatch feature type")
 			return {'CANCELLED'}
@@ -363,13 +368,13 @@ class IMPORT_SHP(Operator):
 
 		if self.elevSource == 'OBJ':
 			scn = bpy.context.scene
-			elevObj = scn.objects[self.objElevIdx]
+			elevObj = scn.objects[self.objElevName]
 			rayCaster = DropToGround(scn, elevObj)
 
 		#Get fields
 		fields = [field for field in shp.fields if field[0] != 'DeletionFlag'] #ignore default DeletionFlag field
 		fieldsNames = [field[0] for field in fields]
-		#print("DBF fields : "+str(fieldsNames))
+		log.debug("DBF fields : "+str(fieldsNames))
 
 		if self.separateObjects or self.fieldElevName or self.fieldObjName or self.fieldExtrudeName:
 			self.useDbf = True
@@ -380,14 +385,16 @@ class IMPORT_SHP(Operator):
 			try:
 				nameFieldIdx = fieldsNames.index(self.fieldObjName)
 			except Exception as e:
-				self.report({'ERROR'}, "Unable to find name field. " + str(e))
+				log.error('Unable to find name field', exc_info=True)
+				self.report({'ERROR'}, "Unable to find name field")
 				return {'CANCELLED'}
 
 		if self.fieldElevName:
 			try:
 				zFieldIdx = fieldsNames.index(self.fieldElevName)
 			except Exception as e:
-				self.report({'ERROR'}, "Unable to find elevation field. " + str(e))
+				log.error('Unable to find elevation field', exc_info=True)
+				self.report({'ERROR'}, "Unable to find elevation field")
 				return {'CANCELLED'}
 
 			if fields[zFieldIdx][1] not in ['N', 'F', 'L'] :
@@ -398,6 +405,7 @@ class IMPORT_SHP(Operator):
 			try:
 				extrudeFieldIdx = fieldsNames.index(self.fieldExtrudeName)
 			except ValueError:
+				log.error('Unable to find extrusion field', exc_info=True)
 				self.report({'ERROR'}, "Unable to find extrusion field")
 				return {'CANCELLED'}
 
@@ -418,16 +426,18 @@ class IMPORT_SHP(Operator):
 			try:
 				geoscn.crs = shpCRS
 			except Exception as e:
-				self.report({'ERROR'}, str(e))
+				log.error("Cannot set scene crs", exc_info=True)
+				self.report({'ERROR'}, "Cannot set scene crs, check logs for more infos")
 				return {'CANCELLED'}
 
 		#Init reprojector class
 		if geoscn.crs != shpCRS:
-			print("Data will be reprojected from " + shpCRS + " to " + geoscn.crs)
+			log.info("Data will be reprojected from {} to {}".format(shpCRS, geoscn.crs))
 			try:
 				rprj = Reproj(shpCRS, geoscn.crs)
 			except Exception as e:
-				self.report({'ERROR'}, "Unable to reproject data. " + str(e))
+				log.error('Reprojection fails', exc_info=True)
+				self.report({'ERROR'}, "Unable to reproject data, check logs for more infos.")
 				return {'CANCELLED'}
 			if rprj.iproj == 'EPSGIO':
 				if shp.numRecords > 100:
@@ -466,6 +476,10 @@ class IMPORT_SHP(Operator):
 
 		progress = -1
 
+		if self.separateObjects:
+			layer = bpy.data.collections.new(shpName)
+			context.scene.collection.children.link(layer)
+
 		#Main iteration over features
 		for i, feat in enumerate(shpIter):
 
@@ -494,7 +508,7 @@ class IMPORT_SHP(Operator):
 				try: #prevent "_shape object has no attribute parts" error
 					partsIdx = shape.parts
 				except Exception as e:
-					print('Warning feature {} : {}'.format(i, e))
+					log.warning('Cannot access "parts" attribute for feature {} : {}'.format(i, e))
 					partsIdx = [0]
 			nbParts = len(partsIdx)
 
@@ -515,7 +529,7 @@ class IMPORT_SHP(Operator):
 				try:
 					offset = float(record[extrudeFieldIdx])
 				except Exception as e:
-					print('Warning feature {} : cannot extract extrusion value. Error {}'.format(i, e))
+					log.waring('Cannot extract extrusion value for feature {} : {}'.format(i, e))
 					offset = 0 #null values will be set to zero
 
 			#Iter over parts
@@ -543,7 +557,7 @@ class IMPORT_SHP(Operator):
 						try:
 							z = float(record[zFieldIdx])
 						except Exception as e:
-							print('Warning feature {}: cannot extract elevation value. Error {}'.format(i, e))
+							log.warning('Cannot extract elevation value for feature {} : {}'.format(i, e))
 							z = 0 #null values will be set to zero
 
 					elif shpType[-1] == 'Z' and self.elevSource == 'GEOM':
@@ -628,7 +642,7 @@ class IMPORT_SHP(Operator):
 					try:
 						name = record[nameFieldIdx]
 					except Exception as e:
-						print('Warning feature {}: cannot extract name value. Error {}'.format(i, e))
+						log.warning('Cannot extract name value for feature {} : {}'.format(i, e))
 						name = ''
 					# null values will return a bytes object containing a blank string of length equal to fields length definition
 					if isinstance(name, bytes):
@@ -658,9 +672,9 @@ class IMPORT_SHP(Operator):
 
 				#Place obj
 				obj = bpy.data.objects.new(name, mesh)
-				context.scene.objects.link(obj)
-				context.scene.objects.active = obj
-				obj.select = True
+				layer.objects.link(obj)
+				context.view_layer.objects.active = obj
+				obj.select_set(True)
 				obj.location = (ox, oy, oz)
 
 				# bpy operators can be very cumbersome when scene contains lot of objects
@@ -673,7 +687,10 @@ class IMPORT_SHP(Operator):
 					fieldName, fieldType, fieldLength, fieldDecLength = field
 					if fieldName != 'DeletionFlag':
 						if fieldType in ('N', 'F'):
-							obj[fieldName] = float(record[i-1]) #cast to float to avoid overflow error when affecting custom property
+							v = record[i-1]
+							if v is not None:
+								#cast to float to avoid overflow error when affecting custom property
+								obj[fieldName] = float(record[i-1])
 						else:
 							obj[fieldName] = record[i-1]
 
@@ -702,16 +719,16 @@ class IMPORT_SHP(Operator):
 			#mesh.update(calc_edges=True)
 			mesh.validate(verbose=False) #return true if the mesh has been corrected
 			obj = bpy.data.objects.new(shpName, mesh)
-			context.scene.objects.link(obj)
-			context.scene.objects.active = obj
-			obj.select = True
+			context.scene.collection.objects.link(obj)
+			context.view_layer.objects.active = obj
+			obj.select_set(True)
 			bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
 
 		#free the bmesh
 		bm.free()
 
 		t = time.clock() - t0
-		print('Build in %f seconds' % t)
+		log.info('Build in %f seconds' % t)
 
 		#Adjust grid size
 		if prefs.adjust3Dview:
@@ -720,3 +737,17 @@ class IMPORT_SHP(Operator):
 
 
 		return {'FINISHED'}
+
+classes = [
+	IMPORTGIS_OT_shapefile_file_dialog,
+	IMPORTGIS_OT_shapefile_props_dialog,
+	IMPORTGIS_OT_shapefile
+]
+
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+
+def unregister():
+	for cls in classes:
+		bpy.utils.unregister_class(cls)

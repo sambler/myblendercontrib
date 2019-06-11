@@ -18,6 +18,8 @@
 
 # Original Drop to Ground addon code from Unnikrishnan(kodemax), Florian Meyer(testscreenings)
 
+import logging
+log = logging.getLogger(__name__)
 
 import bpy
 import bmesh
@@ -35,7 +37,7 @@ def get_align_matrix(location, normal):
     axis = up.cross(normal)
     mat_rot = Matrix.Rotation(angle, 4, axis)
     mat_loc = Matrix.Translation(location)
-    mat_align = mat_rot * mat_loc
+    mat_align = mat_rot @ mat_loc
     return mat_align
 
 def get_lowest_world_co(ob, mat_parent=None):
@@ -43,14 +45,14 @@ def get_lowest_world_co(ob, mat_parent=None):
     bme.from_mesh(ob.data)
     mat_to_world = ob.matrix_world.copy()
     if mat_parent:
-        mat_to_world = mat_parent * mat_to_world
+        mat_to_world = mat_parent @ mat_to_world
     lowest = None
     for v in bme.verts:
         if not lowest:
             lowest = v
-        if (mat_to_world * v.co).z < (mat_to_world * lowest.co).z:
+        if (mat_to_world @ v.co).z < (mat_to_world @ lowest.co).z:
             lowest = v
-    lowest_co = mat_to_world * lowest.co
+    lowest_co = mat_to_world @ lowest.co
     bme.free()
 
     return lowest_co
@@ -62,17 +64,17 @@ class OBJECT_OT_drop_to_ground(Operator):
     bl_description = ("Drop selected objects on the Active object")
     bl_options = {"REGISTER", "UNDO"} #register needed to draw operator options/redo panel
 
-    align = BoolProperty(
+    align: BoolProperty(
             name="Align to ground",
             description="Aligns the objects' rotation to the ground",
             default=False)
 
-    axisAlign = EnumProperty(
+    axisAlign: EnumProperty(
             items = [("N", "Normal", "Ground normal"), ("X", "X", "Ground X normal"), ("Y", "Y", "Ground Y normal"), ("Z", "Z", "Ground Z normal")],
             name="Align axis",
             description="")
 
-    useOrigin = BoolProperty(
+    useOrigin: BoolProperty(
             name="Use Origins",
             description="Drop to objects' origins\n"
                         "Use this option for dropping all types of Objects",
@@ -117,13 +119,14 @@ class OBJECT_OT_drop_to_ground(Operator):
             if not minLoc:
                 msg = "Object {} is of type {} works only with Use Center option " \
                           "checked".format(ob.name, ob.type)
-                print(msg)
+                log.info(msg)
 
             x, y = minLoc.x, minLoc.y
             hit = rayCaster.rayCast(x, y)
 
             if not hit.hit:
-                print(ob.name + " did not hit the Active Object")
+                log.info(ob.name + " did not hit the Active Object")
+                continue
 
             # simple drop down
             down = hit.loc - minLoc
@@ -157,3 +160,9 @@ class OBJECT_OT_drop_to_ground(Operator):
 
 
         return {'FINISHED'}
+
+def register():
+	bpy.utils.register_class(OBJECT_OT_drop_to_ground)
+
+def unregister():
+	bpy.utils.unregister_class(OBJECT_OT_drop_to_ground)

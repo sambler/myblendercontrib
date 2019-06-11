@@ -2253,7 +2253,7 @@ class Operator_BlenRig_Layers_Scheme_Compact(bpy.types.Operator):
         self.set_layers(context, 'accessory', [17, 25])
         
     def set_data_props(self, context):
-        scene = bpy.context.scene      
+        scene = bpy.context.view_layer      
         bpy.context.active_object.data['bone_auto_hide'] = 1.0
         bpy.context.active_object.data['custom_layers'] = 0.0
         bpy.context.active_object.data['layers_count'] = 10
@@ -4523,7 +4523,7 @@ class Operator_BlenRig_Layers_Scheme_Expanded(bpy.types.Operator):
         self.set_layers(context, 'accessory', [11, 25])
    
     def set_data_props(self, context):
-        scene = bpy.context.scene      
+        scene = bpy.context.view_layer      
         bpy.context.active_object.data['bone_auto_hide'] = 0.0
         bpy.context.active_object.data['custom_layers'] = 1.0
         bpy.context.active_object.data['layers_count'] = 24

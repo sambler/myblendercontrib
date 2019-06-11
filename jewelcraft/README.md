@@ -20,17 +20,11 @@ Video:
 How to install
 ==========================
 
-### Blender 2.80
-
-1. [Download JewelCraft v2.3.1 (April 8 pre-release).][v2_3_1]<sup>1</sup>
-2. Open `Edit` → `Preferences` → `Add-ons` category.
+1. Download the add-on:<sup>1</sup>
+    * [**Blender 2.80** JewelCraft v2.3.3 (pre-release).][v2_3_3]
+    * [**Blender 2.79** JewelCraft v2.2.1.][v2_2_1]
+2. Open `Preferences` → `Add-ons` category.
 3. Use `Install` to install add-on from downloaded zip archive.
-
-### Blender 2.79
-
-1. [Download JewelCraft v2.2.1.][v2_2_1]<sup>1</sup>
-2. Open `File` → `User Preferences` → `Add-ons` category.
-3. Use `Install Add-on from File` to install add-on from downloaded zip archive.
 
 <sup>1</sup> Note for mac users: Safari browser will automatically unpack downloaded zip archive, so in order to install the add-on, you have to pack folder with add-on files back into zip archive. Or use a different browser to download add-on.
 
@@ -38,17 +32,11 @@ How to install
 Установка
 ==========================
 
-### Blender 2.80
-
-1. [Загрузите JewelCraft v2.3.1 (пре-релиз от 8-04).][v2_3_1]<sup>1</sup>
-2. Откройте `Edit` → `Preferences` → `Add-ons`.
+1. Загрузите аддон:<sup>1</sup>
+    * [**Blender 2.80** JewelCraft v2.3.3 (пре-релиз).][v2_3_3]
+    * [**Blender 2.79** JewelCraft v2.2.1.][v2_2_1]
+2. Откройте `Preferences` → `Add-ons`.
 3. Воспользуйтесь `Install` чтобы установить аддон из загруженного архива.
-
-### Blender 2.79
-
-1. [Загрузите JewelCraft v2.2.1.][v2_2_1]<sup>1</sup>
-2. Откройте `File` → `User Preferences` → `Add-ons`.
-3. Воспользуйтесь `Install Add-on from File` чтобы установить аддон из загруженного архива.
 
 <sup>1</sup> Примечание для пользователей mac: браузер Safari автоматически распаковывает скачиваемые zip архивы, поэтому, чтобы установить аддон, необходимо запаковать папку с файлами аддона обратно в zip архив. Или используйте другой браузер для скачивания аддона.
 
@@ -59,7 +47,7 @@ Contributing
 ### Did you find a bug?
 
 * Ensure the bug can be reproduced in the latest add-on version.
-* If error occurs on add-on installation or activation, check [how to install][install_guide] guide.
+* If error occurs on add-on installation or activation, check [how to install](#how-to-install) guide.
 * [Open new issue][new_issue], be sure to include Blender and add-on versions, and screenshot showing the error message.
 
 ### Translations
@@ -77,9 +65,8 @@ Contributing
 * After translation is done submit it back through email or pull request.
 
 
-[v2_3_1]: https://github.com/mrachinskiy/jewelcraft/releases/download/v2.3.1/jewelcraft-2_3_1.zip
+[v2_3_3]: https://github.com/mrachinskiy/jewelcraft/releases/download/v2.3.3/jewelcraft-2_3_3.zip
 [v2_2_1]: https://github.com/mrachinskiy/jewelcraft/releases/download/v2.2.1/jewelcraft-2_2_1.zip
 [playlist_en]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KhfestF7xCic1jf5YjXiVh
 [playlist_ru]: https://www.youtube.com/playlist?list=PLCoK1Ao0T01KQ0cobvQLR2q3sYF6fH2lh
-[install_guide]: https://github.com/mrachinskiy/jewelcraft#how-to-install
 [new_issue]: https://github.com/mrachinskiy/jewelcraft/issues/new

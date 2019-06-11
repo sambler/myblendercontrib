@@ -26,6 +26,9 @@ import math
 from mathutils import Vector
 import numpy as np#Ship with Blender since 2.70
 
+import logging
+log = logging.getLogger(__name__)
+
 from ..geoscene import GeoScene, georefManagerLayout
 from ..prefs import PredefCRS
 
@@ -48,7 +51,7 @@ from bpy.types import Operator
 
 PKG, SUBPKG = __package__.split('.', maxsplit=1)
 
-class IMPORT_GEORAST(Operator, ImportHelper):
+class IMPORTGIS_OT_georaster(Operator, ImportHelper):
 	"""Import georeferenced raster (need world file)"""
 	bl_idname = "importgis.georaster"  # important since its how bpy.ops.importgis.georaster is constructed (allows calling operator from python console or another script)
 	#bl_idname rules: must contain one '.' (dot) charactere, no capital letters, no reserved words (like 'import')
@@ -65,7 +68,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 		return objs
 
 	# ImportHelper class properties
-	filter_glob = StringProperty(
+	filter_glob: StringProperty(
 			default="*.tif;*.jpg;*.jpeg;*.png;*.bmp",
 			options={'HIDDEN'},
 			)
@@ -73,19 +76,19 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 	# Raster CRS definition
 	def listPredefCRS(self, context):
 		return PredefCRS.getEnumItems()
-	rastCRS = EnumProperty(
+	rastCRS: EnumProperty(
 		name = "Raster CRS",
 		description = "Choose a Coordinate Reference System",
 		items = listPredefCRS,
 		)
-	reprojection = BoolProperty(
+	reprojection: BoolProperty(
 			name="Specifiy raster CRS",
 			description="Specifiy raster CRS if it's different from scene CRS",
 			default=False )
 
 	# List of operator properties, the attributes will be assigned
 	# to the class instance from the operator settings before calling.
-	importMode = EnumProperty(
+	importMode: EnumProperty(
 			name="Mode",
 			description="Select import mode",
 			items=[ ('PLANE', 'On plane', "Place raster texture on new plane mesh"),
@@ -95,7 +98,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			('DEM_RAW', 'Raw DEM', "Import a DEM as pixels points cloud with building faces")]
 			)
 	#
-	objectsLst = EnumProperty(attr="obj_list", name="Objects", description="Choose object to edit", items=listObjects)
+	objectsLst: EnumProperty(attr="obj_list", name="Objects", description="Choose object to edit", items=listObjects)
 	#
 	#Subdivise (as DEM option)
 	def listSubdivisionModes(self, context):
@@ -106,33 +109,33 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			items.append(('mesh', 'Mesh', "Create vertices at each pixels"))
 		return items
 
-	subdivision = EnumProperty(
+	subdivision: EnumProperty(
 			name="Subdivision",
 			description="How to subdivise the plane (dispacer needs vertex to work with)",
 			items=listSubdivisionModes
 			)
 	#
-	demOnMesh = BoolProperty(
+	demOnMesh: BoolProperty(
 			name="Apply on existing mesh",
 			description="Use DEM as displacer for an existing mesh",
 			default=False
 			)
 	#
-	clip = BoolProperty(
+	clip: BoolProperty(
 			name="Clip to working extent",
 			description="Use the reference bounding box to clip the DEM",
 			default=False
 			)
 	#
-	fillNodata = BoolProperty(
+	fillNodata: BoolProperty(
 			name="Fill nodata values",
 			description="Interpolate existing nodata values to get an usuable displacement texture",
 			default=False
 			)
 	#
-	step = IntProperty(name = "Step", default=1, description="Pixel step", min=1)
+	step: IntProperty(name = "Step", default=1, description="Pixel step", min=1)
 
-	buildFaces = BoolProperty(name="Build faces", default=True, description='Build quad faces connecting pixel point cloud')
+	buildFaces: BoolProperty(name="Build faces", default=True, description='Build quad faces connecting pixel point cloud')
 
 	def draw(self, context):
 		#Function used by blender to draw the panel.
@@ -151,7 +154,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			if geoscn.isGeoref and len(self.objectsLst) > 0:
 				layout.prop(self, 'objectsLst')
 			else:
-				layout.label("There isn't georef mesh to UVmap on")
+				layout.label(text="There isn't georef mesh to UVmap on")
 		#
 		if self.importMode == 'DEM':
 			layout.prop(self, 'demOnMesh')
@@ -160,7 +163,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 					layout.prop(self, 'objectsLst')
 					layout.prop(self, 'clip')
 				else:
-					layout.label("There isn't georef mesh to apply on")
+					layout.label(text="There isn't georef mesh to apply on")
 			layout.prop(self, 'subdivision')
 			if self.subdivision == 'mesh':
 				layout.prop(self, 'step')
@@ -174,7 +177,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				if geoscn.isGeoref and len(self.objectsLst) > 0:
 					layout.prop(self, 'objectsLst')
 				else:
-					layout.label("There isn't georef mesh to refer")
+					layout.label(text="There isn't georef mesh to refer")
 		#
 		if geoscn.isPartiallyGeoref:
 			layout.prop(self, 'reprojection')
@@ -188,22 +191,17 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 	def crsInputLayout(self, context):
 		layout = self.layout
 		row = layout.row(align=True)
-		split = row.split(percentage=0.35, align=True)
-		split.label('CRS:')
+		split = row.split(factor=0.35, align=True)
+		split.label(text='CRS:')
 		split.prop(self, "rastCRS", text='')
-		row.operator("bgis.add_predef_crs", text='', icon='ZOOMIN')
-
-	def err(self, msg):
-		'''Report error throught a Blender's message box'''
-		self.report({'ERROR'}, msg)
-		return {'CANCELLED'}
+		row.operator("bgis.add_predef_crs", text='', icon='ADD')
 
 	@classmethod
 	def poll(cls, context):
 		return context.mode == 'OBJECT'
 
 	def execute(self, context):
-		prefs = bpy.context.user_preferences.addons[PKG].preferences
+		prefs = context.preferences.addons[PKG].preferences
 
 		bpy.ops.object.select_all(action='DESELECT')
 		#Get scene and some georef data
@@ -226,7 +224,8 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			try:
 				geoscn.crs = rastCRS
 			except Exception as e:
-				self.report({'ERROR'}, str(e))
+				log.error("Cannot set scene crs", exc_info=True)
+				self.report({'ERROR'}, "Cannot set scene crs, check logs for more infos")
 				return {'CANCELLED'}
 
 		#Raster reprojection throught UV mapping
@@ -250,7 +249,8 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			try:
 				rast = bpyGeoRaster(filePath)
 			except IOError as e:
-				return self.err(str(e))
+				self.report({'ERROR'}, "Unable to open raster, check logs for more infos")
+				return {'CANCELLED'}
 			#Get or set georef dx, dy
 			if not geoscn.isGeoref:
 				dx, dy = rast.center.x, rast.center.y
@@ -262,7 +262,7 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			#place obj
 			obj = placeObj(mesh, name)
 			#UV mapping
-			uvTxtLayer = mesh.uv_textures.new('rastUVmap')# Add UV map texture layer
+			uvTxtLayer = mesh.uv_layers.new(name='rastUVmap')# Add UV map texture layer
 			geoRastUVmap(obj, uvTxtLayer, rast, dx, dy, reproj=rprjToRaster)
 			# Create material
 			mat = bpy.data.materials.new('rastMat')
@@ -274,17 +274,22 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 		######################################
 		if self.importMode == 'BKG':#background
 			if rprj:
-				return self.err("Raster reprojection not possible in background mode") #TODO, do gdal true reproj
+				#TODO, do gdal true reproj
+				self.report({'ERROR'}, "Raster reprojection is not possible in background mode")
+				return {'CANCELLED'}
 			#Load raster
 			try:
 				rast = bpyGeoRaster(filePath)
 			except IOError as e:
-				return self.err(str(e))
+				self.report({'ERROR'}, "Unable to open raster, check logs for more infos")
+				return {'CANCELLED'}
 			#Check pixel size and rotation
 			if rast.rotation.xy != [0,0]:
-				return self.err("Cannot rotate background image")
+				self.report({'ERROR'}, "Cannot apply a rotation in background image mode")
+				return {'CANCELLED'}
 			if abs(round(rast.pxSize.x, 3)) != abs(round(rast.pxSize.y, 3)):
-				return self.err("Background image needs equal pixel size in map units in both x ans y axis")
+				self.report({'ERROR'}, "Background image needs equal pixel size in map units in both x ans y axis")
+				return {'CANCELLED'}
 			#
 			trueSizeX = rast.geoSize.x
 			trueSizeY = rast.geoSize.y
@@ -295,28 +300,33 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				dx, dy = rast.center.x, rast.center.y
 				geoscn.setOriginPrj(dx, dy)
 				offx, offy = 0, 0
-			areas = bpy.context.screen.areas
-			for area in areas:
-				if area.type == 'VIEW_3D':
-					space = area.spaces.active
-					space.show_background_images=True
-					bckImg = space.background_images.new()
-					bckImg.image = rast.bpyImg
-					bckImg.view_axis = 'TOP'
-					bckImg.opacity = 1
-					bckImg.size = trueSizeX #since Blender 2.75
-					bckImg.offset_x = offx
-					bckImg.offset_y = offy * ratio
+
+			bkg = bpy.data.objects.new(self.name, None) #None will create an empty
+			bkg.empty_display_type = 'IMAGE'
+			bkg.empty_image_depth = 'BACK'
+			bkg.data = rast.bpyImg
+			scn.collection.objects.link(bkg)
+
+			bkg.empty_display_size = 1 #a size of 1 means image width=1bu
+			bkg.scale = (trueSizeX, trueSizeY*ratio, 1)
+			bkg.location = (offx, offy, 0)
+
+			bpy.context.view_layer.objects.active = bkg
+			bkg.select_set(True)
+
+			if prefs.adjust3Dview:
+				adjust3Dview(context, rast.bbox)
 
 		######################################
 		if self.importMode == 'MESH':
 			if not geoscn.isGeoref or len(self.objectsLst) == 0:
-				return self.err("There isn't georef mesh to apply on")
+				self.report({'ERROR'}, "There isn't georef mesh to apply on")
+				return {'CANCELLED'}
 			# Get choosen object
 			obj = scn.objects[int(self.objectsLst)]
 			# Select and active this obj
-			obj.select = True
-			scn.objects.active = obj
+			obj.select_set(True)
+			context.view_layer.objects.active = obj
 			# Compute projeted bbox (in geographic coordinates system)
 			subBox = getBBOX.fromObj(obj).toGeo(geoscn)
 			if rprj:
@@ -324,11 +334,16 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			#Load raster
 			try:
 				rast = bpyGeoRaster(filePath, subBoxGeo=subBox)
-			except (IOError, OverlapError) as e:
-				return self.err(str(e))
+			except IOError as e:
+				self.report({'ERROR'}, "Unable to open raster, check logs for more infos")
+				return {'CANCELLED'}
+			except OverlapError:
+				self.report({'ERROR'}, "Non overlap data")
+				return {'CANCELLED'}
 			# Add UV map texture layer
 			mesh = obj.data
-			uvTxtLayer = mesh.uv_textures.new('rastUVmap')
+			uvTxtLayer = mesh.uv_layers.new(name='rastUVmap')
+			uvTxtLayer.active = True
 			# UV mapping
 			geoRastUVmap(obj, uvTxtLayer, rast, dx, dy, reproj=rprjToRaster)
 			# Add material and texture
@@ -342,13 +357,14 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			# Get reference plane
 			if self.demOnMesh:
 				if not geoscn.isGeoref or len(self.objectsLst) == 0:
-					return self.err("There isn't georef mesh to apply on")
+					self.report({'ERROR'}, "There isn't georef mesh to apply on")
+					return {'CANCELLED'}
 				# Get choosen object
 				obj = scn.objects[int(self.objectsLst)]
 				mesh = obj.data
 				# Select and active this obj
-				obj.select = True
-				scn.objects.active = obj
+				obj.select_set(True)
+				context.view_layer.objects.active = obj
 				# Compute projeted bbox (in geographic coordinates system)
 				subBox = getBBOX.fromObj(obj).toGeo(geoscn)
 				if rprj:
@@ -358,9 +374,13 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 
 			# Load raster
 			try:
-				grid = bpyGeoRaster(filePath, subBoxGeo=subBox, clip=self.clip, fillNodata=self.fillNodata, useGDAL=HAS_GDAL)
-			except (IOError, OverlapError) as e:
-				return self.err(str(e))
+				grid = bpyGeoRaster(filePath, subBoxGeo=subBox, clip=self.clip, fillNodata=self.fillNodata, useGDAL=HAS_GDAL, raw=True)
+			except IOError as e:
+				self.report({'ERROR'}, "Unable to open raster, check logs for more infos")
+				return {'CANCELLED'}
+			except OverlapError:
+				self.report({'ERROR'}, "Non overlap data")
+				return {'CANCELLED'}
 
 			# If needed, create a new plane object from raster extent
 			if not self.demOnMesh:
@@ -377,13 +397,13 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 				subBox = getBBOX.fromObj(obj).toGeo(geoscn)
 
 			# Add UV map texture layer
-			previousUVmapIdx = mesh.uv_textures.active_index
-			uvTxtLayer = mesh.uv_textures.new('demUVmap')
+			previousUVmapIdx = mesh.uv_layers.active_index
+			uvTxtLayer = mesh.uv_layers.new(name='demUVmap')
 			#UV mapping
 			geoRastUVmap(obj, uvTxtLayer, grid, dx, dy, reproj=rprjToRaster)
 			#Restore previous uv map
 			if previousUVmapIdx != -1:
-				mesh.uv_textures.active_index = previousUVmapIdx
+				mesh.uv_layers.active_index = previousUVmapIdx
 			#Make subdivision
 			if self.subdivision == 'subsurf':#Add subsurf modifier
 				if not 'SUBSURF' in [mod.type for mod in obj.modifiers]:
@@ -401,7 +421,8 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			subBox = None
 			if self.clip:
 				if not geoscn.isGeoref or len(self.objectsLst) == 0:
-					return self.err("No working extent")
+					self.report({'ERROR'}, "No working extent")
+					return {'CANCELLED'}
 				# Get choosen object
 				obj = scn.objects[int(self.objectsLst)]
 				subBox = getBBOX.fromObj(obj).toGeo(geoscn)
@@ -411,8 +432,12 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			# Load raster
 			try:
 				grid = GeoRaster(filePath, subBoxGeo=subBox, useGDAL=HAS_GDAL)
-			except (IOError, OverlapError) as e:
-				return self.err(str(e))
+			except IOError as e:
+				self.report({'ERROR'}, "Unable to open raster, check logs for more infos")
+				return {'CANCELLED'}
+			except OverlapError:
+				self.report({'ERROR'}, "Non overlap data")
+				return {'CANCELLED'}
 
 			if not geoscn.isGeoref:
 				dx, dy = grid.center.x, grid.center.y
@@ -424,7 +449,8 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 			#grid.unload()
 
 		######################################
-		#Flag is a new object as been created...
+
+		#Flag if a new object as been created...
 		if self.importMode == 'PLANE' or (self.importMode == 'DEM' and not self.demOnMesh) or self.importMode == 'DEM_RAW':
 			newObjCreated = True
 		else:
@@ -441,3 +467,10 @@ class IMPORT_GEORAST(Operator, ImportHelper):
 
 
 		return {'FINISHED'}
+
+
+def register():
+	bpy.utils.register_class(IMPORTGIS_OT_georaster)
+
+def unregister():
+	bpy.utils.unregister_class(IMPORTGIS_OT_georaster)

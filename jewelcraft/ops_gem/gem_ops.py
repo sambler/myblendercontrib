@@ -27,7 +27,7 @@ from .. import var
 from ..lib import asset, dynamic_list
 
 
-class OBJECT_OT_jewelcraft_gem_add(Operator):
+class OBJECT_OT_gem_add(Operator):
     bl_label = "JewelCraft Make Gem"
     bl_description = "Add gemstone to the scene"
     bl_idname = "object.jewelcraft_gem_add"
@@ -66,7 +66,7 @@ class OBJECT_OT_jewelcraft_gem_add(Operator):
         for ob in context.selected_objects:
             ob.select_set(False)
 
-        imported = asset.asset_import(filepath=var.GEM_ASSET_FILEPATH, ob_name=cut_name)
+        imported = asset.asset_import(var.GEM_ASSET_FILEPATH, ob_name=cut_name)
         ob = imported.objects[0]
         context.collection.objects.link(ob)
 
@@ -95,7 +95,7 @@ class OBJECT_OT_jewelcraft_gem_add(Operator):
         return wm.invoke_props_dialog(self)
 
 
-class OBJECT_OT_jewelcraft_gem_edit(Operator):
+class OBJECT_OT_gem_edit(Operator):
     bl_label = "JewelCraft Edit Gem"
     bl_description = "Edit selected gems"
     bl_idname = "object.jewelcraft_gem_edit"
@@ -120,7 +120,7 @@ class OBJECT_OT_jewelcraft_gem_edit(Operator):
         if self.cut != self.cut_orig:
 
             cut_name = asset.get_name(self.cut)
-            imported = asset.asset_import(filepath=var.GEM_ASSET_FILEPATH, me_name=cut_name)
+            imported = asset.asset_import(var.GEM_ASSET_FILEPATH, me_name=cut_name)
             me = imported.meshes[0]
 
             for ob in obs:
@@ -176,7 +176,7 @@ class OBJECT_OT_jewelcraft_gem_edit(Operator):
         return wm.invoke_props_popup(self, event)
 
 
-class OBJECT_OT_jewelcraft_gem_id_add(Operator):
+class OBJECT_OT_gem_id_add(Operator):
     bl_label = "JewelCraft Add Gem ID"
     bl_description = "Add gem identifiers to selected objects"
     bl_idname = "object.jewelcraft_gem_id_add"
@@ -207,7 +207,7 @@ class OBJECT_OT_jewelcraft_gem_id_add(Operator):
         return wm.invoke_props_dialog(self)
 
 
-class OBJECT_OT_jewelcraft_gem_id_convert_deprecated(Operator):
+class OBJECT_OT_gem_id_convert_deprecated(Operator):
     bl_label = "JewelCraft Convert Deprecated Gem IDs"
     bl_description = "Convert deprecated gem identifiers to compatible for all objects in the scene"
     bl_idname = "object.jewelcraft_gem_id_convert_deprecated"

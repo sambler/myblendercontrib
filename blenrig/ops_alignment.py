@@ -770,7 +770,7 @@ class Operator_BlenRig_Reset_Dynamic(bpy.types.Operator):
 
     def reset_dynamic_values(self, context):
         
-        scene = bpy.context.scene
+        scene = bpy.context.view_layer
         pbones = bpy.context.active_object.pose.bones
 
         pbones["properties_head"]["flex_head_scale"] = 1.0

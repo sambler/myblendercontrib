@@ -1,6 +1,7 @@
 
 import bpy
 from mathutils import Vector, Matrix
+from mathutils.bvhtree import BVHTree
 from bpy_extras.view3d_utils import region_2d_to_location_3d, region_2d_to_vector_3d
 
 from ...core import BBOX
@@ -23,32 +24,46 @@ def mouseTo3d(context, x, y):
 	loc = region_2d_to_location_3d(reg, reg3d, coords, vec) #WARNING, this function return indeterminate value when view3d clip distance is too large
 	return loc
 
+
 class DropToGround():
 	'''A class to perform raycasting accross z axis'''
 
-	def __init__(self, scn, ground):
+	def __init__(self, scn, ground, method='OBJ'):
+		self.method = method # 'BVH' or 'OBJ'
 		self.scn = scn
 		self.ground = ground
 		self.bbox = getBBOX.fromObj(ground, applyTransform=True)
 		self.mw = self.ground.matrix_world
 		self.mwi = self.mw.inverted()
+		if self.method == 'BVH':
+			self.bvh = BVHTree.FromObject(self.ground, bpy.context.depsgraph, deform=True)
 
-	def rayCast(self, x, y, elseZero=False):
+	def rayCast(self, x, y):
 		#Hit vector
 		offset = 100
 		orgWldSpace = Vector((x, y, self.bbox.zmax + offset))
-		orgObjSpace = self.mwi * orgWldSpace
+		orgObjSpace = self.mwi @ orgWldSpace
 		direction = Vector((0,0,-1)) #down
 		#build ray cast hit namespace object
 		class RayCastHit(): pass
 		rcHit = RayCastHit()
 		#raycast
-		rcHit.hit, rcHit.loc, rcHit.normal, rcHit.faceIdx = self.ground.ray_cast(orgObjSpace, direction)
+		if self.method == 'OBJ':
+			rcHit.hit, rcHit.loc, rcHit.normal, rcHit.faceIdx = self.ground.ray_cast(orgObjSpace, direction)
+		elif self.method == 'BVH':
+			rcHit.loc, rcHit.normal, rcHit.faceIdx, rcHit.dst = self.bvh.ray_cast(orgObjSpace, direction)
+			if not rcHit.loc:
+				rcHit.hit = False
+			else:
+				rcHit.hit = True
 		#adjust values
 		if not rcHit.hit:
-			rcHit.loc = Vector((orgWldSpace.x, orgWldSpace.y, 0))
-		rcHit.loc = self.mw * rcHit.loc
+			#return same original 2d point with z=0
+			rcHit.loc = Vector((orgWldSpace.x, orgWldSpace.y, 0)) #elseZero
+		else:
+			rcHit.hit = True
 
+		rcHit.loc = self.mw @ rcHit.loc
 		return rcHit
 
 def placeObj(mesh, objName):
@@ -57,31 +72,31 @@ def placeObj(mesh, objName):
 	#create an object with that mesh
 	obj = bpy.data.objects.new(objName, mesh)
 	# Link object to scene
-	bpy.context.scene.objects.link(obj)
-	bpy.context.scene.objects.active = obj
-	obj.select = True
+	bpy.context.scene.collection.objects.link(obj)
+	bpy.context.view_layer.objects.active = obj
+	obj.select_set(True)
 	#bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
 	return obj
 
 
 def adjust3Dview(context, bbox, zoomToSelect=True):
-	'''adjust all 3d views floor grid and clip distance to match the submited bbox'''
-	# grid size and clip distance
-	dstMax = round(max(abs(bbox.xmax), abs(bbox.xmin), abs(bbox.ymax), abs(bbox.ymin)))*2
-	nbDigit = len(str(dstMax))
-	scale = 10**(nbDigit-2)#1 digits --> 0.1m, 2 --> 1m, 3 --> 10m, 4 --> 100m, , 5 --> 1000m
-	nbLines = round(dstMax/scale)
-	targetDst = nbLines*scale
+	'''adjust all 3d views clip distance to match the submited bbox'''
+	dst = round(max(bbox.dimensions))
+	k = 5 #increase factor
+	dst = dst * k
 	# set each 3d view
 	areas = context.screen.areas
 	for area in areas:
 		if area.type == 'VIEW_3D':
 			space = area.spaces.active
-			#Adjust floor grid and clip distance if the new obj is largest than actual settings
-			if space.grid_lines*space.grid_scale < targetDst:
-				space.grid_lines = nbLines
-				space.grid_scale = scale
-				dst = targetDst*10 #10x more than necessary
+			if dst < 100:
+				space.clip_start = 1
+			elif dst < 1000:
+				space.clip_start = 10
+			else:
+				space.clip_start = 100
+			#Adjust clip end distance if the new obj is largest than actual setting
+			if space.clip_end < dst:
 				if dst > 10000000:
 					dst = 10000000 #too large clip distance broke the 3d view
 				space.clip_end = dst
@@ -98,11 +113,8 @@ def showTextures(context):
 	for area in context.screen.areas:
 		if area.type == 'VIEW_3D':
 			space = area.spaces.active
-			space.show_textured_solid = True
-			if scn.render.engine == 'CYCLES':
-				area.spaces.active.viewport_shade = 'TEXTURED'
-			elif scn.render.engine == 'BLENDER_RENDER':
-				area.spaces.active.viewport_shade = 'SOLID'
+			if space.shading.type == 'SOLID':
+				space.shading.color_type = 'TEXTURE'
 
 
 def addTexture(mat, img, uvLay, name='texture'):
@@ -111,54 +123,26 @@ def addTexture(mat, img, uvLay, name='texture'):
 	mat.use_nodes = True
 	node_tree = mat.node_tree
 	node_tree.nodes.clear()
-	#
-	#CYCLES
-	bpy.context.scene.render.engine = 'CYCLES' #force Cycles render
 	# create uv map node
 	uvMapNode = node_tree.nodes.new('ShaderNodeUVMap')
 	uvMapNode.uv_map = uvLay.name
-	uvMapNode.location = (-400, 200)
+	uvMapNode.location = (-800, 200)
 	# create image texture node
 	textureNode = node_tree.nodes.new('ShaderNodeTexImage')
 	textureNode.image = img
 	textureNode.extension = 'CLIP'
 	textureNode.show_texture = True
-	textureNode.location = (-200, 200)
+	textureNode.location = (-400, 200)
 	# Create BSDF diffuse node
-	diffuseNode = node_tree.nodes.new('ShaderNodeBsdfDiffuse')
+	diffuseNode = node_tree.nodes.new('ShaderNodeBsdfPrincipled')#ShaderNodeBsdfDiffuse
 	diffuseNode.location = (0, 200)
 	# Create output node
 	outputNode = node_tree.nodes.new('ShaderNodeOutputMaterial')
-	outputNode.location = (200, 200)
+	outputNode.location = (400, 200)
 	# Connect the nodes
 	node_tree.links.new(uvMapNode.outputs['UV'] , textureNode.inputs['Vector'])
-	node_tree.links.new(textureNode.outputs['Color'] , diffuseNode.inputs['Color'])
+	node_tree.links.new(textureNode.outputs['Color'] , diffuseNode.inputs['Base Color'])#diffuseNode.inputs['Color'])
 	node_tree.links.new(diffuseNode.outputs['BSDF'] , outputNode.inputs['Surface'])
-	#
-	#BLENDER_RENDER
-	bpy.context.scene.render.engine = 'BLENDER_RENDER'
-	# Create image texture from image
-	imgTex = bpy.data.textures.new(name, type = 'IMAGE')
-	imgTex.image = img
-	imgTex.extension = 'CLIP'
-	# Add texture slot
-	mtex = mat.texture_slots.add()
-	mtex.texture = imgTex
-	mtex.texture_coords = 'UV'
-	mtex.uv_layer = uvLay.name
-	mtex.mapping = 'FLAT'
-	# Add material node
-	matNode = node_tree.nodes.new('ShaderNodeMaterial')
-	matNode.material = mat
-	matNode.location = (-100, -100)
-	# Add output node
-	outNode = node_tree.nodes.new('ShaderNodeOutput')
-	outNode.location = (100, -100)
-	# Connect the nodes
-	node_tree.links.new(matNode.outputs['Color'] , outNode.inputs['Color'])
-	#
-	# restore initial engine
-	bpy.context.scene.render.engine = engine
 
 
 class getBBOX():
@@ -169,7 +153,7 @@ class getBBOX():
 	def fromObj(obj, applyTransform = True):
 		'''Create a 3D BBOX from Blender object'''
 		if applyTransform:
-			boundPts = [obj.matrix_world * Vector(corner) for corner in obj.bound_box]
+			boundPts = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
 		else:
 			boundPts = obj.bound_box
 		xmin = min([pt[0] for pt in boundPts])
@@ -184,7 +168,8 @@ class getBBOX():
 	def fromScn(cls, scn):
 		'''Create a 3D BBOX from Blender Scene
 		union of bounding box of all objects containing in the scene'''
-		objs = scn.objects
+		#objs = scn.collection.objects
+		objs = [obj for obj in scn.collection.objects if obj.empty_display_type != 'IMAGE']
 		if len(objs) == 0:
 			scnBbox = BBOX(0,0,0,0,0,0)
 		else:

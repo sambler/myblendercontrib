@@ -3,6 +3,9 @@ import time
 import json
 import random
 
+import logging
+log = logging.getLogger(__name__)
+
 import bpy
 import bmesh
 from bpy.types import Operator, Panel, AddonPreferences
@@ -22,7 +25,7 @@ PKG, SUBPKG = __package__.split('.', maxsplit=1)
 #https://developer.blender.org/T48873
 #https://developer.blender.org/T38489
 def getTags():
-	prefs = bpy.context.user_preferences.addons[PKG].preferences
+	prefs = bpy.context.preferences.addons[PKG].preferences
 	tags = json.loads(prefs.osmTagsJson)
 	return tags
 
@@ -33,7 +36,7 @@ OSMTAGS = []
 
 
 closedWaysArePolygons = ['aeroway', 'amenity', 'boundary', 'building', 'craft', 'geological', 'historic', 'landuse', 'leisure', 'military', 'natural', 'office', 'place', 'shop' , 'sport', 'tourism']
-
+closedWaysAreExtruded = ['building']
 
 
 def queryBuilder(bbox, tags=['building', 'highway'], types=['node', 'way', 'relation'], format='json'):
@@ -101,7 +104,7 @@ class OSM_IMPORT():
 
 	def enumTags(self, context):
 		items = []
-		##prefs = bpy.context.user_preferences.addons[PKG].preferences
+		##prefs = context.preferences.addons[PKG].preferences
 		##osmTags = json.loads(prefs.osmTagsJson)
 		#we need to use a global variable as workaround to enum callback bug (T48873, T38489)
 		for tag in OSMTAGS:
@@ -109,15 +112,15 @@ class OSM_IMPORT():
 			items.append( (tag, tag, tag) )
 		return items
 
-	filterTags = EnumProperty(
-			name="Tags",
-			description="Select tags to include",
+	filterTags: EnumProperty(
+			name = "Tags",
+			description = "Select tags to include",
 			items = enumTags,
 			options = {"ENUM_FLAG"})
 
-	featureType = EnumProperty(
-			name="Type",
-			description="Select types to include",
+	featureType: EnumProperty(
+			name = "Type",
+			description = "Select types to include",
 			items = [
 				('node', 'Nodes', 'Request all nodes'),
 				('way', 'Ways', 'Request all ways'),
@@ -136,22 +139,22 @@ class OSM_IMPORT():
 				objs.append((str(index), object.name, "Object named " + object.name))
 		return objs
 
-	objElevLst = EnumProperty(
+	objElevLst: EnumProperty(
 		name="Elev. object",
 		description="Choose the mesh from which extract z elevation",
 		items=listObjects )
 
-	useElevObj = BoolProperty(
+	useElevObj: BoolProperty(
 			name="Elevation from object",
 			description="Get z elevation value from an existing ground mesh",
 			default=False )
 
+	separate: BoolProperty(name='Separate objects', description='Warning : can be very slow with lot of features', default=False)
 
-	separate = BoolProperty(name='Separate objects', description='Warning : can be very slow with lot of features')
-
-	defaultHeight = FloatProperty(name='Default Height', description='Set the height value using for extrude building when the tag is missing', default=20)
-	levelHeight = FloatProperty(name='Level height', description='Set a height for a building level, using for compute extrude height based on number of levels', default=3)
-	randomHeightThreshold = FloatProperty(name='Random height threshold', description='Threshold value for randomize default height', default=0)
+	buildingsExtrusion: BoolProperty(name='Buildings extrusion', description='', default=True)
+	defaultHeight: FloatProperty(name='Default Height', description='Set the height value using for extrude building when the tag is missing', default=20)
+	levelHeight: FloatProperty(name='Level height', description='Set a height for a building level, using for compute extrude height based on number of levels', default=3)
+	randomHeightThreshold: FloatProperty(name='Random height threshold', description='Threshold value for randomize default height', default=0)
 
 	def draw(self, context):
 		layout = self.layout
@@ -163,14 +166,16 @@ class OSM_IMPORT():
 		layout.prop(self, 'useElevObj')
 		if self.useElevObj:
 			layout.prop(self, 'objElevLst')
-		layout.prop(self, 'defaultHeight')
-		layout.prop(self, 'randomHeightThreshold')
-		layout.prop(self, 'levelHeight')
+		layout.prop(self, 'buildingsExtrusion')
+		if self.buildingsExtrusion:
+			layout.prop(self, 'defaultHeight')
+			layout.prop(self, 'randomHeightThreshold')
+			layout.prop(self, 'levelHeight')
 		layout.prop(self, 'separate')
 
 
 	def build(self, context, result, dstCRS):
-		prefs = bpy.context.user_preferences.addons[PKG].preferences
+		prefs = context.preferences.addons[PKG].preferences
 		scn = context.scene
 		geoscn = GeoScene(scn)
 		scale = geoscn.scale #TODO
@@ -179,7 +184,8 @@ class OSM_IMPORT():
 		try:
 			rprj = Reproj(4326, dstCRS)
 		except Exception as e:
-			self.report({'ERROR'}, "Unable to reproject data. " + str(e))
+			log.error('Unable to reproject data', exc_info=True)
+			self.report({'ERROR'}, "Unable to reproject data ckeck logs for more infos")
 			return {'FINISHED'}
 
 		if self.useElevObj:
@@ -233,53 +239,54 @@ class OSM_IMPORT():
 				if face.normal.z < 0:
 					face.normal_flip()
 
-				offset = None
-				if "height" in tags:
-						htag = tags["height"]
-						htag.replace(',', '.')
-						try:
-							offset = int(htag)
-						except:
+				if self.buildingsExtrusion and any(tag in closedWaysAreExtruded for tag in tags):
+					offset = None
+					if "height" in tags:
+							htag = tags["height"]
+							htag.replace(',', '.')
 							try:
-								offset = float(htag)
+								offset = int(htag)
 							except:
-								for i, c in enumerate(htag):
-									if not c.isdigit():
-										try:
-											offset, unit = float(htag[:i]), htag[i:].strip()
-											#todo : parse unit  25, 25m, 25 ft, etc.
-										except:
-											offset = None
-				elif "building:levels" in tags:
-					try:
-						offset = int(tags["building:levels"]) * self.levelHeight
-					except ValueError as e:
-						offset = None
+								try:
+									offset = float(htag)
+								except:
+									for i, c in enumerate(htag):
+										if not c.isdigit():
+											try:
+												offset, unit = float(htag[:i]), htag[i:].strip()
+												#todo : parse unit  25, 25m, 25 ft, etc.
+											except:
+												offset = None
+					elif "building:levels" in tags:
+						try:
+							offset = int(tags["building:levels"]) * self.levelHeight
+						except ValueError as e:
+							offset = None
 
-				if offset is None:
-					minH = self.defaultHeight - self.randomHeightThreshold
-					if minH < 0 :
-						minH = 0
-					maxH = self.defaultHeight + self.randomHeightThreshold
-					offset = random.randint(minH, maxH)
+					if offset is None:
+						minH = self.defaultHeight - self.randomHeightThreshold
+						if minH < 0 :
+							minH = 0
+						maxH = self.defaultHeight + self.randomHeightThreshold
+						offset = random.randint(minH, maxH)
 
-				#Extrude
-				"""
-				if self.extrusionAxis == 'NORMAL':
-					normal = face.normal
-					vect = normal * offset
-				elif self.extrusionAxis == 'Z':
-				"""
-				vect = (0, 0, offset)
-				faces = bmesh.ops.extrude_discrete_faces(bm, faces=[face]) #return {'faces': [BMFace]}
-				verts = faces['faces'][0].verts
-				if self.useElevObj:
-					#Making flat roof
-					z = max([v.co.z for v in verts]) + offset #get max z coord
-					for v in verts:
-						v.co.z = z
-				else:
-					bmesh.ops.translate(bm, verts=verts, vec=vect)
+					#Extrude
+					"""
+					if self.extrusionAxis == 'NORMAL':
+						normal = face.normal
+						vect = normal * offset
+					elif self.extrusionAxis == 'Z':
+					"""
+					vect = (0, 0, offset)
+					faces = bmesh.ops.extrude_discrete_faces(bm, faces=[face]) #return {'faces': [BMFace]}
+					verts = faces['faces'][0].verts
+					if self.useElevObj:
+						#Making flat roof
+						z = max([v.co.z for v in verts]) + offset #get max z coord
+						for v in verts:
+							v.co.z = z
+					else:
+						bmesh.ops.translate(bm, verts=verts, vec=vect)
 
 
 			elif len(pts) > 1: #edge
@@ -305,13 +312,30 @@ class OSM_IMPORT():
 
 				obj = bpy.data.objects.new(name, mesh)
 
-				#Assign tags
+				#Assign tags to custom props
 				obj['id'] = str(id) #cast to str to avoid overflow error "Python int too large to convert to C int"
 				for key in tags.keys():
 					obj[key] = tags[key]
 
-				scn.objects.link(obj)
-				obj.select = True
+				#Put object in right collection
+				if self.filterTags:
+					tagsList = self.filterTags
+				else:
+					tagsList = OSMTAGS
+				if any(tag in tagsList for tag in tags):
+					for k in tagsList:
+						if k in tags:
+							try:
+								tagCollec = layer.children[k]
+							except KeyError:
+								tagCollec = bpy.data.collections.new(k)
+								layer.children.link(tagCollec)
+							tagCollec.objects.link(obj)
+							break
+				else:
+					layer.objects.link(obj)
+
+				obj.select_set(True)
 
 
 			else:
@@ -372,6 +396,10 @@ class OSM_IMPORT():
 
 		######
 
+		if self.separate:
+			layer = bpy.data.collections.new('OSM')
+			context.scene.collection.children.link(layer)
+
 		#Build mesh
 		waysNodesId = [node.id for way in result.ways for node in way.nodes]
 
@@ -418,34 +446,38 @@ class OSM_IMPORT():
 				mesh.update()#calc_edges=True)
 				mesh.validate()
 				obj = bpy.data.objects.new(name, mesh)
-				scn.objects.link(obj)
-				obj.select = True
+				scn.collection.objects.link(obj)
+				obj.select_set(True)
 
 				vgroups = vgroupsObj.get(name, None)
 				if vgroups is not None:
 					#for vgroupName, vgroupIdx in vgroups.items():
 					for vgroupName in sorted(vgroups.keys()):
 						vgroupIdx = vgroups[vgroupName]
-						g = obj.vertex_groups.new(vgroupName)
+						g = obj.vertex_groups.new(name=vgroupName)
 						g.add(vgroupIdx, weight=1, type='ADD')
 
 
 		elif 'relation' in self.featureType:
 
-			groups = bpy.data.groups
-			objects = scn.objects
+			relations = bpy.data.collections.new('Relations')
+			bpy.data.collections['OSM'].children.link(relations)
+			importedObjects = bpy.data.collections['OSM'].objects
 
 			for rel in result.relations:
 
 				name = rel.tags.get('name', str(rel.id))
+				try:
+					relation = relations.children[name] #or bpy.data.collections[name]
+				except KeyError:
+					relation = bpy.data.collections.new(name)
+					relations.children.link(relation)
 
 				for member in rel.members:
 
 					#todo: remove duplicate members
 
-					g = groups.get(name, groups.new(name))
-
-					for obj in objects:
+					for obj in importedObjects:
 						#id = int(obj.get('id', -1))
 						try:
 							id = int(obj['id'])
@@ -453,11 +485,13 @@ class OSM_IMPORT():
 							id = None
 						if id == member.ref:
 							try:
-								g.objects.link(obj)
+								relation.objects.link(obj)
 							except Exception as e:
-								#print('Unable to put ' + obj.name + ' in ' + name)
-								#print(str(e)) #error already in group
-								pass
+								log.error('Object {} already in group {}'.format(obj.name, name), exc_info=True)
+
+				#cleanup
+				if not relation.objects:
+					bpy.data.collections.remove(relation)
 
 
 
@@ -465,7 +499,7 @@ class OSM_IMPORT():
 
 #######################
 
-class OSM_FILE(Operator, OSM_IMPORT):
+class IMPORTGIS_OT_osm_file(Operator, OSM_IMPORT):
 
 	bl_idname = "importgis.osm_file"
 	bl_description = 'Select and import osm xml file'
@@ -473,7 +507,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 	bl_options = {"UNDO"}
 
 	# Import dialog properties
-	filepath = StringProperty(
+	filepath: StringProperty(
 		name="File Path",
 		description="Filepath used for importing the file",
 		maxlen=1024,
@@ -481,7 +515,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 
 	filename_ext = ".osm"
 
-	filter_glob = StringProperty(
+	filter_glob: StringProperty(
 			default = "*.osm",
 			options = {'HIDDEN'} )
 
@@ -514,8 +548,8 @@ class OSM_FILE(Operator, OSM_IMPORT):
 		#Spatial ref system
 		geoscn = GeoScene(scn)
 		if geoscn.isBroken:
-				self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
-				return {'CANCELLED'}
+			self.report({'ERROR'}, "Scene georef is broken, please fix it beforehand")
+			return {'CANCELLED'}
 
 		#Parse file
 		t0 = time.clock()
@@ -524,7 +558,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 		#	result = api.parse_xml(f.read()) #WARNING read() load all the file into memory
 		result = api.parse_xml(self.filepath)
 		t = time.clock() - t0
-		print('parsed in %f' % t)
+		log.info('File parsed in {} seconds'.format(round(t, 2)))
 
 		#Get bbox
 		bounds = result.bounds
@@ -535,7 +569,8 @@ class OSM_FILE(Operator, OSM_IMPORT):
 			try:
 				geoscn.crs = utm.lonlat_to_epsg(lon, lat)
 			except Exception as e:
-				self.report({'ERROR'}, str(e))
+				log.error("Cannot set UTM CRS", exc_info=True)
+				self.report({'ERROR'}, "Cannot set UTM CRS, ckeck logs for more infos")
 				return {'CANCELLED'}
 		#Set scene origin georef
 		if not geoscn.hasOriginPrj:
@@ -546,7 +581,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 		t0 = time.clock()
 		self.build(context, result, geoscn.crs)
 		t = time.clock() - t0
-		print('build in %f' % t)
+		log.info('Mesh build in {} seconds'.format(round(t, 2)))
 
 		bbox = getBBOX.fromScn(scn)
 		adjust3Dview(context, bbox)
@@ -558,7 +593,7 @@ class OSM_FILE(Operator, OSM_IMPORT):
 
 ########################
 
-class OSM_QUERY(Operator, OSM_IMPORT):
+class IMPORTGIS_OT_osm_query(Operator, OSM_IMPORT):
 	"""Import from Open Street Map"""
 
 	bl_idname = "importgis.osm_query"
@@ -621,15 +656,16 @@ class OSM_QUERY(Operator, OSM_IMPORT):
 		api = overpy.Overpass()
 
 		query = queryBuilder(bbox, tags=list(self.filterTags), types=list(self.featureType), format='xml')
-		# print(query) # can fails with non utf8 chars
+		log.debug('Overpass query : {}'.format(query)) # can fails with non utf8 chars
+
 		try:
 			result = api.query(query)
 		except Exception as e:
-			print(str(e))
-			self.report({'ERROR'}, "Overpass query failed")
+			log.error("Overpass query failed", exc_info=True)
+			self.report({'ERROR'}, "Overpass query failed, ckeck logs for more infos.")
 			return {'CANCELLED'}
 		else:
-			print('Overpass query success')
+			log.info('Overpass query successful')
 
 		self.build(context, result, geoscn.crs)
 
@@ -637,3 +673,16 @@ class OSM_QUERY(Operator, OSM_IMPORT):
 		adjust3Dview(context, bbox, zoomToSelect=False)
 
 		return {'FINISHED'}
+
+classes = [
+	IMPORTGIS_OT_osm_file,
+	IMPORTGIS_OT_osm_query
+]
+
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+
+def unregister():
+	for cls in classes:
+		bpy.utils.unregister_class(cls)

@@ -535,9 +535,9 @@ class RemoveIK(bpy.types.Operator):
                 copy_rot = None
                 
                 for const in bone.constraints:
-                    if const.type == "COPY_LOCATION":
+                    if const.type == "COPY_LOCATION" and const.subtarget == pose_bone.name:
                         copy_loc = const
-                    if const.type == "COPY_ROTATION":
+                    if const.type == "COPY_ROTATION" and const.subtarget == pose_bone.name:
                         copy_rot = const
                     if const.type == "IK":
                         if const.subtarget == pose_bone.name:

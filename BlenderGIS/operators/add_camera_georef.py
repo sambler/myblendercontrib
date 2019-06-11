@@ -16,18 +16,19 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #  All rights reserved.
 #  ***** GPL LICENSE BLOCK *****
-
+import logging
+log = logging.getLogger(__name__)
 
 import bpy
 from mathutils import Vector
-from bpy.props import StringProperty, BoolProperty, EnumProperty
+from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty
 
 from .utils import getBBOX
 from ..geoscene import GeoScene
 
 
 
-class SetGeorenderCam(bpy.types.Operator):
+class CAMERA_OT_add_georender_cam(bpy.types.Operator):
 	'''
 	Add a new georef camera or update an existing one
 	A georef camera is a top view orthographic camera that can be used to render a map
@@ -40,10 +41,12 @@ class SetGeorenderCam(bpy.types.Operator):
 	bl_options = {"REGISTER", "UNDO"}
 
 
-	name = bpy.props.StringProperty(name = "Camera name", default="Georef cam", description="")
-	target_res = bpy.props.FloatProperty(name = "Pixel size", default=5, description="Pixel size in map units/pixel", min=0.00001)
-	zLocOffset = bpy.props.FloatProperty(name = "Z loc. off.", default=50, description="Camera z location offet, defined as percentage of z dimension of the target mesh", min=0)
+	name: StringProperty(name = "Camera name", default="Georef cam", description="")
+	target_res: FloatProperty(name = "Pixel size", default=5, description="Pixel size in map units/pixel", min=0.00001)
+	zLocOffset: FloatProperty(name = "Z loc. off.", default=50, description="Camera z location offet, defined as percentage of z dimension of the target mesh", min=0)
+
 	redo = 0
+	bbox = None #global var used to avoid recomputing the bbox at each redo
 
 	def check(self, context):
 		return True
@@ -96,9 +99,15 @@ class SetGeorenderCam(bpy.types.Operator):
 				camObj = obj
 				cam = camObj.data
 
+		#do not recompute bbox at operator redo because zdim is miss-evaluated
+		#when redoing the op on an obj that have a displace modifier on it
+		#TODO find a less hacky fix
+		if self.bbox is None:
+			bbox = getBBOX.fromObj(georefObj, applyTransform = True)
+			self.bbox = bbox
+		else:
+			bbox = self.bbox
 
-		#Get mesh object properties
-		bbox = getBBOX.fromObj(georefObj, applyTransform = True)
 		locx, locy, locz = bbox.center
 		dimx, dimy, dimz = bbox.dimensions
 		#dimx, dimy, dimz = georefObj.dimensions #dimensions property apply object transformations (scale and rot.)
@@ -108,7 +117,7 @@ class SetGeorenderCam(bpy.types.Operator):
 			cam = bpy.data.cameras.new(name=self.name)
 			cam['mapRes'] = self.target_res #custom prop
 			camObj = bpy.data.objects.new(name=self.name, object_data=cam)
-			scn.objects.link(camObj)
+			scn.collection.objects.link(camObj)
 			scn.camera = camObj
 		elif self.redo == 1: #first exec, get initial camera res
 			scn.camera = camObj
@@ -150,8 +159,8 @@ class SetGeorenderCam(bpy.types.Operator):
 
 		#Update selection
 		bpy.ops.object.select_all(action='DESELECT')
-		camObj.select = True
-		scn.objects.active = camObj
+		camObj.select_set(True)
+		context.view_layer.objects.active = camObj
 
 		#setup scene
 		scn.camera = camObj
@@ -164,7 +173,7 @@ class SetGeorenderCam(bpy.types.Operator):
 		rot = 0
 		x = bbox['xmin'] + dx
 		y = bbox['ymax'] + dy
-		wf_data = str(res)+'\n'+str(rot)+'\n'+str(rot)+'\n'+str(-res)+'\n'+str(x+res/2)+'\n'+str(y-res/2)
+		wf_data = '\n'.join(map(str, [res, rot, rot, -res, x+res/2, y-res/2]))
 		wf_name = camObj.name + '.wld'
 		if wf_name in bpy.data.texts:
 			wfText = bpy.data.texts[wf_name]
@@ -180,3 +189,10 @@ class SetGeorenderCam(bpy.types.Operator):
 				bpy.data.texts.remove(wfText)
 
 		return {'FINISHED'}
+
+
+def register():
+	bpy.utils.register_class(CAMERA_OT_add_georender_cam)
+
+def unregister():
+	bpy.utils.unregister_class(CAMERA_OT_add_georender_cam)

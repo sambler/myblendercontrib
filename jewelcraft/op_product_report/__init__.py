@@ -23,42 +23,86 @@ import os
 
 import bpy
 from bpy.types import Operator
+from bpy.props import EnumProperty, BoolProperty
 from bpy.app.translations import pgettext_tip as _
 
+from . import report_fmt, report_get
 from .. import var
-from ..localization import DICTIONARY
-from .report_get import DataCollect
-from .report_fmt import DataFormat
+from ..lib import asset
 
 
-class WM_OT_jewelcraft_product_report(Operator, DataCollect, DataFormat):
+class WM_OT_product_report(Operator):
     bl_label = "JewelCraft Product Report"
-    bl_description = "Save product report to text file"
+    bl_description = "Present summary information about the product, including gems, sizes and weight"
     bl_idname = "wm.jewelcraft_product_report"
 
+    lang: EnumProperty(
+        name="Report Language",
+        description="Product report language",
+        items=(
+            ("AUTO", "Auto (Auto)", "Use user preferences language setting"),
+            ("en_US", "English (English)", ""),
+            ("es", "Spanish (Español)", ""),
+            ("fr_FR", "French (Français)", ""),
+            ("ru_RU", "Russian (Русский)", ""),
+        ),
+    )
+    use_save: BoolProperty(
+        name="Save To File",
+        description="Save product report to file in project folder",
+        default=True,
+    )
+    use_hidden_gems: BoolProperty(
+        name="Hidden Gems",
+        description="Enable or disable given warning",
+        default=True,
+    )
+    use_overlap: BoolProperty(
+        name="Overlapping Gems",
+        description="Enable or disable given warning",
+        default=True,
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        layout.separator()
+
+        layout.prop(self, "use_save")
+        layout.prop(self, "lang")
+
+        layout.label(text="Warnings")
+        col = layout.column()
+        col.prop(self, "use_hidden_gems")
+        col.prop(self, "use_overlap")
+
+        layout.separator()
+
     def execute(self, context):
-        data_raw = self.data_collect(context)
-        data_fmt = self.data_format(data_raw)
-        warnf = [_(x) for x in data_raw["warn"]]
+        data_raw = report_get.data_collect(self, context)
+        data_fmt = report_fmt.data_format(self, context, data_raw)
 
         # Compose text datablock
         # ---------------------------
 
-        if warnf:
-            sep = "—" * max(40, len(max(warnf)) + 2)
-            warn_fmt = "{}\n{}\n".format(_("WARNING"), sep)
+        if data_raw["warn"]:
+            sep = "-" * 30
+            warn_fmt = _("WARNING") + "\n"
+            warn_fmt = sep + "\n"
 
-            for msg in warnf:
-                warn_fmt += "-{}\n".format(_(msg))
+            for msg in data_raw["warn"]:
+                warn_fmt += f"* {_(msg)}\n"
 
-            warn_fmt += f"{sep}\n\n"
+            warn_fmt += sep + "\n\n"
             data_fmt = warn_fmt + data_fmt
 
-        if "JewelCraft Product Report" in bpy.data.texts:
-            txt = bpy.data.texts["JewelCraft Product Report"]
+        if "Product Report" in bpy.data.texts:
+            txt = bpy.data.texts["Product Report"]
             txt.clear()
         else:
-            txt = bpy.data.texts.new("JewelCraft Product Report")
+            txt = bpy.data.texts.new("Product Report")
 
         txt.write(data_fmt)
         txt.current_line_index = 0
@@ -66,8 +110,7 @@ class WM_OT_jewelcraft_product_report(Operator, DataCollect, DataFormat):
         # Save to file
         # ---------------------------
 
-        if self.prefs.product_report_save and bpy.data.is_saved:
-
+        if self.use_save and bpy.data.is_saved:
             filepath = bpy.data.filepath
             filename = os.path.splitext(os.path.basename(filepath))[0]
             save_path = os.path.join(os.path.dirname(filepath), filename + " Report.txt")
@@ -75,60 +118,35 @@ class WM_OT_jewelcraft_product_report(Operator, DataCollect, DataFormat):
             with open(save_path, "w", encoding="utf-8") as file:
                 file.write(data_fmt)
 
-        # Display
+        # Display, workaround for T64439
         # ---------------------------
 
-        if self.prefs.product_report_display:
+        self.txt = txt
+        context.window_manager.modal_handler_add(self)
 
-            bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
+        return {"RUNNING_MODAL"}
 
-            area = bpy.context.window_manager.windows[-1].screen.areas[0]
-            area.type = "TEXT_EDITOR"
+    def modal(self, context, event):
+        space_data = {
+            "show_line_numbers": False,
+            "show_word_wrap": False,
+            "show_syntax_highlight": False,
+            "text": self.txt,
+        }
 
-            space = area.spaces[0]
-            space.text = txt
-
-        elif warnf or self.prefs.product_report_save:
-
-            def draw(self_local, context):
-
-                for msg in warnf:
-                    self_local.layout.label(text=msg, icon="ERROR")
-                    self.report({"WARNING"}, msg)
-
-                if self.prefs.product_report_save:
-
-                    if bpy.data.is_saved:
-                        msg = _("Text file successfully created in the project folder")
-                        report_icon = "BLANK1"
-                        report_type = {"INFO"}
-                    else:
-                        msg = _("Could not create text file, project folder does not exist")
-                        report_icon = "ERROR"
-                        report_type = {"WARNING"}
-
-                    self_local.layout.label(text=msg, icon=report_icon)
-                    self.report(report_type, msg)
-
-            context.window_manager.popup_menu(draw, title=_("Product Report"))
+        asset.show_window(800, 540, area_type="TEXT_EDITOR", space_data=space_data)
 
         return {"FINISHED"}
 
-    def gettext(self, text, ctxt="*"):
-        if self.use_gettext:
-            return DICTIONARY[self.lang].get((ctxt, text), text)
-        return text
-
     def invoke(self, context, event):
-        self.prefs = context.preferences.addons[var.ADDON_ID].preferences
-        self.lang = self.prefs.product_report_lang
+        prefs = context.preferences.addons[var.ADDON_ID].preferences
+        self.lang = prefs.product_report_lang
+        self.use_save = prefs.product_report_save
+        self.use_hidden_gems = prefs.product_report_use_hidden_gems
+        self.use_overlap = prefs.product_report_use_overlap
 
-        if self.lang == "AUTO":
-            self.lang = bpy.app.translations.locale
-
-        if self.lang == "es_ES":
-            self.lang = "es"
-
-        self.use_gettext = self.lang in DICTIONARY.keys()
+        if event.ctrl:
+            wm = context.window_manager
+            return wm.invoke_props_dialog(self)
 
         return self.execute(context)

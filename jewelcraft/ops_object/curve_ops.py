@@ -23,32 +23,177 @@ from math import pi
 
 import bpy
 from bpy.types import Operator
-from bpy.props import FloatProperty, BoolProperty
+from bpy.props import (
+    FloatProperty,
+    IntProperty,
+    BoolProperty,
+    EnumProperty,
+)
 from bpy.app.translations import pgettext_iface as _
 import bmesh
 from mathutils import Matrix, Vector
 
-from ..lib import asset, unit, mesh, ui_lib
+from .. import var
+from ..lib import (
+    asset,
+    unit,
+    mesh,
+    ui_lib,
+    dynamic_list,
+)
 
 
-class CURVE_OT_jewelcraft_size_curve_add(Operator):
+def upd_size(self, context):
+    if self.size_format == "CH":
+        cir = self.size_float + 40.0
+
+    elif self.size_format == "UK":
+        size = float(self.size_abc)
+        if self.use_half_size:
+            size += 0.5
+        cir = var.CIR_BASE_UK + var.CIR_STEP_UK * size
+
+    elif self.size_format in {"US", "JP"}:
+        size = self.size_float
+
+        if self.size_format == "JP":
+            if self.size_int > self.map_size_jp:
+                return
+            size = var.MAP_SIZE_JP_TO_US[self.size_int - 1]
+
+        cir = var.CIR_BASE_US + var.CIR_STEP_US * size
+
+    self.circumference = unit.Scale(context).to_scene(round(cir, 4))
+
+
+def upd_diameter(self, context):
+    if self.use_unit_conversion:
+        self["circumference"] = self.diameter * pi
+    else:
+        self["circumference"] = round(self.diameter * pi, 4)
+
+
+def upd_circumference(self, context):
+    if self.use_unit_conversion:
+        self["diameter"] = self.circumference / pi
+    else:
+        self["diameter"] = round(self.circumference / pi, 2)
+
+
+class CURVE_OT_size_curve_add(Operator):
     bl_label = "JewelCraft Make Size Curve"
     bl_description = "Create size curve"
     bl_idname = "curve.jewelcraft_size_curve_add"
     bl_options = {"REGISTER", "UNDO"}
 
-    size: FloatProperty(name="Size", default=15.5, unit="LENGTH")
+    size_format: EnumProperty(
+        name="Format",
+        items=(
+            ("US", "USA", ""),
+            ("UK", "Britain", ""),
+            ("CH", "Swiss", ""),
+            ("JP", "Japan", ""),
+        ),
+        update=upd_size,
+    )
+    size_abc: EnumProperty(
+        name="Size",
+        items=dynamic_list.abc,
+        update=upd_size,
+    )
+    size_int: IntProperty(
+        name="Size",
+        default=8,
+        min=1,
+        update=upd_size,
+    )
+    size_float: FloatProperty(
+        name="Size",
+        default=4.5,
+        min=0.0,
+        step=50,
+        precision=1,
+        update=upd_size,
+    )
+    diameter: FloatProperty(
+        name="Diameter",
+        default=15.28,
+        min=0.001,
+        step=10,
+        unit="LENGTH",
+        update=upd_diameter,
+    )
+    circumference: FloatProperty(
+        name="Circumference",
+        default=48.0,
+        min=0.001,
+        step=100,
+        precision=1,
+        unit="LENGTH",
+        update=upd_circumference,
+    )
     up: BoolProperty(
         name="Start Up",
         description="Make curve start at the top",
         default=True,
         options={"SKIP_SAVE"},
     )
+    use_size: BoolProperty(
+        name="Ring Size",
+        update=upd_size,
+    )
+    use_half_size: BoolProperty(
+        name="1/2",
+        update=upd_size,
+    )
+    use_unit_conversion: BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
+    map_size_jp: IntProperty(default=len(var.MAP_SIZE_JP_TO_US), options={"HIDDEN", "SKIP_SAVE"})
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        layout.separator()
+
+        col = layout.column()
+        col.use_property_split = False
+        col.prop(self, "use_size")
+
+        col = layout.column()
+        col.active = self.use_size
+        col.prop(self, "size_format")
+
+        if self.size_format == "UK":
+            row = col.row(align=True)
+            row.prop(self, "size_abc")
+            row.prop(self, "use_half_size")
+        elif self.size_format == "JP":
+            col.prop(self, "size_int")
+            if self.size_int > self.map_size_jp:
+                row = col.row()
+                row.alignment = "RIGHT"
+                row.label(text="Size overflow", icon="ERROR")
+        else:
+            col.prop(self, "size_float")
+
+        layout.separator()
+
+        layout.label(text="Curve")
+
+        col = layout.column()
+        col.active = not self.use_size
+        col.prop(self, "diameter")
+        col.prop(self, "circumference")
+
+        layout.prop(self, "up")
+
+        layout.separator()
 
     def execute(self, context):
         obs = context.selected_objects
 
-        bpy.ops.curve.primitive_bezier_circle_add(radius=self.size / 2, rotation=(pi / 2, 0.0, 0.0))
+        bpy.ops.curve.primitive_bezier_circle_add(radius=self.diameter / 2, rotation=(pi / 2, 0.0, 0.0))
 
         curve = context.object
         curve.name = "Size"
@@ -67,8 +212,14 @@ class CURVE_OT_jewelcraft_size_curve_add(Operator):
 
         return {"FINISHED"}
 
+    def invoke(self, context, event):
+        self.use_unit_conversion = unit.Scale(context).use_conversion
 
-class CURVE_OT_jewelcraft_length_display(Operator):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+
+
+class CURVE_OT_length_display(Operator):
     bl_label = "JewelCraft Display Length"
     bl_description = "Display curve length"
     bl_idname = "curve.jewelcraft_length_display"
@@ -97,10 +248,10 @@ class CURVE_OT_jewelcraft_length_display(Operator):
         # Display length
         # ---------------------------
 
-        length = unit.Scale().from_scene(mesh.curve_length(ob))
+        length = unit.Scale(context).from_scene(mesh.curve_length(ob))
         lengthf = "{:.2f} {}".format(length, _("mm"))
 
-        ui_lib.popup_report(self, text=lengthf, title=_("Curve Length"))
+        ui_lib.popup_report(self, context, text=lengthf, title=_("Curve Length"))
 
         # Restore curve
         # ---------------------------
@@ -111,7 +262,7 @@ class CURVE_OT_jewelcraft_length_display(Operator):
         return {"FINISHED"}
 
 
-class OBJECT_OT_jewelcraft_stretch_along_curve(Operator):
+class OBJECT_OT_stretch_along_curve(Operator):
     bl_label = "JewelCraft Stretch Along Curve"
     bl_description = (
         "Stretch deformed objects along curve on X axis, "
@@ -163,7 +314,7 @@ class OBJECT_OT_jewelcraft_stretch_along_curve(Operator):
         return {"FINISHED"}
 
 
-class OBJECT_OT_jewelcraft_move_over_under(Operator):
+class OBJECT_OT_move_over_under(Operator):
     bl_label = "JewelCraft Move Over/Under"
     bl_description = "Move deformed object over or under the curve"
     bl_idname = "object.jewelcraft_move_over_under"
@@ -180,7 +331,7 @@ class OBJECT_OT_jewelcraft_move_over_under(Operator):
             if not ob:
                 return {"CANCELLED"}
 
-            context.scene.update()
+            context.view_layer.update()
             bbox, curve = asset.mod_curve_off(ob)
             bbox = [ob.matrix_world @ Vector(x) for x in bbox]
 

@@ -6,7 +6,9 @@ import string
 import bpy
 import math
 import string
-from pprint import pprint
+
+import logging
+log = logging.getLogger(__name__)
 
 from bpy_extras.io_utils import ImportHelper #helper class defines filename and invoke() function which calls the file selector
 from bpy.props import StringProperty, BoolProperty, EnumProperty, IntProperty
@@ -24,7 +26,7 @@ from .utils import rasterExtentToMesh, geoRastUVmap, setDisplacer
 PKG, SUBPKG = __package__.split('.', maxsplit=1)
 
 
-class IMPORT_ASCII_GRID(Operator, ImportHelper):
+class IMPORTGIS_OT_ascii_grid(Operator, ImportHelper):
     """Import ESRI ASCII grid file"""
     bl_idname = "importgis.asc_file"  # important since its how bpy.ops.importgis.asc is constructed (allows calling operator from python console or another script)
     #bl_idname rules: must contain one '.' (dot) charactere, no capital letters, no reserved words (like 'import')
@@ -33,7 +35,7 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
     bl_options = {"UNDO"}
 
     # ImportHelper class properties
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
         default="*.asc;*.grd",
         options={'HIDDEN'},
     )
@@ -41,7 +43,7 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
     # Raster CRS definition
     def listPredefCRS(self, context):
         return PredefCRS.getEnumItems()
-    fileCRS = EnumProperty(
+    fileCRS: EnumProperty(
         name = "CRS",
         description = "Choose a Coordinate Reference System",
         items = listPredefCRS,
@@ -49,29 +51,29 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
 
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling.
-    importMode = EnumProperty(
-        name="Mode",
-        description="Select import mode",
-        items=[
+    importMode: EnumProperty(
+        name = "Mode",
+        description = "Select import mode",
+        items = [
             ('MESH', 'Mesh', "Create triangulated regular network mesh"),
             ('CLOUD', 'Point cloud', "Create vertex point cloud"),
         ],
     )
 
     # Step makes point clouds with billions of points possible to read on consumer hardware
-    step = IntProperty(
+    step: IntProperty(
         name = "Step",
-        description="Only read every Nth point for massive point clouds",
-        default=1,
-        min=1
+        description = "Only read every Nth point for massive point clouds",
+        default = 1,
+        min = 1
     )
 
     # Let the user decide whether to use the faster newline method
     # Alternatively, use self.total_newlines(filename) to see whether total >= nrows and automatically decide (at the cost of time spent counting lines)
-    newlines = BoolProperty(
-        name="Newline-delimited rows",
-        description="Use this method if the file contains newline separated rows for faster import",
-        default=True,
+    newlines: BoolProperty(
+        name = "Newline-delimited rows",
+        description = "Use this method if the file contains newline separated rows for faster import",
+        default = True,
     )
 
     def draw(self, context):
@@ -82,20 +84,15 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
         layout.prop(self, 'newlines')
 
         row = layout.row(align=True)
-        split = row.split(percentage=0.35, align=True)
-        split.label('CRS:')
+        split = row.split(factor=0.35, align=True)
+        split.label(text='CRS:')
         split.prop(self, "fileCRS", text='')
-        row.operator("bgis.add_predef_crs", text='', icon='ZOOMIN')
+        row.operator("bgis.add_predef_crs", text='', icon='ADD')
         scn = bpy.context.scene
         geoscn = GeoScene(scn)
         if geoscn.isPartiallyGeoref:
             georefManagerLayout(self, context)
 
-
-    def err(self, msg):
-        '''Report error throught a Blender's message box'''
-        self.report({'ERROR'}, msg)
-        return {'CANCELLED'}
 
     def total_lines(self, filename):
         """
@@ -154,7 +151,7 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
         return context.mode == 'OBJECT'
 
     def execute(self, context):
-        prefs = bpy.context.user_preferences.addons[PKG].preferences
+        prefs = context.preferences.addons[PKG].preferences
         bpy.ops.object.select_all(action='DESELECT')
         #Get scene and some georef data
         scn = bpy.context.scene
@@ -169,7 +166,8 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
             try:
                 geoscn.crs = self.fileCRS
             except Exception as e:
-                self.report({'ERROR'}, str(e))
+                log.error("Cannot set scene crs", exc_info=True)
+                self.report({'ERROR'}, "Cannot set scene crs, check logs for more infos")
                 return {'CANCELLED'}
 
         #build reprojector objects
@@ -185,7 +183,7 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
         #Path
         filename = self.filepath
         name = os.path.splitext(os.path.basename(filename))[0]
-        print('Importing {}...'.format(filename))
+        log.info('Importing {}...'.format(filename))
 
         f = open(filename, 'r')
         meta_re = re.compile('^([^\s]+)\s+([^\s]+)$')  # 'abc  123'
@@ -195,7 +193,7 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
             m = meta_re.match(line)
             if m:
                 meta[m.group(1).lower()] = m.group(2)
-        print(pprint(meta))
+        log.debug(meta)
 
         # step allows reduction during import, only taking every Nth point
         step = self.step
@@ -218,7 +216,7 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
         # now set the correct offset for the mesh
         if rprj:
             reprojection['to'] = XY(*rprjToScene.pt(*reprojection['from']))
-            print('{name} reprojected from {from} to {to}'.format(**reprojection, name=name))
+            log.debug('{name} reprojected from {from} to {to}'.format(**reprojection, name=name))
         else:
             reprojection['to'] = reprojection['from']
 
@@ -244,7 +242,8 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
             # spec doesn't require newline separated rows so make it handle a single line of all values
             coldata = read(f, ncols)
             if len(coldata) != ncols:
-                self.report({'ERROR'}, 'Incorrect number of columns for row {row}. Expected {expected}, got {actual}.'.format(row=nrows-y, expected=ncols, actual=len(coldata)))
+                log.error('Incorrect number of columns for row {row}. Expected {expected}, got {actual}.'.format(row=nrows-y, expected=ncols, actual=len(coldata)))
+                self.report({'ERROR'}, 'Incorrect number of columns for row, check logs for more infos')
                 return {'CANCELLED'}
 
             for i in range(step - 1):
@@ -261,7 +260,8 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
                     try:
                         vertices.append(pt + (float(coldata[x]),))
                     except ValueError as e:
-                        self.report({'ERROR'}, 'Value "{val}" in row {row}, column {col} could not be converted to a float.'.format(val=coldata[x], row=nrows-y, col=x))
+                        log.error('Value "{val}" in row {row}, column {col} could not be converted to a float.'.format(val=coldata[x], row=nrows-y, col=x))
+                        self.report({'ERROR'}, 'Cannot convert value to float')
                         return {'CANCELLED'}
 
         if self.importMode == 'MESH':
@@ -283,9 +283,9 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
 
         # Link object to scene and make active
         scn = bpy.context.scene
-        scn.objects.link(ob)
-        scn.objects.active = ob
-        ob.select = True
+        scn.collection.objects.link(ob)
+        bpy.context.view_layer.objects.active = ob
+        ob.select_set(True)
 
         me.from_pydata(vertices, [], faces)
         me.update()
@@ -296,3 +296,9 @@ class IMPORT_ASCII_GRID(Operator, ImportHelper):
             adjust3Dview(context, bb)
 
         return {'FINISHED'}
+
+def register():
+	bpy.utils.register_class(IMPORTGIS_OT_ascii_grid)
+
+def unregister():
+	bpy.utils.unregister_class(IMPORTGIS_OT_ascii_grid)

@@ -20,7 +20,6 @@
 
 
 import os
-import random
 from math import tau, sin, cos
 from functools import lru_cache
 
@@ -97,7 +96,7 @@ def find_nearest(loc1, rad1, coords1, coords2):
     return dis, co1, co2
 
 
-def gem_overlap(data, threshold=0.1, first_match=False):
+def gem_overlap(context, data, threshold, first_match=False):
     kd = kdtree.KDTree(len(data))
 
     for i, (loc, _, _) in enumerate(data):
@@ -105,10 +104,12 @@ def gem_overlap(data, threshold=0.1, first_match=False):
 
     kd.balance()
 
+    UnitScale = unit.Scale(context)
+    from_scene_scale = UnitScale.from_scene
+    to_scene_scale = UnitScale.to_scene
+
     overlap_indices = set()
-    UScale = unit.Scale()
-    _from_scene = UScale.from_scene
-    seek_range = UScale.to_scene(4)
+    seek_range = to_scene_scale(4.0)
 
     for i1, (loc1, rad1, mat1) in enumerate(data):
 
@@ -127,7 +128,7 @@ def gem_overlap(data, threshold=0.1, first_match=False):
 
             girdle2 = girdle_coords(rad2, mat2)
             dis_gap, _, _ = find_nearest(loc1, rad1, girdle1, girdle2)
-            dis_gap = _from_scene(dis_gap)
+            dis_gap = from_scene_scale(dis_gap)
 
             if dis_gap < threshold:
                 if first_match:
@@ -141,11 +142,18 @@ def gem_overlap(data, threshold=0.1, first_match=False):
     return overlap_indices
 
 
+def to_int(x):
+    if x.is_integer():
+        return int(x)
+    return x
+
+
 # Material
 # ------------------------------------
 
 
 def color_rnd():
+    import random
     seq = (0.0, 0.5, 1.0)
     return random.choice(seq), random.choice(seq), random.choice(seq), 1.0
 
@@ -208,7 +216,7 @@ def user_asset_library_folder_weighting():
     return var.USER_ASSET_DIR_WEIGHTING
 
 
-def asset_import(filepath="", ob_name=False, me_name=False):
+def asset_import(filepath, ob_name=False, me_name=False):
 
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
 
@@ -221,7 +229,7 @@ def asset_import(filepath="", ob_name=False, me_name=False):
     return data_to
 
 
-def asset_import_batch(filepath=""):
+def asset_import_batch(filepath):
 
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
         data_to.objects = data_from.objects
@@ -229,8 +237,8 @@ def asset_import_batch(filepath=""):
     return data_to
 
 
-def asset_export(folder="", filename=""):
-    filepath = os.path.join(folder, filename)
+def asset_export(filepath):
+    folder = os.path.dirname(filepath)
     data_blocks = set(bpy.context.selected_objects)
 
     if not os.path.exists(folder):
@@ -239,36 +247,50 @@ def asset_export(folder="", filename=""):
     bpy.data.libraries.write(filepath, data_blocks, compress=True)
 
 
-def render_preview(filepath="//"):
-    render = bpy.context.scene.render
-    image = render.image_settings
+def render_preview(width, height, filepath, compression=100, gamma=None):
+    scene = bpy.context.scene
+    render_props = scene.render
+    image_props = render_props.image_settings
+    view_props = scene.view_settings
+    shading_type = bpy.context.space_data.shading.type
+
+    render_config = {
+        "filepath": filepath,
+        "resolution_x": width,
+        "resolution_y": height,
+        "resolution_percentage": 100,
+        "film_transparent": True,
+    }
+
+    image_config = {
+        "file_format": "PNG",
+        "color_mode": "RGBA",
+        "compression": compression,
+    }
+
+    view_config = {}
+
+    if shading_type in {"WIREFRAME", "SOLID"}:
+        view_config["view_transform"] = "Standard"
+        view_config["look"] = "None"
+
+    if gamma is not None:
+        view_config["gamma"] = gamma
+
+    configs = [
+        [render_props, render_config],
+        [image_props, image_config],
+        [view_props, view_config],
+    ]
 
     # Apply settings
     # ---------------------------
 
-    settings_render = {
-        "filepath": filepath,
-        "resolution_x": 256,
-        "resolution_y": 256,
-        "resolution_percentage": 100,
-        "alpha_mode": "TRANSPARENT",
-    }
-
-    settings_image = {
-        "file_format": "PNG",
-        "color_mode": "RGBA",
-        "compression": 100,
-    }
-
-    for k, v in settings_render.items():
-        x = getattr(render, k)
-        setattr(render, k, v)
-        settings_render[k] = x
-
-    for k, v in settings_image.items():
-        x = getattr(image, k)
-        setattr(image, k, v)
-        settings_image[k] = x
+    for props, config in configs:
+        for k, v in config.items():
+            x = getattr(props, k)
+            setattr(props, k, v)
+            config[k] = x
 
     # Render and save
     # ---------------------------
@@ -278,11 +300,52 @@ def render_preview(filepath="//"):
     # Revert settings
     # ---------------------------
 
-    for k, v in settings_render.items():
-        setattr(render, k, v)
+    for props, config in configs:
+        for k, v in config.items():
+            setattr(props, k, v)
 
-    for k, v in settings_image.items():
-        setattr(image, k, v)
+
+def show_window(width, height, area_type=None, space_data=None):
+    render = bpy.context.scene.render
+
+    render_config = {
+        "resolution_x": width,
+        "resolution_y": height,
+        "resolution_percentage": 100,
+        "display_mode": "WINDOW",
+    }
+
+    # Apply settings
+    # ---------------------------
+
+    for k, v in render_config.items():
+        x = getattr(render, k)
+        setattr(render, k, v)
+        render_config[k] = x
+
+    # Invoke window
+    # ---------------------------
+
+    bpy.ops.render.view_show("INVOKE_DEFAULT")
+
+    # Set window
+    # ---------------------------
+
+    area = bpy.context.window_manager.windows[-1].screen.areas[0]
+
+    if area_type is not None:
+        area.type = area_type
+
+    if space_data is not None:
+        space = area.spaces[0]
+        for k, v in space_data.items():
+            setattr(space, k, v)
+
+    # Revert settings
+    # ---------------------------
+
+    for k, v in render_config.items():
+        setattr(render, k, v)
 
 
 # Object
@@ -360,13 +423,8 @@ def ob_copy_to_faces(ob):
 
 
 def apply_scale(ob):
-    mat = Matrix()
-    mat[0][0] = ob.scale[0]
-    mat[1][1] = ob.scale[1]
-    mat[2][2] = ob.scale[2]
-
+    mat = Matrix.Diagonal(ob.scale).to_4x4()
     ob.data.transform(mat)
-
     ob.scale = (1.0, 1.0, 1.0)
 
 
@@ -379,7 +437,7 @@ def mod_curve_off(ob, reverse=False):
         if mod.type == "CURVE" and mod.object:
             if mod.show_viewport:
                 mod.show_viewport = False
-                bpy.context.scene.update()
+                bpy.context.view_layer.update()
                 mod.show_viewport = True
 
             return ob.bound_box, mod.object

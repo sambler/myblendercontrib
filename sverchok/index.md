@@ -45,17 +45,22 @@
     SvEllipseNode
     SvSuperEllipsoidNode
     SvSmoothLines
+    SvRegularSolid
 
 ## Analyzers
     SvBBoxNode
+    SvDiameterNode
     SvVolumeNode
     AreaNode
     DistancePPNode
+    SvDistancePointLineNode
+    SvDistancePointPlaneNode
     SvPathLengthNode
     CentersPolsNodeMK2
     CentersPolsNodeMK3
     GetNormalsNode
     VectorNormalNode
+    SvIntersectLineSphereNode
     SvKDTreeNodeMK2
     SvKDTreeEdgesNodeMK2
     SvBvhOverlapNodeNew
@@ -69,6 +74,7 @@
     SvOBJInsolationNode
     EvaluateImageNode
     SvDeformationNode
+    SvLinkedVertsNode
 
 ## Transforms
     SvRotationNode
@@ -77,6 +83,7 @@
     SvMirrorNode
     MatrixApplyNode
     SvSimpleDeformNode
+    SvBarycentricTransformNode
 
 ## Modifier Change
     SvDeleteLooseNode
@@ -115,6 +122,7 @@
 ## Modifier Make
     LineConnectNodeMK2
     SvLatheNode
+    SvBevelCurveNode
     SvConvexHullNode
     SvConvexHullNodeMK2
     DelaunayTriangulation2DNode
@@ -126,6 +134,7 @@
     SvAdaptiveEdgeNode
     AdaptivePolsNode
     SvDuplicateAlongEdgeNode
+    SvFractalCurveNode
     SvSolidifyNode
     SvWireframeNode
     SvPipeNode
@@ -135,6 +144,7 @@
     MaskListNode
     SvMaskJoinNode
     SvMaskConvertNode
+    SvCalcMaskNode
 
 ## List Mutators
     SvListModifierNode
@@ -208,6 +218,7 @@
     SvInterpolationNode
     SvInterpolationNodeMK2
     SvInterpolationNodeMK3
+    SvLinearApproxNode
     ---
     SvHomogenousVectorField
     SvNoiseNodeMK2
@@ -356,3 +367,5 @@
     SvQuaternionOutNode
     SvQuaternionInNode
     SvQuaternionMathNode
+    SvPulgaPhysicsNode
+    SvProjectPointToLine

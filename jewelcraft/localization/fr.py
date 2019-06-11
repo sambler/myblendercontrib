@@ -23,47 +23,54 @@ dictionary = {
     "*": {
         # Interface
         "Asset Manager": "Navigateur de ressources",
-        "Asset name from active object": "Nom de ressource de l'objet actif",
-        "Display asset name": "Affiche le nom de la Ressource",
+        "Display Asset Name": "Affiche le nom de la Ressource",
         "Product Report": "Rapport de produit",
         "Report Language": "Langue du rapport",
-        "Display in a new window": "Affiche dans une nouvelle fenêtre",
-        "Save to file": "Enregistre le fichier",
-        "Use custom library folder": "Utiliser un dossier de librairie personnel",
+        "Save To File": "Enregistre le fichier",
+        "Use Custom Library Folder": "Utiliser un dossier de librairie personnel",
         "Gems": "Pierres précieuses",
         "Assets": "Ressources",
         "Select Gems By...": "Sélectionner les pierres par...",
         "Jeweling": "Bijoux",
         "Weighting": "Pondération",
         "Weighting Set": "Theme de pondérations",
-        "Hide default sets": "Hide default sets",
+        # TODO
+        # "Hide Default Sets": "",
         "[JewelCraft] Precious": "[Joaillerie] Précieux",
         "[JewelCraft] Precious RU (ГОСТ 30649-99)": "[Joaillerie] Précieux RU (ГОСТ 30649-99)",
         "[JewelCraft] Base": "[Joaillerie] Base",
-        "Sizes": "Tailles",
         "Prongs": "Fourches",
         "Cutter": "Couteaux",
         "Library Folder Path": "Chemin du dossier de librairie",
         "Widgets": "Widgets",
-        "Use overrides": "Utiliser des substitutions",
+        "Use Overrides": "Utiliser des substitutions",
         "Widget Color": "Couleur du widget",
         "Line Width": "Epaisseur de ligne",
-        "Show composition": "Afficher la composition",
-        "Show density": "Afficher la densité",
+        "Show Composition": "Afficher la composition",
+        "Show Density": "Afficher la densité",
         "Materials list": "Liste de matériaux",
         "Composition": "Composition",
         "Warnings": "Avertissements",
-        "Hidden gems": "Cacher les pierres",
+        "Hidden Gems": "Cacher les pierres",
+        "Weight": "Poid",
+
         # TODO
-        # "Show all": "",
+        # "Show All": "",
         # "Scene scale is not optimal": "",
         # "Unsupported unit system": "",
-        # Popup dialogs
+        # "Overlapping Gems": "",
+        # "Limit By Selection": "",
+        # "Save To Image": "",
+        # "Gem Map": "",
+        # "Gem Table": "",
+        # "Gem Size": "",
+        # "Viewport Text Size": "",
+
+        # Operator popup
         "Asset Name": "Nom de ressources",
         "Category Name": "Nom des catégories",
         "Set Name": "Donner le nom",
         "Curvature Scale": "Echelle de la courbe",
-        # Operator redo
         "Use Automated Presets": "Utiliser des réglages automatiques",
         "Prong Number": "Nombre de broche",
         "Detalization": "Detalization",
@@ -85,6 +92,15 @@ dictionary = {
         "Mirror Axis": "Axe du miroir",
         "Select Children": "Sélectionner l'enfant",
         "Parent to selected": "Parent vers sélection",
+        # "Use 3D Cursor": "",
+        # "Collection Name": "",
+        # "Ring Size": "",
+        # "USA": "",
+        # "Britain": "",
+        # "Swiss": "",
+        # "Japan": "",
+        # "Circumference": "",
+
         # Tooltips
         "Add gemstone to the scene": "Ajouter des pierres précieuses à la scène",
         "Edit selected gems": "Editer les pierres sélectionnées",
@@ -97,15 +113,9 @@ dictionary = {
         "Set of base metal alloys, physical properties taken directly from suppliers":
             "Ensemble d'alliages de métaux communs, propriétés physiques directement auprès des fournisseurs",
 
-        "Display product report in new window": "Afficher le rapport du produit dans une nouvelle fenêtre",
         "Save product report to file in project folder": "Enregistrer le rapport de produit dans un fichier dans le dossier du projet",
         "Product report language": "Langue du rapport du produit",
         "Use user preferences language setting": "Utiliser les paramètres de langue des préférences utilisateur",
-        "Object for ring inner diameter reference": "Objet pour référence de diamètre intérieur de bague",
-        "Object for shank width and height reference": "Objet pour référence de largeur et hauteur de tige",
-        "Object for dimensions reference": "Objet pour référence de dimensions",
-        "Object for weight reference": "Objet pour référence de poids",
-        "Save product report to text file": "Enregistrer le rapport du produit dans un fichier texte",
         "Select gems by trait": "Sélectionnez des pierres par trait",
         "Search stone by name": "Chercher les pierres par nom",
         "Search asset by name": "Chercher les ressources par nom",
@@ -166,10 +176,6 @@ dictionary = {
 
         "Custom library folder path": "Chemin du dossier de la bibliothèque personnalisée",
         "Display asset name in Tool Shelf": "Display asset name in Tool Shelf",
-
-        "Use active object name when creating new asset":
-            "Utiliser le nom de l'objet actif pour la création d'une nouvelle ressource",
-
         "Enable widgets drawing": "Activer le dessin des widgets",
         "Use object defined widget overrides": "Utiliser les substitutions de widget définis par un objet",
 
@@ -182,7 +188,6 @@ dictionary = {
             "Supprimer les propriétés de substitution de widget des objets sélectionnés",
 
         "Add new material to the list": "Ajouter un nouveau matériau à la liste",
-        "Remove material from the list": "Supprimer le matériau de la liste",
         "Display material density in the list": "Afficher la densité de matière dans la liste",
         "Display material composition in the list": "Afficher la composition du matériau dans la liste",
         "Create weighting set from materials list": "Créer un jeu de pondération à partir de la liste des matériaux",
@@ -216,29 +221,33 @@ dictionary = {
         "Enable material for weighting and product report":
             "Activer le matériau pour la pondération et le rapport de produit",
 
-        "Clear materials list": "Effacer la liste des matériaux",
-
-        "Show warning if there are hidden gem objects in the scene":
-            "Afficher un avertissement s'il y a des objets cachés dans la scène",
-
         "Parent imported asset to selected objects (Shortcut: hold Alt when using the tool)": (
             "Parenter la ressource importée pour les objets sélectionnés "
             "(Raccourcie: Alt en utilisant l'outil)"
         ),
 
-        #TODO
-        # "Select gems that are less than 0.1 mm distance from each other or overlapping":
-        #     "",
-
+        # TODO
+        # "Select gems that are less than 0.1 mm distance from each other or overlapping": "",
         # "Display spacing widget for all visible gems": "",
+        # "Set optimal unit settings for jewelry modelling": "",
+        # "Enable or disable given warning": "",
+        # "Compose gem table and map it to gems in the scene": "",
+        # "Present summary information about the product, including gems, sizes and weight": "",
+        # "Add a new measurement": "",
+        # "Remove selected item": "",
+        # "Remove all list items": "",
+        # "Move selected item up/down in the list": "",
+        # "Measured object": "",
+        # "Measurement type": "",
+        # "Select material": "",
 
-        # "Set optimal unit settings for jewelry modelling":
-        #     "",
+        # "Make collection instances in radial order\n"
+        # "(Shortcut: hold Alt when using the tool to use existing collection)": "",
 
         # Reports
         "WARNING": "AVERTISSEMENT",
         "Possible gem dupli-face leftovers": "Restes de pierres dupli-face possibles",
-        "Hidden gems (use Show Hidden/Alt H)": "Cacher les pierres (utiliser Afficher/Cacher: Alt + H)",
+        "Hidden gems": "Cacher les pierres",
 
         "Deprecated gem IDs (use Convert Deprecated Gem IDs from Operator Search menu)":
             "ID de pierre obsolète (utiliser Convert Deprecated Gem IDs dans le menu de recherche de fonction)",
@@ -247,12 +256,6 @@ dictionary = {
             "IDs de pierre inconnus, les carats sont calculés pour des pierres marquées (*)",
 
         "Curve Length": "Longueur de la courbe",
-
-        "Text file successfully created in the project folder":
-            "Fichier texte créé avec succès dans le dossier du projet",
-
-        "Could not create text file, project folder does not exist":
-            "Impossible de créer un fichier texte, le dossier du projet n'existe pas",
 
         "At least two objects must be selected": "Au moins deux objets doivent être sélectionnés",
         "At least one gem object must be selected": "Au moins une pierre doit être sélectionnée",
@@ -264,10 +267,20 @@ dictionary = {
 
         "File not found": "Fichier non trouvé",
         "Name must be specified": "Le nom doit être spécifié",
+        "Volume": "Volume",
+        "Settings": "Réglages",
+        "Gem": "Pierre",
+        "Cut": "Coupe",
+        "Qty": "Qté",
+
         # TODO
+        # "Carats": "",
+        # "Materials": "",
+        # "Additional Notes": "",
         # "Overlapping gems": "",
         # "{} overlaps found": "",
         # "Optimal unit settings are in use": "",
+
         # Cuts
         "Round": "Rond",
         "Oval": "Ovale",
@@ -338,27 +351,17 @@ dictionary = {
         "Bronze": "Bronze",
         "Steel Stainless": "Acier Inoxydable",
         "Titanium": "Titane",
-        # Product report
-        "Size": "Taille",
-        "Shank": "Jarret",
-        "Dimensions": "Dimensions",
-        "Weight": "Poid",
-        "Volume": "Volume",
-        "Settings": "Réglages",
-        "Gem": "Pierre",
-        "Cut": "Coupe",
-        "Qty": "Qté",
         # Units
-        "pcs": "pcs",
         "mm": "mm",
         "mm³": "mm³",
         "g": "g",
         "ct.": "ct.",
+        "pcs": "pcs",
     },
     "JewelCraft": {
         "Cut": "Coupe",
-        "Dimensions": "Dimensions",
         "Round": "Arrondi",
+
         # TODO
         # "Spacing": "",
     },
@@ -396,8 +399,14 @@ dictionary = {
         "Replace Set": "Remplacer un jeu",
         "Remove Set": "Effacer un jeu",
         "Rename Set": "Renommer un jeu",
+
         # TODO
         # "Overlapping": "",
         # "Set Units": "",
+        # "Gem Map": "",
+        # "Append": "",
+        # "Add New Measurement": "",
+        # "Save To Preferences": "",
+        # "Load From Preferences": "",
     },
 }

@@ -27,7 +27,7 @@ from mathutils import Matrix
 from ..lib import asset, dynamic_list
 
 
-class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
+class OBJECT_OT_select_gems_by_trait(Operator):
     bl_label = "JewelCraft Select Gems By Trait"
     bl_description = "Select gems by trait"
     bl_idname = "object.jewelcraft_select_gems_by_trait"
@@ -127,7 +127,7 @@ class OBJECT_OT_jewelcraft_select_gems_by_trait(Operator):
         return self.execute(context)
 
 
-class OBJECT_OT_jewelcraft_select_overlapping(Operator):
+class OBJECT_OT_select_overlapping(Operator):
     bl_label = "JewelCraft Select Overlapping"
     bl_description = "Select gems that are less than 0.1 mm distance from each other or overlapping"
     bl_idname = "object.jewelcraft_select_overlapping"
@@ -145,10 +145,9 @@ class OBJECT_OT_jewelcraft_select_overlapping(Operator):
     def execute(self, context):
         obs = []
         ob_data = []
+        depsgraph = context.evaluated_depsgraph_get()
 
-        context.scene.update()
-
-        for dup in context.depsgraph.object_instances:
+        for dup in depsgraph.object_instances:
 
             if dup.is_instance:
                 ob = dup.instance_object.original
@@ -181,7 +180,7 @@ class OBJECT_OT_jewelcraft_select_overlapping(Operator):
                 obs.append(sel)
                 ob_data.append((loc, rad, mat))
 
-        overlaps = asset.gem_overlap(ob_data, threshold=self.threshold)
+        overlaps = asset.gem_overlap(context, ob_data, self.threshold)
 
         if overlaps:
             for i in overlaps:

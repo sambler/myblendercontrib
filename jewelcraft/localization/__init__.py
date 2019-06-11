@@ -20,9 +20,9 @@
 
 
 from . import (
-	es,
-	fr,
-	ru,
+    es,
+    fr,
+    ru,
 )
 
 

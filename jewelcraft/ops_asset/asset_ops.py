@@ -26,7 +26,6 @@ from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty
 import bpy.utils.previews
 
-from .. import var
 from ..lib import asset, dynamic_list
 
 
@@ -40,7 +39,7 @@ class Setup:
         self.filepath = os.path.join(self.folder, self.asset_name)
 
 
-class WM_OT_jewelcraft_asset_add_to_library(Operator, Setup):
+class WM_OT_asset_add_to_library(Operator, Setup):
     bl_label = "Add To Library"
     bl_description = "Add selected objects to asset library"
     bl_idname = "wm.jewelcraft_asset_add_to_library"
@@ -68,8 +67,8 @@ class WM_OT_jewelcraft_asset_add_to_library(Operator, Setup):
 
         filepath = os.path.join(self.folder, self.asset_name)
 
-        asset.asset_export(folder=self.folder, filename=self.asset_name + ".blend")
-        asset.render_preview(filepath=filepath + ".png")
+        asset.asset_export(filepath + ".blend")
+        asset.render_preview(256, 256, filepath + ".png")
         dynamic_list.asset_list_refresh()
         self.props.asset_list = self.asset_name
 
@@ -78,18 +77,16 @@ class WM_OT_jewelcraft_asset_add_to_library(Operator, Setup):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        prefs = context.preferences.addons[var.ADDON_ID].preferences
+        if not context.selected_objects:
+            return {"CANCELLED"}
 
-        if prefs.asset_name_from_obj:
-            self.asset_name = context.object.name
-        else:
-            self.asset_name = ""
+        self.asset_name = context.object.name
 
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
 
 
-class WM_OT_jewelcraft_asset_remove_from_library(Operator, Setup):
+class WM_OT_asset_remove_from_library(Operator, Setup):
     bl_label = "Remove Asset"
     bl_description = "Remove asset from library"
     bl_idname = "wm.jewelcraft_asset_remove_from_library"
@@ -124,7 +121,7 @@ class WM_OT_jewelcraft_asset_remove_from_library(Operator, Setup):
         return wm.invoke_confirm(self, event)
 
 
-class WM_OT_jewelcraft_asset_rename(Operator, Setup):
+class WM_OT_asset_rename(Operator, Setup):
     bl_label = "Rename Asset"
     bl_description = "Rename asset"
     bl_idname = "wm.jewelcraft_asset_rename"
@@ -179,7 +176,7 @@ class WM_OT_jewelcraft_asset_rename(Operator, Setup):
         return wm.invoke_props_dialog(self)
 
 
-class WM_OT_jewelcraft_asset_replace(Operator, Setup):
+class WM_OT_asset_replace(Operator, Setup):
     bl_label = "Replace Asset"
     bl_description = "Replace current asset with selected objects"
     bl_idname = "wm.jewelcraft_asset_replace"
@@ -190,7 +187,8 @@ class WM_OT_jewelcraft_asset_replace(Operator, Setup):
         return bool(context.window_manager.jewelcraft.asset_list)
 
     def execute(self, context):
-        asset.asset_export(folder=self.folder, filename=self.asset_name + ".blend")
+        filepath = os.path.join(self.folder, self.asset_name)
+        asset.asset_export(filepath + ".blend")
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -198,7 +196,7 @@ class WM_OT_jewelcraft_asset_replace(Operator, Setup):
         return wm.invoke_confirm(self, event)
 
 
-class WM_OT_jewelcraft_asset_preview_replace(Operator, Setup):
+class WM_OT_asset_preview_replace(Operator, Setup):
     bl_label = "Replace Asset Preview"
     bl_description = "Replace asset preview image"
     bl_idname = "wm.jewelcraft_asset_preview_replace"
@@ -209,7 +207,7 @@ class WM_OT_jewelcraft_asset_preview_replace(Operator, Setup):
         return bool(context.window_manager.jewelcraft.asset_list)
 
     def execute(self, context):
-        asset.render_preview(filepath=self.filepath + ".png")
+        asset.render_preview(256, 256, self.filepath + ".png")
         dynamic_list.asset_list_refresh(preview_id=self.folder_name + self.asset_name)
         context.area.tag_redraw()
         return {"FINISHED"}
@@ -219,7 +217,7 @@ class WM_OT_jewelcraft_asset_preview_replace(Operator, Setup):
         return wm.invoke_confirm(self, event)
 
 
-class WM_OT_jewelcraft_asset_import(Operator, Setup):
+class WM_OT_asset_import(Operator, Setup):
     bl_label = "JewelCraft Import Asset"
     bl_description = "Import selected asset"
     bl_idname = "wm.jewelcraft_asset_import"
@@ -243,7 +241,7 @@ class WM_OT_jewelcraft_asset_import(Operator, Setup):
         for ob in selected:
             ob.select_set(False)
 
-        imported = asset.asset_import_batch(filepath=self.filepath + ".blend")
+        imported = asset.asset_import_batch(self.filepath + ".blend")
         obs = imported.objects
 
         for ob in obs:

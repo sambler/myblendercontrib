@@ -21,6 +21,8 @@
 import math
 import os
 import threading
+import logging
+log = logging.getLogger(__name__)
 
 #bpy imports
 import bpy
@@ -28,12 +30,16 @@ from mathutils import Vector
 from bpy.types import Operator, Panel, AddonPreferences
 from bpy.props import StringProperty, IntProperty, FloatProperty, BoolProperty, EnumProperty, FloatVectorProperty
 import addon_utils
-import blf, bgl
+import gpu
+from gpu_extras.batch import batch_for_shader
 
 #core imports
 from ..core import HAS_GDAL, HAS_PIL, HAS_IMGIO
 from ..core.proj import reprojPt, reprojBbox, dd2meters, meters2dd
 from ..core.basemaps import GRIDS, SOURCES, MapService
+from ..core.settings import getSetting
+
+USER_AGENT = getSetting('user_agent')
 
 #bgis imports
 from ..geoscene import GeoScene, SK, georefManagerLayout
@@ -45,7 +51,7 @@ from .utils import placeObj, adjust3Dview, showTextures, rasterExtentToMesh, geo
 
 #OSM Nominatim API module
 #https://github.com/damianbraun/nominatim
-from .lib.osm.nominatim import Nominatim
+from .lib.osm.nominatim import nominatimQuery
 
 PKG, SUBPKG = __package__.split('.', maxsplit=1) #blendergis.basemaps
 
@@ -67,14 +73,17 @@ class BaseMap(GeoScene):
 		self.reg3d = self.view3d.region_3d
 
 		#Get cache destination folder in addon preferences
-		prefs = context.user_preferences.addons[PKG].preferences
+		prefs = context.preferences.addons[PKG].preferences
 		cacheFolder = prefs.cacheFolder
+
+		self.synchOrj = prefs.synchOrj
 
 		#Get resampling algo preference and set the constant
 		MapService.RESAMP_ALG = prefs.resamplAlg
 
 		#Init MapService class
 		self.srv = MapService(srckey, cacheFolder)
+		self.name = srckey + '_' + laykey + '_' + grdkey
 
 		#Set destination tile matrix
 		if grdkey is None:
@@ -90,7 +99,7 @@ class BaseMap(GeoScene):
 		if not self.hasCRS:
 			self.crs = self.tm.CRS
 		if not self.hasOriginPrj:
-			self.setOriginPrj(0, 0)
+			self.setOriginPrj(0, 0, self.synchOrj)
 		if not self.hasScale:
 			self.scale = 1
 		if not self.hasZoom:
@@ -105,10 +114,10 @@ class BaseMap(GeoScene):
 			folder = os.path.dirname(bpy.data.filepath) + os.sep
 			##folder = bpy.path.abspath("//"))
 		else:
-			##folder = bpy.context.user_preferences.filepaths.temporary_directory
+			##folder = bpy.context.preferences.filepaths.temporary_directory
 			#Blender crease a sub-directory within the temp directory, for each session, which is cleared on exit
 			folder = bpy.app.tempdir
-		self.imgPath = folder + srckey + '_' + laykey + '_' + grdkey + ".tif"
+		self.imgPath = folder + self.name + ".tif"
 
 		#Get layer def obj
 		self.layer = self.srv.layers[laykey]
@@ -122,7 +131,7 @@ class BaseMap(GeoScene):
 		self.thread = None
 		#Background image attributes
 		self.img = None #bpy image
-		self.bkg = None #bpy background
+		self.bkg = None #empty image obj
 		self.viewDstZ = None #view 3d z distance
 		#Store previous request
 		#TODO
@@ -152,15 +161,15 @@ class BaseMap(GeoScene):
 			self.place()
 		self.srv.stop()
 
-	def moveOrigin(self, dx, dy, useScale=True, updObjLoc=True, updBkgImg=True):
+	def moveOrigin(self, dx, dy, useScale=True, updObjLoc=True):
 		'''Move scene origin and update props'''
-		self.moveOriginPrj(dx, dy, useScale, updObjLoc, updBkgImg) #geoscene function
+		self.moveOriginPrj(dx, dy, useScale, updObjLoc, self.synchOrj) #geoscene function
 
 	def request(self):
 		'''Request map service to build a mosaic of required tiles to cover view3d area'''
 		#Get area dimension
-		#w, h = self.area.width, self.area.height
-		w, h = self.area3d.width, self.area3d.height
+		w, h = self.area.width, self.area.height
+		#w, h = self.area3d.width, self.area3d.height #WARN return [1,1] !!!!????
 
 		#Get area bbox coords in destination tile matrix crs (map origin is bottom lelf)
 
@@ -189,6 +198,8 @@ class BaseMap(GeoScene):
 			bbox = reprojBbox(self.crs, self.tm.CRS, bbox)
 		'''
 
+		log.debug('Bounding box request : {}'.format(bbox))
+
 		#Stop thread if the request is same as previous
 		#TODO
 
@@ -211,26 +222,21 @@ class BaseMap(GeoScene):
 		except IndexError:
 			self.img = bpy.data.images.load(self.imgPath)
 
-		#Activate view3d background
-		self.view3d.show_background_images = True
-
-		#Hide all existing background
-		for bkg in self.view3d.background_images:
-			if bkg.view_axis == 'TOP':
-				bkg.show_background_image = False
-
 		#Get or load background image
-		bkgs = [bkg for bkg in self.view3d.background_images if bkg.image is not None]
+		empties = [obj for obj in self.scn.objects if obj.type == 'EMPTY']
+		bkgs = [obj for obj in empties if obj.empty_display_type == 'IMAGE']
+		for bkg in bkgs:
+			bkg.hide_viewport = True
 		try:
-			self.bkg = [bkg for bkg in bkgs if bkg.image.filepath == self.imgPath and len(bkg.image.packed_files) == 0][0]
+			self.bkg = [bkg for bkg in bkgs if bkg.data.filepath == self.imgPath and len(bkg.data.packed_files) == 0][0]
 		except IndexError:
-			self.bkg = self.view3d.background_images.new()
-			self.bkg.image = self.img
-
-		#Set some background props
-		self.bkg.show_background_image = True
-		self.bkg.view_axis = 'TOP'
-		self.bkg.opacity = 1
+			self.bkg = bpy.data.objects.new(self.name, None) #None will create an empty
+			self.bkg.empty_display_type = 'IMAGE'
+			self.bkg.empty_image_depth = 'BACK'
+			self.bkg.data = self.img
+			self.scn.collection.objects.link(self.bkg)
+		else:
+			self.bkg.hide_viewport = False
 
 		#Get some image props
 		img_ox, img_oy = self.mosaic.center
@@ -240,23 +246,28 @@ class BaseMap(GeoScene):
 
 		#Set background size
 		sizex = img_w * res / self.scale
-		self.bkg.size = sizex #since blender > 2.74 else = sizex/2
+		#self.bkg.empty_display_size = sizex #limited to 1000
+		self.bkg.empty_display_size = 1 #a size of 1 means image width=1bu
+		self.bkg.scale = (sizex, sizex, 1)
 
 		#Set background offset (image origin does not match scene origin)
 		dx = (self.crsx - img_ox) / self.scale
 		dy = (self.crsy - img_oy) / self.scale
-		self.bkg.offset_x = -dx
-		ratio = img_w / img_h
-		self.bkg.offset_y = -dy * ratio #https://developer.blender.org/T48034
+		#self.bkg.empty_image_offset = [-0.5, -0.5] #in image unit space
+		self.bkg.location = (-dx, -dy, 0)
+		#ratio = img_w / img_h
+		#self.bkg.offset_y = -dy * ratio #https://developer.blender.org/T48034
 
 		#Get 3d area's number of pixels and resulting size at the requested zoom level resolution
-		dst =  max( [self.area3d.width, self.area3d.height] )
+		#dst =  max( [self.area3d.width, self.area3d.height] ) #WARN return [1,1] !!!!????
+		dst =  max( [self.area.width, self.area.height] )
 		z = self.lockedZoom if self.lockedZoom is not None else self.zoom
 		res = self.tm.getRes(z)
 		dst = dst * res / self.scale
 
 		#Compute 3dview FOV and needed z distance to see the maximum extent that
 		#can be draw at full res (area 3d needs enough pixels otherwise the image will appears downgraded)
+		#WARN seems these formulas does not works properly in Blender2.8
 		view3D_aperture = 32 #Blender constant (see source code)
 		view3D_zoom = 2 #Blender constant (see source code)
 		fov = 2 * math.atan(view3D_aperture / (self.view3d.lens*2) ) #fov equation
@@ -267,52 +278,30 @@ class BaseMap(GeoScene):
 		self.viewDstZ = zdst
 
 		#Update image drawing
-		self.bkg.image.reload()
+		self.bkg.data.reload()
 
 
 
 
 ####################################
-
-
 def drawInfosText(self, context):
-	"""Draw map infos on 3dview"""
-
 	#Get contexts
 	scn = context.scene
 	area = context.area
 	area3d = [reg for reg in area.regions if reg.type == 'WINDOW'][0]
 	view3d = area.spaces.active
 	reg3d = view3d.region_3d
-
-	#Get area3d dimensions
-	w, h = area3d.width, area3d.height
-	cx = w/2 #center x
-
 	#Get map props stored in scene
 	geoscn = GeoScene(scn)
 	zoom = geoscn.zoom
 	scale = geoscn.scale
-
-	#Set text police and color
-	font_id = 0  # ???
-	prefs = context.user_preferences.addons[PKG].preferences
-	fontColor = prefs.fontColor
-	bgl.glColor4f(*fontColor) #rgba
-
-	#Draw title
-	blf.position(font_id, cx-25, 70, 0) #id, x, y, z
-	blf.size(font_id, 15, 72) #id, point size, dpi
-	blf.draw(font_id, "Map view")
-
-	#Draw other texts
-	blf.size(font_id, 12, 72)
-	# thread progress and service status
-	blf.position(font_id, cx-45, 90, 0)
-	blf.draw(font_id, self.progress)
-	# zoom and scale values
-	blf.position(font_id, cx-50, 50, 0)
-	blf.draw(font_id, "Zoom " + str(zoom) + " - Scale 1:" + str(int(scale)))
+	#
+	txt = "Map view : "
+	txt += "Zoom " + str(zoom)
+	if self.map.lockedZoom is not None:
+		txt += " (Locked)"
+	txt += " - Scale 1:" + str(int(scale))
+	'''
 	# view3d distance
 	dst = reg3d.view_distance
 	if dst > 1000:
@@ -320,64 +309,45 @@ def drawInfosText(self, context):
 		unit = 'km'
 	else:
 		unit = 'm'
-	blf.position(font_id, cx-50, 30, 0)
-	blf.draw(font_id, '3D View distance ' + str(int(dst)) + ' ' + unit)
+	txt += ' 3D View distance ' + str(int(dst)) + ' ' + unit
+	'''
 	# cursor crs coords
-	blf.position(font_id, cx-45, 10, 0)
-	blf.draw(font_id, str((int(self.posx), int(self.posy))))
-
-	bgl.glColor4f(255, 0, 0, 150) #rgba
-	blf.size(font_id, 25, 72)
-	blf.position(font_id, w-100, 25, 0)
-	if self.map.lockedZoom is not None:
-		#blf.draw(font_id, "z lock " + str(self.map.lockedZoom))
-		blf.draw(font_id, "zLock")
+	txt += ' ' + str((int(self.posx), int(self.posy)))
+	# progress
+	txt += ' ' + self.progress
+	context.area.header_text_set(txt)
 
 
 def drawZoomBox(self, context):
-
-	bgl.glEnable(bgl.GL_BLEND)
-	bgl.glColor4f(0, 0, 0, 0.5)
-	bgl.glLineWidth(2)
-
 	if self.zoomBoxMode and not self.zoomBoxDrag:
 		# before selection starts draw infinite cross
-		bgl.glBegin(bgl.GL_LINES)
-
 		px, py = self.zb_xmax, self.zb_ymax
-
-		bgl.glVertex2i(0, py)
-		bgl.glVertex2i(context.area.width, py)
-
-		bgl.glVertex2i(px, 0)
-		bgl.glVertex2i(px, context.area.height)
-
-		bgl.glEnd()
+		p1 = (0, py, 0)
+		p2 = (context.area.width, py, 0)
+		p3 = (px, 0, 0)
+		p4 = (px, context.area.height, 0)
+		coords = [p1, p2, p3, p4]
+		shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+		batch = batch_for_shader(shader, 'LINES', {"pos": coords})
+		shader.bind()
+		shader.uniform_float("color", (0, 0, 0, 1))
+		batch.draw(shader)
 
 	elif self.zoomBoxMode and self.zoomBoxDrag:
-		# when selecting draw dashed line box
-		bgl.glEnable(bgl.GL_LINE_STIPPLE)
-		bgl.glLineStipple(2, 0x3333)
-		bgl.glBegin(bgl.GL_LINE_LOOP)
-
-		bgl.glVertex2i(self.zb_xmin, self.zb_ymin)
-		bgl.glVertex2i(self.zb_xmin, self.zb_ymax)
-		bgl.glVertex2i(self.zb_xmax, self.zb_ymax)
-		bgl.glVertex2i(self.zb_xmax, self.zb_ymin)
-
-		bgl.glEnd()
-
-		bgl.glDisable(bgl.GL_LINE_STIPPLE)
-
-
-	# restore opengl defaults
-	bgl.glLineWidth(1)
-	bgl.glDisable(bgl.GL_BLEND)
-	bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
+		p1 = (self.zb_xmin, self.zb_ymin, 0)
+		p2 = (self.zb_xmin, self.zb_ymax, 0)
+		p3 = (self.zb_xmax, self.zb_ymax, 0)
+		p4 = (self.zb_xmax, self.zb_ymin, 0)
+		coords = [p1, p2, p2, p3, p3, p4, p4, p1]
+		shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+		batch = batch_for_shader(shader, 'LINES', {"pos": coords})
+		shader.bind()
+		shader.uniform_float("color", (0, 0, 0, 1))
+		batch.draw(shader)
 
 ###############
 
-class MAP_START(bpy.types.Operator):
+class VIEW3D_OT_map_start(Operator):
 
 	bl_idname = "view3d.map_start"
 	bl_description = 'Toggle 2d map navigation'
@@ -416,35 +386,35 @@ class MAP_START(bpy.types.Operator):
 		return layItems
 
 
-	src = EnumProperty(
+	src: EnumProperty(
 				name = "Map",
 				description = "Choose map service source",
 				items = listSources
 				)
 
-	grd = EnumProperty(
+	grd: EnumProperty(
 				name = "Grid",
 				description = "Choose cache tiles matrix",
 				items = listGrids
 				)
 
-	lay = EnumProperty(
+	lay: EnumProperty(
 				name = "Layer",
 				description = "Choose layer",
 				items = listLayers
 				)
 
 
-	dialog = StringProperty(default='MAP') # 'MAP', 'SEARCH', 'OPTIONS'
+	dialog: StringProperty(default='MAP') # 'MAP', 'SEARCH', 'OPTIONS'
 
-	query = StringProperty(name="Go to")
+	query: StringProperty(name="Go to")
 
-	zoom = IntProperty(name='Zoom level', min=0, max=25)
+	zoom: IntProperty(name='Zoom level', min=0, max=25)
 
-	recenter = BoolProperty(name='Center to existing objects')
+	recenter: BoolProperty(name='Center to existing objects')
 
 	def draw(self, context):
-		addonPrefs = context.user_preferences.addons[PKG].preferences
+		addonPrefs = context.preferences.addons[PKG].preferences
 		scn = context.scene
 		layout = self.layout
 
@@ -453,12 +423,12 @@ class MAP_START(bpy.types.Operator):
 				layout.prop(self, 'zoom', slider=True)
 
 		elif self.dialog == 'OPTIONS':
-			layout.prop(addonPrefs, "fontColor")
-			#viewPrefs = context.user_preferences.view
+			#viewPrefs = context.preferences.view
 			#layout.prop(viewPrefs, "use_zoom_to_mouse")
 			layout.prop(addonPrefs, "zoomToMouse")
 			layout.prop(addonPrefs, "lockObj")
 			layout.prop(addonPrefs, "lockOrigin")
+			layout.prop(addonPrefs, "synchOrj")
 
 		elif self.dialog == 'MAP':
 			layout.prop(self, 'src', text='Source')
@@ -466,7 +436,7 @@ class MAP_START(bpy.types.Operator):
 			col = layout.column()
 			if not HAS_GDAL:
 				col.enabled = False
-				col.label('(No raster reprojection support)')
+				col.label(text='(No raster reprojection support)')
 			col.prop(self, 'grd', text='Tile matrix set')
 
 			#srcCRS = GRIDS[SOURCES[self.src]['grid']]['CRS']
@@ -475,9 +445,9 @@ class MAP_START(bpy.types.Operator):
 			#row.alignment = 'RIGHT'
 			desc = PredefCRS.getName(grdCRS)
 			if desc is not None:
-				row.label('CRS: ' + desc)
+				row.label(text='CRS: ' + desc)
 			else:
-				row.label('CRS: ' + grdCRS)
+				row.label(text='CRS: ' + grdCRS)
 
 			row = layout.row()
 			row.prop(self, 'recenter')
@@ -488,14 +458,14 @@ class MAP_START(bpy.types.Operator):
 				georefManagerLayout(self, context)
 
 			#row = layout.row()
-			#row.label('Map scale:')
+			#row.label(text='Map scale:')
 			#row.prop(scn, '["'+SK.SCALE+'"]', text='')
 
 
 	def invoke(self, context, event):
 
 		if not HAS_PIL and not HAS_GDAL and not HAS_IMGIO:
-			self.report({'ERROR'}, "No imaging library available. ImageIO module was not correctly installed. \
+			self.report({'ERROR'}, "No imaging library available. ImageIO module was not correctly installed.\
 			Please reinstall it or try to install Python GDAL or Pillow module")
 			return {'CANCELLED'}
 
@@ -514,12 +484,12 @@ class MAP_START(bpy.types.Operator):
 	def execute(self, context):
 		scn = context.scene
 		geoscn = GeoScene(scn)
-		prefs = context.user_preferences.addons[PKG].preferences
+		prefs = context.preferences.addons[PKG].preferences
 
 		#check cache folder
 		folder = prefs.cacheFolder
 		if folder == "" or not os.path.exists(folder):
-			self.report({'ERROR'}, "Please define a valid cache folder path")
+			self.report({'ERROR'}, "Please define a valid cache folder path in addon's preferences")
 			return {'CANCELLED'}
 
 		if self.dialog == 'MAP':
@@ -537,8 +507,12 @@ class MAP_START(bpy.types.Operator):
 
 		#Move scene origin to the researched place
 		if self.dialog == 'SEARCH':
-			geoscn.zoom = self.zoom
-			bpy.ops.view3d.map_search('EXEC_DEFAULT', query=self.query)
+			r = bpy.ops.view3d.map_search('EXEC_DEFAULT', query=self.query)
+			if r == {'CANCELLED'}:
+				self.report({'INFO'}, "No location founded")
+			else:
+				geoscn.zoom = self.zoom
+
 
 		#Start map viewer operator
 		self.dialog = 'MAP' #reinit dialog type
@@ -553,20 +527,20 @@ class MAP_START(bpy.types.Operator):
 ###############
 
 
-class MAP_VIEWER(bpy.types.Operator):
+class VIEW3D_OT_map_viewer(Operator):
 
 	bl_idname = "view3d.map_viewer"
 	bl_description = 'Toggle 2d map navigation'
 	bl_label = "Map viewer"
 	bl_options = {'INTERNAL'}
 
-	srckey = StringProperty()
+	srckey: StringProperty()
 
-	grdkey = StringProperty()
+	grdkey: StringProperty()
 
-	laykey = StringProperty()
+	laykey: StringProperty()
 
-	recenter = BoolProperty()
+	recenter: BoolProperty()
 
 	@classmethod
 	def poll(cls, context):
@@ -585,9 +559,9 @@ class MAP_VIEWER(bpy.types.Operator):
 
 		self.moveFactor = 0.1
 
-		self.prefs = context.user_preferences.addons[PKG].preferences
+		self.prefs = context.preferences.addons[PKG].preferences
 		#Option to adjust or not objects location when panning
-		self.updObjLoc = self.prefs.lockObj #if georef if locked then we need to adjust object location after each pan
+		self.updObjLoc = self.prefs.lockObj #if georef is locked then we need to adjust object location after each pan
 
 		#Add draw callback to view space
 		args = (self, context)
@@ -596,13 +570,13 @@ class MAP_VIEWER(bpy.types.Operator):
 
 		#Add modal handler and init a timer
 		context.window_manager.modal_handler_add(self)
-		self.timer = context.window_manager.event_timer_add(0.05, context.window)
+		self.timer = context.window_manager.event_timer_add(0.04, window=context.window)
 
 		#Switch to top view ortho (center to origin)
 		view3d = context.area.spaces.active
-		bpy.ops.view3d.viewnumpad(type='TOP')
+		bpy.ops.view3d.view_axis(type='TOP')
 		view3d.region_3d.view_perspective = 'ORTHO'
-		view3d.cursor_location = (0, 0, 0)
+		context.scene.cursor.location = (0, 0, 0)
 		if not self.prefs.lockOrigin:
 			#bpy.ops.view3d.view_center_cursor()
 			view3d.region_3d.view_location = (0, 0, 0)
@@ -771,13 +745,14 @@ class MAP_VIEWER(bpy.types.Operator):
 				else:
 					#Move background image
 					if self.map.bkg is not None:
-						ratio = self.map.img.size[0] / self.map.img.size[1]
-						self.map.bkg.offset_x = self.offx1 - dlt.x
-						self.map.bkg.offset_y = self.offy1 - (dlt.y * ratio)
+						self.map.bkg.location[0] = self.offx1 - dlt.x
+						self.map.bkg.location[1] = self.offy1 - dlt.y
 					#Move existing objects (only top level parent)
 					if self.updObjLoc:
 						topParents = [obj for obj in scn.objects if not obj.parent]
 						for i, obj in enumerate(topParents):
+							if obj == self.map.bkg: #the background empty used as basemap
+								continue
 							loc1 = self.objsLoc1[i]
 							obj.location.x = loc1.x - dlt.x
 							obj.location.y = loc1.y - dlt.y
@@ -794,8 +769,8 @@ class MAP_VIEWER(bpy.types.Operator):
 					self.map.stop()
 					if not self.prefs.lockOrigin:
 						if self.map.bkg is not None:
-							self.offx1 = self.map.bkg.offset_x
-							self.offy1 = self.map.bkg.offset_y
+							self.offx1 = self.map.bkg.location[0]
+							self.offy1 = self.map.bkg.location[1]
 						#Store current location of each objects (only top level parent)
 						self.objsLoc1 = [obj.location.copy() for obj in scn.objects if not obj.parent]
 				#Tag that map is currently draging
@@ -809,8 +784,8 @@ class MAP_VIEWER(bpy.types.Operator):
 						loc1 = mouseTo3d(context, self.x1, self.y1)
 						loc2 = mouseTo3d(context, event.mouse_region_x, event.mouse_region_y)
 						dlt = loc1 - loc2
-						#Update map
-						self.map.moveOrigin(dlt.x, dlt.y, updObjLoc=False, updBkgImg=False)
+						#Update map (do not update objects location because it was updated while mouse move)
+						self.map.moveOrigin(dlt.x, dlt.y, updObjLoc=False)
 					self.map.get()
 
 
@@ -865,7 +840,7 @@ class MAP_VIEWER(bpy.types.Operator):
 
 		#NUMPAD MOVES (3D VIEW or MAP)
 		if event.value == 'PRESS' and event.type in ['NUMPAD_2', 'NUMPAD_4', 'NUMPAD_6', 'NUMPAD_8']:
-			delta = self.map.bkg.size * self.moveFactor
+			delta = self.map.bkg.scale.x * self.moveFactor
 			if event.type == 'NUMPAD_4':
 				if event.ctrl or self.prefs.lockOrigin:
 					context.region_data.view_location += Vector( (-delta, 0, 0) )
@@ -894,6 +869,7 @@ class MAP_VIEWER(bpy.types.Operator):
 			self.map.stop()
 			bpy.types.SpaceView3D.draw_handler_remove(self._drawTextHandler, 'WINDOW')
 			bpy.types.SpaceView3D.draw_handler_remove(self._drawZoomBoxHandler, 'WINDOW')
+			context.area.header_text_set(None)
 			self.restart = True
 			return {'FINISHED'}
 
@@ -902,6 +878,7 @@ class MAP_VIEWER(bpy.types.Operator):
 			self.map.stop()
 			bpy.types.SpaceView3D.draw_handler_remove(self._drawTextHandler, 'WINDOW')
 			bpy.types.SpaceView3D.draw_handler_remove(self._drawZoomBoxHandler, 'WINDOW')
+			context.area.header_text_set(None)
 			self.restart = True
 			self.dialog = 'SEARCH'
 			return {'FINISHED'}
@@ -911,6 +888,7 @@ class MAP_VIEWER(bpy.types.Operator):
 			self.map.stop()
 			bpy.types.SpaceView3D.draw_handler_remove(self._drawTextHandler, 'WINDOW')
 			bpy.types.SpaceView3D.draw_handler_remove(self._drawZoomBoxHandler, 'WINDOW')
+			context.area.header_text_set(None)
 			self.restart = True
 			self.dialog = 'OPTIONS'
 			return {'FINISHED'}
@@ -933,11 +911,14 @@ class MAP_VIEWER(bpy.types.Operator):
 
 		#EXPORT
 		if event.type == 'E' and event.value == 'PRESS':
-			#self.map.stop()
+			#
 			if not self.map.srv.running and self.map.mosaic is not None:
+				self.map.stop()
+				self.map.bkg.hide_viewport = True
 
 				bpy.types.SpaceView3D.draw_handler_remove(self._drawTextHandler, 'WINDOW')
 				bpy.types.SpaceView3D.draw_handler_remove(self._drawZoomBoxHandler, 'WINDOW')
+				context.area.header_text_set(None)
 
 				#Copy image to new datablock
 				bpyImg = bpy.data.images.load(self.map.imgPath) #(self.map.img.filepath)
@@ -957,7 +938,7 @@ class MAP_VIEWER(bpy.types.Operator):
 				obj = placeObj(mesh, name)
 
 				#UV mapping
-				uvTxtLayer = mesh.uv_textures.new('rastUVmap')# Add UV map texture layer
+				uvTxtLayer = mesh.uv_layers.new(name='rastUVmap')# Add UV map texture layer
 				geoRastUVmap(obj, uvTxtLayer, rast, dx, dy)
 
 				#Create material
@@ -983,16 +964,10 @@ class MAP_VIEWER(bpy.types.Operator):
 				self.map.stop()
 				bpy.types.SpaceView3D.draw_handler_remove(self._drawTextHandler, 'WINDOW')
 				bpy.types.SpaceView3D.draw_handler_remove(self._drawZoomBoxHandler, 'WINDOW')
+				context.area.header_text_set(None)
 				return {'CANCELLED'}
 
-		"""
-		#FINISH
-		if event.type in {'RET'}:
-			self.map.stop()
-			bpy.types.SpaceView3D.draw_handler_remove(self._drawTextHandler, 'WINDOW')
-			bpy.types.SpaceView3D.draw_handler_remove(self._drawZoomBoxHandler, 'WINDOW')
-			return {'FINISHED'}
-		"""
+
 
 		return {'RUNNING_MODAL'}
 
@@ -1000,14 +975,14 @@ class MAP_VIEWER(bpy.types.Operator):
 
 ####################################
 
-class MAP_SEARCH(bpy.types.Operator):
+class VIEW3D_OT_map_search(bpy.types.Operator):
 
 	bl_idname = "view3d.map_search"
 	bl_description = 'Search for a place and move scene origin to it'
 	bl_label = "Map search"
 	bl_options = {'INTERNAL'}
 
-	query = StringProperty(name="Go to")
+	query: StringProperty(name="Go to")
 
 	def invoke(self, context, event):
 		geoscn = GeoScene(context.scene)
@@ -1018,10 +993,16 @@ class MAP_SEARCH(bpy.types.Operator):
 
 	def execute(self, context):
 		geoscn = GeoScene(context.scene)
-		prefs = context.user_preferences.addons[PKG].preferences
-		geocoder = Nominatim(base_url="http://nominatim.openstreetmap.org", referer="bgis")
-		results = geocoder.query(self.query)
-		if len(results) >= 1:
+		prefs = context.preferences.addons[PKG].preferences
+		try:
+			results = nominatimQuery(self.query, referer='bgis', user_agent=USER_AGENT)
+		except Exception as e:
+			log.error('Failed Nominatim query', exc_info=True)
+			return {'CANCELLED'}
+		if len(results) == 0:
+			return {'CANCELLED'}
+		else:
+			log.debug('Nominatim search results : {}'.format([r['display_name'] for r in results]))
 			result = results[0]
 			lat, lon = float(result['lat']), float(result['lon'])
 			if geoscn.isGeoref:
@@ -1029,3 +1010,19 @@ class MAP_SEARCH(bpy.types.Operator):
 			else:
 				geoscn.setOriginGeo(lon, lat)
 		return {'FINISHED'}
+
+
+
+classes = [
+	VIEW3D_OT_map_start,
+	VIEW3D_OT_map_viewer,
+	VIEW3D_OT_map_search
+]
+
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+
+def unregister():
+	for cls in classes:
+		bpy.utils.unregister_class(cls)

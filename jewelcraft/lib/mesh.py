@@ -54,16 +54,17 @@ def make_tri(bm, x, y, h):
 
 
 def est_volume(obs):
-    depsgraph = bpy.context.depsgraph
+    depsgraph = bpy.context.evaluated_depsgraph_get()
     bm = bmesh.new()
 
     for ob in obs:
-        me = ob.to_mesh(depsgraph, True)
+        ob_eval = ob.evaluated_get(depsgraph)
+        me = ob_eval.to_mesh()
         me.transform(ob.matrix_world)
 
         bm.from_mesh(me)
 
-        bpy.data.meshes.remove(me)
+        ob_eval.to_mesh_clear()
 
     bmesh.ops.triangulate(bm, faces=bm.faces, quad_method="SHORT_EDGE")
 
@@ -178,34 +179,16 @@ def edge_loop_walk(verts):
 
 
 def face_pos():
-    depsgraph = bpy.context.depsgraph
-    view_layer = bpy.context.view_layer
+    depsgraph = bpy.context.evaluated_depsgraph_get()
     mats = []
 
     for ob in bpy.context.objects_in_mode:
-
-        # Get evaluated mesh
-        # --------------------------------
-
-        mods_ignore = [(mod, mod.show_viewport) for mod in ob.modifiers if mod.type == "SUBSURF"]
-
-        if mods_ignore:
-            for mod, mod_show in mods_ignore:
-                mod.show_viewport = False
-
         ob.update_from_editmode()
-        ob.update_tag()
-        view_layer.update()
+        depsgraph.update()
 
-        me = ob.to_mesh(depsgraph, True)
+        ob_eval = ob.evaluated_get(depsgraph)
+        me = ob_eval.to_mesh()
         me.transform(ob.matrix_world)
-
-        if mods_ignore:
-            for mod, mod_show in mods_ignore:
-                mod.show_viewport = mod_show
-
-        # Collect transform matrices
-        # --------------------------------
 
         for poly in me.polygons:
             if poly.select:
@@ -215,6 +198,6 @@ def face_pos():
 
                 mats.append(mat)
 
-        bpy.data.meshes.remove(me)
+        ob_eval.to_mesh_clear()
 
     return mats

@@ -38,7 +38,9 @@ class ARMATURE_OT_mesh_pose_baker(bpy.types.Operator):
             
             
             # --- get a mesh from the object ---
-            mesh = ob.to_mesh(bpy.context.depsgraph, apply_modifiers = True, calc_undeformed=False)            
+            depsgraph = bpy.context.evaluated_depsgraph_get()
+            mesh_owner = ob.evaluated_get(depsgraph)
+            mesh = mesh_owner.to_mesh()
             
             for mod in ob.modifiers:
                 if mod.type == 'SUBSURF':
@@ -93,8 +95,7 @@ class ARMATURE_OT_mesh_pose_baker(bpy.types.Operator):
                    
                             
         # Remove unused baked mesh               
-        bpy.data.meshes.remove(mesh)                         
-        
+        ob.to_mesh_clear()
         bpy.context.view_layer.objects.active = old_ob
                
         

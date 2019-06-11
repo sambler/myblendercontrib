@@ -24,6 +24,9 @@ import numpy as np
 import bpy, bmesh
 import math
 
+import logging
+log = logging.getLogger(__name__)
+
 from ...core.georaster import GeoRaster
 
 
@@ -155,15 +158,9 @@ def rasterExtentToMesh(name, rast, dx, dy, pxLoc='CORNER', reproj=None, subdivis
 	bm.free()
 	return mesh
 
-def geoRastUVmap(obj, uvTxtLayer, rast, dx, dy, reproj=None):
+def geoRastUVmap(obj, uvLayer, rast, dx, dy, reproj=None):
 	'''uv map a georaster texture on a given mesh'''
-	uvTxtLayer.active = True
-	# Assign image texture for every face
 	mesh = obj.data
-	for idx, pg in enumerate(mesh.polygons):
-		uvTxtLayer.data[idx].image = rast.bpyImg
-	#Get UV loop layer
-	uvLoopLayer = mesh.uv_layers.active
 	#Assign uv coords
 	loc = obj.location
 	for pg in mesh.polygons:
@@ -179,8 +176,9 @@ def geoRastUVmap(obj, uvTxtLayer, rast, dx, dy, reproj=None):
 			u = dx_px / rast.size[0]
 			v = dy_px / rast.size[1]
 			#Assign coords
-			uvLoop = uvLoopLayer.data[i]
-			uvLoop.uv = [u,v]
+			#uvLoop = uvLoopLayer.data[i]
+			#uvLoop.uv = [u,v]
+			uvLayer.data[i].uv = [u,v]
 
 def setDisplacer(obj, rast, uvTxtLayer, mid=0):
 	#Config displacer
@@ -219,7 +217,7 @@ def setDisplacer(obj, rast, uvTxtLayer, mid=0):
 
 class bpyGeoRaster(GeoRaster):
 
-	def __init__(self, path, subBoxGeo=None, useGDAL=False, clip=False, fillNodata=False):
+	def __init__(self, path, subBoxGeo=None, useGDAL=False, clip=False, fillNodata=False, raw=False):
 
 		#First init parent class
 		GeoRaster.__init__(self, path, subBoxGeo=subBoxGeo, useGDAL=useGDAL)
@@ -255,6 +253,8 @@ class bpyGeoRaster(GeoRaster):
 			#reinit the parent class
 			GeoRaster.__init__(self, filepath, useGDAL=useGDAL)
 
+		self.raw = raw #flag non color raster like DEM
+
 		#Open the file into Blender
 		self._load()
 
@@ -264,13 +264,15 @@ class bpyGeoRaster(GeoRaster):
 		try:
 			self.bpyImg = bpy.data.images.load(self.path)
 		except Exception as e:
-			raise IOError("Unable to open raster : {}".format(e))
+			log.error("Unable to open raster", exc_info=True)
+			raise IOError("Unable to open raster") #it will not print traceback (instead of a bare raise)
 		if pack:
 			#WARN : packed image can only be stored as png and this format does not support float32 datatype
 			self.bpyImg.pack()
-		# Set image color space, it's very important because only
-		# Linear, Non Color and Raw color spaces will return raw values...
-		self.bpyImg.colorspace_settings.name = 'Non-Color'
+		if self.raw:
+			# Set image color space, it's very important because only
+			# Linear, Non Color and Raw color spaces will return raw values...
+			self.bpyImg.colorspace_settings.name = 'Non-Color'
 
 	def unload(self):
 		self.bpyImg.user_clear()

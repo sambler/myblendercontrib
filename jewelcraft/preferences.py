@@ -39,16 +39,8 @@ from .lib import widget, dynamic_list
 # ------------------------------------------
 
 
-class JewelCraftMaterialsCollection(PropertyGroup):
-    enabled: BoolProperty(description="Enable material for weighting and product report", default=True)
-    name: StringProperty(default="Untitled")
-    composition: StringProperty(default="Unknown")
-    density: FloatProperty(description="Density g/cm³", default=0.01, min=0.01, step=1, precision=2)
-
-
-class JewelCraftMaterialsList(PropertyGroup):
+class ListProperty:
     index: IntProperty()
-    coll: CollectionProperty(type=JewelCraftMaterialsCollection)
 
     def add(self):
         item = self.coll.add()
@@ -83,16 +75,70 @@ class JewelCraftMaterialsList(PropertyGroup):
     def values(self):
         return self.coll.values()
 
+    def copy_from(self, x):
+        self.clear()
 
-# Add-on preferences
+        for value in x.values():
+            item = self.add()
+            for k, v in value.items():
+                setattr(item, k, v)
+
+
+class MaterialCollection(PropertyGroup):
+    enabled: BoolProperty(description="Enable material for weighting and product report", default=True)
+    name: StringProperty(default="Untitled")
+    composition: StringProperty(default="Unknown")
+    density: FloatProperty(description="Density g/cm³", default=0.01, min=0.01, step=1, precision=2)
+
+
+class MeasurementCollection(PropertyGroup):
+    name: StringProperty(name="Name", default="Untitled")
+    object: PointerProperty(name="Object", description="Measured object", type=Object)
+    type: EnumProperty(
+        name="Type",
+        description="Measurement type",
+        items=(
+            ("DIMENSIONS", "", "", 0),
+            ("WEIGHT",     "", "", 1),
+            ("RING_SIZE",  "", "", 2),
+        ),
+    )
+    ring_size: EnumProperty(
+        name="Format",
+        items=(
+            ("DIA", "Diameter",      "", 0),
+            ("CIR", "Circumference", "", 1),
+            ("US",  "USA",           "", 2),
+            ("UK",  "Britain",       "", 3),
+            ("CH",  "Swiss",         "", 4),
+            ("JP",  "Japan",         "", 5),
+        ),
+    )
+    axis: EnumProperty(
+        name="Axis",
+        items=(
+            ("0", "X", ""),
+            ("1", "Y", ""),
+            ("2", "Z", ""),
+        ),
+    )
+    x: BoolProperty(name="X")
+    y: BoolProperty(name="Y")
+    z: BoolProperty(name="Z")
+    material_name: StringProperty()
+    material_density: FloatProperty()
+
+
+class MaterialsList(ListProperty, PropertyGroup):
+    coll: CollectionProperty(type=MaterialCollection)
+
+
+class MeasurementsList(ListProperty, PropertyGroup):
+    coll: CollectionProperty(type=MeasurementCollection)
+
+
+# Preferences
 # ------------------------------------------
-
-
-def property_split(data, layout, label, prop, ratio=0.0):
-    split = layout.split(align=True, factor=ratio)
-    split.alignment = "RIGHT"
-    split.label(text=label)
-    split.prop(data, prop, text="")
 
 
 def update_asset_refresh(self, context):
@@ -103,15 +149,9 @@ def update_asset_refresh(self, context):
 class JewelCraftPreferences(AddonPreferences):
     bl_idname = __package__
 
-    active_section: EnumProperty(
-        items=(
-            ("ASSET_MANAGER",  "Asset Manager",  ""),
-            ("WEIGHTING",      "Weighting",      ""),
-            ("PRODUCT_REPORT", "Product Report", ""),
-            ("THEMES",         "Themes",         ""),
-            ("UPDATES",        "Updates",         ""),
-        ),
-    )
+    # Updates
+    # ------------------------
+
     update_use_auto_check: BoolProperty(
         name="Automatically check for updates",
         description="Automatically check for updates with specified interval",
@@ -131,12 +171,12 @@ class JewelCraftPreferences(AddonPreferences):
         name="Update to pre-release",
         description="Update add-on to pre-release version if available",
     )
-    asset_name_from_obj: BoolProperty(
-        name="Asset name from active object",
-        description="Use active object name when creating new asset",
-    )
+
+    # Asset
+    # ------------------------
+
     use_custom_asset_dir: BoolProperty(
-        name="Use custom library folder",
+        name="Use Custom Library Folder",
         description="Set custom asset library folder, if disabled the default library folder will be used",
         update=update_asset_refresh,
     )
@@ -147,16 +187,20 @@ class JewelCraftPreferences(AddonPreferences):
         update=update_asset_refresh,
     )
     display_asset_name: BoolProperty(
-        name="Display asset name",
+        name="Display Asset Name",
         description="Display asset name in Tool Shelf",
     )
+
+    # Weighting
+    # ------------------------
+
     weighting_hide_default_sets: BoolProperty(
-        name="Hide default sets",
+        name="Hide Default Sets",
         description="Hide default JewelCraft sets from weighting sets menu",
         update=dynamic_list.weighting_set_refresh,
     )
     weighting_set_use_custom_dir: BoolProperty(
-        name="Use custom library folder",
+        name="Use Custom Library Folder",
         description="Set custom asset library folder, if disabled the default library folder will be used",
         update=dynamic_list.weighting_set_refresh,
     )
@@ -166,15 +210,11 @@ class JewelCraftPreferences(AddonPreferences):
         subtype="DIR_PATH",
         update=dynamic_list.weighting_set_refresh,
     )
-    weighting_materials: PointerProperty(type=JewelCraftMaterialsList)
-    weighting_list_show_composition: BoolProperty(
-        name="Show composition",
-        description="Display material composition in the list",
-    )
-    weighting_list_show_density: BoolProperty(
-        name="Show density",
-        description="Display material density in the list",
-    )
+    weighting_materials: PointerProperty(type=MaterialsList)
+
+    # Product Report
+    # ------------------------
+
     product_report_lang: EnumProperty(
         name="Report Language",
         description="Product report language",
@@ -186,39 +226,43 @@ class JewelCraftPreferences(AddonPreferences):
             ("ru_RU", "Russian (Русский)", ""),
         ),
     )
-    product_report_display: BoolProperty(
-        name="Display in a new window",
-        description="Display product report in new window",
-        default=True,
-    )
     product_report_save: BoolProperty(
-        name="Save to file",
+        name="Save To File",
         description="Save product report to file in project folder",
         default=True,
     )
     product_report_use_hidden_gems: BoolProperty(
-        name="Hidden gems",
-        description="Show warning if there are hidden gem objects in the scene",
+        name="Hidden Gems",
+        description="Enable or disable given warning",
         default=True,
     )
     product_report_use_overlap: BoolProperty(
-        name="Overlapping gems",
-        description="",
+        name="Overlapping Gems",
+        description="Enable or disable given warning",
         default=True,
     )
-    widget_show_all: BoolProperty(
-        name="Show all",
-        description="Display spacing widget for all visible gems",
+
+    # Gem Map
+    # ------------------------
+
+    gem_map_width: IntProperty(
+        name="Width",
+        description="Number of horizontal pixels in the rendered image",
+        default=1200,
+        min=4,
+        subtype="PIXEL",
     )
-    widget_show_in_front: BoolProperty(
-        name="In Front",
-        description="Draw widgets in front of objects",
+    gem_map_height: IntProperty(
+        name="Height",
+        description="Number of vertical pixels in the rendered image",
+        default=750,
+        min=4,
+        subtype="PIXEL",
     )
-    widget_use_overrides: BoolProperty(
-        name="Use overrides",
-        description="Use object defined widget overrides",
-        default=True,
-    )
+
+    # Widget
+    # ------------------------
+
     widget_color: FloatVectorProperty(
         name="Color",
         default=(0.9, 0.9, 0.9, 1.0),
@@ -234,19 +278,10 @@ class JewelCraftPreferences(AddonPreferences):
         soft_max=5.0,
         subtype="PIXEL",
     )
-    widget_font_size: IntProperty(
-        name="Font size",
-        default=16,
-        min=1,
-    )
-    widget_spacing: FloatProperty(
-        name="Spacing",
-        default=0.2,
-        min=0.0,
-        step=1,
-        precision=2,
-        unit="LENGTH",
-    )
+
+    # Themes
+    # ------------------------
+
     color_prongs: FloatVectorProperty(
         name="Prongs",
         default=(0.8, 0.8, 0.8, 1.0),
@@ -270,8 +305,31 @@ class JewelCraftPreferences(AddonPreferences):
             ("DARK", "Dark", ""),
         ),
     )
+    view_font_size_report: IntProperty(
+        name="Gem Table",
+        default=19,
+        min=1,
+    )
+    view_font_size_option: IntProperty(
+        name="Options",
+        default=17,
+        min=1,
+    )
+    view_font_size_gem_size: IntProperty(
+        name="Gem Size",
+        default=18,
+        min=1,
+    )
+    view_font_size_distance: IntProperty(
+        name="Distance",
+        default=16,
+        min=1,
+    )
 
     def draw(self, context):
+        props_wm = context.window_manager.jewelcraft
+        active_tab = props_wm.prefs_active_tab
+
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
@@ -280,20 +338,19 @@ class JewelCraftPreferences(AddonPreferences):
         col = split.column()
         col.use_property_split = False
         col.scale_y = 1.3
-        col.prop(self, "active_section", expand=True)
+        col.prop(props_wm, "prefs_active_tab", expand=True)
 
         box = split.box()
 
-        if self.active_section == "ASSET_MANAGER":
+        if active_tab == "ASSET_MANAGER":
             col = box.column()
-            col.prop(self, "asset_name_from_obj")
             col.prop(self, "display_asset_name")
             col.prop(self, "use_custom_asset_dir")
             sub = col.row()
             sub.active = self.use_custom_asset_dir
             sub.prop(self, "custom_asset_dir")
 
-        elif self.active_section == "WEIGHTING":
+        elif active_tab == "WEIGHTING":
             col = box.column()
             col.prop(self, "weighting_hide_default_sets")
             col.prop(self, "weighting_set_use_custom_dir")
@@ -302,9 +359,7 @@ class JewelCraftPreferences(AddonPreferences):
             sub.prop(self, "weighting_set_custom_dir")
 
             box.label(text="Materials list")
-
-            row = box.row()
-            row.template_list(
+            box.template_list(
                 "VIEW3D_UL_jewelcraft_weighting_set",
                 "",
                 self.weighting_materials,
@@ -313,48 +368,44 @@ class JewelCraftPreferences(AddonPreferences):
                 "index",
             )
 
-            col = row.column(align=True)
-            col.operator("wm.jewelcraft_ul_item_add", text="", icon="ADD")
-            col.operator("wm.jewelcraft_ul_item_del", text="", icon="REMOVE")
-            col.separator()
-            col.operator("wm.jewelcraft_ul_item_move", text="", icon="TRIA_UP").move_up = True
-            col.operator("wm.jewelcraft_ul_item_move", text="", icon="TRIA_DOWN")
-
+        elif active_tab == "PRODUCT_REPORT":
             col = box.column()
-            col.prop(self, "weighting_list_show_composition")
-            col.prop(self, "weighting_list_show_density")
-
-        elif self.active_section == "PRODUCT_REPORT":
-            col = box.column()
-            col.prop(self, "product_report_display")
             col.prop(self, "product_report_save")
             col.prop(self, "product_report_lang")
 
-            box.label(text="Warnings")
-            box.prop(self, "product_report_use_hidden_gems")
-            box.prop(self, "product_report_use_overlap")
+            box.label(text="Gem Map")
+            col = box.column(align=True)
+            col.prop(self, "gem_map_width", text="Resolution X")
+            col.prop(self, "gem_map_height", text="Y")
 
-        elif self.active_section == "THEMES":
+            box.label(text="Warnings")
+            col = box.column()
+            col.prop(self, "product_report_use_hidden_gems")
+            col.prop(self, "product_report_use_overlap")
+
+        elif active_tab == "THEMES":
             box.label(text="Interface")
             col = box.column()
             col.prop(self, "theme_icon")
 
             box.label(text="Widgets")
             col = box.column()
-            col.prop(self, "widget_show_all")
-            col.prop(self, "widget_show_in_front")
-            col.prop(self, "widget_use_overrides")
             col.prop(self, "widget_color")
             col.prop(self, "widget_linewidth")
-            col.prop(self, "widget_spacing")
-            col.prop(self, "widget_font_size")
 
             box.label(text="Materials")
             col = box.column()
             col.prop(self, "color_prongs")
             col.prop(self, "color_cutter")
 
-        elif self.active_section == "UPDATES":
+            box.label(text="Viewport Text Size")
+            col = box.column()
+            col.prop(self, "view_font_size_report")
+            col.prop(self, "view_font_size_option")
+            col.prop(self, "view_font_size_gem_size")
+            col.prop(self, "view_font_size_distance")
+
+        elif active_tab == "UPDATES":
             mod_update.prefs_ui(self, box)
 
 
@@ -370,7 +421,16 @@ def update_asset_list(self, context):
         self.asset_list = item_id
 
 
-class JewelCraftPropertiesWm(PropertyGroup):
+class WmProperties(PropertyGroup):
+    prefs_active_tab: EnumProperty(
+        items=(
+            ("ASSET_MANAGER",  "Asset Manager",  ""),
+            ("WEIGHTING",      "Weighting",      ""),
+            ("PRODUCT_REPORT", "Product Report", ""),
+            ("THEMES",         "Themes",         ""),
+            ("UPDATES",        "Updates",         ""),
+        ),
+    )
     widget_toggle: BoolProperty(description="Enable widgets drawing", update=widget.handler_toggle)
     asset_folder: EnumProperty(
         name="Category",
@@ -390,24 +450,35 @@ class JewelCraftPropertiesWm(PropertyGroup):
 # ------------------------------------------
 
 
-class JewelCraftPropertiesScene(PropertyGroup):
-    product_report_ob_size: PointerProperty(
-        type=Object,
-        name="Size",
-        description="Object for ring inner diameter reference",
+class SceneProperties(PropertyGroup):
+    weighting_materials: PointerProperty(type=MaterialsList)
+    weighting_show_composition: BoolProperty(
+        name="Show Composition",
+        description="Display material composition in the list",
     )
-    product_report_ob_shank: PointerProperty(
-        type=Object,
-        name="Shank",
-        description="Object for shank width and height reference",
+    weighting_show_density: BoolProperty(
+        name="Show Density",
+        description="Display material density in the list",
     )
-    product_report_ob_dim: PointerProperty(
-        type=Object,
-        name="Dimensions",
-        description="Object for dimensions reference",
+    measurements: PointerProperty(type=MeasurementsList)
+    widget_show_all: BoolProperty(
+        name="Show All",
+        description="Display spacing widget for all visible gems",
     )
-    product_report_ob_weight: PointerProperty(
-        type=Object,
-        name="Weight",
-        description="Object for weight reference",
+    widget_show_in_front: BoolProperty(
+        name="In Front",
+        description="Draw widgets in front of objects",
+    )
+    widget_use_overrides: BoolProperty(
+        name="Use Overrides",
+        description="Use object defined widget overrides",
+        default=True,
+    )
+    widget_spacing: FloatProperty(
+        name="Spacing",
+        default=0.2,
+        min=0.0,
+        step=1,
+        precision=2,
+        unit="LENGTH",
     )

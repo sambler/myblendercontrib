@@ -20,6 +20,9 @@
 import os
 from math import pi
 
+import logging
+log = logging.getLogger(__name__)
+
 import bpy
 from bpy.props import StringProperty, CollectionProperty, EnumProperty
 from bpy.types import Panel, Operator, OperatorFileListElement
@@ -38,10 +41,10 @@ from ..core.lib import Tyf
 def newEmpty(scene, name, location):
     """Create a new empty"""
     target = bpy.data.objects.new(name, None)
-    target.empty_draw_size = 10
-    target.empty_draw_type = 'PLAIN_AXES'
+    target.empty_display_size = 40
+    target.empty_display_type = 'PLAIN_AXES'
     target.location = location
-    scene.objects.link(target)
+    scene.collection.objects.link(target)
     return target
 
 def newCamera(scene, name, location, focalLength):
@@ -49,12 +52,12 @@ def newCamera(scene, name, location, focalLength):
     cam = bpy.data.cameras.new(name)
     cam.sensor_width = 35
     cam.lens = focalLength
-    cam.draw_size = 10
+    cam.display_size = 40
     cam_obj = bpy.data.objects.new(name,cam)
     cam_obj.location = location
     cam_obj.rotation_euler[0] = pi/2
     cam_obj.rotation_euler[2] = pi
-    scene.objects.link(cam_obj)
+    scene.collection.objects.link(cam_obj)
     return cam, cam_obj
 
 def newTargetCamera(scene, name, location, focalLength):
@@ -70,29 +73,29 @@ def newTargetCamera(scene, name, location, focalLength):
 
 
 
-class SetGeophotosCam(Operator):
+class CAMERA_OT_geophotos_add(Operator):
     bl_idname = "camera.geophotos"
     bl_description  = "Create cameras from geotagged photos"
     bl_label = "Exif cam"
     bl_options = {"REGISTER"}
 
-    files = CollectionProperty(
+    files: CollectionProperty(
             name="File Path",
             type=OperatorFileListElement,
             )
 
-    directory = StringProperty(
+    directory: StringProperty(
             subtype='DIR_PATH',
             )
 
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
         default="*.jpg;*.jpeg;*.tif;*.tiff",
         options={'HIDDEN'},
         )
 
     filename_ext = ""
 
-    exifMode = EnumProperty(
+    exifMode: EnumProperty(
         attr="exif_mode",
         name="Action",
         description="Choose an action",
@@ -130,7 +133,8 @@ class SetGeophotosCam(Operator):
             try:
                 exif = Tyf.open(filepath)
             except Exception as e:
-                self.report({'ERROR'},"Unable to open file. " + str(e))
+                log.error("Unable to open file", exc_info=True)
+                self.report({'ERROR'},"Unable to open file. Checks logs for more infos.")
                 return {'CANCELLED'}
 
             #tags = {t.key:exif[t.key] for t in exif.exif.tags() if t.key != 'Unknown' }
@@ -157,7 +161,8 @@ class SetGeophotosCam(Operator):
             try:
                 x, y = reprojPt(4326, geoscn.crs, lon, lat)
             except Exception as e:
-                self.report({'ERROR'},"Reprojection error. " + str(e))
+                log.erro("Reprojection fails", exc_info=True)
+                self.report({'ERROR'},"Reprojection error. Check logs for more infos.")
                 return {'CANCELLED'}
 
             try:
@@ -174,7 +179,7 @@ class SetGeophotosCam(Operator):
             elif self.exifMode == "EMPTY":
                 newEmpty(scn, name, location)
             else:
-                scn.cursor_location = location
+                scn.cursor.location = location
 
 
             if self.exifMode in ["TARGET_CAMERA","CAMERA"]:
@@ -212,7 +217,7 @@ class SetGeophotosCam(Operator):
         return {'FINISHED'}
 
 
-class SetActiveGeophotoCam(Operator):
+class CAMERA_OT_geophotos_setactive(Operator):
     bl_idname = "camera.geophotos_setactive"
     bl_description  = "Switch active geophoto camera"
     bl_label = "Switch geophoto camera"
@@ -223,7 +228,7 @@ class SetActiveGeophotoCam(Operator):
         #put each object in a tuple (key, label, tooltip)
         return [(obj.name, obj.name, obj.name) for obj in scn.objects if obj.type == 'CAMERA' and 'background' in obj.data]
 
-    camLst = EnumProperty(name='Camera', description='Select camera', items=listGeoCam)
+    camLst: EnumProperty(name='Camera', description='Select camera', items=listGeoCam)
 
     def draw(self, context):
         layout = self.layout
@@ -245,8 +250,8 @@ class SetActiveGeophotoCam(Operator):
 
         #Get cam
         cam_obj = scn.objects[self.camLst]
-        cam_obj.select = True
-        scn.objects.active = cam_obj
+        cam_obj.select_set(True)
+        context.view_layer.objects.active = cam_obj
         cam = cam_obj.data
         scn.camera = cam_obj
 
@@ -263,24 +268,35 @@ class SetActiveGeophotoCam(Operator):
             img = bpy.data.images.load(filepath)
 
         #Activate view3d background
-        view3d.show_background_images = True
+        cam.show_background_images = True
 
         #Hide all existing camera background
-        for bkg in view3d.background_images:
-            if bkg.view_axis == 'CAMERA':
-                bkg.show_background_image = False
+        for bkg in cam.background_images:
+            bkg.show_background_image = False
 
         #Get or load background image
-        bkgs = [bkg for bkg in view3d.background_images if bkg.image is not None]
+        bkgs = [bkg for bkg in cam.background_images if bkg.image is not None]
         try:
             bkg = [bkg for bkg in bkgs if bkg.image.filepath == filepath][0]
         except IndexError:
-            bkg = view3d.background_images.new()
+            bkg = cam.background_images.new()
             bkg.image = img
 
         #Set some props
         bkg.show_background_image = True
-        bkg.view_axis = 'CAMERA'
-        bkg.opacity = 1
+        bkg.alpha = 1
 
         return {'FINISHED'}
+
+classes = [
+	CAMERA_OT_geophotos_add,
+	CAMERA_OT_geophotos_setactive
+]
+
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+
+def unregister():
+	for cls in classes:
+		bpy.utils.unregister_class(cls)

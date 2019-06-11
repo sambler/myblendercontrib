@@ -22,7 +22,7 @@
 bl_info = {
     "name": "JewelCraft",
     "author": "Mikhail Rachinskiy",
-    "version": (2, 3, 1),
+    "version": (2, 3, 3),
     "blender": (2, 80, 0),
     "location": "3D View > Sidebar",
     "description": "Jewelry design toolkit.",
@@ -33,23 +33,30 @@ bl_info = {
 
 
 if "bpy" in locals():
-    import importlib
 
-    for entry in os.scandir(var.ADDON_DIR):
+    def walk(path, parent_dir=None):
+        import importlib
 
-        if entry.is_file() and entry.name.endswith(".py") and not entry.name.startswith("__"):
-            module = os.path.splitext(entry.name)[0]
-            importlib.reload(eval(module))
+        for entry in os.scandir(path):
 
-        elif entry.is_dir() and not entry.name.startswith((".", "__")):
+            if entry.is_file() and entry.name.endswith(".py"):
+                filename, _ = os.path.splitext(entry.name)
+                is_init = filename == "__init__"
 
-            for subentry in os.scandir(entry.path):
-                if subentry.is_file() and subentry.name.endswith(".py"):
-                    if subentry.name == "__init__.py":
-                        module = os.path.splitext(entry.name)[0]
-                    else:
-                        module = entry.name + "." + os.path.splitext(subentry.name)[0]
-                    importlib.reload(eval(module))
+                if parent_dir:
+                    module = parent_dir if is_init else f"{parent_dir}.{filename}"
+                else:
+                    if is_init:
+                        continue
+                    module = filename
+
+                importlib.reload(eval(module))
+
+            elif entry.is_dir() and not entry.name.startswith((".", "__")):
+                dirname = f"{parent_dir}.{entry.name}" if parent_dir else entry.name
+                walk(entry.path, parent_dir=dirname)
+
+    walk(var.ADDON_DIR)
 else:
     import os
 
@@ -64,32 +71,37 @@ else:
         localization,
         mod_update,
         op_cutter,
+        op_gem_map,
         op_product_report,
         op_prongs,
         op_scatter,
         ops_asset,
         ops_gem,
+        ops_measurement,
         ops_object,
         ops_utils,
         ops_weighting,
     )
+    from .lib import on_load
 
 
 var.UPDATE_CURRENT_VERSION = bl_info["version"]
 
 classes = (
-    preferences.JewelCraftMaterialsCollection,
-    preferences.JewelCraftMaterialsList,
+    preferences.MeasurementCollection,
+    preferences.MaterialCollection,
+    preferences.MeasurementsList,
+    preferences.MaterialsList,
     preferences.JewelCraftPreferences,
-    preferences.JewelCraftPropertiesWm,
-    preferences.JewelCraftPropertiesScene,
+    preferences.WmProperties,
+    preferences.SceneProperties,
     ui.VIEW3D_UL_jewelcraft_weighting_set,
+    ui.VIEW3D_UL_jewelcraft_measurements,
     ui.VIEW3D_MT_jewelcraft_select_gem_by,
     ui.VIEW3D_MT_jewelcraft_folder,
     ui.VIEW3D_MT_jewelcraft_asset,
     ui.VIEW3D_MT_jewelcraft_weighting_set,
     ui.VIEW3D_MT_jewelcraft_weighting_list,
-    ui.VIEW3D_MT_jewelcraft_product_report,
     ui.VIEW3D_PT_jewelcraft_update,
     ui.VIEW3D_PT_jewelcraft_warning,
     ui.VIEW3D_PT_jewelcraft_gems,
@@ -101,54 +113,63 @@ classes = (
     ui.VIEW3D_PT_jewelcraft_curve_editmesh,
     ui.VIEW3D_PT_jewelcraft_weighting,
     ui.VIEW3D_PT_jewelcraft_product_report,
-    op_cutter.OBJECT_OT_jewelcraft_cutter_add,
-    op_prongs.OBJECT_OT_jewelcraft_prongs_add,
-    op_scatter.OBJECT_OT_jewelcraft_curve_scatter,
-    op_scatter.OBJECT_OT_jewelcraft_curve_redistribute,
-    op_product_report.WM_OT_jewelcraft_product_report,
-    ops_gem.OBJECT_OT_jewelcraft_gem_add,
-    ops_gem.OBJECT_OT_jewelcraft_gem_edit,
-    ops_gem.OBJECT_OT_jewelcraft_gem_id_add,
-    ops_gem.OBJECT_OT_jewelcraft_gem_id_convert_deprecated,
-    ops_gem.OBJECT_OT_jewelcraft_select_gems_by_trait,
-    ops_gem.OBJECT_OT_jewelcraft_select_overlapping,
-    ops_asset.WM_OT_jewelcraft_asset_folder_create,
-    ops_asset.WM_OT_jewelcraft_asset_folder_rename,
-    ops_asset.WM_OT_jewelcraft_asset_ui_refresh,
-    ops_asset.WM_OT_jewelcraft_asset_add_to_library,
-    ops_asset.WM_OT_jewelcraft_asset_remove_from_library,
-    ops_asset.WM_OT_jewelcraft_asset_rename,
-    ops_asset.WM_OT_jewelcraft_asset_replace,
-    ops_asset.WM_OT_jewelcraft_asset_preview_replace,
-    ops_asset.WM_OT_jewelcraft_asset_import,
-    ops_object.CURVE_OT_jewelcraft_size_curve_add,
-    ops_object.CURVE_OT_jewelcraft_length_display,
-    ops_object.OBJECT_OT_jewelcraft_stretch_along_curve,
-    ops_object.OBJECT_OT_jewelcraft_move_over_under,
-    ops_object.OBJECT_OT_jewelcraft_mirror,
-    ops_object.OBJECT_OT_jewelcraft_make_dupliface,
-    ops_object.OBJECT_OT_jewelcraft_lattice_project,
-    ops_object.OBJECT_OT_jewelcraft_lattice_profile,
-    ops_object.OBJECT_OT_jewelcraft_resize,
-    ops_utils.SCENE_OT_jewelcraft_scene_units_set,
-    ops_utils.VIEW3D_OT_jewelcraft_search_asset,
-    ops_utils.OBJECT_OT_jewelcraft_widgets_overrides_set,
-    ops_utils.OBJECT_OT_jewelcraft_widgets_overrides_del,
-    ops_weighting.WM_OT_jewelcraft_ul_item_add,
-    ops_weighting.WM_OT_jewelcraft_ul_item_del,
-    ops_weighting.WM_OT_jewelcraft_ul_item_clear,
-    ops_weighting.WM_OT_jewelcraft_ul_item_move,
-    ops_weighting.OBJECT_OT_jewelcraft_weight_display,
-    ops_weighting.WM_OT_jewelcraft_weighting_set_add,
-    ops_weighting.WM_OT_jewelcraft_weighting_set_replace,
-    ops_weighting.WM_OT_jewelcraft_weighting_set_del,
-    ops_weighting.WM_OT_jewelcraft_weighting_set_load,
-    ops_weighting.WM_OT_jewelcraft_weighting_set_load_append,
-    ops_weighting.WM_OT_jewelcraft_weighting_set_rename,
-    ops_weighting.WM_OT_jewelcraft_weighting_set_refresh,
-    mod_update.WM_OT_jewelcraft_update_check,
-    mod_update.WM_OT_jewelcraft_update_download,
-    mod_update.WM_OT_jewelcraft_update_whats_new,
+    ui.VIEW3D_PT_jewelcraft_measurement,
+    mod_update.WM_OT_update_check,
+    mod_update.WM_OT_update_download,
+    mod_update.WM_OT_update_whats_new,
+    op_cutter.OBJECT_OT_cutter_add,
+    op_gem_map.VIEW3D_OT_gem_map,
+    op_product_report.WM_OT_product_report,
+    op_prongs.OBJECT_OT_prongs_add,
+    op_scatter.OBJECT_OT_curve_scatter,
+    op_scatter.OBJECT_OT_curve_redistribute,
+    ops_asset.WM_OT_asset_folder_create,
+    ops_asset.WM_OT_asset_folder_rename,
+    ops_asset.WM_OT_asset_ui_refresh,
+    ops_asset.WM_OT_asset_add_to_library,
+    ops_asset.WM_OT_asset_remove_from_library,
+    ops_asset.WM_OT_asset_rename,
+    ops_asset.WM_OT_asset_replace,
+    ops_asset.WM_OT_asset_preview_replace,
+    ops_asset.WM_OT_asset_import,
+    ops_gem.OBJECT_OT_gem_add,
+    ops_gem.OBJECT_OT_gem_edit,
+    ops_gem.OBJECT_OT_gem_id_add,
+    ops_gem.OBJECT_OT_gem_id_convert_deprecated,
+    ops_gem.OBJECT_OT_select_gems_by_trait,
+    ops_gem.OBJECT_OT_select_overlapping,
+    ops_measurement.WM_OT_ul_measurements_add,
+    ops_measurement.WM_OT_ul_measurements_material_select,
+    ops_measurement.WM_OT_ul_measurements_del,
+    ops_measurement.WM_OT_ul_measurements_move,
+    ops_object.CURVE_OT_size_curve_add,
+    ops_object.CURVE_OT_length_display,
+    ops_object.OBJECT_OT_stretch_along_curve,
+    ops_object.OBJECT_OT_move_over_under,
+    ops_object.OBJECT_OT_mirror,
+    ops_object.OBJECT_OT_radial_instance,
+    ops_object.OBJECT_OT_make_dupliface,
+    ops_object.OBJECT_OT_lattice_project,
+    ops_object.OBJECT_OT_lattice_profile,
+    ops_object.OBJECT_OT_resize,
+    ops_utils.SCENE_OT_scene_units_set,
+    ops_utils.VIEW3D_OT_search_asset,
+    ops_utils.OBJECT_OT_widget_override_set,
+    ops_utils.OBJECT_OT_widget_override_del,
+    ops_weighting.WM_OT_ul_materials_add,
+    ops_weighting.WM_OT_ul_materials_del,
+    ops_weighting.WM_OT_ul_materials_clear,
+    ops_weighting.WM_OT_ul_materials_move,
+    ops_weighting.WM_OT_ul_materials_save,
+    ops_weighting.WM_OT_ul_materials_load,
+    ops_weighting.OBJECT_OT_weight_display,
+    ops_weighting.WM_OT_weighting_set_add,
+    ops_weighting.WM_OT_weighting_set_replace,
+    ops_weighting.WM_OT_weighting_set_del,
+    ops_weighting.WM_OT_weighting_set_load,
+    ops_weighting.WM_OT_weighting_set_load_append,
+    ops_weighting.WM_OT_weighting_set_rename,
+    ops_weighting.WM_OT_weighting_set_refresh,
 )
 
 
@@ -156,8 +177,8 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.WindowManager.jewelcraft = PointerProperty(type=preferences.JewelCraftPropertiesWm)
-    bpy.types.Scene.jewelcraft = PointerProperty(type=preferences.JewelCraftPropertiesScene)
+    bpy.types.WindowManager.jewelcraft = PointerProperty(type=preferences.WmProperties)
+    bpy.types.Scene.jewelcraft = PointerProperty(type=preferences.SceneProperties)
 
     # Translations
     # ---------------------------
@@ -189,6 +210,14 @@ def register():
 
     var.preview_collections["icons"] = pcoll
 
+    # On load
+    # ---------------------------
+
+    on_load.handler_add()
+
+    # mod_update
+    # ---------------------------
+
     mod_update.update_init_check()
 
 
@@ -212,10 +241,11 @@ def unregister():
     var.preview_collections.clear()
     dynamic_list._cache.clear()
 
-    # Widgets
+    # Handlers
     # ---------------------------
 
     widget.handler_del()
+    on_load.handler_del()
 
 
 if __name__ == "__main__":

@@ -25,19 +25,19 @@ class bw_createWidget(bpy.types.Operator):
     def poll(cls, context):
         return (context.object and context.object.mode == 'POSE')
 
-    relative_size : BoolProperty(  
+    relative_size = BoolProperty(  
         name="Relative size",  
         default=True,  
         description="Widget size proportionnal to Bone size"  
         )
 
-    global_size : FloatProperty(
+    global_size = FloatProperty(
        name="Global Size : ",  
        default=1.0,  
        description="Global Size : " 
        )  
 
-    slide : FloatProperty(  
+    slide = FloatProperty(  
        name="Slide :",  
        default=0.0,  
        subtype='DISTANCE',  
