@@ -24,7 +24,7 @@ bl_info = {
     "name": "EdgeTools",
     "author": "Paul Marshall",
     "version": (0, 9, 2),
-    "blender": (2, 68, 0),
+    "blender": (2, 80, 0),
     "location": "View3D > Toolbar and View3D > Specials (W-key)",
     "warning": "",
     "description": "CAD style edge manipulation tools",
@@ -825,12 +825,12 @@ class Spline(Operator):
         layout.label(text="Edge 1:")
         split = layout.split(factor=0.8, align=True)
         split.prop(self, "ten1")
-        split.prop(self, "flip1", text="", icon="ALIGN", toggle=True)
+        split.prop(self, "flip1", text="Flip1", toggle=True)
 
         layout.label(text="Edge 2:")
         split = layout.split(factor=0.8, align=True)
         split.prop(self, "ten2")
-        split.prop(self, "flip2", text="", icon="ALIGN", toggle=True)
+        split.prop(self, "flip2", text="Flip2", toggle=True)
 
     @classmethod
     def poll(cls, context):
@@ -1090,12 +1090,12 @@ class Ortho(Operator):
 
             # Perform any additional rotations:
             matrix = Matrix.Rotation(radians(90 + self.angle), 3, vectors[2])
-            vectors.append(matrix * -vectors[3])    # vectors[5]
+            vectors.append(matrix @ -vectors[3])    # vectors[5]
             matrix = Matrix.Rotation(radians(90 - self.angle), 3, vectors[2])
-            vectors.append(matrix * vectors[4])     # vectors[6]
-            vectors.append(matrix * vectors[3])     # vectors[7]
+            vectors.append(matrix @ vectors[4])     # vectors[6]
+            vectors.append(matrix @ vectors[3])     # vectors[7]
             matrix = Matrix.Rotation(radians(90 + self.angle), 3, vectors[2])
-            vectors.append(matrix * -vectors[4])    # vectors[8]
+            vectors.append(matrix @ -vectors[4])    # vectors[8]
 
             # Perform extrusions and displacements:
             # There will be a total of 8 extrusions.  One for each vert of each edge.
@@ -1338,20 +1338,20 @@ class Shaft(Operator):
                     co = init_vec + verts[i + 2].co
                     # These will be rotated about the origin so will need to be shifted:
                     for j in range(numV):
-                        verts_out.append(co - (matrices[j] * init_vec))
+                        verts_out.append(co - (matrices[j] @ init_vec))
             elif self.shaftType == 1:
                 for i in verts:
                     init_vec = distance_point_line(i.co, active.verts[0].co, active.verts[1].co)
                     co = init_vec + i.co
                     # These will be rotated about the origin so will need to be shifted:
                     for j in range(numV):
-                        verts_out.append(co - (matrices[j] * init_vec))
+                        verts_out.append(co - (matrices[j] @ init_vec))
             # Else if a line and a point was selected:
             elif self.shaftType == 2:
                 init_vec = distance_point_line(verts[2].co, verts[0].co, verts[1].co)
                 # These will be rotated about the origin so will need to be shifted:
                 verts_out = [
-                    (verts[i].co - (matrices[j] * init_vec)) for i in range(2) for j in range(numV)
+                    (verts[i].co - (matrices[j] @ init_vec)) for i in range(2) for j in range(numV)
                     ]
             else:
                 # Else the above are not possible, so we will just use the edge:
@@ -1370,7 +1370,7 @@ class Shaft(Operator):
                 init_vec = distance_point_line(vec, verts[0].co, verts[1].co)
                 # These will be rotated about the origin so will need to be shifted:
                 verts_out = [
-                    (verts[i].co - (matrices[j] * init_vec)) for i in range(2) for j in range(numV)
+                    (verts[i].co - (matrices[j] @ init_vec)) for i in range(2) for j in range(numV)
                     ]
 
             # We should have the coordinates for a bunch of new verts
@@ -1848,6 +1848,8 @@ class VIEW3D_MT_edit_mesh_edgetools(Menu):
         layout.operator("mesh.edgetools_project")
         layout.operator("mesh.edgetools_project_end")
 
+def menu_func(self, context):
+    self.layout.menu("VIEW3D_MT_edit_mesh_edgetools")
 
 # define classes for registration
 classes = (
@@ -1866,13 +1868,13 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.prepend(menu_func)
 
 # unregistering and removing menus
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
-
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(menu_func)
 
 if __name__ == "__main__":
     register()

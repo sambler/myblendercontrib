@@ -168,7 +168,7 @@ class LengthSet(Operator):
         return 0.0
 
     def invoke(self, context, event):
-        wm = context.window_managerlength
+        wm = context.window_manager
 
         obj = context.edit_object
         bm = bmesh.from_edit_mesh(obj.data)

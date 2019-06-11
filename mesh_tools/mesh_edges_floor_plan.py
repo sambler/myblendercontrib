@@ -188,7 +188,7 @@ class MESH_OT_edges_floor_plan(Operator):
         layout = self.layout
 
         box = layout.box()
-        box.label(text="Choose Method:", icon="SCRIPTWIN")
+        box.label(text="Choose Method:", icon="NONE")
         box.prop(self, "fill_type")
 
         col = box.column(align=True)
@@ -206,7 +206,7 @@ class MESH_OT_edges_floor_plan(Operator):
             col.prop(self, "tri_faces", toggle=True)
 
         box = layout.box()
-        box.label(text="Settings:", icon="MOD_BUILD")
+        box.label(text="Settings:", icon="NONE")
 
         col = box.column(align=True)
         col.prop(self, "wid")
@@ -238,7 +238,7 @@ class MESH_OT_edges_floor_plan(Operator):
         me = ob.data
         bm = bmesh.from_edit_mesh(me)
 
-        bmesh.ops.delete(bm, geom=bm.faces, context=3)
+        bmesh.ops.delete(bm, geom=bm.faces, context='FACES_ONLY')
         self.ensure(bm)
         context.tool_settings.mesh_select_mode = (False, True, False)
         original_edges = [edge.index for edge in bm.edges]
@@ -255,7 +255,7 @@ class MESH_OT_edges_floor_plan(Operator):
             if self.remove_ngons:
                 ngons = [face for face in bm.faces if len(face.edges) > 4]
                 self.ensure(bm)
-                bmesh.ops.delete(bm, geom=ngons, context=5)  # 5 - delete faces
+                bmesh.ops.delete(bm, geom=ngons, context='FACES')  # 5 - delete faces
                 del ngons
                 self.ensure(bm)
 
@@ -306,7 +306,7 @@ class MESH_OT_edges_floor_plan(Operator):
         if self.remove_ngons and self.fill_type != 'EDGE_NET':
             ngons = [face for face in bm.faces if len(face.edges) > 4]
             self.ensure(bm)
-            bmesh.ops.delete(bm, geom=ngons, context=5)  # 5 - delete faces
+            bmesh.ops.delete(bm, geom=ngons, context='FACES')  # 5 - delete faces
             del ngons
             self.ensure(bm)
 
@@ -337,7 +337,7 @@ class MESH_OT_edges_floor_plan(Operator):
         self.ensure(bm)
 
         if not self.keep_faces:
-            bmesh.ops.delete(bm, geom=del_faces, context=5)  # 5 delete faces
+            bmesh.ops.delete(bm, geom=del_faces, context='FACES')  # 5 delete faces
         del del_faces
         self.ensure(bm)
 
@@ -355,7 +355,7 @@ class MESH_OT_edges_floor_plan(Operator):
         self.ensure(bm)
 
         if not self.connect_ends:
-            bmesh.ops.delete(bm, geom=face_del, context=5)
+            bmesh.ops.delete(bm, geom=face_del, context='FACES')
             self.ensure(bm)
 
         del face_del

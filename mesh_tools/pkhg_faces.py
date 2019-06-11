@@ -27,7 +27,7 @@ from bpy.props import (
 
 class MESH_OT_add_faces_to_object(Operator):
     bl_idname = "mesh.add_faces_to_object"
-    bl_label = "Face Extrude"
+    bl_label = "Face Shape"
     bl_description = "Set parameters and build object with added faces"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
@@ -534,7 +534,7 @@ class Spiked:
 class ClosedVertical:
     def __init__(self, name="Plane", base_height=1, use_relative_base_height=False):
         obj = bpy.data.objects[name]
-
+        bpy.ops.object.mode_set(mode='OBJECT')
         bm = bmesh.new()
         bm.from_mesh(obj.data)
         # PKHG>INFO deselect chosen faces
@@ -566,6 +566,7 @@ class OpenVertical:
     def __init__(self, name="Plane", base_height=1, use_relative_base_height=False):
 
         obj = bpy.data.objects[name]
+        bpy.ops.object.mode_set(mode='OBJECT')
         bm = bmesh.new()
         bm.from_mesh(obj.data)
         # PKHG>INFO deselect chosen faces
@@ -822,13 +823,19 @@ def move_corner_vecs_outside(self, context, bm=None, edge_list=None, center=None
         direction = vec + (vec - (normal * base_height_erlier + center)) * distance
         tmp[i].co = direction
 
+# define classes for registration
+classes = (
+    MESH_OT_add_faces_to_object,
+    )
 
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":
