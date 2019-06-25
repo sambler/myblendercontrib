@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Split Shape Key",
     "author": "Eduardo Teixeira, SAmbler",
-    "version": (1, 1),
+    "version": (1, 2),
     "blender": (2, 80, 0),
     "location": "Object > Animation > Split Shape Key",
     "description": "Takes a shape key and splits its vertices translation into three new shape keys, one per axis, preserving the original",
@@ -57,13 +57,19 @@ class SplitShapeKey(bpy.types.Operator):
         return{'FINISHED'}
 
 class SplitShapePanel(bpy.types.Panel):
-    """Creates a Panel in the Tools Window > Animation Tab"""
+    """Creates a Panel in the Mesh Properties"""
 
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'data'
     bl_label = "Split Shape Key"
-    bl_context = "objectmode"
     bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        o = context.object
+        return o is not None and \
+                o.type in ['MESH', 'CURVE', 'SURFACE']
 
     def draw(self, context):
         layout = self.layout
