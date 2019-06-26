@@ -300,7 +300,7 @@ class CSPanel(Panel):
     bl_idname = "OBJECT_PT_cs_panel"
     bl_label = "CubeSter"
     bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
+    bl_region_type = "UI"
 
     def draw(self, context):
         layout = self.layout
@@ -537,4 +537,4 @@ def unregister():
 
 
 if __name__ == "__main__":
-    register() 
+    register()
