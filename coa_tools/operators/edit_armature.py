@@ -35,13 +35,13 @@ from .. functions import *
 from .. functions_draw import *        
 import traceback
 
-class BindMeshToBones(bpy.types.Operator):
+class COATOOLS_OT_BindMeshToBones(bpy.types.Operator):
     bl_idname = "coa_tools.bind_mesh_to_bones"
     bl_label = "Bind Mesh To Selected Bones"
     bl_description = "Bind mesh to selected bones."
     bl_options = {"REGISTER"}
     
-    ob_name = StringProperty()
+    ob_name: StringProperty()
     armature = None
     sprite_object = None
     
@@ -61,8 +61,8 @@ class BindMeshToBones(bpy.types.Operator):
         
 
 ######################################################################################################################################### Quick Armature        
-class QuickArmature(bpy.types.Operator):
-    bl_idname = "scene.coa_quick_armature" 
+class COATOOLS_OT_QuickArmature(bpy.types.Operator):
+    bl_idname = "coa_tools.quick_armature"
     bl_label = "Quick Armature"
     
     def __init__(self):
@@ -72,7 +72,6 @@ class QuickArmature(bpy.types.Operator):
         self.mouse_press = False
         self.mouse_press_hist = False
         self.inside_area = False
-        self.show_manipulator = False
         self.current_bone = None
         self.object_hover = None
         self.object_hover_hist = None
@@ -99,7 +98,7 @@ class QuickArmature(bpy.types.Operator):
         region = bpy.context.region
         rv3d = bpy.context.space_data.region_3d
         #### cursor used for the depth location of the mouse
-        depth_location = bpy.context.scene.cursor_location
+        depth_location = bpy.context.scene.cursor.location
         #depth_location = bpy.context.active_object.location
         ### creating 3d vector from the cursor
         end = transform(region, rv3d, coord, depth_location)
@@ -108,14 +107,10 @@ class QuickArmature(bpy.types.Operator):
         start = bpy_extras.view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
         
         ### Cast ray from view to mouselocation
-        if b_version_bigger_than((2,76,0)):
-            ray = bpy.context.scene.ray_cast(start, (start+(end-start)*2000)-start )
-        else:    
-            ray = bpy.context.scene.ray_cast(start, start+(end-start)*2000)
+        ray = bpy.context.scene.ray_cast(bpy.context.view_layer, start, (start+(end-start)*2000)-start )
             
-        ### ray_cast return values have changed after blender 2.67.0 
-        if b_version_bigger_than((2,76,0)):
-            ray = [ray[0],ray[4],ray[5],ray[1],ray[2]]
+        ### ray_cast return values have changed after blender 2.67.0
+        ray = [ray[0],ray[4],ray[5],ray[1],ray[2]]
         
         return start, end, ray
     
@@ -125,33 +120,33 @@ class QuickArmature(bpy.types.Operator):
         armature = get_armature(sprite_object)
         
         for obj2 in context.selected_objects:
-            obj2.select = False
+            obj2.select_set(False)
         
         if armature != None:
-            context.scene.objects.active = armature
-            armature.select = True
+            context.view_layer.objects.active = armature
+            armature.select_set(True)
             return armature
         else:
             amt = bpy.data.armatures.new("Armature")
             armature = bpy.data.objects.new("Armature",amt)
             armature.parent = sprite_object
-            context.scene.objects.link(armature)
-            context.scene.objects.active = armature
-            armature.select = True
-            armature.show_x_ray = True
+            context.collection.objects.link(armature)
+            context.view_layer.objects.active = armature
+            armature.select_set(True)
+            armature.show_in_front = True
             #amt.draw_type = "BBONE"
             return armature
         
     def create_default_bone_group(self,armature):
         default_bone_group = None
         if "default_bones" not in armature.pose.bone_groups:
-            default_bone_group = armature.pose.bone_groups.new("default_bones")
+            default_bone_group = armature.pose.bone_groups.new(name="default_bones")
             default_bone_group.color_set = "THEME08"
         else:
             default_bone_group = armature.pose.bone_groups["default_bones"]
-        return default_bone_group   
-                            
-    def create_bones(self,context,armature):
+        return default_bone_group
+
+    def create_bones(self, context, armature):
         if armature != None:
             
             bpy.ops.object.mode_set(mode='EDIT')
@@ -161,7 +156,7 @@ class QuickArmature(bpy.types.Operator):
             bone["lock_z"] = True
             bone["lock_rot"] = True
 
-            head_position = (self.armature.matrix_world.inverted() * self.cursor_location)
+            head_position = (self.armature.matrix_world.inverted() @ self.mouse_click_vec)
             head_position[1] = 0
             bone.head = head_position
             bone.hide = True
@@ -193,13 +188,13 @@ class QuickArmature(bpy.types.Operator):
     
     def drag_bone(self,context, event ,bone=None):
         ### math.atan2(0.5, 0.5)*180/math.pi
+        mouse_vec_norm = (self.cursor_location - self.mouse_click_vec).normalized()
+        mouse_vec = (self.cursor_location - self.mouse_click_vec)
+        angle = (math.atan2(mouse_vec_norm[0], mouse_vec_norm[2]) * 180 / math.pi)
         if bone != None:
             
             bone.hide = False
-            mouse_vec_norm = (self.cursor_location - self.mouse_click_vec).normalized()
-            mouse_vec = (self.cursor_location - self.mouse_click_vec)
-            angle = (math.atan2(mouse_vec_norm[0], mouse_vec_norm[2])*180/math.pi)
-            cursor_local = self.armature.matrix_world.inverted() * self.cursor_location
+            cursor_local = self.armature.matrix_world.inverted() @ self.cursor_location
             cursor_local[1] = 0
             if event.shift:
                 if angle > -22.5 and angle < 22.5:
@@ -207,34 +202,35 @@ class QuickArmature(bpy.types.Operator):
                     bone.tail =  Vector((bone.head[0],cursor_local[1],cursor_local[2]))
                 elif angle > 22.5 and angle < 67.5:
                     ### up right
-                    bone.tail = (bone.head +  Vector((mouse_vec[0],0,mouse_vec[0])))
+                    bone.tail = (bone.head + Vector((mouse_vec[0],0,mouse_vec[0])))
                 elif angle > 67.5 and angle < 112.5:
                     ### right
                     bone.tail = Vector((cursor_local[0],cursor_local[1],bone.head[2]))
                 elif angle > 112.5 and angle < 157.5:
                     ### down right
-                    bone.tail = (bone.head +  Vector((mouse_vec[0],0,-mouse_vec[0])))
+                    bone.tail = (bone.head + Vector((mouse_vec[0],0,-mouse_vec[0])))
                 elif angle > 157.5 or angle < -157.5:   
                     ### down
                     bone.tail = Vector((bone.head[0],cursor_local[1],cursor_local[2]))
                 elif angle > -157.5 and angle < -112.5:
                     ### down left
-                        bone.tail = (bone.head +  Vector((mouse_vec[0],0,mouse_vec[0])))
+                        bone.tail = (bone.head + Vector((mouse_vec[0],0,mouse_vec[0])))
                 elif angle > -112.5 and angle < -67.5:
                     ### left
                     bone.tail = Vector((cursor_local[0],cursor_local[1],bone.head[2]))
                 elif angle > -67.5 and angle < -22.5:       
                     ### left up
-                    bone.tail = (bone.head +  Vector((mouse_vec[0],0,-mouse_vec[0])))
+                    bone.tail = (bone.head + Vector((mouse_vec[0],0,-mouse_vec[0])))
             else:
                 bone.tail = cursor_local
+        return mouse_vec.magnitude, mouse_vec.magnitude / bpy.context.space_data.region_3d.view_distance
                  
     def set_parent(self,context,obj):
-        obj.select = True
+        obj.select_set(True)
         bpy.ops.object.mode_set(mode='POSE')
         bpy.ops.object.parent_set(type='BONE')
         bpy.ops.object.mode_set(mode='EDIT')
-        obj.select = False
+        obj.select_set(False)
         bpy.ops.ed.undo_push(message="Sprite "+obj.name+ " set parent")
         
     def return_ray_sprites(self,context,event):
@@ -281,40 +277,37 @@ class QuickArmature(bpy.types.Operator):
             if self.in_view_3d:
                 self.mouse_press_hist = self.mouse_press
                 mouse_button = None
-                if context.user_preferences.inputs.select_mouse == "RIGHT":
+                wm = context.window_manager
+                keyconfig = wm.keyconfigs.active
+                if getattr(keyconfig.preferences, "select_mouse") == "RIGHT":
                     mouse_button = 'LEFTMOUSE' 
                 else:
-                    mouse_button = 'RIGHTMOUSE'    
+                    mouse_button = 'LEFTMOUSE'
                 ### Set Mouse click
                 
                      
                 if (event.value == 'PRESS') and event.type == mouse_button and self.mouse_press == False:
                     self.mouse_press = True
-                    #return {'RUNNING_MODAL'}
                 elif event.value in ['RELEASE','NOTHING'] and (event.type == mouse_button):
-                    self.mouse_press = False 
-                #print(event.value,"-----------",event.type)
+                    self.mouse_press = False
                 ### Cast Ray from mousePosition and set Cursor to hitPoint
                 rayStart,rayEnd, ray = self.project_cursor(event)
                 
                 if ray[0] == True and ray[1] != None:
-                    #bpy.context.scene.cursor_location = ray[3]
                     self.cursor_location = ray[3]
                 elif rayEnd != None:
-                    #bpy.context.scene.cursor_location = rayEnd
                     self.cursor_location = rayEnd
-                self.cursor_location[1] = context.active_object.location[1]    
-                #bpy.context.scene.cursor_location[1] = context.active_object.location[1]
+                self.cursor_location[1] = context.active_object.location[1]
                 
                 if event.value in ["RELEASE"]:
                     if self.object_hover_hist != None:
-                        self.object_hover_hist.show_x_ray = False
-                        self.object_hover_hist.select = False
+                        self.object_hover_hist.show_in_front = False
+                        self.object_hover_hist.select_set(False)
                         self.object_hover_hist.show_name = False
                         self.object_hover_hist = None
                     if self.object_hover != None:
-                        self.object_hover.show_x_ray = False
-                        self.object_hover.select = False
+                        self.object_hover.show_in_front = False
+                        self.object_hover.select_set(False)
                         self.object_hover.show_name = False
                             
                     
@@ -322,19 +315,15 @@ class QuickArmature(bpy.types.Operator):
                     self.object_hover = None
                     ### mouse just pressed
                     if not self.mouse_press_hist and self.mouse_press and self.in_view_3d:
-                        #print("just pressed")
                         self.mouse_click_vec = Vector(self.cursor_location)
-                        self.create_bones(context,context.active_object)
-                        
-                        self.drag_bone(context,event,self.current_bone)
-                        if context.active_bone != None:
-                            bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
                     ### mouse pressed
                     elif self.mouse_press_hist and self.mouse_press:
-                        #print("pressed")
-                        self.drag_bone(context,event,self.current_bone)
+                        drag_distance, drag_distance_normalized = self.drag_bone(context,event,self.current_bone)
+                        if drag_distance_normalized > .02 and self.current_bone == None:
+                            self.create_bones(context, context.active_object)
                         if context.active_bone != None:
                             bpy.ops.armature.calculate_roll(type='GLOBAL_POS_Y')
+                        return {'RUNNING_MODAL'}
                     ### mouse release   
                     elif not self.mouse_press and self.mouse_press_hist and self.current_bone != None:
                         bpy.ops.ed.undo_push(message="Add Bone: "+self.current_bone.name)
@@ -360,40 +349,40 @@ class QuickArmature(bpy.types.Operator):
                                 self.object_hover = ray[1]
                     else:
                         self.object_hover = None
-                    
-                    show_x_ray = False
+
+                    show_in_front = False
                     if self.object_hover != self.object_hover_hist:
                         if self.object_hover != None:
                             self.object_hover.show_name = True
-                            self.object_hover.select = True
-                            show_x_ray = self.object_hover.show_x_ray
-                            self.object_hover.show_x_ray = True      
+                            self.object_hover.select_set(True)
+                            show_in_front = self.object_hover.show_in_front
+                            self.object_hover.show_in_front = True
                         if self.object_hover_hist != None:
                             self.object_hover_hist.show_name = False
-                            self.object_hover_hist.select = False
-                            self.object_hover_hist.show_x_ray = False
+                            self.object_hover_hist.select_set(False)
+                            self.object_hover_hist.show_in_front = False
                     ### mouse just pressed
                     if not self.mouse_press_hist and self.mouse_press and self.in_view_3d and self.object_hover != None:
                         selected_bones = context.selected_editable_bones
                         if ray[0] and ray[1] != None:
                             obj = ray[1]
-                            if self.object_hover.coa_type == "MESH":
-                                #self.set_weights(context,self.object_hover)
-                                set_weights(self,context,self.object_hover)
-                                msg = '"'+obj.name+'"' + " has been bound to selected Bones."
-                                self.report({'INFO'},msg)
-                            elif self.object_hover.coa_type == "SLOT":
-                                prev_index = int(self.object_hover.coa_slot_index)
-                                for i,slot in enumerate(self.object_hover.coa_slot):
-                                    self.object_hover.coa_slot_index = i
-                                    set_weights(self,context,self.object_hover)
-                                    msg = '"'+self.object_hover.name+'"' + " has been bound to selected Bones."
-                                    self.report({'INFO'},msg)
-                                self.object_hover.coa_slot_index = prev_index 
+                            if self.object_hover.coa_tools.type == "MESH":
+                                # self.set_weights(context,self.object_hover)
+                                set_weights(self, context, self.object_hover)
+                                msg = '"' + obj.name + '"' + " has been bound to selected Bones."
+                                self.report({'INFO'}, msg)
+                            elif self.object_hover.coa_tools.type == "SLOT":
+                                prev_index = int(self.object_hover.coa_tools.slot_index)
+                                for i, slot in enumerate(self.object_hover.coa_tools.slot):
+                                    self.object_hover.coa_tools.slot_index = i
+                                    set_weights(self, context, self.object_hover)
+                                    msg = '"' + self.object_hover.name + '"' + " has been bound to selected Bones."
+                                    self.report({'INFO'}, msg)
+                                self.object_hover.coa_tools.slot_index = prev_index 
                     return{'RUNNING_MODAL'}
             
             ### finish mode  
-            if context.active_object == None or (context.active_object != None and context.active_object != self.armature) or (context.active_object.mode != "EDIT" and context.active_object.type == "ARMATURE" and self.set_waits == False) or not self.sprite_object.coa_edit_armature:
+            if context.active_object == None or (context.active_object != None and context.active_object != self.armature) or (context.active_object.mode != "EDIT" and context.active_object.type == "ARMATURE" and self.set_waits == False) or not self.sprite_object.coa_tools.edit_armature:
                 return self.exit_edit_mode(context)
             
         except Exception as e:
@@ -405,8 +394,7 @@ class QuickArmature(bpy.types.Operator):
     def exit_edit_mode(self,context):
         ### remove draw call
         bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
-        
-        bpy.context.space_data.show_manipulator = self.show_manipulator
+
         bpy.context.window.cursor_set("CROSSHAIR")
         #bpy.ops.object.mode_set(mode=self.armature_mode)
         bpy.ops.object.mode_set(mode="POSE")
@@ -416,49 +404,48 @@ class QuickArmature(bpy.types.Operator):
                 pose_bone.bone_group = context.active_object.pose.bone_groups["default_bones"]
         
         #lock_sprites(context,get_sprite_object(context.active_object),get_sprite_object(context.active_object).lock_sprites)
-        self.sprite_object.coa_edit_armature = False
-        self.sprite_object.coa_edit_mode = "OBJECT"
+        self.sprite_object.coa_tools.edit_armature = False
+        self.sprite_object.coa_tools.edit_mode = "OBJECT"
         
         ### restore previous selection
         for obj in bpy.context.scene.objects:
-            obj.select = False
+            obj.select_set(False)
         for obj in self.selected_objects:
-            obj.select = True
-        context.scene.objects.active = self.active_object   
-        context.user_preferences.inputs.use_mouse_emulate_3_button = self.emulate_3_button
+            obj.select_set(True)
+        context.view_layer.objects.active = self.active_object
+        context.preferences.inputs.use_mouse_emulate_3_button = self.emulate_3_button
         
         ### restore object settings
         for obj in self.obj_settings:
-            obj.show_x_ray = self.obj_settings[obj]["show_x_ray"]
+            # obj.show_in_front = self.obj_settings[obj]["show_in_front"]
             obj.show_name = self.obj_settings[obj]["show_name"]
         return{'FINISHED'}
     
     def execute(self, context):
         #bpy.ops.wm.coa_modal() ### start coa modal mode if not running
-        self.emulate_3_button = context.user_preferences.inputs.use_mouse_emulate_3_button
-        context.user_preferences.inputs.use_mouse_emulate_3_button = False
+        self.emulate_3_button = context.preferences.inputs.use_mouse_emulate_3_button
+        context.preferences.inputs.use_mouse_emulate_3_button = False
         
         ### store object settings
         for obj in context.scene.objects:
-            self.obj_settings[obj] = {"show_x_ray":obj.show_x_ray, "show_name":obj.show_name}
-        
+            # self.obj_settings[obj] = {"show_in_front":obj.show_in_front, "show_name":obj.show_name}
+            self.obj_settings[obj] = {"show_name":obj.show_name}
+
         for obj in context.scene.objects:
-            if obj.select:
+            if obj.select_get():
                 self.selected_objects.append(obj)
         self.active_object = context.active_object
         
         self.sprite_object = get_sprite_object(context.active_object)
-        self.sprite_object.coa_edit_armature = True
-        self.sprite_object.coa_edit_mode = "ARMATURE"
+        self.sprite_object.coa_tools.edit_armature = True
+        self.sprite_object.coa_tools.edit_mode = "ARMATURE"
         
         lock_sprites(context,get_sprite_object(context.active_object),False)
         self.armature = self.create_armature(context)
         
-        self.armature.coa_hide = False    
+        self.armature.coa_tools.hide = False    
         self.armature_mode = context.active_object.mode
         bpy.ops.object.mode_set(mode='EDIT')
-        self.show_manipulator = bpy.context.space_data.show_manipulator
-        bpy.context.space_data.show_manipulator = False
 
         context.window_manager.modal_handler_add(self)
         
@@ -471,12 +458,13 @@ class QuickArmature(bpy.types.Operator):
         return {'CANCELLED'}
     
     def draw_callback_px(self):
-        draw_edit_mode(self,bpy.context,color=[0.461840, 0.852381, 1.000000, 1.000000],text="Edit Armature Mode",offset=0)
+        pass
+        # draw_edit_mode(self,bpy.context,color=[0.461840, 0.852381, 1.000000, 1.000000],text="Edit Armature Mode",offset=0)
     
     
 ######################################################################################################################################### Set Stretch To Constraint
-class SetStretchBone(bpy.types.Operator):
-    bl_idname = "bone.coa_set_stretch_bone"
+class COATOOLS_OT_SetStretchBone(bpy.types.Operator):
+    bl_idname = "coa_tools.set_stretch_bone"
     bl_label = "Set Stretch Bone"
     
     def execute(self,context):
@@ -504,7 +492,7 @@ class SetStretchBone(bpy.types.Operator):
 
 ######################################################################################################################################### Set IK Constraint 
 
-class RemoveIK(bpy.types.Operator):
+class COATOOLS_OT_RemoveIK(bpy.types.Operator):
     bl_idname = "coa_tools.remove_ik"
     bl_label = "Remove IK"
     bl_description = "Remove Bone IK"
@@ -558,11 +546,11 @@ class RemoveIK(bpy.types.Operator):
         return {"FINISHED"}
         
 
-class SetIK(bpy.types.Operator):
-    bl_idname = "object.coa_set_ik"
+class COATOOLS_OT_SetIK(bpy.types.Operator):
+    bl_idname = "coa_tools.set_ik"
     bl_label = "Set IK Bone"
     
-    replace_bone = BoolProperty(name="Replace IK Bone",description="Replaces active Bone as IK Bone", default=True)
+    replace_bone: BoolProperty(name="Replace IK Bone",description="Replaces active Bone as IK Bone", default=True)
     
     def invoke(self, context, event):
         wm = context.window_manager 
@@ -627,7 +615,7 @@ class SetIK(bpy.types.Operator):
         bpy.ops.ed.undo_push(message="Set Ik")
         return{'FINISHED'}
     
-class CreateStretchIK(bpy.types.Operator):
+class COATOOLS_OT_CreateStretchIK(bpy.types.Operator):
     bl_idname = "coa_tools.create_stretch_ik"
     bl_label = "Create Stretch Ik"
     bl_description = ""
@@ -642,7 +630,7 @@ class CreateStretchIK(bpy.types.Operator):
         c_bone = bones[0] ### control bone
         ik_bone = bones[0]
         while p_bone.parent in bones:
-            p_bone = b_bone.parent
+            p_bone = p_bone.parent
         while len(c_bone.children) > 0 and c_bone.children[0] in bones:
             c_bone = c_bone.children[0]
         
@@ -861,13 +849,13 @@ class CreateStretchIK(bpy.types.Operator):
         
         return {"FINISHED"}
     
-class RemoveStretchIK(bpy.types.Operator):
+class COATOOLS_OT_RemoveStretchIK(bpy.types.Operator):
     bl_idname = "coa_tools.remove_stretch_ik"
     bl_label = "Remove Stretch Ik"
     bl_description = ""
     bl_options = {"REGISTER"}
     
-    stretch_ik_name = StringProperty()
+    stretch_ik_name: StringProperty()
     
     @classmethod
     def poll(cls, context):
@@ -904,5 +892,3 @@ class RemoveStretchIK(bpy.types.Operator):
         bpy.ops.object.mode_set(mode="POSE")            
         
         return {"FINISHED"}
-            
-        

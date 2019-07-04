@@ -71,7 +71,6 @@ dictionary = {
         "Category Name": "Nom des catégories",
         "Set Name": "Donner le nom",
         "Curvature Scale": "Echelle de la courbe",
-        "Use Automated Presets": "Utiliser des réglages automatiques",
         "Prong Number": "Nombre de broche",
         "Detalization": "Detalization",
         "Intersection": "Intersection",
@@ -125,7 +124,7 @@ dictionary = {
         "Display weight and volume for selected mesh objects":
             "Afficher le poids et le volume pour les objets de maillage sélectionnés",
 
-        "Create dupli-face for selected objects": "Créer une dupli-face pour les objets sélectionnés",
+        "Create instance face for selected objects": "Créer une instance face pour les objets sélectionnés",
         "Create size curve": "Créer une courbe de taille",
 
         (
@@ -150,11 +149,18 @@ dictionary = {
         "Deform active object profile with Lattice":
             "Déformer le profil d'objet actif avec Lattice",
 
-        "Use automatically generated presets, discards user edits or presets":
-            "Utiliser les préréglages générés automatiquement, ignorer les modifications utilisateur ou les préréglages",
+        "Create prongs for selected gems\n"
+        "(Shortcut: hold Ctrl when using the tool to avoid properties reset)":
+            "Créer des griffes pour les pierres sélectionnées\n"
+            # TODO
+            "(Shortcut: hold Ctrl when using the tool to avoid properties reset)",
 
-        "Create prongs for selected gems": "Créer des griffes pour les pierres sélectionnées",
-        "Create cutter for selected gems": "Créer une coupe pour les pierres sélectionnées",
+        "Create cutter for selected gems\n"
+        "(Shortcut: hold Ctrl when using the tool to avoid properties reset)":
+            "Créer une coupe pour les pierres sélectionnées\n"
+            # TODO
+            "(Shortcut: hold Ctrl when using the tool to avoid properties reset)",
+
         "Make curve start at the top": "Faire que la courbe commence en haut",
         "Density g/cm³": "Densité g/cm³",
         "Set of materials for weighting": "Ensemble de matériaux pour la pondération",
@@ -244,9 +250,11 @@ dictionary = {
         # "Make collection instances in radial order\n"
         # "(Shortcut: hold Alt when using the tool to use existing collection)": "",
 
+        # "Include or exclude given column": "",
+
         # Reports
         "WARNING": "AVERTISSEMENT",
-        "Possible gem dupli-face leftovers": "Restes de pierres dupli-face possibles",
+        "Possible gem instance face leftovers": "Restes de pierres instance face possibles",
         "Hidden gems": "Cacher les pierres",
 
         "Deprecated gem IDs (use Convert Deprecated Gem IDs from Operator Search menu)":
@@ -280,6 +288,7 @@ dictionary = {
         # "Overlapping gems": "",
         # "{} overlaps found": "",
         # "Optimal unit settings are in use": "",
+        # "Total (ct.)": "",
 
         # Cuts
         "Round": "Rond",
@@ -375,7 +384,7 @@ dictionary = {
         "Curve Scatter": "Dispersion de la courbe",
         "Prongs": "Fourches",
         "Cutter": "Couteau",
-        "Make Dupli-face": "Créer un dupli-face",
+        "Make Instance Face": "Créer un instance face",
         "Lattice Project": "Projet de lattice",
         "Lattice Profile": "Profil de lattice",
         "Size Curve": "Courbe de taille",

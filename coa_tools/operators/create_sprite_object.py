@@ -34,22 +34,25 @@ from bpy.app.handlers import persistent
 from .. functions import *
 
 ######################################################################################################################################### Create Sprite Object
-class CreateSpriteObject(bpy.types.Operator):
-    bl_idname = "wm.coa_create_sprite_object"
+class COATOOLS_OT_CreateSpriteObject(bpy.types.Operator):
+    bl_idname = "coa_tools.create_sprite_object"
     bl_label = "Create Sprite Object"
     bl_options = {"REGISTER","UNDO"}
-    
+
     def execute(self, context):
         obj = context.active_object
-        
+
         if context.active_object != None and obj.type == "ARMATURE" and obj.mode == "POSE":
             context.scene.objects.active = None
-        bpy.ops.object.armature_add(view_align=False, enter_editmode=False)
+        bpy.ops.object.armature_add(radius=1,
+                                    enter_editmode=False,
+                                    align='WORLD',
+                                    location=(0, 0, 0),
+                                    rotation=(0, 0, 0))
         sprite_object = bpy.context.active_object
         sprite_object.name = "SpriteObject"
         sprite_object.show_name = True
-        sprite_object.show_x_ray = True
-        sprite_object["sprite_object"] = True
+        sprite_object["coa_sprite_object"] = True
         sprite_object.show_axis = True
         bpy.ops.object.mode_set(mode="EDIT")
         for bone in sprite_object.data.edit_bones:

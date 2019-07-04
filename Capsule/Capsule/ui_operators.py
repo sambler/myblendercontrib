@@ -58,6 +58,52 @@ class CAPSULE_OT_Delete_Path(Operator):
 
         return {'FINISHED'}
 
+class CAPSULE_OT_Add_Path_Tag(Operator):
+    """Adds a new path tag to the currently selected path."""
+
+    bl_idname = "scene.cap_add_path_tag"
+    bl_label = "Add Path Tag"
+
+    path_tags: EnumProperty(
+        name="Add Path Tag",
+        description="",
+        items=(
+        ('export_name', 'Export Name', 'Adds a folder with the name of the Object or Collection being exported.'),
+        # ('object_type', 'Object Type', 'Adds a folder with the object type.'),
+        # ('collection', 'Collection Name', 'Adds a folder with the collection name.'),
+        ('blend_file_name', 'Blend File Name', 'Adds a folder with the blend file name.'),
+        ('export_preset_name', 'Export Preset Name', 'Adds a folder with the Export Preset name used.'),
+        ('export_date_ymd', 'Export Date (Year-Month-Day)', 'Adds a folder with the date of the export.'),
+        ('export_date_dmy', 'Export Date (Day-Month-Year)', 'Adds a folder with the date of the export.'),
+        ('export_date_mdy', 'Export Date (Month-Year-Day)', 'Adds a folder with the date of the export.'),
+        ('export_time_hm', 'Export Time (Hour-Minute)', 'Adds a folder with the time of the export.'),
+        ('export_time_hms', 'Export Time (Hour-Minute-Second)', 'Adds a folder with the time of the export.'),
+        ),
+    )
+
+    def execute(self, context):
+        print(self)
+
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
+        exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
+        
+        # get the selected path
+        path_index = exp.location_presets_listindex
+        new_path = exp.location_presets[path_index].path
+
+        # directory failsafe
+        if new_path.endswith("/") == False:
+            new_path += "/"
+
+        # insert the selected option into the currently selected path
+        new_path += "^"
+        new_path += self.path_tags
+        new_path += "^/"
+        
+        exp.location_presets[path_index].path = new_path
+
+        return {'FINISHED'}
 
 class CAPSULE_OT_Add_Export(Operator):
     """Create a new file preset."""
@@ -68,7 +114,7 @@ class CAPSULE_OT_Add_Export(Operator):
     def get_unique_id(self, context, exp):
         newID = random.randrange(0, 1000000)
 
-        for preset in exp.file_presets:
+        for preset in exp.export_presets:
             if preset.instance_id == newID:
                 newID = self.get_unique_id(context, exp)
 
@@ -83,14 +129,16 @@ class CAPSULE_OT_Add_Export(Operator):
 
 
         # make the new file preset
-        newDefault = exp.file_presets.add()
-        newDefault.name = "Export " + str(len(exp.file_presets))
+        newDefault = exp.export_presets.add()
+        newDefault.name = "Export " + str(len(exp.export_presets))
         newDefault.path = ""
 
         # Ensure the tag index keeps within a window
-        exp.file_presets_listindex = len(exp.file_presets) - 1
+        exp.export_presets_listindex = len(exp.export_presets) - 1
 
         return {'FINISHED'}
+
+
 
 class CAPSULE_OT_Delete_Export(Operator):
     """Delete the selected file preset from the list."""
@@ -106,7 +154,7 @@ class CAPSULE_OT_Delete_Export(Operator):
         addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
-        if len(exp.file_presets) > 0:
+        if len(exp.export_presets) > 0:
             return True
 
         return False
@@ -119,148 +167,14 @@ class CAPSULE_OT_Delete_Export(Operator):
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # remove the data from both lists
-        exp.file_presets.remove(exp.file_presets_listindex)
+        exp.export_presets.remove(exp.export_presets_listindex)
 
         # ensure the selected list index is within the list bounds
-        if exp.file_presets_listindex > 0:
-            exp.file_presets_listindex -= 1
+        if exp.export_presets_listindex > 0:
+            exp.export_presets_listindex -= 1
 
         return {'FINISHED'}
 
-
-class CAPSULE_OT_Add_Tag(Operator):
-    """Create a new tag."""
-
-    bl_idname = "scene.cap_addtag"
-    bl_label = "Add"
-
-
-    def execute(self, context):
-        print(self)
-
-        preferences = context.preferences
-        addon_prefs = preferences.addons[__package__].preferences
-        exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
-
-        # Add the tag into the main list
-        export = exp.file_presets[exp.file_presets_listindex]
-        newTag = export.tags.add()
-        newTag.name = "Tag " + str(len(export.tags))
-
-        # Now add it for all other passes in the export
-        for expPass in export.passes:
-            newPassTag = expPass.tags.add()
-            newPassTag.name = newTag.name
-            newPassTag.index = len(export.tags) - 1
-
-        # Ensure the tag index keeps within a window
-        export.tags_index = len(export.tags) - 1
-
-        return {'FINISHED'}
-
-class CAPSULE_OT_Delete_Tag(Operator):
-    """Delete the selected tag from the list."""
-
-    bl_idname = "scene.cap_deletetag"
-    bl_label = "Remove"
-
-    @classmethod
-    def poll(cls, context):
-        preferences = context.preferences
-        addon_prefs = preferences.addons[__package__].preferences
-        exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
-
-        export = exp.file_presets[exp.file_presets_listindex]
-        if len(export.tags) > 0:
-            currentTag = export.tags[export.tags_index]
-
-            if currentTag.x_user_deletable is True:
-                return True
-
-        else:
-            return False
-
-    def execute(self, context):
-        print(self)
-
-        preferences = context.preferences
-        addon_prefs = preferences.addons[__package__].preferences
-        exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
-
-        export = exp.file_presets[exp.file_presets_listindex]
-        export.tags.remove(export.tags_index)
-
-        for expPass in export.passes:
-            expPass.tags_index -= 1
-            expPass.tags.remove(export.tags_index)
-
-        if export.tags_index > 0:
-            export.tags_index -= 1
-
-        return {'FINISHED'}
-
-
-class CAPSULE_OT_Add_Pass(Operator):
-    """Create a new pass."""
-
-    bl_idname = "scene.cap_addpass"
-    bl_label = "Add"
-
-    def execute(self, context):
-        print(self)
-
-        preferences = context.preferences
-        addon_prefs = preferences.addons[__package__].preferences
-        exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
-
-        export = exp.file_presets[exp.file_presets_listindex]
-        newPass = export.passes.add()
-        newPass.name = "Pass " + str(len(export.passes))
-        newPass.path = ""
-
-        # Ensure the new pass has all the current tags
-        for tag in export.tags:
-            newPassTag = newPass.tags.add()
-            newPassTag.name = tag.name
-            newPassTag.index = len(export.tags) - 1
-
-        # Ensure the tag index keeps within a window
-        export.passes_index = len(export.passes) - 1
-
-        return {'FINISHED'}
-
-class CAPSULE_OT_Delete_Pass(Operator):
-    """Delete the selected pass from the list."""
-
-    bl_idname = "scene.cap_deletepass"
-    bl_label = "Remove"
-
-    @classmethod
-    def poll(cls, context):
-        preferences = context.preferences
-        addon_prefs = preferences.addons[__package__].preferences
-        exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
-
-        export = exp.file_presets[exp.file_presets_listindex]
-        if len(export.passes) > 0:
-            return True
-
-        return False
-
-    def execute(self, context):
-        print(self)
-
-        preferences = context.preferences
-        addon_prefs = preferences.addons[__package__].preferences
-        exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
-
-        export = exp.file_presets[exp.file_presets_listindex]
-        export.passes.remove(export.passes_index)
-
-        if export.passes_index > 0:
-            export.passes_index -= 1
-
-        return {'FINISHED'}
 
 class CAPSULE_OT_Shift_Path_Up(Operator):
     """Move the current entry in the list up by one"""
@@ -305,7 +219,7 @@ class CAPSULE_OT_Set_Root_Object(Operator):
     def finish(self):
         # This def helps us tidy the shit we started
         # Restore the active area's header to its initial state.
-        bpy.context.area.header_text_set()
+        bpy.context.area.header_text_set(None)
 
 
     def execute(self, context):
@@ -314,57 +228,56 @@ class CAPSULE_OT_Set_Root_Object(Operator):
         preferences = context.preferences
         self.addon_prefs = preferences.addons[__package__].preferences
 
-        self.collections = []
-        self.object = None
-        self.list_item = 0
+        # Get collections and selections
+        self.collections = collection_utils.GetEditableCollections(context)
+        self.select_record = select_utils.SaveSelections()
+
+        # Get key configs for click select
+        wm = context.window_manager
+        keyconfig = wm.keyconfigs.active
+        self.select = getattr(keyconfig.preferences, "select_mouse", "LEFT")
+
         context.window_manager.modal_handler_add(self)
-
-        # If multi-edit is on, get info from the scene
-        if self.addon_prefs.collection_multi_edit is True:
-            print("Multi-edit on")
-            self.object = context.scene.objects.active
-            for object in context.selected_objects:
-                for found_collection in object.users_collection:
-                    self.collections.append(found_collection)
-
-        # Otherwise, find it in the scene
-        else:
-            print("Multi-edit off")
-            self.list_item = context.scene.CAPScn.collection_list_index
-            item = context.scene.CAPScn.collection_list[context.scene.CAPScn.collection_list_index]
-            for found_collection in collection_utils.GetSceneCollections(context.scene, True):
-                if found_collection.name == item.name:
-                    self.collections.append(found_collection)
-
-        print("Collections found....", self.collections)
-        self._timer = context.window_manager.event_timer_add(0.05, context.window)
+        self._timer = context.window_manager.event_timer_add(0.05, window=context.window)
         bpy.ops.object.select_all(action='DESELECT')
 
         # Set the header text with USEFUL INSTRUCTIONS :O
-        context.area.header_text_set(
-            "Select the object you want to use as a root object.  " +
-            "RMB: Select Collision Object, Esc: Exit"
-        )
+        # TODO 2.0 : Learn how to really format Python text, c'mon.
+        if self.select == 'LEFT':
+            context.area.header_text_set(
+                "Select the object you want to use as a root object.  " +
+                "Left Mouse: Select Collision Object, Esc: Exit"
+            )
+            self.event = 'LEFTMOUSE'
+        else:
+            context.area.header_text_set(
+                "Select the object you want to use as a root object.  " +
+                "Right Mouse: Select Collision Object, Esc: Exit"
+            )
+            self.event = 'RIGHTMOUSE'
 
         return {'RUNNING_MODAL'}
 
     def modal(self,context,event):
         # If escape is pressed, exit
         if event.type in {'ESC'}:
+            select_utils.RestoreSelections(self.select_record)
             self.finish()
             return{'FINISHED'}
 
         # When an object is selected, set it as a child to the object, and finish.
-        elif event.type == 'RIGHTMOUSE':
+        elif event.type == self.event:
 
             # Check only one object was selected
-            if context.selected_objects != None and len(context.selected_objects) == 1:
+            if context.active_object != None and len(context.selected_objects) == 1:
+
+                new_root_object = context.active_object.name
                 for collection in self.collections:
-                    collection.CAPCol.root_object = context.scene.objects.active.name
-                if self.object != None:
-                    select_utils.FocusObject(self.object)
-                else:
-                    context.scene.CAPScn.collection_list_index = self.list_item
+                    collection.CAPCol.root_object = new_root_object
+
+                bpy.ops.object.select_all(action='DESELECT')
+                select_utils.RestoreSelections(self.select_record)
+
                 self.finish()
 
                 return{'FINISHED'}
@@ -385,25 +298,7 @@ class CAPSULE_OT_Clear_Root_Object(Operator):
     def execute(self, context):
         print(self)
 
-        scn = context.scene.CAPScn
-        obj = context.active_object.CAPObj
-        preferences = context.preferences
-        addon_prefs = preferences.addons[__package__].preferences
-
-        # If multi-edit is on, get info from the scene
-        if addon_prefs.collection_multi_edit is True:
-            print("Multi-edit on")
-            for object in context.selected_objects:
-                for found_collection in object.users_collection:
-                    found_collection.CAPCol.root_object = ""
-
-        # Otherwise, find it in the scene
-        else:
-            print("Multi-edit off")
-            item = context.scene.CAPScn.collection_list[context.scene.CAPScn.collection_list_index]
-            for found_collection in collection_utils.GetSceneCollections(context.scene, True):
-                if found_collection.name == item.name:
-                    found_collection.CAPCol.root_object = ""
+        context.scene.CAPProxy.col_root_object = ""
 
         return {'FINISHED'}
 
@@ -429,13 +324,10 @@ class CAPSULE_OT_Clear_List(Operator):
 
         elif objectTab == 2:
             for collection in collection_utils.GetSceneCollections(context.scene, True):
-                col = objectTab.CAPCol
+                col = collection.CAPCol
                 col.enable_export = False
                 col.in_export_list = False
             scn.collection_list.clear()
-
-        scn.enable_sel_active = False
-        scn.enable_list_active = False
 
         return {'FINISHED'}
 
@@ -470,9 +362,6 @@ class CAPSULE_OT_Refresh_List(Operator):
                         entry.prev_name = collection.name
                         entry.enable_export = collection.CAPCol.enable_export
 
-        scn.enable_sel_active = False
-        scn.enable_list_active = False
-
         return {'FINISHED'}
 
 
@@ -485,7 +374,7 @@ class CAPSULE_OT_Reset_Scene(Operator):
     def execute(self, context):
         print(self)
 
-        exportedObjects = 0
+        self.export_stats['object_export_count'] = 0
 
         # Keep a record of the selected and active objects to restore later
         active = None
@@ -501,16 +390,16 @@ class CAPSULE_OT_Reset_Scene(Operator):
             col = collection.CAPCol
             col.enable_export = False
             col.root_object = ""
-            col.location_default = '0'
-            col.export_default = '0'
+            col.location_preset = '0'
+            col.export_preset = '0'
             col.normals = '1'
 
         for object in context.scene.objects:
             obj = object.CAPObj
             obj.enable_export = False
-            obj.use_scene_origin = False
-            obj.location_default = '0'
-            obj.export_default = '0'
+            obj.origin_export = "Object"
+            obj.location_preset = '0'
+            obj.export_preset = '0'
             obj.normals = '1'
 
         bpy.ops.scene.cap_refobjects()
@@ -596,7 +485,7 @@ class CAPSULE_OT_UI_Group_Options(Operator):
 
         return {'FINISHED'}
 
-
+# TODO : Make relevant in 2.0
 class CAPSULE_OT_Refresh_Actions(Operator):
     """Generate a list of collections to browse"""
 
@@ -655,24 +544,6 @@ class CAPSULE_OT_Refresh_Actions(Operator):
 
         return {'FINISHED'}
 
-class CAPSULE_OT_Tutorial_Tags(Operator):
-    """Delete the selected file preset from the list."""
-
-    bl_idname = "cap_tutorial.tags"
-    bl_label = "Tags let you automatically split objects in your passes by defining an object suffix/prefix and/or object type, that objects in the pass it's used in need to match in order to be included for export, enabiling you to create multiple different versions of an object or collection export without having to manually define them."
-
-    StringProperty(default="Are you sure you wish to delete the selected preset?")
-
-    def execute(self, context):
-        print(self)
-
-        #main(self, context)
-
-    def invoke(self, context, event):
-        wm = context.window_manager
-        return wm.invoke_props_dialog(self)
-
-        return {'FINISHED'}
 
 class CAPSULE_OT_Create_ExportData(Operator):
     """Create a new empty object for which Capsule data is stored, and where both file presets and other scene data is stored."""
@@ -720,7 +591,7 @@ class CAPSULE_OT_Add_Stored_Presets(Operator):
         addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
-        if len(addon_prefs.saved_presets) > 0:
+        if len(addon_prefs.saved_export_presets) > 0:
             return True
 
         else:
@@ -734,8 +605,8 @@ class CAPSULE_OT_Add_Stored_Presets(Operator):
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Obtain the selected preset
-        new_preset = exp.file_presets.add()
-        export_presets.CopyPreset(addon_prefs.saved_presets[addon_prefs.saved_presets_index], new_preset)
+        new_preset = exp.export_presets.add()
+        export_presets.CopyPreset(addon_prefs.saved_export_presets[addon_prefs.saved_export_presets_index], new_preset)
 
         return {'FINISHED'}
 
@@ -749,8 +620,8 @@ class CAPSULE_OT_Delete_Presets(Operator):
         preferences = context.preferences
         addon_prefs = preferences.addons[__package__].preferences
 
-        if len(addon_prefs.saved_presets) > 0:
-            export = addon_prefs.saved_presets[addon_prefs.saved_presets_index]
+        if len(addon_prefs.saved_export_presets) > 0:
+            export = addon_prefs.saved_export_presets[addon_prefs.saved_export_presets_index]
             
             if export.x_global_user_deletable is True:
                 return True
@@ -765,11 +636,11 @@ class CAPSULE_OT_Delete_Presets(Operator):
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Obtain the selected preset
-        addon_prefs.saved_presets.remove(addon_prefs.saved_presets_index)
+        addon_prefs.saved_export_presets.remove(addon_prefs.saved_export_presets_index)
 
         # Decrement the list selection
-        if addon_prefs.saved_presets_index > 0:
-            addon_prefs.saved_presets_index -= 1
+        if addon_prefs.saved_export_presets_index > 0:
+            addon_prefs.saved_export_presets_index -= 1
 
         return {'FINISHED'}
 
@@ -784,7 +655,7 @@ class CAPSULE_OT_Store_Presets(Operator):
         addon_prefs = preferences.addons[__package__].preferences
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
-        if len(exp.file_presets) > 0:
+        if len(exp.export_presets) > 0:
             return True
 
         else:
@@ -799,8 +670,8 @@ class CAPSULE_OT_Store_Presets(Operator):
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         # Obtain the selected preset
-        new_preset = addon_prefs.saved_presets.add()
-        export_presets.CopyPreset(exp.file_presets[exp.file_presets_listindex], new_preset)
+        new_preset = addon_prefs.saved_export_presets.add()
+        export_presets.CopyPreset(exp.export_presets[exp.export_presets_listindex], new_preset)
 
         return {'FINISHED'}
 

@@ -67,7 +67,6 @@ dictionary = {
         "Category Name": "Название категории",
         "Set Name": "Название набора",
         "Curvature Scale": "Масштаб кривизны",
-        "Use Automated Presets": "Использовать автоматические пресеты",
         "Prong Number": "Количество корнеров",
         "Detalization": "Детализация",
         "Intersection": "Пересечение",
@@ -120,7 +119,7 @@ dictionary = {
         "Display weight and volume for selected mesh objects":
             "Показать вес и объём выделенных mesh объектов",
 
-        "Create dupli-face for selected objects": "Создать dupli-face для выделенных объектов",
+        "Create instance face for selected objects": "Создать instance face для выделенных объектов",
         "Create size curve": "Создать размерную кривую",
 
         (
@@ -145,11 +144,16 @@ dictionary = {
         "Deform active object profile with Lattice":
             "Деформировать профиль активного объекта с помощью Lattice",
 
-        "Use automatically generated presets, discards user edits or presets":
-            "Использовать автоматически сгенерированные пресеты, сбрасывает пользовательское редактирование",
+        "Create prongs for selected gems\n"
+        "(Shortcut: hold Ctrl when using the tool to avoid properties reset)":
+            "Создать корнера для выделенных камней\n"
+            "(Горячая клавиша: удерживайте Ctrl при использовании инструмента, чтобы избежать сброса параметров)",
 
-        "Create prongs for selected gems": "Создать корнера для выделенных камней",
-        "Create cutter for selected gems": "Создать выборку для выделенных камней",
+        "Create cutter for selected gems\n"
+        "(Shortcut: hold Ctrl when using the tool to avoid properties reset)":
+            "Создать выборку для выделенных камней\n"
+            "(Горячая клавиша: удерживайте Ctrl при использовании инструмента, чтобы избежать сброса параметров)",
+
         "Make curve start at the top": "Расположить начало кривой сверху",
         "Density g/cm³": "Плотность г/см³",
         "Set of materials for weighting": "Набор материалов для оценки веса",
@@ -251,9 +255,11 @@ dictionary = {
             "(Горячая клавиша: удерживайте клавишу Alt при использовании инструмента "
             "для использования существующей коллекции)",
 
+        "Include or exclude given column": "Включить или исключить данную колонку",
+
         # Reports
         "WARNING": "ПРЕДУПРЕЖДЕНИЕ",
-        "Possible gem dupli-face leftovers": "Возможные остатки Dupli-face камней",
+        "Possible gem instance face leftovers": "Возможные остатки instance face камней",
         "Hidden gems": "Скрытые камни",
 
         "Deprecated gem IDs (use Convert Deprecated Gem IDs from Operator Search menu)":
@@ -281,7 +287,8 @@ dictionary = {
         "Settings": "Вставки",
         "Gem": "Камень",
         "Cut": "Огранка",
-        "Qty": "Количество",
+        "Qty": "Кол.",
+        "Total (ct.)": "Всего (кар)",
         "Carats": "Караты",
         "Materials": "Материалы",
         "Additional Notes": "Дополнительные примечания",
@@ -377,7 +384,7 @@ dictionary = {
         "Curve Scatter": "Распределить по кривой",
         "Prongs": "Крапана",
         "Cutter": "Выборка",
-        "Make Dupli-face": "Создать Dupli-face",
+        "Make Instance Face": "Создать Instance Face",
         "Lattice Project": "Lattice проекция",
         "Lattice Profile": "Lattice профиль",
         "Size Curve": "Размерная кривая",

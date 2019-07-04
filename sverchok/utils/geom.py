@@ -35,7 +35,9 @@ import time
 import bpy
 import bmesh
 import mathutils
-from mathutils import Matrix
+
+from mathutils import Matrix, Vector
+from mathutils.geometry import interpolate_bezier, intersect_line_line, intersect_point_line
 
 from sverchok.utils.sv_bmesh_utils import bmesh_from_pydata
 from sverchok.utils.sv_bmesh_utils import pydata_from_bmesh
@@ -463,6 +465,18 @@ class Spline(object):
         elif metric == "CHEBYSHEV":
             tknots = np.max(np.absolute(pts[1:] - pts[:-1]), 1)
             tknots = np.insert(tknots, 0, 0).cumsum()
+            tknots = tknots / tknots[-1]
+        elif metric == "X":
+            tknots = pts[:,0]
+            tknots = tknots - tknots[0]
+            tknots = tknots / tknots[-1]
+        elif metric == "Y":
+            tknots = pts[:,1]
+            tknots = tknots - tknots[0]
+            tknots = tknots / tknots[-1]
+        elif metric == "Z":
+            tknots = pts[:,2]
+            tknots = tknots - tknots[0]
             tknots = tknots / tknots[-1]
 
         return tknots
@@ -1485,6 +1499,27 @@ def calc_normal(vertices):
         subnormals = [mathutils.geometry.normal(*triangle) for triangle in triangles]
         return mathutils.Vector(center(subnormals))
 
+def interpolate_quadratic_bezier(knot1, handle, knot2, resolution):
+    """
+    Interpolate a quadartic bezier spline segment.
+    Quadratic bezier curve is defined by two knots (at the beginning and at the
+    end of segment) and one handle.
+
+    Quadratic bezier curves is a special case of cubic bezier curves, which
+    are implemented in blender. So this function just converts input data
+    and calls for interpolate_bezier.
+    """
+    if not isinstance(knot1, mathutils.Vector):
+        knot1 = mathutils.Vector(knot1)
+    if not isinstance(knot2, mathutils.Vector):
+        knot2 = mathutils.Vector(knot2)
+    if not isinstance(handle, mathutils.Vector):
+        handle = mathutils.Vector(handle)
+
+    handle1 = knot1 + (2.0/3.0) * (handle - knot1)
+    handle2 = handle + (1.0/3.0) * (knot2 - handle)
+    return interpolate_bezier(knot1, handle1, handle2, knot2, resolution)
+
 def multiply_vectors(M, vlist):
     # (4*4 matrix)  X   (3*1 vector)
 
@@ -1497,3 +1532,41 @@ def multiply_vectors(M, vlist):
         )
 
     return vlist
+
+def point_in_segment(point, origin, end, tolerance):
+    '''Checks if the sum of lengths is greater than the length of the segment'''
+    dist_p_in_segment = (point - origin).length + (point - end).length - (origin - end).length
+    is_p_in_segment = abs(dist_p_in_segment) < tolerance
+    return is_p_in_segment
+
+def distance_line_line(line_a, line_b, result, gates, tolerance):
+    '''
+    Pass the data to the mathutils function
+    Deals with lines as endless objects defined by a AB segment
+    A and B will be the first and last vertices of the input list
+    In case of parallel lines it will return the origin of the first line as the closest point
+    '''
+    line_origin_a = Vector(line_a[0])
+    line_end_a = Vector(line_a[-1])
+    line_origin_b = Vector(line_b[0])
+    line_end_b = Vector(line_b[-1])
+
+    inter_p = intersect_line_line(line_origin_a, line_end_a, line_origin_b, line_end_b)
+    if inter_p:
+        dist = (inter_p[0] - inter_p[1]).length
+        intersect = dist < tolerance
+        is_a_in_segment = point_in_segment(inter_p[0], line_origin_a, line_end_a, tolerance)
+        is_b_in_segment = point_in_segment(inter_p[1], line_origin_b, line_end_b, tolerance)
+
+        local_result = [dist, intersect, list(inter_p[1]), list(inter_p[0]), is_a_in_segment, is_b_in_segment]
+    else:
+        inter_p = intersect_point_line(line_origin_a, line_origin_b, line_end_b)
+        dist = (inter_p[0] - line_origin_b).length
+        intersect = dist < tolerance
+        closest_in_segment = 0 <= inter_p[1] <= 1
+        local_result = [dist, intersect, line_a[0], list(inter_p[0]), True, closest_in_segment]
+
+
+    for i, res in enumerate(result):
+        if gates[i]:
+            res.append([local_result[i]])

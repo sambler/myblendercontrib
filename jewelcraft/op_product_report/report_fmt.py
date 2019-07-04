@@ -57,15 +57,15 @@ def _ct_calc(stone, cut, size):
 
 def _to_ring_size(cir, size_format):
     if size_format in {"US", "JP"}:
-        size = (cir - var.CIR_BASE_US) / var.CIR_STEP_US
+        size = round((cir - var.CIR_BASE_US) / var.CIR_STEP_US, 2)
 
         if size >= 0.0:
 
             if size_format == "US":
-                return asset.to_int(round(size, 2))
+                return asset.to_int(size)
 
-            for i, v in enumerate(var.MAP_SIZE_JP_TO_US):
-                if 0.0 < abs(v - size) < 0.2:
+            for i, s in enumerate(var.MAP_SIZE_JP_TO_US):
+                if s - 0.2 < size < s + 0.2:
                     return i + 1
 
     if size_format == "UK":
@@ -88,9 +88,9 @@ def _to_ring_size(cir, size_format):
     if size_format == "CH":
         size = round(cir - 40.0, 2)
         if size >= 0.0:
-            return size
+            return asset.to_int(size)
 
-    return "*OUT OF BOUNDS"
+    return "[NO CORRESPONDING SIZE]"
 
 
 def data_format(self, context, data):
@@ -101,9 +101,13 @@ def data_format(self, context, data):
 
     if data["gems"]:
 
-        gemsf = []
-        table_heading = (_("Gem"), _("Cut"), _("Size"), _("Carats"), _("Qty"))
+        table_heading = [_("Gem"), _("Cut"), _("Size"), _("Carats"), _("Qty")]
+
+        if self.show_total_ct:
+            table_heading.append(_("Total (ct.)"))
+
         col_width = [len(x) for x in table_heading]
+        gemsf = []
 
         for (stone, cut, size), qty in sorted(
             data["gems"].items(),
@@ -121,15 +125,16 @@ def data_format(self, context, data):
 
             stonef = _(asset.get_name(stone))
             cutf = _(asset.get_name(cut))
-            ctf = f"{ct}"
-            qtyf = f"{qty}"
+            ctf = str(ct)
+            qtyf = str(qty)
+            total_ctf = str(round(ct * qty, 3))
 
             if cut in var.CUT_SIZE_SINGLE:
-                sizef = f"{l}"
+                sizef = str(l)
             else:
                 sizef = f"{l} × {w}"
 
-            gemf = (stonef, cutf, sizef, ctf, qtyf)
+            gemf = (stonef, cutf, sizef, ctf, qtyf, total_ctf)
             gemsf.append(gemf)
 
             # Columns width
@@ -141,7 +146,9 @@ def data_format(self, context, data):
         # Format report
         # ---------------------------
 
-        row = "    {{:{}}}   {{:{}}}   {{:{}}}   {{:{}}}   {{}}\n".format(*col_width)
+        row = ["{{:{}}}" if x < 2 else "{{:>{}}}" for x in range(len(col_width))]
+        row = "   ".join(row).format(*col_width)
+        row = f"    {row}\n"
 
         report_gems = _("Settings") + "\n\n"
         report_gems += row.format(*table_heading)

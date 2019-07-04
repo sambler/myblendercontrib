@@ -33,17 +33,17 @@ import json
 from bpy.app.handlers import persistent
 from .. functions import *
 
-class AddKeyframe(bpy.types.Operator):
+class COATOOLS_OT_AddKeyframe(bpy.types.Operator):
     bl_idname = "coa_tools.add_keyframe"
     bl_label = "Add Keyframe"
     bl_description = "Add Keyframe"
     bl_options = {"REGISTER"}
     
-    prop_name = StringProperty()
-    add_keyframe = BoolProperty(default=True)
-    interpolation = EnumProperty(default="BEZIER",items=(("BEZIER","BEZIER","BEZIER","IPO_BEZIER",0),("LINEAR","LINEAR","LINEAR","IPO_LINEAR",1),("CONSTANT","CONSTANT","CONSTANT","IPO_CONSTANT",2)))
-    default_interpolation = StringProperty()
-    obj = StringProperty(default="")
+    prop_name: StringProperty()
+    add_keyframe: BoolProperty(default=True)
+    interpolation: EnumProperty(default="BEZIER",items=(("BEZIER","BEZIER","BEZIER","IPO_BEZIER",0),("LINEAR","LINEAR","LINEAR","IPO_LINEAR",1),("CONSTANT","CONSTANT","CONSTANT","IPO_CONSTANT",2)))
+    default_interpolation: StringProperty()
+    obj: StringProperty(default="")
     key_obj = None
     @classmethod
     def poll(cls, context):
@@ -66,7 +66,7 @@ class AddKeyframe(bpy.types.Operator):
         sprite_object = get_sprite_object(sprite)
         
         sprites = context.selected_objects if self.key_obj == None else [self.key_obj]
-        if sprite_object.coa_anim_collections_index > 1:
+        if sprite_object.coa_tools.anim_collections_index > 1:
             if self.add_keyframe:
                 #for sprite in context.selected_objects:
                 for sprite in sprites:    
@@ -90,7 +90,7 @@ class AddKeyframe(bpy.types.Operator):
                     if sprite.animation_data != None and sprite.animation_data.action != None:
                         sprite.keyframe_delete(data_path)
                         
-                        collection = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+                        collection = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index]
                         action_name = collection.name + "_" +sprite.name
                         if action_name in bpy.data.actions:
                             action = bpy.data.actions[action_name]
@@ -144,8 +144,8 @@ class AddKeyframe(bpy.types.Operator):
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
         
-        if len(sprite_object.coa_anim_collections) > 0:
-            anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        if len(sprite_object.coa_tools.anim_collections) > 0:
+            anim = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index]
             if self.prop_name in ["location","rotation","scale","LocRotScale"]:
                 if self.prop_name == "LocRotScale":
                     data_path = "location"
@@ -166,7 +166,7 @@ class AddKeyframe(bpy.types.Operator):
         self.key_obj = None    
         return {"FINISHED"}   
 
-class DuplicateAnimationCollection(bpy.types.Operator):
+class COATOOLS_OT_DuplicateAnimationCollection(bpy.types.Operator):
     bl_idname = "coa_tools.duplicate_animation_collection"
     bl_label = "Duplicate Animation Collection"
     bl_description = "Duplicate Animation Collection"
@@ -184,15 +184,15 @@ class DuplicateAnimationCollection(bpy.types.Operator):
         if self.sprite_object != None:
             
             name_array = []
-            for item in self.sprite_object.coa_anim_collections:
+            for item in self.sprite_object.coa_tools.anim_collections:
                 name_array.append(item.name)
             
-            active_anim_collection = self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index]
+            active_anim_collection = self.sprite_object.coa_tools.anim_collections[self.sprite_object.coa_tools.anim_collections_index]
             active_anim_name = str(active_anim_collection.name)
             active_anim_frame_end = active_anim_collection.frame_end
             active_anim_frame_action_collection = active_anim_collection.action_collection
             
-            new_anim_collection = self.sprite_object.coa_anim_collections.add()
+            new_anim_collection = self.sprite_object.coa_tools.anim_collections.add()
             
             new_anim_collection_name = check_name(name_array,active_anim_name)
             new_anim_collection.name = new_anim_collection_name
@@ -207,12 +207,12 @@ class DuplicateAnimationCollection(bpy.types.Operator):
                     new_name = new_anim_collection_name + "_"
                     new_name = str(action.name).replace(name,new_name)
                     copied_action.name = new_name
-            self.sprite_object.coa_anim_collections_index = len(self.sprite_object.coa_anim_collections)-1
+            self.sprite_object.coa_tools.anim_collections_index = len(self.sprite_object.coa_tools.anim_collections)-1
             
         return {"FINISHED"}
         
 
-class AddAnimationCollection(bpy.types.Operator):
+class COATOOLS_OT_AddAnimationCollection(bpy.types.Operator):
     bl_idname = "coa_tools.add_animation_collection"
     bl_label = "Add Animation Collection"
     bl_description = "Add new Animation Collection"
@@ -226,26 +226,26 @@ class AddAnimationCollection(bpy.types.Operator):
     
     def create_actions_collection(self,context):
         if self.sprite_object != None:
-            if len(self.sprite_object.coa_anim_collections) == 0:
-                item = self.sprite_object.coa_anim_collections.add()
+            if len(self.sprite_object.coa_tools.anim_collections) == 0:
+                item = self.sprite_object.coa_tools.anim_collections.add()
                 item.name = "NO ACTION"
                 
-                item = self.sprite_object.coa_anim_collections.add()
+                item = self.sprite_object.coa_tools.anim_collections.add()
                 item.name = "Restpose"
                 item.frame_start = 0
                 item.frame_end = 1
                 
-            item = self.sprite_object.coa_anim_collections.add()
-            item.name = check_name(self.sprite_object.coa_anim_collections,"NewCollection")
+            item = self.sprite_object.coa_tools.anim_collections.add()
+            item.name = check_name(self.sprite_object.coa_tools.anim_collections,"NewCollection")
             item.name_old = item.name
             item.action_collection = True
             
-            self.sprite_object.coa_anim_collections_index = len(self.sprite_object.coa_anim_collections)-1
+            self.sprite_object.coa_tools.anim_collections_index = len(self.sprite_object.coa_tools.anim_collections)-1
         else:
             return{'FINISHED'}    
     
     def create_actions(self,context):
-        item = self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index]
+        item = self.sprite_object.coa_tools.anim_collections[self.sprite_object.coa_tools.anim_collections_index]
 
         children = get_children(context,self.sprite_object,ob_list=[])
         anim_objects = []
@@ -277,7 +277,7 @@ class AddAnimationCollection(bpy.types.Operator):
         
         return {"FINISHED"}
         
-class RemoveAnimationCollection(bpy.types.Operator):
+class COATOOLS_OT_RemoveAnimationCollection(bpy.types.Operator):
     bl_idname = "coa_tools.remove_animation_collection"
     bl_label = "Remove Animation Collection"
     bl_description = "Delete selected Animation Collection"
@@ -291,17 +291,17 @@ class RemoveAnimationCollection(bpy.types.Operator):
     
     def remove_actions_collection(self,context):
         if self.sprite_object != None:
-            if self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index].name != "NO ACTION" and self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index].name != "Restpose":
-                self.sprite_object.coa_anim_collections.remove(self.sprite_object.coa_anim_collections_index)
-            if self.sprite_object.coa_anim_collections_index > 2:
-                self.sprite_object.coa_anim_collections_index = self.sprite_object.coa_anim_collections_index - 1
+            if self.sprite_object.coa_tools.anim_collections[self.sprite_object.coa_tools.anim_collections_index].name != "NO ACTION" and self.sprite_object.coa_tools.anim_collections[self.sprite_object.coa_tools.anim_collections_index].name != "Restpose":
+                self.sprite_object.coa_tools.anim_collections.remove(self.sprite_object.coa_tools.anim_collections_index)
+            if self.sprite_object.coa_tools.anim_collections_index > 2:
+                self.sprite_object.coa_tools.anim_collections_index = self.sprite_object.coa_tools.anim_collections_index - 1
             
-            if len(self.sprite_object.coa_anim_collections) < 3:
-                self.sprite_object.coa_anim_collections.remove(0)
-                self.sprite_object.coa_anim_collections.remove(0)
+            if len(self.sprite_object.coa_tools.anim_collections) < 3:
+                self.sprite_object.coa_tools.anim_collections.remove(0)
+                self.sprite_object.coa_tools.anim_collections.remove(0)
             
     def remove_actions(self,context):
-        item = self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index]
+        item = self.sprite_object.coa_tools.anim_collections[self.sprite_object.coa_tools.anim_collections_index]
         
         for child in get_children(context,self.sprite_object,ob_list=[]):
             action_name = item.name + "_" + child.name
@@ -315,32 +315,32 @@ class RemoveAnimationCollection(bpy.types.Operator):
         for area in context.screen.areas:
             if area.type == "DOPESHEETH_EDITOR":
                 area.tag_redraw()
-        context.scene.update()               
+        context.view_layer.update()
             
                     
     def execute(self, context):
         self.sprite_object = get_sprite_object(context.active_object)
-        if len(self.sprite_object.coa_anim_collections) > 0:
+        if len(self.sprite_object.coa_tools.anim_collections) > 0:
             
             self.remove_actions(context)
             self.remove_actions_collection(context)
             
         return {"FINISHED"}
                 
-class CreateNlaTrack(bpy.types.Operator):
+class COATOOLS_OT_CreateNlaTrack(bpy.types.Operator):
     bl_idname = "coa_operator.create_nla_track"
     bl_label = "Create NLA Track"
     bl_description = "Generate NLA Strips."
     bl_options = {"REGISTER","UNDO"}
     
     
-    start = IntProperty(default=0)
-    repeat = IntProperty(default=1)
-    scale = FloatProperty(default=1.0)
-    insert_at_cursor = BoolProperty(default=True)
-    anim_collection_name = StringProperty()
-    auto_blend = BoolProperty(default=True)
-    extrapolation = EnumProperty(default="NOTHING",items=(("HOLD_FORWARD","Hold Forward","HOLD_FORWARD"),("HOLD","Hold","HOLD"),("NOTHING","Nothing","NOTHING")) )
+    start: IntProperty(default=0)
+    repeat: IntProperty(default=1)
+    scale: FloatProperty(default=1.0)
+    insert_at_cursor: BoolProperty(default=True)
+    anim_collection_name: StringProperty()
+    auto_blend: BoolProperty(default=True)
+    extrapolation: EnumProperty(default="NOTHING",items=(("HOLD_FORWARD","Hold Forward","HOLD_FORWARD"),("HOLD","Hold","HOLD"),("NOTHING","Nothing","NOTHING")) )
 
     def check(self,context):
         return True
@@ -403,12 +403,12 @@ class CreateNlaTrack(bpy.types.Operator):
         sprite_object = get_sprite_object(obj)
         children = get_children(context,sprite_object,ob_list=[])
 
-        context.scene.coa_nla_mode = "NLA"
+        context.scene.coa_tools.nla_mode = "NLA"
 
         if self.anim_collection_name == "":
-            anim_collection = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+            anim_collection = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index]
         else:
-            anim_collection = sprite_object.coa_anim_collections[self.anim_collection_name]
+            anim_collection = sprite_object.coa_tools.anim_collections[self.anim_collection_name]
 
         if self.insert_at_cursor:
             self.start = context.scene.frame_current
@@ -448,7 +448,7 @@ class CreateNlaTrack(bpy.types.Operator):
                     
         return {"FINISHED"}
     
-class BatchRender(bpy.types.Operator):
+class COATOOLS_OT_BatchRender(bpy.types.Operator):
 #class BatchRender(bpy.types.RenderEngine):
     bl_idname = "coa_tools.batch_render"
     bl_label = "Batch Render"
@@ -488,16 +488,16 @@ class BatchRender(bpy.types.Operator):
         sprite_object = get_sprite_object(obj)
         if sprite_object != None:
             
-            idx = int(sprite_object.coa_anim_collections_index)
+            idx = int(sprite_object.coa_tools.anim_collections_index)
             
-            for i in range(len(sprite_object.coa_anim_collections)):
+            for i in range(len(sprite_object.coa_tools.anim_collections)):
                 
-                anim_name = sprite_object.coa_anim_collections[i].name
+                anim_name = sprite_object.coa_tools.anim_collections[i].name
                 if anim_name not in ["NO ACTION","Restpose"]:
-                    sprite_object.coa_anim_collections_index = i
-                    set_action(context,item= sprite_object.coa_anim_collections[i])
+                    sprite_object.coa_tools.anim_collections_index = i
+                    set_action(context,item= sprite_object.coa_tools.anim_collections[i])
                     bpy.context.scene.frame_start = 0
-                    bpy.context.scene.frame_end = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index].frame_end
+                    bpy.context.scene.frame_end = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index].frame_end
                     
                     path = context.scene.render.filepath.replace("\\","/")
                     dirpath = path[:path.rfind("/")]
@@ -507,18 +507,18 @@ class BatchRender(bpy.types.Operator):
                     bpy.ops.render.render("EXEC_DEFAULT",animation=True,write_still=False,use_viewport=True,scene=context.scene.name)
                     #bpy.ops.render.render("INVOKE_DEFAULT",animation=True,write_still=False,use_viewport=True,scene=context.scene.name)
         
-            sprite_object.coa_anim_collections_index = idx
+            sprite_object.coa_tools.anim_collections_index = idx
         return {"FINISHED"}
 
 
 ### Add Timeline Event -> Dragonbones
-class AddEvent(bpy.types.Operator):
+class COATOOLS_OT_AddEvent(bpy.types.Operator):
     bl_idname = "coa_tools.add_event"
     bl_label = "Add Event"
     bl_description = ""
     bl_options = {"REGISTER"}
 
-    index = IntProperty()
+    index: IntProperty()
 
     @classmethod
     def poll(cls, context):
@@ -529,19 +529,19 @@ class AddEvent(bpy.types.Operator):
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
 
-        anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        anim = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index]
         timeline_events = anim.timeline_events[self.index]
         item = timeline_events.event.add()
         return {"FINISHED"}
 
-class RemoveEvent(bpy.types.Operator):
+class COATOOLS_OT_RemoveEvent(bpy.types.Operator):
     bl_idname = "coa_tools.remove_event"
     bl_label = "Remove Event"
     bl_description = ""
     bl_options = {"REGISTER"}
 
-    index = IntProperty()
-    event_index = IntProperty()
+    index: IntProperty()
+    event_index: IntProperty()
 
     @classmethod
     def poll(cls, context):
@@ -552,13 +552,13 @@ class RemoveEvent(bpy.types.Operator):
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
 
-        anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        anim = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index]
         timeline_events = anim.timeline_events[self.index]
         timeline_events.event.remove(self.event_index)
         return {"FINISHED"}
     
 ### Add Timeline Event -> Dragonbones
-class AddTimelineEvent(bpy.types.Operator):
+class COATOOLS_OT_AddTimelineEvent(bpy.types.Operator):
     bl_idname = "coa_tools.add_timeline_event"
     bl_label = "Add Timeline Event"
     bl_description = ""
@@ -582,7 +582,7 @@ class AddTimelineEvent(bpy.types.Operator):
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
         
-        anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        anim = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index]
 
         event = None
         for item in anim.timeline_events:
@@ -605,13 +605,13 @@ class AddTimelineEvent(bpy.types.Operator):
         return {"FINISHED"}
     
         
-class RemoveTimelineEvent(bpy.types.Operator):
+class COATOOLS_OT_RemoveTimelineEvent(bpy.types.Operator):
     bl_idname = "coa_tools.remove_timeline_event"
     bl_label = "Remove Timeline Event"
     bl_description = ""
     bl_options = {"REGISTER"}
     
-    index = IntProperty(default=-1)
+    index: IntProperty(default=-1)
     
     @classmethod
     def poll(cls, context):
@@ -622,7 +622,7 @@ class RemoveTimelineEvent(bpy.types.Operator):
         obj = context.active_object
         sprite_object = get_sprite_object(obj)
         
-        anim = sprite_object.coa_anim_collections[sprite_object.coa_anim_collections_index]
+        anim = sprite_object.coa_tools.anim_collections[sprite_object.coa_tools.anim_collections_index]
         
         if self.index != -1:
             index = self.index

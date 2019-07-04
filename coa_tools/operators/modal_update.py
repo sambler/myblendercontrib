@@ -35,7 +35,7 @@ from .. functions import *
 
 
 ######################################################################################################################################### Cutout Animatin Tools Modal Operator    
-class COAModal(bpy.types.Operator):
+class COATOOLS_OT_Modal(bpy.types.Operator):
     bl_idname = "wm.coa_modal"
     bl_label = "Cutout Animation Tools Modal"
     bl_options = {"REGISTER","INTERNAL"}
@@ -54,8 +54,8 @@ class COAModal(bpy.types.Operator):
     def set_frame_bounds_and_actions(self,context):
         scene = context.scene
         if len(self.sprite_object.coa_anim_collections) > 2:
-            scene.frame_start = self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index].frame_start
-            scene.frame_end = self.sprite_object.coa_anim_collections[self.sprite_object.coa_anim_collections_index].frame_end
+            scene.frame_start = self.sprite_object.coa_anim_collections[self.sprite_object.coa_tools.anim_collections_index].frame_start
+            scene.frame_end = self.sprite_object.coa_anim_collections[self.sprite_object.coa_tools.anim_collections_index].frame_end
         #set_action(context)
     
     

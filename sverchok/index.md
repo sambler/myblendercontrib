@@ -36,6 +36,7 @@
     Hilbert3dNode
     HilbertImageNode
     SvProfileNodeMK2
+    SvProfileNodeMK3
     SvMeshEvalNode
     SvGenerativeArtNode
     SvImageComponentsNode
@@ -55,14 +56,17 @@
     DistancePPNode
     SvDistancePointLineNode
     SvDistancePointPlaneNode
+    SvDistancetLineLineNode
     SvPathLengthNode
     CentersPolsNodeMK2
     CentersPolsNodeMK3
     GetNormalsNode
     VectorNormalNode
     SvIntersectLineSphereNode
+    SvIntersectPlanePlaneNode
     SvKDTreeNodeMK2
     SvKDTreeEdgesNodeMK2
+    SvKDTreePathNode
     SvBvhOverlapNodeNew
     SvMeshFilterNode
     SvEdgeAnglesNode
@@ -241,6 +245,7 @@
     SvSwitchNode
     SvInputSwitchNode
     SvNeuroElman1LNode
+    SvCustomSwitcher
 
 ## Viz
     ViewerNode2

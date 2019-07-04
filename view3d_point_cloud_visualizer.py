@@ -19,7 +19,7 @@
 bl_info = {"name": "Point Cloud Visualizer",
            "description": "Display, render and convert to mesh colored point cloud PLY files.",
            "author": "Jakub Uhlik",
-           "version": (0, 8, 11),
+           "version": (0, 8, 14),
            "blender": (2, 80, 0),
            "location": "3D Viewport > Sidebar > Point Cloud Visualizer",
            "warning": "",
@@ -53,6 +53,8 @@ from bpy_extras.io_utils import axis_conversion
 # FIXME ply loading might not work with all ply files, for example, file spec seems does not forbid having two or more blocks of vertices with different props, currently i load only first block of vertices. maybe construct some messed up ply and test how for example meshlab behaves
 # FIXME checking for normals/colors in points is kinda scattered all over
 # TODO better docs, some gifs would be the best, i personally hate watching video tutorials when i need just sigle bit of information buried in 10+ minutes video, what a waste of time
+# TODO try to remove manual depth test during offscreen rendering
+# NOTE parent object reference check should be before drawing, not in the middle, it's not that bad, it's pretty early, but it's still messy, this will require rewrite of handler and render functions in manager.. so don't touch until broken
 # NOTE ~2k lines, maybe time to break into modules, but having sigle file is not a bad thing..
 # NOTE $ pycodestyle --ignore=W293,E501,E741,E402 --exclude='io_mesh_fast_obj/blender' .
 
@@ -226,7 +228,6 @@ class PCMeshInstancer():
         self.mesh.from_pydata(self.verts, self.edges, self.faces)
         self.object = self.add_object(self.name, self.mesh)
         self.object.matrix_world = self.matrix
-        self.mesh.show_double_sided = False
         self.activate_object(self.object)
         
         if(self.vcols):
@@ -967,6 +968,7 @@ class PCVManager():
     @classmethod
     def render(cls, uuid, ):
         bgl.glEnable(bgl.GL_PROGRAM_POINT_SIZE)
+        bgl.glEnable(bgl.GL_DEPTH_TEST)
         
         ci = PCVManager.cache[uuid]
         
@@ -1000,6 +1002,12 @@ class PCVManager():
             pcv.uuid = uuid
             # push back filepath, it might get lost during undo/redo
             pcv.filepath = ci['filepath']
+        
+        if(not o.visible_get()):
+            # if parent object is not visible, skip drawing
+            # this should checked earlier, but until now i can't be sure i have correct object reference
+            bgl.glDisable(bgl.GL_DEPTH_TEST)
+            return
         
         if(ci['illumination'] != pcv.illumination):
             vs = ci['vertices']
@@ -1127,6 +1135,8 @@ class PCVManager():
             # shader.uniform_float("color", (35 / 255, 97 / 255, 221 / 255, 1, ), )
             shader.uniform_float("color", col, )
             batch.draw(shader)
+        
+        bgl.glDisable(bgl.GL_DEPTH_TEST)
     
     @classmethod
     def handler(cls):
@@ -1410,7 +1420,8 @@ class PCV_OT_render(Operator):
             shader.bind()
             
             view_matrix = cam.matrix_world.inverted()
-            camera_matrix = cam.calc_matrix_camera(bpy.context.depsgraph, x=render.resolution_x, y=render.resolution_y, scale_x=render.pixel_aspect_x, scale_y=render.pixel_aspect_y, )
+            depsgraph = bpy.context.evaluated_depsgraph_get()
+            camera_matrix = cam.calc_matrix_camera(depsgraph, x=render.resolution_x, y=render.resolution_y, scale_x=render.pixel_aspect_x, scale_y=render.pixel_aspect_y, )
             perspective_matrix = camera_matrix @ view_matrix
             
             shader.uniform_float("perspective_matrix", perspective_matrix)
@@ -1498,7 +1509,7 @@ class PCV_OT_render(Operator):
             vs = scene.view_settings
             vsvt = vs.view_transform
             vsl = vs.look
-            vs.view_transform = 'Default'
+            vs.view_transform = 'Standard'
             vs.look = 'None'
             
             s.file_format = 'PNG'

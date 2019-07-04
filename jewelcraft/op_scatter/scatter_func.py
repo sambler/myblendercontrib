@@ -19,7 +19,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 
 from ..lib import mesh, asset
 
@@ -46,19 +46,19 @@ class Scatter:
             context.view_layer.objects.active = ob
 
         else:
-            obs = {}
+            obs = []
 
             for ob in context.selected_objects:
                 con = ob.constraints.get("Follow Path")
                 if con:
-                    obs[ob] = con.offset
+                    obs.append((ob, con, con.offset))
 
-            obs_sorted = sorted(obs, key=obs.get, reverse=True)
-            num = len(obs_sorted) - 1
+            obs.sort(key=lambda x: x[2], reverse=True)
+            num = len(obs) - 1
             ob = context.object
 
-            if ob not in obs:
-                ob = obs_sorted[0]
+            if "Follow Path" not in ob.constraints:
+                ob = obs[0][0]
 
             curve = ob.constraints["Follow Path"].target
 
@@ -98,8 +98,8 @@ class Scatter:
             mat_sca = Matrix.Diagonal(ob.scale).to_4x4()
             ob.matrix_world = mat_sca
 
-            if self.rot_y:
-                mat_rot = Matrix.Rotation(self.rot_y, 4, "Y")
+            if self.rot_x:
+                mat_rot = Matrix.Rotation(self.rot_x, 4, "X")
                 ob.matrix_world @= mat_rot
 
             if self.rot_z:
@@ -143,27 +143,31 @@ class Scatter:
         else:
 
             ofst_fac = start
+            world_loc = Vector()
 
-            for ob in obs_sorted:
+            for ob, con, _ in obs:
 
-                if self.rot_y:
-                    mat_rot = Matrix.Rotation(self.rot_y, 4, "Y")
-                    ob.matrix_basis @= mat_rot
+                if self.rot_x:
+                    ob_mat_rot = ob.matrix_basis.to_quaternion().to_matrix().to_4x4()
+                    mat_rot = Matrix.Rotation(self.rot_x, 4, "X")
+                    ob.matrix_basis @= ob_mat_rot.inverted() @ mat_rot @ ob_mat_rot
 
                 if self.rot_z:
                     mat_rot = Matrix.Rotation(self.rot_z, 4, "Z")
                     ob.matrix_basis @= mat_rot
 
-                if self.loc_z:
-                    mat_loc = Matrix.Translation((0.0, 0.0, self.loc_z))
-                    ob.matrix_basis @= mat_loc
+                if self.rot_x or self.loc_z:
+                    dist = (ob.matrix_basis.translation - world_loc).length
+                    mat_rot = ob.matrix_basis.to_quaternion().to_matrix()
+                    ob.matrix_basis.translation = mat_rot @ Vector((0.0, 0.0, dist + self.loc_z))
 
-                ob.constraints["Follow Path"].offset = -ofst_fac
+                con.offset = -ofst_fac
                 ofst_fac += ofst
 
         return {"FINISHED"}
 
     def invoke(self, context, event):
+        wm = context.window_manager
 
         if self.is_scatter:
 
@@ -180,6 +184,7 @@ class Scatter:
             self.cyclic = curve.data.splines[0].use_cyclic_u
             self.curve_length = mesh.curve_length(curve)
 
+            wm.invoke_props_popup(self, event)
             return self.execute(context)
 
         values = []
@@ -201,5 +206,4 @@ class Scatter:
         self.cyclic = curve.data.splines[0].use_cyclic_u
         self.curve_length = mesh.curve_length(curve)
 
-        wm = context.window_manager
         return wm.invoke_props_popup(self, event)

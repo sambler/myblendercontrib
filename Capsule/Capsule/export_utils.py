@@ -7,57 +7,7 @@ from bpy.types import Operator
 
 from .tk_utils import select as select_utils
 
-def ReplaceSystemChar(context, name):
-  # Replaces invalid directory characters in names
 
-  print("Checking Directory...", name)
-  returnName = name
-  if platform.system() == 'Windows':
-      invalidCharacters = ["/", "*", "?", "\"", "<", ">", "|", ":"]
-      for char in invalidCharacters:
-          returnName = returnName.replace(char, "_")
-
-  elif platform.system() == 'Darwin':
-      invalidCharacters = [":", "/"]
-      for char in invalidCharacters:
-          returnName = returnName.replace(char, "_")
-
-  elif platform.system() == 'linux' or platform.system() == 'linux2':
-      invalidCharacters = [":", "/"]
-      for char in invalidCharacters:
-          returnName = returnName.replace(char, "_")
-
-  return returnName
-
-
-
-def CheckSystemChar(context, name):
-  # Checks for invalid directory characters in names
-
-  print("Checking Directory...", name)
-  if platform.system() == 'Windows':
-      invalidCharacters = ["/", "*", "?", "\"", "<", ">", "|", ":"]
-      invalidCaptured = []
-      for char in invalidCharacters:
-          if name.find(char) != -1:
-              invalidCaptured.append(char)
-
-  elif platform.system() == 'Darwin':
-      invalidCharacters = [":", "/"]
-      invalidCaptured = []
-      for char in invalidCharacters:
-          if name.find(char) != -1:
-              invalidCaptured.append(char)
-
-  elif platform.system() == 'linux' or platform.system() == 'linux2':
-      invalidCharacters = [":", "/"]
-      invalidCaptured = []
-      for char in invalidCharacters:
-          if name.find(char) != -1:
-              invalidCaptured.append(char)
-
-  print("Invalid characters found...", invalidCaptured)
-  return invalidCaptured
 
 
 
@@ -112,6 +62,7 @@ def CheckAnimation(context):
 
   print(">>>> CHECKED ANIMATION <<<<")
 
+# FIXME : Not in use rn.
 def AddTriangulate(targetList):
   """
   Adds the triangulate modifier to any objects that don't yet have it.
@@ -140,6 +91,7 @@ def AddTriangulate(targetList):
                       modifier.ngon_method = 'CLIP'
                       stm.has_triangulate = False
 
+# FIXME : Not in use rn.
 def RemoveTriangulate(targetList):
   """
   Adds the triangulate modifier from objects where it was added as an export option.

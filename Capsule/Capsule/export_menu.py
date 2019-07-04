@@ -2,8 +2,8 @@ import bpy
 from bpy.props import IntProperty, BoolProperty, FloatProperty, EnumProperty, PointerProperty, StringProperty, CollectionProperty
 from bpy.types import Menu, Operator
 
-from .update import CAP_Update_ObjectExport, UpdateObjectList
-from .update_collections import CAP_Update_CollectionExport, UpdateCollectionList
+from .update.update_objects import CAP_Update_ProxyObjectExport, UpdateObjectList
+from .update.update_collections import CAP_Update_ProxyCollectionExport, UpdateCollectionList
 from .tk_utils import collections as collection_utils
 
 from . import tk_utils
@@ -28,6 +28,7 @@ class CAPSULE_OT_ToggleExport(Operator):
 
         print("*" * 40)
         scn = context.scene.CAPScn
+        proxy = context.scene.CAPProxy
         sel = context.selected_objects
         args = self.args.split(".")
 
@@ -35,21 +36,17 @@ class CAPSULE_OT_ToggleExport(Operator):
 
             for item in sel:
                 if args[1] == "True":
-                    item.CAPObj.enable_export = True
-                    UpdateObjectList(context.scene, item, True)
+                    proxy.obj_enable_export = True
                 else:
-                    item.CAPObj.enable_export = False
-                    UpdateObjectList(context.scene, item, False)
+                    proxy.obj_enable_export = False
         else:
             isEnabled = False
             if args[1] == "True":
                 isEnabled = True
 
-            for collection in collection_utils.GetSelectedObjectCollections():
-                collection.CAPCol.enable_export = isEnabled
-                UpdateCollectionList(context.scene, collection, isEnabled)
+            proxy.col_enable_export = isEnabled
 
-        scn.enable_sel_active = False
+
         return {'FINISHED'}
 
 class CAPSULE_OT_LocationSelectObject(Operator):
@@ -60,7 +57,8 @@ class CAPSULE_OT_LocationSelectObject(Operator):
 
     def execute(self, context):
         if self.loc != -1:
-            context.active_object.CAPObj.location_default = str(self.loc + 1)
+            proxy = context.scene.CAPProxy
+            proxy.obj_location_preset = str(self.loc + 1)
         return {'FINISHED'}
 
 class CAPSULE_OT_LocationSelectCollection(Operator):
@@ -71,13 +69,15 @@ class CAPSULE_OT_LocationSelectCollection(Operator):
 
     def execute(self, context):
         if self.loc != -1:
-
-            for collection in collection_utils.GetSelectedObjectCollections():
-                collection.CAPCol.location_default = str(self.loc + 1)
+            proxy = context.scene.CAPProxy
+            proxy.col_location_preset = str(self.loc + 1)
 
         return {'FINISHED'}
 
 class CAPSULE_MT_PieLocationObject(Menu):
+    """
+    Shows the currently available locations that can be assigned to an object export.
+    """
     bl_idname = "pie.location_object"
     bl_label = "Select Location"
 
@@ -97,7 +97,7 @@ class CAPSULE_MT_PieLocationObject(Menu):
 
 class CAPSULE_MT_PieLocationCollection(Menu):
     """
-    A pie-specific operator for toggling the export status of the currently selected collections.
+    Shows the currently available locations that can be assigned to an collection export.
     """
     bl_idname = "pie.location_collection"
     bl_label = "Select Location"
@@ -127,7 +127,8 @@ class CAPSULE_OT_ExportSelectObject(Operator):
 
     def execute(self, context):
         if self.loc != -1:
-            context.active_object.CAPObj.export_default = str(self.loc + 1)
+            proxy = context.scene.CAPProxy
+            proxy.obj_export_preset = str(self.loc + 1)
         return {'FINISHED'}
 
 class CAPSULE_OT_ExportSelectCollection(Operator):
@@ -141,15 +142,14 @@ class CAPSULE_OT_ExportSelectCollection(Operator):
 
     def execute(self, context):
         if self.loc != -1:
-
-            for collection in collection_utils.GetSelectedObjectCollections():
-                collection.CAPCol.export_default = str(self.loc + 1)
+            proxy = context.scene.CAPProxy
+            proxy.col_export_preset = str(self.loc + 1)
 
         return {'FINISHED'}
 
 class CAPSULE_MT_PieExportObject(Menu):
     """
-    Displays the export default options for objects.
+    Shows the currently available export presets that can be assigned to an object export.
     """
     bl_idname = "pie.export_object"
     bl_label = "Select Location"
@@ -164,13 +164,13 @@ class CAPSULE_MT_PieExportObject(Menu):
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         i = 0
-        for loc in exp.file_presets:
-            pie.operator("capsule.export_select_object", text=exp.file_presets[i].name, icon="SCRIPTWIN").loc = i
+        for loc in exp.export_presets:
+            pie.operator("capsule.export_select_object", text=exp.export_presets[i].name, icon="PREFERENCES").loc = i
             i += 1
 
 class CAPSULE_MT_PieExportCollection(Menu):
     """
-    Displays the export default options for collections.
+    Shows the currently available export presets that can be assigned to a collection export.
     """
     bl_idname = "pie.export_collection"
     bl_label = "Select Location"
@@ -185,8 +185,8 @@ class CAPSULE_MT_PieExportCollection(Menu):
         exp = bpy.data.objects[addon_prefs.default_datablock].CAPExp
 
         i = 0
-        for loc in exp.file_presets:
-            pie.operator("capsule.export_select_collection", text=exp.file_presets[i].name, icon="SCRIPTWIN").loc = i
+        for loc in exp.export_presets:
+            pie.operator("capsule.export_select_collection", text=exp.export_presets[i].name, icon="PREFERENCES").loc = i
             i += 1
 
 class CAPSULE_OT_PieObjectMenu(Menu):
@@ -214,7 +214,7 @@ class CAPSULE_OT_PieObjectMenu(Menu):
         # 2 - BOTTOM
         pie.operator("wm.call_menu_pie", text="Set Location", icon="FILE_FOLDER").name = "pie.location_object"
         # 8 - TOP
-        pie.operator("wm.call_menu_pie", text="Set Export Preset", icon="SCRIPTWIN").name = "pie.export_object"
+        pie.operator("wm.call_menu_pie", text="Set Export Preset", icon="PREFERENCES").name = "pie.export_object"
         # 7 - TOP - LEFT
         # 1 - BOTTOM - LEFT
         # 9 - TOP - RIGHT
@@ -245,7 +245,29 @@ class CAPSULE_OT_PieCollectionMenu(Menu):
         # 2 - BOTTOM
         pie.operator("wm.call_menu_pie", text="Set Location", icon="FILE_FOLDER").name = "pie.location_collection"
         # 8 - TOP
-        pie.operator("wm.call_menu_pie", text="Set Export Preset", icon="SCRIPTWIN").name = "pie.export_collection"
+        pie.operator("wm.call_menu_pie", text="Set Export Preset", icon="PREFERENCES").name = "pie.export_collection"
+        # 7 - TOP - LEFT
+        # 1 - BOTTOM - LEFT
+        # 9 - TOP - RIGHT
+        # 3 - BOTTOM - RIGHT
+
+class CAPSULE_OT_PieExport(Menu):
+    """
+    Pie menus for the base menu that appears when E is used.
+    """
+
+    bl_idname = "pie.capsule_export"
+    bl_label = "Export..."
+
+    def draw(self, context):
+        layout = self.layout
+        pie = layout.menu_pie()
+        # 4 - LEFT
+        pie.operator("scene.cap_export_all", text="Export All", icon="EXPORT")
+        # 6 - RIGHT
+        pie.operator("scene.cap_export_selected", text="Export Selected", icon="EXPORT")
+        # 2 - BOTTOM
+        # 8 - TOP
         # 7 - TOP - LEFT
         # 1 - BOTTOM - LEFT
         # 9 - TOP - RIGHT
@@ -269,6 +291,6 @@ class CAPSULE_OT_PieMainMenu(Menu):
             # 6 - RIGHT
             pie.operator("wm.call_menu_pie", text="Collection Settings", icon="GROUP").name = "pie.capsule_collection"
             # 2 - BOTTOM
-            pie.operator("scene.cap_export", text="Export with Capsule", icon="EXPORT")
+            pie.operator("wm.call_menu_pie", text="Export with Capsule", icon="EXPORT").name = "pie.capsule_export"
         else:
-            pie.operator("scene.cap_export", text="Export with Capsule", icon="EXPORT")
+            pie.operator("wm.call_menu_pie", text="Export with Capsule", icon="EXPORT").name = "pie.capsule_export"

@@ -192,12 +192,12 @@ class CAP_FormatData_GLTF(PropertyGroup):
 		description='',
 		default=False
 	)
-
-	export_bake_skins: BoolProperty(
-		name='Bake Skinning Constraints',
-		description='',
-		default=False
-	)
+	# FIXME : Removed from 2.8?  Hmm...
+	# export_bake_skins: BoolProperty(
+	# 	name='Bake Skinning Constraints',
+	# 	description='',
+	# 	default=False
+	# )
 
 	export_morph: BoolProperty(
 		name='Export Morphing',
@@ -218,7 +218,7 @@ class CAP_FormatData_GLTF(PropertyGroup):
 		)
 
 		
-	def export(self, context, exportPreset, exportPass, filePath, fileName):
+	def export(self, context, export_preset, filePath, fileName):
 		"""
 		Calls the GLTF Export module to make the export happen.
 		"""
@@ -255,7 +255,7 @@ class CAP_FormatData_GLTF(PropertyGroup):
 
 			# mesh data
 			export_yup=self.export_y_up,
-			export_apply=exportPass.apply_modifiers,
+			export_apply=export_preset.apply_modifiers,
 
 			export_texcoords=self.export_texcoords,
 			export_normals=self.export_normals,
@@ -265,7 +265,7 @@ class CAP_FormatData_GLTF(PropertyGroup):
 			export_displacement=self.export_displacement,
 
 			# animation data
-			export_animations=exportPass.export_animation,
+			export_animations=export_preset.export_animation,
 			export_frame_range=self.export_frame_range,
 			export_frame_step=self.export_frame_step,
 			export_force_sampling=self.export_force_sampling,
@@ -273,7 +273,7 @@ class CAP_FormatData_GLTF(PropertyGroup):
 			export_all_influences=self.export_all_influences,
 
 			export_skins=self.export_skins,
-			export_bake_skins=self.export_bake_skins,
+			# export_bake_skins=self.export_bake_skins,
 			export_morph=self.export_morph,
 			export_morph_normal=self.export_morph_normal,
 			export_morph_tangent=self.export_morph_tangent,
@@ -395,7 +395,7 @@ class CAP_FormatData_GLTF(PropertyGroup):
 
 			export_2 = export_main.column(align=True)
 			export_2.prop(exportData, "export_skins")
-			export_2.prop(exportData, "export_bake_skins")
+			# export_2.prop(exportData, "export_bake_skins")
 			export_2.prop(exportData, "export_morph")
 			export_2.prop(exportData, "export_morph_normal")
 			export_2.prop(exportData, "export_morph_tangent")

@@ -27,18 +27,6 @@
 #                                                                              #
 # ############################################################################ #
 
-bl_info = {
-    "name": "Lattice",
-    "author": "Alessandro Zomparelli (Co-de-iT)",
-    "version": (0, 3),
-    "blender": (2, 7, 8),
-    "location": "",
-    "description": "Generate a Lattice based on a grid mesh",
-    "warning": "",
-    "wiki_url": "",
-    "category": "Mesh"}
-
-
 import bpy
 import bmesh
 from bpy.types import Operator
@@ -257,7 +245,8 @@ class lattice_along_surface(Operator):
 
     @classmethod
     def poll(cls, context):
-        return bpy.context.object.mode == 'OBJECT'
+        try: return bpy.context.object.mode == 'OBJECT'
+        except: return False
 
     def draw(self, context):
         layout = self.layout
@@ -371,7 +360,6 @@ class lattice_along_surface(Operator):
             first = False
 
         bb = max - min
-        print(bb)
         lattice_loc = (max + min) / 2
         bpy.ops.object.add(type='LATTICE')
         lattice = bpy.context.active_object

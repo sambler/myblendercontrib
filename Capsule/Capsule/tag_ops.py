@@ -2,6 +2,7 @@
 import bpy
 from .tk_utils import text_ops
 
+# FIXME : No longer needed for 2.0, migrate or destroy.
 def CheckForTags(context, string):
 
     scn = context.scene.CAPScn
@@ -19,7 +20,8 @@ def CheckForTags(context, string):
     else:
         return True
 
-def RemoveObjectTag(context, object, export_default):
+# FIXME : No longer needed for 2.0, migrate or destroy.
+def RemoveObjectTag(context, object, export_preset):
 
     scn = context.scene.CAPScn
 
@@ -28,7 +30,7 @@ def RemoveObjectTag(context, object, export_default):
     # Create a new string to return
     newString = ""
 
-    for tag in export_default.tags:
+    for tag in export_preset.tags:
         #print("Found tag...", tag.name)
         passed_type_filter = False
 
@@ -95,7 +97,8 @@ def RemoveObjectTag(context, object, export_default):
     print("Could not remove tag, none found.  Exiting...")
     return ""
 
-def IdentifyObjectTag(context, object, export_default):
+# FIXME : No longer needed for 2.0, migrate or destroy.
+def IdentifyObjectTag(context, object, export_preset):
 
     scn = context.scene
 
@@ -104,7 +107,7 @@ def IdentifyObjectTag(context, object, export_default):
     i = 0
 
     # Now collect objects based on the filtering categories
-    for tag in export_default.tags:
+    for tag in export_preset.tags:
         #print("Found tag...", tag.name)
 
         # NAME CHECK!
@@ -253,6 +256,7 @@ def CompareObjectWithTag(context, object, tag):
     print("Object doesn't match tag...")
     return False
 
+# FIXME : No longer needed for 2.0, migrate or destroy.
 def FindObjectWithTag(context, object_name, tag):
 
     scn = context.scene

@@ -35,16 +35,17 @@ bl_info = {
 import bpy
 from .export_formats import *
 from .tk_utils import *
+from .update import *
 from .properties import *
+
 from .user_interface import *
 from .export_operators import *
 from .export_presets import *
-from .export_properties import *
 from .export_utils import *
 from .export_menu import *
 from .ui_operators import *
-from .update import *
-from .update_collections import *
+
+
 
 from bpy.props import (
     IntProperty, 
@@ -63,13 +64,10 @@ from bpy.types import (
 
 from bpy.app.handlers import persistent
 
-from .export_properties import (
-    CAPSULE_ExportTag, 
-    CAPSULE_ExportPassTag, 
-    CAPSULE_ExportPass, 
+from .properties.export_properties import (
     CAPSULE_ExportPreset, 
-    CAPSULE_LocationDefault, 
-    CAPSULE_ExportPresets,
+    CAPSULE_LocationPreset, 
+    CAPSULE_ExportData,
     )
 
 
@@ -100,7 +98,7 @@ from .export_properties import (
 #     if "ui_operators" in locals():
 #         imp.reload(ui_operators)
 #     if "update" in locals():
-#         imp.reload(update)
+#         imp.reload(update_objects)
 #     if "update_collections" in locals():
 #         imp.reload(update_collections)
 
@@ -115,7 +113,7 @@ def GetGlobalPresets(scene, context):
 
     preferences = context.preferences
     addon_prefs = preferences.addons[__package__].preferences
-    exp = addon_prefs.saved_presets
+    exp = addon_prefs.saved_export_presets
 
     u = 1
 
@@ -123,16 +121,6 @@ def GetGlobalPresets(scene, context):
         items.append((str(i+1), x.name, x.description, i+1))
 
     return items
-
-def UpdateObjectSelectMode(self, context):
-
-    if self.object_multi_edit is True:
-        context.scene.CAPScn.object_list_index = -1
-
-def UpdateCollectionSelectMode(self, context):
-
-    if self.collection_multi_edit is True:
-        context.scene.CAPScn.collection_list_index = -1
 
 
 class CAP_AddonPreferences(AddonPreferences):
@@ -147,34 +135,16 @@ class CAP_AddonPreferences(AddonPreferences):
 
     # Storage for the Global Presets, and it's enum UI list.
     sort_presets: CollectionProperty(type=CAPSULE_ExportPreset)
-    saved_presets: CollectionProperty(type=CAPSULE_ExportPreset)
-    saved_presets_index: IntProperty()
+    saved_export_presets: CollectionProperty(type=CAPSULE_ExportPreset)
+    saved_export_presets_index: IntProperty()
 
-    saved_presets_dropdown: BoolProperty(default=False)
+    # Addon Preferences Dropdowns
+    saved_export_presets_dropdown: BoolProperty(default=False)
     presets_dropdown: BoolProperty(default = False)
-    tags_dropdown: BoolProperty(default = False)
-    passes_dropdown: BoolProperty(default = False)
     options_dropdown: BoolProperty(default = False)
 
-    # not currently accessible through any menu, this is now an internally-managed state.
-    # used to turn off multi-selection editing when an object is selected from the export list,
-    # or potentially for other operations.
-    object_multi_edit: BoolProperty(
-        name="Collection Multi-Edit Mode",
-        description="Allows you to edit export settings for all objects that the currently selected.  \n\nTurning this option off will let you edit the currently selected object on the list.",
-        default=True,
-        update=UpdateObjectSelectMode
-        )
-    
-    # not currently accessible through any menu, this is now an internally-managed state.
-    # used to turn off multi-selection editing when an object is selected from the export list,
-    # or potentially for other operations.
-    collection_multi_edit: BoolProperty(
-        name="Collection Multi-Edit Mode",
-        description="Allows you to edit export settings for all collections that the currently selected objects belong to.  \n\nWARNING - One object can belong to multiple collections, please be careful when using this mode.",
-        default=False,
-        update=UpdateCollectionSelectMode
-        )
+    # Selection Dropdowns
+    edit_enable_dropdown: BoolProperty(default=False)
 
     object_list_autorefresh: BoolProperty(
         name="Object List Auto-Refresh",
@@ -243,21 +213,21 @@ class CAP_AddonPreferences(AddonPreferences):
             #col_export_title.operator("cap_tutorial.tags", text="", icon='INFO')
             col_export_title.label(text="Export Presets")
 
-            if addon_prefs.saved_presets_dropdown is False:
+            if addon_prefs.saved_export_presets_dropdown is False:
                 savedpresets_box = export_box.box()
                 col_saved_title = savedpresets_box.row(align=True)
-                col_saved_title.prop(addon_prefs, "saved_presets_dropdown", text="", icon='TRIA_RIGHT', emboss=False)
+                col_saved_title.prop(addon_prefs, "saved_export_presets_dropdown", text="", icon='TRIA_RIGHT', emboss=False)
                 col_saved_title.label(text="Saved Presets")
 
             else:
                 savedpresets_box = export_box.box()
                 col_saved_title = savedpresets_box.row(align=True)
-                col_saved_title.prop(addon_prefs, "saved_presets_dropdown", text="", icon='TRIA_DOWN', emboss=False)
+                col_saved_title.prop(addon_prefs, "saved_export_presets_dropdown", text="", icon='TRIA_DOWN', emboss=False)
                 col_saved_title.label(text="Saved Presets")
 
                 col_savedpresets = savedpresets_box.row(align=True)
                 col_savedpresets_list = col_savedpresets.column(align=True)
-                col_savedpresets_list.template_list("CAPSULE_UL_Saved_Default", "default", addon_prefs, "saved_presets", addon_prefs, "saved_presets_index", rows=3, maxrows=6)
+                col_savedpresets_list.template_list("CAPSULE_UL_Saved_Default", "default", addon_prefs, "saved_export_presets", addon_prefs, "saved_export_presets_index", rows=3, maxrows=6)
                 col_savedpresets_list.operator("cap.create_current_preset", text="Add to File Presets", icon="FORWARD")
 
                 col_savedpresets_options = col_savedpresets.column(align=True)
@@ -269,7 +239,7 @@ class CAP_AddonPreferences(AddonPreferences):
 
             row_defaults = filepresets_box.row(align=True)
             col_defaultslist = row_defaults.column(align=True)
-            col_defaultslist.template_list("CAPSULE_UL_Export_Default", "default", exp, "file_presets", exp, "file_presets_listindex", rows=3, maxrows=6)
+            col_defaultslist.template_list("CAPSULE_UL_Export_Default", "default", exp, "export_presets", exp, "export_presets_listindex", rows=3, maxrows=6)
             col_defaultslist.operator("cap.add_global_preset", text="Add to Saved Presets", icon="FORWARD")
 
             col_defaultslist_options = row_defaults.column(align=True)
@@ -277,9 +247,9 @@ class CAP_AddonPreferences(AddonPreferences):
             col_defaultslist_options.operator("scene.cap_deleteexport", text="", icon="REMOVE")
 
 
-            if len(exp.file_presets) > 0 and (exp.file_presets_listindex) < len(exp.file_presets):
+            if len(exp.export_presets) > 0 and (exp.export_presets_listindex) < len(exp.export_presets):
 
-                currentExp = exp.file_presets[exp.file_presets_listindex]
+                currentExp = exp.export_presets[exp.export_presets_listindex]
 
                 filepresets_box.label(text="Basic Settings")
                 filepresets_options = filepresets_box.row(align=True)
@@ -302,13 +272,12 @@ class CAP_AddonPreferences(AddonPreferences):
 
                 filepresets_options_1 = filepresets_options.column(align=True)
                 filepresets_options_1.alignment = 'EXPAND'
-                filepresets_options_1.prop(currentExp, "use_blend_directory")
-                filepresets_options_1.prop(currentExp, "use_sub_directory")
                 filepresets_options_1.prop(currentExp, "filter_render")
 
                 # this was removed from 1.01 onwards due to implementation issues.
                 # filepresets_options_1.prop(currentExp, "reset_rotation")
-
+                filepresets_options_1.prop(currentExp, "export_animation")
+                filepresets_options_1.prop(currentExp, "apply_modifiers")
                 filepresets_options_1.prop(currentExp, "preserve_armature_constraints")
 
                 filepresets_options.separator()
@@ -340,145 +309,6 @@ class CAP_AddonPreferences(AddonPreferences):
                 preset_unselected.label(text="Select a preset in order to view preset settings.")
                 preset_unselected.separator()
                 return
-
-
-        #---------------------------------------------------------
-        # Tags UI
-        #---------------------------------------------------------
-        tag_box = layout.box()
-        tag_title = tag_box.row(align=True)
-
-        if addon_prefs.tags_dropdown is False:
-            tag_title.prop(addon_prefs, "tags_dropdown", text="", icon='TRIA_RIGHT', emboss=False)
-            tag_title.label(text="Tags")
-
-        else:
-            tag_title.prop(addon_prefs, "tags_dropdown", text="", icon='TRIA_DOWN', emboss=False)
-            tag_title.label(text="Tags")
-
-            if len(exp.file_presets) > 0 and (exp.file_presets_listindex) < len(exp.file_presets):
-
-                currentExp = exp.file_presets[exp.file_presets_listindex]
-
-                tagUI_row = tag_box.row(align=True)
-                tagUI_row.template_list("CAPSULE_UL_Tag_Default", "default", currentExp, "tags", currentExp, "tags_index", rows=3, maxrows=6)
-
-                tagUI_col = tagUI_row.column(align=True)
-                tagUI_col.operator("scene.cap_addtag", text="", icon="ADD")
-                tagUI_col.operator("scene.cap_deletetag", text="", icon="REMOVE")
-                tagUI_col.separator()
-
-                tag_settings = tag_box.column(align=True)
-                tag_settings.separator()
-
-                if len(currentExp.tags) == 0:
-                    tag_settings.label(text="Create a new tag in order to view and edit tag settings.")
-                    tag_settings.separator()
-
-                else:
-                    currentTag = currentExp.tags[currentExp.tags_index]
-                    tag_settings.prop(currentTag, "name_filter")
-                    tag_settings.prop(currentTag, "name_filter_type")
-
-                    toggle_settings = tag_settings.column(align=True)
-                    toggle_settings.prop(currentTag, "object_type")
-
-                    if currentTag.x_user_editable_type is False:
-                        toggle_settings.enabled = False
-
-            else:
-                unselected = tag_box.column(align=True)
-                unselected.label(text="Select a preset in order to view tag settings.")
-                unselected.separator()
-
-        #---------------------------------------------------------
-        # Pass UI
-        #---------------------------------------------------------
-        pass_box = layout.box()
-        passUI = pass_box.row(align=True)
-
-        if addon_prefs.passes_dropdown is False:
-            passUI.prop(addon_prefs, "passes_dropdown", text="", icon='TRIA_RIGHT', emboss=False)
-            passUI.label(text="Passes")
-
-        else:
-            passUI.prop(addon_prefs, "passes_dropdown", text="", icon='TRIA_DOWN', emboss=False)
-            passUI.label(text="Passes")
-
-
-            if len(exp.file_presets) > 0 and (exp.file_presets_listindex) < len(exp.file_presets):
-
-                currentExp = exp.file_presets[exp.file_presets_listindex]
-
-                row_passes = pass_box.row(align=True)
-                row_passes.template_list("CAPSULE_UL_Pass_Default", "default", currentExp, "passes", currentExp, "passes_index", rows=3, maxrows=6)
-
-                row_passes.separator()
-
-                col_passes = row_passes.column(align=True)
-                col_passes.operator("scene.cap_addpass", text="", icon="ADD")
-                col_passes.operator("scene.cap_deletepass", text="", icon="REMOVE")
-                col_passes.separator()
-
-
-                pass_settings = pass_box.column(align=True)
-                pass_settings.separator()
-
-                if len(currentExp.passes) == 0:
-                    pass_settings.label(text="Create a new pass in order to view and edit pass settings.")
-                    pass_settings.separator()
-
-                else:
-
-                    # Pass Options UI
-                    currentPass = currentExp.passes[currentExp.passes_index]
-
-                    pass_settings.prop(currentPass, "file_suffix")
-                    pass_settings.prop(currentPass, "sub_directory")
-                    pass_settings.separator()
-                    pass_settings.separator()
-
-                    pass_options = pass_settings.row(align=True)
-                    pass_options.separator()
-
-                    # Additional Export Options
-                    options_ui = pass_options.column(align=True)
-                    options_ui.label(text="Export Options")
-
-                    options_ui.separator()
-                    options_ui.prop(currentPass, "export_animation")
-                    options_ui.prop(currentPass, "apply_modifiers")
-                    options_ui.prop(currentPass, "triangulate")
-                    options_ui.prop(currentPass, "export_individual")
-                    options_ui.separator()
-
-                    pass_options.separator()
-                    pass_options.separator()
-                    pass_options.separator()
-
-                    # Tag Filters
-                    tag_filter = pass_options.column(align=True)
-                    tag_filter.label(text="Filter by Tag")
-                    tag_filter.separator()
-
-                    for passTag in currentPass.tags:
-                        tag_column = tag_filter.column(align=True)
-                        tag_column.prop(passTag, "use_tag", text="Filter " + passTag.name)
-
-                    tag_filter.separator()
-
-                    # Tag Options
-                    tag_options = pass_options.column(align=True)
-                    tag_options.label(text="Tag Options")
-                    tag_options.separator()
-
-                    tag_options.prop(currentPass, "use_tags_on_objects")
-                    tag_options.separator()
-
-            else:
-                unselected = pass_box.column(align=True)
-                unselected.label(text="Select a preset in order to view tag settings.")
-                unselected.separator()
 
         #---------------------------------------------------------
         # Options
@@ -543,10 +373,9 @@ def CreateDefaultData(scene):
     defaultDatablock.CAPExp.is_storage_object = True
 
     # hide it!
-    defaultDatablock.hide_set(true)
-    defaultDatablock.select_set(true)
+    defaultDatablock.hide_set(True)
+    defaultDatablock.select_set(True)
     defaultDatablock.hide_render = True
-    
 
 @persistent
 def CheckSelectedObject(scene):
@@ -556,18 +385,43 @@ def CheckSelectedObject(scene):
 
     preferences = bpy.context.preferences
     addon_prefs = preferences.addons[__name__].preferences
+    proxy = bpy.context.scene.CAPProxy
     #print("SCENE UPDATE")
 
+    # If the active selected object changes or anything else about the selection, we need to update the edit toggles
     if bpy.context.active_object is not None:
-        if bpy.context.active_object.name != addon_prefs.prev_selected_object:
-            addon_prefs.object_multi_edit = True
-            addon_prefs.collection_multi_edit = True
+        if bpy.context.active_object.name != addon_prefs.prev_selected_object or len(bpy.context.selected_objects) != addon_prefs.prev_selected_count:
             addon_prefs.prev_selected_object = bpy.context.active_object.name
+            addon_prefs.prev_selected_count = len(bpy.context.selected_objects)
 
-    if len(bpy.context.selected_objects) != addon_prefs.prev_selected_count:
-        addon_prefs.object_multi_edit = True
-        addon_prefs.collection_multi_edit = True
+            for item in bpy.context.selected_objects:
+                item.CAPObj.enable_edit = True
+
+                for collection in item.users_collection:
+                    collection.CAPCol.enable_edit = True
+            
+            # update the proxy objects with the current selection
+            obj = bpy.context.active_object.CAPObj
+            grp = bpy.context.active_object.users_collection[0].CAPCol
+
+            proxy.disable_updates = True
+            proxy.obj_enable_export = obj.enable_export
+            proxy.obj_origin_point = obj.origin_point
+            proxy.obj_location_preset = obj.location_preset
+            proxy.obj_export_preset = obj.export_preset
+            
+            proxy.col_enable_export = grp.enable_export
+            proxy.col_origin_point = grp.origin_point
+            proxy.col_root_object = grp.root_object
+            proxy.col_location_preset = grp.location_preset
+            proxy.col_export_preset = grp.export_preset
+            proxy.disable_updates = False
+
+            return
+    
+    elif len(bpy.context.selected_objects) != addon_prefs.prev_selected_count:
         addon_prefs.prev_selected_count = len(bpy.context.selected_objects)
+        return
 
 
 addon_keymaps = []
@@ -590,27 +444,39 @@ classes = (
     CAPSULE_Collection_Preferences, 
     CAPSULE_Object_StateMachine, 
     # CAPSULE_Action_Preferences,
+    CAPSULE_Proxy_Properties,
 
     # export_operators
-    CAPSULE_OT_ExportAssets,
+    CAPSULE_OT_ExportAll,
+    CAPSULE_OT_ExportSelected,
 
     # export_properties
-    CAPSULE_ExportTag, 
-    CAPSULE_ExportPassTag, 
-    CAPSULE_ExportPass, 
     CAPSULE_ExportPreset, 
-    CAPSULE_LocationDefault, 
-    CAPSULE_ExportPresets,
+    CAPSULE_LocationPreset, 
+    CAPSULE_ExportData,
+    
+    # export menu
+    CAPSULE_OT_PieWarning,
+    CAPSULE_OT_ToggleExport,
+    CAPSULE_OT_LocationSelectObject,
+    CAPSULE_OT_LocationSelectCollection,
+    CAPSULE_MT_PieLocationObject,
+    CAPSULE_MT_PieLocationCollection,
+    CAPSULE_OT_ExportSelectObject,
+    CAPSULE_OT_ExportSelectCollection,
+    CAPSULE_MT_PieExportObject,
+    CAPSULE_MT_PieExportCollection,
+    CAPSULE_OT_PieObjectMenu,
+    CAPSULE_OT_PieCollectionMenu,
+    CAPSULE_OT_PieExport,
+    CAPSULE_OT_PieMainMenu,
 
     # ui_operators
     CAPSULE_OT_Add_Path,
     CAPSULE_OT_Delete_Path,
+    CAPSULE_OT_Add_Path_Tag,
     CAPSULE_OT_Add_Export,
     CAPSULE_OT_Delete_Export,
-    CAPSULE_OT_Add_Tag,
-    CAPSULE_OT_Delete_Tag,
-    CAPSULE_OT_Add_Pass,
-    CAPSULE_OT_Delete_Pass,
     CAPSULE_OT_Shift_Path_Up,
     CAPSULE_OT_Shift_Path_Down,
     CAPSULE_OT_Set_Root_Object,
@@ -622,7 +488,6 @@ classes = (
     CAPSULE_OT_UI_Group_Separate,
     CAPSULE_OT_UI_Group_Options,
     CAPSULE_OT_Refresh_Actions,
-    CAPSULE_OT_Tutorial_Tags,
     CAPSULE_OT_Create_ExportData,
     CAPSULE_OT_Add_Stored_Presets,
     CAPSULE_OT_Delete_Presets,
@@ -630,19 +495,17 @@ classes = (
 
     # user_inferface
     CAPSULE_UL_Name,
-    CAPSULE_UL_TagFilter,
     CAPSULE_UL_Object,
     CAPSULE_UL_Collection,
     CAPSULE_UL_Path_Default,
     CAPSULE_UL_Saved_Default,
     CAPSULE_UL_Export_Default,
-    CAPSULE_UL_Tag_Default,
-    CAPSULE_UL_Pass_Default,
     # CAPSULE_UL_Action,
     CAPSULE_PT_Header,
     CAPSULE_PT_Selection,
     CAPSULE_PT_List,
     CAPSULE_PT_Location,
+    CAPSULE_PT_Export,
 
     # init
     CAP_AddonPreferences,
@@ -664,7 +527,8 @@ def register():
     bpy.types.Collection.CAPCol = PointerProperty(name='Capsule Collection Properties', type=CAPSULE_Collection_Preferences)
     # bpy.types.Action.CAPAcn = PointerProperty(type=CAPSULE_Action_Preferences)
     bpy.types.Object.CAPStm = PointerProperty(name='Capsule State Tracker', type=CAPSULE_Object_StateMachine)
-    bpy.types.Object.CAPExp = PointerProperty(name='Capsule Export Presets', type=CAPSULE_ExportPresets)
+    bpy.types.Object.CAPExp = PointerProperty(name='Capsule Export Presets', type=CAPSULE_ExportData)
+    bpy.types.Scene.CAPProxy = PointerProperty(name='Capsule Scene Property Proxy', type=CAPSULE_Proxy_Properties)
 
 
     # Setup data and handlers
@@ -676,6 +540,7 @@ def register():
     # Register keymaps
     wm = bpy.context.window_manager
     if wm.keyconfigs.addon:
+        print("REGISTERING KEYMAP?")
         # Object Mode
         km = wm.keyconfigs.addon.keymaps.new(name='Object Mode')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'E', 'PRESS')
@@ -711,6 +576,7 @@ def unregister():
     # del bpy.types.Action.CAPAcn
     del bpy.types.Object.CAPStm
     del bpy.types.Object.CAPExp
+    del bpy.types.Scene.CAPProxy
 
 
     # Unregister classes

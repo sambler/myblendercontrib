@@ -33,7 +33,7 @@ import bgl, blf
 import traceback
 import pdb
 
-class LeaveSculptmode(bpy.types.Operator):
+class COATOOLS_OT_LeaveSculptmode(bpy.types.Operator):
     bl_idname = "coa_tools.leave_sculptmode"
     bl_label = "Leave Sculptmode"
     bl_description = ""
@@ -50,13 +50,13 @@ class LeaveSculptmode(bpy.types.Operator):
         return {"FINISHED"}
         
 
-class ShapekeyAdd(bpy.types.Operator):
+class COATOOLS_OT_ShapekeyAdd(bpy.types.Operator):
     bl_idname = "coa_tools.shapekey_add"
     bl_label = "Add Shapekey"
     bl_description = ""
     bl_options = {"REGISTER"}
 
-    name = StringProperty(name="Name")
+    name: StringProperty(name="Name")
 
     @classmethod
     def poll(cls, context):
@@ -82,7 +82,7 @@ class ShapekeyAdd(bpy.types.Operator):
             
         return {"FINISHED"}
     
-class ShapekeyRemove(bpy.types.Operator):
+class COATOOLS_OT_ShapekeyRemove(bpy.types.Operator):
     bl_idname = "coa_tools.shapekey_remove"
     bl_label = "Remove Shapekey"
     bl_description = ""
@@ -106,13 +106,13 @@ class ShapekeyRemove(bpy.types.Operator):
             
         return {"FINISHED"}
     
-class ShapekeyRename(bpy.types.Operator):
+class COATOOLS_OT_ShapekeyRename(bpy.types.Operator):
     bl_idname = "coa_tools.shapekey_rename"
     bl_label = "Rename Shapekey"
     bl_description = ""
     bl_options = {"REGISTER"}
 
-    new_name = StringProperty()
+    new_name: StringProperty()
 
     @classmethod
     def poll(cls, context):
@@ -138,7 +138,7 @@ class ShapekeyRename(bpy.types.Operator):
             
         
 
-class EditShapekeyMode(bpy.types.Operator):
+class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
     bl_idname = "coa_tools.edit_shapekey"
     bl_label = "Edit Shapekey"
     bl_description = ""
@@ -146,7 +146,7 @@ class EditShapekeyMode(bpy.types.Operator):
 
     def get_shapekeys(self,context):
         SHAPEKEYS = []
-        SHAPEKEYS.append(("NEW_KEY","New Shapekey","New Shapekey","NEW",0))
+        SHAPEKEYS.append(("NEW_KEY","New Shapekey","New Shapekey","FILE_NEW",0))
         obj = context.active_object
         if obj.type == "MESH" and obj.data.shape_keys != None:
             i = 0
@@ -157,15 +157,15 @@ class EditShapekeyMode(bpy.types.Operator):
         
         return SHAPEKEYS
 
-    shapekeys = EnumProperty(name="Shapekey",items=get_shapekeys)
-    shapekey_name = StringProperty(name="Name",default="New Shape")
-    mode_init = StringProperty()
+    shapekeys: EnumProperty(name="Shapekey",items=get_shapekeys)
+    shapekey_name: StringProperty(name="Name",default="New Shape")
+    mode_init: StringProperty()
     armature = None
     armature_name = ""
     sprite_object = None
     sprite_object_name = None
     shape = None
-    create_shapekey = BoolProperty(default=False)
+    create_shapekey: BoolProperty(default=False)
     objs = []
     
     last_obj_name = ""
@@ -231,8 +231,8 @@ class EditShapekeyMode(bpy.types.Operator):
             shape = obj.shape_key_add(name=self.shapekey_name, from_mix=False)    
             shape_name = shape.name
             
-        self.sprite_object.coa_edit_shapekey = True
-        self.sprite_object.coa_edit_mode = "SHAPEKEY"
+        self.sprite_object.coa_tools.edit_shapekey = True
+        self.sprite_object.coa_tools.edit_mode = "SHAPEKEY"
         bpy.ops.object.mode_set(mode="SCULPT")
         context.scene.tool_settings.sculpt.use_symmetry_x = False
         context.scene.tool_settings.sculpt.use_symmetry_y = False
@@ -256,9 +256,9 @@ class EditShapekeyMode(bpy.types.Operator):
         bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
 
         for obj in context.selected_objects:
-            obj.select = False
-        self.sprite_object.coa_edit_shapekey = False
-        self.sprite_object.coa_edit_mode = "OBJECT"
+            obj.select_set(False)
+        self.sprite_object.coa_tools.edit_shapekey = False
+        self.sprite_object.coa_tools.edit_mode = "OBJECT"
 
         for obj_name in self.objs:
             obj = bpy.context.scene.objects[obj_name]
@@ -300,7 +300,7 @@ class EditShapekeyMode(bpy.types.Operator):
                     if obj.coa_selected_shapekey != obj.active_shape_key.name:
                         obj.coa_selected_shapekey = str(obj.active_shape_key_index) #obj.active_shape_key.name
             
-            if self.sprite_object.coa_edit_shapekey == False and obj != None:
+            if self.sprite_object.coa_tools.edit_shapekey == False and obj != None:
                 return self.exit_edit_mode(context,event,obj)
             
         except Exception as e:
@@ -315,4 +315,3 @@ class EditShapekeyMode(bpy.types.Operator):
     
     def draw_callback_px(self):
         draw_edit_mode(self,bpy.context,offset=2)
-           
