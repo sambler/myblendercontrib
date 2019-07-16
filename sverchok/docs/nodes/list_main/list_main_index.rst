@@ -12,5 +12,4 @@ List Main
    levels
    match
    sum_mk2
-   statistics
    zip

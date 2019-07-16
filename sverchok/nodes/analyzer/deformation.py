@@ -174,7 +174,7 @@ class SvDeformationNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Deformation'
     bl_icon = 'MOD_SIMPLEDEFORM'
 
-    output_numpy = BoolProperty(
+    output_numpy : BoolProperty(
         name='Output NumPy', description='output NumPy arrays',
         default=False, update=updateNode)
 

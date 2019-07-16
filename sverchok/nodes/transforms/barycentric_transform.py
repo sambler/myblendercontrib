@@ -111,16 +111,16 @@ class SvBarycentricTransformNode(bpy.types.Node, SverchCustomTreeNode):
         ("NumPy", "NumPy", "Faster to transform heavy meshes", 0),
         ("MathUtils", "MathUtils", "Faster to transform light meshes", 1)]
 
-    output_numpy = BoolProperty(
+    output_numpy : BoolProperty(
         name='Output NumPy', description='Output NumPy arrays',
         default=False, update=updateNode)
 
-    implementation = EnumProperty(
+    implementation : EnumProperty(
         name='Implementation', items=implentation_modes,
         description='Choose calculation method',
         default="NumPy", update=updateNode)
 
-    list_match = EnumProperty(
+    list_match : EnumProperty(
         name="List Match",
         description="Behavior on different list lengths, multiple objects level",
         items=list_match_modes, default="REPEAT",

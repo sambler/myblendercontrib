@@ -33,33 +33,33 @@ class SvKDTreePathNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'KDT Closest Path'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    mindist = FloatProperty(
+    mindist : FloatProperty(
         name='mindist', description='Minimum dist', min=0.0,
         default=0.1, update=updateNode)
 
-    maxdist = FloatProperty(
+    maxdist : FloatProperty(
         name='Max Distance', description='Maximum dist', min=0.0,
         default=2.0, update=updateNode)
 
-    start_index = IntProperty(
+    start_index : IntProperty(
         name='Start Index', description='Vertes Index to start path',
         default=0, min=0, update=updateNode)
 
-    skip = IntProperty(
+    skip : IntProperty(
         name='skip', description='skip first n',
         default=0, min=0, update=updateNode)
 
-    cycle = BoolProperty(
+    cycle : BoolProperty(
         name='Cyclic', description='Join first and last vertices',
         default=False, update=updateNode)
         
-    list_match_global = EnumProperty(
+    list_match_global : EnumProperty(
         name="Match Global",
         description="Behavior on different list lengths, multiple objects level",
         items=list_match_modes, default="REPEAT",
         update=updateNode)
         
-    list_match_local = EnumProperty(
+    list_match_local : EnumProperty(
         name="Match Local",
         description="Behavior on different list lengths, object level",
         items=list_match_modes, default="REPEAT",

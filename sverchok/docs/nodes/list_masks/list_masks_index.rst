@@ -8,5 +8,4 @@ List Masks
    mask
    mask_join
    mask_converter
-   calc_mask
 

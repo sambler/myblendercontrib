@@ -219,67 +219,67 @@ class SvCylinderNodeMK2(bpy.types.Node, SverchCustomTreeNode):
 
         updateNode(self, context)
 
-    angle_units = EnumProperty(
+    angle_units: EnumProperty(
         name="Angle Units", description="Angle units (radians/degrees/unities)",
         default="RAD", items=angle_unit_items, update=update_angles)
 
-    last_angle_units = EnumProperty(
+    last_angle_units: EnumProperty(
         name="Last Angle Units", description="Last angle units (radians/degrees/unities)",
         default="RAD", items=angle_unit_items)  # used for updates when changing angle units
 
-    radius_t = FloatProperty(
+    radius_t: FloatProperty(
         name='Radius T', description="Top radius",
         default=1.0, update=updateNode)
 
-    radius_b = FloatProperty(
+    radius_b: FloatProperty(
         name='Radius B', description="Bottom radius",
         default=1.0, update=updateNode)
 
-    parallels = IntProperty(
+    parallels: IntProperty(
         name='Parallels', description="Number of parallels",
         default=2, min=2, update=updateNode)
 
-    meridians = IntProperty(
+    meridians: IntProperty(
         name='Meridians', description="Number of meridians",
         default=32, min=3, update=updateNode)
 
-    height = FloatProperty(
+    height: FloatProperty(
         name='Height', description="The height of the cylinder",
         default=2.0, update=updateNode)
 
-    twist = FloatProperty(
+    twist: FloatProperty(
         name='Twist', description="The twist of the cylinder",
         default=0.0, update=update_cylinder)
 
-    phase = FloatProperty(
+    phase: FloatProperty(
         name='Phase', description="The phase of the cylinder",
         default=0.0, update=update_cylinder)
 
-    scale = FloatProperty(
+    scale: FloatProperty(
         name='Scale', description="The scale of the cylinder",
         default=1.0, update=updateNode)
 
-    cap_bottom = BoolProperty(
+    cap_bottom: BoolProperty(
         name='Cap Bottom', description="Generate bottom cap",
         default=True, update=updateNode)
 
-    cap_top = BoolProperty(
+    cap_top: BoolProperty(
         name='Cap Top', description="Generate top cap",
         default=True, update=updateNode)
 
-    separate = BoolProperty(
+    separate: BoolProperty(
         name='Separate', description='Separate UV coords',
         default=False, update=updateNode)
 
-    center = BoolProperty(
+    center: BoolProperty(
         name='Center', description='Center cylinder around origin',
         default=True, update=updateNode)
 
-    cyclic = BoolProperty(
+    cyclic: BoolProperty(
         name='Cyclic', description='Parallels profile is cyclic',
         default=True, update=updateNode)
 
-    updating = BoolProperty(
+    updating: BoolProperty(
         name="Updating", description="Flag to inhibit updating", default=False)
 
     def sv_init(self, context):
@@ -294,9 +294,9 @@ class SvCylinderNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         self.inputs.new('StringsSocket', "Parallels Profile")
         self.inputs.new('StringsSocket', "Meridians Profile")
 
-        self.outputs.new('VerticesSocket', "Vertices", "Vertices")
-        self.outputs.new('StringsSocket', "Edges", "Edges")
-        self.outputs.new('StringsSocket', "Polygons", "Polygons")
+        self.outputs.new('VerticesSocket', "Vertices")
+        self.outputs.new('StringsSocket', "Edges")
+        self.outputs.new('StringsSocket', "Polygons")
 
     def draw_buttons(self, context, layout):
         column = layout.column(align=True)

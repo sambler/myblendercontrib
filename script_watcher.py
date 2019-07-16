@@ -22,8 +22,8 @@ Author: Isaac Weaver <wisaac407@gmail.com>
 bl_info = {
     "name": "Script Watcher",
     "author": "Isaac Weaver",
-    "version": (0, 6),
-    "blender": (2, 75, 0),
+    "version": (0, 7),
+    "blender": (2, 80, 0),
     "location": "Properties > Scene > Script Watcher",
     "description": "Reloads an external script on edits.",
     "warning": "Still in beta stage.",
@@ -80,6 +80,21 @@ def isnum(s):
     return s[1:].isnumeric() and s[0] in '-+1234567890'
 
 
+def make_annotations(cls):
+    """Converts class fields to annotations if running with Blender 2.8"""
+    if bpy.app.version < (2, 80):
+        return cls
+    bl_props = {k: v for k, v in cls.__dict__.items() if isinstance(v, tuple)}
+    if bl_props:
+        if '__annotations__' not in cls.__dict__:
+            setattr(cls, '__annotations__', {})
+        annotations = cls.__dict__['__annotations__']
+        for k, v in bl_props.items():
+            annotations[k] = v
+            delattr(cls, k)
+    return cls
+
+
 class SplitIO(io.StringIO):
     """Feed the input stream into another stream."""
     PREFIX = '[Script Watcher]: '
@@ -109,10 +124,12 @@ class ScriptWatcherLoader:
     """Load the script"""
     filepath = None
     mod_name = None
+    run_main = None
 
-    def __init__(self, filepath):
+    def __init__(self, filepath, run_main=False):
         self.filepath = filepath
         self.mod_name = self.get_mod_name()
+        self.run_main = run_main
 
     def load_module(self):
         """Load the module"""
@@ -121,7 +138,7 @@ class ScriptWatcherLoader:
             paths, files = self.get_paths()
 
             # Create the module and setup the basic properties.
-            mod = types.ModuleType('__main__')
+            mod = types.ModuleType(self.mod_name if self.run_main else '__main__')
             mod.__file__ = self.filepath
             mod.__path__ = paths
             mod.__package__ = self.mod_name
@@ -132,6 +149,10 @@ class ScriptWatcherLoader:
 
             # Finally, execute the module.
             exec(compile(f.read(), self.filepath, 'exec'), mod.__dict__)
+
+            if self.run_main and 'main' in mod.__dict__:
+                mod.main()
+
         except IOError:
             print('Could not open script file.')
         except:
@@ -181,11 +202,11 @@ class ScriptWatcherLoader:
         """Remove all the script modules from the system cache."""
         paths = self.get_paths()
         for mod_name, mod in list(sys.modules.items()):
-            if hasattr(mod, '__file__') and os.path.dirname(mod.__file__) in paths:
+            if hasattr(mod, '__file__') and mod.__file__ and os.path.dirname(mod.__file__) in paths:
                 del sys.modules[mod_name]
 
-
 # Addon preferences.
+@make_annotations
 class ScriptWatcherPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
@@ -240,7 +261,7 @@ class WatchScriptOperator(bpy.types.Operator):
                 console, _, _ = console_python.get_console(int(console.name))
 
                 # Set the locals to the modules dict.
-                console.locals = sys.modules[self.get_mod_name()[0]].__dict__
+                console.locals = sys.modules[self.loader.mod_name].__dict__
 
         if self.use_py_console:
             # Print the output to the consoles.
@@ -294,7 +315,7 @@ class WatchScriptOperator(bpy.types.Operator):
             self.report({'ERROR'}, 'Unable to open script.')
             return {'CANCELLED'}
 
-        self.loader = ScriptWatcherLoader(filepath)
+        self.loader = ScriptWatcherLoader(filepath, context.scene.sw_settings.run_main)
 
         # Setup the times dict to keep track of when all the files where last edited.
         dirs, files = self.loader.get_paths()
@@ -304,7 +325,7 @@ class WatchScriptOperator(bpy.types.Operator):
 
         # Setup the event timer.
         wm = context.window_manager
-        self._timer = wm.event_timer_add(0.1, context.window)
+        self._timer = wm.event_timer_add(0.1, window=context.window)
         wm.modal_handler_add(self)
 
         context.scene.sw_settings.running = True
@@ -373,7 +394,13 @@ class ScriptWatcherPanel(bpy.types.Panel):
         col.prop(context.scene.sw_settings, 'filepath')
         col.prop(context.scene.sw_settings, 'use_py_console')
         col.prop(context.scene.sw_settings, 'auto_watch_on_startup')
-        col.operator('wm.sw_watch_start', icon='VISIBLE_IPO_ON')
+        col.prop(context.scene.sw_settings, 'run_main')
+
+        if bpy.app.version < (2, 80, 0):
+            col.operator('wm.sw_watch_start', icon='VISIBLE_IPO_ON')
+        else:
+            col.operator('wm.sw_watch_start', icon='HIDE_OFF')
+
         col.enabled = not running
 
         if running:
@@ -385,6 +412,7 @@ class ScriptWatcherPanel(bpy.types.Panel):
         layout.operator('wm.sw_edit_externally', icon='TEXT')
 
 
+@make_annotations
 class ScriptWatcherSettings(bpy.types.PropertyGroup):
     """All the script watcher settings."""
     running = bpy.props.BoolProperty(default=False)
@@ -398,7 +426,7 @@ class ScriptWatcherSettings(bpy.types.PropertyGroup):
 
     use_py_console = bpy.props.BoolProperty(
         name='Use py console',
-        description='Use blenders built-in python console for program output (e.g. print statments and error messages)',
+        description='Use blenders built-in python console for program output (e.g. print statements and error messages)',
         default=False
     )
 
@@ -406,6 +434,12 @@ class ScriptWatcherSettings(bpy.types.PropertyGroup):
         name='Watch on startup',
         description='Watch script automatically on new .blend load',
         default=False
+    )
+
+    run_main = bpy.props.BoolProperty(
+        name='Run Main',
+        description='Instead of running the module with the name __main__ execute the module and call main()',
+        default=False,
     )
 
 
@@ -435,6 +469,7 @@ def update_debug(self, context):
         # bpy.ops.console.update_console(ctx, debug_mode=self.active, script='test-script.py')
 
 
+@make_annotations
 class SWConsoleSettings(bpy.types.PropertyGroup):
     active = bpy.props.BoolProperty(
         name="Debug Mode",
@@ -445,6 +480,7 @@ class SWConsoleSettings(bpy.types.PropertyGroup):
 
 
 class SWConsoleHeader(bpy.types.Header):
+    bl_idname = "CONSOLE_HT_script_watcher"
     bl_space_type = 'CONSOLE'
 
     def draw(self, context):
@@ -463,9 +499,24 @@ class SWConsoleHeader(bpy.types.Header):
         row.scale_x = 1.8
         row.prop(cs[console_id], 'active', toggle=True)
 
+classes = (
+    ScriptWatcherPreferences,
+
+    WatchScriptOperator,
+    CancelScriptWatcher,
+    ReloadScriptWatcher,
+    OpenExternalEditor,
+
+    ScriptWatcherPanel,
+    ScriptWatcherSettings,
+    SWConsoleSettings,
+    SWConsoleHeader,
+)
 
 def register():
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
 
     bpy.types.Scene.sw_settings = \
         bpy.props.PointerProperty(type=ScriptWatcherSettings)
@@ -478,7 +529,9 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    from bpy.utils import unregister_class
+    for cls in reversed(classes):
+        unregister_class(cls)
 
     bpy.app.handlers.load_post.remove(load_handler)
 

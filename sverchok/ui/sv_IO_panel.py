@@ -31,8 +31,8 @@ from sverchok.utils.sv_IO_panel_tools import (
     create_dict_of_tree, import_tree)
 
 
-class SverchokIOLayoutsMenu(bpy.types.Panel):
-    bl_idname = "Sverchok_iolayouts_menu"
+class SV_PT_IOLayoutsMenu(bpy.types.Panel):
+    bl_idname = "SV_PT_IOLayoutsMenu"
     bl_label = "SV import/export"
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
@@ -52,7 +52,7 @@ class SverchokIOLayoutsMenu(bpy.types.Panel):
         ntree = context.space_data.node_tree
         row = layout.row(align=True)
         row.scale_y = 0.5
-        row.label(_EXPORTER_REVISION_)
+        row.label(text=_EXPORTER_REVISION_)
 
         box = layout.box()
         io_props = ntree.io_panel_properties
@@ -78,7 +78,7 @@ class SverchokIOLayoutsMenu(bpy.types.Panel):
                 exp.selected_only = io_props.export_selected_only
 
             ziprow = col.row(align=True)
-            ziprow.label('Archive .blend as')
+            ziprow.label(text='Archive .blend as')
             ziprow.operator('node.blend_to_archive', text='.zip').archive_ext = 'zip'
             ziprow.operator('node.blend_to_archive', text='.gz').archive_ext = 'gz'
 
@@ -113,11 +113,11 @@ class SverchokIOLayoutsMenu(bpy.types.Panel):
 
 
 def register():
-    bpy.utils.register_class(SverchokIOLayoutsMenu)
+    bpy.utils.register_class(SV_PT_IOLayoutsMenu)
 
 
 def unregister():
-    bpy.utils.unregister_class(SverchokIOLayoutsMenu)
+    bpy.utils.unregister_class(SV_PT_IOLayoutsMenu)
 
 
 if __name__ == '__main__':

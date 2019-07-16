@@ -19,10 +19,13 @@
 import bpy
 import bmesh
 
+from math import radians
+
 from .utils import get_bookgen_collection 
 from .data.verts import get_verts
 from .data.faces import get_faces
 from .data.uvs import get_seams
+from .data.creases import get_creases
 
 
 class Book:
@@ -41,6 +44,7 @@ class Book:
 
         self.verts = get_verts(page_thickness, page_height, cover_depth, cover_height, cover_thickness, page_depth, hinge_inset, hinge_width, spline_curl)
         self.faces = get_faces()
+        self.creases = get_creases()
         self.seams = get_seams()
 
     def to_object(self):
@@ -54,7 +58,6 @@ class Book:
 
         self.obj = bpy.data.objects.new("book", mesh)
 
-
         bm = bmesh.new()
         bm.from_mesh(mesh)
         vert_ob = []
@@ -64,16 +67,14 @@ class Book:
         bm.verts.index_update()
         bm.verts.ensure_lookup_table()
 
-
-        if(self.unwrap):
-            for seam in self.seams:
-                edge = bm.edges.new((bm.verts[seam[0]], bm.verts[seam[1]]))
-                edge.seam = True
+        cl = bm.edges.layers.crease.verify()
+        for c in self.creases:
+            e = bm.edges.new((bm.verts[c[0]], bm.verts[c[1]]))
+            e[cl] = 1.0
 
         for face in self.faces:
             f = bm.faces.new(index_to_vert(face))
-            if self.smooth:
-                f.smooth = True
+            f.smooth = True
 
         bm.faces.index_update()
         bm.edges.ensure_lookup_table()
@@ -82,14 +83,9 @@ class Book:
         bm.to_mesh(mesh)
         bm.free()
 
-        """
-        if(unwrap):
-            bpy.context.view_layer.objects.active = self.obj
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.uv.unwrap(method='CONFORMAL', margin=0.05)
-            bpy.ops.object.editmode_toggle()
-        """
+
+        mesh.use_auto_smooth = True
+        mesh.auto_smooth_angle = radians(50)
 
         if(self.subsurf):
             self.obj.modifiers.new("subd", type='SUBSURF')

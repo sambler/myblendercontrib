@@ -125,7 +125,7 @@ class SvDistancePointPlaneNode(bpy.types.Node, SverchCustomTreeNode):
     bl_idname = 'SvDistancePointPlaneNode'
     bl_label = 'Distance Point Plane'
     bl_icon = 'OUTLINER_OB_EMPTY'
-    sv_icon = 'SV_DISTANCE'
+    sv_icon = 'SV_DISTANCE_POINT_PLANE'
 
     implentation_modes = [
         ("NumPy", "NumPy", "NumPy", 0),
@@ -135,27 +135,27 @@ class SvDistancePointPlaneNode(bpy.types.Node, SverchCustomTreeNode):
         "NumPy": compute_distances_np,
         "MathUtils": compute_distances_mu}
 
-    output_numpy = BoolProperty(
+    output_numpy : BoolProperty(
         name='Output NumPy', description='Output NumPy arrays',
         default=False, update=updateNode)
 
-    implementation = EnumProperty(
+    implementation : EnumProperty(
         name='Implementation', items=implentation_modes,
         description='Choose calculation method',
         default="NumPy", update=updateNode)
     
-    tolerance = FloatProperty(
+    tolerance : FloatProperty(
         name="Tolerance", description='Intersection tolerance',
         default=1.0e-6, min=0.0, precision=6,
         update=updateNode)
 
-    list_match_global = EnumProperty(
+    list_match_global : EnumProperty(
         name="Match Global",
         description="Behavior on different list lengths, multiple objects level",
         items=list_match_modes, default="REPEAT",
         update=updateNode)
         
-    list_match_local = EnumProperty(
+    list_match_local : EnumProperty(
         name="Match Local",
         description="Behavior on different list lengths, object level",
         items=list_match_modes, default="REPEAT",

@@ -35,7 +35,7 @@ class SvTransformSelectNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Transform Select'
     bl_icon = 'EDITMODE_HLT'
 
-    maskType = EnumProperty(
+    maskType : EnumProperty(
         name="Mask Type", description="Mask various mesh components",
         default="VERTICES", items=maskTypeItems, update=updateNode)
 
@@ -107,10 +107,10 @@ class SvTransformSelectNode(bpy.types.Node, SverchCustomTreeNode):
         vert_all, vert_true, vert_false = [[], [], []]
         for ma, v, mt, mf in zip(*params):
             if ma == 1:  # do some processing using Matrix T here
-                v = (mt * Vector(v))[:]
+                v = (mt @ Vector(v))[:]
                 vert_true.append(v)
             else:  # do some processing using Matrix F here
-                v = (mf * Vector(v))[:]
+                v = (mf @ Vector(v))[:]
                 vert_false.append(v)
             vert_all.append(v)
 

@@ -172,7 +172,7 @@ class SvNavigateCategory(bpy.types.Operator):
     bl_idname = "sv.navigate_category"
     bl_description = "Navigate Prev/Next category"
 
-    direction = IntProperty(default=0)
+    direction: IntProperty(default=0)
 
     def execute(self, context):
         displayProps = context.space_data.node_tree.displayNodesProps
@@ -323,33 +323,33 @@ class SvDisplayNodePanelProperties(bpy.types.PropertyGroup):
         self.create_nodes(context)
         self.arrange_nodes(context)
 
-    constrain_layout = EnumProperty(
+    constrain_layout: EnumProperty(
         name="Constrain Layout", default="ASPECT",
         items=constrainLayoutItems, update=arrange_nodes)
 
-    category = EnumProperty(
+    category: EnumProperty(
         name="Category",
         items=category_items, update=update_category)
 
-    grid_width = IntProperty(
+    grid_width: IntProperty(
         name="Grid Width",
         default=700, update=arrange_nodes)
 
-    grid_height = IntProperty(
+    grid_height: IntProperty(
         name="Grid Height",
         default=500, update=arrange_nodes)
 
-    grid_x_space = IntProperty(
+    grid_x_space: IntProperty(
         name="Grid X spacing",
         default=20, update=arrange_nodes)
 
-    grid_y_space = IntProperty(
+    grid_y_space: IntProperty(
         name="Grid Y spacing",
         default=20, update=arrange_nodes)
 
 
-class SvDisplayNodesPanel(bpy.types.Panel):
-    bl_idname = "sv_display_nodes_panel"
+class SV_PT_DisplayNodesPanel(bpy.types.Panel):
+    bl_idname = "SV_PT_DisplayNodesPanel"
     bl_label = "SV Display Nodes"
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
@@ -372,7 +372,7 @@ class SvDisplayNodesPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         displayProps = context.space_data.node_tree.displayNodesProps
-        split = layout.split(percentage=0.7, align=True)
+        split = layout.split(factor=0.7, align=True)
         c1 = split.column(align=True)
         c2 = split.column(align=True)
         c1.prop(displayProps, "category", text="")
@@ -391,7 +391,7 @@ class SvDisplayNodesPanel(bpy.types.Panel):
 
 def register():
     bpy.utils.register_class(SvNavigateCategory)
-    bpy.utils.register_class(SvDisplayNodesPanel)
+    bpy.utils.register_class(SV_PT_DisplayNodesPanel)
     bpy.utils.register_class(SvDisplayNodePanelProperties)
     bpy.types.NodeTree.displayNodesProps = PointerProperty(
         name="displayNodesProps", type=SvDisplayNodePanelProperties)
@@ -400,6 +400,6 @@ def register():
 
 def unregister():
     del bpy.types.NodeTree.displayNodesProps
-    bpy.utils.unregister_class(SvDisplayNodesPanel)
+    bpy.utils.unregister_class(SV_PT_DisplayNodesPanel)
     bpy.utils.unregister_class(SvDisplayNodePanelProperties)
     bpy.utils.unregister_class(SvNavigateCategory)

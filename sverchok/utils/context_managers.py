@@ -29,7 +29,7 @@ def hard_freeze(self):
 @contextmanager
 def sv_preferences():
     '''
-    use this whenever you need set or get content of the user_preferences class
+    use this whenever you need set or get content of the preferences class
     usage
         from sverchok.utils.context_managers import sv_preferences
         ...
@@ -37,7 +37,7 @@ def sv_preferences():
             print(prefs.<some attr>)
     '''
     # by using svercok.__name__ we increase likelyhood that the addon preferences will correspond
-    addon = bpy.context.user_preferences.addons.get(sverchok.__name__)
+    addon = bpy.context.preferences.addons.get(sverchok.__name__)
     if addon and hasattr(addon, "preferences"):
         yield addon.preferences
 
@@ -49,14 +49,11 @@ def new_input(node, ident, name):
 
         c1 = inew('StringsSocket', 'stroke color')
         c1.prop_name = 'unit_1_color'
-        c1.nodule_color = nodule_color
 
         becomes
 
         with new_input(self, 'StringsSocket', 'stroke color') as c1:
             c1.prop_name = 'unit_1_color'
-            c1.nodule_color = nodule_color        
-
 
     '''
     yield node.inputs.new(ident, name)

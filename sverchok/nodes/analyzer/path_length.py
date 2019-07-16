@@ -20,7 +20,7 @@
 import bpy
 from bpy.props import BoolProperty
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import updateNode, match_long_repeat, get_edge_list
+from sverchok.data_structure import updateNode, match_long_repeat
 import numpy as np
 
 
@@ -63,11 +63,11 @@ class SvPathLengthNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Path Length'
     sv_icon = 'SV_PATH_LENGTH'
 
-    output_numpy = BoolProperty(
+    output_numpy : BoolProperty(
         name='Output NumPy', description='output NumPy arrays',
         default=False, update=updateNode)
 
-    segment = BoolProperty(
+    segment : BoolProperty(
         name='Segment', description='Get segments length or the sum of them',
         default=True, update=updateNode)
 

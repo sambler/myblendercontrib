@@ -95,20 +95,40 @@ def clear_node_classes():
     node_classes.clear()
 
 
+def app_handler_ops(append=None, remove=None):
+    """ append or remove multiple items to specific bpy.app.handlers """
+
+    (operation, handler_dict) = ('append', append) if append else ('remove', remove)
+    for handler_name, handler_function in handler_dict.items():
+        handler = getattr(bpy.app.handlers, handler_name)
+        
+        # bpy.app.handlers.<handler>.<append or remove>(function_name)
+        getattr(handler, operation)(handler_function)
+
+    # try:
+    #     names = lambda d: [f"    {k} -> {v.__name__}" for k, v in d.items()] 
+    #     listed = "\n".join(names(handler_dict))
+    # except Exception as err:
+    #     print('error while listing event handlers', err)
+    #     listed = ""
+
+    print(f'sv: {operation} app.handlers:')
+    # print(f'{listed}')
+
+
 utils_modules = [
     # non UI tools
     "cad_module", "cad_module_class", "sv_bmesh_utils", "sv_viewer_utils", "sv_curve_utils",
     "voronoi", "sv_script", "sv_itertools", "script_importhelper", "sv_oldnodes_parser",
     "csg_core", "csg_geom", "geom", "sv_easing_functions", "sv_text_io_common",
-    "snlite_utils", "snlite_importhelper", "context_managers", "sv_node_utils",
+    "snlite_utils", "snlite_importhelper", "context_managers", "sv_node_utils", "sv_noise_utils",
     "profile", "logging", "testing", "sv_prefs", "sv_requests", "sv_examples_utils",
     # UI text editor ui
     "text_editor_submenu", "text_editor_plugins",
     # UI operators and tools
     "sv_IO_monad_helpers", "sv_operator_utils", "sv_IO_panel_properties", "sv_IO_panel_operators",
-    "sv_panels_props_IO_operators",
     "sv_panels_tools", "sv_gist_tools", "sv_IO_panel_tools", "sv_load_archived_blend",
     "monad", "sv_help", "sv_default_macros", "sv_macro_utils", "sv_extra_search", "sv_3dview_tools",
     #"loadscript",
-    "debug_script", "sv_update_utils", "sv_bgl_primitives"
+    "debug_script", "sv_update_utils", "sv_obj_helper", "sv_batch_primitives", "sv_idx_viewer28_draw"
 ]

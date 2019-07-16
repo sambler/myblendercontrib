@@ -29,17 +29,18 @@ from sverchok.utils.logging import debug, info, error
 
 class FakeObj(object):
 
-    def __init__(self, OB):
-        self.matrix_local = OB.matrix_local
+    def __init__(self, obj):
+        self.matrix_local = obj.matrix_local
         
-        mesh_settings = (bpy.context.scene, True, 'RENDER')
-        data = OB.to_mesh(*mesh_settings)
+        # mesh_settings = (..., True, 'RENDER')
+        # data = OB.to_mesh(*mesh_settings)
+        data = obj.to_mesh() # bpy.context.depsgraph, apply_modifiers=True, calc_undeformed=False)
 
         vertices = [vert.co[:] for vert in data.vertices] 
         polygons = [poly.vertices[:] for poly in data.polygons]
 
         self.BVH = BVHTree.FromPolygons(vertices, polygons)
-        bpy.data.meshes.remove(data)
+        obj.to_mesh_clear()
 
 
     def ray_cast(self, a, b):
@@ -61,10 +62,10 @@ class SvOBJInsolationNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Object ID Insolation'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    mode = BoolProperty(name='input mode', default=False, update=updateNode)
+    mode: BoolProperty(name='input mode', default=False, update=updateNode)
     #mode2 = BoolProperty(name='output mode', default=False, update=updateNode)
-    sort_critical = IntProperty(name='sort_critical', default=12, min=1,max=24, update=updateNode)
-    separate = BoolProperty(name='separate the', default=False, update=updateNode)
+    sort_critical: IntProperty(name='sort_critical', default=12, min=1,max=24, update=updateNode)
+    separate: BoolProperty(name='separate the', default=False, update=updateNode)
 
     def sv_init(self, context):
         si,so = self.inputs.new,self.outputs.new
@@ -112,7 +113,7 @@ class SvOBJInsolationNode(bpy.types.Node, SverchCustomTreeNode):
 
             if sm1:
                 obm = NOB.matrix_local.inverted()
-                outfin.append([NOB.ray_cast(obm*Vector(i), obm*Vector(i2)) for i,i2 in zip(st,en)])
+                outfin.append([NOB.ray_cast(obm @ Vector(i), obm @ Vector(i2)) for i,i2 in zip(st,en)])
             else:
                 outfin.append([NOB.ray_cast(i,i2) for i,i2 in zip(st,en)])
 
@@ -205,9 +206,6 @@ class SvOBJInsolationNode(bpy.types.Node, SverchCustomTreeNode):
         '''
 
 
-    def update_socket(self, context):
-        self.update()
-
 
 def register():
     bpy.utils.register_class(SvOBJInsolationNode)
@@ -215,6 +213,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(SvOBJInsolationNode)
-
-if __name__ == '__main__':
-    register()

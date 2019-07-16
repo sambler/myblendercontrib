@@ -28,7 +28,7 @@ class SvFilterObjsNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Object ID Filter'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    formula = StringProperty(name='formula', default='write name here', update=updateNode)
+    formula: StringProperty(name='formula', default='write name here', update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('StringsSocket', 'Objects')
@@ -65,9 +65,6 @@ class SvFilterObjsNode(bpy.types.Node, SverchCustomTreeNode):
                     out2.append(i)
         O1.sv_set(out1)
         O2.sv_set(out2)
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

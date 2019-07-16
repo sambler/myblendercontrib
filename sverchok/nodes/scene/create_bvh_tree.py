@@ -46,14 +46,14 @@ class SvBVHtreeNode(bpy.types.Node, SverchCustomTreeNode):
             inputs.new('StringsSocket', 'Polys')
 
     Modes = ['FromObject','FromBMesh','FromSVdata']
-    Mod = EnumProperty(name="getmodes", default=Modes[0], items=e(Modes), update=mode_change)
+    Mod: EnumProperty(name="getmodes", default=Modes[0], items=e(Modes), update=mode_change)
 
     def sv_init(self, context):
         self.inputs.new('StringsSocket', 'Objects')
         self.outputs.new('StringsSocket', 'BVHtree_list')
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, "Mod", "Get")
+        layout.prop(self, "Mod", text="Get")
 
     def process(self):
         bvh = []
@@ -67,9 +67,6 @@ class SvBVHtreeNode(bpy.types.Node, SverchCustomTreeNode):
             for i,i2 in zip(self.inputs[1].sv_get(),self.inputs[2].sv_get()):
                 bvh.append(BVHTree.FromPolygons(i, i2, all_triangles=False, epsilon=0.0))
         self.outputs[0].sv_set(bvh)
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

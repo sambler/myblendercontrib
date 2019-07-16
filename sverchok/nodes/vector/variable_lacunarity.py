@@ -23,30 +23,13 @@ from mathutils import noise
 from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import updateNode
 from sverchok.utils.sv_seed_funcs import get_offset, seed_adjusted
-
-# noise nodes
-# from http://www.blender.org/documentation/blender_python_api_current/mathutils.noise.html
-
-
-noise_options = [
-    ('BLENDER', 0),
-    ('STDPERLIN', 1),
-    ('NEWPERLIN', 2),
-    ('VORONOI_F1', 3),
-    ('VORONOI_F2', 4),
-    ('VORONOI_F3', 5),
-    ('VORONOI_F4', 6),
-    ('VORONOI_F2F1', 7),
-    ('VORONOI_CRACKLE', 8),
-    ('CELLNOISE', 14)
-]
+from sverchok.utils.sv_noise_utils import noise_options, PERLIN_ORIGINAL
 
 
 def var_func(position, distortion, _noise_type1, _noise_type2):
-    return noise.variable_lacunarity(position, distortion, _noise_type1, _noise_type2)
+    return noise.variable_lacunarity(position, distortion, noise_type1=_noise_type1, noise_type2=_noise_type2)
 
 
-noise_dict = {t[0]: t[1] for t in noise_options}
 avail_noise = [(t[0], t[0].title(), t[0].title(), '', t[1]) for t in noise_options]
 
 
@@ -56,22 +39,20 @@ class SvLacunarityNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Variable Lacunarity'
     bl_icon = 'FORCE_TURBULENCE'
 
-    noise_type1 = EnumProperty(
+    noise_type1: EnumProperty(
         items=avail_noise,
-        default='STDPERLIN',
+        default=PERLIN_ORIGINAL,
         description="Noise type",
         update=updateNode)
 
-    noise_type2 = EnumProperty(
+    noise_type2: EnumProperty(
         items=avail_noise,
-        default='STDPERLIN',
+        default=PERLIN_ORIGINAL,
         description="Noise type",
         update=updateNode)
 
-    distortion = FloatProperty(
-        default=0.2, name="Distortion", update=updateNode)
-
-    seed = IntProperty(default=0, name='Seed', update=updateNode)
+    distortion: FloatProperty(default=0.2, name="Distortion", update=updateNode)
+    seed: IntProperty(default=0, name='Seed', update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Vertices')
@@ -93,13 +74,10 @@ class SvLacunarityNode(bpy.types.Node, SverchCustomTreeNode):
         verts = inputs['Vertices'].sv_get(deepcopy=False)
         _seed = inputs['Seed'].sv_get()[0][0]
         _distortion = inputs['Distrortion'].sv_get()[0][0]
-        _noise_type1 = noise_dict[self.noise_type1]
-        _noise_type2 = noise_dict[self.noise_type2]
 
         for vert_list in verts:
-
             final_vert_list = seed_adjusted(vert_list, _seed)
-            out.append([var_func(v, _distortion, _noise_type1, _noise_type2) for v in final_vert_list])
+            out.append([var_func(v, _distortion, self.noise_type1, self.noise_type2) for v in final_vert_list])
 
         outputs[0].sv_set(out)
 

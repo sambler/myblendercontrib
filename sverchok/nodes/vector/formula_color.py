@@ -29,10 +29,10 @@ class SvFormulaColorNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Color by formula'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    ModeR = StringProperty(name='formulaR', default='r', update=updateNode)
-    ModeG = StringProperty(name='formulaG', default='g', update=updateNode)
-    ModeB = StringProperty(name='formulaB', default='b', update=updateNode)
-    ModeA = StringProperty(name='formulaA', default='a', update=updateNode)
+    ModeR: StringProperty(name='formulaR', default='r', update=updateNode)
+    ModeG: StringProperty(name='formulaG', default='g', update=updateNode)
+    ModeB: StringProperty(name='formulaB', default='b', update=updateNode)
+    ModeA: StringProperty(name='formulaA', default='a', update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('SvColorSocket', 'Colors(rgba)')
@@ -42,8 +42,7 @@ class SvFormulaColorNode(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         for element in 'RGBA':
             row = layout.row()
-            split = row.split(percentage=0.15)
-            split.label(element)
+            split = row.split(align=True)
             split.split().prop(self, "Mode"+element, text='')
 
     def process(self):
@@ -60,9 +59,6 @@ class SvFormulaColorNode(bpy.types.Node, SverchCustomTreeNode):
             else:
                 exec_string = "Oo.sv_set([[({n.ModeR},{n.ModeG},{n.ModeB},{n.ModeA}) for i, (r, g, b, a) in enumerate(L)] for I, L in enumerate(V)])"
                 exec(exec_string.format(n=self))
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

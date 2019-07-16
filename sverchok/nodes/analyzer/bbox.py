@@ -29,15 +29,15 @@ class SvBBoxNode(bpy.types.Node, SverchCustomTreeNode):
     '''Bounding box'''
     bl_idname = 'SvBBoxNode'
     bl_label = 'Bounding box'
-    bl_icon = 'BBOX'
+    bl_icon = 'NONE'
 
     def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Vertices')
 
         self.outputs.new('VerticesSocket', 'Vertices')
-        self.outputs.new('StringsSocket', 'Edges', 'Edges')
+        self.outputs.new('StringsSocket', 'Edges')
         self.outputs.new('VerticesSocket', 'Mean')
-        self.outputs.new('MatrixSocket', 'Center', 'Center')
+        self.outputs.new('MatrixSocket', 'Center')
 
     def process(self):
         if not self.inputs['Vertices'].is_linked:

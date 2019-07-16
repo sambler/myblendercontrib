@@ -17,7 +17,7 @@
 # ##### END GPL LICENSE BLOCK #####
 
 import bpy
-from sverchok.node_tree import (SverchCustomTreeNode)
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import (Vector_generate, matrixdef, Matrix_listing,
                             Matrix_generate, updateNode)
 
@@ -67,9 +67,6 @@ class MatrixDeformNode(bpy.types.Node, SverchCustomTreeNode):
             matrixes_ = matrixdef(orig, loc, scale, rot, angle, rotA)
             Om.sv_set(matrixes_)
 
-    def update_socket(self, context):
-        updateNode(self, context)
-
 
 def register():
     bpy.utils.register_class(MatrixDeformNode)
@@ -77,6 +74,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(MatrixDeformNode)
-
-if __name__ == '__main__':
-    register()

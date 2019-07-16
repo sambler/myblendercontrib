@@ -53,22 +53,22 @@ class SvMeshSelectNode(bpy.types.Node, SverchCustomTreeNode):
 
         updateNode(self, context)
 
-    mode = EnumProperty(name="Mode",
+    mode: EnumProperty(name="Mode",
             items=modes,
             default='ByNormal',
             update=update_mode)
 
-    include_partial = BoolProperty(name="Include partial selection",
+    include_partial: BoolProperty(name="Include partial selection",
             description="Include partially selected edges/faces",
             default=False,
             update=updateNode)
 
-    percent = FloatProperty(name="Percent", 
+    percent: FloatProperty(name="Percent", 
             default=1.0,
             min=0.0, max=100.0,
             update=updateNode)
 
-    radius = FloatProperty(name="Radius", default=1.0, min=0.0, update=updateNode)
+    radius: FloatProperty(name="Radius", default=1.0, min=0.0, update=updateNode)
 
     def draw_buttons(self, context, layout):
         layout.prop(self, 'mode')
@@ -88,8 +88,8 @@ class SvMeshSelectNode(bpy.types.Node, SverchCustomTreeNode):
         c.use_prop = True
         c.prop = (0.0, 0.0, 0.0)
 
-        self.inputs.new('StringsSocket', 'Percent', 'Percent').prop_name = 'percent'
-        self.inputs.new('StringsSocket', 'Radius', 'Radius').prop_name = 'radius'
+        self.inputs.new('StringsSocket', 'Percent').prop_name = 'percent'
+        self.inputs.new('StringsSocket', 'Radius').prop_name = 'radius'
 
         self.outputs.new('StringsSocket', 'VerticesMask')
         self.outputs.new('StringsSocket', 'EdgesMask')
@@ -342,6 +342,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(SvMeshSelectNode)
-
-
-

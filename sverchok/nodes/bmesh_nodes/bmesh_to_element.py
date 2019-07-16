@@ -19,7 +19,7 @@
 import bpy
 import bmesh
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (updateNode)
+from sverchok.data_structure import updateNode
 
 
 class SvBMtoElementNode(bpy.types.Node, SverchCustomTreeNode):
@@ -42,9 +42,6 @@ class SvBMtoElementNode(bpy.types.Node, SverchCustomTreeNode):
             v.sv_set([i.verts[:] for i in bml])
             e.sv_set([i.edges[:] for i in bml])
             p.sv_set([i.faces[:] for i in bml])
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

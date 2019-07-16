@@ -31,7 +31,7 @@ import sverchok
 import bpy
 from bpy.props import BoolProperty, EnumProperty, StringProperty, IntProperty
 
-from sverchok.node_tree import SverchCustomTreeNode, StringsSocket
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import node_id, multi_socket, updateNode
 
 from sverchok.utils.sv_text_io_common import (
@@ -49,7 +49,7 @@ class SvTextInFileImporterOp(bpy.types.Operator):
     bl_idname = "node.sv_textin_file_importer"
     bl_label = "File Importer"
 
-    filepath = StringProperty(
+    filepath: StringProperty(
         name="File Path",
         description="Filepath used for importing the file",
         maxlen=1024, default="", subtype='FILE_PATH')
@@ -99,17 +99,17 @@ class SvTextInNodeMK2(bpy.types.Node, SverchCustomTreeNode, CommonTextMixinIO):
     json_data = {}
 
     # general settings
-    n_id = StringProperty(default='')
-    force_input = BoolProperty()
+    n_id: StringProperty(default='')
+    force_input: BoolProperty()
 
-    textmode = EnumProperty(items=text_modes, default='CSV', update=updateNode, name='textmode')
+    textmode: EnumProperty(items=text_modes, default='CSV', update=updateNode, name='textmode')
 
     # name of loaded text, to support reloading
-    text = StringProperty(default="")
-    current_text = StringProperty(default="")
+    text: StringProperty(default="")
+    current_text: StringProperty(default="")
 
     # external file
-    file = StringProperty(subtype='FILE_PATH')
+    file: StringProperty(subtype='FILE_PATH')
 
     # csv standard dialect as defined in http://docs.python.org/3.3/library/csv.html
     # below are csv settings, user defined are set to 10 to allow more settings be added before
@@ -139,39 +139,39 @@ class SvTextInNodeMK2(bpy.types.Node, SverchCustomTreeNode, CommonTextMixinIO):
         ('s', 'Data',      "Generals numbers or edge polygon data", 2),
         ('m', 'Matrix',    "Matrix data", 3)]
 
-    csv_dialect = EnumProperty(
+    csv_dialect: EnumProperty(
         items=csv_dialects, name="Dialect",
         description="Choose csv dialect", default='excel', update=updateNode)
 
-    csv_header = BoolProperty(default=False, name='Header fields')
-    csv_delimiter = EnumProperty(items=csv_delimiters, name="Delimiter", default=',')
-    csv_custom_delimiter = StringProperty(default=':', name="Custom")
-    csv_decimalmark = EnumProperty(items=csv_decimalmarks, default='LOCALE', name="Decimalmark")
-    csv_custom_decimalmark = StringProperty(default=',', name="Custom")
+    csv_header: BoolProperty(default=False, name='Header fields')
+    csv_delimiter: EnumProperty(items=csv_delimiters, name="Delimiter", default=',')
+    csv_custom_delimiter: StringProperty(default=':', name="Custom")
+    csv_decimalmark: EnumProperty(items=csv_decimalmarks, default='LOCALE', name="Decimalmark")
+    csv_custom_decimalmark: StringProperty(default=',', name="Custom")
 
-    csv_skip_header_lines = IntProperty(default=0, name='skip n lines', description='some csv need n skips', min=0)
-    csv_extended_mode = BoolProperty(name='extended mode')
+    csv_skip_header_lines: IntProperty(default=0, name='skip n lines', description='some csv need n skips', min=0)
+    csv_extended_mode: BoolProperty(name='extended mode')
 
     # Sverchok list options
     # choose which socket to interpret data as
-    socket_type = EnumProperty(items=socket_types, default='s')
+    socket_type: EnumProperty(items=socket_types, default='s')
 
     #interesting but dangerous, TODO
-    autoreload = BoolProperty(default=False, description="Reload text file on every update", name='auto reload')
+    autoreload: BoolProperty(default=False, description="Reload text file on every update", name='auto reload')
 
     # to have one socket output
-    one_sock = BoolProperty(name='one socket', default=False)
+    one_sock: BoolProperty(name='one socket', default=False)
 
     def draw_buttons_ext(self, context, layout):
         if self.textmode == 'CSV':
             layout.prop(self, 'force_input')
             layout.prop(self, 'csv_skip_header_lines', text='Skip n header lines')
-            layout.label("extra mode")
+            layout.label(text="extra mode")
             layout.prop(self, "csv_extended_mode", toggle=True)
 
     def draw_buttons(self, context, layout):
 
-        addon = context.user_preferences.addons.get(sverchok.__name__)
+        addon = context.preferences.addons.get(sverchok.__name__)
         over_sized_buttons = addon.preferences.over_sized_buttons
 
         col = layout.column(align=True)
@@ -188,7 +188,7 @@ class SvTextInNodeMK2(bpy.types.Node, SverchCustomTreeNode, CommonTextMixinIO):
         else:
             row = col.row(align=True)
             row.prop_search(self, 'text', bpy.data, 'texts', text="Read")
-            row.operator("node.sv_textin_file_importer", text='', icon='FILESEL')
+            row.operator("node.sv_textin_file_importer", text='', icon='EMPTY_SINGLE_ARROW')
 
             row = col.row(align=True)
             row.prop(self, 'textmode', expand=True)
@@ -269,8 +269,6 @@ class SvTextInNodeMK2(bpy.types.Node, SverchCustomTreeNode, CommonTextMixinIO):
         elif self.textmode == 'JSON':
             self.load_json()
 
-    def update_socket(self, context):
-        self.update()
 
     #
     # CSV methods.
@@ -314,10 +312,10 @@ class SvTextInNodeMK2(bpy.types.Node, SverchCustomTreeNode, CommonTextMixinIO):
         else:
             if not self.one_sock:
                 for name in self.csv_data[n_id]:
-                    self.outputs.new('StringsSocket', name, name)
+                    self.outputs.new('StringsSocket', name)
             else:
                 name = 'one_sock'
-                self.outputs.new('StringsSocket', name, name)
+                self.outputs.new('StringsSocket', name)
 
 
     def load_csv_data(self):

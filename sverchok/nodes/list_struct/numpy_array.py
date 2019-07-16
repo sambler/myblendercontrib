@@ -35,8 +35,9 @@ class SvNumpyArrayNode(bpy.types.Node, SverchCustomTreeNode):
              'np.unique(x)','x.sum()','x.cumsum()','x.mean()','x.var()','x.std()','x.prod()',
              'x.cumprod()','np.array(x)','np.array_equal(x,y)','np.invert(x)','np.rot90(x,1)',
              'x[y]','x+y','x*y','Custom']
-    Mod = EnumProperty(name="getmodes", default="np.array(x)", items=e(Modes), update=updateNode)
-    Cust = StringProperty(default='x[y.argsort()]', update=updateNode)
+
+    Mod: EnumProperty(name="getmodes", default="np.array(x)", items=e(Modes), update=updateNode)
+    Cust: StringProperty(default='x[y.argsort()]', update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('StringsSocket', 'x')
@@ -44,7 +45,7 @@ class SvNumpyArrayNode(bpy.types.Node, SverchCustomTreeNode):
         self.outputs.new('StringsSocket', 'Value')
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, "Mod", "Get")
+        layout.prop(self, "Mod", text="Get")
         if self.Mod == 'Custom':
             layout.prop(self, "Cust", text="")
 
@@ -60,9 +61,6 @@ class SvNumpyArrayNode(bpy.types.Node, SverchCustomTreeNode):
                 out.sv_set(eval("["+string+" for x in X.sv_get()]"))
             else:
                 out.sv_set([eval(string)])
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

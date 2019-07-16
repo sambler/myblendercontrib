@@ -20,7 +20,7 @@ import bpy
 import bmesh
 from bpy.props import BoolProperty, IntProperty
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (updateNode)
+from sverchok.data_structure import updateNode
 
 
 class SvBMObjinputNode(bpy.types.Node, SverchCustomTreeNode):
@@ -29,8 +29,8 @@ class SvBMObjinputNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'BMesh Obj in'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    UseSKey = BoolProperty(name='with_shapekey', default=False, update=updateNode)
-    keyIND = IntProperty(name='SHKey_ind', default=0, update=updateNode)
+    UseSKey: BoolProperty(name='with_shapekey', default=False, update=updateNode)
+    keyIND: IntProperty(name='SHKey_ind', default=0, update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('SvObjectSocket', 'Objects')
@@ -74,10 +74,6 @@ class SvBMObjinputNode(bpy.types.Node, SverchCustomTreeNode):
             o7.sv_set([[f.smooth for f in bm.faces] for bm in Val])
         if bmL.is_linked:
             bmL.sv_set(Val)
-
-    def update_socket(self, context):
-        self.update()
-
 
 def register():
     bpy.utils.register_class(SvBMObjinputNode)

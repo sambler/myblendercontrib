@@ -41,7 +41,7 @@ def update_wrapper(self, context):
 
 
 class SvExecNodeDynaStringItem(bpy.types.PropertyGroup):
-    line = bpy.props.StringProperty(name="line to eval", default="", update=update_wrapper)
+    line: bpy.props.StringProperty(name="line to eval", default="", update=update_wrapper)
 
 
 class SvExecNodeModCallback(bpy.types.Operator):
@@ -49,9 +49,9 @@ class SvExecNodeModCallback(bpy.types.Operator):
     bl_idname = callback_id
     bl_label = "generic callback"
 
-    cmd = bpy.props.StringProperty(default='')
-    idx = bpy.props.IntProperty(default=-1)
-    form = bpy.props.StringProperty(default='')
+    cmd: bpy.props.StringProperty(default='')
+    idx: bpy.props.IntProperty(default=-1)
+    form: bpy.props.StringProperty(default='')
 
     def execute(self, context):
         try:
@@ -69,14 +69,14 @@ class SvExecNodeMod(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Exec Node Mod'
     bl_icon = 'CONSOLE'
 
-    text = StringProperty(default='', update=updateNode)
-    dynamic_strings = bpy.props.CollectionProperty(type=SvExecNodeDynaStringItem)
+    text: StringProperty(default='', update=updateNode)
+    dynamic_strings: bpy.props.CollectionProperty(type=SvExecNodeDynaStringItem)
 
     def draw_buttons(self, context, layout):
         row = layout.row(align=True)
         # add() remove() clear() move()
-        row.operator(callback_id, text='', icon='ZOOMIN').cmd = 'add_new_line'
-        row.operator(callback_id, text='', icon='ZOOMOUT').cmd = 'remove_last_line'
+        row.operator(callback_id, text='', icon='ZOOM_IN').cmd = 'add_new_line'
+        row.operator(callback_id, text='', icon='ZOOM_OUT').cmd = 'remove_last_line'
         row.operator(callback_id, text='', icon='TRIA_UP').cmd = 'shift_up'
         row.operator(callback_id, text='', icon='TRIA_DOWN').cmd = 'shift_down'
         row.operator(callback_id, text='', icon='SNAP_ON').cmd = 'delete_blank'
@@ -113,13 +113,13 @@ class SvExecNodeMod(bpy.types.Node, SverchCustomTreeNode):
         col.operator(callback_id, text='copy to node').cmd = 'copy_from_text'
         col.prop_search(self, 'text', bpy.data, "texts", text="")
 
-        col.label('Code')
+        col.label(text='Code')
         col.operator(callback_id, text='cc to clipboard').cmd = 'copy_node_text_to_clipboard'
         col.operator(callback_id, text='cc from clipboard').cmd = 'copy_node_text_from_clipboard'
 
 
     def rclick_menu(self, context, layout):
-        layout.label('Code CC')
+        layout.label(text='Code CC')
         layout.operator(callback_id, text='to clipboard', icon='COPYDOWN').cmd = 'copy_node_text_to_clipboard'
         layout.operator(callback_id, text='from clipboard', icon='PASTEDOWN').cmd = 'copy_node_text_from_clipboard'
 

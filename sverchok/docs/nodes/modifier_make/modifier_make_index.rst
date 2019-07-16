@@ -19,5 +19,3 @@ Modifier Make
    voronoi_2d
    wafel
    wireframe
-   fractal_curve
-   bevel_curve

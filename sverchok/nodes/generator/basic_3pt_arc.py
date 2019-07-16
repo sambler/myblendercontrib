@@ -23,13 +23,13 @@ import mathutils
 from bpy.props import IntProperty, FloatProperty, FloatVectorProperty
 from mathutils import Vector, Euler, geometry
 
-from sverchok.node_tree import SverchCustomTreeNode, VerticesSocket, StringsSocket
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import updateNode
 
 
 def generate_3PT_mode_1(pts=None, num_verts=20, make_edges=False):
     '''
-    Arc from start - throught - Eend
+    Arc from [start - through - end]
     - call this function only if you have 3 pts,
     - do your error checking before passing to it.
     '''
@@ -45,10 +45,10 @@ def generate_3PT_mode_1(pts=None, num_verts=20, make_edges=False):
     mat_rot = mathutils.Matrix.Rotation(math.radians(90.0), 4, axis)
 
     # triangle edges
-    v1_ = ((v1 - edge1_mid) * mat_rot) + edge1_mid
-    v2_ = ((v2 - edge1_mid) * mat_rot) + edge1_mid
-    v3_ = ((v3 - edge2_mid) * mat_rot) + edge2_mid
-    v4_ = ((v4 - edge2_mid) * mat_rot) + edge2_mid
+    v1_ = ((v1 - edge1_mid) @ mat_rot) + edge1_mid
+    v2_ = ((v2 - edge1_mid) @ mat_rot) + edge1_mid
+    v3_ = ((v3 - edge2_mid) @ mat_rot) + edge2_mid
+    v4_ = ((v4 - edge2_mid) @ mat_rot) + edge2_mid
 
     r = geometry.intersect_line_line(v1_, v2_, v3_, v4_)
     if r:
@@ -65,7 +65,7 @@ def generate_3PT_mode_1(pts=None, num_verts=20, make_edges=False):
 
         for i in range(num_verts + 1):
             mat_rot = mathutils.Matrix.Rotation(((s / num_verts) * i), 4, axis)
-            vec = ((v4 - p1) * mat_rot) + p1
+            vec = ((v4 - p1) @ mat_rot) + p1
             verts.append(vec[:])
     else:
         # do straight line
@@ -103,13 +103,13 @@ class svBasicArcNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = '3pt Arc'
     bl_icon = 'SPHERECURVE'
 
-    num_verts = IntProperty(
+    num_verts: IntProperty(
         name='num_verts',
         description='Num Vertices',
         default=20, min=3,
         update=updateNode)
 
-    arc_pts = FloatVectorProperty(
+    arc_pts: FloatVectorProperty(
         name='atc_pts',
         description="3 points, Start-Through-End",
         update=updateNode,
@@ -183,7 +183,7 @@ class svBasicArcNode(bpy.types.Node, SverchCustomTreeNode):
         nv = []
         # get vert_nums, or pad till matching quantity
         if inputs['num_verts'].is_linked:
-            nv = inputs['num_verts'].sv_get(deepcopy=False)[0]
+            nv = inputs['num_verts'].sv_get(deepcopy=True)[0]
 
             if nv and (len(nv) < num_arcs):
                 pad_num = num_arcs - len(nv)

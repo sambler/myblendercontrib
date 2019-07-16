@@ -23,25 +23,9 @@ from mathutils import noise, Vector
 from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import (updateNode, Vector_degenerate, fullList)
 from sverchok.utils.sv_seed_funcs import get_offset, seed_adjusted
-
-# noise nodes
-# from http://www.blender.org/documentation/blender_python_api_current/mathutils.noise.html
+from sverchok.utils.sv_noise_utils import noise_options, PERLIN_ORIGINAL
 
 
-noise_options = [
-    ('BLENDER', 0),
-    ('STDPERLIN', 1),
-    ('NEWPERLIN', 2),
-    ('VORONOI_F1', 3),
-    ('VORONOI_F2', 4),
-    ('VORONOI_F3', 5),
-    ('VORONOI_F4', 6),
-    ('VORONOI_F2F1', 7),
-    ('VORONOI_CRACKLE', 8),
-    ('CELLNOISE', 14)
-]
-
-noise_dict = {t[0]: t[1] for t in noise_options}
 avail_noise = [(t[0], t[0].title(), t[0].title(), '', t[1]) for t in noise_options]
 
 turbulence_f = {'SCALAR': noise.turbulence, 'VECTOR': noise.turbulence_vector}
@@ -67,41 +51,38 @@ class SvTurbulenceNode(bpy.types.Node, SverchCustomTreeNode):
         ('SCALAR', 'Scalar', 'Scalar output', '', 1),
         ('VECTOR', 'Vector', 'Vector output', '', 2)]
 
-    out_mode = EnumProperty(
+    out_mode: EnumProperty(
         items=out_modes,
         default='VECTOR',
         description='Output type',
         update=changeMode)
 
-    noise_type = EnumProperty(
+    noise_type: EnumProperty(
         items=avail_noise,
-        default='STDPERLIN',
+        default=PERLIN_ORIGINAL,
         description="Noise type",
         update=updateNode)
 
-    octaves = IntProperty(default=3, min=0, max=6,
-                          description='Octaves',
-                          name='Octaves', update=updateNode)
-    hard = BoolProperty(default=True,
-                          description="Hard(sharp) or soft (smooth)transitions",
-                          name="Hard", update=updateNode)
-    amp = FloatProperty(default=0.50,
-                          description="The amplitude scaling factor",
-                          name="Amplitude", update=updateNode)
-    freq = FloatProperty(default=2.00,
-                          description="The frequency scaling factor",
-                          name="Frequency", update=updateNode)
-    rseed = IntProperty(default=0,
-                          description="Random seed",
-                          name="Random seed", update=updateNode)
+    octaves: IntProperty(
+        default=3, min=0, max=6, description='Octaves', name='Octaves', update=updateNode)
+    hard: BoolProperty(
+        default=True, description="Hard(sharp) or soft (smooth)transitions", name="Hard", update=updateNode)
+    amp: FloatProperty(
+        default=0.50, description="The amplitude scaling factor", name="Amplitude", update=updateNode)
+    freq: FloatProperty(
+        default=2.00, description="The frequency scaling factor", name="Frequency", update=updateNode)
+    rseed: IntProperty(
+        default=0, description="Random seed", name="Random seed", update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new('VerticesSocket', 'Vertices')
-        self.inputs.new('StringsSocket', 'Octaves').prop_name = 'octaves'
-        self.inputs.new('StringsSocket', 'Hard').prop_name = 'hard'
-        self.inputs.new('StringsSocket', 'Amplitude').prop_name = 'amp'
-        self.inputs.new('StringsSocket', 'Frequency').prop_name = 'freq'
-        self.inputs.new('StringsSocket', 'Random seed').prop_name = 'rseed'
+        inew = self.inputs.new
+        inew('VerticesSocket', 'Vertices')
+        inew('StringsSocket', 'Octaves').prop_name = 'octaves'
+        inew('StringsSocket', 'Hard').prop_name = 'hard'
+        inew('StringsSocket', 'Amplitude').prop_name = 'amp'
+        inew('StringsSocket', 'Frequency').prop_name = 'freq'
+        inew('StringsSocket', 'Random seed').prop_name = 'rseed'
+
         self.outputs.new('VerticesSocket', 'Noise V')
 
     def draw_buttons(self, context, layout):
@@ -109,33 +90,33 @@ class SvTurbulenceNode(bpy.types.Node, SverchCustomTreeNode):
         layout.prop(self, 'noise_type', text="Type")
 
     def process(self):
-            inputs, outputs = self.inputs, self.outputs
+        inputs, outputs = self.inputs, self.outputs
 
-            if not outputs[0].is_linked:
-                return
+        if not outputs[0].is_linked:
+            return
 
-            _noise_type = noise_dict[self.noise_type]
-            tfunc = turbulence_f[self.out_mode]
+        tfunc = turbulence_f[self.out_mode]
 
-            verts = inputs['Vertices'].sv_get(deepcopy=False)
-            maxlen = len(verts)
-            arguments = [verts]
+        verts = inputs['Vertices'].sv_get(deepcopy=False)
+        maxlen = len(verts)
+        arguments = [verts]
 
-            # gather socket data into arguments
-            for socket in inputs[1:]:
-                data = socket.sv_get()[0]
-                fullList(data, maxlen)
-                arguments.append(data)
+        # gather socket data into arguments
+        for socket in inputs[1:]:
+            data = socket.sv_get()[0]
+            fullList(data, maxlen)
+            arguments.append(data)
 
-            # iterate over vert lists and pass arguments to the turbulence function
-            out = []
-            for idx, (vert_list, octaves, hard, amp, freq, seed) in enumerate(zip(*arguments)):
-                final_vert_list = seed_adjusted(vert_list, seed)
-                out.append([tfunc(v, octaves, hard, _noise_type, amp, freq) for v in final_vert_list])
+        # iterate over vert lists and pass arguments to the turbulence function
+        out = []
+        for idx, (vert_list, octaves, hard, amp, freq, seed) in enumerate(zip(*arguments)):
+            final_vert_list = seed_adjusted(vert_list, seed)
+            out.append([tfunc(v, octaves, hard, noise_basis=self.noise_type, amplitude_scale=amp, frequency_scale=freq) for v in final_vert_list])
 
-            if 'Noise V' in outputs:
-                out = Vector_degenerate(out)
-            outputs[0].sv_set(out)
+        if 'Noise V' in outputs:
+            out = Vector_degenerate(out)
+
+        outputs[0].sv_set(out)
 
 
 def register():

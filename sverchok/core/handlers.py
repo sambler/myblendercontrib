@@ -5,20 +5,15 @@ from bpy.app.handlers import persistent
 
 from sverchok import old_nodes
 from sverchok import data_structure
-from sverchok.core import upgrade_nodes, upgrade_group
+from sverchok.core import upgrade_nodes, upgrade_group, undo_handler_node_count
 
-from sverchok.ui import (
-    viewer_draw,
-    viewer_draw_mk2,
-    index_viewer_draw,
-    nodeview_bgl_viewer_draw,
-    nodeview_bgl_viewer_draw_mk2,
-    bgl_callback_3dview,
-    color_def
-)
+
+from sverchok.ui import color_def, bgl_callback_nodeview, bgl_callback_3dview
+from sverchok.utils import app_handler_ops
 
 
 _state = {'frame': None}
+
 
 def sverchok_trees():
     for ng in bpy.data.node_groups:
@@ -30,6 +25,48 @@ def has_frame_changed(scene):
     last_frame = _state['frame']
     _state['frame'] = scene.frame_current
     return not last_frame == scene.frame_current
+
+#
+#  app.handlers.undo_post and app.handlers.undo_pre are necessary to help remove stale
+#  draw callbacks (bgl / gpu / blf). F.ex the rightlick menu item "attache viewer draw"
+#  will invoke a number of commands as one event, if you undo that event (ctrl+z) then
+#  there is never a point where the node can ask "am i connected to anything, do i need 
+#  to stop drawing?". When the Undo event causes a node to be removed, its node.free function
+#  is not called. (maybe it should be...) 
+#
+#  If at any time the undo system is fixed and does call "node.free()" when a node is removed
+#  after ctrl+z. then these two functions and handlers are no longer needed.
+
+@persistent
+def sv_handler_undo_pre(scene):
+    print('called undo pre')
+
+    from sverchok.core import undo_handler_node_count
+
+    for ng in sverchok_trees():
+        undo_handler_node_count['sv_groups'] += len(ng.nodes)
+    print('collected num nodes:', undo_handler_node_count)
+
+@persistent
+def sv_handler_undo_post(scene):
+    print('called undo post')
+    # this function appears to be hoisted into an environment that does not have the same locals()
+    # hence this dict must be imported. (jan 2019)
+    
+    from sverchok.core import undo_handler_node_count
+
+    num_to_test_against = 0
+    for ng in sverchok_trees():
+        num_to_test_against += len(ng.nodes)
+
+    # only perform clean if the undo event triggered
+    # a difference in total node count among trees.
+    if not (undo_handler_node_count['sv_groups'] == num_to_test_against):
+        print('looks like a node was removed, cleaning')
+        sv_clean(scene)
+        sv_main_handler(scene)
+
+    undo_handler_node_count['sv_groups'] = 0
 
 
 @persistent
@@ -47,7 +84,11 @@ def sv_update_handler(scene):
         except Exception as e:
             print('Failed to update:', str(e)) #name,
 
-    scene.update()
+    if scene.render:
+        print(f'is rendering frame {scene.frame_current}, updates missed?')
+        # ---- raise Exception("asserting error")
+
+    # scene.update()  <-- does not exist in 2.80 recent builds
 
 
 @persistent
@@ -73,6 +114,7 @@ def sv_main_handler(scene):
     for ng in sverchok_trees():
         # print("Scene handler looking at tree {}".format(ng.name))
         if ng.has_changed:
+            print('depsgraph_update_pre called - ng.has_changed -> ')
             # print('sv_main_handler')
             # print("Edit detected in {}".format(ng.name))
             ng.process()
@@ -83,16 +125,11 @@ def sv_clean(scene):
     """
     Cleanup callbacks, clean dicts.
     """
-    viewer_draw.callback_disable_all()
-    viewer_draw_mk2.callback_disable_all()
-    index_viewer_draw.callback_disable_all()
-    nodeview_bgl_viewer_draw.callback_disable_all()
-    nodeview_bgl_viewer_draw_mk2.callback_disable_all()
+    bgl_callback_nodeview.callback_disable_all()
     bgl_callback_3dview.callback_disable_all()
 
     data_structure.sv_Vars = {}
     data_structure.temp_handle = {}
-
 
 @persistent
 def sv_post_load(scene):
@@ -122,33 +159,12 @@ def sv_post_load(scene):
         ng.unfreeze(True)
 
     addon_name = data_structure.SVERCHOK_NAME
-    addon = bpy.context.user_preferences.addons.get(addon_name)
+    addon = bpy.context.preferences.addons.get(addon_name)
     if addon and hasattr(addon, "preferences"):
         pref = addon.preferences
         if pref.apply_theme_on_open:
             color_def.apply_theme()
-    '''
-    unsafe_nodes = {
-        'SvScriptNode',
-        'FormulaNode',
-        'Formula2Node',
-        'EvalKnievalNode',
-    }
 
-    unsafe = False
-    for tree in sv_trees:
-        if any((n.bl_idname in unsafe_nodes for n in tree.nodes)):
-            unsafe = True
-            break
-    # do nothing with this for now
-    #if unsafe:
-    #    print("unsafe nodes found")
-    #else:
-    #    print("safe")
-
-    #print("post load .update()")
-    # do an update
-    '''
     for ng in sv_trees:
         if ng.bl_idname == 'SverchCustomTreeType' and ng.nodes:
             ng.update()
@@ -158,14 +174,14 @@ def set_frame_change(mode):
     post = bpy.app.handlers.frame_change_post
     pre = bpy.app.handlers.frame_change_pre
 
-    scene = bpy.app.handlers.scene_update_post
+    # scene = bpy.app.handlers.scene_update_post
     # remove all
     if sv_update_handler in post:
         post.remove(sv_update_handler)
     if sv_update_handler in pre:
         pre.remove(sv_update_handler)
-    if sv_scene_handler in scene:
-        scene.remove(sv_scene_handler)
+    #if sv_scene_handler in scene:
+    #    scene.remove(sv_scene_handler)
 
     # apply the right one
     if mode == "POST":
@@ -174,13 +190,22 @@ def set_frame_change(mode):
         pre.append(sv_update_handler)
 
 
+handler_dict = {
+    'undo_pre': sv_handler_undo_pre,
+    'undo_post': sv_handler_undo_post,
+    'load_pre': sv_clean,
+    'load_post': sv_post_load,
+    'depsgraph_update_pre': sv_main_handler
+}
+
+
 def register():
-    bpy.app.handlers.load_pre.append(sv_clean)
-    bpy.app.handlers.load_post.append(sv_post_load)
-    bpy.app.handlers.scene_update_pre.append(sv_main_handler)
+
+    app_handler_ops(append=handler_dict)
+
     data_structure.setup_init()
     addon_name = data_structure.SVERCHOK_NAME
-    addon = bpy.context.user_preferences.addons.get(addon_name)
+    addon = bpy.context.preferences.addons.get(addon_name)
     if addon and hasattr(addon, "preferences"):
         set_frame_change(addon.preferences.frame_change_mode)
     else:
@@ -188,7 +213,5 @@ def register():
 
 
 def unregister():
-    bpy.app.handlers.load_pre.remove(sv_clean)
-    bpy.app.handlers.load_post.remove(sv_post_load)
-    bpy.app.handlers.scene_update_pre.remove(sv_main_handler)
+    app_handler_ops(remove=handler_dict)
     set_frame_change(None)

@@ -24,7 +24,7 @@ import mathutils
 from mathutils import Vector, Matrix
 from bpy.props import BoolProperty, FloatVectorProperty, StringProperty, EnumProperty
 
-from sverchok.node_tree import SverchCustomTreeNode, MatrixSocket
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import dataCorrect, updateNode
 
 
@@ -68,7 +68,7 @@ class SvInstancerOp(bpy.types.Operator):
     bl_label = "Sverchok instancer op"
     bl_options = {'REGISTER', 'UNDO'}
 
-    obj_name = StringProperty(default="")
+    obj_name: StringProperty(default="")
 
     def execute(self, context):
         n = context.node
@@ -99,33 +99,33 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
         sorted_named_objects = sorted([i.name for i in objs if display(i)])
         return [(name, name, "") for name in sorted_named_objects]
 
-    objects_to_choose = EnumProperty(
+    objects_to_choose: EnumProperty(
         items=obj_available,
         name="Objects",
         description="Choose Object to take mesh from",
         update=updateNode)
 
-    grouping = BoolProperty(default=False, update=updateNode)
+    grouping: BoolProperty(default=False, update=updateNode)
 
-    activate = BoolProperty(
+    activate: BoolProperty(
         default=True,
         name='Show', description='Activate node?',
         update=updateNode)
 
-    basemesh_name = StringProperty(
+    basemesh_name: StringProperty(
         default='Alpha',
         description='stores the mesh name found in the object, this mesh is instanced',
         update=updateNode)
 
-    mesh_to_clone = StringProperty(
+    mesh_to_clone: StringProperty(
         default='',
         description='stores the name of the object from where to get the mesh',
         update=updateNode)
 
-    has_instance = BoolProperty(default=False)
+    has_instance: BoolProperty(default=False)
 
     def sv_init(self, context):
-        self.inputs.new('MatrixSocket', 'matrix', 'matrix')
+        self.inputs.new('MatrixSocket', 'matrix')
 
     def draw_buttons(self, context, layout):
         row = layout.row(align=True)
@@ -135,9 +135,9 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
         cfg = "node.instancer_config"
         if not self.has_instance:
             row = layout.row(align=True)
-            row.label('pick object by name')
+            row.label(text='pick object by name')
             row = layout.row(align=True)
-            row.prop(self, "objects_to_choose", '')
+            row.prop(self, "objects_to_choose", text='')
             row.operator(cfg, text="use").obj_name = self.objects_to_choose
         else:
             row = layout.row()
@@ -147,7 +147,7 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
             col2.scale_x = 0.3
             col2.operator(cfg, text="reset").obj_name = "__SV_INSTANCE_RESET__"
 
-        layout.label("Object base name", icon='OUTLINER_OB_MESH')
+        layout.label(text="Object base name", icon='OUTLINER_OB_MESH')
         col = layout.column(align=True)
         row = col.row(align=True)
         row.prop(self, "basemesh_name", text="")
@@ -166,7 +166,7 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
     def get_corrected_data(self, socket_name, socket_type):
         inputs = self.inputs
         socket = inputs[socket_name].links[0].from_socket
-        if isinstance(socket, socket_type):
+        if socket.bl_idname == socket_type:
             return dataCorrect(inputs[socket_name].sv_get())
         else:
             return []
@@ -176,7 +176,7 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
             return
 
         inputs = self.inputs
-        s_name, s_type = ['matrix', MatrixSocket]
+        s_name, s_type = ['matrix', "MatrixSocket"]
         matrices = []
         if s_name in inputs and inputs[s_name].is_linked:
             matrices = self.get_corrected_data(s_name, s_type)
@@ -233,9 +233,6 @@ class SvInstancerNode(bpy.types.Node, SverchCustomTreeNode):
         g = bpy.data.groups.get(self.basemesh_name)
         if g:
             bpy.data.groups.remove(g)
-
-    def update_socket(self, context):
-        self.update()
 
     def free(self):
         self.remove_non_updated_objects(-1, self.basemesh_name)

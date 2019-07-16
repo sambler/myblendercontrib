@@ -19,8 +19,7 @@
 import bpy
 from mathutils import Matrix
 
-from sverchok.node_tree import SverchCustomTreeNode, MatrixSocket
-from sverchok.sockets import SvObjectSocket
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import dataCorrect, updateNode, match_long_repeat
 
 
@@ -58,6 +57,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(SvObjRemoteNodeMK2)
-
-#if __name__ == '__main__':
-#    register()

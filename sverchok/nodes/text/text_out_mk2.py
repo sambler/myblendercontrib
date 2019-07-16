@@ -29,7 +29,7 @@ import sverchok
 import bpy
 from bpy.props import BoolProperty, EnumProperty, StringProperty
 
-from sverchok.node_tree import SverchCustomTreeNode, StringsSocket
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import node_id, multi_socket, updateNode
 
 from sverchok.utils.sv_text_io_common import (
@@ -134,32 +134,32 @@ class SvTextOutNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         elif self.text_mode == 'SV':
             self.inputs.new('StringsSocket', 'Data')
 
-    text = StringProperty()
+    text: StringProperty()
 
-    text_mode = EnumProperty(items=text_modes, default='CSV', update=change_mode, name="Text format")
-    csv_dialect = EnumProperty(items=csv_dialects, default='excel', name="Dialect")
-    sv_mode = EnumProperty(items=sv_modes, default='compact', name="Format")
-    json_mode = EnumProperty(items=json_modes, default='pretty', name="Format")
+    text_mode: EnumProperty(items=text_modes, default='CSV', update=change_mode, name="Text format")
+    csv_dialect: EnumProperty(items=csv_dialects, default='excel', name="Dialect")
+    sv_mode: EnumProperty(items=sv_modes, default='compact', name="Format")
+    json_mode: EnumProperty(items=json_modes, default='pretty', name="Format")
 
-    append = BoolProperty(default=False, description="Append to output file")
-    base_name = StringProperty(name='base_name', default='Col ')
-    multi_socket_type = StringProperty(name='multi_socket_type', default='StringsSocket')
+    append: BoolProperty(default=False, description="Append to output file")
+    base_name: StringProperty(name='base_name', default='Col ')
+    multi_socket_type: StringProperty(name='multi_socket_type', default='StringsSocket')
 
-    autodump = BoolProperty(default=False, description="autodump", name="auto dump")
+    autodump: BoolProperty(default=False, description="autodump", name="auto dump")
 
     def sv_init(self, context):
-        self.inputs.new('StringsSocket', 'Col 0', 'Col 0')
+        self.inputs.new('StringsSocket', 'Col 0')
 
     def draw_buttons(self, context, layout):
 
-        addon = context.user_preferences.addons.get(sverchok.__name__)
+        addon = context.preferences.addons.get(sverchok.__name__)
         over_sized_buttons = addon.preferences.over_sized_buttons
 
         col = layout.column(align=True)
         col.prop(self, 'autodump', toggle=True)
         row = col.row(align=True)
         row.prop_search(self, 'text', bpy.data, 'texts', text="Write")
-        row.operator("text.new", icon="ZOOMIN", text='')
+        row.operator("text.new", icon="ZOOM_IN", text='')
 
         row = col.row(align=True)
         row.prop(self, 'text_mode', expand=True)
@@ -177,10 +177,8 @@ class SvTextOutNodeMK2(bpy.types.Node, SverchCustomTreeNode):
             row = col2.row(align=True)
             row.scale_y = 4.0 if over_sized_buttons else 1
             row.operator(TEXT_IO_CALLBACK, text='D U M P').fn_name = 'dump'
-            col2.prop(self, 'append', "Append")
+            col2.prop(self, 'append', text="Append")
 
-    def update_socket(self, context):
-        self.update()
 
     def process(self):
         if self.text_mode in {'CSV', 'JSON'}:

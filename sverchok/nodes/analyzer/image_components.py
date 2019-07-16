@@ -19,8 +19,7 @@
 from math import floor, ceil
 
 import bpy
-from bpy.props import (
-    IntProperty, FloatProperty, StringProperty, BoolProperty)
+from bpy.props import (IntProperty, FloatProperty, StringProperty, BoolProperty)
 
 from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import updateNode, fullList
@@ -74,12 +73,12 @@ class svImageImporterOp(bpy.types.Operator):
     bl_idname = "image.image_importer"
     bl_label = "sv Image Import Operator"
 
-    filepath = StringProperty(
+    filepath: StringProperty(
         name="File Path",
         description="Filepath used for importing the font file",
         maxlen=1024, default="", subtype='FILE_PATH')
 
-    origin = StringProperty("")
+    origin: StringProperty("")
 
     def execute(self, context):
         a = bpy.data.images.load(self.filepath)
@@ -100,7 +99,7 @@ class ImageComponentsOps(bpy.types.Operator):
     bl_label = "Sverchok imagecomp callback"
     bl_options = {'REGISTER', 'UNDO'}
 
-    fn_name = StringProperty(default='')
+    fn_name: StringProperty(default='')
 
     def load_image(self, context):
         n = context.node
@@ -194,41 +193,41 @@ class SvImageComponentsNode(bpy.types.Node, SverchCustomTreeNode):
     # node storage, reference by the hash of self.
     node_dict = {}
 
-    image_name = StringProperty(
+    image_name: StringProperty(
         default="",
         name='image_name',
         description='name of image to CC',
         update=updateNode)
 
-    loaded = BoolProperty(
+    loaded: BoolProperty(
         default=0,
         name='loaded',
         description='confirms the state of image loading',
         update=updateNode)
 
-    xy_spread = FloatProperty(
+    xy_spread: FloatProperty(
         default=0.01,
         step=0.001,
         name='xy_spread',
         update=updateNode)
 
-    z_spread = FloatProperty(
+    z_spread: FloatProperty(
         default=1.00,
         step=0.001,
         name='z_spread',
         update=updateNode)
 
-    skip = IntProperty(
+    skip: IntProperty(
         default=3,
         step=1, min=0)
 
-    filter_mode = BoolProperty(
+    filter_mode: BoolProperty(
         default=0,
         name='filter_mode',
         description='Allows arbitary filter logic, to spit out verts (polygons are dropped)',
         update=updateNode)
 
-    filter_str = StringProperty(
+    filter_str: StringProperty(
         default='',
         name='filter_str',
         description='will safe eval this string',
@@ -261,7 +260,7 @@ class SvImageComponentsNode(bpy.types.Node, SverchCustomTreeNode):
             operator_type = 'load'
             operator_icon = 'IMPORT'
         else:
-            col.label('loaded: ' + self.image_name)
+            col.label(text='loaded: ' + self.image_name)
             operator_type = 'unload'
             operator_icon = 'FILE'
 
@@ -283,7 +282,7 @@ class SvImageComponentsNode(bpy.types.Node, SverchCustomTreeNode):
                 image_dict = self.node_dict[hash(self)].get('node_image')
                 if image_dict:
                     w, h = image_dict['image']['dimensions']
-                    col.label('dims h={h}, w={w}'.format(w=w, h=h))
+                    col.label(text='dims h={h}, w={w}'.format(w=w, h=h))
 
     def draw_buttons_ext(self, context, layout):
 
@@ -304,7 +303,7 @@ class SvImageComponentsNode(bpy.types.Node, SverchCustomTreeNode):
         
         if not self.loaded:
             return
-        if not any([outputs['xya'].is_linked,outputs['rgb'].is_linked]):
+        if not outputs['xya'].is_linked:
             return
 
         # upload reload, this avoids errors - still not perfect
@@ -314,7 +313,6 @@ class SvImageComponentsNode(bpy.types.Node, SverchCustomTreeNode):
 
         node_image = self.node_dict[hash(self)]['node_image']
         dict_data = node_image['image']
-        #print(node_image)
         xya = 'xya'
         rgb = 'rgb'
         m1 = self.xy_spread
@@ -329,7 +327,7 @@ class SvImageComponentsNode(bpy.types.Node, SverchCustomTreeNode):
             if -0.001 <= m2 <= 0.001:
                 data = dict_data[rgb]
             else:
-                tmul = lambda v: (v[0]*m1, v[1]*m1, v[2]*m2)
+                tmul = lambda v: (v[0]*m2, v[1]*m2, v[2]*m2)
                 data = [tmul(v) for v in dict_data[rgb]]
 
             outputs[rgb].sv_set([data])
@@ -356,9 +354,6 @@ class SvImageComponentsNode(bpy.types.Node, SverchCustomTreeNode):
 
         outputs[polygons].sv_set([polygon_data])
 
-    def update_socket(self, context):
-        self.update()
-
 
 def register():
     bpy.utils.register_class(svImageImporterOp)
@@ -370,7 +365,3 @@ def unregister():
     bpy.utils.unregister_class(ImageComponentsOps)
     bpy.utils.unregister_class(SvImageComponentsNode)
     bpy.utils.unregister_class(svImageImporterOp)
-
-
-if __name__ == '__main__':
-    register()

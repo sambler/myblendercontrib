@@ -20,7 +20,7 @@ import bpy
 import bmesh
 from sverchok.utils.sv_bmesh_utils import pydata_from_bmesh
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (updateNode)
+from sverchok.data_structure import updateNode
 
 
 class SvBMoutputNode(bpy.types.Node, SverchCustomTreeNode):
@@ -50,9 +50,6 @@ class SvBMoutputNode(bpy.types.Node, SverchCustomTreeNode):
         v.sv_set(vlist)
         e.sv_set(elist)
         p.sv_set(plist)
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

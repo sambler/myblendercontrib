@@ -27,14 +27,14 @@ from sverchok.data_structure import (updateNode, match_long_repeat)
 
 class FakeObj(object):
 
-    def __init__(self, OB):
-        self.matrix_local = OB.matrix_local
-        mesh_settings = (bpy.context.scene, True, 'RENDER')
-        data = OB.to_mesh(*mesh_settings)
+    def __init__(self, obj):
+        self.matrix_local = obj.matrix_local
+        # mesh_settings = (bpy.context.scene, True, 'RENDER')
+        data = obj.to_mesh() #*mesh_settings)
         vertices = [vert.co[:] for vert in data.vertices]
         polygons = [poly.vertices[:] for poly in data.polygons]
         self.BVH = BVHTree.FromPolygons(vertices, polygons)
-        bpy.data.meshes.remove(data)
+        obj.to_mesh_clear()
 
     def ray_cast(self, a, b):
         # obj.ray_cast returns  Return (result, location, normal, index
@@ -53,8 +53,8 @@ class SvOBJRayCastNodeMK2(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Object ID Raycast MK2'  # new is nonsense name
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    mode = BoolProperty(name='input mode', default=False, update=updateNode)
-    mode2 = BoolProperty(name='output mode', default=False, update=updateNode)
+    mode: BoolProperty(name='input mode', default=False, update=updateNode)
+    mode2: BoolProperty(name='output mode', default=False, update=updateNode)
 
     def sv_init(self, context):
         si,so = self.inputs.new,self.outputs.new
@@ -82,11 +82,13 @@ class SvOBJRayCastNodeMK2(bpy.types.Node, SverchCustomTreeNode):
                 OB = FakeObj(OB)
             if sm1:
                 obm = OB.matrix_local.inverted()
-                outfin.append([OB.ray_cast(obm*Vector(i), obm*Vector(i2)) for i,i2 in zip(st,en)])
+                outfin.append([OB.ray_cast(obm @ Vector(i), obm @ Vector(i2)) for i,i2 in zip(st,en)])
             else:
                 outfin.append([OB.ray_cast(i,i2) for i,i2 in zip(st,en)])
         if S.is_linked:
             S.sv_set([[i[0] for i in i2] for i2 in outfin])
+
+        # do not reuse variable names, inside loops inside loops that's begging for obfuscation.
         if sm2:
             if P.is_linked:
                 for i,i2 in zip(obj,outfin):
@@ -100,9 +102,6 @@ class SvOBJRayCastNodeMK2(bpy.types.Node, SverchCustomTreeNode):
             N.sv_set([[i[2][:] for i in i2] for i2 in outfin])
         if I.is_linked:
             I.sv_set([[i[3] for i in i2] for i2 in outfin])
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

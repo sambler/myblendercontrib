@@ -21,7 +21,7 @@ from ast import literal_eval
 import bpy
 from bpy.props import BoolProperty, StringProperty
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (changable_sockets, updateNode)
+from sverchok.data_structure import changable_sockets, updateNode
 
 from sverchok.utils.listutils import preobrazovatel
 
@@ -32,18 +32,16 @@ class ListLevelsNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'List Del Levels'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    Sverch_LisLev = StringProperty(name='Sverch_LisLev',
-                                   description='User defined nesty levels. (i.e. 1,2)',
-                                   default='1,2,3',
-                                   update=updateNode)
-    typ = StringProperty(name='typ',
-                         default='')
-    newsock = BoolProperty(name='newsock',
-                           default=False)
+    typ: StringProperty(name='typ', default='')
+    newsock: BoolProperty(name='newsock', default=False)
+
+    Sverch_LisLev: StringProperty(
+        name='Sverch_LisLev', description='User defined nesty levels. (i.e. 1,2)',
+        default='1,2,3', update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new('StringsSocket', 'data', 'data')
-        self.outputs.new('StringsSocket', 'data', 'data')
+        self.inputs.new('StringsSocket', 'data')
+        self.outputs.new('StringsSocket', 'data')
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "Sverch_LisLev", text="List levels")

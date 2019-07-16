@@ -146,27 +146,27 @@ class SvIntersectLineSphereNode(bpy.types.Node, SverchCustomTreeNode):
     bl_icon = 'OUTLINER_OB_EMPTY'
     sv_icon = 'SV_COMPASS_3D'
 
-    radius = FloatProperty(
+    radius : FloatProperty(
         name="Radius", description='Sphere Radius',
         default=1, min=0.0,
         update=updateNode)
 
-    sphere_center = FloatVectorProperty(
+    sphere_center : FloatVectorProperty(
         name='Center', description='Origin of sphere',
         size=3, default=(0, 0, 0),
         update=updateNode)
 
-    output_numpy = BoolProperty(
+    output_numpy : BoolProperty(
         name='Output NumPy', description='Output NumPy arrays',
         default=False, update=updateNode)
 
-    list_match_global = EnumProperty(
+    list_match_global : EnumProperty(
         name="Match Global",
         description="Behavior on different list lengths, multiple objects level",
         items=list_match_modes, default="REPEAT",
         update=updateNode)
 
-    list_match_local = EnumProperty(
+    list_match_local : EnumProperty(
         name="Match Local",
         description="Behavior on different list lengths, object level",
         items=list_match_modes, default="REPEAT",

@@ -24,6 +24,7 @@ from mathutils import noise
 from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import updateNode
 from sverchok.utils.sv_seed_funcs import get_offset, seed_adjusted
+from sverchok.utils.sv_noise_utils import noise_options, PERLIN_ORIGINAL
 
 # helpers
 def dict_from(options, idx1, idx2):
@@ -34,34 +35,21 @@ def enum_from(options):
 
 # function wrappers
 def fractal(nbasis, verts, h_factor, lacunarity, octaves, offset, gain):
-    return [noise.fractal(v, h_factor, lacunarity, octaves, nbasis) for v in verts]
+    return [noise.fractal(v, h_factor, lacunarity, octaves, noise_basis=nbasis) for v in verts]
 
 def multifractal(nbasis, verts, h_factor, lacunarity, octaves, offset, gain):
-    return [noise.multi_fractal(v, h_factor, lacunarity, octaves, nbasis) for v in verts]
+    return [noise.multi_fractal(v, h_factor, lacunarity, octaves, noise_basis=nbasis) for v in verts]
 
 def hetero(nbasis, verts, h_factor, lacunarity, octaves, offset, gain):
-    return [noise.hetero_terrain(v, h_factor, lacunarity, octaves, offset, nbasis) for v in verts]
+    return [noise.hetero_terrain(v, h_factor, lacunarity, octaves, offset, noise_basis=nbasis) for v in verts]
 
 def ridged(nbasis, verts, h_factor, lacunarity, octaves, offset, gain):
-    return [noise.ridged_multi_fractal(v, h_factor, lacunarity, octaves, offset, gain, nbasis) for v in verts]
+    return [noise.ridged_multi_fractal(v, h_factor, lacunarity, octaves, offset, gain, noise_basis=nbasis) for v in verts]
 
 def hybrid(nbasis, verts, h_factor, lacunarity, octaves, offset, gain):
-    return [noise.hybrid_multi_fractal(v, h_factor, lacunarity, octaves, offset, gain, nbasis) for v in verts]
+    return [noise.hybrid_multi_fractal(v, h_factor, lacunarity, octaves, offset, gain, noise_basis=nbasis) for v in verts]
 
-# noise nodes
-# from http://www.blender.org/documentation/blender_python_api_current/mathutils.noise.html
-noise_options = [
-    ('BLENDER', 0),
-    ('STDPERLIN', 1),
-    ('NEWPERLIN', 2),
-    ('VORONOI_F1', 3),
-    ('VORONOI_F2', 4),
-    ('VORONOI_F3', 5),
-    ('VORONOI_F4', 6),
-    ('VORONOI_F2F1', 7),
-    ('VORONOI_CRACKLE', 8),
-    ('CELLNOISE', 14)
-]
+
 
 fractal_options = [
     ('FRACTAL', 0, fractal),
@@ -80,7 +68,6 @@ fractal_type_to_mode = {
     'HYBRID_MULTI_FRACTAL': 'C'
 }
 
-noise_dict = dict_from(noise_options, 0, 1)
 fractal_f = dict_from(fractal_options, 0, 2)
 
 avail_noise = enum_from(noise_options)
@@ -123,24 +110,24 @@ class SvVectorFractal(bpy.types.Node, SverchCustomTreeNode):
             socket_func(*names)
         updateNode(self, context)
 
-    noise_type = EnumProperty(
+    noise_type: EnumProperty(
         items=avail_noise,
-        default='STDPERLIN',
+        default=PERLIN_ORIGINAL,
         description="Noise type",
         update=updateNode)
 
-    fractal_type = EnumProperty(
+    fractal_type: EnumProperty(
         items=avail_fractal,
         default="FRACTAL",
         description="Fractal type",
         update=wrapped_update)
 
-    h_factor = FloatProperty(default=0.05, description='H factor parameter', name='H Factor', update=updateNode)
-    lacunarity = FloatProperty(default=0.5, description='Lacunarity parameter', name='Lacunarity', update=updateNode)
-    octaves = IntProperty(default=3, min=0, max=6, description='Octaves', name='Octaves', update=updateNode)
-    offset = FloatProperty(default=0.0, name='Offset', description='Offset parameter', update=updateNode)
-    gain = FloatProperty(default=0.5, description='Gain parameter', name='Gain', update=updateNode)
-    seed = IntProperty(default=0, name='Seed', update=updateNode)
+    h_factor: FloatProperty(default=0.05, description='H factor parameter', name='H Factor', update=updateNode)
+    lacunarity: FloatProperty(default=0.5, description='Lacunarity parameter', name='Lacunarity', update=updateNode)
+    octaves: IntProperty(default=3, min=0, max=6, description='Octaves', name='Octaves', update=updateNode)
+    offset: FloatProperty(default=0.0, name='Offset', description='Offset parameter', update=updateNode)
+    gain: FloatProperty(default=0.5, description='Gain parameter', name='Gain', update=updateNode)
+    seed: IntProperty(default=0, name='Seed', update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Vertices')
@@ -160,7 +147,6 @@ class SvVectorFractal(bpy.types.Node, SverchCustomTreeNode):
         if not outputs[0].is_linked:
             return
 
-        _noise_type = noise_dict[self.noise_type]
         _seed = inputs['Seed'].sv_get()[0][0]
         wrapped_fractal_function = fractal_f[self.fractal_type]
 
@@ -179,7 +165,7 @@ class SvVectorFractal(bpy.types.Node, SverchCustomTreeNode):
             params = [(param[idx] if idx < len(param) else param[-1]) for param in param_list]
             final_vert_list = [seed_adjusted(vlist, _seed)]
 
-            out.append(wrapped_fractal_function(_noise_type, final_vert_list[0], *params))
+            out.append(wrapped_fractal_function(self.noise_type, final_vert_list[0], *params))
 
         outputs[0].sv_set(out)
 

@@ -18,9 +18,7 @@ Contents:
    nodes
    contributing
    contribute_small_things
-   pull_request_template
    testing
-   issue_template
 
 
 Indices and tables

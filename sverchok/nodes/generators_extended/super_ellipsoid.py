@@ -167,47 +167,47 @@ class SvSuperEllipsoidNode(bpy.types.Node, SverchCustomTreeNode):
 
     preset_items = [(k, k.title(), "", "", i) for i, (k, v) in enumerate(sorted(super_presets.items()))]
 
-    presets = EnumProperty(
+    presets: EnumProperty(
         name="Presets", items=preset_items, description="Various presets",
         update=update_presets)
 
-    scale_x = FloatProperty(
+    scale_x: FloatProperty(
         name='Scale X', description="Scale along X",
         default=1.0, update=update_ellipsoid)
 
-    scale_y = FloatProperty(
+    scale_y: FloatProperty(
         name='Scale Y', description="Scale along Y",
         default=1.0, update=update_ellipsoid)
 
-    scale_z = FloatProperty(
+    scale_z: FloatProperty(
         name='Scale Z', description="Scale along Z",
         default=1.0, update=update_ellipsoid)
 
-    exponent_parallels = FloatProperty(
+    exponent_parallels: FloatProperty(
         name='P Exponent', description="Parallel exponent",
         default=1.0, min=0.0, update=update_ellipsoid)
 
-    exponent_meridians = FloatProperty(
+    exponent_meridians: FloatProperty(
         name='M Exponent', description="Meridian exponent",
         default=1.0, min=0.0, update=update_ellipsoid)
 
-    number_parallels = IntProperty(
+    number_parallels: IntProperty(
         name='Parallels', description="Number of parallels",
         default=10, min=3, update=update_ellipsoid)
 
-    number_meridians = IntProperty(
+    number_meridians: IntProperty(
         name='Meridians', description="Number of meridians",
         default=10, min=3, update=update_ellipsoid)
 
-    cap_bottom = BoolProperty(
+    cap_bottom: BoolProperty(
         name='Cap Bottom', description="Generate bottom cap",
         default=True, update=updateNode)
 
-    cap_top = BoolProperty(
+    cap_top: BoolProperty(
         name='Cap Top', description="Generate top cap",
         default=True, update=updateNode)
 
-    updating = BoolProperty(default=False)  # used for disabling update callback
+    updating: BoolProperty(default=False)  # used for disabling update callback
 
     def sv_init(self, context):
         self.width = 150
@@ -219,9 +219,9 @@ class SvSuperEllipsoidNode(bpy.types.Node, SverchCustomTreeNode):
         self.inputs.new('StringsSocket', "NP").prop_name = 'number_parallels'
         self.inputs.new('StringsSocket', "NM").prop_name = 'number_meridians'
 
-        self.outputs.new('VerticesSocket', "Vertices", "Vertices")
-        self.outputs.new('StringsSocket', "Edges", "Edges")
-        self.outputs.new('StringsSocket', "Polygons", "Polygons")
+        self.outputs.new('VerticesSocket', "Vertices")
+        self.outputs.new('StringsSocket', "Edges")
+        self.outputs.new('StringsSocket', "Polygons")
 
         self.presets = "ROUNDED CUBE"
 

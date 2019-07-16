@@ -19,7 +19,7 @@
 import bpy
 from mathutils import Vector
 from bpy.props import FloatProperty, BoolProperty
-from sverchok.node_tree import SverchCustomTreeNode, StringsSocket, VerticesSocket
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import updateNode
 from sverchok.utils.sv_recursive import sv_recursive_transformations
 
@@ -28,24 +28,22 @@ class SvMoveNodeMK2(bpy.types.Node, SverchCustomTreeNode):
     ''' Move vectors MK2 '''
     bl_idname = 'SvMoveNodeMK2'
     bl_label = 'Move'
-    bl_icon = 'MAN_TRANS'
+    bl_icon = 'NONE' #'MAN_TRANS'
 
-    mult_ = FloatProperty(name='multiplier',
-                          default=1.0,
-                          options={'ANIMATABLE'}, update=updateNode)
+    mult_: FloatProperty(name='multiplier', default=1.0, update=updateNode)
 
-    separate = BoolProperty(name='separate', description='Separate UV coords',
-                            default=False,
-                            update=updateNode)
+    separate: BoolProperty(
+        name='separate', description='Separate UV coords',
+        default=False, update=updateNode)
 
     def draw_buttons(self, context, layout):
         layout.prop(self, 'separate')
 
     def sv_init(self, context):
-        self.inputs.new('VerticesSocket', "vertices", "vertices")
-        self.inputs.new('VerticesSocket', "vectors", "vectors")
-        self.inputs.new('StringsSocket', "multiplier", "multiplier").prop_name = 'mult_'
-        self.outputs.new('VerticesSocket', "vertices", "vertices")
+        self.inputs.new('VerticesSocket', "vertices")
+        self.inputs.new('VerticesSocket', "vectors")
+        self.inputs.new('StringsSocket', "multiplier").prop_name = 'mult_'
+        self.outputs.new('VerticesSocket', "vertices")
 
     def process(self):
         # inputs
@@ -54,12 +52,11 @@ class SvMoveNodeMK2(bpy.types.Node, SverchCustomTreeNode):
         mult = self.inputs['multiplier'].sv_get()
 
         if self.outputs[0].is_linked:
-            mov = sv_recursive_transformations(self.moving,vers,vecs,mult,self.separate)
+            mov = sv_recursive_transformations(self.moving, vers, vecs, mult, self.separate)
             self.outputs['vertices'].sv_set(mov)
 
-    def moving(self, v, c, m):
-        #print('moving function test',v,c,m)
-        return [(Vector(v) + Vector(c)*m)[:]]
+    def moving(self, v, c, multiplier):
+        return [(Vector(v) + Vector(c) * multiplier)[:]]
 
 
 def register():
@@ -67,6 +64,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(SvMoveNodeMK2)
-
-if __name__ == '__main__':
-    register()

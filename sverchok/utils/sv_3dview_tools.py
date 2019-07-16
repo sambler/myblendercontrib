@@ -16,6 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import sys
+
 import bpy
 from mathutils import Matrix, Vector
 
@@ -26,12 +28,11 @@ from sverchok.utils.modules import geom_utils
 def get_matrix(socket):
     matrix_in_data = socket.sv_get()
     try:
-        first_matrix = is_matrix(matrix_in_data[0])
-        if first_matrix:
-            matrix = matrix_in_data[0]
+        matrix = matrix_in_data[0]
+        if isinstance(matrix, Matrix):
+            return matrix
         else:
-            matrix = matrix_in_data[0][0]
-        return matrix
+            return matrix[0]
         
     except Exception as err:
         print(repr(err))
@@ -43,18 +44,18 @@ def get_center(self, context):
     matrix = None
     
     try:
-        node = None
-        if hasattr(context, 'node'):
-            node = context.node
-        if not node:
-            node = context.active_node
 
+        # we must now pass the origin node/tree in 2.80  ( this code does not interpret that yet )
+
+        node_group = bpy.data.node_groups[self.idtree]
+        node = node_group.nodes[self.idname]
+        print('node:', node)
 
         inputs = node.inputs 
 
-        if node.bl_idname in {'ViewerNode2'}:
+        if node.bl_idname in {'SvVDExperimental'}:
             matrix_socket = inputs['matrix'] 
-            vertex_socket = inputs['vertices']
+            vertex_socket = inputs['verts']
 
             # from this point the function is generic.
             vertex_links = vertex_socket.is_linked
@@ -72,13 +73,18 @@ def get_center(self, context):
                 if not vertex_links:
                     location = Matrix(matrix).to_translation()[:]
                 else:                        
-                    location = (Matrix(matrix) * Vector(location))[:]
+                    location = (Matrix(matrix) @ Vector(location))[:]
 
         else:
             self.report({'INFO'}, 'viewer has no get_center function')
 
-    except:
+    except Exception as err:
         self.report({'INFO'}, 'no active node found')
+
+        sys.stderr.write('ERROR: %s\n' % str(err))
+        print(sys.exc_info()[-1].tb_frame.f_code)
+        print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno))
+    
 
     return location
 
@@ -88,10 +94,18 @@ class Sv3DviewAlign(bpy.types.Operator):
     """ Zoom to viewer output """
     bl_idname = "node.view3d_align_from"
     bl_label = "Align 3dview to Viewer"
-    # bl_options = {'REGISTER', 'UNDO'}
 
-    fn_name = bpy.props.StringProperty(default='')
-    # obj_type = bpy.props.StringProperty(default='MESH')
+    fn_name: bpy.props.StringProperty(default='')
+
+    idname: bpy.props.StringProperty(
+        name='idname',
+        description='name of parent node',
+        default='')
+
+    idtree: bpy.props.StringProperty(
+        name='idtree',
+        description='name of parent tree',
+        default='')    
 
     def execute(self, context):
 
@@ -100,7 +114,8 @@ class Sv3DviewAlign(bpy.types.Operator):
             print(vector_3d)
             return {'CANCELLED'}
 
-        context.scene.cursor_location = vector_3d
+        print(vector_3d)
+        context.scene.cursor.location = vector_3d[:]
 
         for area in bpy.context.screen.areas:
             if area.type == 'VIEW_3D':
@@ -122,7 +137,3 @@ def register():
 
 def unregister():
     _ = [bpy.utils.unregister_class(cls) for cls in classes[::-1]]
-
-
-# if __name__ == '__main__':
-#    register()

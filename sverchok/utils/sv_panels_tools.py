@@ -48,7 +48,7 @@ class SverchokBakeAll(bpy.types.Operator):
     bl_label = "Sverchok bake all"
     bl_options = {'REGISTER', 'UNDO'}
 
-    node_tree_name = StringProperty(name='tree_name', default='')
+    node_tree_name: StringProperty(name='tree_name', default='')
 
     @classmethod
     def poll(cls, context):
@@ -73,7 +73,7 @@ class SverchokUpdateCurrent(bpy.types.Operator):
     bl_label = "Sverchok update all"
     bl_options = {'REGISTER', 'UNDO'}
 
-    node_group = StringProperty(default="")
+    node_group: StringProperty(default="")
 
     def execute(self, context):
         ng = bpy.data.node_groups.get(self.node_group)
@@ -119,7 +119,7 @@ class SvSwitchToLayout (bpy.types.Operator):
     bl_label = "switch layouts"
     bl_options = {'REGISTER', 'UNDO'}
 
-    layout_name = bpy.props.StringProperty(
+    layout_name: bpy.props.StringProperty(
         default='', name='layout_name',
         description='layout name to change layout by button')
 
@@ -148,7 +148,7 @@ class SvClearNodesLayouts (bpy.types.Operator):
     bl_label = "del layouts"
     bl_options = {'REGISTER', 'UNDO'}
 
-    do_clear = bpy.props.BoolProperty(
+    do_clear: bpy.props.BoolProperty(
         default=False, name='even used',
         description='remove even if layout has one user (not fake user)')
 
@@ -177,8 +177,32 @@ class SvClearNodesLayouts (bpy.types.Operator):
 
 
 class Sv3dPropItem(bpy.types.PropertyGroup):
-    node_name = StringProperty()
-    prop_name = StringProperty()
+    node_name: StringProperty()
+    prop_name: StringProperty()
+
+
+class Sv3dPropRemoveItem(bpy.types.Operator):
+    ''' remove item by node_name from tree.Sv3Dprops  '''
+
+    bl_idname = "node.sv_remove_3dviewpropitem"
+    bl_label = "remove item from Sv3Dprops - useful for removed nodes"
+
+    tree_name: StringProperty(description="store tree name")
+    node_name: StringProperty(description="store node name")
+
+    def execute(self, context):
+
+        tree = bpy.data.node_groups[self.tree_name]
+        props = tree.Sv3DProps
+
+        for index in range(len(props)):
+            if props[index].node_name == self.node_name:
+                props.remove(index)
+                return {'FINISHED'}
+
+        return {'CANCELLED'}
+
+
 
 
 class SvLayoutScanProperties(bpy.types.Operator):
@@ -196,15 +220,14 @@ class SvLayoutScanProperties(bpy.types.Operator):
             templist = []
             for node in tree.nodes:
                 idname = node.bl_idname
-
+   
                 if idname in {'ObjectsNodeMK2', 'SvObjectsNodeMK3'}:
                     debug('scans for get option %s %s', node.label, node.name)
                     if any((s.links for s in node.outputs)):
                         templist.append([node.label, node.name, ""])
                 
-                elif idname in {'SvNumberNode', 'IntegerNode', 'FloatNode', 'SvListInputNode', 'SvColorInputNode',
-                                'SvBmeshViewerNodeMK2', 'SvCustomSwitcher'}:
-                    if idname not in {'SvBmeshViewerNodeMK2', 'SvCustomSwitcher'}:
+                elif idname in {'SvNumberNode', 'IntegerNode', 'FloatNode', 'SvListInputNode', 'SvColorInputNode', 'SvBmeshViewerNodeMK2'}:
+                    if idname != 'SvBmeshViewerNodeMK2':
                         if not node.outputs:
                             debug("Node %s does not have outputs", node.name)
                             continue
@@ -213,10 +236,6 @@ class SvLayoutScanProperties(bpy.types.Operator):
                             continue
                         if (not node.outputs[0].is_linked) or (node.to3d != True):
                             debug("Node %s: first output is not linked or to3d == False", node.name)
-                            continue
-                    elif idname == 'SvCustomSwitcher':
-                        if not node.inputs[0].is_linked and not node.outputs[0].is_linked or (node.to3d != True):
-                            debug("Node %s: output or input are not linked", node.name)
                             continue
                     elif (node.to3d != True):
                         debug("Node %s: first output is not linked or to3d == False", node.name)
@@ -237,8 +256,6 @@ class SvLayoutScanProperties(bpy.types.Operator):
                             templist.append([node.label, node.name, 'int_list'])
                         elif node.mode == 'float_list':
                             templist.append([node.label, node.name, 'float_list'])
-                    elif 'SvCustomSwitcher' in idname:
-                        templist.append([node.label, node.name, 'user_list'])
                     else:
                         kind = node.selected_mode
                         templist.append([node.label, node.name, kind + '_'])
@@ -263,6 +280,7 @@ sv_tools_classes = [
     SverchokPurgeCache,
     SverchokHome,
     Sv3dPropItem,
+    Sv3dPropRemoveItem,
     SvSwitchToLayout,
     SvLayoutScanProperties,
     SvClearNodesLayouts
@@ -288,8 +306,3 @@ def unregister():
 
     for class_name in reversed(sv_tools_classes):
         bpy.utils.unregister_class(class_name)
-
-
-
-if __name__ == '__main__':
-    register()

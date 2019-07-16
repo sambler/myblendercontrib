@@ -32,14 +32,14 @@ class SvDistancetLineLineNode(bpy.types.Node, SverchCustomTreeNode):
     bl_idname = 'SvDistancetLineLineNode'
     bl_label = 'Distance Line Line'
     bl_icon = 'OUTLINER_OB_EMPTY'
-    sv_icon = 'SV_DISTANCE'
+    sv_icon = 'SV_DISTANCE_LINE_LINE'
 
-    tolerance = FloatProperty(
+    tolerance : FloatProperty(
         name="tolerance", description='intersection tolerance',
         default=1.0e-6, min=0.0, precision=6,
         update=updateNode)
 
-    list_match_global = EnumProperty(
+    list_match_global : EnumProperty(
         name="Match Global",
         description="Behavior on different list lengths, multiple objects level",
         items=list_match_modes, default="REPEAT",

@@ -1,964 +1,629 @@
 # Addon Info
 bl_info = {
-    "name": "Real Camera",
-    "description": "Real Camera Controls and Effects",
-    "author": "Wolf",
-    "version": (1, 2),
-    "blender": (2, 77, 0),
-    "location": "Properties > Camera",
-    "wiki_url": "http://3dwolf.weebly.com/camera.html",
-    "tracker_url": "http://3dwolf.weebly.com/camera.html",
-    "support": "OFFICIAL",
-    "category": "Compositing"
-    }
+	"name": "Real Camera",
+	"description": "Physical camera controls",
+	"author": "Wolf",
+	"version": (3, 1),
+	"blender": (2, 80, 0),
+	"location": "Camera Properties",
+	"wiki_url": "https://3d-wolf.com/products/camera.html",
+	"tracker_url": "https://3d-wolf.com/products/camera.html",
+	"support": "COMMUNITY",
+	"category": "Render"
+	}
 
 
-# Import
+# Libraries
 import bpy
-import os
-import mathutils
-import bmesh
+import bgl
 import math
+import os
 from bpy.props import *
-import bpy.utils.previews
-from bpy.types import WindowManager
+from bpy.types import PropertyGroup, Panel, Operator
+from mathutils import Vector
+from bpy.app.handlers import persistent
+from . import addon_updater_ops
 
 
-#Update##############################################################
+# Real Camera panel
+class REALCAMERA_PT_Panel(Panel):
+	bl_category = "Real Camera"
+	bl_label = "Real Camera"
+	bl_space_type = 'PROPERTIES'
+	bl_region_type = "WINDOW"
+	bl_context = "data"
 
-# Update Toggle
+	@classmethod
+	def poll(cls, context):
+		return context.camera
+
+	def draw_header(self, context):
+		settings = context.scene.camera_settings
+		layout = self.layout
+		layout.prop(settings, 'enabled', text='')
+
+	def draw(self, context):
+		settings = context.scene.camera_settings
+		cam = context.camera
+		layout = self.layout
+		layout.enabled = settings.enabled
+		# Updater
+		addon_updater_ops.check_for_update_background()
+
+		# Exposure triangle
+		layout.use_property_split = True
+		layout.use_property_decorate = False
+		flow = layout.grid_flow(row_major=True, columns=0, even_columns=False, even_rows=False, align=True)
+		col = flow.column()
+		sub = col.column(align=True)
+		sub.prop(cam.dof, "aperture_fstop", text="Aperture")
+		sub.prop(settings, 'shutter_speed')
+
+		# Mechanics
+		col = flow.column()
+		col.prop(settings, 'af')
+		if settings.af:
+			row = col.row(align=True)
+			row.prop(settings, 'af_step', text="Bake")
+			row.prop(settings, 'af_bake', text="", icon='PLAY')
+		col = flow.column()
+		sub = col.column(align=True)
+		if not settings.af:
+			sub.prop(cam.dof, "focus_distance", text="Focus Point")
+		sub.prop(cam, 'lens', text="Focal Length")
+
+		# Updater
+		addon_updater_ops.update_notice_box_ui(self, context)
+
+
+# Auto Exposure panel
+class AUTOEXP_PT_Panel(Panel):
+	bl_space_type = "PROPERTIES"
+	bl_context = "render"
+	bl_region_type = "WINDOW"
+	bl_category = "Real Camera"
+	bl_label = "Auto Exposure"
+	COMPAT_ENGINES = {'BLENDER_EEVEE', 'CYCLES'}
+
+	@classmethod
+	def poll(cls, context):
+		return (context.engine in cls.COMPAT_ENGINES)
+
+	def draw_header(self, context):
+		settings = context.scene.camera_settings
+		layout = self.layout
+		layout.prop(settings, 'enable_ae', text='')
+
+	def draw(self, context):
+		settings = context.scene.camera_settings
+		layout = self.layout
+		layout.enabled = settings.enable_ae
+		# Updater
+		addon_updater_ops.check_for_update_background()
+
+		# Modes
+		col = layout.column(align=True)
+		row = col.row(align=True)
+		row.alignment = "CENTER"
+		row.label(text="Metering Mode")
+		row = col.row(align=True)
+		row.scale_x = 1.5
+		row.scale_y = 1.5
+		row.alignment = "CENTER"
+		row.prop(settings, 'ae_mode', text="", expand=True)
+		col.label(text="")
+
+		# Settings
+		layout.use_property_split = True
+		layout.use_property_decorate = False
+		flow = layout.grid_flow(row_major=True, columns=0, even_columns=False, even_rows=False, align=True)
+		col = flow.column()
+		col.prop(settings, 'ec', slider=True)
+		if settings.ae_mode=="Center Weighted":
+			col.prop(settings, 'center_grid')
+		if settings.ae_mode=="Full Window":
+			col.prop(settings, 'full_grid')
+
+		# Updater
+		addon_updater_ops.update_notice_box_ui(self, context)
+
+
+# Enable camera
 def toggle_update(self, context):
-    settings = context.scene.camera_settings
+	settings = context.scene.camera_settings
+	if settings.enabled:
+		name = context.active_object.name
+		# set limits
+		bpy.data.cameras[name].show_limits = True
+		# enable DOF
+		context.object.data.dof.use_dof = True
+		# set camera size
+		bpy.context.object.data.display_size = 0.2
+		# initial values Issue
+		update_aperture(self, context)
+		update_shutter_speed(self, context)
+	else:
+		# disable DOF
+		context.object.data.dof.use_dof = False
+		# reset limits
+		name = context.active_object.name
+		bpy.data.cameras[name].show_limits = False
+		# reset autofocus
+		bpy.context.scene.camera_settings.af = False
 
-    if not settings.enabled:
-
-        #########Clear Nodes#################################################
-        # Switch On Nodes and get Reference
-        bpy.context.scene.use_nodes = True
-        tree = bpy.context.scene.node_tree
-        
-        # Clear Nodes
-        for node in tree.nodes:
-            tree.nodes.remove(node)
-        
-        # Input Node
-        layer_node = tree.nodes.new(type='CompositorNodeRLayers')
-        layer_node.location = 0,0
-
-        # Output Node
-        comp_node = tree.nodes.new('CompositorNodeComposite')
-        comp_node.location = 200, 0
-
-        # Link
-        links = tree.links
-        links.new(layer_node.outputs[0], comp_node.inputs[0])
-        links.new(layer_node.outputs[1], comp_node.inputs[1])
-
-        # Get Selected Camera Info
-        obj = bpy.context.active_object
-        name = obj.name
-
-        loc_x = bpy.data.objects[name].location.x
-        loc_y = bpy.data.objects[name].location.y
-        loc_z = bpy.data.objects[name].location.z
-
-        rot_x = bpy.data.objects[name].rotation_euler.x
-        rot_y = bpy.data.objects[name].rotation_euler.y
-        rot_z = bpy.data.objects[name].rotation_euler.z
-
-        # Create Camera and move it to the previous point
-        size = 1
-        cam = bpy.data.cameras.new("Camera")
-        cam.name = 'Camera'
-        cam_ob = bpy.data.objects.new("Camera", cam)
-        bpy.context.scene.objects.link(cam_ob)
-
-        bpy.data.objects["Camera"].location.x = loc_x
-        bpy.data.objects["Camera"].location.y = loc_y
-        bpy.data.objects["Camera"].location.z = loc_z
-
-        bpy.data.objects["Camera"].rotation_euler.x = rot_x
-        bpy.data.objects["Camera"].rotation_euler.y = rot_y
-        bpy.data.objects["Camera"].rotation_euler.z = rot_z
-
-        bpy.data.objects["Camera"].scale.x = size
-        bpy.data.objects["Camera"].scale.y = size
-        bpy.data.objects["Camera"].scale.z = size
-
-        # Delete Old Camera and Change Name
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects[name]
-        o.select = True
-        bpy.context.scene.objects.active = o
-        bpy.ops.object.delete()
-        name = "Camera"
-        bpy.context.scene.camera = bpy.data.objects[name]
-
-        # Delete Flash
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects['Flash']
-        o.select = True
-        bpy.context.scene.objects.active = o
-        bpy.ops.object.delete()
-
-        # Delete Flash Material
-        bpy.data.materials.remove(bpy.data.materials["Flash"])
-
-        # Select Camera
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects["Camera"]
-        o.select = True
-        bpy.context.scene.objects.active = o
-
-        # Reset Limits
-        bpy.data.cameras[name].show_limits = False
-        # Reset Motion Blur
-        bpy.context.scene.render.use_motion_blur = False
-        # Change Aperture to FSTOP
-        bpy.context.object.data.cycles.aperture_type = 'RADIUS'
-
-    else:
-
-        effects = bpy.context.scene.camera_effects.effects
-        if effects == False:
-            ######### Nodes #####################################################
-            # Switch On Nodes and get Reference
-            bpy.context.scene.use_nodes = True
-            tree = bpy.context.scene.node_tree
-            
-            # Clear Nodes
-            for node in tree.nodes:
-                tree.nodes.remove(node)
-            
-            # Input Node
-            layer_node = tree.nodes.new(type='CompositorNodeRLayers')
-            layer_node.location = 0,0
-
-            # Output Node
-            comp_node = tree.nodes.new('CompositorNodeComposite')
-            comp_node.location = 200, 0
-
-            # Link
-            links = tree.links
-            links.new(layer_node.outputs[0], comp_node.inputs[0])
-            links.new(layer_node.outputs[1], comp_node.inputs[1])
-
-        else:
-            ######### Nodes #####################################################
-            # Switch On Nodes and get Reference
-            bpy.context.scene.use_nodes = True
-            tree = bpy.context.scene.node_tree
-            
-            # Clear Nodes
-            for node in tree.nodes:
-                tree.nodes.remove(node)
-
-            # Append Lens Flare
-            bpy.ops.wm.append (directory = os.path.join(os.path.dirname(__file__), "Lens Flare.blend/NodeTree/"), filepath="Lens Flare.blend", filename="Lens Flare")
-            # Append Bokeh
-            bpy.ops.wm.append (directory = os.path.join(os.path.dirname(__file__), "Lens Flare.blend/NodeTree/"), filepath="Lens Flare.blend", filename="Bokeh")
-            
-            # Input Node
-            layer_node = tree.nodes.new(type='CompositorNodeRLayers')
-            layer_node.location = 0,0
-
-            # Output Node
-            comp_node = tree.nodes.new('CompositorNodeComposite')
-            comp_node.location = 800, 0
-
-            # Lens Flare Node
-            flare_node = tree.nodes.new(type='CompositorNodeGroup')
-            flare_node.node_tree = bpy.data.node_groups["Lens Flare"]
-            flare_node.location = 200, 200
-
-            # Bokeh Node
-            bokeh_node = tree.nodes.new(type='CompositorNodeGroup')
-            bokeh_node.node_tree = bpy.data.node_groups["Bokeh"]
-            bokeh_node.location = 400, 0
-
-            # Lens Distortion Node
-            lens_node = tree.nodes.new('CompositorNodeLensdist')
-            lens_node.location = 200,0
-
-            # Mix Node 1
-            mix1_node = tree.nodes.new('CompositorNodeMixRGB')
-            mix1_node.location = 400, 200
-
-            # Mix Node 2
-            mix2_node = tree.nodes.new('CompositorNodeMixRGB')
-            mix2_node.location = 600, 100
-
-            # Link
-            links = tree.links
-            links.new(layer_node.outputs[0], lens_node.inputs[0])
-            links.new(layer_node.outputs[0], flare_node.inputs[0])
-            links.new(flare_node.outputs[0], mix1_node.inputs[2])
-            links.new(lens_node.outputs[0], mix1_node.inputs[1])
-            links.new(mix1_node.outputs[0], mix2_node.inputs[1])
-            links.new(layer_node.outputs[0], bokeh_node.inputs[0])
-            links.new(bokeh_node.outputs[0], mix2_node.inputs[2])
-            links.new(mix2_node.outputs[0], comp_node.inputs[0])
-            links.new(layer_node.outputs[1], comp_node.inputs[1])
-
-            # Set Fit
-            bpy.context.scene.node_tree.nodes['Lens Distortion'].use_fit = True
-
-            # Set Add Nodes
-            bpy.context.scene.node_tree.nodes['Mix'].blend_type = 'ADD'
-            bpy.context.scene.node_tree.nodes['Mix.001'].blend_type = 'ADD'
-
-
-        # Get Selected Camera Info
-        obj = bpy.context.active_object
-        name = obj.name
-
-        loc_x = bpy.data.objects[name].location.x
-        loc_y = bpy.data.objects[name].location.y
-        loc_z = bpy.data.objects[name].location.z
-
-        rot_x = bpy.data.objects[name].rotation_euler.x
-        rot_y = bpy.data.objects[name].rotation_euler.y
-        rot_z = bpy.data.objects[name].rotation_euler.z
-    
-        # Create Camera
-        size = 0.037
-        cam = bpy.data.cameras.new("Real Camera")
-        cam.name = 'Real Camera'
-        cam_ob = bpy.data.objects.new("Real Camera", cam)
-        bpy.context.scene.objects.link(cam_ob)
-        '''cam_name = bpy.data.cameras[cam.name]'''
-
-        # Camera Size
-        bpy.data.objects["Real Camera"].scale.x = size
-        bpy.data.objects["Real Camera"].scale.y = size
-        bpy.data.objects["Real Camera"].scale.z = size
-
-        # Lock Camera Scale
-        bpy.data.objects["Real Camera"].lock_scale = [True, True, True]
-
-        # Append Flash
-        bpy.ops.wm.append (directory = os.path.join(os.path.dirname(__file__), "Lens Flare.blend/Object/"), filepath="Lens Flare.blend", filename="Flash")
-
-        # Delete Old Camera and Change Name
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.data.objects[name].select = True
-        bpy.ops.object.delete()
-        name = "Real Camera"
-        bpy.context.scene.camera = bpy.data.objects[name]
-
-        # Select Flash
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects["Flash"]
-        o.select = True
-        bpy.context.scene.objects.active = o
-
-        # Select Camera
-        o = bpy.data.objects["Real Camera"]
-        o.select = True
-        bpy.context.scene.objects.active = o
-
-        # Parent
-        bpy.ops.object.parent_set()
-
-        # Camera Translate
-        bpy.data.objects["Real Camera"].location.x = loc_x
-        bpy.data.objects["Real Camera"].location.y = loc_y
-        bpy.data.objects["Real Camera"].location.z = loc_z
-
-        # Camera Rotate
-        bpy.data.objects["Real Camera"].rotation_euler.x = rot_x
-        bpy.data.objects["Real Camera"].rotation_euler.y = rot_y
-        bpy.data.objects["Real Camera"].rotation_euler.z = rot_z
-
-        # Select Camera
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects["Real Camera"]
-        o.select = True
-        bpy.context.scene.objects.active = o
-
-        # Invisible Flash
-        bpy.data.objects["Flash"].hide = True
-        bpy.data.objects["Flash"].hide_render = True
-
-        # Set Motion Blur
-        bpy.context.scene.render.use_motion_blur = True
-        # Set Limits
-        bpy.data.cameras[name].show_limits = True
-        # Set Metric System
-        bpy.context.scene.unit_settings.system = 'METRIC'
-        # Change Aperture to FSTOP
-        bpy.data.cameras["Real Camera"].cycles.aperture_type = 'FSTOP'
-
-        # Update to fix the visual issue
-        bpy.data.cameras["Real Camera"].cycles.aperture_fstop = 1.2
-        bpy.context.scene.camera_settings.shutter_speed = 0.05
-        bpy.context.scene.camera_settings.iso = 160
-        bpy.context.scene.camera_settings.af = False
-        bpy.data.cameras["Real Camera"].dof_distance = 1
-        bpy.data.cameras["Real Camera"].lens = 35
-        bpy.context.scene.camera_effects.chromatic_aberration = 0.01
-        bpy.context.scene.camera_effects.lens_distortion = 0.01
-
-# Update Auto Focus
-def update_af(self, context):
-    af = context.scene.camera_settings.af
-    
-    if af == True:
-
-        # Add Empty
-        bpy.ops.object.empty_add(type='PLAIN_AXES')
-        
-        # Select Camera
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects["Real Camera"]
-        o.select = True
-        bpy.context.scene.objects.active = o
-
-        # Get Camera Rotation and Location
-        r = bpy.context.object.matrix_world.to_euler('XYZ')
-        cam_rot_z = r[2]
-        cam_rot_x = r[0]
-        cam_loc_x = bpy.data.objects["Real Camera"].location.x
-        cam_loc_y = bpy.data.objects["Real Camera"].location.y
-        cam_loc_z = bpy.data.objects["Real Camera"].location.z
-
-        # Add Constraint
-        bpy.context.object.constraints.new('DAMPED_TRACK')
-        bpy.context.object.constraints["Damped Track"].target = bpy.data.objects["Empty"]
-        bpy.context.object.constraints["Damped Track"].track_axis = 'TRACK_NEGATIVE_Z'
-
-        # Select all the Meshes
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.ops.object.select_by_type(extend=False, type='MESH') # ob.type [‘MESH’, ‘CURVE’, ‘SURFACE’, ‘META’, ‘FONT’, ‘ARMATURE’, ‘LATTICE’, ‘EMPTY’, ‘CAMERA’, ‘LAMP’, ‘SPEAKER’]
-
-        # Get the number of selected meshes
-        n_ob = len(context.selected_objects)
-        
-        # Make a list of selected objects
-        ob_list = [i for i in range(n_ob)]
-        i = 0
-        for ob in bpy.context.selected_objects:
-            ob_list[i] = ob.name
-            i = i+1
-
-        # Get the number of all the Verts
-        ob_verts = [i for i in range(n_ob)]
-        i = 0
-        j = 0
-        y = 0
-        for i in range(n_ob):
-            bpy.ops.object.select_all(action='DESELECT')
-            o = bpy.data.objects[ob_list[i]]
-            o.select = True
-            bpy.context.scene.objects.active = o
-            obj = bpy.context.active_object
-            bpy.ops.object.mode_set(mode = 'EDIT')
-            mesh = bmesh.from_edit_mesh(obj.data)
-            j = 0
-            for v in mesh.verts:
-                j = j+1
-                y = y+1
-                ob_verts[i] = j
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-        n_verts = y
-
-        # Initialize vertex location and rotations of the camera
-        vertex = [i for i in range(n_ob)]
-        rotz = [i for i in range(n_verts)]
-        rotx = [i for i in range(n_verts)]
-       
-        # For each Vertex translate the Empty to its coordinates and get camera rotations
-        i = 0
-        y = 0
-        for i in range(n_ob):
-            ob_name = ob_list[i]
-            bpy.ops.object.select_all(action='DESELECT')
-            o = bpy.data.objects[ob_name]
-            o.select = True
-            bpy.context.scene.objects.active = o
-            obj = bpy.context.active_object
-            bpy.ops.object.mode_set(mode = 'EDIT')
-            mesh = bmesh.from_edit_mesh(obj.data)
-            vertices = obj.data.vertices
-            vertex[i] = [obj.matrix_world * v.co for v in vertices]
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-            j = 0
-            while(j<ob_verts[i]):
-                bpy.data.objects["Empty"].location.x = vertex[i][j][0]
-                bpy.data.objects["Empty"].location.y = vertex[i][j][1]
-                bpy.data.objects["Empty"].location.z = vertex[i][j][2]
-                j = j+1
-                # Select Camera
-                bpy.ops.object.select_all(action='DESELECT')
-                o = bpy.data.objects["Real Camera"]
-                o.select = True
-                bpy.context.scene.objects.active = o
-                rotz[y] = bpy.context.object.matrix_world.to_euler('XYZ')
-                y = y+1
-            i = i+1
-
-        # Safe Areas X and Z Max -> 0.42865286
-        z = 0.42865286
-        x = 0.42865286
-        value = bpy.context.scene.camera_settings.autofocus
-        d = x * value
-        rotz1 = cam_rot_z + d
-        rotz2 = cam_rot_z - d
-        rotx1 = cam_rot_x + d
-        rotx2 = cam_rot_x - d
-
-        # Find the vertices included between rot1 and rot2
-        point = [i for i in range(n_verts)]
-        i = 0
-        y = 0
-        x = 0
-        for i in range(n_ob):
-            j=0
-            for j in range(ob_verts[i]):
-                rot_check_z = rotz[y][2]
-                rot_check_x = rotz[y][0]
-                if(rot_check_z>rotz2 and rot_check_z<rotz1 and rot_check_x>rotx2 and rot_check_x<rotx1):
-                    point[x] = vertex[i][j]
-                    x = x+1
-                y = y+1
-            i = i+1
-        n_verts_af = x
-
-        if n_verts_af == 0:
-            # Delete Constraint
-            bpy.ops.object.select_all(action='DESELECT')
-            o = bpy.data.objects['Real Camera']
-            o.select = True
-            bpy.context.scene.objects.active = o
-            bpy.context.object.constraints.clear()
-
-            # Delete Empty
-            bpy.ops.object.select_all(action='DESELECT')
-            o = bpy.data.objects['Empty']
-            o.select = True
-            bpy.context.scene.objects.active = o
-            bpy.ops.object.delete()
-
-            # Select Camera
-            bpy.ops.object.select_all(action='DESELECT')
-            o = bpy.data.objects["Real Camera"]
-            o.select = True
-            bpy.context.scene.objects.active = o
-
-        # Find Distances
-        distance = [i for i in range(n_verts_af)]
-        i = 0
-        for i in range(n_verts_af):
-            v_locx = point[i][0]
-            v_locy = point[i][1]
-            v_locz = point[i][2]
-            dx = v_locx - cam_loc_x
-            dy = v_locy - cam_loc_y
-            dz = v_locz - cam_loc_z
-            distance[i] = math.sqrt(pow(dx, 2) + pow(dy, 2) + pow(dz, 2))
-            i = i+1
-
-        # Find the nearest Distance
-        flag = 0
-        for i in range (1, n_verts_af):
-            dista = distance[i]
-            distb = distance[flag]
-            if(dista < distb):
-                flag = i
-
-        # DOF
-        bpy.data.cameras["Real Camera"].dof_distance = distance[flag]
-
-        # Delete Constraint
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects['Real Camera']
-        o.select = True
-        bpy.context.scene.objects.active = o
-        bpy.context.object.constraints.clear()
-
-        # Delete Empty
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects['Empty']
-        o.select = True
-        bpy.context.scene.objects.active = o
-        bpy.ops.object.delete()
-
-        # Select Camera
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects["Real Camera"]
-        o.select = True
-        bpy.context.scene.objects.active = o
-
-        # Safe Areas
-        bpy.context.object.data.show_safe_areas = True
-        safe = 1-value
-        bpy.context.scene.safe_areas.title[0] = safe
-        bpy.context.scene.safe_areas.title[1] = safe
-        bpy.context.scene.safe_areas.action[0] = safe
-        bpy.context.scene.safe_areas.action[1] = safe
-
-    else:
-
-        bpy.context.object.data.show_safe_areas = False
-        dof = bpy.context.scene.camera_settings.focus_point
-        # DOF
-        bpy.data.cameras["Real Camera"].dof_distance = dof
 
 # Update Aperture
 def update_aperture(self, context):
-    bpy.context.object.data.cycles.aperture_fstop = bpy.context.scene.camera_settings.aperture
+	context.object.data.cycles.aperture_fstop = context.scene.camera_settings.aperture
 # Update Shutter Speed
 def update_shutter_speed(self, context):
-    fps = bpy.context.scene.render.fps
-    value = bpy.context.scene.camera_settings.shutter_speed
-    motion = fps*value
-    bpy.context.scene.render.motion_blur_shutter = motion
-# Update ISO
-def update_iso(self, context):
-    iso = bpy.context.scene.camera_settings.iso
-    exp = iso/160
-    bpy.context.scene.cycles.film_exposure = exp
-    
-# Update Flash
-def update_flash(self, context):
-    energy = bpy.context.scene.camera_settings.flash
-    e = energy*100
-    bpy.data.materials["Flash"].node_tree.nodes["Emission"].inputs[1].default_value = e
-
-    # Invisible Flash if energy is 0
-    if e == 0:
-        bpy.data.objects["Flash"].hide = True
-        bpy.data.objects["Flash"].hide_render = True
-    else:
-        bpy.data.objects["Flash"].hide = False
-        bpy.data.objects["Flash"].hide_render = False
-
-# Update Focus Point
-def update_focus_point(self, context):
-    bpy.context.object.data.dof_distance = bpy.context.scene.camera_settings.focus_point
-# Update Zoom
-def update_zoom(self, context):
-    bpy.context.object.data.lens = bpy.context.scene.camera_settings.zoom
-
-# Update Effects
-def update_effects(self, context):
-    effects = bpy.context.scene.camera_effects.effects
-    
-    if effects == False:
-        ######### Nodes #####################################################
-        # Switch On Nodes and get Reference
-        bpy.context.scene.use_nodes = True
-        tree = bpy.context.scene.node_tree
-        
-        # Clear Nodes
-        for node in tree.nodes:
-            tree.nodes.remove(node)
-        
-        # Input Node
-        layer_node = tree.nodes.new(type='CompositorNodeRLayers')
-        layer_node.location = 0,0
-
-        # Output Node
-        comp_node = tree.nodes.new('CompositorNodeComposite')
-        comp_node.location = 200, 0
-
-        # Link
-        links = tree.links
-        links.new(layer_node.outputs[0], comp_node.inputs[0])
-        links.new(layer_node.outputs[1], comp_node.inputs[1])
-
-    else:
-        ######### Nodes #####################################################
-        # Switch On Nodes and get Reference
-        bpy.context.scene.use_nodes = True
-        tree = bpy.context.scene.node_tree
-        
-        # Clear Nodes
-        for node in tree.nodes:
-            tree.nodes.remove(node)
-
-        # Append Lens Flare
-        bpy.ops.wm.append (directory = os.path.join(os.path.dirname(__file__), "Lens Flare.blend/NodeTree/"), filepath="Lens Flare.blend", filename="Lens Flare")
-        # Append Bokeh
-        bpy.ops.wm.append (directory = os.path.join(os.path.dirname(__file__), "Lens Flare.blend/NodeTree/"), filepath="Lens Flare.blend", filename="Bokeh")
-        
-        # Input Node
-        layer_node = tree.nodes.new(type='CompositorNodeRLayers')
-        layer_node.location = 0,0
-
-        # Output Node
-        comp_node = tree.nodes.new('CompositorNodeComposite')
-        comp_node.location = 800, 0
-
-        # Lens Flare Node
-        flare_node = tree.nodes.new(type='CompositorNodeGroup')
-        flare_node.node_tree = bpy.data.node_groups["Lens Flare"]
-        flare_node.location = 200, 200
-
-        # Bokeh Node
-        bokeh_node = tree.nodes.new(type='CompositorNodeGroup')
-        bokeh_node.node_tree = bpy.data.node_groups["Bokeh"]
-        bokeh_node.location = 400, 0
-
-        # Lens Distortion Node
-        lens_node = tree.nodes.new('CompositorNodeLensdist')
-        lens_node.location = 200,0
-
-        # Mix Node 1
-        mix1_node = tree.nodes.new('CompositorNodeMixRGB')
-        mix1_node.location = 400, 200
-
-        # Mix Node 2
-        mix2_node = tree.nodes.new('CompositorNodeMixRGB')
-        mix2_node.location = 600, 100
-
-        # Link
-        links = tree.links
-        links.new(layer_node.outputs[0], lens_node.inputs[0])
-        links.new(layer_node.outputs[0], flare_node.inputs[0])
-        links.new(flare_node.outputs[0], mix1_node.inputs[2])
-        links.new(lens_node.outputs[0], mix1_node.inputs[1])
-        links.new(mix1_node.outputs[0], mix2_node.inputs[1])
-        links.new(layer_node.outputs[0], bokeh_node.inputs[0])
-        links.new(bokeh_node.outputs[0], mix2_node.inputs[2])
-        links.new(mix2_node.outputs[0], comp_node.inputs[0])
-        links.new(layer_node.outputs[1], comp_node.inputs[1])
-        
-        # Set Fit
-        bpy.context.scene.node_tree.nodes['Lens Distortion'].use_fit = True
-
-        # Set Add Nodes
-        bpy.context.scene.node_tree.nodes['Mix'].blend_type = 'ADD'
-        bpy.context.scene.node_tree.nodes['Mix.001'].blend_type = 'ADD'
-
-        # Update to fix the visual issue
-        bpy.context.object.data.cycles.aperture_fstop = 1.2
-        bpy.context.scene.render.motion_blur_shutter = 0.05
-        bpy.context.scene.cycles.film_exposure = 160
-        bpy.data.materials["Flash"].node_tree.nodes["Emission"].inputs[1].default_value = 0
-        bpy.context.object.data.dof_distance = 1
-        bpy.context.object.data.lens = 35
-        bpy.context.scene.camera_effects.chromatic_aberration = 0.01
-        bpy.context.scene.camera_effects.lens_distortion = 0.01
-
-        # Select Camera
-        bpy.ops.object.select_all(action='DESELECT')
-        o = bpy.data.objects["Real Camera"]
-        o.select = True
-        bpy.context.scene.objects.active = o
-
-# Update Lens Type
-def update_lens_type(self, context):
-    if bpy.context.scene.camera_effects.lens_type == True:
-        bpy.context.scene.node_tree.nodes['Lens Distortion'].use_projector = False
-    else:
-        bpy.context.scene.node_tree.nodes['Lens Distortion'].use_projector = True
-# Update Longitudinal-Lateral Text
-def lens(self, context):
-    if bpy.context.scene.camera_effects.lens_type == True:
-        return "Longitudinal"
-    else:
-        return "Lateral"
-# Update Longitudinal-Lateral Icon
-def select_icon(self, context):
-    if bpy.context.scene.camera_effects.lens_type == True:
-        return custom_icons["lo"].icon_id
-    else:
-        return custom_icons["la"].icon_id
-
-# Update Chromatic Aberration
-def update_chromatic_aberration(self, context):
-    bpy.context.scene.node_tree.nodes['Lens Distortion'].inputs[2].default_value = bpy.context.scene.camera_effects.chromatic_aberration
-# Update Lens Distortion
-def update_lens_distortion(self, context):
-    bpy.context.scene.node_tree.nodes['Lens Distortion'].inputs[1].default_value = bpy.context.scene.camera_effects.lens_distortion
-# Update Lens Flare Threshold
-def update_lens_flare_threshold(self, context):
-    bpy.context.scene.node_tree.nodes['Group'].inputs[1].default_value = bpy.context.scene.camera_effects.lens_flare_threshold
-# Update Lens Flare Effect
-def update_lens_flare_effect(self, context):
-    bpy.context.scene.node_tree.nodes['Group'].inputs[2].default_value = bpy.context.scene.camera_effects.lens_flare_effect
-# Update Bokeh Threshold
-def update_bokeh_threshold(self, context):
-    bpy.context.scene.node_tree.nodes['Group.001'].inputs[1].default_value = bpy.context.scene.camera_effects.bokeh_threshold
-# Update Bokeh Effect
-def update_bokeh_effect(self, context):
-    bpy.context.scene.node_tree.nodes['Group.001'].inputs[2].default_value = bpy.context.scene.camera_effects.bokeh_effect
+	fps = context.scene.render.fps
+	shutter = context.scene.camera_settings.shutter_speed
+	motion = fps*shutter
+	context.scene.render.motion_blur_shutter = motion
 
 
-#Settings############################################################
-
-class CameraSettings(bpy.types.PropertyGroup):
-    
-    # Toggle
-    enabled = bpy.props.BoolProperty(
-        name = "Enabled",
-        description = "Enable Real Camera",
-        default = False,
-        update = toggle_update
-    )
-    
-    # Exposure Triangle
-    aperture = bpy.props.FloatProperty(
-        name = "Aperture",
-        description = "Depth of Field, measured in F-Stops",
-        min = 0,
-        max = 64,
-        step = 10,
-        precision = 1,
-        default = 1.2,
-        update = update_aperture
-    )
-    shutter_speed = bpy.props.FloatProperty(
-        name = "Shutter Speed",
-        description = "Motion Blur, measured in Seconds",
-        min = 0,
-        max = float('inf'),
-        step = 0.1,
-        precision = 3,
-        default = 0.05,
-        update = update_shutter_speed
-    )
-    iso = bpy.props.IntProperty(
-        name = "ISO",
-        description = "Exposure, measured in EVs",
-        min = 0,
-        max = 1600,
-        default = 160,
-        update = update_iso
-    )
-    
-    # Mechanics
-    af = bpy.props.BoolProperty(
-        name = "Autofocus",
-        description = "Enable Autofocus",
-        default = False,
-        update = update_af
-    )
-    autofocus = bpy.props.FloatProperty(
-        name = "Sensor",
-        description = "Sensor Size",
-        min = 0.01,
-        max = 1,
-        step = 10,
-        precision = 2,
-        default = 0.1,
-        update = update_af
-    )
-
-    flash = bpy.props.FloatProperty(
-        name = "Flash",
-        description = "Flash Energy",
-        min = 0,
-        max = float('inf'),
-        step = 10,
-        precision = 2,
-        default = 0,
-        update = update_flash
-    )
-    focus_point = bpy.props.FloatProperty(
-        name = "Focus Point",
-        description = "Focus Point for the DOF, measured in Meters",
-        min = 0,
-        max = float('inf'),
-        step = 1,
-        precision = 2,
-        default = 1,
-        update = update_focus_point
-    )
-    zoom = bpy.props.FloatProperty(
-        name = "Focal Length",
-        description = "Zoom, measured in Millimeters",
-        min = 1,
-        max = float('inf'),
-        step = 10,
-        precision = 1,
-        default = 35,
-        update = update_zoom
-    )
-
-    
-#Effects#############################################################
-
-class CameraEffects(bpy.types.PropertyGroup):
-
-    effects = bpy.props.BoolProperty(
-        name = "Effects",
-        description = "Enable Effects",
-        default = False,
-        update = update_effects
-    )
-
-    lens_type = bpy.props.BoolProperty(
-        name = "Lens Type",
-        description = "Lens Type",
-        default = True,
-        update = update_lens_type
-    )
-    chromatic_aberration = bpy.props.FloatProperty(
-        name = "Chromatic Aberration",
-        description = "Chromatic Aberration Effect",
-        min = 0.001,
-        max = 1,
-        step = 1,
-        precision = 3,
-        default = 0.01,
-        update = update_chromatic_aberration
-    )
-    lens_distortion = bpy.props.FloatProperty(
-        name = "Lens Distortion",
-        description = "Lens Distortion Effect",
-        min = 0.001,
-        max = 1,
-        step = 1,
-        precision = 3,
-        default = 0.01,
-        update = update_lens_distortion
-    )
-    lens_flare_threshold = bpy.props.FloatProperty(
-        name = "Lens Threshold",
-        description = "Lens Flare Threshold: controls the pixel intensity for getting the Flare effect",
-        min = 0,
-        max = float('inf'),
-        step = 1,
-        precision = 3,
-        default = 1,
-        update = update_lens_flare_threshold
-    )
-    lens_flare_effect = bpy.props.FloatProperty(
-        name = "Lens Effect",
-        description = "Lens Flare Effect: controls the intensity of the Lens Flare",
-        min = 0,
-        max = float('inf'),
-        step = 1,
-        precision = 3,
-        default = 1,
-        update = update_lens_flare_effect
-    )
-    bokeh_threshold = bpy.props.FloatProperty(
-        name = "Lens Threshold",
-        description = "Lens Flare Threshold: controls the pixel intensity for getting the Bokeh effect",
-        min = 0,
-        max = float('inf'),
-        step = 1,
-        precision = 3,
-        default = 1,
-        update = update_bokeh_threshold
-    )
-    bokeh_effect = bpy.props.FloatProperty(
-        name = "Lens Effect",
-        description = "Lens Flare Effect: controls the intensity of the Bokeh",
-        min = 0,
-        max = float('inf'),
-        step = 1,
-        precision = 3,
-        default = 1,
-        update = update_bokeh_effect
-    )
+# Update Autofocus
+def update_af(self, context):
+	af = context.scene.camera_settings.af
+	if af:
+		name = context.active_object.name
+		obj = bpy.data.objects[name]
+		# ray Cast
+		ray = context.scene.ray_cast(context.scene.view_layers[0], obj.location, obj.matrix_world.to_quaternion() @ Vector((0.0, 0.0, -1.0)))
+		distance = (ray[1]-obj.location).magnitude
+		bpy.context.object.data.dof.focus_distance = distance
+	else:
+		# reset baked af
+		context.scene.camera_settings.af_bake = False
+		update_af_bake(self, context)
 
 
-#Panel###############################################################
+# Autofocus Bake
+def update_af_bake(self, context):
+	scene = bpy.context.scene
+	bake = scene.camera_settings.af_bake
+	start = scene.frame_start
+	end = scene.frame_end
+	frames = end-start+1
+	steps = scene.camera_settings.af_step
+	n = int(float(frames/steps))
+	current_frame = scene.frame_current
+	name = context.active_object.name
+	cam = bpy.data.cameras[name]
+	if bake:
+		scene.frame_current = start
+		# every step frames, place a keyframe
+		for i in range(n+1):
+			update_af(self, context)
+			cam.dof.keyframe_insert('focus_distance')
+			scene.frame_set(scene.frame_current+steps)
+		# current Frame
+		scene.frame_current = current_frame
+	else:
+		# delete dof keyframes
+		try:
+			fcurves = cam.animation_data.action.fcurves
+		except AttributeError:
+			a=0
+		else:
+			for c in fcurves:
+				if c.data_path.startswith("dof.focus_distance"):
+					fcurves.remove(c)
 
-class PreviewsPanel(bpy.types.Panel):
-    # Create a Panel in the Camera Properties
-    bl_category = "Real Camera"
-    bl_label = "Real Camera"
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = "WINDOW"
-    bl_context = "data"
-    
-    # Draw
 
-    def draw_header(self, context):
-        settings = context.scene.camera_settings
-        layout = self.layout
-        
-        layout.prop(settings, 'enabled', text='')
-        cam = context.camera
-        
-    def draw(self, context):
-        settings = context.scene.camera_settings
-        layout = self.layout
-        scn = context.scene
-        ob = context.object
-        ef = context.scene.camera_effects
-        layout.enabled = settings.enabled
+# Read filmic values from files
+def read_filmic_values(path):
+	nums = []
+	with open(path) as filmic_file:
+		for line in filmic_file:
+			nums.append(float(line))
+	return nums
 
-        layout.operator("render.render", text="Render", icon='RENDER_STILL')
-        
-        layout.label("Exposure Triangle", icon_value=custom_icons["exposure_triangle"].icon_id)
-        split = layout.split()
-        col = split.column(align=True)
-        col.prop(settings, 'aperture')
-        col.prop(settings, 'shutter_speed')
-        col.prop(settings, 'iso')
-        
-        layout.label("Mechanics", icon_value=custom_icons["mechanics"].icon_id)
-        row = layout.row()
-        row.prop(settings, 'af')
-        sub = row.row(align=True)
-        sub.active = settings.af
-        if settings.af:
-            sub.prop(settings, 'autofocus', slider=True)
-        split = layout.split()
-        col = split.column(align=True)
-        col.prop(settings, 'zoom')
-        col.prop(settings, 'flash')
-        if not settings.af:
-            col.prop(settings, 'focus_point')
 
-        layout.prop(ef, 'effects', icon_value=custom_icons["effects"].icon_id)
-        col = layout.column()
-        col.active = ef.effects
-        if ef.effects:
-            col.label("Lens")
-            split = col.split()
-            col = split.column(align=True)
-            col.prop(ef, 'lens_type', text=lens(self, context), icon_value=select_icon(self, context))
-            col.prop(ef, 'chromatic_aberration')
-            col.prop(ef, 'lens_distortion')
-            col.label("Lens Flare")
-            split = col.split()
-            col = split.column(align=True)
-            col.prop(ef, 'lens_flare_threshold', text="Threshold")
-            col.prop(ef, 'lens_flare_effect', text="Effect")
-            col.label("Bokeh")
-            split = col.split()
-            col = split.column(align=True)
-            col.prop(ef, 'bokeh_threshold', text="Threshold")
-            col.prop(ef, 'bokeh_effect', text="Effect")
-        
+# Global values
+handle = ()
+path = os.path.join(os.path.dirname(__file__), "looks/")
+filmic_vhc = read_filmic_values(path + "Very High Contrast")
+filmic_hc = read_filmic_values(path + "High Contrast")
+filmic_mhc = read_filmic_values(path + "Medium High Contrast")
+filmic_bc = read_filmic_values(path + "Medium Contrast")
+filmic_mlc = read_filmic_values(path + "Medium Low Contrast")
+filmic_lc = read_filmic_values(path + "Low Contrast")
+filmic_vlc = read_filmic_values(path + "Very Low Contrast")
+old_engine = ""
 
-#Register and Unregister############################################
+
+# Enable Auto Exposure
+def update_ae(self, context):
+	ae = context.scene.camera_settings.enable_ae
+	if ae:
+		engine = context.scene.render.engine
+		global handle
+		if engine=="BLENDER_EEVEE":
+			handle = bpy.types.SpaceView3D.draw_handler_add(ae_calc, (), 'WINDOW', 'PRE_VIEW')
+		if engine=="CYCLES":
+			handle = bpy.types.SpaceView3D.draw_handler_add(ae_calc, (), 'WINDOW', 'POST_PIXEL')
+	else:
+		bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
+	global old_engine
+	old_engine = bpy.context.scene.render.engine
+
+
+# Auto Exposure algorithms
+def ae_calc():
+	shading = bpy.context.area.spaces.active.shading.type
+	if shading=="RENDERED":
+		settings = bpy.context.scene.camera_settings
+		# width and height of the viewport
+		viewport = bgl.Buffer(bgl.GL_INT, 4)
+		bgl.glGetIntegerv(bgl.GL_VIEWPORT, viewport)
+		width = viewport[2]
+		height = viewport[3]
+		bgl.glDisable(bgl.GL_DEPTH_TEST)
+		buf = bgl.Buffer(bgl.GL_FLOAT, 3)
+
+		# Center Spot
+		if settings.ae_mode=="Center Spot":
+			x = width//2
+			y = height//2
+			bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
+			avg = luminance(buf)
+
+		# Full Window
+		if settings.ae_mode=="Full Window":
+			grid = settings.full_grid
+			values = 0
+			step = 1/(grid+1)
+			for i in range (grid):
+				for j in range (grid):
+					x = int(step*(j+1)*width)
+					y = int(step*(i+1)*height)
+					bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
+					lum = luminance(buf)
+					values = values+lum
+			avg = values/(grid*grid)
+
+		# Center Weighted
+		if settings.ae_mode=="Center Weighted":
+			circles = settings.center_grid
+			if width>=height:
+				max = width
+			else:
+				max = height
+			half = max//2
+			step = max//(circles*2+2)
+			values = 0
+			weights = 0
+			for i in range (circles):
+				x = half-(i+1)*step
+				y = x
+				n_steps = i*2+2
+				weight = (circles-1-i)/circles
+				for n in range (n_steps):
+					x = x+step
+					bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
+					lum = luminance(buf)
+					values = values+lum*weight
+					weights = weights+weight
+				for n in range (n_steps):
+					y = y+step
+					bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
+					lum = luminance(buf)
+					values = values+lum*weight
+					weights = weights+weight
+				for n in range (n_steps):
+					x = x-step
+					bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
+					lum = luminance(buf)
+					values = values+lum*weight
+					weights = weights+weight
+				for n in range (n_steps):
+					y = y-step
+					bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
+					lum = luminance(buf)
+					values = values+lum*weight
+					weights = weights+weight
+
+			avg = values/weights
+
+		ec = bpy.context.scene.camera_settings.ec
+		if ec!=0:
+			middle = 0.18*math.pow(2, ec)
+			log = (math.log2(middle/0.18)+10)/16.5
+			s = s_calc(log)
+			avg_min = s-0.01
+			avg_max = s+0.01
+		else:
+			avg_min = 0.49
+			avg_max = 0.51
+			middle = 0.18
+		if not (avg>avg_min and avg<avg_max):
+			# Measure scene referred value and change the exposure value
+			s_curve = s_calculation(avg)
+			log = math.pow(2, (16.5*s_curve-12.47393))
+			past = bpy.context.scene.view_settings.exposure
+			scene = log/(math.pow(2, past))
+			future = -math.log2(scene/middle)
+			exposure = past-((past-future)/5)
+			bpy.context.scene.view_settings.exposure = exposure
+
+
+# Calculate value after filmic log
+def s_calc(log):
+	look = bpy.context.scene.view_settings.look
+	if look=="None":
+		filmic = filmic_bc
+	elif look=="Filmic - Very High Contrast":
+		filmic = filmic_vhc
+	elif look=="Filmic - High Contrast":
+		filmic = filmic_hc
+	elif look=="Filmic - Medium High Contrast":
+		filmic = filmic_mhc
+	elif look=="Filmic - Medium Contrast":
+		filmic = filmic_bc
+	elif look=="Filmic - Medium Low Contrast":
+		filmic = filmic_mlc
+	elif look=="Filmic - Low Contrast":
+		filmic = filmic_lc
+	elif look=="Filmic - Very Low Contrast":
+		filmic = filmic_vlc
+	x = int(log*4096)
+	return filmic[x]
+
+
+# Calculate value after filmic log inverse
+def s_calculation(n):
+	look = bpy.context.scene.view_settings.look
+	if look=="None":
+		filmic = filmic_bc
+	elif look=="Filmic - Very High Contrast":
+		filmic = filmic_vhc
+	elif look=="Filmic - High Contrast":
+		filmic = filmic_hc
+	elif look=="Filmic - Medium High Contrast":
+		filmic = filmic_mhc
+	elif look=="Filmic - Medium Contrast":
+		filmic = filmic_bc
+	elif look=="Filmic - Medium Low Contrast":
+		filmic = filmic_mlc
+	elif look=="Filmic - Low Contrast":
+		filmic = filmic_lc
+	elif look=="Filmic - Very Low Contrast":
+		filmic = filmic_vlc
+	begin = 0
+	end = len(filmic)
+	middle = begin
+	# find value in middle (binary search)
+	while (end-begin) > 1:
+		middle = math.ceil((end+begin)/2)
+		if filmic[middle] > n:
+			end = middle
+		else:
+			begin = middle
+	return (middle + 1) / len(filmic)
+
+
+# RGB to Luminance
+def luminance(buf):
+	lum = 0.2126*buf[0] + 0.7152*buf[1] + 0.0722*buf[2]
+	return lum
+
+
+class CameraSettings(PropertyGroup):
+	# Enable
+	enabled : bpy.props.BoolProperty(
+		name = "Enable Real Camera",
+		description = "Enable Real Camera",
+		default = False,
+		update = toggle_update
+		)
+
+	# Exposure Triangle
+	aperture : bpy.props.FloatProperty(
+		name = "Aperture",
+		description = "Aperture of the lens in f-stops. From 0.1 to 64. Gives a depth of field effect",
+		min = 0.1,
+		max = 64,
+		step = 1,
+		precision = 2,
+		default = 5.6,
+		update = update_aperture
+		)
+
+	shutter_speed : bpy.props.FloatProperty(
+		name = "Shutter Speed",
+		description = "Exposure time of the sensor in seconds. From 1/10000 to 10. Gives a motion blur effect",
+		min = 0.0001,
+		max = 100,
+		step = 10,
+		precision = 4,
+		default = 0.5,
+		update = update_shutter_speed
+		)
+
+	# Mechanics
+	af : bpy.props.BoolProperty(
+		name = "Autofocus",
+		description = "Enable Autofocus",
+		default = False,
+		update = update_af
+		)
+
+	af_bake : bpy.props.BoolProperty(
+		name = "Autofocus Baking",
+		description = "Bake Autofocus for the entire animation",
+		default = False,
+		update = update_af_bake
+		)
+
+	af_step : bpy.props.IntProperty(
+		name = "Step",
+		description = "Every step frames insert a keyframe",
+		min = 1,
+		max = 10000,
+		default = 24
+		)
+
+	# Auto Exposure
+	enable_ae : bpy.props.BoolProperty(
+		name = "Auto Exposure",
+		description = "Enable Auto Exposure",
+		default = False,
+		update = update_ae
+		)
+
+	ae_mode : bpy.props.EnumProperty(
+		name="Mode",
+		items= [
+			("Center Spot", "Center Spot", "Sample the pixel in the center of the window", 'PIVOT_BOUNDBOX', 0),
+			("Center Weighted", "Center Weighted", "Sample a grid of pixels and gives more weight to the ones near the center", 'CLIPUV_HLT', 1),
+			("Full Window", "Full Window", "Sample a grid of pixels among the whole window", 'FACESEL', 2),
+			],
+		description="Select an auto exposure metering mode",
+		default="Center Weighted"
+		)
+
+	ec : bpy.props.FloatProperty(
+		name = "EV Compensation",
+		description = "Exposure Compensation value: add or subtract brightness",
+		min = -3,
+		max = 3,
+		step = 1,
+		precision = 2,
+		default = 0
+		)
+
+	center_grid : bpy.props.IntProperty(
+		name = "Circles",
+		description = "Number of circles to sample: more circles means more accurate auto exposure, but also means slower viewport",
+		min = 2,
+		max = 20,
+		default = 4
+		)
+
+	full_grid : bpy.props.IntProperty(
+		name = "Grid",
+		description = "Number of rows and columns to sample: more rows and columns means more accurate auto exposure, but also means slower viewport",
+		min = 2,
+		max = 20,
+		default = 7
+		)
+
+
+# Render engine handler
+@persistent
+def camera_handler(scene):
+	subscribe_to = bpy.types.RenderSettings, "engine"
+	bpy.types.Scene.realcam_render = object()
+	bpy.msgbus.subscribe_rna(
+		key=subscribe_to,
+		owner=bpy.types.Scene.realcam_render,
+		args=(),
+		notify=realcam_handler
+		)
+
+@persistent
+def realcam_handler(*args):
+	ae = bpy.context.scene.camera_settings.enable_ae
+	if ae:
+		engine = bpy.context.scene.render.engine
+		global old_engine
+		global handle
+		if engine!=old_engine:
+			if old_engine=="BLENDER_EEVEE":
+				bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
+			elif old_engine=="CYCLES":
+				bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
+			if engine=="BLENDER_EEVEE":
+				handle = bpy.types.SpaceView3D.draw_handler_add(ae_calc, (), 'WINDOW', 'PRE_VIEW')
+			if engine=="CYCLES":
+				handle = bpy.types.SpaceView3D.draw_handler_add(ae_calc, (), 'WINDOW', 'POST_PIXEL')
+			old_engine = engine
+
+def unsubscribe_to_rna_props():
+	bpy.msgbus.clear_by_owner(bpy.types.Scene.realcam_render)
+
+
+# Preferences Updater
+@addon_updater_ops.make_annotations
+class RealCameraPreferences(bpy.types.AddonPreferences):
+	bl_idname = __package__
+
+	auto_check_update = bpy.props.BoolProperty(
+		name="Auto-check for Update",
+		description="If enabled, auto-check for updates using an interval",
+		default=True,
+		)
+	updater_intrval_months = bpy.props.IntProperty(
+		name='Months',
+		description="Number of months between checking for updates",
+		default=0,
+		min=0
+		)
+	updater_intrval_days = bpy.props.IntProperty(
+		name='Days',
+		description="Number of days between checking for updates",
+		default=1,
+		min=0,
+		max=31
+		)
+	updater_intrval_hours = bpy.props.IntProperty(
+		name='Hours',
+		description="Number of hours between checking for updates",
+		default=0,
+		min=0,
+		max=23
+		)
+	updater_intrval_minutes = bpy.props.IntProperty(
+		name='Minutes',
+		description="Number of minutes between checking for updates",
+		default=0,
+		min=0,
+		max=59
+		)
+
+	def draw(self, context):
+		layout = self.layout
+		mainrow = layout.row()
+		col = mainrow.column()
+		addon_updater_ops.update_settings_ui(self, context)
+
+
+############################################################################
+classes = (
+	REALCAMERA_PT_Panel,
+	AUTOEXP_PT_Panel,
+	CameraSettings,
+	RealCameraPreferences
+	)
+
+register, unregister = bpy.utils.register_classes_factory(classes)
 
 # Register
 def register():
-    
-    bpy.utils.register_module(__name__)
-    bpy.types.Scene.camera_settings = bpy.props.PointerProperty(type=CameraSettings)
-    bpy.types.Scene.camera_effects = bpy.props.PointerProperty(type=CameraEffects)
-    # Icons
-    global custom_icons
-    custom_icons = bpy.utils.previews.new()
-    script_path = os.path.join(os.path.dirname(__file__), "Icons")
-    icons_dir = os.path.join(os.path.dirname(script_path), "Icons")
-    custom_icons.load("exposure_triangle", os.path.join(icons_dir, "Exposure Triangle.png"), 'IMAGE')
-    custom_icons.load("mechanics", os.path.join(icons_dir, "Mechanics.png"), 'IMAGE')
-    custom_icons.load("effects", os.path.join(icons_dir, "Effects.png"), 'IMAGE')
-    custom_icons.load("lo", os.path.join(icons_dir, "Lo.png"), 'IMAGE')
-    custom_icons.load("la", os.path.join(icons_dir, "La.png"), 'IMAGE')
+	# Updater
+	addon_updater_ops.register(bl_info)
+	for cls in classes:
+		addon_updater_ops.make_annotations(cls)
+		bpy.utils.register_class(cls)
+	bpy.types.Scene.camera_settings = bpy.props.PointerProperty(type=CameraSettings)
+	# Render engine handler
+	bpy.app.handlers.load_post.append(camera_handler)
+	camera_handler(None)
 
 
 # Unregister
 def unregister():
-
-    bpy.utils.unregister_module(__name__)
-    del bpy.types.Scene.camera_settings
-    del bpy.types.Scene.camera_effects
-    # Icons
-    global custom_icons
-    bpy.utils.previews.remove(custom_icons)
+	# Updater
+	addon_updater_ops.unregister()
+	for cls in classes:
+		bpy.utils.unregister_class(cls)
+	del bpy.types.Scene.camera_settings
+	# Render engine handler
+	bpy.app.handlers.load_post.remove(camera_handler)
+	unsubscribe_to_rna_props()
 
 
 if __name__ == "__main__":
-    register()
+	register()

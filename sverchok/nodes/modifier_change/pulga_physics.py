@@ -54,91 +54,92 @@ class SvPulgaPhysicsNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Pulga Physics'
     bl_icon = 'MOD_PHYSICS'
 
-
-    iterations = IntProperty(
+    n_id : StringProperty()
+    
+    iterations : IntProperty(
         name='Iterations', description='Number of Iterations',
         default=1, min=1, update=updateNode)
 
-    fixed_len = FloatProperty(
+    fixed_len : FloatProperty(
         name='Springs Length', description='Specify spring rest length, 0 to calculate it from initial position',
         default=0.0, update=updateNode)
-    spring_k = FloatProperty(
+    spring_k : FloatProperty(
         name='Springs Stiffness', description='Springs stiffness constant',
         default=0.0, precision=4,
         update=updateNode)
 
-    rads_in = FloatProperty(
+    rads_in : FloatProperty(
         name='Radius', description='Used to calculate mass, surface and collisions',
         default=1.0, update=updateNode)
 
-    self_collision = FloatProperty(
+    self_collision : FloatProperty(
         name='Self Collision', description='Collision forces between vertices',
         default=0.0, precision=4, step=1e-2, update=updateNode)
-    self_attract = FloatProperty(
+    self_attract : FloatProperty(
         name='Self Attract', description='Attraction between vertices',
         default=0.0, precision=4, step=1e-2, update=updateNode)
-    attract_decay = FloatProperty(
+    attract_decay : FloatProperty(
         name='Self Attract Decay', description='0 = no decay, 1 = linear, 2 = quadratic...',
         default=0.0, precision=3, update=updateNode)
-    grow = FloatProperty(
+    grow : FloatProperty(
         name='Grow', description='Shrink if collide with others / Grow if does not ',
         default=0.0, update=updateNode)
-    min_rad = FloatProperty(
+    min_rad : FloatProperty(
         name='Min Radius', description='Do not shrink under this value',
         default=0.1, precision=3, update=updateNode)
-    max_rad = FloatProperty(
+    max_rad : FloatProperty(
         name='Max Radius', description='Do not grow over this value',
         default=1.0, precision=3, update=updateNode)
 
-    inflate = FloatProperty(
+    inflate : FloatProperty(
         name='Inflate', description='push geometry along the normals proportional to polygon area',
         default=1.0, precision=3, update=updateNode)
 
-    initial_vel = FloatVectorProperty(
+    initial_vel : FloatVectorProperty(
         name='Initial Velocity', description='Initial Velocity',
         size=3, default=(0., 0., 0.),
         precision=3, update=updateNode)
 
-    max_vel = FloatProperty(
+    max_vel : FloatProperty(
         name='Max Velocity', description='Limit maximun speed. 0 = no limit',
         default=0.01, precision=3, update=updateNode)
-    drag_force = FloatProperty(
+    drag_force : FloatProperty(
         name='Drag Force', description='Movement resistance from environment',
         default=0.0, precision=3, update=updateNode)
-    att_force = FloatProperty(
+    att_force : FloatProperty(
         name='Attractors Force', description='Attractors Force magnitude',
         default=0.0, precision=3, update=updateNode)
-    att_clamp = FloatProperty(
+    att_clamp : FloatProperty(
         name='Attractors Clamp', description='Attractors maximum influence distance',
         default=0.0, precision=3, update=updateNode)
-    att_decay_power = FloatProperty(
+    att_decay_power : FloatProperty(
         name='Attractors Decay', description='Decay with distance 0 = no decay, 1 = linear, 2 = quadratic...',
         default=0.0, precision=3, update=updateNode)
 
-    random_seed = IntProperty(
+    random_seed : IntProperty(
         name='Random Seed', description='Random seed number',
         default=0, min=0, update=updateNode)
-    random_force = FloatProperty(
+    random_force : FloatProperty(
         name='Random Force', description='Random force magnitude',
         default=0.0, update=updateNode)
-    random_variation = FloatProperty(
+    random_variation : FloatProperty(
         name='Random Variation', description='Random force variation',
         default=0.0, min=0, max=1, update=updateNode)
 
-    density = FloatProperty(
+    density : FloatProperty(
         name='Density', description='Density',
         default=0.1, update=updateNode)
 
-    gravity = FloatVectorProperty(
+    gravity : FloatVectorProperty(
         name='Gravity', description='gravity or other constant forces that are mass independent',
         size=3, default=(0., 0., 0.),
         precision=4, update=updateNode)
-    wind = FloatVectorProperty(
+    wind : FloatVectorProperty(
         name='Wind', description='wind or other constant forces that are mass dependent',
         size=3, default=(0., 0., 0.),
         precision=4, update=updateNode)
 
-    obstacles_bounce = FloatProperty(
+    obstacles_bounce : FloatProperty(
         name='Obstacles Bounce', description='Obstacles Bounce',
         default=0.1, update=updateNode)
 
@@ -158,7 +159,7 @@ class SvPulgaPhysicsNode(bpy.types.Node, SverchCustomTreeNode):
     def memory_to_file(self, context):
         '''bump memory to text-block'''
         if self.accumulative_parse:
-            location = self.getNodeTree().name + "_"+ self.name
+            location = self.name + "_"+ node_id(self)
             data = self.node_cache.get(0)
             out = []
             for i in range(len(data)):
@@ -180,7 +181,7 @@ class SvPulgaPhysicsNode(bpy.types.Node, SverchCustomTreeNode):
                 vel.append(data[i][2] if np else data[i][2].tolist())
                 react.append(data[i][3] if np else data[i][3].tolist())
         else:
-            location = self.getNodeTree().name + "_"+ self.name
+            location = self.name + "_"+ node_id(self)
             data = check_past_file(location)
             for i in range(len(data)):
                 verts.append(array(data[i][0]) if np else data[i][0])
@@ -196,7 +197,7 @@ class SvPulgaPhysicsNode(bpy.types.Node, SverchCustomTreeNode):
                 self.node_cache[0] = {}
             self.accumulative_reset = False
             updateNode(self, context)
-        
+
     def update_memory(self, context):
         if self.accumulative_update:
             self.accumulative_update = False
@@ -205,25 +206,25 @@ class SvPulgaPhysicsNode(bpy.types.Node, SverchCustomTreeNode):
 
     node_cache = {}
 
-    accumulative = BoolProperty(
+    accumulative : BoolProperty(
         name="Accumulative",
         description="Accumulate changes every NodeTree update",
         default=False,
         update=handle_accumulative)
 
-    accumulative_reset = BoolProperty(
+    accumulative_reset : BoolProperty(
         name="Reset",
         description="Restart accumulative memory",
         default=False,
         update=reset_memory)
-        
-    accumulative_update = BoolProperty(
+
+    accumulative_update : BoolProperty(
         name="Update",
         description="Iterate again",
         default=False,
         update=update_memory)
 
-    accumulative_parse = BoolProperty(
+    accumulative_parse : BoolProperty(
         name="Pause",
         description="Pause processing",
         default=False,
@@ -325,56 +326,56 @@ class SvPulgaPhysicsNode(bpy.types.Node, SverchCustomTreeNode):
 
         updateNode(self, context)
 
-    self_react_M = BoolProperty(name="Collision",
+    self_react_M : BoolProperty(name="Collision",
         description="Self Collision: collision between input vertices as spheres",
         default=False,
         update=update_sockets)
-    self_attract_M = BoolProperty(name="Attraction",
+    self_attract_M : BoolProperty(name="Attraction",
         description="Self Attraction: attract between input vertices as spheres",
         default=False,
         update=update_sockets)
-    fit_M = BoolProperty(name="Fit",
+    fit_M : BoolProperty(name="Fit",
         description="Fit: shrink if collide with others, grow if not",
         default=False,
         update=update_sockets)
-    springs_M = BoolProperty(name="Springs",
+    springs_M : BoolProperty(name="Springs",
         description="Use springs forces",
         default=False,
         update=update_sockets)
-    pins_M = BoolProperty(name="Pin",
+    pins_M : BoolProperty(name="Pin",
         description="Pin (turn to static) mask",
         default=False,
         update=update_sockets)
-    inflate_M = BoolProperty(name="Inflate",
+    inflate_M : BoolProperty(name="Inflate",
         description="Inflate (push geometry along the polygons normals proportional to polygon area",
         default=False,
         update=update_sockets)
-    drag_M = BoolProperty(name="Drag",
+    drag_M : BoolProperty(name="Drag",
         description="Drag force",
         default=False,
         update=update_sockets)
-    attract_M = BoolProperty(name="Attractors",
+    attract_M : BoolProperty(name="Attractors",
         description="Use external attractors",
         default=False,
         update=update_sockets)
-    random_M = BoolProperty(name="Random",
+    random_M : BoolProperty(name="Random",
         description="Random force",
         default=False,
         update=update_sockets)
-    bounding_box_M = BoolProperty(name="Boundaries",
+    bounding_box_M : BoolProperty(name="Boundaries",
         description="System bounding box",
         default=False,
         update=update_sockets)
-    world_F_M = BoolProperty(name="World",
+    world_F_M : BoolProperty(name="World",
         description="Constant Forces",
         default=False,
         update=update_sockets)
-    obstacles_M = BoolProperty(name="Obstacles",
+    obstacles_M : BoolProperty(name="Obstacles",
         description="Collision obstacles",
         default=False,
         update=update_sockets)
 
-    output_numpy = BoolProperty(name="as NumPy",
+    output_numpy : BoolProperty(name="as NumPy",
         description="Output NumPy arrays ",
         default=False,
         update=updateNode)
@@ -489,12 +490,11 @@ class SvPulgaPhysicsNode(bpy.types.Node, SverchCustomTreeNode):
         past = []
         data = []
         if self.accumulative:
-            #data = self.accumulativity_get_data()
             data = self.node_cache.get(0)
             if type(data) != dict:
                 from_file = True
                 self.node_cache[0] = {}
-                location = self.getNodeTree().name + "_"+ self.name
+                location = self.name + "_"+ node_id(self)
                 past = check_past_file(location)
 
         return data, past, from_file

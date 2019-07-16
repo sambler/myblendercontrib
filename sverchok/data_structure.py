@@ -160,11 +160,11 @@ def fullList(l, count):
     return
 
 def fullList_deep_copy(l, count):
-    """the same that full list function but 
+    """the same that full list function but
     it have correct work with objects such as lists."""
-    d = count - len(l) 
-    if d > 0: 
-        l.extend([copy.deepcopy(l[-1]) for _ in range(d)]) 
+    d = count - len(l)
+    if d > 0:
+        l.extend([copy.deepcopy(l[-1]) for _ in range(d)])
     return
 
 def sv_zip(*iterables):
@@ -182,6 +182,7 @@ def sv_zip(*iterables):
             result.append(elem)
         yield result
 
+
 list_match_modes = [
     ("SHORT",  "Match Short",  "Match shortest List",    1),
     ("CYCLE",  "Cycle",  "Match longest List by cycling",     2),
@@ -189,7 +190,7 @@ list_match_modes = [
     ("XREF",   "X-Ref",  "Cross reference (fast cycle of long)",  4),
     ("XREF2",  "X-Ref 2", "Cross reference (fast cycle of short)",  5),
     ]
-    
+
 list_match_func = {
     "SHORT":  match_short,
     "CYCLE":  match_long_cycle,
@@ -198,6 +199,7 @@ list_match_func = {
     "XREF2":  match_cross2
     }
     
+
 #####################################################
 ################# list levels magic #################
 #####################################################
@@ -265,7 +267,7 @@ def levelsOflist(lst):
         return level
     return 0
 
-def get_data_nesting_level(data, data_types=(float, int, np.float64)):
+def get_data_nesting_level(data, data_types=(float, int, np.float64, str)):
     """
     data: number, or list of numbers, or list of lists, etc.
     data_types: list or tuple of types.
@@ -278,7 +280,7 @@ def get_data_nesting_level(data, data_types=(float, int, np.float64)):
     Returns integer.
     Raises an exception if at some point it encounters element
     which is not a tuple, list, or one of data_types.
-    
+
     get_data_nesting_level(1) == 0
     get_data_nesting_level([]) == 1
     get_data_nesting_level([1]) == 1
@@ -301,7 +303,7 @@ def get_data_nesting_level(data, data_types=(float, int, np.float64)):
 
     return helper(data, 0)
 
-def ensure_nesting_level(data, target_level, data_types=(float, int, np.float64)):
+def ensure_nesting_level(data, target_level, data_types=(float, int, np.float64, str)):
     """
     data: number, or list of numbers, or list of lists, etc.
     target_level: data nesting level required for further processing.
@@ -364,42 +366,6 @@ def describe_data_shape(data):
 
     nesting, result = helper(data)
     return "Level {}: {}".format(nesting, result)
-
-def calc_mask(subset_data, set_data, level=0, negate=False, ignore_order=True):
-    """
-    Calculate mask: for each item in set_data, return True if it is present in subset_data.
-    The function can work at any specified level.
-
-    subset_data: subset, for example [1]
-    set_data: set, for example [1, 2, 3]
-    level: 0 to check immediate members of set and subset; 1 to work with lists of lists and so on.
-    negate: if True, then result will be negated (True if item of set is not present in subset).
-    ignore_order: when comparing lists, ignore items order.
-
-    Raises an exception if nesting level of input sets is less than specified level parameter.
-
-    calc_mask([1], [1,2,3]) == [True, False, False])
-    calc_mask([1], [1,2,3], negate=True) == [False, True, True]
-    """
-    if level == 0:
-        if not isinstance(subset_data, (tuple, list)):
-            raise Exception("Specified level is too high for given Subset")
-        if not isinstance(set_data, (tuple, list)):
-            raise Exception("Specified level is too high for given Set")
-
-        if ignore_order and get_data_nesting_level(subset_data) > 1:
-            if negate:
-                return [set(item) not in map(set, subset_data) for item in set_data]
-            else:
-                return [set(item) in map(set, subset_data) for item in set_data]
-        else:
-            if negate:
-                return [item not in subset_data for item in set_data]
-            else:
-                return [item in subset_data for item in set_data]
-    else:
-        sub_objects = match_long_repeat([subset_data, set_data])
-        return [calc_mask(subset_item, set_item, level - 1, negate, ignore_order) for subset_item, set_item in zip(*sub_objects)]
 
 #####################################################
 ################### matrix magic ####################
@@ -504,7 +470,7 @@ def matrixdef(orig, loc, scale, rot, angle, vec_angle=[[]]):
         if loc[0]:
             k = min(len(loc[0])-1, i)
             mat_tran = de.Translation(loc[0][k])
-            ma *= mat_tran
+            ma = ma @ mat_tran
 
         if vec_angle[0] and rot[0]:
             k = min(len(rot[0])-1, i)
@@ -514,13 +480,13 @@ def matrixdef(orig, loc, scale, rot, angle, vec_angle=[[]]):
             vec_b = rot[0][k].normalized()
 
             mat_rot = vec_b.rotation_difference(vec_a).to_matrix().to_4x4()
-            ma = ma * mat_rot
+            ma = ma @ mat_rot
 
         elif rot[0]:
             k = min(len(rot[0])-1, i)
             a = min(len(angle[0])-1, i)
             mat_rot = de.Rotation(radians(angle[0][a]), 4, rot[0][k].normalized())
-            ma = ma * mat_rot
+            ma = ma @ mat_rot
 
         if scale[0]:
             k = min(len(scale[0])-1, i)
@@ -528,7 +494,7 @@ def matrixdef(orig, loc, scale, rot, angle, vec_angle=[[]]):
             id_m = Matrix.Identity(4)
             for j in range(3):
                 id_m[j][j] = scale2[j]
-            ma *= id_m
+            ma = ma @ id_m
 
         modif.append(ma)
     return modif
@@ -540,8 +506,15 @@ def matrixdef(orig, loc, scale, rot, angle, vec_angle=[[]]):
 
 def enum_item(s):
     """return a list usable in enum property from a list with one value"""
-    s = [(i,i,"") for i in s]
-    return s
+    return [(i, i, "") for i in s]
+
+def enum_item_4(s):
+    """return a 4*n list usable in enum property from a list with one value"""
+    return [(n, n, '', i) for i, n in enumerate(s)]
+
+def enum_item_5(s, icons):
+    """return a 4*n list usable in enum property from a list with one value"""
+    return [(n, n, '', icon, i) for i, (n, icon) in enumerate(zip(s, icons))]
 
 
 #####################################################
@@ -567,7 +540,7 @@ def setup_init():
     global SVERCHOK_NAME
     import sverchok
     SVERCHOK_NAME = sverchok.__name__
-    addon = bpy.context.user_preferences.addons.get(SVERCHOK_NAME)
+    addon = bpy.context.preferences.addons.get(SVERCHOK_NAME)
     if addon:
         DEBUG_MODE = addon.preferences.show_debug
         HEAT_MAP = addon.preferences.heat_map
@@ -630,10 +603,10 @@ def changable_sockets(node, inputsocketname, outputsocketname):
     arguments: node, name of socket to follow, list of socket to change
     '''
     if not inputsocketname in node.inputs:
-        # - node not initialized in sv_init yet, 
+        # - node not initialized in sv_init yet,
         # - or socketname incorrect
         info("changable_socket was called on node (%s) with a socket named \"%s\", this socket does not exist" % (node.name, inputsocketname))
-        return 
+        return
 
     in_socket = node.inputs[inputsocketname]
     ng = node.id_data
@@ -978,6 +951,7 @@ def std_links_processing(matcher):
         return real_process
 
     return decorator
+
 
 
 # EDGE CACHE settings : used to accellerate the (linear) edge list generation

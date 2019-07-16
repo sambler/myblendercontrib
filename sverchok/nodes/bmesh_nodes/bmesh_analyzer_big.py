@@ -30,7 +30,7 @@ class SvBManalyzinNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'BMesh Analyze In'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    mode1 = BoolProperty(name='normal_update', default=True, update=updateNode)
+    mode1: BoolProperty(name='normal_update', default=True, update=updateNode)
 
     def sv_init(self, context):
         si, so = self.inputs.new, self.outputs.new
@@ -72,7 +72,7 @@ class SvBManalyzinNode(bpy.types.Node, SverchCustomTreeNode):
 
     def draw_buttons_ext(self, context, layout):
         row = layout.row(align=True)
-        row.prop(self,    "mode1",   text="Update normals")
+        row.prop(self, "mode1", text="Update normals")
 
     def process(self):
         bmL, V, E, P = self.inputs
@@ -141,9 +141,6 @@ class SvBManalyzinNode(bpy.types.Node, SverchCustomTreeNode):
 
         if o25.is_linked:
             o25.sv_set(Val)
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

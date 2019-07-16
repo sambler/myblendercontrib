@@ -7,14 +7,17 @@ Analyzers
 
    area
    bbox
-   diameter
    distance_pp
    distance_point_line
    distance_point_plane
+   distance_line_line
    deformation
    edge_angles
+   intersect_line_sphere
+   intersect_plane_plane
    kd_tree
    kd_tree_edges_mk2
+   kd_tree_path
    linked_verts
    mesh_filter
    mesh_select
@@ -28,5 +31,5 @@ Analyzers
    points_inside_mesh
    polygons_centers
    polygons_centers_mk3
-   raycaster_lite
+   raycast
    volume

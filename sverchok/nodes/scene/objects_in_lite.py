@@ -34,7 +34,7 @@ class SvObjLiteCallback(bpy.types.Operator):
     bl_label = "Sverchok object in lite callback"
     bl_options = {'REGISTER', 'UNDO'}
 
-    cmd = StringProperty()
+    cmd: StringProperty()
 
     def execute(self, context):
         getattr(context.node, self.cmd)()
@@ -47,12 +47,12 @@ class SvObjInLite(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Objects in Lite'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    modifiers = BoolProperty(
+    modifiers: BoolProperty(
         description='Apply modifier geometry to import (original untouched)',
         name='Modifiers', default=False, update=updateNode)
 
-    currently_storing = BoolProperty()
-    obj_name = StringProperty(update=updateNode)
+    currently_storing: BoolProperty()
+    obj_name: StringProperty(update=updateNode)
     node_dict = {}
 
     def drop(self):
@@ -68,7 +68,8 @@ class SvObjInLite(bpy.types.Node, SverchCustomTreeNode):
             obj = bpy.data.objects.get(obj_name)
 
         if obj:
-            obj_data = obj.to_mesh(bpy.context.scene, self.modifiers, 'PREVIEW')
+            # obj_data = obj.to_mesh(depsgraph=bpy.context.depsgraph, apply_modifiers=self.modifiers, calc_undeformed=True)
+            obj_data = obj.to_mesh()
             self.node_dict[hash(self)] = {
                 'Vertices': list([v.co[:] for v in obj_data.vertices]),
                 'Edges': obj_data.edge_keys,
@@ -76,7 +77,9 @@ class SvObjInLite(bpy.types.Node, SverchCustomTreeNode):
                 'Matrix': obj.matrix_world
             }
             
-            bpy.data.meshes.remove(obj_data)
+            # bpy.data.meshes.remove(obj_data)
+            obj.to_mesh_clear()
+            
             self.currently_storing = True
 
         else:
@@ -91,7 +94,7 @@ class SvObjInLite(bpy.types.Node, SverchCustomTreeNode):
         out('MatrixSocket', 'Matrix')
 
     def draw_buttons(self, context, layout):
-        addon = context.user_preferences.addons.get(sverchok.__name__)
+        addon = context.preferences.addons.get(sverchok.__name__)
         prefs = addon.preferences
         callback = 'node.sverchok_objectinlite_cb'
 
@@ -102,11 +105,11 @@ class SvObjInLite(bpy.types.Node, SverchCustomTreeNode):
         if not self.currently_storing:
             row.operator(callback, text='G E T').cmd = 'dget'
             row.prop(self, 'modifiers', text='', icon='MODIFIER')
-            layout.label('--None--')
+            layout.label(text='--None--')
         else:
             row.operator(callback, text='D R O P').cmd = 'drop'
             row.prop(self, 'modifiers', text='', icon='MODIFIER')
-            layout.label(self.obj_name)
+            layout.label(text=self.obj_name)
 
 
     def process(self):

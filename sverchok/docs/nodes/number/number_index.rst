@@ -10,12 +10,10 @@ Number
    float
    float_to_int
    formula2
-   formula3
    integer
    list_input
-   mix_inputs
+   mix_numbers
    random
-   random_num_gen
    range_float
    range_int
    range_map

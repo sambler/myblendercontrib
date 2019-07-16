@@ -64,33 +64,33 @@ class SvIntersectPlanePlaneNode(bpy.types.Node, SverchCustomTreeNode):
     bl_icon = 'OUTLINER_OB_EMPTY'
     sv_icon = 'SV_PLANE_INTERSECTION_ICON'
 
-    plane_loc_a = FloatVectorProperty(
+    plane_loc_a : FloatVectorProperty(
         name="Location A", description='First Plane point',
         size=3, default=(0, 0, 0),
         update=updateNode)
 
-    plane_normal_a = FloatVectorProperty(
+    plane_normal_a : FloatVectorProperty(
         name='Normal A', description='First Plane Normal',
         size=3, default=(0, 0, 1),
         update=updateNode)
 
-    plane_loc_b = FloatVectorProperty(
+    plane_loc_b : FloatVectorProperty(
         name="Location B", description='Second Plane point',
         size=3, default=(0, 0, 0),
         update=updateNode)
 
-    plane_normal_b = FloatVectorProperty(
+    plane_normal_b : FloatVectorProperty(
         name='Normal B', description='Second Plane Normal',
         size=3, default=(0, 1, 0),
         update=updateNode)
 
-    list_match_global = EnumProperty(
+    list_match_global : EnumProperty(
         name="Match Global",
         description="Behavior on different list lengths, multiple objects level (Level 1)",
         items=list_match_modes, default="REPEAT",
         update=updateNode)
 
-    list_match_local = EnumProperty(
+    list_match_local : EnumProperty(
         name="Match Local",
         description="Behavior on different list lengths, object level (Level 2)",
         items=list_match_modes, default="REPEAT",

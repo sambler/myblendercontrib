@@ -54,33 +54,33 @@ class SvDupliInstancesMK4(bpy.types.Node, SverchCustomTreeNode):
                     if not obj.name == self.name_child:
                         obj.parent = None
 
-    name_node_generated_parent = StringProperty(
+    name_node_generated_parent: StringProperty(
         description="name of the parent that this node generates",
         update=updateNode)
 
-    scale = BoolProperty(default=False,
+    scale: BoolProperty(default=False,
         description="scale children", update=updateNode)
 
-    auto_release = BoolProperty(update=set_child_quota)
+    auto_release: BoolProperty(update=set_child_quota)
 
     modes = [
         ("VERTS", "Verts", "On vertices", "", 1),
         ("FACES", "Polys", "On polygons", "", 2)]
 
-    mode = EnumProperty(items=modes,
-                        default='VERTS',
-                        update=updateNode)
+    mode: EnumProperty(items=modes, default='VERTS', update=updateNode)
+
+    name_child: StringProperty(description="named child")
 
     def sv_init(self, context):
         #self.inputs.new("SvObjectSocket", "parent")
         self.inputs.new("SvObjectSocket", "child")
         self.inputs.new("MatrixSocket", "matr/vert")
-        self.name_node_generated_parent = 'parant'
+        self.name_node_generated_parent = 'parent'
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "mode", expand=True)
         col = layout.column(align=True)
-        col.prop(self, 'name_node_generated_parent', text='', icon='LOOPSEL')
+        col.prop(self, 'name_node_generated_parent', text='', icon='EDITMODE_HLT')
         #col.prop_search(self, 'name_child', bpy.data, 'objects', text='')
         col.prop(self, 'scale', text='Scale children', toggle=True)
         col.prop(self, 'auto_release', text='One Object only', toggle=True)
@@ -100,14 +100,14 @@ class SvDupliInstancesMK4(bpy.types.Node, SverchCustomTreeNode):
         # minimum requirements.
         if (not transforms) and (not objectsC):
             if ob:
-                ob.dupli_type = 'NONE'
+                ob.instance_type = 'NONE'
             return
 
         if not ob:
             name = self.name_node_generated_parent
             mesh = bpy.data.meshes.new(name + '_mesh')
             ob = bpy.data.objects.new(name, mesh)
-            bpy.context.scene.objects.link(ob)
+            bpy.context.scene.collection.objects.link(ob)
 
         # at this point there's a reference to an ob, and the mesh is empty.
         child = self.inputs['child'].sv_get()[0]
@@ -128,15 +128,15 @@ class SvDupliInstancesMK4(bpy.types.Node, SverchCustomTreeNode):
                 verts = []
                 add_verts = verts.extend
                 for M in transforms:
-                    add_verts([(M * A), (M * B), (M * C)])
+                    add_verts([(M @ A), (M @ B), (M @ C)])
                 faces = [[i, i + 1, i + 2] for i in range(0, len(transforms) * 3, 3)]
             elif self.mode == "VERTS":
                 verts = [M.to_translation() for M in transforms]
                 faces = []
 
             ob.data.from_pydata(verts, [], faces)
-            ob.dupli_type = self.mode
-            ob.use_dupli_faces_scale = self.scale
+            ob.instance_type = self.mode
+            ob.instance_faces_scale = self.scale
             child.parent = ob
 
 
@@ -146,6 +146,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(SvDupliInstancesMK4)
-
-if __name__ == '__main__':
-    register()

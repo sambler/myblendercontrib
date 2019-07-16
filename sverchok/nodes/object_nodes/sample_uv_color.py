@@ -31,8 +31,8 @@ class SvSampleUVColorNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Sample UV Color'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    image = StringProperty(default='', update=updateNode)
-    object_ref = StringProperty(default='', update=updateNode)
+    image: StringProperty(default='', update=updateNode)
+    object_ref: StringProperty(default='', update=updateNode)
 
     def draw_buttons(self, context,   layout):
         layout.prop_search(self, 'object_ref', bpy.data, 'objects')
@@ -67,9 +67,6 @@ class SvSampleUVColorNode(bpy.types.Node, SverchCustomTreeNode):
                 V = barycentric_transform(loc, p1, p2, p3, uv1, uv2, uv3)
                 outc.append(pixels[int(V.x*(width-1)), int(V.y*(height-1))].tolist())
             Colors.sv_set([outc])
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():

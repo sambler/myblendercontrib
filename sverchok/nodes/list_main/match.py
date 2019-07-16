@@ -27,6 +27,12 @@ from sverchok.data_structure import (match_short, match_long_cycle, updateNode,
 # List Match Node by Linus Yng
 #
 
+func_dict = {
+    'SHORT': match_short,
+    'CYCLE': match_long_cycle,
+    'REPEAT': match_long_repeat,
+    'XREF': match_cross2
+}
 
 class ListMatchNode(bpy.types.Node, SverchCustomTreeNode):
     ''' Stream Matching node '''
@@ -34,29 +40,27 @@ class ListMatchNode(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'List Match'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    level = IntProperty(name='level', description='Choose level of data (see help)',
-                        default=1, min=1,
-                        update=updateNode)
+    level: IntProperty(
+        name='level', description='Choose level of data (see help)',
+        default=1, min=1, update=updateNode)
 
     modes = [("SHORT", "Short", "Shortest List",    1),
              ("CYCLE",   "Cycle", "Longest List",   2),
              ("REPEAT",   "Repeat", "Longest List", 3),
              ("XREF",   "X-Ref", "Cross reference", 4)]
 
-    mode = EnumProperty(default='REPEAT', items=modes,
-                        update=updateNode)
-    mode_final = EnumProperty(default='REPEAT', items=modes,
-                              update=updateNode)
+    mode: EnumProperty(default='REPEAT', items=modes, update=updateNode)
+    mode_final: EnumProperty(default='REPEAT', items=modes, update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new('StringsSocket', 'Data 0', 'Data 0')
-        self.inputs.new('StringsSocket', 'Data 1', 'Data 1')
-        self.outputs.new('StringsSocket', 'Data 0', 'Data 0')
-        self.outputs.new('StringsSocket', 'Data 1', 'Data 1')
+        self.inputs.new('StringsSocket', 'Data 0')
+        self.inputs.new('StringsSocket', 'Data 1')
+        self.outputs.new('StringsSocket', 'Data 0')
+        self.outputs.new('StringsSocket', 'Data 1')
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "level", text="Level")
-        layout.label("Recurse/Final")
+        layout.label(text="Recurse/Final")
         layout.prop(self, "mode", expand=True)
         layout.prop(self, "mode_final", expand=True)
 
@@ -105,12 +109,7 @@ class ListMatchNode(bpy.types.Node, SverchCustomTreeNode):
 
     def process(self):
         # check inputs and that there is at least one output
-        func_dict = {
-            'SHORT': match_short,
-            'CYCLE': match_long_cycle,
-            'REPEAT': match_long_repeat,
-            'XREF': match_cross2
-            }
+
         count_inputs = sum(s.is_linked for s in self.inputs)
         count_outputs = sum(s.is_linked for s in self.outputs)
         if count_inputs == len(self.inputs)-1 and count_outputs:

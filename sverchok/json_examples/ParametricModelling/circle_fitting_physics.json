@@ -23,6 +23,18 @@
       "use_custom_color": true,
       "width": 140.0
     },
+    "List Length": {
+      "bl_idname": "ListLengthNode",
+      "height": 100.0,
+      "hide": false,
+      "label": "",
+      "location": [
+        -644.6226196289062,
+        -45.46868896484375
+      ],
+      "params": {},
+      "width": 140.0
+    },
     "Plane MK2": {
       "bl_idname": "SvPlaneNodeMK2",
       "color": [
@@ -34,8 +46,8 @@
       "hide": false,
       "label": "",
       "location": [
-        -483.3358459472656,
-        243.8773956298828
+        -844.611328125,
+        110.25822448730469
       ],
       "params": {
         "normalize": 1,
@@ -58,15 +70,15 @@
       "params": {
         "attract_M": 0,
         "attract_decay": 2.0,
-        "density": 0.429999977350235,
+        "density": 0.9699999690055847,
         "drag_M": 1,
         "drag_force": 0.10000000149011612,
         "fit_M": 1,
         "grow": 0.009999999776482582,
-        "iterations": 139,
+        "iterations": 135,
         "max_rad": 2.559999942779541,
-        "max_vel": 0.009999999776482582,
-        "self_attract": 0.0024999999441206455,
+        "max_vel": 0.03999999910593033,
+        "self_attract": 0.005699997767806053,
         "self_attract_M": 1,
         "self_collision": 0.10000000149011612,
         "self_react_M": 1
@@ -90,8 +102,8 @@
       },
       "width": 140.0
     },
-    "Viewer Draw": {
-      "bl_idname": "ViewerNode2",
+    "Viewer BMesh": {
+      "bl_idname": "SvBmeshViewerNodeV28",
       "color": [
         1.0,
         0.30000001192092896,
@@ -101,17 +113,30 @@
       "hide": false,
       "label": "",
       "location": [
-        271.23095703125,
-        406.8813781738281
+        270.53326416015625,
+        362.92132568359375
       ],
       "params": {
-        "activate": 1
+        "merge": 1,
+        "object_hide_render": 1
       },
       "use_custom_color": true,
       "width": 140.0
     }
   },
   "update_lists": [
+    [
+      "Plane MK2",
+      0,
+      "List Length",
+      0
+    ],
+    [
+      "List Length",
+      0,
+      "Random Num Gen",
+      0
+    ],
     [
       "Plane MK2",
       0,
@@ -133,20 +158,26 @@
     [
       "Circle",
       0,
-      "Viewer Draw",
+      "Viewer BMesh",
       0
     ],
     [
       "Circle",
       1,
-      "Viewer Draw",
+      "Viewer BMesh",
       1
+    ],
+    [
+      "Circle",
+      2,
+      "Viewer BMesh",
+      2
     ],
     [
       "Pulga Physics",
       0,
-      "Viewer Draw",
-      2
+      "Viewer BMesh",
+      3
     ]
   ]
 }

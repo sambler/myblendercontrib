@@ -87,18 +87,19 @@ class SvLinkedVertsNode(bpy.types.Node, SverchCustomTreeNode):
     bl_idname = 'SvLinkedVertsNode'
     bl_label = 'Linked Verts'
     bl_icon = 'MOD_SIMPLEDEFORM'
+    sv_icon = 'SV_LINKED_VERTS'
 
     selection_type_Items = [
         ("Index", "Index", "Input selected Indexes",       0),
         ("Mask",  "Mask",  "Input selection though mask",  1)]
 
-    item = IntProperty(
+    item : IntProperty(
         name='Selection', description='Selected Items (Index or Mask)',
         default=0, update=updateNode)
-    distance = IntProperty(
+    distance : IntProperty(
         name='distance', description='Include subject vertex',
         default=1, min=0, update=updateNode)
-    selection_type = EnumProperty(
+    selection_type : EnumProperty(
         name='Selection Mode', description='Input selection type',
         items=selection_type_Items,
         default="Index", update=updateNode)

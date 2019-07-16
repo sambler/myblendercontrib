@@ -30,33 +30,33 @@ class SvMatrixTrackToNode(bpy.types.Node, SverchCustomTreeNode):
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     TUA = ["X Y", "X Z", "Y X", "Y Z", "Z X", "Z Y"]
-    tu_axes = EnumProperty(
+    tu_axes: EnumProperty(
         name="Track/Up Axes",
         description="Select which two of the XYZ axes to be the Track and Up axes",
         items=e(TUA), default=TUA[0], update=updateNode)
 
-    normalize = BoolProperty(
+    normalize: BoolProperty(
         name="Normalize Vectors", description="Normalize the output X,Y,Z vectors",
         default=True, update=updateNode)
 
-    origin = FloatVectorProperty(
+    origin: FloatVectorProperty(
         name='Location', description="The location component of the output matrix",
         default=(0, 0, 0), update=updateNode)
 
-    scale = FloatVectorProperty(
+    scale: FloatVectorProperty(
         name='Scale', description="The scale component of the output matrix",
         default=(1, 1, 1), update=updateNode)
 
-    vA = FloatVectorProperty(
+    vA: FloatVectorProperty(
         name='A', description="A direction",
         default=(1, 0, 0), update=updateNode)
 
-    vB = FloatVectorProperty(
+    vB: FloatVectorProperty(
         name='B', description='B direction',
         default=(0, 1, 0), update=updateNode)
 
     TUM = ["A B", "A -B", "-A B", "-A -B", "B A", "B -A", "-B A", "-B -A"]
-    tu_mapping = EnumProperty(
+    tu_mapping: EnumProperty(
         name="Track/Up Mapping",
         description="Map the Track and Up vectors to one of the two inputs or their negatives",
         items=e(TUM), default=TUM[0], update=updateNode)
@@ -85,7 +85,7 @@ class SvMatrixTrackToNode(bpy.types.Node, SverchCustomTreeNode):
             n2 = sum(ratios[n + 1:])  # size of all remaining columns
             p = n1 / (n1 + n2)  # percentage split of current vs remaning columns
             # print("n = ", n, " n1 = ", n1, " n2 = ", n2, " p = ", p)
-            split = col2.split(percentage=p, align=aligns[n])
+            split = col2.split(factor=p, align=aligns[n])
             col1 = split.column(align=True)
             col2 = split.column(align=True)
             cols.append(col1)
@@ -97,8 +97,8 @@ class SvMatrixTrackToNode(bpy.types.Node, SverchCustomTreeNode):
         row = layout.column().row()
         cols = self.split_columns(row, [1, 1], [True, True])
 
-        cols[0].prop(self, "tu_axes", "")
-        cols[1].prop(self, "tu_mapping", "")
+        cols[0].prop(self, "tu_axes", text="")
+        cols[1].prop(self, "tu_mapping", text="")
 
     def draw_buttons_ext(self, context, layout):
         layout.prop(self, "normalize")

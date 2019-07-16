@@ -1,20 +1,10 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+# This file is part of project Sverchok. It's copyrighted by the contributors
+# recorded in the version control history of the file, available from
+# its original location https://github.com/nortikin/sverchok/commit/master
+#  
+# SPDX-License-Identifier: GPL3
+# License-Filename: LICENSE
+
 
 from math import pi, degrees, floor, ceil, copysign
 from mathutils import Vector, Matrix
@@ -48,92 +38,85 @@ class SvBevelCurveNode(bpy.types.Node, SverchCustomTreeNode):
             ("diff", "Rotation difference", "Use rotational difference calculation", 3)
         ]
 
-    algorithm = EnumProperty(name = "Algorithm",
+    algorithm: EnumProperty(name = "Algorithm",
         description = "Rotation calculation algorithm",
         default = "householder",
         items = algorithms, update=updateNode)
 
     axes = [
-            ("X", "X", "X axis", 1),
-            ("Y", "Y", "Y axis", 2),
-            ("Z", "Z", "Z axis", 3)
-        ]
+        ("X", "X", "X axis", 1),
+        ("Y", "Y", "Y axis", 2),
+        ("Z", "Z", "Z axis", 3)]
 
-    orient_axis = EnumProperty(name = "Orientation axis",
+    orient_axis: EnumProperty(name = "Orientation axis",
         description = "Which axis of donor objects to align with recipient curve",
         default = "Z",
         items = axes, update=updateNode)
 
-    up_axis = EnumProperty(name = "Up axis",
+    up_axis: EnumProperty(name = "Up axis",
         description = "Which axis of donor objects should look up",
         default = 'X',
         items = axes, update=updateNode)
 
-    modes = [('SPL', 'Cubic', "Cubic Spline", 0),
-             ('LIN', 'Linear', "Linear Interpolation", 1)]
+    modes = [
+        ('SPL', 'Cubic', "Cubic Spline", 0),
+        ('LIN', 'Linear', "Linear Interpolation", 1)]
 
-    bevel_mode = EnumProperty(name='Curve mode',
+    bevel_mode: EnumProperty(name='Curve mode',
         default="SPL", items=modes,
         update=updateNode)
 
-    taper_mode = EnumProperty(name='Taper mode',
+    taper_mode: EnumProperty(name='Taper mode',
         default="SPL", items=modes,
         update=updateNode)
 
-    metrics =    [('MANHATTAN', 'Manhattan', "Manhattan distance metric", 0),
-                  ('DISTANCE', 'Euclidan', "Eudlcian distance metric", 1),
-                  ('POINTS', 'Points', "Points based", 2),
-                  ('CHEBYSHEV', 'Chebyshev', "Chebyshev distance", 3)]
+    metrics = [
+        ('MANHATTAN', 'Manhattan', "Manhattan distance metric", 0),
+        ('DISTANCE', 'Euclidan', "Eudlcian distance metric", 1),
+        ('POINTS', 'Points', "Points based", 2),
+        ('CHEBYSHEV', 'Chebyshev', "Chebyshev distance", 3)]
 
-    metric = EnumProperty(name='Metric',
+    metric: EnumProperty(name='Metric',
         description = "Knot mode",
         default="DISTANCE", items=metrics,
         update=updateNode)
 
-    taper_metrics = [("SAME", "Same as curve", "Use the same metric as for curve (Imprecise!)", 0),
-                     ("AXIS", "Orientation axis", "Use metric along orientation axis", 1)]
-
-    taper_metric = EnumProperty(name='Taper metric',
-        description = "Metric used for taper object interpolation",
-        default = "SAME", items=taper_metrics,
-        update=updateNode)
-
-    is_cyclic = BoolProperty(name = "Cyclic",
+    is_cyclic: BoolProperty(name = "Cyclic",
         description = "Whether the spline is cyclic",
         default = False,
         update=updateNode)
 
-    steps = IntProperty(name = "Steps",
+    steps: IntProperty(name = "Steps",
         description = "Number of steps along the curve",
         default = 10, min = 4,
         update = updateNode)
 
-    tangent_precision = FloatProperty(name='Tangent precision',
+    tangent_precision: FloatProperty(name='Tangent precision',
         description = "Step for tangents calculation. Lesser values correspond to better precision.",
         default = 0.001, min=0.000001, max=0.1, precision=8,
         update=updateNode)
 
-    flip_curve = BoolProperty(name = "Flip Curve",
+    flip_curve: BoolProperty(name = "Flip Curve",
         description = "Invert curve direction - not from lesser coordinate values to greater, but vice versa",
         default = False,
         update=updateNode)
 
-    flip_taper = BoolProperty(name = "Flip Taper",
+    flip_taper: BoolProperty(name = "Flip Taper",
         description = "Invert taper direction - not from lesser coordinate values to greater, but vice versa",
         default = False,
         update=updateNode)
 
-    cap_start = BoolProperty(name = "Cap Start",
+    cap_start: BoolProperty(name = "Cap Start",
         description = "Make cap at the beginning of curve",
         default = False,
         update=updateNode)
 
-    cap_end = BoolProperty(name = "Cap End",
+    cap_end: BoolProperty(name = "Cap End",
         description = "Make cap at the ending of curve",
         default = False,
         update=updateNode)
 
-    separate_scale = BoolProperty(name = "Separate Scale",
+    separate_scale: BoolProperty(name = "Separate Scale",
         description = "Allow different scales along X and Y for taper object",
         default = False,
         update=updateNode)
@@ -173,28 +156,20 @@ class SvBevelCurveNode(bpy.types.Node, SverchCustomTreeNode):
         row.prop(self, "flip_taper", toggle=True)
 
         layout.prop(self, 'metric')
-        layout.prop(self, 'taper_metric')
         layout.prop(self, 'tangent_precision')
 
     @property
     def orient_axis_idx(self):
         return 'XYZ'.index(self.orient_axis)
 
-    def build_spline(self, path, mode, is_cyclic, metric=None):
-        if metric is None:
-            metric = self.metric
+    def build_spline(self, path, mode, is_cyclic):
         if mode == 'LIN':
-            spline = LinearSpline(path, metric = metric, is_cyclic = is_cyclic)
+            spline = LinearSpline(path, metric = self.metric, is_cyclic = is_cyclic)
         else:  # SPL
-            spline = CubicSpline(path, metric = metric, is_cyclic = is_cyclic)
+            spline = CubicSpline(path, metric = self.metric, is_cyclic = is_cyclic)
         return spline
 
     def make_taper_spline(self, vertices):
-        if self.taper_metric == 'SAME':
-            metric = self.metric
-        else:
-            metric = self.orient_axis
-
         if len(vertices) == 0:
             # if no taper object provided: use constant scale of 1.0
             def make_unit(z):
@@ -203,9 +178,9 @@ class SvBevelCurveNode(bpy.types.Node, SverchCustomTreeNode):
                 u[(self.orient_axis_idx+1) % 3] = 1
                 return u
             vertices = [make_unit(0), make_unit(1)]
-            return LinearSpline(vertices, metric = metric, is_cyclic = False)
+            return LinearSpline(vertices, metric = self.metric, is_cyclic = False)
 
-        return self.build_spline(vertices, self.taper_mode, is_cyclic=False, metric=metric)
+        return self.build_spline(vertices, self.taper_mode, False)
 
     def get_matrix(self, tangent, scale_x, scale_y):
         x = Vector((1.0, 0.0, 0.0))
@@ -219,7 +194,7 @@ class SvBevelCurveNode(bpy.types.Node, SverchCustomTreeNode):
         else:
             ax1, ax2, ax3 = z, x, y
 
-        scale_matrix = Matrix.Scale(1, 4, ax1) * Matrix.Scale(scale_x, 4, ax2) * Matrix.Scale(scale_y, 4, ax3)
+        scale_matrix = Matrix.Scale(1, 4, ax1) @ Matrix.Scale(scale_x, 4, ax2) @ Matrix.Scale(scale_y, 4, ax3)
 
         if self.algorithm == 'householder':
             rot = autorotate_householder(ax1, tangent).inverted()
@@ -230,7 +205,7 @@ class SvBevelCurveNode(bpy.types.Node, SverchCustomTreeNode):
         else:
             raise Exception("Unsupported algorithm")
 
-        return rot * scale_matrix
+        return rot @ scale_matrix
 
     def get_taper_scale(self, vertex):
         projection = Vector(vertex)
@@ -273,7 +248,7 @@ class SvBevelCurveNode(bpy.types.Node, SverchCustomTreeNode):
             matrix = self.get_matrix(spline_tangent, scale_x, scale_y)
             level_vertices = []
             for bevel_vertex in bevel_verts:
-                new_vertex = matrix * Vector(bevel_vertex) + spline_vertex
+                new_vertex = matrix @ Vector(bevel_vertex) + spline_vertex
                 level_vertices.append(mesh.verts.new(new_vertex))
             if prev_level_vertices is not None:
                 for i,j in bevel_edges:
@@ -351,4 +326,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(SvBevelCurveNode)
-

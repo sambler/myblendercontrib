@@ -89,46 +89,46 @@ class SvLineNodeMK3(bpy.types.Node, SverchCustomTreeNode):
 
         updateNode(self, context)
 
-    direction = EnumProperty(
+    direction : EnumProperty(
         name="Direction", items=directionItems,
         default="X", update=update_vect_socket)
 
-    num = IntProperty(
+    num : IntProperty(
         name='Num Verts', description='Number of Vertices',
         default=2, min=2, update=updateNode)
 
-    step = FloatProperty(
+    step : FloatProperty(
         name='Step', description='Step length',
         default=1.0, update=updateNode)
 
-    center = BoolProperty(
+    center : BoolProperty(
         name='Center', description='Center the line',
         default=False, update=updateNode)
 
-    normalize = BoolProperty(
+    normalize : BoolProperty(
         name='Normalize', description='Normalize line to size',
         default=False, update=update_size_socket)
 
-    size = FloatProperty(
+    size : FloatProperty(
         name='Size', description='Size of line',
         default=10.0, update=updateNode)
 
-    v3_input_0 = FloatVectorProperty(
+    v3_input_0 : FloatVectorProperty(
         name='A', description='Starting point',
         size=3, default=(0, 0, 0),
         update=updateNode)
 
-    v3_input_1 = FloatVectorProperty(
+    v3_input_1 : FloatVectorProperty(
         name='B', description='End point',
         size=3, default=(0.5, 0.5, 0.5),
         update=updateNode)
 
-    v3_origin = FloatVectorProperty(
+    v3_origin : FloatVectorProperty(
         name='Origin', description='Origin of line',
         size=3, default=(0, 0, 0),
         update=updateNode)
 
-    v3_dir = FloatVectorProperty(
+    v3_dir : FloatVectorProperty(
         name='Direction', description='Direction',
         size=3, default=(1, 1, 1),
         update=updateNode)
@@ -151,8 +151,8 @@ class SvLineNodeMK3(bpy.types.Node, SverchCustomTreeNode):
         si.new('StringsSocket', "Step").prop_name = 'step'
         self.set_size_socket()
         self.set_vector_sockets()
-        self.outputs.new('VerticesSocket', "Vertices", "Vertices")
-        self.outputs.new('StringsSocket', "Edges", "Edges")
+        self.outputs.new('VerticesSocket', "Vertices")
+        self.outputs.new('StringsSocket', "Edges")
 
     def draw_buttons(self, context, layout):
         col = layout.column(align=True)

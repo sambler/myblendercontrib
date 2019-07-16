@@ -43,6 +43,28 @@
       },
       "width": 140.0
     },
+    "Curve Viewer": {
+      "bl_idname": "SvCurveViewerNodeV28",
+      "color": [
+        1.0,
+        0.30000001192092896,
+        0.0
+      ],
+      "height": 100.0,
+      "hide": false,
+      "label": "",
+      "location": [
+        2130.222900390625,
+        -253.8050079345703
+      ],
+      "params": {
+        "basedata_name": "Gamma",
+        "depth": 0.10000000149011612,
+        "object_select": 0
+      },
+      "use_custom_color": true,
+      "width": 140.0
+    },
     "Line.002": {
       "bl_idname": "SvLineNodeMK3",
       "color": [
@@ -508,6 +530,18 @@
       "params": {},
       "width": 16.0
     },
+    "Solidify": {
+      "bl_idname": "SvSolidifyNode",
+      "height": 100.0,
+      "hide": false,
+      "label": "",
+      "location": [
+        1281.2813720703125,
+        -624.90869140625
+      ],
+      "params": {},
+      "width": 140.0
+    },
     "Subdivide": {
       "bl_idname": "SvSubdivideNode",
       "height": 100.0,
@@ -542,8 +576,8 @@
       "hide": false,
       "label": "",
       "location": [
-        1052.89990234375,
-        -627.4869384765625
+        1102.8614501953125,
+        -617.4725952148438
       ],
       "params": {
         "dir_check": "V_dir",
@@ -622,8 +656,8 @@
       "params": {},
       "width": 140.0
     },
-    "Viewer Draw.001": {
-      "bl_idname": "ViewerNode2",
+    "Viewer BMesh": {
+      "bl_idname": "SvBmeshViewerNodeV28",
       "color": [
         1.0,
         0.30000001192092896,
@@ -633,23 +667,17 @@
       "hide": false,
       "label": "",
       "location": [
-        995.3924560546875,
-        291.8858642578125
+        1061.188720703125,
+        333.53466796875
       ],
       "params": {
-        "activate": 1,
-        "face_colors": [
-          0.011294033378362656,
-          0.02265758253633976,
-          0.8990001082420349
-        ],
-        "shading": 1
+        "basedata_name": "Tensile"
       },
       "use_custom_color": true,
       "width": 140.0
     },
-    "Viewer Draw.002": {
-      "bl_idname": "ViewerNode2",
+    "Viewer BMesh.001": {
+      "bl_idname": "SvBmeshViewerNodeV28",
       "color": [
         1.0,
         0.30000001192092896,
@@ -659,48 +687,11 @@
       "hide": false,
       "label": "",
       "location": [
-        2078.14404296875,
-        -103.44867706298828
+        1585.782958984375,
+        -607.4110717773438
       ],
       "params": {
-        "activate": 1,
-        "edge_colors": [
-          0.33089834451675415,
-          0.8990001082420349,
-          0.395736426115036
-        ],
-        "edge_width": 4,
-        "vertex_colors": [
-          0.08003409206867218,
-          0.9480001330375671,
-          0.0
-        ],
-        "vertex_size": 9.984001159667969
-      },
-      "use_custom_color": true,
-      "width": 140.0
-    },
-    "Viewer Draw.005": {
-      "bl_idname": "ViewerNode2",
-      "color": [
-        1.0,
-        0.30000001192092896,
-        0.0
-      ],
-      "height": 100.0,
-      "hide": false,
-      "label": "",
-      "location": [
-        1234.7142333984375,
-        -620.2259521484375
-      ],
-      "params": {
-        "activate": 1,
-        "edge_colors": [
-          0.8990001082420349,
-          0.0031109414994716644,
-          0.010177122429013252
-        ]
+        "basedata_name": "Beta"
       },
       "use_custom_color": true,
       "width": 140.0
@@ -721,9 +712,33 @@
     ],
     [
       "List Input.001",
-      "List",
-      "Reroute",
-      "Input"
+      0,
+      "Transform Select",
+      0
+    ],
+    [
+      "List Item",
+      0,
+      "Transform Select",
+      1
+    ],
+    [
+      "Polygon Grid",
+      3,
+      "Transform Select",
+      2
+    ],
+    [
+      "Matrix in",
+      0,
+      "Transform Select",
+      3
+    ],
+    [
+      "Matrix in.001",
+      0,
+      "Transform Select",
+      4
     ],
     [
       "Polygon Grid",
@@ -768,36 +783,6 @@
       0
     ],
     [
-      "List Input.001",
-      0,
-      "Transform Select",
-      0
-    ],
-    [
-      "List Item",
-      0,
-      "Transform Select",
-      1
-    ],
-    [
-      "Polygon Grid",
-      3,
-      "Transform Select",
-      2
-    ],
-    [
-      "Matrix in",
-      0,
-      "Transform Select",
-      3
-    ],
-    [
-      "Matrix in.001",
-      0,
-      "Transform Select",
-      4
-    ],
-    [
       "Subdivide",
       0,
       "Pulga Physics.001",
@@ -826,6 +811,12 @@
       0,
       "Pulga Physics.001",
       6
+    ],
+    [
+      "List Input.001",
+      "List",
+      "Reroute",
+      "Input"
     ],
     [
       "Pulga Physics.001",
@@ -930,18 +921,6 @@
       1
     ],
     [
-      "Subdivide",
-      "Faces",
-      "Reroute.003",
-      "Input"
-    ],
-    [
-      "List Input.003",
-      0,
-      "Matrix in.003",
-      3
-    ],
-    [
       "List Item.001",
       0,
       "3pt Arc",
@@ -974,20 +953,44 @@
     [
       "UV Connection",
       0,
-      "Viewer Draw.005",
-      0
+      "Solidify",
+      1
     ],
     [
       "UV Connection",
       1,
-      "Viewer Draw.005",
-      1
+      "Solidify",
+      2
+    ],
+    [
+      "List Input.003",
+      0,
+      "Matrix in.003",
+      3
+    ],
+    [
+      "Solidify",
+      0,
+      "Viewer BMesh.001",
+      0
+    ],
+    [
+      "Solidify",
+      2,
+      "Viewer BMesh.001",
+      2
     ],
     [
       "Matrix in.003",
       0,
-      "Viewer Draw.005",
-      2
+      "Viewer BMesh.001",
+      3
+    ],
+    [
+      "Subdivide",
+      "Faces",
+      "Reroute.003",
+      "Input"
     ],
     [
       "Reroute.003",
@@ -996,28 +999,28 @@
       "Input"
     ],
     [
-      "Line.002",
-      0,
-      "Viewer Draw.002",
-      0
-    ],
-    [
-      "Line.002",
-      1,
-      "Viewer Draw.002",
-      1
-    ],
-    [
       "Pulga Physics.001",
       0,
-      "Viewer Draw.001",
+      "Viewer BMesh",
       0
     ],
     [
       "Reroute.002",
       "Output",
-      "Viewer Draw.001",
-      "edg_pol"
+      "Viewer BMesh",
+      "faces"
+    ],
+    [
+      "Line.002",
+      0,
+      "Curve Viewer",
+      0
+    ],
+    [
+      "Line.002",
+      1,
+      "Curve Viewer",
+      1
     ]
   ]
 }

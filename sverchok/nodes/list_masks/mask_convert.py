@@ -18,7 +18,7 @@
 
 import bpy
 from bpy.props import BoolProperty, EnumProperty
-from sverchok.node_tree import SverchCustomTreeNode, StringsSocket, VerticesSocket
+from sverchok.node_tree import SverchCustomTreeNode
 from sverchok.data_structure import updateNode, match_long_repeat, fullList
 
 class SvMaskConvertNode(bpy.types.Node, SverchCustomTreeNode):
@@ -46,19 +46,16 @@ class SvMaskConvertNode(bpy.types.Node, SverchCustomTreeNode):
 
         updateNode(self, context)
 
-    mode = EnumProperty(
-            name = "Mode",
-            default = 'ByVertex', items = modes,
-            update=update_mode)
+    mode: EnumProperty(
+            name="Mode", default='ByVertex', items=modes, update=update_mode)
 
-    include_partial = BoolProperty(name="Include partial selection",
+    include_partial: BoolProperty(name="Include partial selection",
             description="Include partially selected edges/faces",
-            default=False,
-            update=updateNode)
+            default=False, update=updateNode)
 
     def draw_buttons(self, context, layout):
         col = layout.column(align=True)
-        col.label("From:")
+        col.label(text="From:")
         row = col.row(align=True)
         row.prop(self, 'mode', expand=True)
         col.prop(self, 'include_partial', toggle=True)
@@ -168,4 +165,3 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(SvMaskConvertNode)
-

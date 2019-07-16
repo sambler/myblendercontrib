@@ -45,9 +45,9 @@ snlite_template_path = os.path.join(sv_path, 'node_scripts', 'SNLite_templates')
 defaults = [0] * 32
 
 
-class SvScriptNodeLitePyMenu(bpy.types.Menu):
+class SV_MT_ScriptNodeLitePyMenu(bpy.types.Menu):
     bl_label = "SNLite templates"
-    bl_idname = "SvScriptNodeLitePyMenu"
+    bl_idname = "SV_MT_ScriptNodeLitePyMenu"
 
     def draw(self, context):
         if context.active_node:
@@ -62,7 +62,7 @@ class SvScriptNodeLiteCallBack(bpy.types.Operator):
 
     bl_idname = "node.scriptlite_ui_callback"
     bl_label = "SNLite callback"
-    fn_name = bpy.props.StringProperty(default='')
+    fn_name: bpy.props.StringProperty(default='')
 
     def execute(self, context):
         getattr(context.node, self.fn_name)()
@@ -73,7 +73,7 @@ class SvScriptNodeLiteCustomCallBack(bpy.types.Operator):
 
     bl_idname = "node.scriptlite_custom_callback"
     bl_label = "custom SNLite callback"
-    cb_name = bpy.props.StringProperty(default='')
+    cb_name: bpy.props.StringProperty(default='')
 
     def execute(self, context):
         context.node.custom_callback(context, self)
@@ -84,7 +84,7 @@ class SvScriptNodeLiteTextImport(bpy.types.Operator):
 
     bl_idname = "node.scriptlite_import"
     bl_label = "SNLite load"
-    filepath = bpy.props.StringProperty()
+    filepath: bpy.props.StringProperty()
 
     def execute(self, context):
         txt = bpy.data.texts.load(self.filepath)
@@ -130,15 +130,15 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
                 callbacks[new_func_name] = locals()[new_func_name]
 
 
-    script_name = StringProperty()
-    script_str = StringProperty()
+    script_name: StringProperty()
+    script_str: StringProperty()
     node_dict = {}
 
-    int_list = IntVectorProperty(
+    int_list: IntVectorProperty(
         name='int_list', description="Integer list",
         default=defaults, size=32, update=updateNode)
 
-    float_list = FloatVectorProperty(
+    float_list: FloatVectorProperty(
         name='float_list', description="Float list",
         default=defaults, size=32, update=updateNode)
 
@@ -147,19 +147,19 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
         ("To Node", "To Node", "", 1),
     ]
 
-    selected_mode = bpy.props.EnumProperty(
+    selected_mode: bpy.props.EnumProperty(
         items=mode_options,
         description="load the template directly to the node or add to textblocks",
         default="To Node",
         update=updateNode
     )
     
-    inject_params = BoolProperty()
-    injected_state = BoolProperty(default=False)
-    user_filename = StringProperty(update=updateNode)
-    n_id = StringProperty(default='')
+    inject_params: BoolProperty()
+    injected_state: BoolProperty(default=False)
+    user_filename: StringProperty(update=updateNode)
+    n_id: StringProperty(default='')
 
-    custom_enum = bpy.props.EnumProperty(
+    custom_enum: bpy.props.EnumProperty(
         items=custom_enum_func, description="custom enum", update=updateNode
     )
 
@@ -454,7 +454,7 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
         row = layout.row()
         row.prop(self, 'selected_mode', expand=True)
         col = layout.column()
-        col.menu(SvScriptNodeLitePyMenu.bl_idname)
+        col.menu(SV_MT_ScriptNodeLitePyMenu.bl_idname)
 
 
     # ---- IO Json storage is handled in this node locally ----
@@ -520,15 +520,9 @@ class SvScriptNodeLite(bpy.types.Node, SverchCustomTreeNode):
 classes = [
     SvScriptNodeLiteCustomCallBack,
     SvScriptNodeLiteTextImport,
-    SvScriptNodeLitePyMenu,
+    SV_MT_ScriptNodeLitePyMenu,
     SvScriptNodeLiteCallBack,
     SvScriptNodeLite
 ]
 
-
-def register():
-    _ = [bpy.utils.register_class(name) for name in classes]
-
-
-def unregister():
-    _ = [bpy.utils.unregister_class(name) for name in classes]
+register, unregister = bpy.utils.register_classes_factory(classes)

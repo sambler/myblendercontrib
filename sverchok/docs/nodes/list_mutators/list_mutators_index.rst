@@ -6,5 +6,3 @@ List Mutators
    :maxdepth: 2
 
    modifier
-   polygon_sort
-   combinatorics

@@ -95,8 +95,9 @@ def init_architecture(sv_name, utils_modules, ui_modules):
         (utils_modules, "sverchok.utils"),
         (ui_modules, "sverchok.ui")
     ]
-
+    print('sv: import settings')
     import_settings(imported_modules, sv_name)
+    print('sv: import all modules')
     import_all_modules(imported_modules, mods_bases)
     return imported_modules
 
@@ -110,3 +111,8 @@ def init_bookkeeping(sv_name):
     ascii_print.show_welcome()
     node_defaults.register_defaults()
     auto_gather_node_classes()    
+
+
+
+undo_handler_node_count = {}
+undo_handler_node_count['sv_groups'] = 0

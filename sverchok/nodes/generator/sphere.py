@@ -1,3 +1,11 @@
+# This file is part of project Sverchok. It's copyrighted by the contributors
+# recorded in the version control history of the file, available from
+# its original location https://github.com/nortikin/sverchok/commit/master
+#  
+# SPDX-License-Identifier: GPL3
+# License-Filename: LICENSE
+
+
 from math import sin, cos, radians
 
 import bpy
@@ -70,17 +78,17 @@ class SphereNode(bpy.types.Node, SverchCustomTreeNode):
 
     replacement_nodes = [('SvIcosphereNode', None, dict(Polygons='Faces'))]
 
-    rad_ = FloatProperty(name='Radius', description='Radius',
+    rad_: FloatProperty(name='Radius', description='Radius',
                          default=1.0,
                          options={'ANIMATABLE'}, update=updateNode)
-    U_ = IntProperty(name='U', description='U',
+    U_: IntProperty(name='U', description='U',
                      default=24, min=3,
                      options={'ANIMATABLE'}, update=updateNode)
-    V_ = IntProperty(name='V', description='V',
+    V_: IntProperty(name='V', description='V',
                      default=24, min=3,
                      options={'ANIMATABLE'}, update=updateNode)
 
-    Separate = BoolProperty(name='Separate', description='Separate UV coords',
+    Separate: BoolProperty(name='Separate', description='Separate UV coords',
                             default=False,
                             update=updateNode)
 

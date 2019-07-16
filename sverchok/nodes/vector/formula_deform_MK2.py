@@ -29,9 +29,9 @@ class SvFormulaDeformMK2Node(bpy.types.Node, SverchCustomTreeNode):
     bl_label = 'Deform by formula MK2'
     bl_icon = 'OUTLINER_OB_EMPTY'
 
-    ModeX = StringProperty(name='formulaX', default='x', update=updateNode)
-    ModeY = StringProperty(name='formulaY', default='y', update=updateNode)
-    ModeZ = StringProperty(name='formulaZ', default='z', update=updateNode)
+    ModeX: StringProperty(name='formulaX', default='x', update=updateNode)
+    ModeY: StringProperty(name='formulaY', default='y', update=updateNode)
+    ModeZ: StringProperty(name='formulaZ', default='z', update=updateNode)
 
     def sv_init(self, context):
         self.inputs.new('VerticesSocket', 'Verts(xyz)')
@@ -41,8 +41,7 @@ class SvFormulaDeformMK2Node(bpy.types.Node, SverchCustomTreeNode):
     def draw_buttons(self, context, layout):
         for element in 'XYZ':
             row = layout.row()
-            split = row.split(percentage=0.15)
-            split.label(element)
+            split = row.split(align=True)
             split.split().prop(self, "Mode"+element, text='')
 
     def process(self):
@@ -59,9 +58,6 @@ class SvFormulaDeformMK2Node(bpy.types.Node, SverchCustomTreeNode):
             else:
                 exec_string = "Oo.sv_set([[({n.ModeX},{n.ModeY},{n.ModeZ}) for i, (x, y, z) in enumerate(L)] for I, L in enumerate(V)])"
                 exec(exec_string.format(n=self))
-
-    def update_socket(self, context):
-        self.update()
 
 
 def register():
