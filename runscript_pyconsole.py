@@ -5,7 +5,7 @@
 bl_info = {
     "name": "Run Script in PyConsole",
     "author": "CoDEmanX, SAmbler",
-    "version": (2, 1),
+    "version": (2, 2),
     "blender": (2, 80, 0),
     "location": "Python Console > Console > Run Script",
     "description": "Execute the code of a textblock or file within the python console.",
@@ -117,7 +117,7 @@ class CONSOLE_MT_run_script(bpy.types.Menu):
                 layout.separator()
             if visible:
                 for t in visible:
-                    layout.operator(CONSOLE_OT_run_script.bl_idname, text=t, icon='VISIBLE_IPO_ON').text = t
+                    layout.operator(CONSOLE_OT_run_script.bl_idname, text=t, icon='HIDE_OFF').text = t
 
 class CONSOLE_OT_load_script(bpy.types.Operator):
     """load and run a text file in PyConsole"""
