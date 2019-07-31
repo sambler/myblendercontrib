@@ -34,7 +34,8 @@ from bpy.app.handlers import persistent
 from .. functions import *
 from .. functions_draw import *
 import traceback
-    
+
+BONE_LAYERS = []
 class COATOOLS_OT_EditWeights(bpy.types.Operator):
     bl_idname = "coa_tools.edit_weights"
     bl_label = "Select Child"
@@ -49,11 +50,11 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
         self.obj_name = None
         self.armature_name = None
         self.active_object_name = None
-        self.selected_objects = []
+        self.selected_object_names = []
         self.object_color_settings = {}
         self.use_unified_strength = False
-        self.non_deform_bones = []
-        self.deform_bones = []
+        self.non_deform_bone_names = []
+        self.deform_bone_names = []
 
     def armature_set_mode(self,context,mode,select):
         armature = bpy.data.objects[self.armature_name]
@@ -77,7 +78,7 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
                 armature.data.bones.active = bone
                 break
 
-    def exit_edit_weights(self,context):
+    def exit_edit_weights(self, context):
         tool_settings = context.scene.tool_settings
         tool_settings.unified_paint_settings.use_unified_strength = self.use_unified_strength
         set_local_view(False)
@@ -88,21 +89,21 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
         armature = get_armature(get_sprite_object(obj))
         armature.hide_viewport = False
         bpy.ops.object.mode_set(mode="OBJECT")
-        for i,bone_layer in enumerate(bone_layers):
+        for i,bone_layer in enumerate(BONE_LAYERS):
             armature.data.layers[i] = bone_layer
 
-        for name in self.selected_objects:
+        for name in self.selected_object_names:
             obj = bpy.data.objects[name]
             obj.select_set(True)
         context.view_layer.objects.active = bpy.data.objects[self.active_object_name]
         self.unhide_non_deform_bones(context)
 
-    def exit_edit_mode(self,context):
+    def exit_edit_mode(self, context):
         ### remove draw call
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+        # bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
 
         sprite_object = bpy.data.objects[self.sprite_object_name]
-
+        
         self.exit_edit_weights(context)
         sprite_object.coa_tools.edit_weights = False
         sprite_object.coa_tools.edit_mode = "OBJECT"
@@ -111,7 +112,7 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
             if area.type == "VIEW_3D":
                 area.spaces[0].overlay.show_paint_wire = False
 
-        bpy.ops.ed.undo_push(message="Exit Edit Weights")
+        # bpy.ops.ed.undo_push(message="Exit Edit Weights")
         return {"FINISHED"}
 
     def modal(self, context, event):
@@ -126,25 +127,31 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
         return {"PASS_THROUGH"}
 
     def unhide_deform_bones(self,context):
+        self.deform_bone_names = []
         armature = bpy.data.objects[self.armature_name]
         for bone in armature.data.bones:
             if bone.hide and bone.use_deform:
-                self.deform_bones.append(bone)
+                self.deform_bone_names.append(bone.name)
                 bone.hide = False
 
     def hide_deform_bones(self,context):
-        for bone in self.deform_bones:
+        armature = bpy.data.objects[self.armature_name]
+        for bone_name in self.deform_bone_names:
+            bone = armature.data.bones[bone_name]
             bone.hide = True
 
     def hide_non_deform_bones(self,context):
+        self.non_deform_bone_names = []
         armature = bpy.data.objects[self.armature_name]
         for bone in armature.data.bones:
             if not bone.hide and not bone.use_deform:
-                self.non_deform_bones.append(bone)
+                self.non_deform_bone_names.append(bone.name)
                 bone.hide = True
 
     def unhide_non_deform_bones(self,context):
-        for bone in self.non_deform_bones:
+        armature = bpy.data.objects[self.armature_name]
+        for bone_name in self.non_deform_bone_names:
+            bone = armature.data.bones[bone_name]
             bone.hide = False
 
 
@@ -183,7 +190,7 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
         self.active_object_name = context.active_object.name
         
         for obj in context.selected_objects:
-            self.selected_objects.append(obj.name)
+            self.selected_object_names.append(obj.name)
         
         sprite_object.coa_tools.edit_weights = True
         sprite_object.coa_tools.edit_mode = "WEIGHTS"
@@ -194,10 +201,10 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
             
         if armature != None:
             self.armature_set_mode(context,"POSE",True)
-            global bone_layers
-            bone_layers = []
+            global BONE_LAYERS
+            BONE_LAYERS = []
             for i,bone_layer in enumerate(armature.data.layers):
-                bone_layers.append(bone_layer)
+                BONE_LAYERS.append(bool(bone_layer))
                 armature.data.layers[i] = True
             self.select_bone()
             
@@ -228,8 +235,8 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
         
         
         ### start draw call
-        args = ()
-        self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
+        # args = ()
+        # self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
         return {"RUNNING_MODAL"}
     
     

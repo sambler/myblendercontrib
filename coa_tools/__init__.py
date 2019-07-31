@@ -22,7 +22,7 @@ bl_info = {
     "name": "COA Tools",
     "description": "This Addon provides a Toolset for a 2D Animation Workflow.",
     "author": "Andreas Esau",
-    "version": (1, 0, 4),
+    "version": (2, 0, 0),
     "blender": (2, 80, 0),
     "location": "View 3D > Tools > Cutout Animation Tools",
     "warning": "",
@@ -36,6 +36,8 @@ import os
 import shutil
 import tempfile
 from bpy.app.handlers import persistent
+
+from . import addon_updater_ops
 
 # load and reload submodules
 ##################################
@@ -62,11 +64,14 @@ from . operators import edit_shapekey
 from . operators import edit_weights
 from . operators import import_sprites
 from . operators import material_converter
-from . operators import modal_update
 from . operators import pie_menu
 from . operators import slot_handling
 from . operators import toggle_animation_area
 from . operators import view_sprites
+from . operators import version_converter
+
+from . operators.exporter import export_dragonbones
+from . operators.exporter import export_creature
 
 # register
 ################################## 
@@ -77,22 +82,48 @@ import traceback
 
 class COAToolsPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
-    
-    alpha_update_frequency: bpy.props.IntProperty(name="Alpha Update Frequency",default=1,min=1,description="Updates alpha on each x frame.")
+
     show_donate_icon: bpy.props.BoolProperty(name="Show Donate Icon",default=False)
     sprite_import_export_scale: bpy.props.FloatProperty(name="Sprite import/export scale",default=0.01)
-    sprite_thumb_size: bpy.props.IntProperty(name="Sprite thumbnail size",default=48)
-    json_export: bpy.props.BoolProperty(name="Experimental Json export",default=False)
-    dragon_bones_export: bpy.props.BoolProperty(name="Dragonbones Export",default=False)
-    enable_spritesheets: bpy.props.BoolProperty(name="Enable Spritesheets",default=False, description="This feature is deprecated and should not be used for future projects. Use this only for older projects.")
-    
+
+    auto_check_update: bpy.props.BoolProperty(
+    name = "Auto-check for Update",
+    description = "If enabled, auto-check for updates using an interval",
+    default = True,
+    )
+    updater_intrval_months: bpy.props.IntProperty(
+    name='Months',
+    description = "Number of months between checking for updates",
+    default=0,
+    min=0
+    )
+    updater_intrval_days: bpy.props.IntProperty(
+    name='Days',
+    description = "Number of days between checking for updates",
+    default=1,
+    min=0,
+    )
+    updater_intrval_hours: bpy.props.IntProperty(
+    name='Hours',
+    description = "Number of hours between checking for updates",
+    default=0,
+    min=0,
+    max=23
+    )
+    updater_intrval_minutes: bpy.props.IntProperty(
+    name='Minutes',
+    description = "Number of minutes between checking for updates",
+    default=0,
+    min=0,
+    max=59
+    )
+
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "show_donate_icon")
-        layout.prop(self, "dragon_bones_export")
         layout.prop(self, "sprite_import_export_scale")
-        layout.prop(self, "sprite_thumb_size")
-        layout.prop(self, "alpha_update_frequency")
+
+        addon_updater_ops.update_settings_ui(self, context)
 
 
 classes = (
@@ -136,7 +167,6 @@ classes = (
 
     edit_mesh.COATOOLS_OT_ReprojectSpriteTexture,
     edit_mesh.COATOOLS_OT_GenerateMeshFromEdgesAndVerts,
-    edit_mesh.COATOOLS_OT_Fill,
     edit_mesh.COATOOLS_OT_DrawContour,
     edit_mesh.COATOOLS_OT_PickEdgeLength,
 
@@ -187,7 +217,12 @@ classes = (
     pie_menu.COATOOLS_MT_keyframe_menu_remove,
 
     toggle_animation_area.COATOOLS_OT_ToggleAnimationArea,
+    version_converter.COATOOLS_OT_VersionConverter,
 
+    # exporter
+    export_dragonbones.COATOOLS_OT_DragonBonesExport,
+    export_dragonbones.COATOOLS_PT_ExportPanel,
+    export_creature.COATOOLS_OT_CreatureExport,
 
 )
 
@@ -216,12 +251,15 @@ def unregister_keymaps():
 
 
 def register():
+    addon_updater_ops.register(bl_info)
+    copy_icons()
+
     # register classes
     for cls in classes:
         bpy.utils.register_class(cls)
 
     # register tools
-    bpy.utils.register_tool(edit_mesh.COATOOLS_TO_DrawPolygon, after={"builtin.cursor"}, separator=True, group=True)
+    # bpy.utils.register_tool(edit_mesh.COATOOLS_TO_DrawPolygon, after={"builtin.cursor"}, separator=True, group=True)
 
     # register props and keymap
     props.register()
@@ -231,6 +269,7 @@ def register():
     bpy.app.handlers.depsgraph_update_post.append(update_properties)
     bpy.app.handlers.frame_change_post.append(update_properties)
     bpy.app.handlers.load_post.append(check_view_2D_3D)
+    bpy.app.handlers.load_post.append(check_for_deprecated_data)
     bpy.app.handlers.load_post.append(set_shading)
 
 
@@ -250,8 +289,14 @@ def unregister():
     bpy.app.handlers.depsgraph_update_post.remove(update_properties)
     bpy.app.handlers.frame_change_post.remove(update_properties)
     bpy.app.handlers.load_post.remove(check_view_2D_3D)
+    bpy.app.handlers.load_post.remove(check_for_deprecated_data)
     bpy.app.handlers.load_post.remove(set_shading)
 
+@persistent
+def check_for_deprecated_data(dummy):
+    for obj in bpy.data.objects:
+        if "sprite_object" in obj:
+            bpy.context.scene.coa_tools.deprecated_data_found = True
 
 @persistent
 def check_view_2D_3D(dummy):
@@ -267,13 +312,15 @@ def check_view_2D_3D(dummy):
 
 @persistent
 def set_shading(dummy):
+    bpy.context.scene.eevee.use_taa_reprojection = False
     for obj in bpy.data.objects:
-        if "coa_sprite_object" in obj:
+        if "sprite_object" in obj.coa_tools:
             for screen in bpy.data.screens:
                 for area in screen.areas:
                     if area.type == "VIEW_3D":
                         area.spaces[0].shading.type = "RENDERED"
             break
+    bpy.ops.coa_tools.updater_check_now()
 
 @persistent
 def update_properties(dummy):
@@ -294,3 +341,23 @@ def update_properties(dummy):
         if obj.coa_tools.slot_index != obj.coa_tools.slot_index_last:
             change_slot_mesh_data(bpy.context, obj)
             obj.coa_tools.slot_index_last = obj.coa_tools.slot_index
+
+def copy_icons():
+    version = str(bpy.app.version[0]) + "." + str(bpy.app.version[1])
+
+    icons = [
+        "coa_tools.draw_polygon.dat",
+        "coa_tools.draw_bone.dat",
+        ]
+
+    for icon_name in icons:
+        icon_path = os.path.join(bpy.utils.user_resource("SCRIPTS", "addons"), "coa_tools", "icons", icon_name)
+        b_icon_path = os.path.join(os.path.dirname(bpy.app.binary_path), version, "datafiles", "icons", icon_name)
+
+        if os.path.isfile(b_icon_path):
+            os.remove(b_icon_path)
+
+        dir_path = os.path.dirname(b_icon_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        shutil.copyfile(icon_path, b_icon_path)

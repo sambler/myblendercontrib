@@ -12,6 +12,8 @@ from .data.gizmo_verts import bookstand_verts_start, bookstand_verts_end
 from .utils import vector_scale
 import logging
 
+from .utils import bookGen_directory
+
 class BookGenShelfGizmo():
 
     log = logging.getLogger("bookGen.gizmo")
@@ -21,10 +23,10 @@ class BookGenShelfGizmo():
         self.height = height
         self.depth = depth
 
-        with open("shaders/dotted_line.vert") as fp:
+        with open(bookGen_directory+"/shaders/dotted_line.vert") as fp:
             vertex_shader = fp.read()
 
-        with open("shaders/dotted_line.frag") as fp:
+        with open(bookGen_directory+"/shaders/dotted_line.frag") as fp:
             fragment_shader = fp.read()
 
         self.bookstand_shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
@@ -33,9 +35,12 @@ class BookGenShelfGizmo():
         self.line_batch = None
 
         self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw, args, 'WINDOW', 'POST_VIEW')
-        self.draw_event = args[1].window_manager.event_timer_add(0.1, window=args[1].window)
 
-        self.bookstand_color = bpy.context.preferences.themes[0].view_3d.face_select
+        color_ref = bpy.context.preferences.themes[0].user_interface.gizmo_primary
+        self.bookstand_color = [color_ref[0], color_ref[1],color_ref[2], 0.6]
+
+
+        self.args = args
 
 
 
@@ -45,11 +50,11 @@ class BookGenShelfGizmo():
             return
 
         self.bookstand_shader.bind()
-        self.bookstand_shader.uniform_float("color", self.bookstand_color)
-
         bgl.glEnable(bgl.GL_BLEND)
+        self.bookstand_shader.uniform_float("color", self.bookstand_color)
         self.bookstand_batch.draw(self.bookstand_shader)
         bgl.glDisable(bgl.GL_BLEND)
+
 
         bgl.glLineWidth(3)
         matrix = bpy.context.region_data.perspective_matrix
@@ -64,7 +69,6 @@ class BookGenShelfGizmo():
         width = dir.length
         dir.normalize()
         rotationMatrix = Matrix([dir, dir.cross(nrm), nrm]).transposed()
-        
         verts_start= []
         for v in bookstand_verts_start:
             scaled = vector_scale(v, [1, self.depth, self.height])
@@ -90,7 +94,13 @@ class BookGenShelfGizmo():
 
         self.line_batch = batch_for_shader(self.line_shader, "LINES", {"pos": lines, "arcLength": arc_length})
 
+        if self.draw_handler is None:
+            self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw, self.args, 'WINDOW', 'POST_VIEW')
+
+
+
     def remove(self):
         self.log.debug("removing draw handler")
-        bpy.context.window_manager.event_timer_remove(self.draw_event)
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, 'WINDOW')
+        if self.draw_handler is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, 'WINDOW')
+            self.draw_handler = None

@@ -15,44 +15,42 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 # ======================= END GPL LICENSE BLOCK ========================
+
+import random
+import logging
+from math import cos, tan, radians, sin, degrees
+
 import bpy
 from mathutils import Vector, Matrix
 
-from math import cos, tan, radians, sin, degrees, sqrt
-import random
-import logging
-
 from .book import Book
 
-from .utils import get_shelf_collection
-
+from .utils import get_shelf_collection, get_bookgen_collection
 
 class Shelf:
+    log = logging.getLogger("bookGen.Shelf")
     origin = Vector((0, 0, 0))
     direction = Vector((1, 0, 0))
     width = 3.0
     parameters = {}
     books = []
-    log = logging.getLogger("bookGen.Shelf")
 
     def __init__(self, name, start, end, normal, parameters):
         end = Vector(end)
         start = Vector(start)
-        
+
         self.name = name
         self.origin = start
         self.direction = (end - start).normalized()
-        self.rotationMatrix = Matrix([self.direction, self.direction.cross(normal), normal]).transposed()
-        self.rotation = self.rotationMatrix.to_euler()
+        self.rotation_matrix = Matrix([self.direction, -self.direction.cross(normal), normal]).transposed()
         self.width = (end - start).length
         self.parameters = parameters
-        self.collection = get_shelf_collection(self.name)
+        self.collection = None
+        self.books = []
+        self.align_offset = 0
+
 
     def add_book(self, book, first):
-
-        obj = book.to_object()
-
-        self.collection.objects.link(obj)
 
         self.books.append(book)
 
@@ -63,28 +61,31 @@ class Shelf:
         offset_dir = -1 if self.parameters["alignment"] == "1" else 1
         if(not first and not self.parameters["alignment"] == "2"):
             # location alignment
-            book.obj.location += Vector((0, offset_dir * (book.depth / 2 - self.align_offset), 0))
+            book.location += Vector((0, offset_dir * (book.depth / 2 - self.align_offset), 0))
 
-        book.obj.location += Vector((0, 0, book.height / 2))
+        book.location += Vector((0, 0, book.height / 2))
 
         # leaning
         if book.lean_angle < 0:
-                book.obj.location += Vector((book.width / 2, 0, 0))
+            book.location += Vector((book.width / 2, 0, 0))
         else:
-            book.obj.location += Vector((-book.width / 2, 0, 0))
-        book.obj.location = Matrix.Rotation(book.lean_angle, 3, 'Y') @ book.obj.location
-
-        book.obj.rotation_euler[1] = book.lean_angle
+            book.location += Vector((-book.width / 2, 0, 0))
+        book.location = Matrix.Rotation(book.lean_angle, 3, 'Y') @ book.location
 
         # distribution
 
-        book.obj.location += Vector((self.cur_offset, 0, 0))
-        book.obj.location = self.rotationMatrix @ book.obj.location
+        book.location += Vector((self.cur_offset, 0, 0))
+        book.location = self.rotation_matrix @ book.location
 
-        book.obj.rotation_euler = self.rotation
-        book.obj.rotation_euler[1] += book.lean_angle
+        book.rotation =  self.rotation_matrix @ Matrix.Rotation(book.lean_angle, 3, 'Y')
 
-        book.obj.location += self.origin 
+        book.location += self.origin
+
+    def to_collection(self):
+        self.collection = get_shelf_collection(self.name)
+        for b in self.books:
+            obj = b.to_object()
+            self.collection.objects.link(obj)
 
     def fill(self):
         self.cur_width = 0
@@ -95,7 +96,7 @@ class Shelf:
         first = True
 
         params = self.apply_parameters()
-        current = Book(*(list(params.values())), self.parameters["unwrap"], self.parameters["subsurf"], self.parameters["smooth"])
+        current = Book(*(list(params.values())), self.parameters["subsurf"], self.parameters["material"])
         if current.lean_angle >= 0:
             self.cur_offset = cos(current.lean_angle)*current.width
         else:
@@ -106,7 +107,7 @@ class Shelf:
             self.log.debug("remaining width to be filled: %.3f"%(self.width - self.cur_width))
             params = self.apply_parameters()
             last = current
-            current = Book(*(list(params.values())), self.parameters["unwrap"], self.parameters["subsurf"], self.parameters["smooth"])
+            current = Book(*(list(params.values())), self.parameters["subsurf"], self.parameters["material"])
 
             # gathering parameters for the next book
 
@@ -199,11 +200,34 @@ class Shelf:
             first = False
 
     def clean(self):
-        col = self.collection
+        col = None
+        if self.collection is not None:
+            col = self.collection
+        else:
+            bookgen = get_bookgen_collection()
+            for c in bookgen.children:
+                if c.name == self.name:
+                    col = c
+        if col is None:
+            return
         for obj in col.objects:
             col.objects.unlink(obj)
             bpy.data.meshes.remove(obj.data)
 
+
+    def get_geometry(self):
+        index_offset = 0
+        verts = []
+        faces = []
+
+        for b in self.books:
+            b_verts, b_faces = b.get_geometry()
+            verts += b_verts
+            offset_faces = map(lambda f: [f[0]+index_offset, f[1]+index_offset, f[2]+index_offset, f[3]+index_offset], b_faces)
+            faces += offset_faces
+            index_offset = len(verts)
+        
+        return verts, faces
 
     def apply_parameters(self):
         """Return book parameters with all randomization applied"""
@@ -218,12 +242,10 @@ class Shelf:
 
         rndm_cover_thickness = (random.random() * 0.4 - 0.2) * p["rndm_cover_thickness_factor"]
 
-        rndm_spline_curl = (random.random() * 0.4 - 0.2) * p["rndm_spline_curl_factor"]
+        rndm_spine_curl = (random.random() * 0.4 - 0.2) * p["rndm_spine_curl_factor"]
 
         rndm_hinge_inset = (random.random() * 0.4 - 0.2) * p["rndm_hinge_inset_factor"]
         rndm_hinge_width = (random.random() * 0.4 - 0.2) * p["rndm_hinge_width_factor"]
-
-        rndm_spacing = random.random() * p["rndm_spacing_factor"]
 
         rndm_lean_angle = (random.random() * 0.8 - 0.4) * p["rndm_lean_angle_factor"]
 
@@ -237,12 +259,10 @@ class Shelf:
         textblock_depth = book_depth - p["scale"] * p["textblock_offset"] * (1 + rndm_textblock_offset)
         textblock_thickness = book_width - 2 * cover_thickness
 
-        spline_curl = p["scale"] * p["spline_curl"] * (1 + rndm_spline_curl)
+        spine_curl = p["scale"] * p["spine_curl"] * (1 + rndm_spine_curl)
 
         hinge_inset = p["scale"] * p["hinge_inset"] * (1 + rndm_hinge_inset)
         hinge_width = p["scale"] * p["hinge_width"] * (1 + rndm_hinge_width)
-
-        spacing = p["scale"] * p["spacing"] * (1 + rndm_spacing)
 
         lean = p["lean_amount"] > random.random()
 
@@ -256,10 +276,9 @@ class Shelf:
                 "textblock_height": textblock_height,
                 "textblock_depth": textblock_depth,
                 "textblock_thickness": textblock_thickness,
-                "spline_curl": spline_curl,
+                "spine_curl": spine_curl,
                 "hinge_inset": hinge_inset,
                 "hinge_width": hinge_width,
-                "spacing": spacing,
                 "book_width": book_width,
                 "lean": lean,
                 "lean_angle": lean_angle}

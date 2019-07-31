@@ -2,6 +2,7 @@ import bpy
 from mathutils import Vector
 from mathutils.geometry import intersect_line_line_2d
 import math
+from ... import constants
 
 
 class TextureData:
@@ -46,24 +47,43 @@ class TextureAtlas:
         self.create_new_slot(self.margin, self.margin)
 
 
+def transfer_alpha(diffuse_img, alpha_img):
+    diffuse_pixels = list(diffuse_img.pixels)
+    alpha_pixels = list(alpha_img.pixels)
+
+    for i in range(0, len(alpha_pixels), 4):
+        diffuse_pixels[i + 3] = alpha_pixels[i]
+
+    diffuse_img.pixels[:] = diffuse_pixels
+    diffuse_img.update()
+
+def convert_to_straight_alpha(img):
+    pixels = list(img.pixels)
+
+    for i in range(0, len(pixels), 4):
+        a = pixels[i+3]
+        if a > 0:
+            pixels[i] = pixels[i] / a
+            pixels[i+1] = pixels[i+1] / a
+            pixels[i+2] = pixels[i+2] / a
+    img.pixels[:] = pixels
+    img.update()
+
 class TextureAtlasGenerator:
     @staticmethod
     def get_texture_bounds(obj, output_scale):
         uvs = obj.data.uv_layers[0].data
-        textures = obj.data.uv_textures[0].data
+        textures = obj.data.uv_layers[0].data
 
-        texture = None
-        for mat_slot in obj.material_slots:
-            if mat_slot.material != None:
-                material = mat_slot.material
-                for tex_slot in material.texture_slots:
-                    if tex_slot.texture != None:
-                        texture = tex_slot.texture
-                        break
-                if texture != None:
-                    break
-        if texture != None:
-            img_size = texture.image.size
+        image = None
+
+        for node in obj.active_material.node_tree.nodes:
+            if node.type == "GROUP" and node.node_tree.name == constants.COA_NODE_GROUP_NAME:
+                links = node.inputs[0].links
+                image = links[0].from_node.image if len(links) > 0 else None
+
+        if image != None:
+            img_size = image.size
             bottom_left_x = 1.0
             bottom_left_y = 1.0
             top_right_x = 0.0
@@ -82,7 +102,7 @@ class TextureAtlasGenerator:
                 bounds_px[i] = int(bounds_px[i] * output_scale)
             width = abs((bounds_px[2] - bounds_px[0]))
             height = abs((bounds_px[3] - bounds_px[1]))
-            texture_data = TextureData(texture.image.name, obj, bounds_px, bounds_rel, width, height)
+            texture_data = TextureData(image.name, obj, bounds_px, bounds_rel, width, height)
             return texture_data
         return None
 
@@ -203,6 +223,42 @@ class TextureAtlasGenerator:
         return atlas_data
 
     @staticmethod
+    def create_bake_node(merged_uv_obj, bake_img):
+        for mat in merged_uv_obj.data.materials:
+            for node in mat.node_tree.nodes:
+                node.select = False
+
+                if node.type == "GROUP" and node.node_tree.name == constants.COA_NODE_GROUP_NAME:
+                    links = node.inputs[0].links
+                    tex_node = links[0].from_node if len(links) > 0 else None
+                    if tex_node != None and tex_node.type == 'TEX_IMAGE':
+                        tex_node.interpolation = "Linear"
+
+            if "COA Bake Node" not in mat.node_tree.nodes:
+                bake_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+            else:
+                bake_node = mat.node_tree.nodes["COA Bake Node"]
+            bake_node.name = "COA Bake Node"
+            bake_node.select = True
+            bake_node.location = [400, 0]
+            mat.node_tree.nodes.active = bake_node
+            bake_node.image = bake_img
+
+    @staticmethod
+    def setup_alpha_bake(merged_uv_obj):
+        for mat in merged_uv_obj.data.materials:
+            for node in mat.node_tree.nodes:
+                if node.type == "GROUP" and node.node_tree.name == constants.COA_NODE_GROUP_NAME:
+                    links = node.inputs[1].links
+                    tex_node = links[0].from_node if len(links) > 0 else None
+                    if tex_node != None:
+                        mat.node_tree.links.new(tex_node.outputs[1], node.inputs[0])
+                    elif node.inputs[0].links[0] != None:
+                        value_node = mat.node_tree.nodes.new('ShaderNodeValue')
+                        value_node.outputs[0].default_value = node.inputs[1].default_value
+                        mat.node_tree.links.new(value_node.outputs[0], node.inputs[0])
+
+    @staticmethod
     def generate_uv_layout(name="texture_atlas", objects=None, width=256, height=256, max_width=2048, max_height=2048,
                            margin=1, texture_bleed=0, square=True, output_scale=1.0):
         context = bpy.context
@@ -220,7 +276,7 @@ class TextureAtlasGenerator:
             if slot.texture_data != None:
 
                 obj = slot.texture_data.texture_object
-                uv_map = obj.data.uv_textures.new(name="COA_UV_ATLAS")
+                uv_map = obj.data.uv_layers.new(name="COA_UV_ATLAS")
                 uv_layer = obj.data.uv_layers["COA_UV_ATLAS"]
 
                 uv_old_width = slot.texture_data.bounds_rel[2] - slot.texture_data.bounds_rel[0]
@@ -247,20 +303,54 @@ class TextureAtlasGenerator:
         if len(context.selected_objects) > 1:
             bpy.ops.object.join()
         merged_uv_obj = context.active_object
-        merged_uv_obj.data.uv_textures.active = merged_uv_obj.data.uv_textures["COA_UV_ATLAS"]
+        merged_uv_obj.data.uv_layers.active = merged_uv_obj.data.uv_layers["COA_UV_ATLAS"]
         atlas_img = bpy.data.images.new(atlas_data.name, atlas_data.width, atlas_data.height, alpha=True)
+        atlas_alpha_img = bpy.data.images.new(atlas_data.name+"_alpha", atlas_data.width, atlas_data.height, alpha=False)
         for vert in merged_uv_obj.data.vertices:
             vert.select = True
             vert.hide = False
-        for uv_data in merged_uv_obj.data.uv_textures["COA_UV_ATLAS"].data:
-            uv_data.image = atlas_img
 
-        ### bake uv atlas
-        context.scene.render.bake_type = "TEXTURE"
-        context.scene.render.use_bake_selected_to_active = False
-        context.scene.render.use_bake_clear = True
-        context.scene.render.bake_margin = texture_bleed
-        bpy.ops.object.bake_image()
+        # store bake settings
+        engine = str(context.scene.render.engine)
+        samples = int(context.scene.cycles.samples)
+        bake_type = str(context.scene.cycles.bake_type)
+        use_pass_indirect = context.scene.render.bake.use_pass_indirect
+        use_pass_direct = context.scene.render.bake.use_pass_direct
+        use_pass_color = context.scene.render.bake.use_pass_color
+
+        # setup bake settings
+        context.scene.render.engine = "CYCLES"
+        context.scene.cycles.samples = 1
+        context.scene.cycles.bake_type = "DIFFUSE"
+        context.scene.render.bake.use_pass_direct = False
+        context.scene.render.bake.use_pass_indirect = False
+        context.scene.render.bake.use_pass_color = True
+
+
+
+        # bake color
+        TextureAtlasGenerator.create_bake_node(merged_uv_obj, atlas_img)
+        context.scene.render.bake.margin = 0
+        bpy.ops.object.bake(type="DIFFUSE")
+
+        # bake alpha
+        TextureAtlasGenerator.setup_alpha_bake(merged_uv_obj)
+        TextureAtlasGenerator.create_bake_node(merged_uv_obj, atlas_alpha_img)
+        context.scene.render.bake.margin = 0
+        bpy.ops.object.bake(type="DIFFUSE")
+
+        # combine diffuse and alpha and convert image to straight alpha
+        transfer_alpha(atlas_img, atlas_alpha_img)
+        convert_to_straight_alpha(atlas_img)
+
+        # restore bake settings
+        context.scene.render.engine = engine
+        context.scene.cycles.samples = samples
+        context.scene.cycles.bake_type = bake_type
+        context.scene.render.bake.use_pass_direct = use_pass_indirect
+        context.scene.render.bake.use_pass_indirect = use_pass_direct
+        context.scene.render.bake.use_pass_color = use_pass_color
+
         return atlas_img, merged_uv_obj, atlas_data
 
 

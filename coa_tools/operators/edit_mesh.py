@@ -460,243 +460,6 @@ class COATOOLS_OT_GenerateMeshFromEdgesAndVerts(bpy.types.Operator):
         bpy.ops.coa_tools.reproject_sprite_texture()
         
         return {"FINISHED"}
-        
-
-class COATOOLS_OT_Fill(bpy.types.Operator):
-    bl_idname = "coa_tools.fill_edge_loop"
-    bl_label = "Triangle Fill"
-    bl_description = ""
-    bl_options = {"REGISTER"}
-    
-    detail: FloatProperty(name="Detail",default=.3,min=0,max=1.0)
-    triangulate: BoolProperty(default=False)
-    
-    def __init__(self):
-        self.tiles_x = 1
-        self.tiles_y = 1
-
-    
-    def get_img(self,context,obj):
-        bpy.ops.object.mode_set(mode="OBJECT")
-        img = obj.data.uv_textures.active.data[0].image    
-        bpy.ops.object.mode_set(mode="EDIT")
-        return img
-        
-        
-    def selection_closed(self,context,bm):
-        for vert in bm.verts:
-            if vert.select and len(vert.link_edges) == 1:
-                return False
-        return True    
-            
-        
-    def triangulate_fill(self,context):
-        selected_objects = []
-        for obj in context.selected_objects:
-            if obj != context.active_object:
-                selected_objects.append(obj)
-                obj.select_set(False)
-
-        start_obj = context.active_object
-        
-        bm = bmesh.from_edit_mesh(start_obj.data)
-        selected = False
-        select_count = 0
-        for vert in bm.verts:
-            if vert.select:
-                select_count += 1
-                selected = True
-        
-        if select_count in [1]:
-            self.report({'WARNING'},"Select a full loop to fill.")
-            return{'CANCELLED'}    
-        
-        if not selected:
-            self.report({'WARNING'},"No vertex selected.")
-            return{'CANCELLED'}
-        
-        if not self.selection_closed(context,bm):
-            self.report({'WARNING'},"Selection needs to be a loop. Close the loop first.")
-            return{'CANCELLED'}    
-            
-        
-        bpy.ops.mesh.separate(type="SELECTED")
-        bpy.ops.object.mode_set(mode="OBJECT")
-        context.view_layer.objects.active = context.selected_objects[0]
-        obj = context.selected_objects[0]
-        obj.coa_slot_index = start_obj.coa_slot_index
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.select_all(action='SELECT')
-        
-        ### get edge lenght
-        bm = bmesh.from_edit_mesh(context.active_object.data)
-        edges_len_average, shortest_edge = get_average_edge_length(bm,context.active_object)
-
-        ### grid fill start
-        bm = bmesh.from_edit_mesh(obj.data)
-        bm.verts.index_update()
-        
-            
-        fill_ok = triangle_fill(bm,obj)
-        
-        if fill_ok:
-            ### remove short edges
-            clean_boundary_edges(bm,obj)
-            
-            average_edge_cuts(bm,obj)
-            triangulate(bm,obj)
-            smooth_verts(bm,obj)
-            collapse_short_edges(bm,obj)
-            smooth_verts(bm,obj)
-            clean_verts(bm,obj)
-            smooth_verts(bm,obj)
-            triangulate(bm,obj)
-            smooth_verts(bm,obj)
-            
-            bm.verts.index_update()
-            bmesh.update_edit_mesh(obj.data) 
-            bmesh.ops.recalc_face_normals(bm,faces=bm.faces)
-            bmesh.update_edit_mesh(obj.data)
-                
-            for vert in bm.verts:
-                vert.select = True
-        bmesh.update_edit_mesh(obj.data)
-        if not fill_ok:
-            return fill_ok 
-        
-        
-        ### grid fill end
-        
-        bpy.ops.object.mode_set(mode="OBJECT")
-        context.view_layer.objects.active = start_obj
-        bpy.ops.object.join()
-        bpy.ops.object.mode_set(mode="EDIT")
-        #bpy.ops.mesh.remove_doubles(use_unselected=True)
-        remove_doubles(context.active_object,edges_len_average, shortest_edge)
-        
-        
-        ### create uv map
-        bm = bmesh.from_edit_mesh(start_obj.data)
-        filled_contour = []
-        for vert in bm.verts:
-            if vert.select:
-                filled_contour.append(vert)
-            vert.select = True
-        
-        not_selected_faces = []
-        for face in bm.faces:
-            if face.select == False:
-                not_selected_faces.append(face)
-            face.select = True
-        bmesh.update_edit_mesh(start_obj.data)
-        
-        for vert in bm.verts:
-            if vert not in filled_contour:
-                vert.select = False     
-        for face in not_selected_faces:
-            face.select = False
-        bmesh.update_edit_mesh(start_obj.data)
-        
-        ### unwrap
-        obj = context.active_object
-        if obj.coa_tools.type == "MESH":
-            self.reset_spritesheet(context,start_obj)
-        bm = bmesh.from_edit_mesh(obj.data)
-        unselected_verts = []
-        for vert in bm.verts:
-            if not vert.select:
-                unselected_verts.append(vert)
-                vert.select = True
-        unselected_faces = []
-        for face in bm.faces:
-            if not face.select:
-                unselected_faces.append(face)
-                face.select = True        
-        bpy.ops.uv.project_from_view(camera_bounds=False, correct_aspect=True, scale_to_bounds=True)        
-        
-        for vert in unselected_verts:
-            vert.select = False
-        for face in unselected_faces:
-            face.select = False
-        
-        if obj.coa_tools.type == "MESH":    
-            self.revert_rest_spritesheet(context,start_obj)
-
-        for obj in selected_objects:
-            obj.select = True
-        return fill_ok
-    
-    def reset_spritesheet(self,context,obj):
-        selected_verts = []
-        bpy.ops.object.mode_set(mode="OBJECT")
-        
-        functions.handle_uv_items(context,obj)
-
-        obj.coa_sprite_frame = 0
-        obj.coa_tiles_x = 1
-        obj.coa_tiles_y = 1
-        
-        bpy.ops.object.mode_set(mode="EDIT")
-    
-    def revert_rest_spritesheet(self,context,obj):
-        bpy.ops.object.mode_set(mode="OBJECT")
-        functions.set_uv_default_coords(context,obj)
-        bpy.ops.object.mode_set(mode="EDIT")
-        
-    def normal_fill(self,context):
-        obj = context.active_object
-        
-        bpy.ops.mesh.edge_face_add()
-        bpy.ops.uv.project_from_view(camera_bounds=False, correct_aspect=True, scale_to_bounds=True)
-        
-        self.reset_spritesheet(context,obj)
-        
-        
-        bm = bmesh.from_edit_mesh(obj.data)
-        unselected_faces = []
-        for face in bm.faces:
-            if face.select == False:
-                unselected_faces.append(face)
-            face.select = True    
-            
-            
-        bpy.ops.uv.project_from_view(camera_bounds=False, correct_aspect=True, scale_to_bounds=True)
-        
-        
-        for face in unselected_faces:
-            face.select = False
-            
-        bmesh.update_edit_mesh(obj.data)
-        
-        self.revert_rest_spritesheet(context,obj)
-    
-    def execute(self,context):
-        start_obj = context.active_object
-        img = self.get_img(context,start_obj)
-        
-        hide_sprite = start_obj.data.coa_tools.hide_base_sprite
-        start_obj.data.coa_tools.hide_base_sprite = False
-        
-        if self.triangulate:
-            if not self.triangulate_fill(context):
-                bpy.ops.object.mode_set(mode="OBJECT")
-                context.view_layer.objects.active = start_obj
-                bpy.ops.object.join()
-                bpy.ops.object.mode_set(mode="EDIT")
-                self.report({"WARNING"},"Please select a closed vertex loop.")
-        else:
-            self.normal_fill(context)
-        
-        ### assign texture to uv map
-        if img != None:
-            bpy.ops.object.mode_set(mode="OBJECT")
-            functions.assign_tex_to_uv(img,start_obj.data.uv_textures.active)
-            bpy.ops.object.mode_set(mode="EDIT")
-        
-        start_obj.data.coa_tools.hide_base_sprite = hide_sprite
-        
-        bpy.ops.ed.undo_push(message="Grid Fill")
-        return{'FINISHED'}
 
 ######################################################################################################################################### Draw Contours
 ''' scene.ray_cast return values for Blender 2.77
@@ -711,8 +474,8 @@ result = [result[0],result[4],result[5],result[1],result[2]]
 '''
 
 class COATOOLS_TO_DrawPolygon(bpy.types.WorkSpaceTool):
-    bl_space_type='VIEW_3D'
-    bl_context_mode='EDIT_MESH'
+    bl_space_type = 'VIEW_3D'
+    bl_context_mode = 'EDIT_MESH'
 
     # The prefix of the idname should be your add-on name.
     bl_idname = "coa_tools.draw_polygon"
@@ -720,12 +483,12 @@ class COATOOLS_TO_DrawPolygon(bpy.types.WorkSpaceTool):
     bl_description = (
         "Draws COA Tools Mesh Polygon"
     )
-    bl_icon = ""
+    bl_icon = "coa_tools.draw_polygon"
     bl_widget = None
     # bl_keymap = (
-    #     ("coa_tools.draw_polygon", {"type": 'LEFTMOUSE', "value": 'PRESS'},
-    #      {"properties": []}),
+    #     ("coa_tools.draw_polygon", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
     # )
+
 
 class COATOOLS_OT_DrawContour(bpy.types.Operator):
     bl_idname = "coa_tools.edit_mesh"
@@ -766,7 +529,9 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         self.cut_edge = False
         
         self.edit_object = None
+        self.edit_object_name = ""
         self.texture_preview_object = None
+        self.texture_preview_object_name = ""
         
         self.bone = None
         self.bone_shape = None
@@ -1122,7 +887,7 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                 other_vert = edge.other_vert(vert)
                 if len(other_vert.link_edges) == 1:
                     delete_verts.append(other_vert)
-            for vert in delete_verts        :
+            for vert in delete_verts:
                 bm.verts.remove(vert)
                     
         elif point_type == "EDGE":
@@ -1176,14 +941,8 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
             click_button = None
             select_button = None
             keyconfig = wm.keyconfigs.active
-            if (getattr(keyconfig.preferences, "select_mouse") == "RIGHT"):
-                click_button = 'LEFTMOUSE'
-                select_button = 'RIGHTMOUSE'
-            else:
-                click_button = 'LEFTMOUSE'
-                select_button = 'RIGHTMOUSE'
-                # click_button = 'RIGHTMOUSE'
-                # select_button = 'LEFTMOUSE'
+            click_button = 'LEFTMOUSE'
+            select_button = 'RIGHTMOUSE'
             
             
             ### leave edit mode
@@ -1192,11 +951,14 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
             self.obj = bpy.context.active_object
             ### create bmesh object
             bm = bmesh.from_edit_mesh(obj.data)
-            
+
             ### limit verts within bounds -> resets vertex positions to stay within bounds
-            if self.type_prev in ["G","S","R"]:
+            if self.type_prev in ["G","S","R"] or (self.value_prev in["CLICK","PRESS"] and self.value == "RELEASE"):
                 self.check_verts(context,event)
-            
+
+            ## skip everything if different tool is selected
+            if functions.get_active_tool("EDIT_MESH") != "coa_tools.draw_polygon":
+                return {'PASS_THROUGH'}
             
             if self.in_view_3d and context.active_object != None and self.type not in ["MIDDLEMOUSE"] and self.sprite_object.coa_tools.edit_mesh and click_button not in [select_button]:
         
@@ -1369,6 +1131,7 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         # bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler2, "WINDOW")
         
         self.draw_handler_removed = True
+        self.sprite_object = functions.get_sprite_object(context.active_object)
         self.sprite_object.coa_tools.edit_mesh = False
         self.sprite_object.coa_tools.edit_mode = "OBJECT"
 
@@ -1376,9 +1139,9 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         bpy.ops.object.mode_set(mode="OBJECT")
         self.sprite_object.coa_tools.edit_mesh = False
         functions.set_local_view(False)
-        
+
         obj = context.active_object
-        context.view_layer.objects.active = self.edit_object
+        context.view_layer.objects.active = bpy.data.objects[self.edit_object_name]
         context.scene.coa_tools.view = self.prev_coa_view
         bpy.ops.object.mode_set(mode="EDIT")
         if self.mode == "DRAW_BONE_SHAPE":
@@ -1389,11 +1152,12 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
 
         self.sprite_object.coa_tools.edit_mesh = False
         functions.set_local_view(False)
-        
+
+        self.armature = functions.get_armature(self.sprite_object)
         if self.armature !=  None:
             self.armature.data.pose_position = self.armature_pose_mode
-            
-        if self.mode == "DRAW_BONE_SHAPE":            
+
+        if self.mode == "DRAW_BONE_SHAPE":
             self.armature.display_type = self.display_type
             context.scene.coa_tools.lock_to_bounds = self.draw_bounds
             if self.armature != None:
@@ -1402,18 +1166,18 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                 self.bone.custom_shape = self.bone_shape
                 self.bone.use_custom_shape_bone_size = False
             else:
-                self.bone.custom_shape = None    
-            
+                self.bone.custom_shape = None
+
             self.bone_shape.select_set(False)
             self.bone_shape.parent = None
             context.collection.objects.unlink(self.bone_shape)
             context.view_layer.objects.active = self.armature
             self.armature.select_set(True)
-            bpy.ops.object.mode_set(mode="POSE")    
+            bpy.ops.object.mode_set(mode="POSE")
         else:
-            if len(self.obj.data.vertices) > 4:
-                self.obj.data.coa_tools.hide_base_sprite = True
-            bpy.ops.object.mode_set(mode="OBJECT")    
+            if len(context.active_object.data.vertices) > 4:
+                context.active_object.data.coa_tools.hide_base_sprite = True
+            bpy.ops.object.mode_set(mode="OBJECT")
             context.view_layer.objects.active = obj
         return{'FINISHED'}
     
@@ -1458,6 +1222,14 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         return edit_object, texture_preview_object
 
     def finish_edit_object(self, context):
+        functions.set_active_tool(self, context, "builtin.select")
+        try:
+            bpy.utils.unregister_tool(COATOOLS_TO_DrawPolygon)
+        except:
+            pass
+
+
+        self.texture_preview_object = bpy.data.objects[self.texture_preview_object_name] if self.texture_preview_object_name in bpy.data.objects else None
         if self.texture_preview_object != None:
             bpy.data.objects.remove(self.texture_preview_object)
             context.view_layer.objects.active = self.edit_object
@@ -1471,6 +1243,8 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
 
 
     def execute(self, context):
+        bpy.utils.register_tool(COATOOLS_TO_DrawPolygon, after={"builtin.select"}, separator=True, group=True)
+
         bpy.ops.ed.undo_push(message="Edit Mesh")
         if context.active_object == None or (context.active_object.type != "MESH" and self.mode != "DRAW_BONE_SHAPE"):
             self.report({"ERROR"},"Sprite is hidden or not selected. Cannot go in Edit Mode.")
@@ -1478,6 +1252,8 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
 
         if self.mode == "EDIT_MESH":
             self.edit_object, self.texture_preview_object = self.prepare_edit_object(context)
+            self.edit_object_name = str(self.edit_object.name)
+            self.texture_preview_object_name = str(self.texture_preview_object.name)
 
         #bpy.ops.wm.coa_modal() ### start coa modal mode if not running
         self.sprite_object = functions.get_sprite_object(context.active_object)
@@ -1537,6 +1313,7 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                 else:    
                     bone_shape = bpy.data.objects.new(shape_name,me)
             self.edit_object = bone_shape
+            self.edit_object_name = str(self.edit_object.name)
             
             bone_shape["coa_bone_shape"] = True
             context.collection.objects.link(bone_shape)
@@ -1571,6 +1348,7 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         context.scene.coa_tools.view = "2D"
 
         bpy.ops.object.mode_set(mode="EDIT")
+        functions.set_active_tool(self, context, "coa_tools.draw_polygon")
         bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
 
         args = ()
@@ -1653,86 +1431,87 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                 vecs = [vec1, vec2, vec3, vec4, vec1]
                 self.draw_coords(coords=vecs, color=[1,.7,.5,1.0], draw_type=CONSTANTS.DRAW_LINE_STRIP, line_width=2)
 
-            ### draw lines and dots
-            #mouse_pos_in_bounds = self.limit_cursor_by_bounds(bpy.context,self.mouse_pos_3d)
-            if self.type not in ["K","C","B","R","G","S"] and self.in_view_3d:
-                vertex_vec_new = self.limit_cursor_by_bounds(bpy.context,self.mouse_pos_3d)
-                vertex_vec_new = self.snapped_vert_coord + y_offset
+            if functions.get_active_tool("EDIT_MESH") == "coa_tools.draw_polygon":
+                ### draw lines and dots
+                #mouse_pos_in_bounds = self.limit_cursor_by_bounds(bpy.context,self.mouse_pos_3d)
+                if self.type not in ["K","C","B","R","G","S"] and self.in_view_3d:
+                    vertex_vec_new = self.limit_cursor_by_bounds(bpy.context,self.mouse_pos_3d)
+                    vertex_vec_new = self.snapped_vert_coord + y_offset
 
-                color = green
-                # bgl.glLineWidth(2)
+                    color = green
+                    # bgl.glLineWidth(2)
 
-                if self.selected_vert_coord != None:
-                    bgl.glEnable(bgl.GL_LINE_SMOOTH)
-                    vertex_vec = self.selected_vert_coord + y_offset
+                    if self.selected_vert_coord != None:
+                        bgl.glEnable(bgl.GL_LINE_SMOOTH)
+                        vertex_vec = self.selected_vert_coord + y_offset
+                        if self.point_type == "VERT":
+                            color = green
+                        elif self.point_type == "EDGE":
+                            color = blue
+
+                        if not self.alt:
+                            p1 = self.coord_3d_to_2d(vertex_vec)
+                            p2 = self.coord_3d_to_2d(vertex_vec_new)
+                            self.draw_coords(coords=[p1, p2], color=color)
+
                     if self.point_type == "VERT":
-                        color = green
+                        if self.alt:
+                            color = red
+                        else:
+                            color = green
                     elif self.point_type == "EDGE":
                         color = blue
+                        if self.alt:
+                            color = red
 
-                    if not self.alt:
-                        p1 = self.coord_3d_to_2d(vertex_vec)
-                        p2 = self.coord_3d_to_2d(vertex_vec_new)
-                        self.draw_coords(coords=[p1, p2], color=color)
 
-                if self.point_type == "VERT":
-                    if self.alt:
-                        color = red
+                        p1 = self.coord_3d_to_2d(obj.matrix_world @ self.verts_edges_data[0] + y_offset)
+                        p2 = self.coord_3d_to_2d(obj.matrix_world @ self.verts_edges_data[1] + y_offset)
+                        self.draw_coords(coords=[p1,p2], color=color)
                     else:
-                        color = green
-                elif self.point_type == "EDGE":
-                    color = blue
-                    if self.alt:
-                        color = red
+                        color = yellow
 
-
-                    p1 = self.coord_3d_to_2d(obj.matrix_world @ self.verts_edges_data[0] + y_offset)
-                    p2 = self.coord_3d_to_2d(obj.matrix_world @ self.verts_edges_data[1] + y_offset)
-                    self.draw_coords(coords=[p1,p2], color=color)
-                else:
+                    # draw point
+                    self.draw_coords(coords=[self.coord_3d_to_2d(vertex_vec_new)], color=color, draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
+                    # draw intersecting edge points
                     color = yellow
+                    points = []
+                    for point in self.intersection_points:
+                        points.append(self.coord_3d_to_2d(point))
+                    self.draw_coords(coords=points, color=[0,0,0,1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
+                    self.draw_coords(coords=points, color=[1,0,.5,1], draw_type=CONSTANTS.DRAW_POINTS, point_size=6)
 
-                # draw point
-                self.draw_coords(coords=[self.coord_3d_to_2d(vertex_vec_new)], color=color, draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
-                # draw intersecting edge points
-                color = yellow
-                points = []
-                for point in self.intersection_points:
-                    points.append(self.coord_3d_to_2d(point))
-                self.draw_coords(coords=points, color=[0,0,0,1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
-                self.draw_coords(coords=points, color=[1,0,.5,1], draw_type=CONSTANTS.DRAW_POINTS, point_size=6)
-
-            # draw single vertices
-            bm = bmesh.from_edit_mesh(obj.data)
-            verts_loose = []
-            verts_loose_selected = []
-            verts_selected = []
-            verts = []
-            for vert in bm.verts:
-                if not vert.hide:
-                    if not vert.select:
-                        verts_selected.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
-                    else:
-                        verts.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
-
-                if not vert.hide:
-                    if len(vert.link_edges) == 0:
-
-                        if vert.select:
-                            if self.contour_length == 0:
-                                verts_loose_selected.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
+                # draw single vertices
+                bm = bmesh.from_edit_mesh(obj.data)
+                verts_loose = []
+                verts_loose_selected = []
+                verts_selected = []
+                verts = []
+                for vert in bm.verts:
+                    if not vert.hide:
+                        if not vert.select:
+                            verts_selected.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
                         else:
-                            verts_loose.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
-                            self.draw_coords(coords=verts_loose, color=[1, 1, 1, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
+                            verts.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
 
-            self.draw_coords(coords=verts_selected, color=[0, 0, 0, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=4)
-            self.draw_coords(coords=verts_selected, color=[1, 0, .5, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=2)
+                    if not vert.hide:
+                        if len(vert.link_edges) == 0:
 
-            self.draw_coords(coords=verts, color=[0, 0, 0, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=6)
-            self.draw_coords(coords=verts, color=[0, 1, .5, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=4)
+                            if vert.select:
+                                if self.contour_length == 0:
+                                    verts_loose_selected.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
+                            else:
+                                verts_loose.append(self.coord_3d_to_2d(obj.matrix_world @ vert.co))
+                                self.draw_coords(coords=verts_loose, color=[1, 1, 1, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
 
-            self.draw_coords(coords=verts_loose, color=[1, 0, 0, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
-            self.draw_coords(coords=verts_loose_selected, color=[1, .8, .8, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
+                self.draw_coords(coords=verts_selected, color=[0, 0, 0, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=4)
+                self.draw_coords(coords=verts_selected, color=[1, 0, .5, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=2)
+
+                self.draw_coords(coords=verts, color=[0, 0, 0, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=6)
+                self.draw_coords(coords=verts, color=[0, 1, .5, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=4)
+
+                self.draw_coords(coords=verts_loose, color=[1, 0, 0, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
+                self.draw_coords(coords=verts_loose_selected, color=[1, .8, .8, 1], draw_type=CONSTANTS.DRAW_POINTS, point_size=8)
             
 
 class COATOOLS_OT_PickEdgeLength(bpy.types.Operator):

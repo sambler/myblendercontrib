@@ -15,9 +15,11 @@ from .utils import (visible_objects_and_instances,
                    get_free_shelf_id)
 
 from .ui_gizmo import BookGenShelfGizmo
+from .ui_outline import BookGenShelfOutline
 
 
 class OBJECT_OT_BookGenRebuild(bpy.types.Operator):
+    """Regenerate all books"""
     bl_idname = "object.book_gen_rebuild"
     bl_label = "BookGen"
     bl_options = {'REGISTER'}
@@ -59,10 +61,13 @@ class OBJECT_OT_BookGenRebuild(bpy.types.Operator):
 
             parameters["seed"] -= shelf_props.id
 
+            shelf.to_collection()
+
         self.log.info("Finished populating shelf in %.4f secs" % (time.time() - time_start))
 
 
 class OBJECT_OT_BookGenRemoveShelf(bpy.types.Operator):
+    """Delete the selected shelf"""
     bl_idname = "object.book_gen_remove_shelf"
     bl_label = "BookGen"
     bl_options = {'REGISTER'}
@@ -86,16 +91,27 @@ class OBJECT_OT_BookGenRemoveShelf(bpy.types.Operator):
         return context.mode == 'OBJECT'
 
     def run(self):
-        active = bpy.context.collection.BookGenProperties.active_shelf
-        collection = get_bookgen_collection().children[active]
+        parent = get_bookgen_collection() 
+        active = parent.BookGenProperties.active_shelf
+        if active < 0 or active >= len(parent.children):
+            return
+        collection = parent.children[active]
+
         for obj in collection.objects:
             collection.objects.unlink(obj)
             bpy.data.meshes.remove(obj.data)
-        get_bookgen_collection().children.unlink(collection)
+        parent.children.unlink(collection)
         bpy.data.collections.remove(collection)
+
+        parent.BookGenProperties.active_shelf -= 1 
+
+        if active != len(parent.children):
+             parent.BookGenProperties.active_shelf += 1 
+
 
 
 class BookGen_SelectShelf(bpy.types.Operator):
+    """Define where books should be generated.\nClick on a surface where the generation should start. Click again to set the end point"""
     bl_idname = "object.book_gen_select_shelf"
     bl_label = "Select BookGen Shelf"
     log = logging.getLogger("bookGen.select_shelf")
@@ -107,9 +123,18 @@ class BookGen_SelectShelf(bpy.types.Operator):
         x, y = event.mouse_region_x, event.mouse_region_y
         if event.type == 'MOUSEMOVE':
             if self.start is not None:
-                loc, nrm = get_click_position_on_object(x, y)
-                if loc is not None:
-                    self.gizmo.update(self.start, loc, nrm)
+                self.end, self.end_normal = get_click_position_on_object(x, y)
+                if self.end is not None:
+                    normal = (self.start_normal  + self.end_normal)/2
+                    shelf_id = get_free_shelf_id()
+                    parameters = get_shelf_parameters(shelf_id)
+                    shelf = Shelf("shelf_"+str(shelf_id), self.start, self.end, normal, parameters)
+                    shelf.fill()
+                    self.outline.enable_outline(*shelf.get_geometry(), context)
+                    self.gizmo.update(self.start, self.end, normal)
+                else:
+                    self.gizmo.remove()
+                    self.outline.disable_outline()
 
         elif event.type in {'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE'}:
             # allow navigation
@@ -119,7 +144,8 @@ class BookGen_SelectShelf(bpy.types.Operator):
                 self.start, self.start_normal = get_click_position_on_object(x, y)
                 return { 'RUNNING_MODAL' }
             else:
-                self.end, self.end_normal = get_click_position_on_object(x, y)
+                if self.end is None:
+                    return { 'RUNNING_MODAL' }
                 shelf_id = get_free_shelf_id()
                 parameters = get_shelf_parameters()
                 parameters["seed"] += shelf_id
@@ -135,9 +161,12 @@ class BookGen_SelectShelf(bpy.types.Operator):
                 shelf_props.normal = normal
                 shelf_props.id = shelf_id
                 self.gizmo.remove()
+                self.outline.disable_outline()
+                shelf.to_collection()
                 return { 'FINISHED' }
         elif event.type in { 'RIGHTMOUSE', 'ESC' }:
             self.gizmo.remove()
+            self.outline.disable_outline()
             return { 'CANCELLED' }
         return { 'RUNNING_MODAL' }
 
@@ -152,6 +181,7 @@ class BookGen_SelectShelf(bpy.types.Operator):
 
 
         self.gizmo =  BookGenShelfGizmo(self.start, self.end, None, props["book_height"], props["book_depth"], args)
+        self.outline = BookGenShelfOutline()
 
         context.window_manager.modal_handler_add(self)
         return { 'RUNNING_MODAL' }

@@ -27,7 +27,8 @@ from mathutils import Vector, Matrix, Quaternion, geometry
 import math
 import bmesh
 from bpy.props import FloatProperty, IntProperty, BoolProperty, StringProperty, CollectionProperty, FloatVectorProperty, EnumProperty, IntVectorProperty
-from .. functions import *
+# from .. functions import *
+from .. import functions
 from .. functions_draw import *
 import bgl, blf
 import traceback
@@ -99,7 +100,7 @@ class COATOOLS_OT_ShapekeyRemove(bpy.types.Operator):
     def execute(self, context):
         obj = context.active_object
         
-        idx = int(obj.coa_selected_shapekey)
+        idx = int(obj.coa_tools.selected_shapekey)
 
         shape = obj.data.shape_keys.key_blocks[idx]
         obj.shape_key_remove(shape)
@@ -120,7 +121,7 @@ class COATOOLS_OT_ShapekeyRename(bpy.types.Operator):
     
     def invoke(self,context,event):
         obj = context.active_object
-        idx = int(obj.coa_selected_shapekey)
+        idx = int(obj.coa_tools.selected_shapekey)
         shape = obj.data.shape_keys.key_blocks[idx]
         
         self.new_name = shape.name
@@ -130,7 +131,7 @@ class COATOOLS_OT_ShapekeyRename(bpy.types.Operator):
     
     def execute(self, context):
         obj = context.active_object
-        idx = int(obj.coa_selected_shapekey)
+        idx = int(obj.coa_tools.selected_shapekey)
         shape = obj.data.shape_keys.key_blocks[idx]
         
         shape.name = self.new_name
@@ -207,7 +208,7 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
                     value = shape.value
             if index != None:
                 obj.active_shape_key_index = index
-    
+
     def execute(self, context):
         self.objs = []
         if context.active_object == None or context.active_object.type != "MESH":
@@ -215,10 +216,10 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
             return{"CANCELLED"}
         obj = bpy.data.objects[context.active_object.name] if context.active_object.name in bpy.data.objects else None
         
-        self.sprite_object_name = get_sprite_object(obj).name
+        self.sprite_object_name = functions.get_sprite_object(obj).name
         self.sprite_object = bpy.data.objects[self.sprite_object_name]
 
-        self.armature_name = get_armature(self.sprite_object).name
+        self.armature_name = functions.get_armature(self.sprite_object).name
         self.armature = context.scene.objects[self.armature_name] if self.armature_name in context.scene.objects else None
         
         self.mode_init = obj.mode if obj.mode != "SCULPT" else "OBJECT"
@@ -237,23 +238,19 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
         context.scene.tool_settings.sculpt.use_symmetry_x = False
         context.scene.tool_settings.sculpt.use_symmetry_y = False
         context.scene.tool_settings.sculpt.use_symmetry_z = False
-        
-        for brush in bpy.data.brushes:
-            if brush.sculpt_tool == "GRAB":
-                context.scene.tool_settings.sculpt.brush = brush
-                break
-        
+
+        functions.set_active_tool(self, context, "builtin_brush.Grab")
         self.set_most_driven_shapekey(obj)
         
         ### run modal operator and draw handler
-        args = ()
-        self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
-        context.window_manager.modal_handler_add(self)
+        # args = ()
+        # self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
+        # context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
     
     def exit_edit_mode(self,context,event,obj):
         ### remove draw handler on exiting modal mode
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+        # bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
 
         for obj in context.selected_objects:
             obj.select_set(False)
@@ -267,6 +264,7 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
                 context.scene.objects.active = obj
                 bpy.ops.object.mode_set(mode="OBJECT")
                 obj.show_only_shape_key = False
+                print("Exit Edit Shapekey")
 
         context.scene.objects.active = obj
         obj.select = True
@@ -277,7 +275,8 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
     def modal(self, context, event):
         obj = None
         obj_name = context.active_object.name if context.active_object != None else None
-        obj = context.scene.objects[obj_name] if obj_name != None else None
+        # obj = context.scene.objects[obj_name] if obj_name != None else None
+        obj = context.active_object
         self.sprite_object = bpy.data.objects[self.sprite_object_name]
         self.armature = bpy.data.objects[self.armature_name]
 
@@ -297,8 +296,8 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
                     bpy.ops.object.mode_set(mode="SCULPT")
                 
                 if obj.type == "MESH" and obj.data.shape_keys != None:
-                    if obj.coa_selected_shapekey != obj.active_shape_key.name:
-                        obj.coa_selected_shapekey = str(obj.active_shape_key_index) #obj.active_shape_key.name
+                    if obj.coa_tools.selected_shapekey != obj.active_shape_key.name:
+                        obj.coa_tools.selected_shapekey = str(obj.active_shape_key_index) #obj.active_shape_key.name
             
             if self.sprite_object.coa_tools.edit_shapekey == False and obj != None:
                 return self.exit_edit_mode(context,event,obj)

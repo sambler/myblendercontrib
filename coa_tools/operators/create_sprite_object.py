@@ -52,7 +52,7 @@ class COATOOLS_OT_CreateSpriteObject(bpy.types.Operator):
         sprite_object = bpy.context.active_object
         sprite_object.name = "SpriteObject"
         sprite_object.show_name = True
-        sprite_object["coa_sprite_object"] = True
+        sprite_object.coa_tools["sprite_object"] = True
         sprite_object.show_axis = True
         bpy.ops.object.mode_set(mode="EDIT")
         for bone in sprite_object.data.edit_bones:

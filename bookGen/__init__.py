@@ -21,17 +21,23 @@ bl_info = {
     "name": "BookGen",
     "description": "Generate books to fill shelves",
     "author": "Oliver Weissbarth, Seojin Sim",
-    "version": (0, 6),
+    "version": (0, 9, 0),
     "blender": (2, 80, 0),
     "location": "View3D > Add > Mesh",
-    "warning": "Alpha",
+    "warning": "Beta",
     "wiki_url": "",
     "category": "Add Mesh"}
 
+from bpy.app.handlers import persistent
+
 from .operator import OBJECT_OT_BookGenRebuild, BookGen_SelectShelf, OBJECT_OT_BookGenRemoveShelf
-from .panel import OBJECT_PT_BookGenPanel, OBJECT_PT_BookGen_MainPanel
+from .panel import OBJECT_PT_BookGenPanel, OBJECT_PT_BookGen_MainPanel, OBJECT_PT_BookGen_LeaningPanel, OBJECT_PT_BookGen_ProportionsPanel, OBJECT_PT_BookGen_DetailsPanel, OBJECT_PT_BookGen_ShelfOverridePanel
 from .properties import BookGenProperties, BookGenShelfProperties
 from .shelf_list import BOOKGEN_UL_Shelves
+from .utils import get_bookgen_collection
+from .profiling import Profiler
+from os.path import splitext  
+
 
 
 
@@ -42,6 +48,9 @@ classes = [
     OBJECT_OT_BookGenRemoveShelf,
     OBJECT_PT_BookGen_MainPanel,
     OBJECT_PT_BookGenPanel,
+    OBJECT_PT_BookGen_LeaningPanel,
+    OBJECT_PT_BookGen_ProportionsPanel,
+    OBJECT_PT_BookGen_DetailsPanel,
     BookGen_SelectShelf,
     BOOKGEN_UL_Shelves
 ]
@@ -57,8 +66,22 @@ def register():
     bpy.types.Collection.BookGenProperties = bpy.props.PointerProperty(type=BookGenProperties)
     bpy.types.Collection.BookGenShelfProperties = bpy.props.PointerProperty(type=BookGenShelfProperties)
 
+    bpy.app.handlers.load_post.append(bookGen_startup)
+
 
 def unregister():
+    import bpy
     from bpy.utils import unregister_class
     for cls in reversed(classes):
         unregister_class(cls)
+    bpy.app.handlers.load_post.remove(bookGen_startup)
+
+    Profiler.profile.dump_stats(splitext(__file__)[0]+'.prof')  
+
+
+    
+
+@persistent
+def bookGen_startup(scene):
+    properties = get_bookgen_collection().BookGenProperties
+    properties.outline_active = False

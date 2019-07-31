@@ -18,35 +18,44 @@
 
 import bpy
 import bmesh
+from mathutils import Vector, Euler, Matrix
 
-from math import radians
+from math import radians, degrees, atan
 
 from .utils import get_bookgen_collection 
 from .data.verts import get_verts
 from .data.faces import get_faces
-from .data.uvs import get_seams
+from .data.uvs import get_uvs
 from .data.creases import get_creases
 
+from .profiling import Profiler
 
 class Book:
 
-    def __init__(self, cover_height, cover_thickness, cover_depth, page_height, page_depth, page_thickness, spline_curl, hinge_inset, hinge_width, spacing, book_width, lean, lean_angle, unwrap, subsurf, smooth):
+    def __init__(self, cover_height, cover_thickness, cover_depth, page_height, page_depth, page_thickness, spine_curl, hinge_inset, hinge_width, book_width, lean, lean_angle, subsurf, material):
         self.height = cover_height
         self.width = page_thickness + 2 * cover_thickness
         self.depth = cover_depth
-        self.spacing = spacing
         self.lean_angle = lean_angle
         self.lean = lean
-        self.smooth = smooth
-        self.unwrap = unwrap
+        self.page_thickness = page_thickness
+        self.page_height = page_height
+        self.page_depth = page_depth
+        self.cover_depth = cover_depth
+        self.cover_height = cover_height
+        self.cover_thickness = cover_thickness
+        self.hinge_inset = hinge_inset
+        self.hinge_width = hinge_width
+        self.spine_curl = spine_curl
         self.subsurf = subsurf
+        self.material = material
+        self.location =  Vector([0,0,0])
+        self.rotation =  Vector([0,0,0])
 
 
-        self.verts = get_verts(page_thickness, page_height, cover_depth, cover_height, cover_thickness, page_depth, hinge_inset, hinge_width, spline_curl)
+        self.verts = get_verts(page_thickness, page_height, cover_depth, cover_height, cover_thickness, page_depth, hinge_inset, hinge_width, spine_curl)
         self.faces = get_faces()
-        self.creases = get_creases()
-        self.seams = get_seams()
-
+   
     def to_object(self):
         def index_to_vert(face):
             lst = []
@@ -55,6 +64,10 @@ class Book:
             return tuple(lst)
 
         mesh = bpy.data.meshes.new("book")
+
+        self.creases = get_creases()
+        self.uvs = get_uvs(self.page_thickness, self.page_height, self.cover_depth, self.cover_height, self.cover_thickness, self.page_depth, self.hinge_inset, self.hinge_width, self.spine_curl)
+
 
         self.obj = bpy.data.objects.new("book", mesh)
 
@@ -79,18 +92,45 @@ class Book:
         bm.faces.index_update()
         bm.edges.ensure_lookup_table()
 
+        uv_layer = bm.loops.layers.uv.verify()
+        for (f, uvs) in zip(bm.faces, self.uvs):
+            for (l, uv) in zip(f.loops, uvs):
+                loop_uv = l[uv_layer]
+                loop_uv.uv.x = uv[0]
+                loop_uv.uv.y = uv[1]
+
         bm.normal_update()
         bm.to_mesh(mesh)
         bm.free()
 
-
+        # calculate auto smooth angle based on spine
+        center = self.verts[-1]
+        side = self.verts[-5]
+        curl = abs(center[1] - side[1])
+        width = abs(center[0] - side[0])
+        spine_angle = atan(width/curl)*2
+        normal_angle = radians(180) - spine_angle + radians(1) # add 1 deg to account for fp
         mesh.use_auto_smooth = True
-        mesh.auto_smooth_angle = radians(50)
+        mesh.auto_smooth_angle = normal_angle
 
         if(self.subsurf):
             self.obj.modifiers.new("subd", type='SUBSURF')
             self.obj.modifiers['subd'].levels = 1
 
+
+        if(self.material):
+            if self.obj.data.materials:
+                self.obj.data.materials[0] = self.material
+            else:
+                self.obj.data.materials.append(self.material)
+        
+        self.obj.matrix_world = Matrix.Translation(self.location) @ self.rotation.to_4x4()
+
         return self.obj
+
+
+    def get_geometry(self):
+        transformed_verts = map(lambda v: self.rotation @ Vector(v) + self.location, self.verts)
+        return transformed_verts, self.faces
 
 

@@ -122,6 +122,8 @@ class MI_OT_StartDraw(bpy.types.Operator):
     scale_all = None
     rotate_all = None
 
+    history_list = None
+
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
             # the arguments we pass the the callbackection
@@ -154,8 +156,7 @@ class MI_OT_StartDraw(bpy.types.Operator):
                     if meshes_array:
                         self.picked_meshes = meshes_array
                     else:
-                        self.report(
-                            {'WARNING'}, "Please, get objects to snap!!!")
+                        self.report({'WARNING'}, "Please, get objects to snap!!!")
                         finish_extrude(self, context)
                         return {'CANCELLED'}
 
@@ -183,9 +184,11 @@ class MI_OT_StartDraw(bpy.types.Operator):
                     camera_dir.negate()
 
                 # here we create zero extrude point
-                new_point = MI_Extrude_Point(
-                    extrude_center, None, [], camera_dir)
+                new_point = MI_Extrude_Point(extrude_center, None, [], camera_dir)
                 self.extrude_points.append(new_point)
+
+                # create histore history history list
+                self.history_list = []
 
                 # max_obj_scale
                 self.max_obj_scale = active_obj.scale.x
@@ -195,19 +198,17 @@ class MI_OT_StartDraw(bpy.types.Operator):
                     self.max_obj_scale = active_obj.scale.z
 
                 # relative step
-                self.relative_step_size = ut_base.get_vertices_size(
-                    sel_verts, active_obj)
+                self.relative_step_size = ut_base.get_vertices_size(sel_verts, active_obj)
                 if self.relative_step_size == 0.0 and extrude_settings.extrude_step_type == 'Relative':
-                    self.report(
-                        {'WARNING'}, "Please, use Absolute step for one point!!!")
+                    self.report({'WARNING'}, "Please, use Absolute step for one point!!!")
                     finish_extrude(self, context)
                     return {'CANCELLED'}
 
-            self.mi_extrude_handle_2d = bpy.types.SpaceView3D.draw_handler_add(
-                mi_extrude_draw_2d, args, 'WINDOW', 'POST_PIXEL')
+            self.mi_extrude_handle_2d = bpy.types.SpaceView3D.draw_handler_add(mi_extrude_draw_2d, args, 'WINDOW', 'POST_PIXEL')
             context.window_manager.modal_handler_add(self)
 
             return {'RUNNING_MODAL'}
+
         else:
             self.report({'WARNING'}, "View3D not found, cannot run operator")
             return {'CANCELLED'}
@@ -216,7 +217,7 @@ class MI_OT_StartDraw(bpy.types.Operator):
     def modal(self, context, event):
         context.area.tag_redraw()
 
-        context.area.header_text_set("S: Scale, Shift-S: ScaleAll, R: Rotate, Shift-R: RotateAll")
+        context.area.header_text_set("S: Scale, Shift-S: ScaleAll, R: Rotate, Shift-R: RotateAll, Ctrl+Z: Undo")
 
         preferences = context.preferences
         addon_prefs = preferences.addons[__package__].preferences
@@ -227,17 +228,33 @@ class MI_OT_StartDraw(bpy.types.Operator):
 
         keys_pass = mi_inputs.get_input_pass(mi_inputs.pass_keys, addon_prefs.key_inputs, event)
 
+        # make undo
+        if event.type == 'Z' and event.ctrl is True and self.tool_mode == 'IDLE':
+            if event.value == 'PRESS':
+                if self.history_list:
+                    bpy.ops.ed.undo()
+                    self.extrude_points = self.history_list[-1][0]
+                    self.raycast_offset = self.history_list[-1][1]
+                    self.deform_mouse_pos = self.history_list[-1][2]
+                    self.scale_all = self.history_list[-1][3]
+                    self.rotate_all = self.history_list[-1][4]
+
+                    self.history_list.remove(self.history_list[-1])
+
+            return {'RUNNING_MODAL'}
+
         # check for main keys
         if event.type in {'LEFTMOUSE', 'SELECTMOUSE', 'R', 'S'}:
             if event.value == 'PRESS':
                 if self.tool_mode == 'IDLE' and keys_pass is False:
                     m_coords = event.mouse_region_x, event.mouse_region_y
+
                     if event.type in {'LEFTMOUSE', 'SELECTMOUSE'}:
-                        do_pick = mi_pick_extrude_point(
-                            self.extrude_points[-1].position, context, m_coords)
+                        do_pick = mi_pick_extrude_point(self.extrude_points[-1].position, context, m_coords)
 
                         if do_pick:
                             self.tool_mode = 'DRAW'
+                            add_history(self)
 
                     elif event.type == 'R':
                         self.deform_mouse_pos = m_coords
@@ -247,6 +264,8 @@ class MI_OT_StartDraw(bpy.types.Operator):
                         else:
                             self.tool_mode = 'ROTATE'
 
+                        add_history(self)
+
                     elif event.type == 'S':
                         self.deform_mouse_pos = m_coords
 
@@ -255,14 +274,19 @@ class MI_OT_StartDraw(bpy.types.Operator):
                         else:
                             self.tool_mode = 'SCALE'
 
+                        add_history(self)
+
+                    return {'RUNNING_MODAL'}
+
             elif event.value == 'RELEASE':
                 if event.type in {'LEFTMOUSE', 'SELECTMOUSE'}:
                     if self.tool_mode == 'ROTATE' or self.tool_mode == 'SCALE':
-                        self.extrude_points[-1].update_verts(
-                            ut_base.get_selected_bmverts(bm))
+                        self.extrude_points[-1].update_verts(ut_base.get_selected_bmverts(bm))
 
                     # update normals after changes
                     if self.tool_mode != 'IDLE':
+                        bpy.ops.ed.undo_push() # save history
+
                         bm.normal_update()
 
                     self.tool_mode = 'IDLE'
@@ -281,15 +305,13 @@ class MI_OT_StartDraw(bpy.types.Operator):
             best_obj, hit_normal, hit_position = None, None, None
 
             if mi_settings.surface_snap is True:
-                best_obj, hit_normal, hit_position = ut_base.get_mouse_raycast(
-                    context, self.picked_meshes, m_coords)
+                best_obj, hit_normal, hit_position = ut_base.get_mouse_raycast(context, self.picked_meshes, m_coords)
                 new_pos = hit_position
 
                 # set offset for surface normal and extrude_center
                 if new_pos is not None:
                     if self.raycast_offset is None:
-                        self.raycast_offset = (
-                            hit_position - self.extrude_points[-1].position).length
+                        self.raycast_offset = (hit_position - self.extrude_points[-1].position).length
                         new_pos += hit_normal * self.raycast_offset
                     else:
                         new_pos += hit_normal * self.raycast_offset
@@ -303,16 +325,13 @@ class MI_OT_StartDraw(bpy.types.Operator):
                     if extrude_settings.symmetry_axys == 'Z':
                         obj_dir_axys = ut_base.get_obj_axis(active_obj, 'Z')
 
-                    new_pos = ut_base.get_mouse_on_plane(
-                        context, self.extrude_points[-1].position, obj_dir_axys, m_coords)
+                    new_pos = ut_base.get_mouse_on_plane(context, self.extrude_points[-1].position, obj_dir_axys, m_coords)
                 else:
-                    new_pos = ut_base.get_mouse_on_plane(
-                        context, self.extrude_points[-1].position, None, m_coords)
+                    new_pos = ut_base.get_mouse_on_plane(context, self.extrude_points[-1].position, None, m_coords)
 
             extrude_step = None
             if extrude_settings.extrude_step_type == 'Relative':
-                extrude_step = extrude_settings.relative_extrude_step * \
-                    self.relative_step_size
+                extrude_step = extrude_settings.relative_extrude_step * self.relative_step_size
             else:
                 extrude_step = extrude_settings.absolute_extrude_step
 
@@ -536,6 +555,18 @@ def reset_params(self):
     self.scale_all = 0.0
     self.rotate_all = 0.0
 
+    self.history_list = None
+
+
+def add_history(self):
+    # Add History
+    raycast_offset_tmp = None
+    deform_mouse_pos_tmp = None
+
+    if self.deform_mouse_pos:
+        deform_mouse_pos_tmp = tuple(self.deform_mouse_pos)
+
+    self.history_list.append((self.extrude_points.copy(), self.raycast_offset, deform_mouse_pos_tmp, self.scale_all, self.rotate_all))
 
 def finish_extrude(self, context):
     context.space_data.show_gizmo = self.manipulator

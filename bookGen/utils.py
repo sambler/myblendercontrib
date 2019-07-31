@@ -21,6 +21,12 @@ def get_shelf_collection(name):
     bookgen.children.link(col)
     return col
 
+def get_shelf_collection_by_index(index):
+    bookgen = get_bookgen_collection()
+    if index < 0 or index >= len(bookgen.children):
+        return None
+    return bookgen.children[index]
+
 def visible_objects_and_instances(context):
     """Loop over (object, matrix) pairs (mesh only)"""
 
@@ -53,12 +59,18 @@ def obj_ray_cast(obj, matrix, ray_origin, ray_target):
     else:
         return None, None
 
-def get_shelf_parameters():
-    properties = bpy.context.collection.BookGenProperties
+import os
+
+bookGen_directory = os.path.dirname(os.path.realpath(__file__))
+
+
+
+def get_shelf_parameters(shelf_id=0):
+    properties = get_bookgen_collection().BookGenProperties
 
     parameters = {
         "scale": properties.scale,
-        "seed": properties.seed,
+        "seed": properties.seed + shelf_id,
         "alignment": properties.alignment,
         "lean_amount": properties.lean_amount,
         "lean_direction": properties.lean_direction,
@@ -74,17 +86,14 @@ def get_shelf_parameters():
         "rndm_cover_thickness_factor": properties.rndm_cover_thickness_factor,
         "textblock_offset": properties.textblock_offset,
         "rndm_textblock_offset_factor": properties.rndm_textblock_offset_factor,
-        "spline_curl": properties.spline_curl,
-        "rndm_spline_curl_factor": properties.rndm_spline_curl_factor,
+        "spine_curl": properties.spine_curl,
+        "rndm_spine_curl_factor": properties.rndm_spine_curl_factor,
         "hinge_inset": properties.hinge_inset,
         "rndm_hinge_inset_factor": properties.rndm_hinge_inset_factor,
         "hinge_width": properties.hinge_width,
         "rndm_hinge_width_factor": properties.rndm_hinge_width_factor,
-        "spacing": properties.spacing,
-        "rndm_spacing_factor": properties.rndm_spacing_factor,
         "subsurf": properties.subsurf,
-        "smooth": properties.smooth,
-        "unwrap": properties.unwrap
+        "material": properties.material
     }
     return parameters
 
@@ -105,13 +114,14 @@ def get_click_position_on_object(x,y):
         if obj.type == 'MESH':
             hit, normal = obj_ray_cast(obj, matrix, ray_origin, ray_target)
             if hit is not None:
+                _, rot, _ = matrix.decompose()
                 hit_world = matrix @ hit
-                normal_world = matrix @ normal
+                normal_world = rot.to_matrix() @ normal
                 length_squared = (hit_world - ray_origin).length_squared
                 if closest_loc is None or length_squared < best_length_squared:
                     best_length_squared = length_squared
                     closest_loc = hit_world
-                    closest_normal = normal
+                    closest_normal = normal_world
 
     return closest_loc, closest_normal
 

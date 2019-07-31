@@ -43,7 +43,7 @@ class Sprite:
         # duplicate original object
         sprite = mesh_object.copy()
         sprite.name = mesh_object.name + "_EXPORT"
-        if mesh_object.coa_type == "SLOT":
+        if mesh_object.coa_tools.type == "SLOT":
             for slot in mesh_object.coa_tools.slot:
                 slot_data = {"slot": slot.mesh.copy(),
                              "start_pt_index": None,
@@ -60,7 +60,7 @@ class Sprite:
                          "end_index": None}
             self.slots = [slot_data]
             sprite.data = slot_data["slot"]
-        self.context.scene.objects.link(sprite)
+        self.context.collection.objects.link(sprite)
 
         # cleanup basesprite
         for slot_data in self.slots:
@@ -70,8 +70,8 @@ class Sprite:
                 remove_base_sprite(sprite)
         return sprite
 
-    def delete_sprite(self, scene):
-        scene.objects.unlink(self.object)
+    def delete_sprite(self, collection):
+        collection.objects.unlink(self.object)
         bpy.data.objects(self.object, do_unlink=True)
         del self
 
@@ -106,6 +106,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         self.bone_scaled = {}
         self.mesh_deformed = {}
         self.remapped_indices = {}
+        self.export_path_abs = bpy.path.abspath(self.export_path)
 
     def setup_json_data(self):
         json_data = OrderedDict()
@@ -129,18 +130,18 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         selected_objects = bpy.context.selected_objects[:]
         active_object = bpy.context.active_object
         for ob in selected_objects:
-            ob.select = False
-        context.scene.objects.active = armature
+            ob.select_set(False)
+        context.view_layer.objects.active = armature
         bpy.ops.object.mode_set(mode="EDIT")
         for bone in armature.data.edit_bones:
             self.init_bone_positions[bone.name] = {"head": Vector(bone.head), "tail": Vector(bone.tail)}
 
         bpy.ops.object.mode_set(mode="OBJECT")
         for ob in context.selected_objects:
-            ob.select = False
+            ob.select_set(False)
         for ob in selected_objects:
-            ob.select = True
-        context.scene.objects.active = active_object
+            ob.select_set(True)
+        context.view_layer.objects.active = active_object
         return armature
 
     def prepare_armature_and_sprites_for_export(self, context, scene):
@@ -198,7 +199,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         return None, None
 
     def check_mesh_deformation(self, context):
-        anim_collections = self.sprite_object.coa_anim_collections
+        anim_collections = self.sprite_object.coa_tools.anim_collections
         mesh_deformed = {}
         for anim_index, anim in enumerate(anim_collections):
             if anim.name not in ["NO ACTION", "Restpose"]:
@@ -227,7 +228,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
 
     def check_and_store_bone_scaling(self, context):
-        anim_collections = self.sprite_object.coa_anim_collections
+        anim_collections = self.sprite_object.coa_tools.anim_collections
         bone_scaled = {}
         for anim_index, anim in enumerate(anim_collections):
             if anim.name not in ["NO ACTION", "Restpose"]:
@@ -290,7 +291,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         world_axis_x = Vector((bone_axis_x.dot(Vector((1, 0))), bone_axis_y.dot(Vector((1, 0)))))
         world_axis_y = Vector((bone_axis_x.dot(Vector((0, 1))), bone_axis_y.dot(Vector((0, 1)))))
 
-        bone_system_origin = (mesh_object.matrix_world.inverted() * (armature.matrix_world * bone_head)).xz
+        bone_system_origin = (mesh_object.matrix_world.inverted() @ (armature.matrix_world @ bone_head)).xz
 
         bone_scale = pbone.matrix.to_scale()
         bone_scale_2d = Vector(( self.lerp( 1.0, bone_scale.y, weight), self.lerp(1.0, bone_scale.x, weight) ))
@@ -309,13 +310,13 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         default_vert_positions = []
         verts = sorted(verts, key=lambda vert: vert.index, reverse=False)
         for i,vert in enumerate(verts):
-            default_vert_positions.append(obj.matrix_world * vert.co)
+            default_vert_positions.append(obj.matrix_world @ vert.co)
 
         verts = []
         index = int(obj.active_shape_key_index)
-        shape_key = obj.shape_key_add("tmp_mixed_mesh", from_mix=True)
+        shape_key = obj.shape_key_add(name="tmp_mixed_mesh", from_mix=True)
         for i, vert in enumerate(default_vert_positions):
-            # shapekey_vert = obj.matrix_world * shape_key.data[i].co
+            # shapekey_vert = obj.matrix_world @ shape_key.data[i].co
             shapekey_vert = shape_key.data[i].co
             # scale bones only when vert has bone weights and bone is scaled at any time in animation
             for bone_name in self.bone_weights[obj_name]:
@@ -325,7 +326,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
                         bone_weight = self.bone_weights[obj_name][bone.name][str(i)]
                         scaled_vert = self.scale_verts_by_bone(bone, self.armature, obj, shapekey_vert, bone_weight)
                         shapekey_vert = scaled_vert
-            shapekey_vert = (obj.matrix_world * shapekey_vert)
+            shapekey_vert = (obj.matrix_world @ shapekey_vert)
 
             if relative:
                 offset = (shapekey_vert - vert) * self.armature_export_scale
@@ -343,7 +344,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
         # deselect any selected object
         for ob in bpy.context.selected_objects:
-            ob.select = False
+            ob.select_set(False)
 
         for sprite in self.sprite_data:
             meshes = []
@@ -351,12 +352,12 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
                 slot = slot_data["slot"]
                 atlas_sprite = sprite.object.copy()
                 atlas_sprite.data = slot.copy()
-                context.scene.objects.link(atlas_sprite)
-                atlas_sprite.select = True
-                context.scene.objects.active = atlas_sprite
+                context.collection.objects.link(atlas_sprite)
+                atlas_sprite.select_set(True)
+                context.view_layer.objects.active = atlas_sprite
                 name = sprite.name + "_COA_SLOT_" + str(i).zfill(3) if len(sprite.slots) > 1 else sprite.name
                 meshes.append({"obj": atlas_sprite, "name": name})
-                atlas_sprite["coa_sprite_object_name"] = sprite.object.name
+                atlas_sprite["coa_tools.sprite_object_name"] = sprite.object.name
 
             for mesh_data in meshes:
                 atlas_sprite = mesh_data["obj"]
@@ -369,21 +370,21 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
                 verts = []
                 for vert in atlas_sprite.data.vertices:
                     verts.append(vert.index)
-                v_group = atlas_sprite.vertex_groups.new(name)
+                v_group = atlas_sprite.vertex_groups.new(name=name)
                 v_group.add(verts, 1.0, "ADD")
                 atlas_objects.append(atlas_sprite)
 
         # select newely created objects
         # atlas_objects = sorted(atlas_objects, key=lambda sprite: sprite.location[1], reverse=True)
         for ob in atlas_objects:
-            ob.select = True
-            context.scene.objects.active = ob
+            ob.select_set(True)
+            context.view_layer.objects.active = ob
             bpy.ops.object.mode_set(mode="EDIT")
             bpy.ops.mesh.reveal()
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
             bpy.ops.object.mode_set(mode="OBJECT")
-        context.scene.cursor_location = self.armature.matrix_world.to_translation()
+        context.scene.cursor.location = self.armature.matrix_world.to_translation()
         bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
         return atlas_objects
 
@@ -411,7 +412,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         uvs = []
         indices = []
 
-        context.scene.objects.active = merged_atlas_obj
+        context.view_layer.objects.active = merged_atlas_obj
 
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.ops.mesh.reveal()
@@ -480,7 +481,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
     def create_region_data(self, context, merged_atlas_obj):
         regions = OrderedDict()
 
-        context.scene.objects.active = merged_atlas_obj
+        context.view_layer.objects.active = merged_atlas_obj
         bpy.ops.object.mode_set(mode="EDIT")
         bm = bmesh.from_edit_mesh(merged_atlas_obj.data)
 
@@ -523,7 +524,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
     def create_skeleton_data(self):
         self.armature.data.pose_position = "REST"
-        bpy.context.scene.update()
+        bpy.context.view_layer.update()
         skeleton = OrderedDict()
         for i, pbone in enumerate(self.armature.pose.bones):
             pbone["id"] = i+1
@@ -602,7 +603,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
     def create_animation_data(self, context):
         animation = OrderedDict()
-        anim_collections = self.sprite_object.coa_anim_collections
+        anim_collections = self.sprite_object.coa_tools.anim_collections
         for anim_index, anim in enumerate(anim_collections):
             if anim.name not in ["NO ACTION"]:
                 if anim.name == "Restpose":
@@ -636,7 +637,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
                         start_pt = self.get_bone_head_tail(pbone, local=False)["head"]
                         end_pt = self.get_bone_head_tail(pbone, local=False)["tail"]
 
-                        bake_animation = self.scene.coa_export_bake_anim and frame%self.scene.coa_export_bake_steps == 0
+                        bake_animation = self.scene.coa_tools.export_bake_anim and frame%self.scene.coa_tools.export_bake_steps == 0
                         if str(frame) not in animation[anim_name]["bones"]:
                             animation[anim_name]["bones"][str(frame)] = OrderedDict()
                         animation[anim_name]["bones"][str(frame)][pbone.name] = {"start_pt": [round(start_pt.x, 3), round(start_pt.y, 3)],
@@ -650,7 +651,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
                         sprite_object = bpy.data.objects[sprite.name]
 
                         for i, slot in enumerate(sprite.slots):
-                            slot_name = sprite.name + "_" + str(i).zfill(3) if sprite_object.coa_type == "SLOT" else sprite.name
+                            slot_name = sprite.name + "_" + str(i).zfill(3) if sprite_object.coa_tools.type == "SLOT" else sprite.name
                             sprite.object.data = slot["slot"]
                             # collect shapekey animation
                             use_local_displacements = True if anim_name in self.mesh_deformed and slot_name in self.mesh_deformed[anim_name] else False
@@ -666,12 +667,12 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
                                 animation[anim_name]["meshes"][str(frame)][slot_name]["post_displacements"] = post_displacements
 
                             # collect slot swapping data
-                            enabled = False if sprite_object.coa_type == "MESH" else True
+                            enabled = False if sprite_object.coa_tools.type == "MESH" else True
                             scale = [1, 1] if i == sprite_object.coa_tools.slot_index else [-1, -1]
                             animation[anim_name]["uv_swaps"][str(frame)][slot_name] = {"local_offset": [0, 0], "global_offset": [0, 0], "scale": scale, "enabled": enabled}
 
                             # collect mesh opacity and tint data
-                            animation[anim_name]["mesh_opacities"][str(frame)][slot_name] = {"opacity": round(sprite_object.coa_alpha*100, 1)}
+                            animation[anim_name]["mesh_opacities"][str(frame)][slot_name] = {"opacity": round(sprite_object.coa_tools.alpha*100, 1)}
 
 
                     self.export_progress_current += 1
@@ -681,7 +682,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
     def write_json_file(self):
         # get export, project and json path
-        export_path = bpy.path.abspath(self.scene.coa_export_path)
+        export_path = bpy.path.abspath(self.scene.coa_tools.export_path)
         json_path = os.path.join(export_path, self.project_name + "_data.json")
         zip_path = os.path.join(export_path, self.project_name + "_data.zip")
 
@@ -710,7 +711,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
     def setup_progress(self, context):
         self.export_progress_total = 0
         self.export_progress_current = 0
-        for i, anim in enumerate(self.sprite_object.coa_anim_collections):
+        for i, anim in enumerate(self.sprite_object.coa_tools.anim_collections):
             if anim.name not in ["Restpose", "NO ACTION"]:
                 self.export_progress_total += anim.frame_end + 1
         context.window_manager.progress_begin(0, 100)
@@ -722,7 +723,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        self.reduce_size = context.scene.coa_minify_json
+        self.reduce_size = context.scene.coa_tools.minify_json
         bpy.ops.ed.undo_push(message="Start Export")
         bpy.ops.ed.undo_push(message="Start Export")
         self.json_data = self.setup_json_data()
@@ -730,9 +731,9 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
         scene = context.scene
 
-        self.armature_export_scale = context.scene.coa_armature_scale
+        self.armature_export_scale = context.scene.coa_tools.armature_scale
         self.texture_export_scale = 1 / get_addon_prefs(context).sprite_import_export_scale
-        self.sprite_scale = self.scene.coa_sprite_scale
+        self.sprite_scale = self.scene.coa_tools.sprite_scale
 
         # get sprite object, sprites and armature
         self.sprite_object = get_sprite_object(context.active_object)
@@ -748,12 +749,12 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         self.sprite_object.coa_tools.anim_collections_index = 0
         self.setup_progress(context)
         for ob in context.scene.objects:
-            ob.select = False
+            ob.select_set(False)
         atlas_objects = self.create_dupli_atlas_objects(context)
 
         # generate and save atlas data
-        width = self.scene.coa_atlas_resolution_x if self.scene.coa_atlas_mode == "LIMIT_SIZE" else 16384
-        height = self.scene.coa_atlas_resolution_y if self.scene.coa_atlas_mode == "LIMIT_SIZE" else 16384
+        width = self.scene.coa_tools.atlas_resolution_x if self.scene.coa_tools.atlas_mode == "LIMIT_SIZE" else 16384
+        height = self.scene.coa_tools.atlas_resolution_y if self.scene.coa_tools.atlas_mode == "LIMIT_SIZE" else 16384
         img_atlas, merged_atlas_obj, atlas = TextureAtlasGenerator.generate_uv_layout(
             name="COA_UV_ATLAS",
             objects=atlas_objects,
@@ -761,13 +762,13 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
             height=2,
             max_width=width,
             max_height=height,
-            margin=self.scene.coa_atlas_island_margin,
-            texture_bleed=self.scene.coa_export_texture_bleed,
-            square=self.scene.coa_export_square_atlas,
+            margin=self.scene.coa_tools.atlas_island_margin,
+            texture_bleed=self.scene.coa_tools.export_texture_bleed,
+            square=self.scene.coa_tools.export_square_atlas,
             output_scale=self.sprite_scale
         )
 
-        self.save_texture_atlas(context, img_atlas, self.export_path, self.project_name)
+        self.save_texture_atlas(context, img_atlas, self.export_path_abs, self.project_name)
 
         # collect all relevant json data for export
         points, uvs, indices = self.create_mesh_data(context, merged_atlas_obj)
