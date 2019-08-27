@@ -19,7 +19,7 @@ class COATOOLS_MT_menu(Menu):
             return True
 
         if sprite_object != None:
-            if (obj != None and ("sprite" in obj.coa_tools or "sprite_object" in obj.coa_tools)) or (sprite_object != None and obj.type == "ARMATURE"):
+            if (obj != None and ("sprite" in obj.coa_tools or "sprite_object" in obj.coa_tools) or ("coa_sprite" in obj or "sprite_object" in obj)) or (sprite_object != None and obj.type == "ARMATURE"):
                 return True
     
     def draw(self, context):

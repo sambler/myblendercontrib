@@ -42,10 +42,11 @@ from . import addon_updater_ops
 # load and reload submodules
 ##################################
 
-from . import coa_properties as props
+from . import properties as props
 
 from . import ui as user_interface
 from . ui import preview_collections
+from . import outliner
 from . operators.pie_menu import preview_collections_pie
 from . functions import *
 
@@ -69,6 +70,7 @@ from . operators import slot_handling
 from . operators import toggle_animation_area
 from . operators import view_sprites
 from . operators import version_converter
+from . operators import change_alpha_mode
 
 from . operators.exporter import export_dragonbones
 from . operators.exporter import export_creature
@@ -128,6 +130,10 @@ class COAToolsPreferences(bpy.types.AddonPreferences):
 
 classes = (
     COAToolsPreferences,
+    # outliner
+    outliner.COAOutliner,
+    outliner.COATOOLS_UL_Outliner,
+
     #properties
     props.UVData,
     props.SlotData,
@@ -159,7 +165,6 @@ classes = (
     user_interface.COATOOLS_OT_SelectChild,
     user_interface.COATOOLS_PT_Collections,
 
-
     view_sprites.COATOOLS_OT_ChangeZOrdering,
     view_sprites.COATOOLS_OT_ViewSprite,
 
@@ -170,6 +175,7 @@ classes = (
     edit_mesh.COATOOLS_OT_DrawContour,
     edit_mesh.COATOOLS_OT_PickEdgeLength,
 
+    edit_armature.COATOOLS_OT_TooglePoseMode,
     edit_armature.COATOOLS_OT_BindMeshToBones,
     edit_armature.COATOOLS_OT_QuickArmature,
     edit_armature.COATOOLS_OT_SetStretchBone,
@@ -219,6 +225,8 @@ classes = (
     toggle_animation_area.COATOOLS_OT_ToggleAnimationArea,
     version_converter.COATOOLS_OT_VersionConverter,
 
+    change_alpha_mode.COATOOLS_OT_ChangeAlphaMode,
+
     # exporter
     export_dragonbones.COATOOLS_OT_DragonBonesExport,
     export_dragonbones.COATOOLS_PT_ExportPanel,
@@ -266,6 +274,7 @@ def register():
     register_keymaps()
 
     # create handler
+    bpy.app.handlers.depsgraph_update_pre.append(outliner.create_outliner_items)
     bpy.app.handlers.depsgraph_update_post.append(update_properties)
     bpy.app.handlers.frame_change_post.append(update_properties)
     bpy.app.handlers.load_post.append(check_view_2D_3D)
@@ -274,6 +283,8 @@ def register():
 
 
 def unregister():
+    addon_updater_ops.unregister()
+
     # unregister classes
     for cls in classes:
         bpy.utils.unregister_class(cls)
@@ -286,6 +297,7 @@ def unregister():
     unregister_keymaps()
 
     # delete handler
+    bpy.app.handlers.depsgraph_update_pre.remove(outliner.create_outliner_items)
     bpy.app.handlers.depsgraph_update_post.remove(update_properties)
     bpy.app.handlers.frame_change_post.remove(update_properties)
     bpy.app.handlers.load_post.remove(check_view_2D_3D)
@@ -355,9 +367,15 @@ def copy_icons():
         b_icon_path = os.path.join(os.path.dirname(bpy.app.binary_path), version, "datafiles", "icons", icon_name)
 
         if os.path.isfile(b_icon_path):
-            os.remove(b_icon_path)
+            try:
+                os.remove(b_icon_path)
+            except IOError as e:
+                print("Unable to delete file. %s" % e)
 
         dir_path = os.path.dirname(b_icon_path)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
-        shutil.copyfile(icon_path, b_icon_path)
+        try:
+            shutil.copyfile(icon_path, b_icon_path)
+        except IOError as e:
+            print("Unable to copy file. %s" % e)

@@ -216,6 +216,7 @@ class JewelCraftPreferences(AddonPreferences):
             ("es", "Spanish (Español)", ""),
             ("fr_FR", "French (Français)", ""),
             ("ru_RU", "Russian (Русский)", ""),
+            ("zh_CN", "Simplified Chinese (简体中文)", ""),
         ),
     )
     product_report_save: BoolProperty(
@@ -417,7 +418,7 @@ class WmProperties(PropertyGroup):
             ("WEIGHTING",      "Weighting",      ""),
             ("PRODUCT_REPORT", "Product Report", ""),
             ("THEMES",         "Themes",         ""),
-            ("UPDATES",        "Updates",         ""),
+            ("UPDATES",        "Updates",        ""),
         ),
     )
     widget_toggle: BoolProperty(description="Enable widgets drawing", update=widget.handler_toggle)

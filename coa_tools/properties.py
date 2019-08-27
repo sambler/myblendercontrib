@@ -2,6 +2,7 @@ import bpy
 from bpy.props import BoolProperty, FloatVectorProperty, IntProperty, FloatProperty, StringProperty, EnumProperty, PointerProperty, CollectionProperty
 # from . functions import *
 from . import functions
+from . import outliner
 
 def hide_bone(self, context):
     self.hide = self.hide
@@ -363,7 +364,7 @@ class ObjectProperties(bpy.types.PropertyGroup):
     alpha_last: FloatProperty(default=1.0, min=0.0, max=1.0)
     show_bones: BoolProperty()
     filter_names: StringProperty(update=update_filter, options={'TEXTEDIT_UPDATE'})
-    favorite: BoolProperty()
+    favorite: BoolProperty(default=False)
     hide_base_sprite: BoolProperty(default=False, update=hide_base_sprite)
     animation_loop: BoolProperty(default=False, description="Sets the Timeline frame to 0 when it reaches the end of the animation. Also works for changing frame with cursor keys.")
     hide: BoolProperty(default=False, update=hide)
@@ -440,6 +441,11 @@ class SceneProperties(bpy.types.PropertyGroup):
     export_texture_bleed: bpy.props.IntProperty(default=0, min=0, name="Texture Bleeding", subtype="PIXEL", description="Defines how far the texture extends the mesh boundaries.")
     armature_scale: bpy.props.FloatProperty(default=1.0, min=0.1, name="Armature Output Scale", description="Define the Armature Output Scale", step=0.1)
 
+    outliner_filter_names: StringProperty(update=update_filter, options={'TEXTEDIT_UPDATE'})
+    outliner_favorites:BoolProperty(default=False)
+    outliner: CollectionProperty(type=outliner.COAOutliner)
+    outliner_index: IntProperty(update=outliner.select_outliner_object)
+
 
 class MeshProperties(bpy.types.PropertyGroup):
     hide_base_sprite: BoolProperty(default=False, update=hide_base_sprite,
@@ -453,6 +459,7 @@ class BoneProperties(bpy.types.PropertyGroup):
     hide_select: BoolProperty(default=False, update=hide_select_bone)
     hide: BoolProperty(default=False, update=hide_bone)
     bone_name: StringProperty()
+    show_children: BoolProperty(default=False)
 
 class WindowManagerProperties(bpy.types.PropertyGroup):
     show_help: BoolProperty(default=False, description="Hide Help")

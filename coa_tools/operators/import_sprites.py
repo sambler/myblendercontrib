@@ -300,7 +300,7 @@ class COATOOLS_OT_ImportSprite(bpy.types.Operator):
         obj.data.uv_layers.new(name="UVMap")
         
         obj.location = Vector((pos[0],pos[1],-pos[2]))*self.scale + Vector((self.offset[0],self.offset[1],self.offset[2]))*self.scale
-        obj["coa_sprite"] = True
+        obj.coa_tools["sprite"] = True
         if self.parent != "None":
             obj.parent = bpy.data.objects[self.parent]
         return obj
@@ -475,9 +475,6 @@ class COATOOLS_OT_ReImportSprite(bpy.types.Operator, ImportHelper):
                 co_x = vert.co[0] * ratio_x
                 co_y = vert.co[2] * ratio_y
                 vert.co = Vector((co_x,0,co_y))
-            
-            
-        obj.coa_tools.sprite_dimension = Vector((functions.get_local_dimension(obj)[0],0,functions.get_local_dimension(obj)[1]))
     
     def draw(self,context):
         obj = context.active_object
@@ -488,18 +485,22 @@ class COATOOLS_OT_ReImportSprite(bpy.types.Operator, ImportHelper):
         col = layout.column()
     
     def execute(self, context):
-        
+        obj = bpy.data.objects[self.name]
         sprite_found = False
+
+        # get image
+        img = None
         for image in bpy.data.images:
             if os.path.exists(bpy.path.abspath(image.filepath)) and os.path.exists(self.filepath):
                 if os.path.samefile(bpy.path.abspath(image.filepath),self.filepath):
                     sprite_found = True
                     img = image
+                    prev_img_size = img.size[:]
                     img.reload()
                     break
         if not sprite_found:
             img = bpy.data.images.load(self.filepath)
-        
+
         
         scale = functions.get_addon_prefs(context).sprite_import_export_scale
         if self.name in bpy.data.objects:
@@ -514,7 +515,7 @@ class COATOOLS_OT_ReImportSprite(bpy.types.Operator, ImportHelper):
             for node in mat.node_tree.nodes:
                 if node.label == "COA Material":
                     node.inputs["Texture Color"].links[0].from_node.image = img
-            
+
             img_dimension = img.size
             
             obj_dimension = Vector(obj.dimensions)
@@ -528,9 +529,10 @@ class COATOOLS_OT_ReImportSprite(bpy.types.Operator, ImportHelper):
             
             sprite_dimension = Vector(obj_dimension) * (1/scale)
 
-            ratio_x = img_dimension[0] / sprite_dimension[0]
-            ratio_y = img_dimension[1] / sprite_dimension[2]
-            # self.move_verts(obj,ratio_x,ratio_y)
+            ratio_x = round(img_dimension[0] / prev_img_size[0], 4)
+            ratio_y = round(img_dimension[1] / prev_img_size[1], 4)
+            print(self.name, "ratio x:", ratio_x, " - ratio y:", ratio_y)
+            self.move_verts(obj, ratio_x, ratio_y)
 
             bpy.context.scene.view_layers[0].objects.active = active_obj
             active_obj.hide_viewport = obj_hide

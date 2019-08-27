@@ -1127,7 +1127,9 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
     def exit_edit_mode(self,context,event,error=False):
         if not error:
             self.finish_edit_object(context)
-        bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+        if self.draw_handler != None:
+            bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+            self.draw_handler = None
         # bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler2, "WINDOW")
         
         self.draw_handler_removed = True
@@ -1136,14 +1138,16 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         self.sprite_object.coa_tools.edit_mode = "OBJECT"
 
         bpy.context.window.cursor_set("CROSSHAIR")
-        bpy.ops.object.mode_set(mode="OBJECT")
+        if context.active_object != None:
+            bpy.ops.object.mode_set(mode="OBJECT")
         self.sprite_object.coa_tools.edit_mesh = False
         functions.set_local_view(False)
 
         obj = context.active_object
-        context.view_layer.objects.active = bpy.data.objects[self.edit_object_name]
+        context.view_layer.objects.active = bpy.data.objects[self.edit_object_name] if self.edit_object_name in bpy.data.objects else None
         context.scene.coa_tools.view = self.prev_coa_view
-        bpy.ops.object.mode_set(mode="EDIT")
+        if context.active_object != None:
+            bpy.ops.object.mode_set(mode="EDIT")
         if self.mode == "DRAW_BONE_SHAPE":
             self.set_bone_shape_color_and_wireframe(context,self.bone_shape)
 
@@ -1195,13 +1199,18 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
             except:
                 pass
 
-        texture_preview_object = original_object.copy()
-        texture_preview_object.data = original_object.data.copy()
-        texture_preview_object.name = "TEXTURE PREVIEW"
+        if "COA TEXTURE PREVIEW" not in bpy.data.objects:
+            texture_preview_object = original_object.copy()
+            texture_preview_object.data = original_object.data.copy()
+            texture_preview_object.name = "COA TEXTURE PREVIEW"
+            context.collection.objects.link(texture_preview_object)
+        else:
+            texture_preview_object = bpy.data.objects["COA TEXTURE PREVIEW"]
+
         for mod in texture_preview_object.modifiers:
             if mod.name == "coa_base_sprite":
                 texture_preview_object.modifiers.remove(mod)
-        context.collection.objects.link(texture_preview_object)
+
         context.view_layer.objects.active = texture_preview_object
         bpy.ops.object.mode_set(mode="EDIT")
         if "coa_base_sprite" in texture_preview_object.vertex_groups:
@@ -1243,7 +1252,10 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
 
 
     def execute(self, context):
-        bpy.utils.register_tool(COATOOLS_TO_DrawPolygon, after={"builtin.select"}, separator=True, group=True)
+        try:
+            bpy.utils.register_tool(COATOOLS_TO_DrawPolygon, after={"builtin.select"}, separator=True, group=True)
+        except:
+            pass
 
         bpy.ops.ed.undo_push(message="Edit Mesh")
         if context.active_object == None or (context.active_object.type != "MESH" and self.mode != "DRAW_BONE_SHAPE"):

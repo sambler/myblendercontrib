@@ -6,7 +6,7 @@ bl_info = {
     "description": "Adds three operators: 'Split Shapekeys', 'Apply Modifiers and Keep Shapekeys' and 'Apply Selected Shapekey as Basis'",
     "warning": "",
     "wiki_url": "https://blenderartists.org/t/addon-shapekey-helpers/1131849",
-    "category": "Mesh",
+    "category": "'Mesh",
 }
 
 import bpy
@@ -195,11 +195,11 @@ class ShapeKeyPreserver(bpy.types.Operator):
         newObject.name = oldName + "_Applied"
 
         for mod in newObject.modifiers:
-
             # Not actually sure why this is necessary, but blender crashes without it. :| - Stel
             bpy.ops.object.mode_set(mode = 'EDIT')            
             bpy.ops.object.mode_set(mode = 'OBJECT')            
-            bpy.ops.object.modifier_apply(apply_as='DATA', modifier=mod.name)
+            if mod.type != 'ARMATURE':
+                bpy.ops.object.modifier_apply(apply_as='DATA', modifier=mod.name)
 
         errorDuringShapeJoining = False
             

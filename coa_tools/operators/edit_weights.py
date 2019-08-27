@@ -19,6 +19,9 @@ Created by Andreas Esau
 '''
     
 import bpy
+import bgl
+import gpu
+from gpu_extras.batch import batch_for_shader
 import bpy_extras
 import bpy_extras.view3d_utils
 from math import radians
@@ -34,6 +37,7 @@ from bpy.app.handlers import persistent
 from .. functions import *
 from .. functions_draw import *
 import traceback
+import random
 
 BONE_LAYERS = []
 class COATOOLS_OT_EditWeights(bpy.types.Operator):
@@ -100,7 +104,9 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
 
     def exit_edit_mode(self, context):
         ### remove draw call
-        # bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+        if self.draw_handler != None:
+            bpy.types.SpaceView3D.draw_handler_remove(self.draw_handler, "WINDOW")
+            self.draw_handler = None
 
         sprite_object = bpy.data.objects[self.sprite_object_name]
         
@@ -225,7 +231,7 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
         bpy.ops.view3d.view_selected()
 
         ### set correct viewport shading
-        bpy.context.space_data.shading.type = 'SOLID'
+        # bpy.context.space_data.shading.type = 'RENDERED'
         for area in bpy.context.screen.areas:
             if area.type == "VIEW_3D":
                 area.spaces[0].overlay.show_paint_wire = True
@@ -237,9 +243,88 @@ class COATOOLS_OT_EditWeights(bpy.types.Operator):
         ### start draw call
         # args = ()
         # self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
+        args = ()
+        self.draw_handler = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_px, args, "WINDOW", "POST_PIXEL")
         return {"RUNNING_MODAL"}
-    
-    
+
+
+    def coord_3d_to_2d(self, coord):
+        region = bpy.context.region
+        rv3d = bpy.context.space_data.region_3d
+        coord_2d = bpy_extras.view3d_utils.location_3d_to_region_2d(region, rv3d, coord)
+        return coord_2d
+
+    def draw_coords(self, coords=[], color=[], indices=[], draw_type="LINE_STRIP", shader_type="2D_UNIFORM_COLOR", line_width=2, point_size=None):  # draw_types -> LINE_STRIP, LINES, POINTS
+        bgl.glLineWidth(line_width)
+        if point_size != None:
+            bgl.glPointSize(point_size)
+        bgl.glEnable(bgl.GL_BLEND)
+        bgl.glEnable(bgl.GL_LINE_SMOOTH)
+
+        shader = gpu.shader.from_builtin(shader_type)
+        if len(indices) > 0:
+            batch = batch_for_shader(shader, draw_type, {"pos": coords}, indices=indices)
+        else:
+            batch = batch_for_shader(shader, draw_type, {"pos": coords})
+        shader.bind()
+        shader.uniform_float("color", color)
+        batch.draw(shader)
+
+        bgl.glDisable(bgl.GL_BLEND)
+        bgl.glDisable(bgl.GL_LINE_SMOOTH)
+        return shader
+
     def draw_callback_px(self):
-        pass
-        # draw_edit_mode(self,bpy.context,color=[0.367356, 1.000000, 0.632293, 1.000000],text="Edit Weights Mode",offset=-5)
+        obj = bpy.context.active_object
+
+        if obj != None:
+            me = obj.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
+            v_group = obj.vertex_groups.active
+
+            for i, vert in enumerate(me.vertices):
+                if not vert.hide:
+                    weight = 0.0
+                    for group in vert.groups:
+                        if v_group != None:
+                            if group.group == v_group.index:
+                                weight = group.weight
+                    alpha = 0.0 if weight == 0.0 else 1.0
+
+                    vert_ob_space = obj.matrix_world @ vert.co
+                    vert_2d = self.coord_3d_to_2d(vert_ob_space)
+
+                    colorband = [
+                        Vector([1.0, 0.0, 0.0]),
+                        Vector([1.000000, 0.119172, 0.000000]),
+                        Vector([1.000000, 0.625478, 0.000000]),
+                        Vector([0.0, 1.0, 0.0]),
+                        Vector([0.000000, 1.000000, 0.738375]),
+                        Vector([0.0, 0.0, 1.0]),
+                    ]
+                    colorband.reverse()
+                    color_index = int((len(colorband)-1)*weight)
+                    segment_length = 1.0/(len(colorband)-1)
+                    segment_weight = (weight - segment_length*color_index) / segment_length
+                    if weight < 1.0:
+                        final_color = colorband[color_index].lerp(colorband[color_index+1], segment_weight)
+                    else:
+                        final_color = colorband[len(colorband)-1]
+                    color = [final_color[0], final_color[1], final_color[2], alpha]
+
+                    detail = 9
+                    radius = 6
+                    segment = (2 * math.pi) / detail
+                    coords = []
+                    indices = []
+                    coords.append(vert_2d)
+
+                    for i in range(detail + 1):
+                        x = vert_2d.x + radius * math.cos(segment * i)
+                        y = vert_2d.y + radius * math.sin(segment * i)
+
+                        coords.append(Vector((x,y)))
+                        if i <= detail:
+                            indices.append([0,i,i+1])
+                    self.draw_coords(coords=coords, indices=indices, color=color, draw_type=CONSTANTS.DRAW_TRIS)
+
+                    # self.draw_coords(coords=[vert_2d], color=color, draw_type=CONSTANTS.DRAW_POINTS, point_size=8)

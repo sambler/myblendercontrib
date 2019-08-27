@@ -319,13 +319,14 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
             # shapekey_vert = obj.matrix_world @ shape_key.data[i].co
             shapekey_vert = shape_key.data[i].co
             # scale bones only when vert has bone weights and bone is scaled at any time in animation
-            for bone_name in self.bone_weights[obj_name]:
-                bone = self.armature.pose.bones[bone_name]
-                if anim.name in self.bone_scaled and bone.name in self.bone_scaled[anim.name] and bone.name in obj.vertex_groups:
-                    if str(i) in self.bone_weights[obj_name][bone.name]:
-                        bone_weight = self.bone_weights[obj_name][bone.name][str(i)]
-                        scaled_vert = self.scale_verts_by_bone(bone, self.armature, obj, shapekey_vert, bone_weight)
-                        shapekey_vert = scaled_vert
+            if obj_name in self.bone_weights:
+                for bone_name in self.bone_weights[obj_name]:
+                    bone = self.armature.pose.bones[bone_name]
+                    if anim.name in self.bone_scaled and bone.name in self.bone_scaled[anim.name] and bone.name in obj.vertex_groups:
+                        if str(i) in self.bone_weights[obj_name][bone.name]:
+                            bone_weight = self.bone_weights[obj_name][bone.name][str(i)]
+                            scaled_vert = self.scale_verts_by_bone(bone, self.armature, obj, shapekey_vert, bone_weight)
+                            shapekey_vert = scaled_vert
             shapekey_vert = (obj.matrix_world @ shapekey_vert)
 
             if relative:
@@ -604,6 +605,18 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
     def create_animation_data(self, context):
         animation = OrderedDict()
         anim_collections = self.sprite_object.coa_tools.anim_collections
+
+        # create default animation if no anim collection found
+        if len(anim_collections) == 0:
+            override = context.copy()
+            override["active_object"] = self.sprite_object
+            override["object"] = self.sprite_object
+            bpy.ops.coa_tools.add_animation_collection(override)
+            anim_collection = anim_collections[len(anim_collections)-1]
+            anim_collection.name = "default"
+            anim_collection.frame_end = 1
+
+        # run through all animations
         for anim_index, anim in enumerate(anim_collections):
             if anim.name not in ["NO ACTION"]:
                 if anim.name == "Restpose":
@@ -676,7 +689,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
 
                     self.export_progress_current += 1
-                    current_progress = self.export_progress_current/self.export_progress_total
+                    current_progress = self.export_progress_current/max(1,self.export_progress_total)
                     context.window_manager.progress_update(current_progress)
         return animation
 
@@ -703,7 +716,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
     def save_texture_atlas(self, context, img_atlas, img_path, atlas_name):
         context.scene.render.image_settings.color_mode = "RGBA"
         compression_rate = int(context.scene.render.image_settings.compression)
-        context.scene.render.image_settings.compression = 100
+        context.scene.render.image_settings.compression = 85
         texture_path = os.path.join(img_path, atlas_name + "_atlas.png")
         img_atlas.save_render(texture_path)
         context.scene.render.image_settings.compression = compression_rate
@@ -753,6 +766,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
         atlas_objects = self.create_dupli_atlas_objects(context)
 
         # generate and save atlas data
+        self.armature.data.pose_position = "REST"
         width = self.scene.coa_tools.atlas_resolution_x if self.scene.coa_tools.atlas_mode == "LIMIT_SIZE" else 16384
         height = self.scene.coa_tools.atlas_resolution_y if self.scene.coa_tools.atlas_mode == "LIMIT_SIZE" else 16384
         img_atlas, merged_atlas_obj, atlas = TextureAtlasGenerator.generate_uv_layout(
@@ -767,8 +781,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
             square=self.scene.coa_tools.export_square_atlas,
             output_scale=self.sprite_scale
         )
-
-        self.save_texture_atlas(context, img_atlas, self.export_path_abs, self.project_name)
+        self.armature.data.pose_position = "POSE"
 
         # collect all relevant json data for export
         points, uvs, indices = self.create_mesh_data(context, merged_atlas_obj)
@@ -781,6 +794,7 @@ class COATOOLS_OT_CreatureExport(bpy.types.Operator):
 
 
         self.write_json_file()
+        self.save_texture_atlas(context, img_atlas, self.export_path_abs, self.project_name)
 
         # cleanup scene and add an undo history step
         bpy.ops.ed.undo()

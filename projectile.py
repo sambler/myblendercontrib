@@ -21,7 +21,7 @@ bl_info = {
 	"author": "Nathan Craddock",
 	"version": (1, 0),
 	"blender": (2, 80, 0),
-	"location": "Sidebar in 3D View",
+	"location": "3D View Sidebar > Physics tab",
 	"description": "Set initial velocities for rigid body physics",
 	"tracker_url": "",
 	"category": "Physics"
@@ -81,9 +81,35 @@ def raycast(origin, destination, distance=1.70141e+38):
 
 
 # Kinematic Equation to find displacement over time
+# Used for drawing expected line
+def kinematic_displacement_expected(initial, velocity, time):
+	frame_rate = bpy.context.scene.render.fps
+	
+	if not bpy.context.scene.use_gravity:
+		gravity = mathutils.Vector((0.0, 0.0, 0.0))
+	else:
+		gravity = bpy.context.scene.gravity
+
+
+	dt = (time * 1.0) / frame_rate
+	ds = mathutils.Vector((0.0, 0.0, 0.0))
+
+	ds.x = initial.x + (velocity.x * dt) + (0.5 * gravity.x * math.pow(dt, 2))
+	ds.y = initial.y + (velocity.y * dt) + (0.5 * gravity.y * math.pow(dt, 2))
+	ds.z = initial.z + (velocity.z * dt) + (0.5 * gravity.z * math.pow(dt, 2))
+
+	return ds
+
+
+# Kinematic Equation with error correction
+# Used for calulating keyframes on objects
 def kinematic_displacement(initial, velocity, time):
 	frame_rate = bpy.context.scene.render.fps
-	gravity = bpy.context.scene.gravity
+	
+	if not bpy.context.scene.use_gravity:
+		gravity = mathutils.Vector((0.0, 0.0, 0.0))
+	else:
+		gravity = bpy.context.scene.gravity
 
 	dt = (time * 1.0) / frame_rate
 	ds = mathutils.Vector((0.0, 0.0, 0.0))
@@ -113,12 +139,12 @@ def calculate_trajectory(object):
 	# Generate coordinates
 	cast = []
 	coordinates = []
-	v = kinematic_displacement(object.projectile_props.s, object.projectile_props.v, 0)
+	v = kinematic_displacement_expected(object.projectile_props.s, object.projectile_props.v, 0)
 	coord = mathutils.Vector((v.x, v.y, v.z))
 	coordinates.append(coord)
 
 	for frame in range(1, bpy.context.scene.frame_end):
-		v = kinematic_displacement(object.projectile_props.s, object.projectile_props.v, frame)
+		v = kinematic_displacement_expected(object.projectile_props.s, object.projectile_props.v, frame)
 		coord = mathutils.Vector((v.x, v.y, v.z))
 
 		# Get distance between previous and current position
@@ -136,7 +162,7 @@ def calculate_trajectory(object):
 		coordinates.append(coord)
 
 	if not cast[0]:
-		v = kinematic_displacement(object.projectile_props.s, object.projectile_props.v, bpy.context.scene.frame_end)
+		v = kinematic_displacement_expected(object.projectile_props.s, object.projectile_props.v, bpy.context.scene.frame_end)
 		coord = mathutils.Vector((v.x, v.y, v.z))
 		coordinates.append(coord)
 
@@ -151,8 +177,6 @@ def draw_trajectory():
 	# Generate a list of all coordinates for all trajectories
 	coordinates = []
 	for object in objects:
-		start_hidden = object.projectile_props
-
 		coordinates += calculate_trajectory(object)
 
 	# Draw all trajectories
@@ -183,6 +207,10 @@ def gravity_change_handler(*args):
 			if area.type == 'VIEW_3D':
 				area.tag_redraw()
 
+	# run operator
+	if bpy.context.scene.projectile_settings.auto_update:
+		bpy.ops.rigidbody.projectile_launch()
+
 
 @persistent
 def subscribe_to_rna_props(scene):
@@ -196,8 +224,18 @@ def subscribe_to_rna_props(scene):
 		notify=gravity_change_handler,
 	)
 
+	# Subscribe to scene gravity toggle
+	subscribe_to = bpy.types.Scene, "use_gravity"
+	bpy.types.Scene.gravity_handler = object()
+	bpy.msgbus.subscribe_rna(
+		key=subscribe_to,
+		owner=bpy.types.Scene.gravity_handler,
+		args=(),
+		notify=gravity_change_handler,
+	)
+
 def unsubscribe_to_rna_props():
-	# Unsubscribe from scene gravity changes
+	# Unsubscribe from all RNA msgbus props
 	bpy.msgbus.clear_by_owner(bpy.types.Scene.gravity_handler)
 
 
@@ -368,7 +406,7 @@ def update_callback(self, context):
 # And detailed settings in physics tab
 class PHYSICS_PT_projectile(bpy.types.Panel):
 	bl_label = "Projectile"
-	bl_category = "View"
+	bl_category = "Physics"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 
@@ -400,6 +438,7 @@ class PHYSICS_PT_projectile(bpy.types.Panel):
 class PHYSICS_PT_projectile_initial_settings(bpy.types.Panel):
 	bl_label = "Initial Settings"
 	bl_parent_id = "PHYSICS_PT_projectile"
+	bl_category = "Physics"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_options = {'DEFAULT_CLOSED'}
@@ -434,6 +473,7 @@ class PHYSICS_PT_projectile_initial_settings(bpy.types.Panel):
 class PHYSICS_PT_projectile_velocity_settings(bpy.types.Panel):
 	bl_label = "Velocity Settings"
 	bl_parent_id = "PHYSICS_PT_projectile"
+	bl_category = "Physics"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 
@@ -458,6 +498,7 @@ class PHYSICS_PT_projectile_velocity_settings(bpy.types.Panel):
 class PHYSICS_PT_projectile_settings(bpy.types.Panel):
 	bl_label = "Projectile Settings"
 	bl_parent_id = "PHYSICS_PT_projectile"
+	bl_category = "Physics"
 	bl_space_type = "VIEW_3D"
 	bl_region_type = "UI"
 	bl_options = {'DEFAULT_CLOSED'}

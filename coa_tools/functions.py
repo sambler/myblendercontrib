@@ -83,7 +83,10 @@ def draw_sculpt_ui(self,context,layout):
             shapekey_index = int(obj.coa_tools.selected_shapekey)
             if shapekey_index > 0:
                 active_shapekey = obj.data.shape_keys.key_blocks[shapekey_index]
-                col.prop(active_shapekey,"value")        
+                subrow = col.row(align=True)
+                subrow.prop(active_shapekey,"value")
+
+                subrow.prop(obj,"show_only_shape_key", text="",icon="UNPINNED")
         
         col = layout.column(align=False)
         subrow = col.row(align=True)
@@ -772,6 +775,7 @@ def display_children(self, context, obj):
         col = box.column(align=True)
         sprite_object = get_sprite_object(obj)
         children = get_children(context,sprite_object,ob_list=[])
+        armature = get_armature(sprite_object)
         
         list1 = []
         list2 = []
@@ -819,10 +823,18 @@ def display_children(self, context, obj):
                             subrow.prop(obj2.coa_tools,"show_children",text="",icon="TRIA_DOWN",emboss=False)
                         else:
                             subrow.prop(obj2.coa_tools,"show_children",text="",icon="TRIA_RIGHT",emboss=False)
-                    op = subrow.operator("coa_tools.show_children",text=obj2.name,emboss=False)
+                    op = subrow.operator("coa_tools.select_child",text=obj2.name,emboss=False)
                     op.mode = "object"
                     op.ob_name = obj2.name
-                    
+
+                    icon = "POSE_HLT"
+                    if armature.mode == "OBJECT":
+                        icon = "OBJECT_DATAMODE"
+                    elif armature.mode == "EDIT":
+                        icon = "EDITMODE_HLT"
+                    op = subrow.operator("coa_tools.toggle_pose_mode", icon=icon, text="", emboss=False)
+                    op.ob_name = armature.name
+
                     op = subrow.operator("coa_tools.view_sprite",icon="ZOOM_SELECTED",text="",emboss=False)
                     op.type = "VIEW_ALL"
                     op.name = obj2.name
@@ -910,7 +922,7 @@ def draw_children(self,context,sprite_object,layout,box,row,col,children,obj,cur
                                 subrow2.label(text="",icon="CAMERA_DATA")
 
 
-                            op = subrow2.operator("coa_tools.show_children",text=name,emboss=False)
+                            op = subrow2.operator("coa_tools.select_child",text=name,emboss=False)
                             op.mode = "object"
                             op.ob_name = child.name
 

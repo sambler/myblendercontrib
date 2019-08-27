@@ -1360,7 +1360,7 @@ class COATOOLS_PT_ExportPanel(bpy.types.Panel):
             subcol.prop(self.scene.coa_tools, "atlas_resolution_x", text="X")
             subcol.prop(self.scene.coa_tools, "atlas_resolution_y", text="Y")
         subcol.prop(self.scene.coa_tools, "atlas_island_margin")
-        subcol.prop(self.scene.coa_tools, "export_texture_bleed")
+        # subcol.prop(self.scene.coa_tools, "export_texture_bleed")
         subcol.prop(self.scene.coa_tools, "export_square_atlas")
 
         box_col.label(text="Data Settings:")
@@ -1542,7 +1542,7 @@ def generate_texture_atlas(self, sprites, atlas_name, img_path, img_width=512, i
     text_file.close()
 
     compression_rate = int(context.scene.render.image_settings.compression)
-    context.scene.render.image_settings.compression = 100
+    context.scene.render.image_settings.compression = 85
     texture_path = os.path.join(img_path,atlas_name+"_tex.png")
     img_atlas.save_render(texture_path)
     context.scene.render.image_settings.compression = compression_rate

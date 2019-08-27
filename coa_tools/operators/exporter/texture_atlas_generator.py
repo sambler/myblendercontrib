@@ -243,6 +243,7 @@ class TextureAtlasGenerator:
             bake_node.location = [400, 0]
             mat.node_tree.nodes.active = bake_node
             bake_node.image = bake_img
+            bake_node.interpolation = "Linear"
 
     @staticmethod
     def setup_alpha_bake(merged_uv_obj):
@@ -263,6 +264,14 @@ class TextureAtlasGenerator:
                            margin=1, texture_bleed=0, square=True, output_scale=1.0):
         context = bpy.context
 
+        ### Create new Collection for Rendering
+        for collection in context.scene.collection.children:
+            collection.hide_render = True
+
+        render_collection = bpy.data.collections.new("COA Atlas Collection")
+        context.scene.collection.children.link(render_collection)
+        render_collection.hide_render = False
+
         ### Extract texture data from given objects. Gives texture width, height and boundaries
         texture_data_list = TextureAtlasGenerator.get_sorted_texture_data(objects, output_scale)
 
@@ -272,10 +281,14 @@ class TextureAtlasGenerator:
                                                                      max_height, margin, square, output_scale)
 
         ### create new object with atlas uv layout
+        slot_len = 0
+        uv_objs = []
+        atlas_objs = []
         for slot in atlas_data.texture_slots:
             if slot.texture_data != None:
-
+                slot_len += 1
                 obj = slot.texture_data.texture_object
+                uv_objs.append(obj)
                 uv_map = obj.data.uv_layers.new(name="COA_UV_ATLAS")
                 uv_layer = obj.data.uv_layers["COA_UV_ATLAS"]
 
@@ -300,56 +313,70 @@ class TextureAtlasGenerator:
                     uv += uv_new_pos
                     uv_data.uv += Vector((0, uv_flip_y))
 
+                # copy atlas objects and position them properly for rendering
+                atlas_obj = obj.copy()
+                atlas_obj.data = atlas_obj.data.copy()
+                render_collection.objects.link(atlas_obj)
+                atlas_objs.append(atlas_obj)
+                atlas_obj.coa_tools.driver_remove("alpha")
+                atlas_obj.coa_tools.alpha = 1.0
+
+                obj_scale_x = atlas_obj.dimensions[0] / slot.texture_data.width
+                obj_scale_y = atlas_obj.dimensions[2] / slot.texture_data.height
+                atlas_obj.location = [slot.x, 0, -slot.y]
+                atlas_obj.scale[0] = 1.0/obj_scale_x
+                atlas_obj.scale[2] = 1.0/obj_scale_y
+                x = math.inf
+                y = -math.inf
+                verts = atlas_obj.data.vertices
+                if atlas_obj.data.shape_keys is not None and len(atlas_obj.data.shape_keys.key_blocks) > 0:
+                    verts = atlas_obj.data.shape_keys.key_blocks[0].data
+                for vert in verts:
+                    if vert.co[0] < x:
+                        x = vert.co[0]
+                    if vert.co[2] > y:
+                        y = vert.co[2]
+                for vert in verts:
+                    vert.co[0] -= x
+                    vert.co[2] -= y
+
+        # add render camera and setup render settings
+        bpy.ops.object.camera_add()
+        cam = bpy.context.active_object
+        render_collection.objects.link(cam)
+        cam.data.type = "ORTHO"
+        cam.location[0] = atlas_data.width * .5
+        cam.location[2] = -atlas_data.height * .5
+        cam.location[1] = -10
+        cam.rotation_euler[0] = math.pi * .5
+        cam.data.ortho_scale = max(atlas_data.width, atlas_data.height)
+        context.scene.render.image_settings.compression = 0#85
+        context.scene.render.resolution_x = atlas_data.width
+        context.scene.eevee.taa_render_samples = 16
+        context.scene.render.resolution_y = atlas_data.height
+        context.scene.render.film_transparent = True
+        context.scene.render.engine = "BLENDER_EEVEE"
+        context.scene.render.filter_size = 1.0
+        context.scene.camera = cam
+        context.scene.world.color = [0, 0, 0]
+        context.scene.world.use_nodes = False
+        bpy.ops.render.render()
+        atlas_img = bpy.data.images["Render Result"]
+
+        # merge uv objects into one
+        for obj in context.selected_objects:
+            obj.select_set(False)
+        for obj in uv_objs:
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
         if len(context.selected_objects) > 1:
             bpy.ops.object.join()
-        merged_uv_obj = context.active_object
+
+        merged_uv_obj = bpy.data.objects[context.active_object.name]
         merged_uv_obj.data.uv_layers.active = merged_uv_obj.data.uv_layers["COA_UV_ATLAS"]
-        atlas_img = bpy.data.images.new(atlas_data.name, atlas_data.width, atlas_data.height, alpha=True)
-        atlas_alpha_img = bpy.data.images.new(atlas_data.name+"_alpha", atlas_data.width, atlas_data.height, alpha=False)
         for vert in merged_uv_obj.data.vertices:
             vert.select = True
             vert.hide = False
-
-        # store bake settings
-        engine = str(context.scene.render.engine)
-        samples = int(context.scene.cycles.samples)
-        bake_type = str(context.scene.cycles.bake_type)
-        use_pass_indirect = context.scene.render.bake.use_pass_indirect
-        use_pass_direct = context.scene.render.bake.use_pass_direct
-        use_pass_color = context.scene.render.bake.use_pass_color
-
-        # setup bake settings
-        context.scene.render.engine = "CYCLES"
-        context.scene.cycles.samples = 1
-        context.scene.cycles.bake_type = "DIFFUSE"
-        context.scene.render.bake.use_pass_direct = False
-        context.scene.render.bake.use_pass_indirect = False
-        context.scene.render.bake.use_pass_color = True
-
-
-
-        # bake color
-        TextureAtlasGenerator.create_bake_node(merged_uv_obj, atlas_img)
-        context.scene.render.bake.margin = 0
-        bpy.ops.object.bake(type="DIFFUSE")
-
-        # bake alpha
-        TextureAtlasGenerator.setup_alpha_bake(merged_uv_obj)
-        TextureAtlasGenerator.create_bake_node(merged_uv_obj, atlas_alpha_img)
-        context.scene.render.bake.margin = 0
-        bpy.ops.object.bake(type="DIFFUSE")
-
-        # combine diffuse and alpha and convert image to straight alpha
-        transfer_alpha(atlas_img, atlas_alpha_img)
-        convert_to_straight_alpha(atlas_img)
-
-        # restore bake settings
-        context.scene.render.engine = engine
-        context.scene.cycles.samples = samples
-        context.scene.cycles.bake_type = bake_type
-        context.scene.render.bake.use_pass_direct = use_pass_indirect
-        context.scene.render.bake.use_pass_indirect = use_pass_direct
-        context.scene.render.bake.use_pass_color = use_pass_color
 
         return atlas_img, merged_uv_obj, atlas_data
 

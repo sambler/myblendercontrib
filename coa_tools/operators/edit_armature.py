@@ -35,6 +35,30 @@ from .. import functions
 from .. functions_draw import *        
 import traceback
 
+class COATOOLS_OT_TooglePoseMode(bpy.types.Operator):
+    bl_idname = "coa_tools.toggle_pose_mode"
+    bl_label = "Toggle Mode"
+    bl_description = "Toggles between Pose and Object mode."
+    bl_options = {"REGISTER"}
+
+    ob_name: StringProperty()
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        obj = bpy.data.objects[self.ob_name]
+        active_ob_name = context.active_object.name
+
+        context.view_layer.objects.active = obj
+        if obj.mode in ["POSE", "EDIT"]:
+            bpy.ops.object.mode_set(mode="OBJECT", toggle=False)
+        elif obj.mode == "OBJECT":
+            bpy.ops.object.mode_set(mode="POSE", toggle=False)
+        context.view_layer.objects.active = bpy.data.objects[active_ob_name]
+        return {"FINISHED"}
+
 class COATOOLS_OT_BindMeshToBones(bpy.types.Operator):
     bl_idname = "coa_tools.bind_mesh_to_bones"
     bl_label = "Bind Mesh To Selected Bones"
@@ -481,8 +505,10 @@ class COATOOLS_OT_QuickArmature(bpy.types.Operator):
         self.armature_mode = context.active_object.mode
         bpy.ops.object.mode_set(mode='EDIT')
 
-
-        bpy.utils.register_tool(COATOOLS_TO_DrawBone, after={"builtin.select"}, separator=True, group=True)
+        try:
+            bpy.utils.register_tool(COATOOLS_TO_DrawBone, after={"builtin.select"}, separator=True, group=True)
+        except:
+            pass
         functions.set_active_tool(self, context, "coa_tools.draw_bone")
 
         context.window_manager.modal_handler_add(self)

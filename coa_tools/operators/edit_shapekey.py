@@ -76,9 +76,10 @@ class COATOOLS_OT_ShapekeyAdd(bpy.types.Operator):
         shape = obj.shape_key_add(name=self.name,from_mix=False)
         shape_name = shape.name
         
-        for i,shape in enumerate(obj.data.shape_keys.key_blocks):
+        for i, shape in enumerate(obj.data.shape_keys.key_blocks):
             if shape.name == shape_name:
                 obj.active_shape_key_index = i
+                obj.coa_tools["selected_shapekey"] = i
                 break
             
         return {"FINISHED"}
@@ -119,7 +120,7 @@ class COATOOLS_OT_ShapekeyRename(bpy.types.Operator):
     def poll(cls, context):
         return True
     
-    def invoke(self,context,event):
+    def invoke(self, context, event):
         obj = context.active_object
         idx = int(obj.coa_tools.selected_shapekey)
         shape = obj.data.shape_keys.key_blocks[idx]
@@ -151,9 +152,9 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
         obj = context.active_object
         if obj.type == "MESH" and obj.data.shape_keys != None:
             i = 0
-            for i,shape in enumerate(obj.data.shape_keys.key_blocks):
+            for i, shape in enumerate(obj.data.shape_keys.key_blocks):
                 if i > 0:
-                    SHAPEKEYS.append((shape.name,shape.name,shape.name,"SHAPEKEY_DATA",i+1))
+                    SHAPEKEYS.append((shape.name, shape.name, shape.name, "SHAPEKEY_DATA", i + 1))
                 
         
         return SHAPEKEYS
@@ -264,9 +265,8 @@ class COATOOLS_OT_EditShapekeyMode(bpy.types.Operator):
                 context.scene.objects.active = obj
                 bpy.ops.object.mode_set(mode="OBJECT")
                 obj.show_only_shape_key = False
-                print("Exit Edit Shapekey")
 
-        context.scene.objects.active = obj
+        context.view_layer.objects.active = obj
         obj.select = True
         if self.armature != None and self.armature.data != None:
             self.armature.data.pose_position = "POSE"
