@@ -121,9 +121,6 @@ class VIEW3D_PT_commotion_animation_offset(Panel, Setup):
             col.prop(props, "offset_coll_effectors")
             col.prop(props, "offset_use_proxy")
 
-            if multi_use_proxy:
-                col.prop(props, "offset_proxy_radius")
-
         row = layout.row(align=True)
         row.operator("anim.commotion_animation_offset", text="Offset Animation", icon="FORCE_HARMONIC")
 
@@ -159,7 +156,6 @@ class VIEW3D_PT_commotion_proxy_effector(Panel, Setup):
         col = layout.column()
         col.prop(props, "proxy_coll_animated")
         col.prop(props, "proxy_coll_effectors")
-        col.prop(props, "proxy_radius")
         col.prop(props, "proxy_falloff")
         col.prop(props, "proxy_use_trail")
 

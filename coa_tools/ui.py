@@ -134,14 +134,15 @@ class COATOOLS_PT_ObjectProperties(bpy.types.Panel):
         row.template_list("COATOOLS_UL_Outliner", "", scene.coa_tools, "outliner", scene.coa_tools, "outliner_index",
                           rows=10)
         row = col.row()
-        if sprite_object.coa_tools.edit_mesh:
-            row.prop(sprite_object.coa_tools, "edit_mesh", text="", toggle=True, icon="LOOP_BACK")
-        if sprite_object.coa_tools.edit_armature:
-            row.prop(sprite_object.coa_tools, "edit_armature", text="", toggle=True, icon="LOOP_BACK")
-        if sprite_object.coa_tools.edit_weights:
-            row.prop(sprite_object.coa_tools, "edit_weights", text="", toggle=True, icon="LOOP_BACK")
-        if sprite_object.coa_tools.edit_shapekey:
-            row.prop(sprite_object.coa_tools, "edit_shapekey", text="", toggle=True, icon="LOOP_BACK")
+        if sprite_object != None:
+            if sprite_object.coa_tools.edit_mesh:
+                row.prop(sprite_object.coa_tools, "edit_mesh", text="", toggle=True, icon="LOOP_BACK")
+            if sprite_object.coa_tools.edit_armature:
+                row.prop(sprite_object.coa_tools, "edit_armature", text="", toggle=True, icon="LOOP_BACK")
+            if sprite_object.coa_tools.edit_weights:
+                row.prop(sprite_object.coa_tools, "edit_weights", text="", toggle=True, icon="LOOP_BACK")
+            if sprite_object.coa_tools.edit_shapekey:
+                row.prop(sprite_object.coa_tools, "edit_shapekey", text="", toggle=True, icon="LOOP_BACK")
         ###
 
     def draw(self, context):
@@ -212,7 +213,7 @@ class COATOOLS_PT_ObjectProperties(bpy.types.Panel):
                 row = layout.row(align=True)
                 row.label(text="Sprite Properties:")
 
-            if obj != None and obj.type == "MESH" and "sprite" in obj.coa_tools and "coa_base_sprite" in obj.modifiers:
+            if obj != None and obj.type == "MESH" and "coa_base_sprite" in obj.modifiers:
                 row = layout.row(align=True)
                 row.prop(obj.data.coa_tools, 'hide_base_sprite', text="Hide Base Sprite")
                 if len(obj.data.vertices) > 4 and obj.data.coa_tools.hide_base_sprite == False:
@@ -231,11 +232,11 @@ class COATOOLS_PT_ObjectProperties(bpy.types.Panel):
                     row.prop(obj.coa_tools,'slot_index',text="Slot Index")
                     op = row.operator("coa_tools.select_frame_thumb",text="",icon="IMAGE_RGB")
                     op = row.operator("coa_tools.add_keyframe",text="",icon="KEYTYPE_MOVING_HOLD_VEC")
-                    op.prop_name = "coa_slot_index"
+                    op.prop_name = "coa_tools.slot_index"
                     op.add_keyframe = True
                     op.default_interpolation = "CONSTANT"
                     op = row.operator("coa_tools.add_keyframe",text="",icon="HANDLETYPE_ALIGNED_VEC")
-                    op.prop_name = "coa_slot_index"
+                    op.prop_name = "coa_tools.slot_index"
                     op.add_keyframe = False
 
             if obj != None and obj.type == "MESH" and obj.mode == "OBJECT":
@@ -382,6 +383,9 @@ class COATOOLS_PT_Tools(bpy.types.Panel):
         if obj == None or (obj != None and obj.mode not in ["EDIT", "WEIGHT_PAINT", "SCULPT"]):
             row = layout.row(align=True)
             row.operator("coa_tools.create_sprite_object", text="Create new Sprite Object", icon="TEXTURE_DATA")
+        if obj != None and obj.type == "ARMATURE" and "sprite_object" not in obj.coa_tools:
+            row = layout.row(align=True)
+            row.operator("coa_tools.define_sprite_object", text="Define as Sprite Object", icon="TEXTURE_DATA")
 
         if sprite_object != None:
             if obj != None and obj.mode in ["OBJECT", "SCULPT", "POSE"]:
@@ -403,6 +407,8 @@ class COATOOLS_PT_Tools(bpy.types.Panel):
 
                     row = layout.row()
                     row.operator("coa_tools.change_alpha_mode", text="Change Alpha Mode", icon="SHADING_RENDERED")
+                    row = layout.row()
+                    row.operator("coa_tools.change_texture_interpolation_mode", text="Change Texture Mode", icon="NODE_TEXTURE")
 
                     if functions.operator_exists("object.create_driver_constraint") and len(context.selected_objects) > 1:
                         row = layout.row()
@@ -454,15 +460,12 @@ class COATOOLS_PT_Tools(bpy.types.Panel):
                     row = col.row(align=True)
                     row.prop(tool_settings, "use_auto_normalize", text="Auto Normalize")
 
-        if obj != None and (
-                "sprite" in obj.coa_tools or "coa_bone_shape" in obj) and obj.mode == "EDIT" and obj.type == "MESH" and sprite_object.coa_tools.edit_mesh:
+        if obj != None and obj.mode == "EDIT" and obj.type == "MESH" and sprite_object.coa_tools.edit_mesh:
             row = layout.row(align=True)
             row.label(text="Mesh Tools:")
 
-            if "sprite" in obj.coa_tools:
-                row = layout.row(align=True)
-                operator = row.operator("coa_tools.generate_mesh_from_edges_and_verts", text="Generate Mesh",
-                                        icon="OUTLINER_OB_SURFACE")
+            row = layout.row(align=True)
+            operator = row.operator("coa_tools.generate_mesh_from_edges_and_verts", text="Generate Mesh", icon="OUTLINER_OB_SURFACE")
 
             col = layout.column(align=True)
 
@@ -541,7 +544,8 @@ class COATOOLS_UL_EventCollection(bpy.types.UIList):
 ######################################################################################################################################### Select Child Operator
 class COATOOLS_OT_SelectChild(bpy.types.Operator):
     bl_idname = "coa_tools.select_child"
-    bl_label = "select_child"
+    bl_label = "Select Child"
+    bl_description = "Select Outliner Item"
 
     ob_name: StringProperty()
     outliner_index: IntProperty(default=0)
@@ -611,10 +615,14 @@ class COATOOLS_OT_SelectChild(bpy.types.Operator):
         for item in outliner:
             if item.index in index_range:
                 if item.object_type in ["MESH", "ARMATURE"]:
-                    bpy.data.objects[item.name].select_set(True)
+                    if item.entry_type in ["SPRITE","OBJECT"]:
+                        bpy.data.objects[item.display_name].select_set(True)
+                        if item.index == self.outliner_index:
+                            context.view_layer.objects.active = bpy.data.objects[item.name]
+                elif item.entry_type in ["BONE"]:
+                    self.armature.data.bones[item.display_name].select = True
                     if item.index == self.outliner_index:
-                        context.view_layer.objects.active = bpy.data.objects[item.name]
-
+                        self.armature.data.bones.active = self.armature.data.bones[item.display_name]
     def invoke(self, context, event):
         self.sprite_object = functions.get_sprite_object(context.active_object)
         self.armature = functions.get_armature(self.sprite_object)

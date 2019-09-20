@@ -19,7 +19,7 @@
 bl_info = {"name": "Point Cloud Visualizer",
            "description": "Display, edit, filter, render, convert, generate and export colored point cloud PLY files.",
            "author": "Jakub Uhlik",
-           "version": (0, 9, 24),
+           "version": (0, 9, 27),
            "blender": (2, 80, 0),
            "location": "View3D > Sidebar > Point Cloud Visualizer",
            "warning": "",
@@ -1598,6 +1598,279 @@ class PCVShaders():
             
         }
     '''
+    
+    vertex_shader_color_adjustment = '''
+        in vec3 position;
+        in vec4 color;
+        uniform mat4 perspective_matrix;
+        uniform mat4 object_matrix;
+        uniform float point_size;
+        uniform float alpha_radius;
+        uniform float global_alpha;
+        
+        uniform float exposure;
+        uniform float gamma;
+        uniform float brightness;
+        uniform float contrast;
+        uniform float hue;
+        uniform float saturation;
+        uniform float value;
+        uniform float invert;
+        
+        out vec4 f_color;
+        out float f_alpha_radius;
+        
+        out float f_exposure;
+        out float f_gamma;
+        out float f_brightness;
+        out float f_contrast;
+        out float f_hue;
+        out float f_saturation;
+        out float f_value;
+        out float f_invert;
+        
+        void main()
+        {
+            gl_Position = perspective_matrix * object_matrix * vec4(position, 1.0f);
+            gl_PointSize = point_size;
+            f_color = vec4(color[0], color[1], color[2], global_alpha);
+            f_alpha_radius = alpha_radius;
+            
+            f_exposure = exposure;
+            f_gamma = gamma;
+            f_brightness = brightness;
+            f_contrast = contrast;
+            f_hue = hue;
+            f_saturation = saturation;
+            f_value = value;
+            f_invert = invert;
+        }
+    '''
+    fragment_shader_color_adjustment = '''
+        in vec4 f_color;
+        in float f_alpha_radius;
+        out vec4 fragColor;
+        
+        in float f_exposure;
+        in float f_gamma;
+        in float f_brightness;
+        in float f_contrast;
+        in float f_hue;
+        in float f_saturation;
+        in float f_value;
+        in float f_invert;
+        
+        // https://stackoverflow.com/questions/15095909/from-rgb-to-hsv-in-opengl-glsl
+        vec3 rgb2hsv(vec3 c)
+        {
+            vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+            vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+            vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+            float d = q.x - min(q.w, q.y);
+            float e = 1.0e-10;
+            return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+        }
+        vec3 hsv2rgb(vec3 c)
+        {
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
+        
+        void main()
+        {
+            float r = 0.0f;
+            float a = 1.0f;
+            vec2 cxy = 2.0f * gl_PointCoord - 1.0f;
+            r = dot(cxy, cxy);
+            if(r > f_alpha_radius){
+                discard;
+            }
+            fragColor = f_color * a;
+            
+            // adjustments
+            vec3 rgb = fragColor.rgb;
+            float alpha = fragColor.a;
+            vec3 color = rgb;
+            
+            // exposure
+            color = clamp(color * pow(2, f_exposure), 0.0, 1.0);
+            // gamma
+            color = clamp(vec3(pow(color[0], 1 / f_gamma), pow(color[1], 1 / f_gamma), pow(color[2], 1 / f_gamma)), 0.0, 1.0);
+            
+            // brightness/contrast
+            color = clamp((color - 0.5) * f_contrast + 0.5 + f_brightness, 0.0, 1.0);
+            
+            // hue/saturation/value
+            vec3 hsv = rgb2hsv(color);
+            float hue = f_hue;
+            if(hue > 1.0){
+                hue = mod(hue, 1.0);
+            }
+            hsv[0] = mod((hsv[0] + hue), 1.0);
+            hsv[1] += f_saturation;
+            hsv[2] += f_value;
+            hsv = clamp(hsv, 0.0, 1.0);
+            color = hsv2rgb(hsv);
+            
+            if(f_invert > 0.0){
+                color = vec3(1.0 - color[0], 1.0 - color[1], 1.0 - color[2]);
+            }
+            
+            fragColor = vec4(color, alpha);
+            
+        }
+    '''
+    
+    vertex_shader_simple_render_smooth = '''
+        in vec3 position;
+        in vec4 color;
+        uniform mat4 perspective_matrix;
+        uniform mat4 object_matrix;
+        uniform float point_size;
+        uniform float alpha_radius;
+        uniform float global_alpha;
+        out vec4 f_color;
+        out float f_alpha_radius;
+        void main()
+        {
+            gl_Position = perspective_matrix * object_matrix * vec4(position, 1.0f);
+            gl_PointSize = point_size;
+            f_color = vec4(color[0], color[1], color[2], global_alpha);
+            f_alpha_radius = alpha_radius;
+        }
+    '''
+    fragment_shader_simple_render_smooth = '''
+        in vec4 f_color;
+        in float f_alpha_radius;
+        out vec4 fragColor;
+        void main()
+        {
+            float r = 0.0f;
+            float d = 0.0f;
+            float a = 1.0f;
+            vec2 cxy = 2.0f * gl_PointCoord - 1.0f;
+            r = dot(cxy, cxy);
+            d = fwidth(r);
+            a = 1.0 - smoothstep(1.0 - (d / 2), 1.0 + (d / 2), r);
+            //fragColor = f_color * a;
+            fragColor = vec4(f_color.rgb, f_color.a * a);
+        }
+    '''
+    
+    vertex_shader_illumination_render_smooth = '''
+        in vec3 position;
+        in vec3 normal;
+        in vec4 color;
+        
+        // uniform float show_illumination;
+        uniform vec3 light_direction;
+        uniform vec3 light_intensity;
+        uniform vec3 shadow_direction;
+        uniform vec3 shadow_intensity;
+        // uniform float show_normals;
+        
+        uniform mat4 perspective_matrix;
+        uniform mat4 object_matrix;
+        uniform float point_size;
+        uniform float alpha_radius;
+        uniform float global_alpha;
+        
+        out vec4 f_color;
+        out float f_alpha_radius;
+        out vec3 f_normal;
+        
+        out vec3 f_light_direction;
+        out vec3 f_light_intensity;
+        out vec3 f_shadow_direction;
+        out vec3 f_shadow_intensity;
+        // out float f_show_normals;
+        // out float f_show_illumination;
+        
+        void main()
+        {
+            gl_Position = perspective_matrix * object_matrix * vec4(position, 1.0f);
+            gl_PointSize = point_size;
+            f_normal = normal;
+            // f_color = color;
+            f_color = vec4(color[0], color[1], color[2], global_alpha);
+            f_alpha_radius = alpha_radius;
+            
+            // f_light_direction = normalize(vec3(inverse(object_matrix) * vec4(light_direction, 1.0)));
+            f_light_direction = light_direction;
+            f_light_intensity = light_intensity;
+            // f_shadow_direction = normalize(vec3(inverse(object_matrix) * vec4(shadow_direction, 1.0)));
+            f_shadow_direction = shadow_direction;
+            f_shadow_intensity = shadow_intensity;
+            // f_show_normals = show_normals;
+            // f_show_illumination = show_illumination;
+        }
+    '''
+    fragment_shader_illumination_render_smooth = '''
+        in vec4 f_color;
+        in vec3 f_normal;
+        in float f_alpha_radius;
+        
+        in vec3 f_light_direction;
+        in vec3 f_light_intensity;
+        in vec3 f_shadow_direction;
+        in vec3 f_shadow_intensity;
+        // in float f_show_normals;
+        // in float f_show_illumination;
+        
+        out vec4 fragColor;
+        
+        void main()
+        {
+            // float r = 0.0f;
+            // float a = 1.0f;
+            // vec2 cxy = 2.0f * gl_PointCoord - 1.0f;
+            // r = dot(cxy, cxy);
+            // if(r > f_alpha_radius){
+            //     discard;
+            // }
+            // // fragColor = f_color * a;
+            // 
+            // vec4 col;
+            // 
+            // // if(f_show_normals > 0.5){
+            // //     col = vec4(f_normal, 1.0) * a;
+            // // }else if(f_show_illumination > 0.5){
+            // 
+            // // if(f_show_illumination > 0.5){
+            // //     vec4 light = vec4(max(dot(f_light_direction, -f_normal), 0) * f_light_intensity, 1);
+            // //     vec4 shadow = vec4(max(dot(f_shadow_direction, -f_normal), 0) * f_shadow_intensity, 1);
+            // //     col = (f_color + light - shadow) * a;
+            // // }else{
+            // //     col = f_color * a;
+            // // }
+            // 
+            // vec4 light = vec4(max(dot(f_light_direction, -f_normal), 0) * f_light_intensity, 1);
+            // vec4 shadow = vec4(max(dot(f_shadow_direction, -f_normal), 0) * f_shadow_intensity, 1);
+            // col = (f_color + light - shadow) * a;
+            // 
+            // fragColor = col;
+            
+            float r = 0.0f;
+            float d = 0.0f;
+            float a = 1.0f;
+            vec2 cxy = 2.0f * gl_PointCoord - 1.0f;
+            r = dot(cxy, cxy);
+            d = fwidth(r);
+            a = 1.0 - smoothstep(1.0 - (d / 2), 1.0 + (d / 2), r);
+            //fragColor = vec4(f_color.rgb, f_color.a * a);
+            
+            vec4 col;
+            vec4 light = vec4(max(dot(f_light_direction, -f_normal), 0) * f_light_intensity, 1);
+            vec4 shadow = vec4(max(dot(f_shadow_direction, -f_normal), 0) * f_shadow_intensity, 1);
+            //col = (f_color + light - shadow) * a;
+            col = (f_color + light - shadow) * 1.0;
+            //fragColor = col;
+            fragColor = vec4(col.rgb, f_color.a * a);
+            
+        }
+    '''
 
 
 class PCVManager():
@@ -1760,6 +2033,8 @@ class PCVManager():
         bgl.glEnable(bgl.GL_DEPTH_TEST)
         bgl.glEnable(bgl.GL_BLEND)
         
+        # TODO: try to implement clip planes using an object bounding box
+        
         ci = PCVManager.cache[uuid]
         
         shader = ci['shader']
@@ -1868,6 +2143,10 @@ class PCVManager():
         if(not pcv.override_default_shader):
             # NOTE: just don't draw default shader, quick and easy solution, other shader will be drawn instead, would better to not create it..
             batch.draw(shader)
+            
+            # # remove extra if present, will be recreated if needed and if left stored it might cause problems
+            # if('extra' in ci.keys()):
+            #     del ci['extra']
         
         if(pcv.vertex_normals and pcv.has_normals):
             def make(ci):
@@ -2108,6 +2387,52 @@ class PCVManager():
             shader.uniform_float("point_size", pcv.point_size)
             shader.uniform_float("alpha_radius", pcv.alpha_radius)
             bgl.glClear(bgl.GL_DEPTH_BUFFER_BIT)
+            batch.draw(shader)
+        
+        if(pcv.color_adjustment_shader_enabled):
+            vs = ci['vertices']
+            cs = ci['colors']
+            l = ci['current_display_length']
+            
+            use_stored = False
+            if('extra' in ci.keys()):
+                t = 'COLOR_ADJUSTMENT'
+                for k, v in ci['extra'].items():
+                    if(k == t):
+                        if(v['length'] == l):
+                            use_stored = True
+                            batch = v['batch']
+                            shader = v['shader']
+                            break
+            
+            if(not use_stored):
+                shader = GPUShader(PCVShaders.vertex_shader_color_adjustment, PCVShaders.fragment_shader_color_adjustment, )
+                batch = batch_for_shader(shader, 'POINTS', {"position": vs[:l], "color": cs[:l], })
+                
+                if('extra' not in ci.keys()):
+                    ci['extra'] = {}
+                d = {'shader': shader,
+                     'batch': batch,
+                     'length': l, }
+                ci['extra']['COLOR_ADJUSTMENT'] = d
+            
+            shader.bind()
+            pm = bpy.context.region_data.perspective_matrix
+            shader.uniform_float("perspective_matrix", pm)
+            shader.uniform_float("object_matrix", o.matrix_world)
+            shader.uniform_float("point_size", pcv.point_size)
+            shader.uniform_float("alpha_radius", pcv.alpha_radius)
+            shader.uniform_float("global_alpha", pcv.global_alpha)
+            
+            shader.uniform_float("exposure", pcv.color_adjustment_shader_exposure)
+            shader.uniform_float("gamma", pcv.color_adjustment_shader_gamma)
+            shader.uniform_float("brightness", pcv.color_adjustment_shader_brightness)
+            shader.uniform_float("contrast", pcv.color_adjustment_shader_contrast)
+            shader.uniform_float("hue", pcv.color_adjustment_shader_hue)
+            shader.uniform_float("saturation", pcv.color_adjustment_shader_saturation)
+            shader.uniform_float("value", pcv.color_adjustment_shader_value)
+            shader.uniform_float("invert", pcv.color_adjustment_shader_invert)
+            
             batch.draw(shader)
         
         # dev
@@ -3650,10 +3975,18 @@ class PCV_OT_render(Operator):
         
         if(pcv.render_resolution_linked):
             scale = render.resolution_percentage / 100
+            
+            if(pcv.render_supersampling > 1):
+                scale *= pcv.render_supersampling
+            
             width = int(render.resolution_x * scale)
             height = int(render.resolution_y * scale)
         else:
             scale = pcv.render_resolution_percentage / 100
+            
+            if(pcv.render_supersampling > 1):
+                scale *= pcv.render_supersampling
+            
             width = int(pcv.render_resolution_x * scale)
             height = int(pcv.render_resolution_y * scale)
         
@@ -3751,6 +4084,25 @@ class PCV_OT_render(Operator):
             cs = cs[:l]
             ns = ns[:l]
             
+            use_smoothstep = False
+            if(pcv.render_smoothstep):
+                # for anti-aliasing basic shader should be enabled
+                # if(not pcv.illumination and not pcv.override_default_shader):
+                if(not pcv.override_default_shader):
+                    use_smoothstep = True
+                    # sort by depth
+                    mw = o.matrix_world
+                    depth = []
+                    for i, v in enumerate(vs):
+                        vw = mw @ Vector(v)
+                        depth.append(world_to_camera_view(scene, cam, vw)[2])
+                    zps = zip(depth, vs, cs, ns)
+                    sps = sorted(zps, key=lambda a: a[0])
+                    # split and reverse
+                    vs = [a for _, a, b, c in sps][::-1]
+                    cs = [b for _, a, b, c in sps][::-1]
+                    ns = [c for _, a, b, c in sps][::-1]
+            
             if(pcv.dev_depth_enabled):
                 if(pcv.illumination):
                     shader = GPUShader(PCVShaders.depth_vertex_shader_illumination, PCVShaders.depth_fragment_shader_illumination, )
@@ -3768,11 +4120,19 @@ class PCV_OT_render(Operator):
                 shader = GPUShader(PCVShaders.position_colors_vertex_shader, PCVShaders.position_colors_fragment_shader, )
                 batch = batch_for_shader(shader, 'POINTS', {"position": vs, })
             elif(pcv.illumination):
-                shader = GPUShader(PCVShaders.vertex_shader_illumination, PCVShaders.fragment_shader_illumination)
-                batch = batch_for_shader(shader, 'POINTS', {"position": vs, "color": cs, "normal": ns, })
+                if(use_smoothstep):
+                    shader = GPUShader(PCVShaders.vertex_shader_illumination_render_smooth, PCVShaders.fragment_shader_illumination_render_smooth)
+                    batch = batch_for_shader(shader, 'POINTS', {"position": vs, "color": cs, "normal": ns, })
+                else:
+                    shader = GPUShader(PCVShaders.vertex_shader_illumination, PCVShaders.fragment_shader_illumination)
+                    batch = batch_for_shader(shader, 'POINTS', {"position": vs, "color": cs, "normal": ns, })
             else:
-                shader = GPUShader(PCVShaders.vertex_shader_simple, PCVShaders.fragment_shader_simple)
-                batch = batch_for_shader(shader, 'POINTS', {"position": vs, "color": cs, })
+                if(use_smoothstep):
+                    shader = GPUShader(PCVShaders.vertex_shader_simple_render_smooth, PCVShaders.fragment_shader_simple_render_smooth)
+                    batch = batch_for_shader(shader, 'POINTS', {"position": vs, "color": cs, })
+                else:
+                    shader = GPUShader(PCVShaders.vertex_shader_simple, PCVShaders.fragment_shader_simple)
+                    batch = batch_for_shader(shader, 'POINTS', {"position": vs, "color": cs, })
             
             shader.bind()
             
@@ -3783,7 +4143,10 @@ class PCV_OT_render(Operator):
             
             shader.uniform_float("perspective_matrix", perspective_matrix)
             shader.uniform_float("object_matrix", o.matrix_world)
-            shader.uniform_float("point_size", pcv.render_point_size)
+            if(pcv.render_supersampling > 1):
+                shader.uniform_float("point_size", pcv.render_point_size * pcv.render_supersampling)
+            else:
+                shader.uniform_float("point_size", pcv.render_point_size)
             shader.uniform_float("alpha_radius", pcv.alpha_radius)
             shader.uniform_float("global_alpha", pcv.global_alpha)
             
@@ -3888,6 +4251,11 @@ class PCV_OT_render(Operator):
         image = bpy.data.images[image_name]
         image.scale(width, height)
         image.pixels = [v / 255 for v in buffer]
+        
+        if(pcv.render_supersampling > 1):
+            width = int(width / pcv.render_supersampling)
+            height = int(height / pcv.render_supersampling)
+            image.scale(width, height)
         
         # save as image file
         def save_render(operator, scene, image, output_path, ):
@@ -4033,6 +4401,7 @@ class PCV_OT_convert(Operator):
         
         g = None
         if(pcv.mesh_type in ('INSTANCER', 'PARTICLES', )):
+            # TODO: if normals are missing or align to normal is not required, make just vertices instead of triangles and use that as source for particles and instances, will be a bit faster
             g = PCMeshInstancerMeshGenerator(mesh_type='TRIANGLE', )
         else:
             g = PCMeshInstancerMeshGenerator(mesh_type=pcv.mesh_type, )
@@ -5443,7 +5812,7 @@ class PCV_OT_filter_boolean_intersect(Operator):
         
         # apply parent matrix to points
         m = c['object'].matrix_world.copy()
-        vs, ns = apply_matrix(vs, ns, m)
+        # vs, ns = apply_matrix(vs, ns, m)
         
         sc = context.scene
         depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -5452,6 +5821,7 @@ class PCV_OT_filter_boolean_intersect(Operator):
         target_mesh = tmp_mesh.copy()
         target_mesh.name = 'target_mesh_{}'.format(pcv.uuid)
         target_mesh.transform(o.matrix_world.copy())
+        target_mesh.transform(m.inverted())
         view_layer = context.view_layer
         collection = view_layer.active_layer_collection.collection
         target = bpy.data.objects.new('target_mesh_{}'.format(pcv.uuid), target_mesh)
@@ -5459,6 +5829,29 @@ class PCV_OT_filter_boolean_intersect(Operator):
         # still no idea, have to read about it..
         depsgraph.update()
         depsgraph = bpy.context.evaluated_depsgraph_get()
+        
+        # use object bounding box for fast check if point can even be inside/outside of mesh and then use ray casting etc..
+        bounds = [bv[:] for bv in target.bound_box]
+        xmin = min([v[0] for v in bounds])
+        xmax = max([v[0] for v in bounds])
+        ymin = min([v[1] for v in bounds])
+        ymax = max([v[1] for v in bounds])
+        zmin = min([v[2] for v in bounds])
+        zmax = max([v[2] for v in bounds])
+        
+        def is_in_bound_box(v):
+            x = False
+            if(xmin < v[0] < xmax):
+                x = True
+            y = False
+            if(ymin < v[1] < ymax):
+                y = True
+            z = False
+            if(zmin < v[2] < zmax):
+                z = True
+            if(x and y and z):
+                return True
+            return False
         
         # v1 raycasting in three axes and counting hits
         def is_point_inside_mesh_v1(p, o, ):
@@ -5540,6 +5933,13 @@ class PCV_OT_filter_boolean_intersect(Operator):
             # if(inside1 and inside2 and inside3):
             #     indexes.append(i)
             '''
+            
+            in_bb = is_in_bound_box(v)
+            if(not in_bb):
+                # is not in bounds i can skip completely
+                indexes.append(i)
+                continue
+            
             inside3 = is_point_inside_mesh_v3(vv, target, )
             if(not inside3):
                 indexes.append(i)
@@ -5631,7 +6031,7 @@ class PCV_OT_filter_boolean_exclude(Operator):
         
         # apply parent matrix to points
         m = c['object'].matrix_world.copy()
-        vs, ns = apply_matrix(vs, ns, m)
+        # vs, ns = apply_matrix(vs, ns, m)
         
         sc = context.scene
         depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -5640,6 +6040,7 @@ class PCV_OT_filter_boolean_exclude(Operator):
         target_mesh = tmp_mesh.copy()
         target_mesh.name = 'target_mesh_{}'.format(pcv.uuid)
         target_mesh.transform(o.matrix_world.copy())
+        target_mesh.transform(m.inverted())
         view_layer = context.view_layer
         collection = view_layer.active_layer_collection.collection
         target = bpy.data.objects.new('target_mesh_{}'.format(pcv.uuid), target_mesh)
@@ -5647,6 +6048,29 @@ class PCV_OT_filter_boolean_exclude(Operator):
         # still no idea, have to read about it..
         depsgraph.update()
         depsgraph = bpy.context.evaluated_depsgraph_get()
+        
+        # use object bounding box for fast check if point can even be inside/outside of mesh and then use ray casting etc..
+        bounds = [bv[:] for bv in target.bound_box]
+        xmin = min([v[0] for v in bounds])
+        xmax = max([v[0] for v in bounds])
+        ymin = min([v[1] for v in bounds])
+        ymax = max([v[1] for v in bounds])
+        zmin = min([v[2] for v in bounds])
+        zmax = max([v[2] for v in bounds])
+        
+        def is_in_bound_box(v):
+            x = False
+            if(xmin < v[0] < xmax):
+                x = True
+            y = False
+            if(ymin < v[1] < ymax):
+                y = True
+            z = False
+            if(zmin < v[2] < zmax):
+                z = True
+            if(x and y and z):
+                return True
+            return False
         
         # v1 raycasting in three axes and counting hits
         def is_point_inside_mesh_v1(p, o, ):
@@ -5721,9 +6145,20 @@ class PCV_OT_filter_boolean_exclude(Operator):
             if(inside1 and inside2 and inside3):
                 indexes.append(i)
             '''
-            inside3 = is_point_inside_mesh_v3(vv, target, )
-            if(inside3):
-                indexes.append(i)
+            
+            in_bb = is_in_bound_box(v)
+            if(in_bb):
+                # indexes.append(i)
+                # continue
+                
+                # is in bound so i can check further
+                inside3 = is_point_inside_mesh_v3(vv, target, )
+                if(inside3):
+                    indexes.append(i)
+            
+            # inside3 = is_point_inside_mesh_v3(vv, target, )
+            # if(inside3):
+            #     indexes.append(i)
         
         c = PCVManager.cache[pcv.uuid]
         vs = c['vertices']
@@ -5837,7 +6272,7 @@ class PCV_OT_sequence_preload(Operator):
             prefix = f[:m.start()]
             suffix = f[m.end():]
         else:
-            operator.report({'ERROR'}, 'Filename does not contain any sequence number')
+            self.report({'ERROR'}, 'Filename does not contain any sequence number')
             return {'CANCELLED'}
         
         sel = []
@@ -5885,12 +6320,12 @@ class PCV_OT_sequence_preload(Operator):
                 try:
                     points = PlyPointCloudReader(p).points
                 except Exception as e:
-                    operator.report({'ERROR'}, str(e))
+                    self.report({'ERROR'}, str(e))
                 if(len(points) == 0):
-                    operator.report({'ERROR'}, "No vertices loaded from file at {}".format(p))
+                    self.report({'ERROR'}, "No vertices loaded from file at {}".format(p))
                 else:
                     if(not set(('x', 'y', 'z')).issubset(points.dtype.names)):
-                        operator.report({'ERROR'}, "Loaded data seems to miss vertex locations.")
+                        self.report({'ERROR'}, "Loaded data seems to miss vertex locations.")
                         return {'CANCELLED'}
                     
                     vs = np.column_stack((points['x'], points['y'], points['z'], ))
@@ -6213,10 +6648,10 @@ class PCV_OT_generate_volume_point_cloud(Operator):
         return {'FINISHED'}
 
 
-class PCV_OT_gamma_correct(Operator):
-    bl_idname = "point_cloud_visualizer.gamma_correct"
-    bl_label = "Apply Gamma Correction"
-    bl_description = "Apply gamma correction"
+class PCV_OT_color_adjustment_shader_reset(Operator):
+    bl_idname = "point_cloud_visualizer.color_adjustment_shader_reset"
+    bl_label = "Reset"
+    bl_description = "Reset color adjustment values"
     
     @classmethod
     def poll(cls, context):
@@ -6229,27 +6664,33 @@ class PCV_OT_gamma_correct(Operator):
             if(v['uuid'] == pcv.uuid):
                 if(v['ready']):
                     if(v['draw']):
-                        ok = True
+                        if(pcv.color_adjustment_shader_enabled):
+                            ok = True
         return ok
     
     def execute(self, context):
         pcv = context.object.point_cloud_visualizer
-        c = PCVManager.cache[pcv.uuid]
-        vs = c['vertices']
-        ns = c['normals']
-        cs = c['colors']
         
-        cs = cs ** (1 / 2.2)
+        pcv.color_adjustment_shader_exposure = 0.0
+        pcv.color_adjustment_shader_gamma = 1.0
+        pcv.color_adjustment_shader_brightness = 0.0
+        pcv.color_adjustment_shader_contrast = 1.0
+        pcv.color_adjustment_shader_hue = 0.0
+        pcv.color_adjustment_shader_saturation = 0.0
+        pcv.color_adjustment_shader_value = 0.0
+        pcv.color_adjustment_shader_invert = False
         
-        PCVManager.update(pcv.uuid, vs, ns, cs, )
+        for area in bpy.context.screen.areas:
+            if(area.type == 'VIEW_3D'):
+                area.tag_redraw()
         
         return {'FINISHED'}
 
 
-class PCV_OT_gamma_uncorrect(Operator):
-    bl_idname = "point_cloud_visualizer.gamma_uncorrect"
-    bl_label = "Unapply Gamma Correction"
-    bl_description = "Unapply gamma correction"
+class PCV_OT_color_adjustment_shader_apply(Operator):
+    bl_idname = "point_cloud_visualizer.color_adjustment_shader_apply"
+    bl_label = "Apply"
+    bl_description = "Apply color adjustments to points, reset and exit"
     
     @classmethod
     def poll(cls, context):
@@ -6262,115 +6703,33 @@ class PCV_OT_gamma_uncorrect(Operator):
             if(v['uuid'] == pcv.uuid):
                 if(v['ready']):
                     if(v['draw']):
-                        ok = True
+                        if(pcv.color_adjustment_shader_enabled):
+                            ok = True
         return ok
     
     def execute(self, context):
         pcv = context.object.point_cloud_visualizer
+        
         c = PCVManager.cache[pcv.uuid]
         vs = c['vertices']
         ns = c['normals']
         cs = c['colors']
         
-        cs = cs ** 2.2
+        cs = cs * (2 ** pcv.color_adjustment_shader_exposure)
+        cs = np.clip(cs, 0.0, 1.0, )
+        cs = cs ** (1 / pcv.color_adjustment_shader_gamma)
+        cs = np.clip(cs, 0.0, 1.0, )
+        cs = (cs - 0.5) * pcv.color_adjustment_shader_contrast + 0.5 + pcv.color_adjustment_shader_brightness
+        cs = np.clip(cs, 0.0, 1.0, )
         
-        PCVManager.update(pcv.uuid, vs, ns, cs, )
-        
-        return {'FINISHED'}
-
-
-class PCV_OT_adjustment_brightness_contrast(Operator):
-    bl_idname = "point_cloud_visualizer.adjustment_brightness_contrast"
-    bl_label = "Brightness / Contrast"
-    bl_description = ""
-    
-    @classmethod
-    def poll(cls, context):
-        if(context.object is None):
-            return False
-        
-        pcv = context.object.point_cloud_visualizer
-        ok = False
-        for k, v in PCVManager.cache.items():
-            if(v['uuid'] == pcv.uuid):
-                if(v['ready']):
-                    if(v['draw']):
-                        ok = True
-        return ok
-    
-    def execute(self, context):
-        pcv = context.object.point_cloud_visualizer
-        c = PCVManager.cache[pcv.uuid]
-        vs = c['vertices']
-        ns = c['normals']
-        cs = c['colors']
-        
-        b = pcv.color_adjustment_brightness
-        c = pcv.color_adjustment_contrast
-        
-        if(b == 0.0 and c == 1.0):
-            return {'CANCELLED'}
-        
-        cs = (cs - 0.5) * c + 0.5 + b
-        
-        PCVManager.update(pcv.uuid, vs, ns, cs, )
-        
-        return {'FINISHED'}
-
-
-class PCV_OT_adjustment_color_hsv(Operator):
-    bl_idname = "point_cloud_visualizer.adjustment_color_hsv"
-    bl_label = "HSV"
-    bl_description = ""
-    
-    @classmethod
-    def poll(cls, context):
-        if(context.object is None):
-            return False
-        
-        pcv = context.object.point_cloud_visualizer
-        ok = False
-        for k, v in PCVManager.cache.items():
-            if(v['uuid'] == pcv.uuid):
-                if(v['ready']):
-                    if(v['draw']):
-                        ok = True
-        return ok
-    
-    def execute(self, context):
-        pcv = context.object.point_cloud_visualizer
-        c = PCVManager.cache[pcv.uuid]
-        vs = c['vertices']
-        ns = c['normals']
-        cs = c['colors']
-        
-        # e = pcv.color_adjustment_exposure
-        # g = pcv.color_adjustment_gamma
-        # b = pcv.color_adjustment_brightness
-        # c = pcv.color_adjustment_contrast
-        h = pcv.color_adjustment_hue
-        s = pcv.color_adjustment_saturation
-        v = pcv.color_adjustment_value
-        # i = pcv.color_adjustment_invert
-        
-        if(h == 0.0 and s == 0.0 and v == 0.0):
-            return {'CANCELLED'}
-        
-        # cs = cs * (2 ** e)
-        # cs = cs * e
-        # cs = cs ** g
-        # cs = (cs - 0.5) * c + 0.5 + b
+        h = pcv.color_adjustment_shader_hue
+        s = pcv.color_adjustment_shader_saturation
+        v = pcv.color_adjustment_shader_value
         if(h > 1.0):
             h = h % 1.0
-        for _i, c in enumerate(cs):
-            col = Color(c[:3])
+        for _i, ca in enumerate(cs):
+            col = Color(ca[:3])
             _h, _s, _v = col.hsv
-            # if(_h + h > 1.0):
-            #     _h = (_h + h) % 1.0
-            # elif(_h + h < 0.0):
-            #     _h = (_h + h) % 1.0
-            # else:
-            #     _h += h
             _h = (_h + h) % 1.0
             _s += s
             _v += v
@@ -6378,41 +6737,17 @@ class PCV_OT_adjustment_color_hsv(Operator):
             cs[_i][0] = col.r
             cs[_i][1] = col.g
             cs[_i][2] = col.b
-        # if(i):
-        #     cs = 1 - cs
+        cs = np.clip(cs, 0.0, 1.0, )
         
-        PCVManager.update(pcv.uuid, vs, ns, cs, )
+        if(pcv.color_adjustment_shader_invert):
+            cs = 1.0 - cs
+        cs = np.clip(cs, 0.0, 1.0, )
         
-        return {'FINISHED'}
-
-
-class PCV_OT_adjustment_invert(Operator):
-    bl_idname = "point_cloud_visualizer.adjustment_invert"
-    bl_label = "Invert"
-    bl_description = ""
-    
-    @classmethod
-    def poll(cls, context):
-        if(context.object is None):
-            return False
+        bpy.ops.point_cloud_visualizer.color_adjustment_shader_reset()
+        pcv.color_adjustment_shader_enabled = False
         
-        pcv = context.object.point_cloud_visualizer
-        ok = False
-        for k, v in PCVManager.cache.items():
-            if(v['uuid'] == pcv.uuid):
-                if(v['ready']):
-                    if(v['draw']):
-                        ok = True
-        return ok
-    
-    def execute(self, context):
-        pcv = context.object.point_cloud_visualizer
-        c = PCVManager.cache[pcv.uuid]
-        vs = c['vertices']
-        ns = c['normals']
-        cs = c['colors']
-        
-        cs = 1.0 - cs
+        if('extra' in c.keys()):
+            del c['extra']
         
         PCVManager.update(pcv.uuid, vs, ns, cs, )
         
@@ -6714,6 +7049,14 @@ class PCV_PT_render(Panel):
         c = sub.column()
         c.prop(pcv, 'render_display_percent')
         c.prop(pcv, 'render_point_size')
+        c.prop(pcv, 'render_supersampling')
+        r = c.row()
+        r.prop(pcv, 'render_smoothstep')
+        ok = False
+        # if(not pcv.illumination and not pcv.override_default_shader):
+        if(not pcv.override_default_shader):
+            ok = True
+        r.enabled = ok
         
         c = sub.column()
         
@@ -7057,6 +7400,51 @@ class PCV_PT_filter_boolean(Panel):
         c.enabled = PCV_OT_filter_merge.poll(context)
 
 
+class PCV_PT_filter_color_adjustment(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "View"
+    bl_label = "Color Adjustment"
+    bl_parent_id = "PCV_PT_filter"
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    @classmethod
+    def poll(cls, context):
+        o = context.active_object
+        if(o is None):
+            return False
+        
+        if(o):
+            pcv = o.point_cloud_visualizer
+            if(pcv.edit_is_edit_mesh):
+                return False
+            if(pcv.edit_initialized):
+                return False
+        return True
+    
+    def draw(self, context):
+        pcv = context.object.point_cloud_visualizer
+        l = self.layout
+        c = l.column()
+        
+        c.prop(pcv, 'color_adjustment_shader_enabled')
+        cc = c.column(align=True)
+        cc.prop(pcv, 'color_adjustment_shader_exposure')
+        cc.prop(pcv, 'color_adjustment_shader_gamma')
+        cc.prop(pcv, 'color_adjustment_shader_brightness')
+        cc.prop(pcv, 'color_adjustment_shader_contrast')
+        cc.prop(pcv, 'color_adjustment_shader_hue')
+        cc.prop(pcv, 'color_adjustment_shader_saturation')
+        cc.prop(pcv, 'color_adjustment_shader_value')
+        cc.prop(pcv, 'color_adjustment_shader_invert')
+        r = cc.row(align=True)
+        r.operator('point_cloud_visualizer.color_adjustment_shader_reset')
+        r.operator('point_cloud_visualizer.color_adjustment_shader_apply')
+        cc.enabled = pcv.color_adjustment_shader_enabled
+        
+        c.enabled = PCV_OT_filter_merge.poll(context)
+
+
 class PCV_PT_edit(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -7183,6 +7571,8 @@ class PCV_PT_sequence(Panel):
         # c.enabled = PCV_OT_sequence_preload.poll(context)
         # c.enabled = pcv.sequence_enabled
         c.operator('point_cloud_visualizer.sequence_clear')
+        
+        l.enabled = not pcv.runtime
 
 
 class PCV_PT_generate(Panel):
@@ -7293,8 +7683,25 @@ class PCV_PT_development(Panel):
         l = self.layout
         sub = l.column()
         
-        sub.label(text="Shaders:")
+        # sub.label(text="Color Adjustment Shader:")
+        # c = sub.column(align=True)
+        # c.prop(pcv, 'color_adjustment_shader_enabled')
+        # cc = c.column(align=True)
+        # cc.prop(pcv, 'color_adjustment_shader_exposure')
+        # cc.prop(pcv, 'color_adjustment_shader_gamma')
+        # cc.prop(pcv, 'color_adjustment_shader_brightness')
+        # cc.prop(pcv, 'color_adjustment_shader_contrast')
+        # cc.prop(pcv, 'color_adjustment_shader_hue')
+        # cc.prop(pcv, 'color_adjustment_shader_saturation')
+        # cc.prop(pcv, 'color_adjustment_shader_value')
+        # cc.prop(pcv, 'color_adjustment_shader_invert')
+        # r = cc.row(align=True)
+        # r.operator('point_cloud_visualizer.color_adjustment_shader_reset')
+        # r.operator('point_cloud_visualizer.color_adjustment_shader_apply')
+        # cc.enabled = pcv.color_adjustment_shader_enabled
+        # sub.separator()
         
+        sub.label(text="Shaders:")
         e = False
         for k, v in PCVManager.cache.items():
             if(v['uuid'] == pcv.uuid):
@@ -7303,128 +7710,18 @@ class PCV_PT_development(Panel):
                         e = True
         
         c = sub.column()
-        '''
-        c.prop(pcv, 'dev_depth_enabled', toggle=True, )
-        if(pcv.dev_depth_enabled):
-            cc = c.column(align=True)
-            cc.prop(pcv, 'dev_depth_brightness')
-            cc.prop(pcv, 'dev_depth_contrast')
-            c.prop(pcv, 'dev_depth_false_colors')
-            r = c.row(align=True)
-            r.prop(pcv, 'dev_depth_color_a', text="", )
-            r.prop(pcv, 'dev_depth_color_b', text="", )
-            r.enabled = pcv.dev_depth_false_colors
-            
-            c = c.column()
-            r = c.row(align=True)
-            r.prop(pcv, 'illumination', toggle=True, )
-            r.prop(pcv, 'illumination_edit', toggle=True, icon_only=True, icon='TOOL_SETTINGS', )
-            if(pcv.illumination_edit):
-                cc = c.column()
-                cc.prop(pcv, 'light_direction', text="", )
-                ccc = cc.column(align=True)
-                ccc.prop(pcv, 'light_intensity')
-                ccc.prop(pcv, 'shadow_intensity')
-        c.enabled = e
-        
-        sub.separator()
-        
-        c = sub.column()
-        c.prop(pcv, 'dev_normal_colors_enabled', toggle=True, )
-        c.enabled = e
-        
-        sub.separator()
-        
-        c = sub.column()
-        c.prop(pcv, 'dev_position_colors_enabled', toggle=True, )
-        c.enabled = e
-        
-        sub.separator()
-        '''
-        c = sub.column()
         c.prop(pcv, 'dev_selection_shader_display', toggle=True, )
         if(pcv.dev_selection_shader_display):
             r = c.row()
             r.prop(pcv, 'dev_selection_shader_color', text="", )
         c.enabled = e
-        
-        # ok = False
-        # for k, v in PCVManager.cache.items():
-        #     if(v['uuid'] == pcv.uuid):
-        #         if(v['ready']):
-        #             if(v['draw']):
-        #                 ok = True
-        # sub.enabled = ok
-        
-        '''
         sub.separator()
         
-        sub.label(text="Point Cloud Generation:")
-        
-        c = sub.column()
-        # c.prop(pcv, 'generate_algorithm')
-        
-        def prop_name(cls, prop, colon=False, ):
-            for p in cls.bl_rna.properties:
-                if(p.identifier == prop):
-                    if(colon):
-                        return "{}:".format(p.name)
-                    return p.name
-            return ''
-        
-        def third_label_two_thirds_prop(cls, prop, uil, ):
-            f = 0.33
-            r = uil.row()
-            s = r.split(factor=f)
-            s.label(text=prop_name(cls, prop, True, ))
-            s = s.split(factor=1.0)
-            r = s.row()
-            r.prop(cls, prop, text='', )
-        
-        third_label_two_thirds_prop(pcv, 'generate_algorithm', c, )
-        
-        c.prop(pcv, 'generate_number_of_points')
-        c.prop(pcv, 'generate_seed')
-        # c.prop(pcv, 'generate_colors')
-        third_label_two_thirds_prop(pcv, 'generate_colors', c, )
-        if(pcv.generate_colors == 'CONSTANT'):
-            r = c.row()
-            r.prop(pcv, 'generate_constant_color')
-        c.prop(pcv, 'generate_exact_number_of_points')
-        c.operator('point_cloud_visualizer.generate_from_mesh')
-        '''
-        
-        sub.separator()
         sub.label(text="Generate Volume:")
         c = sub.column(align=True)
         c.prop(pcv, 'generate_number_of_points')
         c.prop(pcv, 'generate_seed')
         c.operator('point_cloud_visualizer.generate_volume_from_mesh')
-        
-        sub.separator()
-        sub.label(text="Gamma:")
-        c = sub.column(align=True)
-        c.operator('point_cloud_visualizer.gamma_correct')
-        c.operator('point_cloud_visualizer.gamma_uncorrect')
-        
-        sub.separator()
-        sub.label(text="Color Adjustments")
-        # sub.prop(pcv, 'color_adjustment_exposure')
-        # sub.prop(pcv, 'color_adjustment_gamma')
-        c = sub.column(align=True)
-        c.prop(pcv, 'color_adjustment_brightness')
-        c.prop(pcv, 'color_adjustment_contrast')
-        c.operator('point_cloud_visualizer.adjustment_brightness_contrast')
-        c.enabled = PCV_OT_adjustment_brightness_contrast.poll(context)
-        c = sub.column(align=True)
-        c.prop(pcv, 'color_adjustment_hue')
-        c.prop(pcv, 'color_adjustment_saturation')
-        c.prop(pcv, 'color_adjustment_value')
-        c.operator('point_cloud_visualizer.adjustment_color_hsv')
-        c.enabled = PCV_OT_adjustment_color_hsv.poll(context)
-        c = sub.column(align=True)
-        c.operator('point_cloud_visualizer.adjustment_invert')
-        c.enabled = PCV_OT_adjustment_invert.poll(context)
 
 
 class PCV_PT_debug(Panel):
@@ -7561,6 +7858,8 @@ class PCV_properties(PropertyGroup):
     render_resolution_x: IntProperty(name="Resolution X", default=1920, min=4, max=65536, description="Number of horizontal pixels in rendered image", subtype='PIXEL', )
     render_resolution_y: IntProperty(name="Resolution Y", default=1080, min=4, max=65536, description="Number of vertical pixels in rendered image", subtype='PIXEL', )
     render_resolution_percentage: IntProperty(name="Resolution %", default=100, min=1, max=100, description="Percentage scale for render resolution", subtype='PERCENTAGE', )
+    render_smoothstep: BoolProperty(name="Smooth Circles", default=False, description="Currently works only for basic shader with/without illumination and generally is much slower than Supersampling, use only when Supersampling fails", )
+    render_supersampling: IntProperty(name="Supersampling", default=1, soft_min=1, soft_max=4, min=1, max=10, description="Render larger image and then resize back, 1 - disabled, 2 - render 200%, 3 - render 300%, ...", )
     
     def _render_resolution_linked_update(self, context, ):
         if(not self.render_resolution_linked):
@@ -7748,13 +8047,25 @@ class PCV_properties(PropertyGroup):
     dev_selection_shader_display: BoolProperty(name="Selection", default=False, description="", )
     dev_selection_shader_color: FloatVectorProperty(name="Color", description="", default=(1.0, 0.0, 0.0, 0.5), min=0, max=1, subtype='COLOR', size=4, update=_dev_sel_color_update, )
     
-    # color_adjustment_exposure: FloatProperty(name="Exposure", description="", default=0.0, )
-    # color_adjustment_gamma: FloatProperty(name="Gamma", description="", default=1.0, )
-    color_adjustment_brightness: FloatProperty(name="Brightness", description="", default=0.0, min=-1.0, max=1.0, subtype='FACTOR', )
-    color_adjustment_contrast: FloatProperty(name="Contrast", description="", default=1.0, min=0.0, max=2.0, subtype='FACTOR', )
-    color_adjustment_hue: FloatProperty(name="Hue", description="", default=0.0, min=-1.0, max=1.0, subtype='FACTOR', )
-    color_adjustment_saturation: FloatProperty(name="Saturation", description="", default=0.0, min=-1.0, max=1.0, subtype='FACTOR', )
-    color_adjustment_value: FloatProperty(name="Value", description="", default=0.0, min=-1.0, max=1.0, subtype='FACTOR', )
+    def _update_color_adjustment(self, context, ):
+        if(self.color_adjustment_shader_enabled):
+            self.dev_depth_enabled = False
+            self.dev_normal_colors_enabled = False
+            self.dev_position_colors_enabled = False
+            self.illumination = False
+            self.override_default_shader = True
+        else:
+            self.override_default_shader = False
+    
+    color_adjustment_shader_enabled: BoolProperty(name="Enabled", default=False, description="Enable color adjustment shader, other shaders will be overrided until disabled", update=_update_color_adjustment, )
+    color_adjustment_shader_exposure: FloatProperty(name="Exposure", description="formula: color = color * (2 ** value)", default=0.0, min=-5.0, max=5.0, )
+    color_adjustment_shader_gamma: FloatProperty(name="Gamma", description="formula: color = color ** (1 / value)", default=1.0, min=0.01, max=9.99, )
+    color_adjustment_shader_brightness: FloatProperty(name="Brightness", description="formula: color = (color - 0.5) * contrast + 0.5 + brightness", default=0.0, min=-5.0, max=5.0, )
+    color_adjustment_shader_contrast: FloatProperty(name="Contrast", description="formula: color = (color - 0.5) * contrast + 0.5 + brightness", default=1.0, min=0.0, max=10.0, )
+    color_adjustment_shader_hue: FloatProperty(name="Hue", description="formula: color.h = (color.h + (value % 1.0)) % 1.0", default=0.0, min=0.0, max=1.0, )
+    color_adjustment_shader_saturation: FloatProperty(name="Saturation", description="formula: color.s += value", default=0.0, min=-1.0, max=1.0, )
+    color_adjustment_shader_value: FloatProperty(name="Value", description="formula: color.v += value", default=0.0, min=-1.0, max=1.0, )
+    color_adjustment_shader_invert: BoolProperty(name="Invert", description="formula: color = 1.0 - color", default=False, )
     
     debug_panel_show_properties: BoolProperty(default=False, options={'HIDDEN', }, )
     debug_panel_show_cache_items: BoolProperty(default=False, options={'HIDDEN', }, )
@@ -7773,7 +8084,7 @@ def _update_panel_bl_category(self, context):
     # NOTE: maybe generate those from 'classes' tuple, or, just don't forget to append new panel also here..
     _sub_panels = (
         PCV_PT_edit, PCV_PT_filter, PCV_PT_filter_simplify, PCV_PT_filter_project, PCV_PT_filter_boolean, PCV_PT_filter_remove_color,
-        PCV_PT_filter_merge, PCV_PT_render, PCV_PT_convert, PCV_PT_generate, PCV_PT_export, PCV_PT_sequence,
+        PCV_PT_filter_merge, PCV_PT_filter_color_adjustment, PCV_PT_render, PCV_PT_convert, PCV_PT_generate, PCV_PT_export, PCV_PT_sequence,
         PCV_PT_development,
         PCV_PT_debug,
     )
@@ -7863,7 +8174,7 @@ classes = (
     PCV_properties, PCV_preferences,
     
     PCV_PT_panel, PCV_PT_edit,
-    PCV_PT_filter, PCV_PT_filter_simplify, PCV_PT_filter_project, PCV_PT_filter_boolean, PCV_PT_filter_remove_color, PCV_PT_filter_merge,
+    PCV_PT_filter, PCV_PT_filter_simplify, PCV_PT_filter_project, PCV_PT_filter_boolean, PCV_PT_filter_remove_color, PCV_PT_filter_merge, PCV_PT_filter_color_adjustment,
     PCV_PT_render, PCV_PT_convert, PCV_PT_generate, PCV_PT_export, PCV_PT_sequence,
     
     PCV_OT_load, PCV_OT_draw, PCV_OT_erase, PCV_OT_render, PCV_OT_render_animation, PCV_OT_convert, PCV_OT_reload, PCV_OT_export,
@@ -7871,10 +8182,11 @@ classes = (
     PCV_OT_filter_project, PCV_OT_filter_merge, PCV_OT_filter_boolean_intersect, PCV_OT_filter_boolean_exclude,
     PCV_OT_edit_start, PCV_OT_edit_update, PCV_OT_edit_end, PCV_OT_edit_cancel,
     PCV_OT_sequence_preload, PCV_OT_sequence_clear, PCV_OT_generate_point_cloud, PCV_OT_reset_runtime,
+    PCV_OT_color_adjustment_shader_reset, PCV_OT_color_adjustment_shader_apply,
     
-    PCV_OT_generate_volume_point_cloud,
-    PCV_OT_gamma_correct, PCV_OT_gamma_uncorrect, PCV_OT_adjustment_brightness_contrast, PCV_OT_adjustment_color_hsv, PCV_OT_adjustment_invert,
     PCV_PT_development,
+    PCV_OT_generate_volume_point_cloud,
+    
     PCV_PT_debug, PCV_OT_init, PCV_OT_deinit, PCV_OT_gc, PCV_OT_seq_init, PCV_OT_seq_deinit,
 )
 

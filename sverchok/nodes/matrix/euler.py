@@ -24,7 +24,7 @@ from bpy.props import EnumProperty, FloatProperty
 from mathutils import Matrix, Euler
 
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (updateNode, Matrix_listing, match_long_repeat)
+from sverchok.data_structure import (updateNode, match_long_repeat)
 
 
 class SvMatrixEulerNode(bpy.types.Node, SverchCustomTreeNode):
@@ -55,10 +55,10 @@ class SvMatrixEulerNode(bpy.types.Node, SverchCustomTreeNode):
         default="XYZ", items=orders, update=change_prop)
 
     def sv_init(self, context):
-        self.inputs.new('StringsSocket', "pos0").prop_name = 'X'
-        self.inputs.new('StringsSocket', "pos1").prop_name = 'Y'
-        self.inputs.new('StringsSocket', "pos1").prop_name = 'Z'
-        self.outputs.new('MatrixSocket', "Matrix")
+        self.inputs.new('SvStringsSocket', "pos0").prop_name = 'X'
+        self.inputs.new('SvStringsSocket', "pos1").prop_name = 'Y'
+        self.inputs.new('SvStringsSocket', "pos1").prop_name = 'Z'
+        self.outputs.new('SvMatrixSocket', "Matrix")
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "order", text="Order:")

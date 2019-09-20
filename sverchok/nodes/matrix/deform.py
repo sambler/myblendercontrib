@@ -18,8 +18,7 @@
 
 import bpy
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (Vector_generate, matrixdef, Matrix_listing,
-                            Matrix_generate, updateNode)
+from sverchok.data_structure import (Vector_generate, matrixdef, updateNode)
 
 
 class MatrixDeformNode(bpy.types.Node, SverchCustomTreeNode):
@@ -29,19 +28,19 @@ class MatrixDeformNode(bpy.types.Node, SverchCustomTreeNode):
     bl_icon = 'OUTLINER_OB_EMPTY'
 
     def sv_init(self, context):
-        self.inputs.new('MatrixSocket', "Original")
-        self.inputs.new('VerticesSocket', "Location")
-        self.inputs.new('VerticesSocket', "Scale")
-        self.inputs.new('VerticesSocket', "Rotation")
-        self.inputs.new('StringsSocket', "Angle")
-        self.outputs.new('MatrixSocket', "Matrix")
+        self.inputs.new('SvMatrixSocket', "Original")
+        self.inputs.new('SvVerticesSocket', "Location")
+        self.inputs.new('SvVerticesSocket', "Scale")
+        self.inputs.new('SvVerticesSocket', "Rotation")
+        self.inputs.new('SvStringsSocket', "Angle")
+        self.outputs.new('SvMatrixSocket', "Matrix")
 
     def process(self):
         O,L,S,R,A = self.inputs
         Om = self.outputs[0]
         if Om.is_linked:
             orig = O.sv_get()
-            
+
             if L.is_linked:
                 loc = Vector_generate(L.sv_get())
             else:
@@ -58,7 +57,7 @@ class MatrixDeformNode(bpy.types.Node, SverchCustomTreeNode):
             rotA, angle = [[]], [[0.0]]
             # ability to add vector & vector difference instead of only rotation values
             if A.is_linked:
-                if A.links[0].from_socket.bl_idname == 'VerticesSocket':
+                if A.links[0].from_socket.bl_idname == 'SvVerticesSocket':
                     rotA = Vector_generate(A.sv_get())
                     angle = [[]]
                 else:

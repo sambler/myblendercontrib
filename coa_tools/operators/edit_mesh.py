@@ -35,6 +35,7 @@ import traceback
 import gpu
 from gpu_extras.batch import batch_for_shader
 from .. import constants as CONSTANTS
+import pdb
 
 
 ######################################################################################################################################### Grid Fill
@@ -693,7 +694,6 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                         self.new_added_edges.append(new_edge)
                     bm.select_history = [new_vert]
                     new_vert.select = True
-                    self.first_added_vert = Vector(new_vert.co)
                     self.selected_vert_coord = obj_matrix @ new_vert.co
                     try:
                         pass
@@ -710,7 +710,6 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                     
         else:
             new_vert = bm.verts.new(obj_matrix.inverted() @ snapped_pos)
-            self.first_added_vert = Vector(new_vert.co)
                 
             bmesh.update_edit_mesh(obj.data)
             
@@ -917,6 +916,8 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         return 'PASS_THROUGH'
 
     def modal(self, context, event):
+        if context.active_object.active_shape_key_index != 0:
+            context.active_object.active_shape_key_index = 0
         if self.suspend_area_fullscreen(context, event) == "SUSPEND":
             return {'RUNNING_MODAL'}
 
@@ -961,7 +962,6 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                 return {'PASS_THROUGH'}
             
             if self.in_view_3d and context.active_object != None and self.type not in ["MIDDLEMOUSE"] and self.sprite_object.coa_tools.edit_mesh and click_button not in [select_button]:
-        
                 ### set click drag    
                 if self.type == click_button:
                     self.click_drag = True
@@ -1034,7 +1034,8 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                     return{'RUNNING_MODAL'}
                     
                 if (event.value == 'RELEASE' and event.type == 'MOUSEMOVE'):
-                    self.mouse_press = False    
+                    self.mouse_press = False
+
                 
                 
                 self.cur_distance = (self.mouse_pos_3d - self.cursor_pos_hist).magnitude
@@ -1072,16 +1073,6 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
                     self.selected_vert_coord = None
                     self.contour_length = 0
                     self.delete_geometry(context,bm,self.mouse_pos_3d)
-                if self.contour_length == 1 and self.type in ["ESC"]:
-                    bm = bmesh.from_edit_mesh(context.active_object.data)
-                    if self.first_added_vert != None:
-                        for vert in bm.verts:
-                            if vert.co == self.first_added_vert:
-                                self.first_added_vert = None
-                                bmesh.ops.dissolve_verts(bm,verts=[vert])
-                                bmesh.update_edit_mesh(obj.data)
-                                break
-                
                 ### pick edge length
                 if self.shift and self.point_type == "EDGE":
                     bpy.context.window.cursor_set("EYEDROPPER")
@@ -1149,6 +1140,11 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         if context.active_object != None:
             bpy.ops.object.mode_set(mode="EDIT")
         if self.mode == "DRAW_BONE_SHAPE":
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
+            bpy.ops.mesh.normals_make_consistent()
+            bpy.ops.mesh.select_all(action='DESELECT')
+
             self.set_bone_shape_color_and_wireframe(context,self.bone_shape)
 
         bpy.context.window.cursor_set("CROSSHAIR")
@@ -1354,6 +1350,7 @@ class COATOOLS_OT_DrawContour(bpy.types.Operator):
         wm = context.window_manager
         
         if self.mode == "EDIT_MESH":
+            self.texture_preview_object.select_set(True)
             functions.set_local_view(True)
             self.texture_preview_object.select_set(False)
         self.prev_coa_view = str(context.scene.coa_tools.view)

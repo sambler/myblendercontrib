@@ -23,8 +23,7 @@ from mathutils import Matrix
 from functools import reduce
 
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (updateNode, match_long_repeat,
-                                     Matrix_listing, Matrix_generate)
+from sverchok.data_structure import (updateNode, match_long_repeat)
 
 operationItems = [
     ("MULTIPLY", "Multiply", "Multiply two matrices", 0),
@@ -79,13 +78,13 @@ class SvMatrixMathNode(bpy.types.Node, SverchCustomTreeNode):
         default=False, update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new('MatrixSocket', "A")
-        self.inputs.new('MatrixSocket', "B")
+        self.inputs.new('SvMatrixSocket', "A")
+        self.inputs.new('SvMatrixSocket', "B")
 
-        self.outputs.new('MatrixSocket', "C")
-        self.outputs.new('VerticesSocket', "X")
-        self.outputs.new('VerticesSocket', "Y")
-        self.outputs.new('VerticesSocket', "Z")
+        self.outputs.new('SvMatrixSocket', "C")
+        self.outputs.new('SvVerticesSocket', "X")
+        self.outputs.new('SvVerticesSocket', "Y")
+        self.outputs.new('SvVerticesSocket', "Z")
 
         self.operation = "MULTIPLY"
 
@@ -95,7 +94,7 @@ class SvMatrixMathNode(bpy.types.Node, SverchCustomTreeNode):
         if self.operation in {"MULTIPLY"}:  # multiple input operations
             if len(inputs) < 2:  # at least two matrix inputs are available
                 if not "B" in inputs:
-                    inputs.new("MatrixSocket", "B")
+                    inputs.new("SvMatrixSocket", "B")
         else:  # single input operations (remove all inputs except the first one)
             ss = [s for s in inputs]
             for s in ss:
@@ -107,7 +106,7 @@ class SvMatrixMathNode(bpy.types.Node, SverchCustomTreeNode):
         if self.operation == "BASIS":
             for name in list("XYZ"):
                 if name not in outputs:
-                    outputs.new("VerticesSocket", name)
+                    outputs.new("SvVerticesSocket", name)
         else:  # remove basis output sockets for all other operations
             for name in list("XYZ"):
                 if name in outputs:
@@ -177,7 +176,7 @@ class SvMatrixMathNode(bpy.types.Node, SverchCustomTreeNode):
         inputs = self.inputs
         if inputs[-1].links:
             name = ABC[len(inputs)]  # pick the next letter A to Z
-            inputs.new("MatrixSocket", name)
+            inputs.new("SvMatrixSocket", name)
         else:  # last input disconnected ? => remove all but last unconnected extra inputs
             while len(inputs) > 2 and not inputs[-2].links:
                 inputs.remove(inputs[-1])

@@ -19,7 +19,6 @@
 from sverchok.data_structure import get_other_socket
 
 from mathutils import Matrix, Quaternion
-from sverchok.data_structure import Matrix_listing, Matrix_generate
 
 
 # conversion tests, to be used in sv_get!
@@ -27,7 +26,7 @@ from sverchok.data_structure import Matrix_listing, Matrix_generate
 def cross_test_socket(self, A, B):
     """ A is origin type, B is destination type """
     other = get_other_socket(self)
-    get_type = {'v': 'VerticesSocket', 'm': 'MatrixSocket', 'q': "SvQuaternionSocket"}
+    get_type = {'v': 'SvVerticesSocket', 'm': 'SvMatrixSocket', 'q': "SvQuaternionSocket"}
     return other.bl_idname == get_type[A] and self.bl_idname == get_type[B]
 
 
@@ -179,7 +178,7 @@ class DefaultImplicitConversionPolicy(NoImplicitConversionPolicy):
         Return collection of bl_idnames of socket classes
         that are allowed to consume arbitrary data type.
         """
-        return ['StringsSocket', 'SvObjectSocket', 'SvColorSocket', 'VerticesSocket']
+        return ['SvStringsSocket', 'SvObjectSocket', 'SvColorSocket', 'SvVerticesSocket']
 
     @classmethod
     def vectors_to_matrices(cls, socket, source_data):
@@ -188,7 +187,7 @@ class DefaultImplicitConversionPolicy(NoImplicitConversionPolicy):
         out = get_matrices_from_locs(source_data)
         socket.num_matrices = len(out)
         return out
-    
+
     @classmethod
     def matrices_to_vectors(cls, socket, source_data):
         return get_locs_from_matrices(source_data)
@@ -202,4 +201,3 @@ class DefaultImplicitConversionPolicy(NoImplicitConversionPolicy):
     @classmethod
     def matrices_to_quaternions(cls, socket, source_data):
         return get_quaternions_from_matrices(source_data)
-

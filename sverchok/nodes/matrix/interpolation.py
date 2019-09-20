@@ -20,12 +20,11 @@ import bpy
 from mathutils import Matrix
 
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (updateNode, fullList,
-                                     Matrix_listing, Matrix_generate)
+from sverchok.data_structure import (updateNode, fullList)
 
 
 # Matrix are assumed to be in format
-# [M1 M2 Mn ...] per Matrix_generate and Matrix_listing
+# [M1 M2 Mn ...] per Matrix
 # Instead of empty matrix input identity matrix is used.
 # So only one matrix input is needed for useful result
 # Factor a list of value float values between 0.0 and 1.0,
@@ -41,10 +40,10 @@ class MatrixInterpolationNode(bpy.types.Node, SverchCustomTreeNode):
         name='Factor', description='Interpolation', default=0.5, min=0.0, max=1.0, update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new('StringsSocket', "Factor").prop_name = 'factor_'
-        self.inputs.new('MatrixSocket', "A")
-        self.inputs.new('MatrixSocket', "B")
-        self.outputs.new('MatrixSocket', "C")
+        self.inputs.new('SvStringsSocket', "Factor").prop_name = 'factor_'
+        self.inputs.new('SvMatrixSocket', "A")
+        self.inputs.new('SvMatrixSocket', "B")
+        self.outputs.new('SvMatrixSocket', "C")
 
     def process(self):
         # inputs

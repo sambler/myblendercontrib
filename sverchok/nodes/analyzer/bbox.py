@@ -22,7 +22,7 @@ import bpy
 from mathutils import Matrix
 
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import (dataCorrect, Matrix_listing)
+from sverchok.data_structure import dataCorrect
 
 
 class SvBBoxNode(bpy.types.Node, SverchCustomTreeNode):
@@ -32,12 +32,12 @@ class SvBBoxNode(bpy.types.Node, SverchCustomTreeNode):
     bl_icon = 'NONE'
 
     def sv_init(self, context):
-        self.inputs.new('VerticesSocket', 'Vertices')
+        self.inputs.new('SvVerticesSocket', 'Vertices')
 
-        self.outputs.new('VerticesSocket', 'Vertices')
-        self.outputs.new('StringsSocket', 'Edges')
-        self.outputs.new('VerticesSocket', 'Mean')
-        self.outputs.new('MatrixSocket', 'Center')
+        self.outputs.new('SvVerticesSocket', 'Vertices')
+        self.outputs.new('SvStringsSocket', 'Edges')
+        self.outputs.new('SvVerticesSocket', 'Mean')
+        self.outputs.new('SvMatrixSocket', 'Center')
 
     def process(self):
         if not self.inputs['Vertices'].is_linked:
@@ -70,7 +70,7 @@ class SvBBoxNode(bpy.types.Node, SverchCustomTreeNode):
                 if has_mat_out:
                     center = [(u+v)*.5 for u, v in maxmin]
                     mat = Matrix.Translation(center)
-                    scale = [(u-v)*.5 for u, v in maxmin]
+                    scale = [(u-v) for u, v in maxmin]
                     for i, s in enumerate(scale):
                         mat[i][i] = s
                     mat_out.append(mat)
@@ -89,7 +89,7 @@ class SvBBoxNode(bpy.types.Node, SverchCustomTreeNode):
                 self.outputs['Mean'].sv_set(mean_out)
 
             if self.outputs['Center'].is_linked:
-                self.outputs['Center'].sv_set(Matrix_listing(mat_out))
+                self.outputs['Center'].sv_set(mat_out)
 
 
 

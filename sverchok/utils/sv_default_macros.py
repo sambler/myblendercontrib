@@ -26,24 +26,24 @@ from sverchok.utils.sv_update_utils import sv_get_local_path
 
 macros = {
     "> obj vd": {
-        'display_name': "active_obj into objlite + vdmk2", 
-        'file': 'macro', 
+        'display_name': "active_obj into objlite + vdmk2",
+        'file': 'macro',
         'ident': ['verbose_macro_handler', 'obj vd']},
     "> objs vd": {
         'display_name': "multi obj in + vdmk2",
-        'file': 'macro', 
+        'file': 'macro',
         'ident': ['verbose_macro_handler', 'objs vd']},
     "> zen": {
         'display_name': "zen of Sverchok",
-        'file': 'macro', 
+        'file': 'macro',
         'ident': ['verbose_macro_handler', 'zen']},
     "> sn petal": {
         'display_name': "load snlite w/ petalsine",
-        'file': 'macro', 
+        'file': 'macro',
         'ident': ['verbose_macro_handler', 'sn petal']},
     "> monad info": {
         'display_name': "output current idx / total",
-        'file': 'macro', 
+        'file': 'macro',
         'ident': ['verbose_macro_handler', 'monad info']},
     "> multiply *": {
         'display_name': "multiply selected nodes",
@@ -75,7 +75,7 @@ macros = {
         'ident': ['verbose_macro_handler', 'join13']},
     "> gp +": {
         'display_name': "grease pencil setup",
-        'file': 'macro', 
+        'file': 'macro',
         'ident': ['verbose_macro_handler', 'gp +']}
 }
 
@@ -88,7 +88,7 @@ def sn_loader(snlite, script_name=None):
     sv_path = os.path.dirname(sv_get_local_path()[0])
     snlite_template_path = os.path.join(sv_path, 'node_scripts', 'SNLite_templates')
     fullpath = os.path.join(snlite_template_path, script_name)
-    
+
     txt = bpy.data.texts.load(fullpath)
     snlite.script_name = os.path.basename(txt.name)
     snlite.load()
@@ -128,7 +128,7 @@ class DefaultMacros():
             ng = bpy.data.node_groups.new(**ng_params)
             ng.use_fake_user = True
             context.space_data.node_tree = ng
-            operator.report({"WARNING"}, msg_two)        
+            operator.report({"WARNING"}, msg_two)
 
     @classmethod
     def verbose_macro_handler(cls, operator, context, term):
@@ -141,22 +141,22 @@ class DefaultMacros():
         if term == 'obj vd':
             obj_in_node = nodes.new('SvObjInLite')
             obj_in_node.dget()
-            vd_node = nodes.new('ViewerNode2')
+            vd_node = nodes.new('SvVDExperimental')
             vd_node.location = obj_in_node.location.x + 180, obj_in_node.location.y
-            
+
             links.new(obj_in_node.outputs[0], vd_node.inputs[0])
-            links.new(obj_in_node.outputs[2], vd_node.inputs[1])
-            links.new(obj_in_node.outputs[3], vd_node.inputs[2])
+            links.new(obj_in_node.outputs[2], vd_node.inputs[2])
+            links.new(obj_in_node.outputs[3], vd_node.inputs[3])
 
         elif term == 'objs vd':
             obj_in_node = nodes.new('SvObjectsNodeMK3')
             obj_in_node.get_objects_from_scene(operator)
-            vd_node = nodes.new('ViewerNode2')
+            vd_node = nodes.new('SvVDExperimental')
             vd_node.location = obj_in_node.location.x + 180, obj_in_node.location.y
-            
+
             links.new(obj_in_node.outputs[0], vd_node.inputs[0])
-            links.new(obj_in_node.outputs[2], vd_node.inputs[1])
-            links.new(obj_in_node.outputs[3], vd_node.inputs[2])            
+            links.new(obj_in_node.outputs[2], vd_node.inputs[2])
+            links.new(obj_in_node.outputs[3], vd_node.inputs[3])
 
         elif term == 'zen':
             full_url_term = 'https://blenderpython.tumblr.com/post/91951323209/zen-of-sverchok'
@@ -198,7 +198,7 @@ class DefaultMacros():
                     if len(node.outputs) > n:
                         links.new(node.outputs[n], join_nodes[j].inputs[i])
 
-            if all(node.outputs[0].bl_idname == "VerticesSocket" for node in sorted_nodes):
+            if all(node.outputs[0].bl_idname == "SvVerticesSocket" for node in sorted_nodes):
                 viewer_node = nodes.new("SvVDExperimental")
                 viewer_node.location = join_nodes[0].location.x + join_nodes[0].width + 100, maxy
 
@@ -221,29 +221,29 @@ class DefaultMacros():
             # find out which sockets to connect
             operator = term.replace("math", "")
             sorted_nodes = sorted(selected_nodes, key=lambda n: n.location.y, reverse=True)
-            is_vector = all(node.outputs[0].bl_idname == "VerticesSocket" for node in sorted_nodes)
+            is_vector = all(node.outputs[0].bl_idname == "SvVerticesSocket" for node in sorted_nodes)
             if operator == 'MUL':
                 if is_vector:
-                    math_node = nodes.new('SvVectorMathNodeMK2')
+                    math_node = nodes.new('SvScalarMathNodeMK3')
                     math_node.current_op = 'CROSS'
                 else:
-                    if (sorted_nodes[0].outputs[0].bl_idname == "VerticesSocket"):
-                        math_node = nodes.new('SvVectorMathNodeMK2')
+                    if (sorted_nodes[0].outputs[0].bl_idname == "SvVerticesSocket"):
+                        math_node = nodes.new('SvScalarMathNodeMK3')
                         math_node.current_op = 'SCALAR'
-                    elif (sorted_nodes[1].outputs[0].bl_idname == "VerticesSocket"):
-                        math_node = nodes.new('SvVectorMathNodeMK2')
+                    elif (sorted_nodes[1].outputs[0].bl_idname == "SvVerticesSocket"):
+                        math_node = nodes.new('SvScalarMathNodeMK3')
                         math_node.current_op = 'SCALAR'
                         sorted_nodes =[sorted_nodes[1],sorted_nodes[0]]
                     else:
-                        math_node = nodes.new('SvScalarMathNodeMK2')
+                        math_node = nodes.new('SvScalarMathNodeMK3')
                         math_node.location = maxx + 100, maxy
                         math_node.current_op = operator
             else:
                 if is_vector:
-                    math_node = nodes.new('SvVectorMathNodeMK2')
+                    math_node = nodes.new('SvScalarMathNodeMK3')
                     math_node.current_op = operator
                 else:
-                    math_node = nodes.new('SvScalarMathNodeMK2')
+                    math_node = nodes.new('SvScalarMathNodeMK3')
                     math_node.current_op = operator
 
             math_node.location = maxx + 100, maxy
@@ -263,14 +263,14 @@ class DefaultMacros():
             needed_nodes = [
                 ['SvGetAssetProperties', (0.00, 0.00)],
                 ['SvScriptNodeLite', (250, 55)],
-                ['SvScalarMathNodeMK2', (430, 115)],
+                ['SvScalarMathNodeMK3', (430, 115)],
                 ['Float2IntNode', (600, 50)],
                 ['SvGenFloatRange', (720, 90)],
                 ['SvInterpolationNodeMK3', (880, 40)],
                 ['LineConnectNodeMK2', (1060, -40)],
-                ['ViewerNode2', (1245, 50)],
+                ['SvVDExperimental', (1245, 50)],
             ]
-      
+
             made_nodes = []
             x, y = context.space_data.cursor_location[:]
             for node_bl_idname, node_location in needed_nodes:
@@ -283,7 +283,7 @@ class DefaultMacros():
             sn_loader(snlite, script_name='path_length.py')
 
             # ID Selector
-            made_nodes[0].Mode = 'grease_pencil'  # the rest must be user driven
+            made_nodes[0].Mode = 'grease_pencils'  # the rest must be user driven
             links.new(made_nodes[0].outputs[0], made_nodes[1].inputs[0])
 
             # Scalar Math node

@@ -50,11 +50,25 @@ def find_projected_arc_center(p1, p2, b, radius=0.5):
         #  Vector.angle(other): zero length vectors have no valid angle
         return None
 
-    sideA = radius
-    sideB = sideA / tan(angleA)
-    sideC = sideA / sin(angleA)
+    # slightly undefined input handled ugly-er
+    try:
+        sideA = radius
+        sideB = sideA / tan(angleA)
+        sideC = sideA / sin(angleA)
+    except Exception as e:
+        print(e)
+        print("no idea why this input happens.. show me a shorter version of your input mesh")
+        return None
 
-    ratio = (sideC - radius) / focal_length
+    try:
+        ratio = (sideC - radius) / focal_length
+    except Exception as e:
+        print(e)
+        print("smoothlines encountered two colinear lines, no arc to generate")
+        # this will be interpretted as a no-op
+        # potentially here you could return something like  [lerp(A,B, "radius"), B, lerp(C, B, "radius")]
+        return None
+
     mid = b.lerp(focal, ratio)[:]
     
     ab_rate = sideB / (a-b).length
@@ -163,11 +177,11 @@ class SvSmoothLines(bpy.types.Node, SverchCustomTreeNode):
     weights: FloatProperty(default=0.0, name="weights", min=0.0, update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new("VerticesSocket", "vectors")
-        self.inputs.new("StringsSocket", "weights").prop_name = "weights"
-        self.inputs.new("StringsSocket", "attributes")
-        self.outputs.new("VerticesSocket", "verts")
-        self.outputs.new("StringsSocket", "edges")
+        self.inputs.new("SvVerticesSocket", "vectors")
+        self.inputs.new("SvStringsSocket", "weights").prop_name = "weights"
+        self.inputs.new("SvStringsSocket", "attributes")
+        self.outputs.new("SvVerticesSocket", "verts")
+        self.outputs.new("SvStringsSocket", "edges")
 
     def draw_buttons(self, context, layout):
 

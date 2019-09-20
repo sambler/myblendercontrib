@@ -122,7 +122,7 @@ class COAToolsPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "show_donate_icon")
+        # layout.prop(self, "show_donate_icon")
         layout.prop(self, "sprite_import_export_scale")
 
         addon_updater_ops.update_settings_ui(self, context)
@@ -148,6 +148,7 @@ classes = (
 
     #operator
     create_sprite_object.COATOOLS_OT_CreateSpriteObject,
+    create_sprite_object.COATOOLS_OT_DefineSpriteObject,
     import_sprites.JsonImportData,
     import_sprites.COATOOLS_OT_CreateMaterialGroup,
     import_sprites.COATOOLS_OT_ImportSprite,
@@ -226,6 +227,7 @@ classes = (
     version_converter.COATOOLS_OT_VersionConverter,
 
     change_alpha_mode.COATOOLS_OT_ChangeAlphaMode,
+    change_alpha_mode.COATOOLS_OT_ChangeTextureInterpolationMode,
 
     # exporter
     export_dragonbones.COATOOLS_OT_DragonBonesExport,

@@ -30,7 +30,10 @@ from sverchok.utils.sv_batch_primitives import MatrixDraw28
 from sverchok.data_structure import node_id, updateNode
 from sverchok.node_tree import SverchCustomTreeNode
 
-smooth_2d_shader = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
+if not bpy.app.background:
+    smooth_2d_shader = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
+else:
+    smooth_2d_shader = None
 
 def screen_v3d_batch_matrix(context, args):
     cdat, simple, plane, grid = args
@@ -111,7 +114,7 @@ class SvMatrixViewer28(bpy.types.Node, SverchCustomTreeNode):
     show_options: BoolProperty(name='options', update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new('MatrixSocket', 'Matrix')
+        self.inputs.new('SvMatrixSocket', 'Matrix')
 
     def draw_buttons(self, context, layout):
         col = layout.column(align=True)

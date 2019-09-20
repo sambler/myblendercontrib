@@ -136,6 +136,11 @@ class COATOOLS_OT_CreateMaterialGroup(bpy.types.Operator):
         group_tree.links.new(alpha_node.outputs[0], principled_node.inputs["Alpha"])
         group_tree.links.new(principled_node.outputs["BSDF"], output_node.inputs["BSDF"])
 
+        # setup principled node
+        principled_node.inputs["Specular"].default_value = 0
+        principled_node.inputs["Roughness"].default_value = 0
+        principled_node.inputs["Clearcoat Roughness"].default_value = 0
+
         # position nodes
         input_node.location = [0, 0]
         modulate_node.location = [180, 0]
@@ -512,9 +517,10 @@ class COATOOLS_OT_ReImportSprite(bpy.types.Operator, ImportHelper):
                 obj = bpy.data.objects[self.name]
                 bpy.context.scene.view_layers[0].objects.active = obj
             mat = obj.active_material
-            for node in mat.node_tree.nodes:
-                if node.label == "COA Material":
-                    node.inputs["Texture Color"].links[0].from_node.image = img
+            if mat.node_tree != None:
+                for node in mat.node_tree.nodes:
+                    if node.label == "COA Material":
+                        node.inputs["Texture Color"].links[0].from_node.image = img
 
             img_dimension = img.size
             

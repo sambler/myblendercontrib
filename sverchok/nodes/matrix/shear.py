@@ -21,7 +21,7 @@ from bpy.props import EnumProperty, FloatProperty
 from mathutils import Matrix
 
 from sverchok.node_tree import SverchCustomTreeNode
-from sverchok.data_structure import updateNode, fullList, Matrix_listing
+from sverchok.data_structure import updateNode, fullList
 
 
 class MatrixShearNode(bpy.types.Node, SverchCustomTreeNode):
@@ -44,9 +44,9 @@ class MatrixShearNode(bpy.types.Node, SverchCustomTreeNode):
         name="Plane", description="Function choice", default="XY", items=mode_items, update=updateNode)
 
     def sv_init(self, context):
-        self.inputs.new('StringsSocket', "Factor1").prop_name = 'factor1_'
-        self.inputs.new('StringsSocket', "Factor2").prop_name = 'factor2_'
-        self.outputs.new('MatrixSocket', "Matrix")
+        self.inputs.new('SvStringsSocket', "Factor1").prop_name = 'factor1_'
+        self.inputs.new('SvStringsSocket', "Factor2").prop_name = 'factor2_'
+        self.outputs.new('SvMatrixSocket', "Matrix")
 
     def draw_buttons(self, context, layout):
         layout.prop(self, "plane_", text="Shear plane:", expand=True)
