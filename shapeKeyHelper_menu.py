@@ -6,7 +6,7 @@ bl_info = {
     "description": "Adds three operators: 'Split Shapekeys', 'Apply Modifiers and Keep Shapekeys' and 'Apply Selected Shapekey as Basis'",
     "warning": "",
     "wiki_url": "https://blenderartists.org/t/addon-shapekey-helpers/1131849",
-    "category": "'Mesh",
+    "category": "Mesh",
 }
 
 import bpy
