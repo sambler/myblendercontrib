@@ -6,7 +6,7 @@ bl_info = {
     "author": "Nicolas Priniotakis (Nikos)",
     "version": (1, 3, 2, 0),
     "blender": (2, 80, 0),
-    "category": "Material",
+    "category": "Lighting",
     "location": "Properties > World",
     "description": "Easy setup for HDRI global lightings",
     "warning": "",
@@ -479,6 +479,7 @@ class LIGHT_PT_hdri_map(bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "world"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         global adjustments, img_path
