@@ -85,9 +85,10 @@ class VTOOLS_PT_GolfRoyaleTools(bpy.types.Panel):
         opDN.UP = False
         
         col = layout.column(align=True)
+        col.operator(gameField.VTOOLS_OP_resetFieldGolf.bl_idname, text="Reset Base Field",icon='REMOVE')
+        
         col.prop(context.scene,"ct_numPieces", text="X Chunk Count")
         col.operator(gameField.VTOOLS_OP_fielGenerate.bl_idname, text="Generate Base",icon='ADD')
-        col.operator(gameField.VTOOLS_OP_resetFieldGolf.bl_idname, text="Reset Base Field",icon='REMOVE')
         
         layout.label(text = "In Game Field:")
         col = layout.column(align=False)
@@ -104,7 +105,21 @@ class VTOOLS_PT_GolfRoyaleTools(bpy.types.Panel):
         layout.separator()
         layout.label(text = "Export setup:")
         col = layout.column()
-        col.operator(utils.VTOOLS_OP_ApplyFieldModifiers.bl_idname, text="Duplicate and Apply Modifiers",icon='MODIFIER')
+        col.operator(utils.VTOOLS_OP_ApplyFieldModifiers.bl_idname, text="Convert to Editable Mesh",icon='MODIFIER')
+        
+        col = layout.column(align=True)
+        col.prop(bpy.context.scene, "ct_fieldNormalTarget")
+        col.operator(utils.VTOOLS_OP_AddEditNormal.bl_idname, text="Set Normal Border Target",icon='MOD_NORMALEDIT')
+        
+        layout.separator()
+        
+        col = layout.column(align=True)
+        col.label(text="Chunk Field")
+        col.prop(bpy.context.scene, "ct_fieldToExport", text="")
+        col.operator(gameField.VTOOLS_OP_chunkFieldGolf.bl_idname, text="Chunk Field",icon='MOD_BOOLEAN')
+        
+        
+        
         
         
 # -- REGISTRATION -- #        
@@ -117,6 +132,7 @@ def register():
     bpy.utils.register_class(VTOOLS_PT_GolfRoyaleTools)
     #PROP
     bpy.types.Scene.ct_fieldBaseHP = bpy.props.PointerProperty(name="Base Mesh", type=bpy.types.Object)
+    bpy.types.Scene.ct_fieldNormalTarget = bpy.props.PointerProperty(name="", type=bpy.types.Object)
     
     
     #submodules
@@ -131,6 +147,7 @@ def unregister():
     
     #PROP
     del bpy.types.Scene.ct_fieldBaseHP
+    del bpy.types.Scene.ct_fieldNormalTarget
        
     #submodules
     for mod in modules:

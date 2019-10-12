@@ -18,6 +18,22 @@ def moveObjectToCollection(pObj, pCollectionName):
             c.objects.unlink(pObj)
         
         bpy.data.collections[pCollectionName].objects.link(pObj)                  
+
+
+
+def collectionHide_set(pCollectionName, pState):
+    
+    cId = bpy.data.collections.find(pCollectionName)
+    if cId != -1:
+        c = bpy.data.collections[cId]
+        c.hide_viewport = pState
+        """
+        oldCName = bpy.context.view_layer.active_layer_collection.name
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection.children[pCollectionName]
+        bpy.context.collection.hide_viewport = pState
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection.children[oldCName]
+        """    
+    
     
 class VTOOLS_OP_fielGenerate(bpy.types.Operator):
     bl_idname = "camperotools.fieldgenerate"
@@ -36,8 +52,9 @@ class VTOOLS_OP_fielGenerate(bpy.types.Operator):
         cId = bpy.data.collections.find("AREA_LINES")
         if cId == -1:
             gc = bpy.data.collections.new(name="AREA_LINES")
-            bpy.context.scene.collection.children.link(gc)   
-    
+            bpy.context.scene.collection.children.link(gc)
+            
+
     def moveAreaLines(self):
         
         for area in bpy.context.scene.ct_fieldAreaCollection:
@@ -46,6 +63,46 @@ class VTOOLS_OP_fielGenerate(bpy.types.Operator):
             
             if area.fieldAreaBunker != None:
                  moveObjectToCollection(area.fieldAreaBunker,"AREA_LINES")
+    
+    def createChunksBool(self, pBoxSize, pNumX, pNumY):
+        
+        cId = bpy.data.collections.find("AREA_CHUNKSBOOL")
+        if cId == -1:
+            gc = bpy.data.collections.new(name="AREA_CHUNKSBOOL")
+            bpy.context.scene.collection.children.link(gc)
+        
+        for i in range(0,pNumX):
+            j = 0
+            for j in range(0,pNumY):
+                bpy.ops.mesh.primitive_cube_add(enter_editmode=False, location=(i*pBoxSize*-1,j*pBoxSize,0))
+                nc = bpy.data.objects[bpy.context.object.name]
+                nc.display_type = "WIRE"
+                nc.name = "chunkBool.000"
+                nc.scale[0] = (pBoxSize/2)
+                nc.scale[1] = (pBoxSize/2)
+                nc.scale[2] = (pBoxSize/2)
+                bpy.ops.object.transform_apply(location=False, rotation = False, scale = True)
+                moveObjectToCollection(nc, "AREA_CHUNKSBOOL")
+                
+                """
+                nc.scale[0] += 0.00001
+                nc.scale[1] += 0.00001
+                nc.scale[2] += 1
+                """
+                
+                mod = nc.modifiers.new(name="subDetail", type="SUBSURF")
+                mod.levels = 2
+                mod.render_levels = 2
+                mod.subdivision_type = "SIMPLE"
+                
+                """
+                mod = nc.modifiers.new(name="deform", type="SIMPLE_DEFORM")
+                mod.deform_method = "TAPER"
+                mod.deform_axis = "Z"
+                mod.factor = 0.001
+                """
+                
+        
                 
     def createBaseLPObj(self):
         
@@ -68,16 +125,22 @@ class VTOOLS_OP_fielGenerate(bpy.types.Operator):
             bpy.ops.object.transform_apply(location=False, rotation = False, scale = True)
     
             chunkSize = objLP.dimensions[0]
+            chunkCountX = int(objHP.dimensions[0]/chunkSize)
+            chunkCountY = int(objHP.dimensions[1]/chunkSize)
+            
+            
+            #CREATE CHUNKS BOOLEANS
+            self.createChunksBool(chunkSize, chunkCountX, chunkCountY)
             
             #ADD MODIFIERS
             
             mod_chunksX = objLP.modifiers.new(name="ChunksX", type="ARRAY")
-            mod_chunksX.count = (objHP.dimensions[0]/chunkSize)
+            mod_chunksX.count = chunkCountX
             mod_chunksX.relative_offset_displace[0] = -1
             mod_chunksX.use_merge_vertices = True
             
             mod_chunksY = objLP.modifiers.new(name="ChunksY", type="ARRAY")
-            mod_chunksY.count = (objHP.dimensions[1]/chunkSize)
+            mod_chunksY.count = chunkCountY
             mod_chunksY.relative_offset_displace[0] = 0
             mod_chunksY.relative_offset_displace[1] = 1
             mod_chunksY.use_merge_vertices = True
@@ -115,6 +178,9 @@ class VTOOLS_OP_fielGenerate(bpy.types.Operator):
         return objLP
             
     def execute(self, context):
+        
+        collectionHide_set("AREA_CHUNKSBOOL", False)
+        collectionHide_set("AREA_BASE_LP", False)
         
         self.createBaseCollection()
         baseLPMesh = self.createBaseLPObj()  
@@ -177,7 +243,7 @@ class VTOOLS_OP_cutFieldByAreas(bpy.types.Operator):
         boolArea.data = obj.data.copy()
         boolArea.name = "boolArea.000"
         
-        boolArea.data.extrude = 100
+        boolArea.data.extrude = 200
         boolArea.data.dimensions = "2D"
         boolArea.data.fill_mode = "BOTH"
         
@@ -187,7 +253,7 @@ class VTOOLS_OP_cutFieldByAreas(bpy.types.Operator):
         bpy.ops.object.convert(target="MESH")
         
         moveObjectToCollection(boolArea, "AREA_BOOL")
-        boolArea.hide_set(state=True)
+        #boolArea.hide_set(state=True)
         
         return boolArea
     
@@ -241,10 +307,10 @@ class VTOOLS_OP_cutFieldByAreas(bpy.types.Operator):
             
             if areas[i].fieldAreaBunkerBool != None:
                     
-                    areas[i].fieldAreaBunkerBool.hide_set(state=True)
+                    #areas[i].fieldAreaBunkerBool.hide_set(state=True)
                     boolBunker = areas[i].fieldAreaBunkerBool
                     moveObjectToCollection(boolBunker, "AREA_BOOL")
-                    boolBunker.hide_set(state=True)
+                    #boolBunker.hide_set(state=True)
                      
                     meshAreaBunker = bpy.context.scene.ct_fieldBaseLP.copy()
                     meshAreaBunker.data = bpy.context.scene.ct_fieldBaseLP.data.copy()
@@ -261,13 +327,20 @@ class VTOOLS_OP_cutFieldByAreas(bpy.types.Operator):
                 
     def execute(self, context):
         
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
         self.setCollections()
         lpBase = bpy.context.scene.ct_fieldBaseLP
         boolList = self.createBooleanAreas()
         self.setBooleans(boolList)
         #lpBase.hide_select = True
         #moveObjectToCollection(lpBase, "AREA_INGAME")
-        lpBase.hide_set(state=True)
+        #lpBase.hide_set(state=True)
+        
+        collectionHide_set("AREA_LINES", True)
+        collectionHide_set("AREA_BOOL", True)
+        collectionHide_set("AREA_BASE_LP", True)
+        collectionHide_set("AREA_CHUNKSBOOL", True)
+        collectionHide_set("AREA_INGAME", False)
             
         return {'FINISHED'}
     
@@ -297,7 +370,90 @@ class VTOOLS_OP_resetFieldGolf(bpy.types.Operator):
             for obj in oc:
                 bpy.data.objects.remove(obj)
                 
+        cInGameId = bpy.data.collections.find("AREA_CHUNKSBOOL")
+        if cInGameId != -1:
+            oc = bpy.data.collections[cInGameId].objects
+            for obj in oc:
+                bpy.data.objects.remove(obj)
+        
+        cId = bpy.data.collections.find("AREA_MESH")
+        if cId != -1:
+            oc = bpy.data.collections[cId].objects
+            for obj in oc:
+                bpy.data.objects.remove(obj)
+                
+        cId = bpy.data.collections.find("AREA_TOEXPORT")
+        if cId != -1:
+            oc = bpy.data.collections[cId].objects
+            for obj in oc:
+                bpy.data.objects.remove(obj)       
+        
+        collectionHide_set("AREA_MESH", True)
+        collectionHide_set("AREA_TOEXPORT", True)
+        collectionHide_set("AREA_INGAME", True)
+        collectionHide_set("AREA_BOOL", True)        
+        collectionHide_set("AREA_LINES", False)
+        collectionHide_set("AREA_BASE_LP", False)
+        collectionHide_set("AREA_LINES", False)
             
+        return {'FINISHED'}
+    
+class VTOOLS_OP_chunkFieldGolf(bpy.types.Operator):
+    bl_idname = "camperotools.chunkfieldgolf"
+    bl_label = "Chunk Field Golf"
+    bl_description = "Chunk Field Golf"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        
+        collectionHide_set("AREA_TOEXPORT", False)
+        
+                
+        baseExportMesh = bpy.context.scene.ct_fieldToExport
+        
+        """
+        
+        if baseExportMesh != None:
+            
+            mod = baseExportMesh.modifiers.new(name="solid", type="SOLIDIFY")
+            mod.thickness = 10
+            mod.use_rim = True
+        """
+                
+        cId= bpy.data.collections.find("AREA_CHUNKSBOOL")
+        if cId != -1:
+            oc = bpy.data.collections[cId].objects
+            for obj in oc:
+                chunk = baseExportMesh.copy()
+                chunk.data = baseExportMesh.data.copy()
+                bpy.context.scene.collection.objects.link(chunk)
+                chunk.name = "fieldChunk.000"
+                chunk.modifiers.new
+                chunk.show_wire = False
+                
+                chunk.select_set(state = True)
+                bpy.context.view_layer.objects.active = chunk
+                
+                for m in chunk.modifiers:
+                    try:
+                        bpy.ops.object.modifier_apply(apply_as='DATA',modifier=m.name)
+                    except:
+                        chunk.modifiers.remove(m)
+                        pass
+                
+                #mod = chunk.modifiers.new(name="Triangulate", type="TRIANGULATE")
+                
+                mod = chunk.modifiers.new(name="Intersect", type="BOOLEAN")
+                mod.operation = "INTERSECT"
+                mod.object = obj
+                
+                moveObjectToCollection(chunk, "AREA_TOEXPORT")
+            
+            collectionHide_set("AREA_INGAME", True)
+            collectionHide_set("AREA_MESH", True)
+            collectionHide_set("AREA_CHUNKSBOOL", True)
+                
+                        
         return {'FINISHED'}
     
     
@@ -307,11 +463,13 @@ def register():
     bpy.types.Scene.ct_fieldDetail = bpy.props.IntProperty(default = 1, min = 1, max = 10, update=cb_updateFieldDetail)
     
     bpy.types.Scene.ct_fieldBaseLP = bpy.props.PointerProperty(name="InGame Field Mesh", type=bpy.types.Object)
+    bpy.types.Scene.ct_fieldToExport = bpy.props.PointerProperty(name="Field to Export", type=bpy.types.Object)
     
     
     bpy.utils.register_class(VTOOLS_OP_fielGenerate)
     bpy.utils.register_class(VTOOLS_OP_cutFieldByAreas)
     bpy.utils.register_class(VTOOLS_OP_resetFieldGolf)
+    bpy.utils.register_class(VTOOLS_OP_chunkFieldGolf)
     
     return {'FINISHED'}
 
@@ -321,9 +479,11 @@ def unregister():
     del bpy.types.Scene.ct_numPieces
 
     del bpy.types.Scene.ct_fieldBaseLP
+    del bpy.types.Scene.ct_fieldToExport
     
     bpy.utils.unregister_class(VTOOLS_OP_fielGenerate)
     bpy.utils.unregister_class(VTOOLS_OP_cutFieldByAreas)
     bpy.utils.unregister_class(VTOOLS_OP_resetFieldGolf)
+    bpy.utils.unregister_class(VTOOLS_OP_chunkFieldGolf)
     
     return {'FINISHED'}

@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "vtools - Multi Layer Painting",
+    "name": "vtools - Rename objects",
     "author": "Antonio Mendoza",
     "location": "View3D > Panel Tools > Tool Tab",
     "version": (0, 1, 0),

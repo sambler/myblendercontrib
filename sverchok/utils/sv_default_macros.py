@@ -23,6 +23,8 @@ import bpy
 
 from sverchok.utils.sv_update_utils import sv_get_local_path
 
+# pylint: disable=c0301
+
 
 macros = {
     "> obj vd": {
@@ -73,6 +75,22 @@ macros = {
         'display_name': "selected nodes to List Join",
         'file': 'macro',
         'ident': ['verbose_macro_handler', 'join13']},
+    "> sw1": {
+        'display_name': "connect nodes to switch",
+        'file': 'macro',
+        'ident': ['verbose_macro_handler', 'switch1']},
+    "> sw12": {
+        'display_name': "connect nodes to switch",
+        'file': 'macro',
+        'ident': ['verbose_macro_handler', 'switch12']},
+    "> sw13": {
+        'display_name': "connect nodes to switch",
+        'file': 'macro',
+        'ident': ['verbose_macro_handler', 'switch13']},
+    "> sw123": {
+        'display_name': "connect nodes to switch",
+        'file': 'macro',
+        'ident': ['verbose_macro_handler', 'switch123']},
     "> gp +": {
         'display_name': "grease pencil setup",
         'file': 'macro',
@@ -94,6 +112,10 @@ def sn_loader(snlite, script_name=None):
     snlite.load()
 
 def nodes_bounding_box(selected_nodes):
+    """
+    usage:
+    minx, maxx, miny, maxy = nodes_bounding_box(selected_nodes)
+    """
     minx = +1e10
     maxx = -1e10
     miny = +1e10
@@ -233,7 +255,7 @@ class DefaultMacros():
                     elif (sorted_nodes[1].outputs[0].bl_idname == "SvVerticesSocket"):
                         math_node = nodes.new('SvScalarMathNodeMK3')
                         math_node.current_op = 'SCALAR'
-                        sorted_nodes =[sorted_nodes[1],sorted_nodes[0]]
+                        sorted_nodes =[sorted_nodes[1], sorted_nodes[0]]
                     else:
                         math_node = nodes.new('SvScalarMathNodeMK3')
                         math_node.location = maxx + 100, maxy
@@ -258,6 +280,42 @@ class DefaultMacros():
                 # link the output math node to the ViewerDraw node
                 links.new(math_node.outputs[0], viewer_node.inputs[0])
 
+        elif "switch" in term:
+            selected_nodes = context.selected_nodes
+            minx, maxx, miny, maxy = nodes_bounding_box(selected_nodes)
+
+            switch_node = nodes.new('SvInputSwitchNodeMOD')
+            switch_node.location = maxx + 100, maxy
+
+            # find out which sockets to connect
+            socket_numbers = term.replace("switch", "")
+            if len(socket_numbers) == 1:
+                socket_indices = [0]
+            else:
+                socket_indices = [int(n) - 1 for n in socket_numbers]
+
+            switch_node.num_sockets_per_set = len(socket_indices)
+            sorted_nodes = sorted(selected_nodes, key=lambda n: n.location.y, reverse=True)
+
+            # link the nodes to InputSwitch node
+            get_indices_for_groupnum = switch_node.get_local_function("get_indices_for_groupnum")
+            for i, node in enumerate(sorted_nodes):
+                destination_indices = get_indices_for_groupnum(switch_node.node_state, i)
+                for j, n in enumerate(socket_indices):
+                    remapped_index = destination_indices[j]
+                    links.new(node.outputs[n], switch_node.inputs[remapped_index])
+
+            if all(node.outputs[0].bl_idname == "SvVerticesSocket" for node in sorted_nodes):
+                viewer_node = nodes.new("SvVDExperimental")
+                viewer_node.location = switch_node.location.x + switch_node.width + 100, maxy
+
+                # link the input switch node to the ViewerDraw node
+                for n, i in enumerate(socket_indices):
+                    links.new(switch_node.outputs[n], viewer_node.inputs[i])
+
+                switch_node.process_node(context)
+
+            # tree.update()
 
         elif term == 'gp +':
             needed_nodes = [
