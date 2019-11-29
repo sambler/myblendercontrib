@@ -246,9 +246,11 @@ class BaseMap(GeoScene):
 
 		#Set background size
 		sizex = img_w * res / self.scale
+		sizey = img_h * res / self.scale
+		size = max([sizex, sizey])
 		#self.bkg.empty_display_size = sizex #limited to 1000
 		self.bkg.empty_display_size = 1 #a size of 1 means image width=1bu
-		self.bkg.scale = (sizex, sizex, 1)
+		self.bkg.scale = (size, size, 1)
 
 		#Set background offset (image origin does not match scene origin)
 		dx = (self.crsx - img_ox) / self.scale
@@ -268,7 +270,7 @@ class BaseMap(GeoScene):
 		#Compute 3dview FOV and needed z distance to see the maximum extent that
 		#can be draw at full res (area 3d needs enough pixels otherwise the image will appears downgraded)
 		#WARN seems these formulas does not works properly in Blender2.8
-		view3D_aperture = 32 #Blender constant (see source code)
+		view3D_aperture = 36 #Blender constant (see source code)
 		view3D_zoom = 2 #Blender constant (see source code)
 		fov = 2 * math.atan(view3D_aperture / (self.view3d.lens*2) ) #fov equation
 		fov = math.atan(math.tan(fov/2) * view3D_zoom) * 2 #zoom correction (see source code)
@@ -672,6 +674,8 @@ class VIEW3D_OT_map_viewer(Operator):
 									viewLoc += deltaVect
 								else:
 									dx, dy, dz = deltaVect
+									if not self.prefs.lockObj and self.map.bkg is not None:
+										self.map.bkg.location  -= deltaVect
 									self.map.moveOrigin(dx, dy, updObjLoc=self.updObjLoc)
 						self.map.get()
 
@@ -721,6 +725,8 @@ class VIEW3D_OT_map_viewer(Operator):
 									viewLoc += deltaVect
 								else:
 									dx, dy, dz = deltaVect
+									if not self.prefs.lockObj and self.map.bkg is not None:
+										self.map.bkg.location  -= deltaVect
 									self.map.moveOrigin(dx, dy, updObjLoc=self.updObjLoc)
 						self.map.get()
 
@@ -1021,7 +1027,13 @@ classes = [
 
 def register():
 	for cls in classes:
-		bpy.utils.register_class(cls)
+		try:
+			bpy.utils.register_class(cls)
+		except ValueError as e:
+			#log.error('Cannot register {}'.format(cls), exc_info=True)
+			log.warning('{} is already registered, now unregister and retry... '.format(cls))
+			bpy.utils.unregister_class(cls)
+			bpy.utils.register_class(cls)
 
 def unregister():
 	for cls in classes:

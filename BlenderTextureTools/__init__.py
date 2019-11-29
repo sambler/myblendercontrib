@@ -1,5 +1,3 @@
-# -*- coding:utf-8 -*-
-
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -23,1718 +21,1342 @@ bl_info = {
     "description": "Various image processing filters and operations",
     "author": "Tommi Hyppänen (ambi)",
     "location": "Image Editor > Side Panel > Image",
-    "documentation": "http://blenderartists.org/forum/"
-    "showthread.php?364409-WIP-Seamless-texture-patching-addon",
-    "version": (0, 1, 16),
-    "blender": (2, 80, 0),
+    "documentation": "https://blenderartists.org/t/seamless-texture-patching-and-filtering-addon",
+    "version": (0, 1, 25),
+    "blender": (2, 81, 0),
 }
 
-import numpy
+import numpy as np
 
-np = numpy
+CUDA_ACTIVE = False
+try:
+    import cupy as cup
+
+    CUDA_ACTIVE = True
+except Exception:
+    CUDA_ACTIVE = False
+    cup = np
+
 import bpy
-import copy
+
+# from . import pycl
 from . import image_ops
 import importlib
-import bmesh
-import mathutils as mu
 
 importlib.reload(image_ops)
 
 
-def compute_shading():
-    tri_intersect = """
-    // vec3 uvt;
-    bool intersectTri(vec3 orig, vec3 dir, vec3 a, vec3 b, vec3 c, out vec3 uvt){
-        // möller-trumbore
-        const float eps = 0.0000001;
-        vec3 ab=b-a;
-        vec3 ac=c-a;
+class BTT_InstallLibraries(bpy.types.Operator):
+    bl_idname = "image.ied_install_libraries"
+    bl_label = "Install CUDA support (cupy-cuda100 library)"
 
-        vec3 n=cross(dir,ac);
-        float det=dot(ab,n);
-
-        // if the determinant is negative the triangle is backfacing
-        // if the determinant is close to 0, the ray misses the triangle
-        if(-eps < det && det < eps) { return false; }
-
-        float invdet = 1.0/det;
-
-        vec3 ao=orig-a;
-        float u=dot(ao,n) * invdet;
-        if(u < 0.0 || u > 1.0) { return false; }
-
-        vec3 e=cross(ao,ab);
-        float v=dot(dir,e) * invdet;
-        if(v < 0.0 || u+v > 1.0) { return false; }
-
-        float t=-dot(ac,e) * invdet;
-        uvt = vec3(u,v,t);
-        return true;
-    }
-
-    // vec4 local_point = (1.0 - uvt.x - uvt.y) * a + uvt.x * b + uvt.y * c;
-    """
-
-    box_intersect = """
-    vec2 intersectBox(vec3 orig, vec3 dir, const box b) {
-        vec3 tMin = (b.min - orig) / dir;
-        vec3 tMax = (b.max - orig) / dir;
-        vec3 t1 = min(tMin, tMax);
-        vec3 t2 = max(tMin, tMax);
-        float tNear = max(max(t1.x, t1.y), t1.z);
-        float tFar = min(min(t2.x, t2.y), t2.z);
-        return vec2(tNear, tFar);
-    }
-    """
-
-    ray_tracer = """
-    float sphere(vec3 ray, vec3 dir, vec3 center, float radius)
-    {
-        vec3 rc = ray-center;
-        float c = dot(rc, rc) - (radius*radius);
-        float b = dot(dir, rc);
-        float d = b*b - c;
-        float t = -b - sqrt(abs(d));
-        float st = step(0.0, min(t,d));
-        return mix(-1.0, t, st);
-    }
-
-    vec3 background(float t, vec3 rd)
-    {
-        vec3 light = normalize(vec3(sin(t), 0.6, cos(t)));
-        float sun = max(0.0, dot(rd, light));
-        float sky = max(0.0, dot(rd, vec3(0.0, 1.0, 0.0)));
-        float ground = max(0.0, -dot(rd, vec3(0.0, 1.0, 0.0)));
-        return \
-        (pow(sun, 256.0)+0.2*pow(sun, 2.0))*vec3(2.0, 1.6, 1.0) +
-        pow(ground, 0.5)*vec3(0.4, 0.3, 0.2) +
-        pow(sky, 1.0)*vec3(0.5, 0.6, 0.7);
-    }
-
-    void main(void)
-    {
-        vec2 uv = (-1.0 + 2.0*gl_FragCoord.xy / iResolution.xy) *
-        vec2(iResolution.x/iResolution.y, 1.0);
-        vec3 ro = vec3(0.0, 0.0, -3.0);
-        vec3 rd = normalize(vec3(uv, 1.0));
-        vec3 p = vec3(0.0, 0.0, 0.0);
-        float t = sphere(ro, rd, p, 1.0);
-        vec3 nml = normalize(p - (ro+rd*t));
-        vec3 bgCol = background(iGlobalTime, rd);
-        rd = reflect(rd, nml);
-        vec3 col = background(iGlobalTime, rd) * vec3(0.9, 0.8, 1.0);
-        gl_FragColor = vec4( mix(bgCol, col, step(0.0, t)), 1.0 );
-    }
-    """
-
-    import bgl
-    import numpy as np
-
-    def install_lib(libname):
+    def execute(self, context):
         from subprocess import call
 
         pp = bpy.app.binary_path_python
+
         call([pp, "-m", "ensurepip", "--user"])
-        call([pp, "-m", "pip", "install", "--user", libname])
+        call([pp, "-m", "pip", "install", "--user", "cupy-cuda100"])
 
-    # uncomment to install required lib
-    # install_lib("moderngl")
-    import moderngl
+        global CUDA_ACTIVE
+        CUDA_ACTIVE = True
 
-    def get_teximage(context):
-        teximage = None
-        for area in context.screen.areas:
-            if area.type == "IMAGE_EDITOR":
-                teximage = area.spaces.active.image
-                break
-        if teximage is not None and teximage.size[1] != 0:
-            return teximage
+        import cupy
+
+        global cup
+        cup = cupy
+
+        return {"FINISHED"}
+
+
+class BTT_AddonPreferences(bpy.types.AddonPreferences):
+    bl_idname = __name__
+
+    def draw(self, context):
+
+        if CUDA_ACTIVE is False:
+            info_text = (
+                "The button below should automatically install required CUDA libs.\n"
+                "You need to run the reload scripts command in Blender to activate the\n"
+                " functionality after the installation finishes, or restart Blender."
+            )
+            col = self.layout.box().column(align=True)
+            for l in info_text.split("\n"):
+                row = col.row()
+                row.label(text=l)
+            # col.separator()
+            row = self.layout.row()
+            row.operator(BTT_InstallLibraries.bl_idname, text="Install CUDA acceleration library")
         else:
-            return None
+            row = self.layout.row()
+            row.label(text="All optional libraries installed")
 
-    print("OpenGL supported version (by Blender):", bgl.glGetString(bgl.GL_VERSION))
-    ctx = moderngl.create_context(require=430)
-    print("GL context version code:", ctx.version_code)
-    assert ctx.version_code >= 430
-    print("Compute max work group size:", ctx.info["GL_MAX_COMPUTE_WORK_GROUP_SIZE"], end="\n\n")
 
-    basic_shader = """
-    #version 430
-    #define TILE_WIDTH 8
-    #define TILE_HEIGHT 8
+def gauss_curve(x):
+    # gaussian with 0.01831 at last
+    res = cup.array([cup.exp(-((i * (2 / x)) ** 2)) for i in range(-x, x + 1)], dtype=cup.float32)
+    res /= cup.sum(res)
+    return res
 
-    const ivec2 tileSize = ivec2(TILE_WIDTH, TILE_HEIGHT);
 
-    layout(local_size_x=TILE_WIDTH, local_size_y=TILE_HEIGHT) in;
-    layout(binding=0) writeonly buffer out_0 { vec4 outp[][1]; };
+# def gauss_curve_np(x):
+#     # gaussian with 0.01831 at last
+#     res = np.array([np.exp(-((i * (2 / x)) ** 2)) for i in range(-x, x + 1)], dtype=np.float32)
+#     res /= np.sum(res)
+#     return res
 
-    uniform uint img_size;
 
-    void main() {
-        const ivec2 tile_xy = ivec2(gl_WorkGroupID);
-        const ivec2 thread_xy = ivec2(gl_LocalInvocationID);
-        const ivec2 pixel_xy = tile_xy * tileSize + thread_xy;
+def vectors_to_nmap(vectors, nmap):
+    vectors *= 0.5
+    nmap[:, :, 0] = vectors[:, :, 0] + 0.5
+    nmap[:, :, 1] = vectors[:, :, 1] + 0.5
+    nmap[:, :, 2] = vectors[:, :, 2] + 0.5
 
-        const float tx = float(pixel_xy.x)/img_size;
-        const float ty = float(pixel_xy.y)/img_size;
 
-        vec4 outc = vec4(tx, ty, int(tx) & int(ty), 1.0);
+def nmap_to_vectors(nmap):
+    vectors = cup.empty((nmap.shape[0], nmap.shape[1], 3), dtype=cup.float32)
+    vectors[..., 0] = nmap[..., 0] - 0.5
+    vectors[..., 1] = nmap[..., 1] - 0.5
+    vectors[..., 2] = nmap[..., 2] - 0.5
+    vectors *= 2.0
+    return vectors
 
-        outp[pixel_xy.x][pixel_xy.y * img_size] = outc;
 
-    }
+def neighbour_average(ig):
+    return (ig[1:-1, :-2] + ig[1:-1, 2:] + ig[:-2, 1:-1] + ig[:-2, 1:-1]) * 0.25
+
+
+def explicit_cross(a, b):
+    x = a[..., 1] * b[..., 2] - a[..., 2] * b[..., 1]
+    y = a[..., 2] * b[..., 0] - a[..., 0] * b[..., 2]
+    z = a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
+    return cup.dstack([x, y, z])
+
+
+def aroll0(o, i, d):
+    if d > 0:
+        k = d
+        o[:-k, :] = i[k:, :]
+        o[-k:, :] = i[:k, :]
+    elif d < 0:
+        k = -d
+        o[k:, :] = i[:-k, :]
+        o[:k, :] = i[-k:, :]
+
+
+def aroll1(o, i, d):
+    if d > 0:
+        k = d
+        o[:, :-k] = i[:, k:]
+        o[:, -k:] = i[:, :k]
+    elif d < 0:
+        k = -d
+        o[:, k:] = i[:, :-k]
+        o[:, :k] = i[:, -k:]
+
+
+def addroll0(o, i, d):
+    if d > 0:
+        k = d
+        o[:-k, :] += i[k:, :]
+        o[-k:, :] += i[:k, :]
+    elif d < 0:
+        k = -d
+        o[k:, :] += i[:-k, :]
+        o[:k, :] += i[-k:, :]
+
+
+def addroll1(o, i, d):
+    if d > 0:
+        k = d
+        o[:, :-k] += i[:, k:]
+        o[:, -k:] += i[:, :k]
+    elif d < 0:
+        k = -d
+        o[:, k:] += i[:, :-k]
+        o[:, :k] += i[:, -k:]
+
+
+def convolution(ssp, intens, sfil):
+    # source, intensity, convolution matrix
+    tpx = cup.zeros(ssp.shape, dtype=float)
+    ysz, xsz = sfil.shape[0], sfil.shape[1]
+    ystep = int(4 * ssp.shape[1])
+    for y in range(ysz):
+        for x in range(xsz):
+            tpx += cup.roll(ssp, (x - xsz // 2) * 4 + (y - ysz // 2) * ystep) * sfil[y, x]
+    return tpx
+
+
+def grayscale(ssp):
+    r, g, b = ssp[:, :, 0], ssp[:, :, 1], ssp[:, :, 2]
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+    ssp[..., 0] = gray
+    ssp[..., 1] = gray
+    ssp[..., 2] = gray
+    return ssp
+
+
+def normalize(pix, save_alpha=False):
+    if save_alpha:
+        A = pix[..., 3]
+    t = pix - cup.min(pix)
+    t = t / cup.max(t)
+    if save_alpha:
+        t[..., 3] = A
+    return t
+
+
+def sobel_x(pix, intensity):
+    gx = cup.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+    return convolution(pix, intensity, gx)
+
+
+def sobel_y(pix, intensity):
+    gy = cup.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
+    return convolution(pix, intensity, gy)
+
+
+def sobel(pix, intensity):
+    retarr = cup.zeros(pix.shape)
+    retarr = sobel_x(pix, 1.0)
+    retarr += sobel_y(pix, 1.0)
+    retarr = (retarr * intensity) * 0.5 + 0.5
+    retarr[..., 3] = pix[..., 3]
+    return retarr
+
+
+def gaussian_repeat(pix, s):
+    res = cup.zeros(pix.shape, dtype=cup.float32)
+    gcr = gauss_curve(s)
+    for i in range(-s, s + 1):
+        if i != 0:
+            res[:-i, ...] += pix[i:, ...] * gcr[i + s]
+            res[-i:, ...] += pix[:i, ...] * gcr[i + s]
+        else:
+            res += pix * gcr[s]
+    pix2 = res.copy()
+    res *= 0.0
+    for i in range(-s, s + 1):
+        if i != 0:
+            res[:, :-i, :] += pix2[:, i:, :] * gcr[i + s]
+            res[:, -i:, :] += pix2[:, :i, :] * gcr[i + s]
+        else:
+            res += pix2 * gcr[s]
+    return res
+
+
+def sharpen(pix, width, intensity):
+    # return convolution(pix, intensity, cup.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]))
+    A = pix[..., 3]
+    gas = gaussian_repeat(pix, width)
+    pix += (pix - gas) * intensity
+    pix[..., 3] = A
+    return pix
+
+
+def hi_pass(pix, s, intensity):
+    bg = pix.copy()
+    pix = (bg - gaussian_repeat(pix, s)) * 0.5 + 0.5
+    pix[:, :, 3] = bg[:, :, 3]
+    return pix
+
+
+def gaussian_repeat_fit(pix, s):
+    rf = s
+    pix[0, :] = (pix[0, :] + pix[-1, :]) * 0.5
+    pix[-1, :] = pix[0, :]
+    for i in range(1, rf):
+        factor = ((rf - i)) / rf
+        pix[i, :] = pix[0, :] * factor + pix[i, :] * (1 - factor)
+        pix[-i, :] = pix[0, :] * factor + pix[-i, :] * (1 - factor)
+
+    pix[:, 0] = (pix[:, 0] + pix[:, -1]) * 0.5
+    pix[:, -1] = pix[:, 0]
+    for i in range(1, rf):
+        factor = ((rf - i)) / rf
+        pix[:, i] = pix[:, 0] * factor + pix[:, i] * (1 - factor)
+        pix[:, -i] = pix[:, 0] * factor + pix[:, -i] * (1 - factor)
+
+    return gaussian_repeat(pix, s)
+
+
+def hist_match(source, template):
+    """
+    Adjust the pixel values of a grayscale image such that its histogram
+    matches that of a target image
+
+    Arguments:
+    -----------
+        source: np.ndarray
+            Image to transform; the histogram is computed over the flattened
+            array
+        template: np.ndarray
+            Template image; can have different dimensions to source
+    Returns:
+    -----------
+        matched: np.ndarray
+            The transformed output image
     """
 
-    image = get_teximage(bpy.context)
-    sourcepixels = np.empty((image.size[0], image.size[1], 4), dtype=np.float32)
-    compute_shader = ctx.compute_shader(basic_shader)
+    oldshape = source.shape
+    source = source.ravel()
+    template = template.ravel()
 
-    print("start compute")
-    buffer = ctx.buffer(sourcepixels)
-    buffer.bind_to_storage_buffer(0)
-    compute_shader.get("img_size", 5).value = image.size[0]
-    compute_shader.run(group_x=image.size[0] // 8, group_y=image.size[1] // 8)
-    print("end compute")
+    # get the set of unique pixel values and their corresponding indices and
+    # counts
+    s_values, bin_idx, s_counts = np.unique(source, return_inverse=True, return_counts=True)
+    t_values, t_counts = np.unique(template, return_counts=True)
 
-    image.pixels = np.frombuffer(buffer.read(), dtype=np.float32)
+    # take the cumsum of the counts and normalize by the number of pixels to
+    # get the empirical cumulative distribution functions for the source and
+    # template images (maps pixel value --> quantile)
+    s_quantiles = np.cumsum(s_counts).astype(np.float64)
+    s_quantiles /= s_quantiles[-1]
+    t_quantiles = np.cumsum(t_counts).astype(np.float64)
+    t_quantiles /= t_quantiles[-1]
 
-    print("fin.")
+    # interpolate linearly to find the pixel values in the template image
+    # that correspond most closely to the quantiles in the source image
+    interp_t_values = np.interp(s_quantiles, t_quantiles, t_values)
+
+    return interp_t_values[bin_idx].reshape(oldshape)
 
 
-class ImageOperations:
-    """ Takes in RGBA """
+def gaussianize(source, NG=1000):
+    oldshape = source.shape
+    output = source.copy()
+    transforms = []
 
-    def __init__(self, image):
-        # self.pixels = numpy.copy(image)
-        self.pixels = image
+    t_values = np.arange(NG * 8 + 1) / (NG * 8)
+    t_counts = gauss_curve_np(NG * 4)
+    t_quantiles = np.cumsum(t_counts).astype(np.float64)
 
-    def copy(self):
-        n = copy.copy(self)
-        n.pixels = numpy.copy(self.pixels)
-        return self
-
-    def convolution(self, intens, sfil):
-        # source, intensity, convolution matrix
-        ssp = self.pixels
-        tpx = numpy.zeros(ssp.shape, dtype=float)
-        tpx[:, :, 3] = 1.0
-        ystep = int(4 * ssp.shape[1])
-        norms = 0
-        for y in range(sfil.shape[0]):
-            for x in range(sfil.shape[1]):
-                tpx += (
-                    numpy.roll(
-                        ssp, (x - int(sfil.shape[1] / 2)) * 4 + (y - int(sfil.shape[0] / 2)) * ystep
-                    )
-                    * sfil[y, x]
-                )
-                norms += sfil[y, x]
-        if norms > 0:
-            tpx /= norms
-        return ssp + (tpx - ssp) * intens
-
-    def blur(self, s, intensity):
-        self.pixels = self.convolution(intensity, numpy.ones((1 + s * 2, 1 + s * 2), dtype=float))
-        return self
-
-    def sharpen(self, intensity):
-        self.pixels = self.convolution(
-            intensity, numpy.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+    t_max = 0.0
+    for i in range(3):
+        # s_values, bin_idx, s_counts = cup.lib.arraysetops.unique(
+        s_values, bin_idx, s_counts = np.unique(
+            source[..., i].ravel(), return_inverse=True, return_counts=True
         )
-        return self
-
-    def normalize(self):
-        t = self.pixels - numpy.min(self.pixels)
-        self.pixels = t / numpy.max(t)
-        return self
-
-    def sobel_x(self, intensity):
-        gx = numpy.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
-        self.pixels = self.convolution(intensity, gx)
-        return self
-
-    def sobel_y(self, intensity):
-        gy = numpy.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
-        self.pixels = self.convolution(intensity, gy)
-        return self
-
-    def edgedetect(self, s, intensity):
-        self.pixels = (
-            self.convolution(intensity, numpy.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]]))
-        ) * 0.5 + 0.5
-        return self
-
-    def gaussian(self, s, intensity):
-        fil = numpy.ones((1 + s * 2, 1 + s * 2), dtype=float)
-        xs = int(fil.shape[1] / 2)
-        ys = int(fil.shape[0] / 2)
-        ro = 5.0 ** 2
-        for y in range(0, fil.shape[0]):
-            for x in range(0, fil.shape[1]):
-                fil[y, x] = (1.0 / numpy.sqrt(2 * numpy.pi * ro)) * (
-                    2.71828 ** (-((x - xs) ** 2 + (y - ys) ** 2) / (2 * ro))
-                )
-        self.pixels = self.convolution(intensity, fil)
-        return self
-
-    def fast_blur(self, s):
-        d = 2 ** s
-        tpx = self.pixels
-        ystep = tpx.shape[1]
-        while d > 1:
-            tpx = (tpx * 2 + numpy.roll(tpx, -d * 4) + numpy.roll(tpx, d * 4)) / 4
-            tpx = (
-                tpx * 2 + numpy.roll(tpx, -d * (ystep * 4)) + numpy.roll(tpx, d * (ystep * 4))
-            ) / 4
-            d = int(d / 2)
-        self.pixels = tpx
-        return self
-
-    def normals_simple(self, intensity):
-        self.grayscale()
-        sshape = self.pixels.shape
-
-        px = self.copy().sobel_x(1.0).pixels
-        px[:, :, 2] = px[:, :, 2] * intensity
-        px[:, :, 1] = 0
-        px[:, :, 0] = 1
-
-        py = self.sobel_y(1.0).pixels
-        py[:, :, 2] = py[:, :, 2] * intensity
-        py[:, :, 1] = 1
-        py[:, :, 0] = 0
-
-        arr = numpy.cross(px[:, :, :3], py[:, :, :3])
-
-        # vec *= 1/len(vec)
-        m = 1.0 / numpy.sqrt(arr[:, :, 0] ** 2 + arr[:, :, 1] ** 2 + arr[:, :, 2] ** 2)
-        arr[..., 0] *= m
-        arr[..., 1] *= m
-        arr[..., 2] *= m
-        vectors = arr
-
-        retarr = numpy.zeros(sshape)
-        retarr[:, :, 0] = 0.5 - vectors[:, :, 0]
-        retarr[:, :, 1] = vectors[:, :, 1] + 0.5
-        retarr[:, :, 2] = vectors[:, :, 2]
-        retarr[:, :, 3] = 1.0
-        self.pixels = retarr
-        return self
-
-    def sobel(self, s, intensity):
-        retarr = numpy.zeros(self.pixels.shape)
-        retarr = self.sobel_x(1.0)
-        retarr += self.sobel_y(1.0)
-        retarr = (retarr * intensity) * 0.5 + 0.5
-        retarr[..., 3] = 1.0
-        self.pixels = retarr
-        return self
-
-    def separate_values(self, s, intensity):
-        retarr = numpy.copy(self.pixels)
-        retarr[..., :3] = self.pixels[..., :3] ** intensity
-        self.pixels = retarr
-        return self
-
-    def grayscale(self):
-        ssp = self.pixels
-        r, g, b = ssp[:, :, 0], ssp[:, :, 1], ssp[:, :, 2]
-        gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
-        retarr = numpy.copy(self.pixels)
-        retarr[..., 0] = gray
-        retarr[..., 1] = gray
-        retarr[..., 2] = gray
-        self.pixels = retarr
-        return self
-
-
-def old():
-    class GeneralImageOperator(bpy.types.Operator):
-        def init_images(self, context):
-            self.input_image = context.scene.seamless_input_image
-            self.target_image = context.scene.seamless_generated_name
-            self.seamless_powersoftwo = bpy.context.scene.seamless_powersoftwo
-
-            print("Creating images...")
-            self.size = bpy.data.images[self.input_image].size
-            self.xs = self.size[0]
-            self.ys = self.size[1]
-
-            # copy image data into much more performant numpy arrays
-            self.sourcepixels = numpy.array(bpy.data.images[self.input_image].pixels)
-            self.sourcepixels = self.sourcepixels.reshape((self.ys, self.xs, 4))
-
-            # if limit to powers of two is selected, do it
-            offx = 0
-            offy = 0
-            if self.seamless_powersoftwo:
-                print("crop to 2^")
-                lxs = int(numpy.log2(self.xs))
-                lys = int(numpy.log2(self.ys))
-                offx = int((self.xs - 2 ** lxs) / 2)
-                offy = int((self.ys - 2 ** lys) / 2)
-                print("crop offset:" + repr(offx) + "," + repr(offy))
-
-                if self.xs > 2 ** lxs:
-                    self.xs = 2 ** lxs
-                if self.ys > 2 ** lys:
-                    self.ys = 2 ** lys
-
-            # crop to center
-            self.sourcepixels = self.sourcepixels[offy : offy + self.ys, offx : offx + self.xs]
-            print("sshape:" + repr(self.sourcepixels.shape))
-
-            # if target image exists, change the size to fit
-            if self.target_image in bpy.data.images:
-                bpy.data.images[self.target_image].scale(self.xs, self.ys)
-                self.image = bpy.data.images[self.target_image]
-            else:
-                self.image = bpy.data.images.new(self.target_image, width=self.xs, height=self.ys)
-
-            self.pixels = numpy.zeros((self.ys, self.xs, 4))
-            self.pixels[:, :, 3] = 1.0  # alpha is always 1.0 everywhere
-
-            print("Start iteration")
-
-        # noinspection PyCallByClass
-        def finish_images(self, context):
-            print("Assign data")
-            # assign pixels
-            self.image.pixels = self.pixels.flatten()
-            bpy.ops.image.invert(invert_r=False, invert_g=False, invert_b=False, invert_a=False)
-
-    class ConvolutionsOperator(GeneralImageOperator):
-        """Image filter operator"""
-
-        bl_idname = "uv.image_convolutions"
-        bl_label = "Convolution filters"
-
-        def calculate(self, context):
-            return self.selected_filter(
-                context.scene.seamless_filter_size, context.scene.seamless_filter_intensity
-            )
-
-        def execute(self, context):
-            self.init_images(context)
-            imgops = ImageOperations(self.sourcepixels)
-            self.selected_filter = {
-                "BLUR": imgops.blur,
-                "EDGEDETECT": imgops.edgedetect,
-                "SHARPEN": imgops.sharpen,
-                "GAUSSIAN": imgops.gaussian,
-                "FASTGAUSSIAN": imgops.fast_gaussian,
-                "SOBEL": imgops.sobel,
-                "NORMALSSIMPLE": imgops.normals_simple,
-                "SEPARATEVALUES": imgops.separate_values,
-                "POISSONTILES": imgops.poisson_blending,
-                "BILATERAL": imgops.bilateral,
-                "GRAYSCALE": imgops.grayscale,
-            }[context.scene.seamless_filter_type]
-
-            self.pixels = self.calculate(context)
-            self.finish_images(context)
-
-            return {"FINISHED"}
-
-    class MaterialTextureGenerator(bpy.types.Operator):
-        bl_idname = "uv.material_texgen"
-        bl_label = "Generate textures for a material"
-
-        def execute(self, context):
-            self.input_material = context.scene.seamless_input_material
-            self.input_image = bpy.data.images[context.scene.seamless_input_image]
-
-            self.xs = self.input_image.size[0]
-            self.ys = self.input_image.size[1]
-
-            print("Assign data")
-            print(repr(self.input_material))
-            mat = bpy.data.materials[self.input_material]
-            textures = []
-            for t in mat.texture_slots.values():
-                if t:
-                    textures.append(t)
-                    print(t)
-            print(textures)
-            matn = self.input_material
-
-            difftex = matn + "_t_d"
-            normtex = matn + "_t_n"
-            spectex = matn + "_t_s"
-
-            diffimg = matn + "_d"
-            normimg = matn + "_n"
-            specimg = matn + "_s"
-
-            bpy.data.textures.new(difftex, "IMAGE")
-            bpy.data.textures.new(normtex, "IMAGE")
-            bpy.data.textures.new(spectex, "IMAGE")
-
-            # GENERATE DIFFUSE
-            bpy.data.textures[difftex].image = bpy.data.images.new(
-                diffimg, width=self.xs, height=self.ys
-            )
-            sourcepixels = numpy.array(self.input_image.pixels).reshape((self.ys, self.xs, 4))
-            bpy.data.textures[difftex].image.pixels = sourcepixels.flatten()
-
-            # GENERATE NORMALS
-            bpy.data.textures[normtex].image = bpy.data.images.new(
-                normimg, width=self.xs, height=self.ys
-            )
-            bpy.data.textures[normtex].use_normal_map = True
-
-            # copy image data into much more performant numpy arrays
-            pixels = ImageOperations(
-                numpy.array(self.input_image.pixels).reshape((self.ys, self.xs, 4))
-            ).normals_simple(1, 1.0)
-
-            # assign pixels
-            bpy.data.textures[normtex].image.pixels = pixels.flatten()
-
-            # GENERATE SPEC
-            bpy.data.textures[spectex].image = bpy.data.images.new(
-                specimg, width=self.xs, height=self.ys
-            )
-
-            ssp = numpy.array(self.input_image.pixels).reshape((self.ys, self.xs, 4))
-            pixels = numpy.ones((self.ys, self.xs, 4))
-            r, g, b = ssp[:, :, 0], ssp[:, :, 1], ssp[:, :, 2]
-            gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
-            gray **= 4
-            gray -= numpy.min(gray)
-            gray /= numpy.max(gray)
-            pixels[..., 0] = gray
-            pixels[..., 1] = gray
-            pixels[..., 2] = gray
-            bpy.data.textures[spectex].image.pixels = pixels.flatten()
-
-            bpy.ops.image.invert(invert_r=False, invert_g=False, invert_b=False, invert_a=False)
-
-            bpy.data.materials[matn].specular_hardness = 30
-            bpy.data.materials[matn].specular_intensity = 0
-            for i in range(3):
-                bpy.data.materials[matn].texture_slots.create(i)
-            bpy.data.materials[matn].texture_slots[0].texture = bpy.data.textures[difftex]
-            bpy.data.materials[matn].texture_slots[1].texture = bpy.data.textures[normtex]
-            bpy.data.materials[matn].texture_slots[1].use_map_color_diffuse = False
-            bpy.data.materials[matn].texture_slots[1].use_map_normal = True
-            bpy.data.materials[matn].texture_slots[1].normal_factor = 0.5
-            bpy.data.materials[matn].texture_slots[2].texture = bpy.data.textures[spectex]
-            bpy.data.materials[matn].texture_slots[2].use_map_color_diffuse = False
-            bpy.data.materials[matn].texture_slots[2].texture.use_alpha = False
-            bpy.data.materials[matn].texture_slots[2].use_map_specular = True
-
-            return {"FINISHED"}
-
-    class SeamlessOperator(GeneralImageOperator):
-        """Image seamless texture patcher operator"""
-
-        bl_idname = "uv.seamless_operator"
-        bl_label = "Image Seamless Operator"
-
-        maxSSD = 100000000
-
-        def ssd(self, b1, b2):
-            if b1.shape == b2.shape:
-                return numpy.sum(((b1 - b2) * [0.2989, 0.5870, 0.1140, 0.0]) ** 2)
-            else:
-                return self.maxSSD
-
-        def stitch(self, x, y):
-            dimage = self.pixels
-            simage = self.sourcepixels
-
-            winx = self.seamless_window
-            winy = self.seamless_window
-
-            if winx + x > self.xs or winy + y > self.ys:
-                return
-
-            sxs = self.xs - winx
-            sys = self.ys - winy
-
-            bestx, besty = self.seamless_window, self.seamless_window
-            bestresult = self.maxSSD
-            b1 = dimage[y : y + winy, x : x + winx, :]
-
-            # only test for pixels where the alpha is not zero
-            # alpha 0.0 signifies no data, the area to be filled by patching
-            # alpha 1.0 is the source data plus the already written patches
-            indices = numpy.where(b1[:, :, 3] > 0)
-
-            # random sample through the entire source data to find the best match
-            for i in range(self.seamless_samples):
-                temx = numpy.random.randint(sxs)
-                temy = numpy.random.randint(sys)
-                b2 = simage[temy : temy + winy, temx : temx + winx, :]
-                result = self.ssd(b1[indices], b2[indices])
-                if result < bestresult:
-                    bestresult = result
-                    bestx, besty = temx, temy
-
-            batch = numpy.copy(simage[besty : besty + winy, bestx : bestx + winx, :])
-
-            if (
-                self.seamless_smoothing
-                and winx == self.seamless_window
-                and winy == self.seamless_window
-            ):
-                # image edge patches can't have a mask because they are irregular shapes
-                mask = numpy.ones((winx, winy))
-                for i in range(int(self.seamless_overlap / 2)):
-                    val = float(i) / float(self.seamless_overlap / 2)
-                    mask[i, :] *= val
-                    mask[winy - i - 1, :] *= val
-                    mask[:, i] *= val
-                    mask[:, winx - i - 1] *= val
-
-                mask[numpy.where(b1[:, :, 3] < 0.5)] = 1.0
-                # mask[indices] = 1.0
-                batch[:, :, 0] = (
-                    dimage[y : y + winy, x : x + winx, 0] * (1.0 - mask) + batch[:, :, 0] * mask
-                )
-                batch[:, :, 1] = (
-                    dimage[y : y + winy, x : x + winx, 1] * (1.0 - mask) + batch[:, :, 1] * mask
-                )
-                batch[:, :, 2] = (
-                    dimage[y : y + winy, x : x + winx, 2] * (1.0 - mask) + batch[:, :, 2] * mask
-                )
-                batch[:, :, 3] = 1.0
-
-            # copy the new patch to the image
-            dimage[y : y + winy, x : x + winx, :] = batch
-
-        def patch_iterate(self):
-            # offset both x and y half the size of the image (put edges on center)
-            self.pixels = numpy.roll(
-                self.sourcepixels, self.xs * 2 + self.xs * 4 * int(self.ys / 2)
-            )
-
-            step = self.seamless_window - self.seamless_overlap
-            margin = step * self.seamless_lines - self.seamless_overlap
-
-            # erase the data from the are we are about to fill with patches
-            self.pixels[int(self.ys // 2 - margin // 2) : int(self.ys // 2 + margin // 2), :, :] = [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ]
-            self.pixels[:, int(self.xs // 2) - margin // 2 : int(self.xs // 2) + margin // 2, :] = [
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ]
-
-            xmax = int(self.xs - 1)
-            ymax = int(self.ys - 1)
-
-            # reconstruct the missing area with patching
-            xstart = int(self.xs / 2) - margin // 2 - self.seamless_overlap
-            ystart = int(self.ys / 2) - margin // 2 - self.seamless_overlap
-
-            for _ in range(1):
-                # horizontal
-                for x in range(0, xmax, step):
-                    for y in range(0, self.seamless_lines):
-                        self.stitch(x, y * step + ystart)
-
-                # vertical
-                for y in range(0, ymax, step):
-                    for x in range(0, self.seamless_lines):
-                        self.stitch(x * step + xstart, y)
-
-                        # fill in the last edge cases
-            self.pixels = numpy.roll(self.pixels, self.xs * 2)  # half x offset
-            for y in range(0, self.seamless_lines):
-                self.stitch(int(self.xs / 2) - step, y * step + ystart)
-            self.pixels = numpy.roll(self.pixels, self.xs * 2)  # half x offset
-            self.pixels = numpy.roll(self.pixels, self.xs * 4 * int(self.ys / 2))  # half y offset
-            for x in range(0, self.seamless_lines):
-                self.stitch(x * step + xstart, int(self.ys / 2) - step)
-            self.pixels = numpy.roll(self.pixels, self.xs * 4 * int(self.ys / 2))  # half y offset
-
-        def execute(self, context):
-            self.init_images(context)
-
-            self.seamless_samples = bpy.context.scene.seamless_samples
-            self.seamless_window = bpy.context.scene.seamless_window
-            self.seamless_overlap = bpy.context.scene.seamless_overlap
-            self.seamless_lines = bpy.context.scene.seamless_lines
-            self.seamless_smoothing = bpy.context.scene.seamless_smoothing
-
-            self.patch_iterate()
-            self.finish_images(context)
-
-            return {"FINISHED"}
-
-        class TextureToolsPanel(bpy.types.Panel):
-            bl_space_type = "IMAGE_EDITOR"
-            bl_region_type = "UI"
-            bl_label = "Seamless Patching"
-            bl_category = "Image"
-
-            def draw(self, context):
-                layout = self.layout
-
-                row = layout.row()
-                row.label(text="Patched:")
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_samples")
-                row.prop(context.scene, "seamless_window")
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_overlap")
-                row.prop(context.scene, "seamless_lines")
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_smoothing")
-
-                row = layout.row()
-                row.operator(SeamlessOperator.bl_idname, text="Make seamless (patches)")
-
-                row = layout.row()
-                row.label(text="Fast and simple:")
-
-                # row = layout.row()
-                # row.prop(context.scene, "seamless_gimpmargin")
-
-                row = layout.row()
-                row.operator(GimpSeamlessOperator.bl_idname, text="Make seamless (fast)")
-
-        class TextureToolsFiltersPanel(bpy.types.Panel):
-            bl_space_type = "IMAGE_EDITOR"
-            bl_region_type = "UI"
-            bl_label = "Image Filters"
-            bl_category = "Image"
-
-            def draw(self, context):
-                layout = self.layout
-                row = layout.row()
-                row.prop(context.scene, "seamless_filter_type")
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_filter_size")
-                row.prop(context.scene, "seamless_filter_intensity")
-
-                row = layout.row()
-                row.operator(ConvolutionsOperator.bl_idname, text="Filter")
-
-        class TextureToolsMaterialsPanel(bpy.types.Panel):
-            bl_space_type = "IMAGE_EDITOR"
-            bl_region_type = "UI"
-            bl_label = "Material Tools"
-            bl_category = "Image"
-
-            def draw(self, context):
-                layout = self.layout
-                # row = layout.row()
-                # row.label("In a material world.")
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_input_material")
-
-                row = layout.row()
-                row.operator(MaterialTextureGenerator.bl_idname, text="Generate textures")
-
-        class TextureToolsImageSelectionPanel(bpy.types.Panel):
-            bl_space_type = "IMAGE_EDITOR"
-            bl_region_type = "UI"
-            bl_label = "Image Selection"
-            bl_category = "Image"
-
-            def draw(self, context):
-                layout = self.layout
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_input_image")
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_generated_name")
-
-                row = layout.row()
-                row.prop(context.scene, "seamless_powersoftwo")
-
-        # ### INITIALIZATION
-
-        # register classes
-        regclasses = [
-            SeamlessOperator,
-            GimpSeamlessOperator,
-            ConvolutionsOperator,
-            TextureToolsImageSelectionPanel,
-            TextureToolsPanel,
-            TextureToolsFiltersPanel,
-            TextureToolsMaterialsPanel,
-            MaterialTextureGenerator,
-        ]
-
-        def register():
-            # SEAMLESS PANEL
-            bpy.types.Scene.seamless_samples = bpy.props.IntProperty(
-                name="Samples", default=100, min=1, max=10000
-            )
-            bpy.types.Scene.seamless_window = bpy.props.IntProperty(
-                name="Window", default=32, min=2, max=128
-            )
-            bpy.types.Scene.seamless_overlap = bpy.props.IntProperty(
-                name="Overlap", default=8, min=1, max=64
-            )
-            bpy.types.Scene.seamless_lines = bpy.props.IntProperty(
-                name="Lines", default=2, min=1, max=16
-            )
-            bpy.types.Scene.seamless_gimpmargin = bpy.props.IntProperty(
-                name="Blending margin", default=200, min=1, max=1000
-            )
-            bpy.types.Scene.seamless_smoothing = bpy.props.BoolProperty(name="Patch smoothing")
-
-            available_objects = []
-
-            def availableObjects(self, context):
-                available_objects.clear()
-                for im in bpy.data.images:
-                    name = im.name
-                    available_objects.append((name, name, name))
-                return available_objects
-
-            # IMAGE SELECTION & TOOLS
-            bpy.types.Scene.seamless_generated_name = bpy.props.StringProperty(
-                name="Output image", default="generated"
-            )
-            bpy.types.Scene.seamless_input_image = bpy.props.EnumProperty(
-                name="Input image", items=availableObjects
-            )
-            bpy.types.Scene.seamless_powersoftwo = bpy.props.BoolProperty(
-                name="Crop to powers of two"
-            )
-
-            # FILTER PANEL
-            bpy.types.Scene.seamless_filter_type = bpy.props.EnumProperty(
-                name="Filter type",
-                items=[
-                    ("BLUR", "Box blur", "", 1),
-                    ("SHARPEN", "Sharpen", "", 2),
-                    ("EDGEDETECT", "Edge detect", "", 3),
-                    ("EMBOSS", "Emboss", "", 4),
-                    # ("GAUSSIAN", "Gaussian blur ro:5", "", 5),
-                    ("FASTGAUSSIAN", "Fast gaussian", "", 6),
-                    ("SOBEL", "Sobel", "", 7),
-                    ("NORMALSSIMPLE", "Normal map: simple", "", 8),
-                    ("SEPARATEVALUES", "Emphasize whites or blacks", "", 9),
-                    # ("POISSONTILES", "Blend image edges", "", 10),
-                    # ("BILATERAL", "Bilateral blur", "", 11),
-                    ("GRAYSCALE", "Grayscale", "", 12),
-                ],
-            )
-            bpy.types.Scene.seamless_filter_size = bpy.props.IntProperty(
-                name="Size", default=1, min=1, max=9
-            )
-            bpy.types.Scene.seamless_filter_intensity = bpy.props.FloatProperty(
-                name="Intensity", default=1.0, min=0.0, max=3.0
-            )
-
-            # MATERIALS PANEL
-            available_materials = []
-
-            def availableMaterials(self, context):
-                available_materials.clear()
-                for im in bpy.data.materials:
-                    name = im.name
-                    available_materials.append((name, name, name))
-                return available_materials
-
-            bpy.types.Scene.seamless_input_material = bpy.props.EnumProperty(
-                name="Material", items=availableMaterials
-            )
-
-            for entry in regclasses:
-                bpy.utils.register_class(entry)
-
-        def unregister():
-            for entry in regclasses:
-                bpy.utils.unregister_class(entry)
+
+        s_quantiles = np.cumsum(s_counts).astype(cup.float64)
+        s_quantiles /= s_quantiles[-1]
+        s_max = s_quantiles[-1]
+        if s_max > t_max:
+            t_max = s_max
+        transforms.append([s_values, s_quantiles, s_max])
+
+        tv = np.interp(s_quantiles, t_quantiles, t_values)[bin_idx]
+        output[..., i] = tv.reshape(oldshape[:2])
+
+    return output, transforms
+
+
+def degaussianize(source, transforms):
+    oldshape = source.shape
+    output = source.copy()
+
+    for i in range(3):
+        s_values, bin_idx, s_counts = np.unique(
+            output[..., i].ravel(), return_inverse=True, return_counts=True
+        )
+        t_values, t_quantiles, _ = transforms[i]
+
+        s_quantiles = np.cumsum(s_counts).astype(cup.float64)
+        s_quantiles /= s_quantiles[-1]
+
+        tv = np.interp(s_quantiles, t_quantiles, t_values)[bin_idx]
+        output[..., i] = tv.reshape(oldshape[:2])
+
+    return output
+
+
+def cumulative_distribution(data, bins):
+    assert cup.min(data) >= 0.0 and cup.max(data) <= 1.0
+    hg_av, hg_a = cup.unique(cup.floor(data * (bins - 1)), return_index=True)
+    hg_a = cup.float32(hg_a)
+    hgs = cup.sum(hg_a)
+    hg_a /= hgs
+    res = cup.zeros((bins,))
+    res[cup.int64(hg_av)] = hg_a
+    return cup.cumsum(res)
+
+
+def hi_pass_balance(pix, s, zoom):
+    bg = pix.copy()
+
+    yzm = pix.shape[0] // 2
+    xzm = pix.shape[1] // 2
+
+    yzoom = zoom if zoom < yzm else yzm
+    xzoom = zoom if zoom < xzm else xzm
+
+    pixmin = np.min(pix)
+    pixmax = np.max(pix)
+    med = (pixmin + pixmax) / 2
+    # TODO: np.mean
+    gas = gaussian_repeat_np(pix - med, s) + med
+    pix = (pix - gas) * 0.5 + 0.5
+    for c in range(3):
+        pix[..., c] = hist_match(
+            pix[..., c], bg[yzm - yzoom : yzm + yzoom, xzm - xzoom : xzm + xzoom, c]
+        )
+    pix[..., 3] = bg[..., 3]
+    return pix
+
+
+def hgram_equalize(pix, intensity, atest):
+    old = pix.copy()
+    # aw = cup.argwhere(pix[..., 3] > atest)
+    aw = (pix[..., 3] > atest).nonzero()
+    aws = (aw[0], aw[1])
+    # aws = (aw[:, 0], aw[:, 1])
+    for c in range(3):
+        t = pix[..., c][aws]
+        pix[..., c][aws] = np.sort(t).searchsorted(t)
+        # pix[..., c][aws] = cup.argsort(t)
+    pix[..., :3] /= np.max(pix[..., :3])
+    return old * (1.0 - intensity) + pix * intensity
+
+
+def bilateral(img_in, sigma_s, sigma_v, eps=1e-8):
+    # gaussian
+    gsi = lambda r2, sigma: cup.exp(-0.5 * r2 / sigma ** 2)
+    win_width = int(cup.ceil(3 * sigma_s))
+    wgt_sum = cup.ones(img_in.shape) * eps
+    result = img_in * eps
+    off = np.empty_like(img_in, dtype=np.float32)
+
+    assert off.dtype == img_in.dtype
+    assert off.shape == img_in.shape
+
+    for shft_x in range(-win_width, win_width + 1):
+        for shft_y in range(-win_width, win_width + 1):
+            aroll0(off, img_in, shft_y)
+            aroll1(off, off, shft_x)
+
+            w = gsi(shft_x ** 2 + shft_y ** 2, sigma_s)
+            tw = w * gsi((off - img_in) ** 2, sigma_v)
+            result += off * tw
+            wgt_sum += tw
+
+    # normalize the result and return
+    return result / wgt_sum
+
+
+def bilateral_filter(pix, s, intensity, source):
+    # multiply by alpha
+    # pix[..., 0] *= pix[..., 3]
+    # pix[..., 1] *= pix[..., 3]
+    # pix[..., 2] *= pix[..., 3]
+
+    # TODO: this
+    # if source == "SOBEL":
+    #     sb = sobel(pix, 1.0)
+    # else:
+    #     sb = pix
+
+    sb = pix
+
+    print("R")
+    # image, spatial, range
+    pix[..., 0] = bilateral(sb[..., 0], s, intensity)
+    print("G")
+    pix[..., 1] = bilateral(sb[..., 1], s, intensity)
+    print("B")
+    pix[..., 2] = bilateral(sb[..., 2], s, intensity)
+
+    return pix
+
+
+def median_filter_blobs(pix, s, picked="center"):
+    ph, pw = pix.shape[0], pix.shape[1]
+
+    pick = 0
+    if picked == "center":
+        pick = s
+    if picked == "end":
+        pick = s * 2 - 1
+
+    temp = pix.copy()
+    r = cup.zeros((ph, s * 2, 4), dtype=np.float32)
+    for x in range(pw):
+        if x - s >= 0 and x + s <= pw:
+            r[:, :, :] = temp[:, x - s : x + s, :]
+
+        if x - s < 0:
+            dp = s - x
+            r[:, dp:, :] = temp[:, : x + s, :]
+            r[:, :dp, :] = temp[:, -dp:, :]
+
+        if x + s > pw:
+            dp = x + s - pw
+            r[:, :-dp, :] = temp[:, x - s :, :]
+            r[:, -dp:, :] = temp[:, :dp, :]
+
+        pix[:, x, :] = cup.sort(r, axis=1)[:, pick, :]
+
+    temp = pix.copy()
+    r = cup.zeros((s * 2, pw, 4), dtype=np.float32)
+    for y in range(ph):
+        if y - s >= 0 and y + s <= ph:
+            r[:, :, :] = temp[y - s : y + s, :, :]
+
+        if y - s < 0:
+            dp = s - y
+            r[dp:, :, :] = temp[: y + s, :, :]
+            r[:dp, :, :] = temp[-dp:, :, :]
+
+        if y + s > pw:
+            dp = y + s - pw
+            r[:-dp, :, :] = temp[y - s :, :, :]
+            r[-dp:, :, :] = temp[:dp, :, :]
+
+        pix[y, :, :] = cup.sort(r, axis=0)[pick, :, :]
+
+    return pix
+
+
+def normals_simple(pix, source):
+    pix = grayscale(pix)
+    pix = normalize(pix)
+    sshape = pix.shape
+
+    # extract x and y deltas
+    px = sobel_x(pix, 1.0)
+    px[:, :, 2] = px[:, :, 2]
+    px[:, :, 1] = 0
+    px[:, :, 0] = 1
+
+    py = sobel_y(pix, 1.0)
+    py[:, :, 2] = py[:, :, 2]
+    py[:, :, 1] = 1
+    py[:, :, 0] = 0
+
+    # normalize
+    # dv = max(abs(cup.min(curve)), abs(cup.max(curve)))
+    # curve /= dv
+
+    # find the imagined approximate surface normal
+    # arr = cup.cross(px[:, :, :3], py[:, :, :3])
+    arr = explicit_cross(px[:, :, :3], py[:, :, :3])
+    print(arr.shape)
+
+    # normalization: vec *= 1/len(vec)
+    m = 1.0 / cup.sqrt(arr[:, :, 0] ** 2 + arr[:, :, 1] ** 2 + arr[:, :, 2] ** 2)
+    arr[..., 0] *= m
+    arr[..., 1] *= m
+    arr[..., 2] *= m
+    arr[..., 0] = -arr[..., 0]
+
+    # normals format
+    retarr = cup.zeros(sshape)
+    vectors_to_nmap(arr, retarr)
+    retarr[:, :, 3] = pix[..., 3]
+    return retarr
+
+
+def normals_to_curvature(pix):
+    intensity = 1.0
+    curve = cup.zeros((pix.shape[0], pix.shape[1]), dtype=cup.float32)
+    vectors = nmap_to_vectors(pix)
+
+    # y_vec = cup.array([1, 0, 0], dtype=cup.float32)
+    # x_vec = cup.array([0, 1, 0], dtype=cup.float32)
+
+    # yd = vectors.dot(x_vec)
+    # xd = vectors.dot(y_vec)
+
+    xd = vectors[:, :, 0]
+    yd = vectors[:, :, 1]
+
+    # curve[0,0] = yd[1,0]
+    curve[:-1, :] += yd[1:, :]
+    curve[-1, :] += yd[0, :]
+
+    # curve[0,0] = yd[-1,0]
+    curve[1:, :] -= yd[:-1, :]
+    curve[0, :] -= yd[-1, :]
+
+    # curve[0,0] = xd[1,0]
+    curve[:, :-1] += xd[:, 1:]
+    curve[:, -1] += xd[:, 0]
+
+    # curve[0,0] = xd[-1,0]
+    curve[:, 1:] -= xd[:, :-1]
+    curve[:, 0] -= xd[:, -1]
+
+    # normalize
+    dv = max(abs(cup.min(curve)), abs(cup.max(curve)))
+    curve /= dv
+
+    # 0 = 0.5 grey
+    curve = curve * intensity + 0.5
+
+    pix[..., 0] = curve
+    pix[..., 1] = curve
+    pix[..., 2] = curve
+    return pix
+
+
+def curvature_to_height(image, h2, iterations=2000):
+    f = image[..., 0]
+    A = image[..., 3]
+    u = cup.ones_like(f) * 0.5
+
+    k = 1
+    t = np.empty_like(u, dtype=np.float32)
+
+    # periodic gauss seidel iteration
+    for ic in range(iterations):
+        if ic % 100 == 0:
+            print(ic)
+
+        # roll k, axis=0
+        t[:-k, :] = u[k:, :]
+        t[-k:, :] = u[:k, :]
+        # roll -k, axis=0
+        t[k:, :] += u[:-k, :]
+        t[:k, :] += u[-k:, :]
+        # roll k, axis=1
+        t[:, :-k] += u[:, k:]
+        t[:, -k:] += u[:, :k]
+        # roll -k, axis=1
+        t[:, k:] += u[:, :-k]
+        t[:, :k] += u[:, -k:]
+
+        t -= h2 * f
+        t *= 0.25
+        u = t * A
+
+    u = -u
+    u -= cup.min(u)
+    u /= cup.max(u)
+
+    return cup.dstack([u, u, u, image[..., 3]])
+
+
+def normals_to_height(image, grid_steps, iterations=2000, intensity=1.0):
+    # A = image[..., 3]
+    ih, iw = image.shape[0], image.shape[1]
+    u = cup.ones((ih, iw), dtype=np.float32) * 0.5
+
+    vectors = nmap_to_vectors(image)
+    # vectors[..., 0] = 0.5 - image[..., 0]
+    # vectors[..., 1] = image[..., 1] - 0.5
+
+    vectors *= intensity
+
+    t = np.empty_like(u, dtype=np.float32)
+
+    for k in range(grid_steps, -1, -1):
+        # multigrid
+        k = 2 ** k
+        print("grid step:", k)
+
+        n = cup.roll(vectors[..., 0], k, axis=1)
+        n -= cup.roll(vectors[..., 0], -k, axis=1)
+        n += cup.roll(vectors[..., 1], k, axis=0)
+        n -= cup.roll(vectors[..., 1], -k, axis=0)
+        n *= 0.125
+
+        for ic in range(iterations):
+            if ic % 100 == 0:
+                print(ic)
+
+            # roll k, axis=0
+            t[:-k, :] = u[k:, :]
+            t[-k:, :] = u[:k, :]
+            # roll -k, axis=0
+            t[k:, :] += u[:-k, :]
+            t[:k, :] += u[-k:, :]
+            # roll k, axis=1
+            t[:, :-k] += u[:, k:]
+            t[:, -k:] += u[:, :k]
+            # roll -k, axis=1
+            t[:, k:] += u[:, :-k]
+            t[:, :k] += u[:, -k:]
+
+            t *= 0.25
+            u = t + n
+            # zero alpha = zero height
+            # u = u * A + cup.max(u) * (1 - A)
+
+    u = -u
+    u -= cup.min(u)
+    u /= cup.max(u)
+
+    return cup.dstack([u, u, u, image[..., 3]])
+
+
+def delight_simple(image, dd, iterations=500):
+    A = image[..., 3]
+    u = cup.ones_like(image[..., 0])
+
+    grads = cup.zeros((image.shape[0], image.shape[1], 2), dtype=cup.float32)
+    grads[..., 0] = (cup.roll(image[..., 0], 1, axis=0) - image[..., 0]) * dd
+    grads[..., 1] = (image[..., 0] - cup.roll(image[..., 0], 1, axis=1)) * dd
+    # grads[..., 0] = (image[..., 0] - 0.5) * (dd)
+    # grads[..., 1] = (image[..., 0] - 0.5) * (dd)
+    for k in range(5, -1, -1):
+        # multigrid
+        k = 2 ** k
+        print("grid step:", k)
+
+        n = cup.roll(grads[..., 0], k, axis=1)
+        n -= cup.roll(grads[..., 0], -k, axis=1)
+        n += cup.roll(grads[..., 1], k, axis=0)
+        n -= cup.roll(grads[..., 1], -k, axis=0)
+        n *= 0.125 * image[..., 3]
+
+        for ic in range(iterations):
+            if ic % 100 == 0:
+                print(ic)
+            t = cup.roll(u, -k, axis=0)
+            t += cup.roll(u, k, axis=0)
+            t += cup.roll(u, -k, axis=1)
+            t += cup.roll(u, k, axis=1)
+            t *= 0.25
+
+            # zero alpha = zero height
+            u = t + n
+            u = u * A + cup.max(u) * (1 - A)
+
+    u = -u
+    u -= cup.min(u)
+    u /= cup.max(u)
+
+    # u *= image[..., 3]
+
+    # u -= cup.mean(u)
+    # u /= max(abs(cup.min(u)), abs(cup.max(u)))
+    # u *= 0.5
+    # u += 0.5
+    # u = 1.0 - u
+
+    # return cup.dstack([(u - image[..., 0]) * 0.5 + 0.5, u, u, image[..., 3]])
+    u = (image[..., 0] - u) * 0.5 + 0.5
+    return cup.dstack([u, u, u, image[..., 3]])
+
+
+def fill_alpha(image, style="black"):
+    if style == "black":
+        for c in range(3):
+            image[..., c] *= image[..., 3]
+        image[..., 3] = 1.0
+        return image
+    else:
+        cols = [0.5, 0.5, 1.0]
+        A = image[..., 3]
+        for c in range(3):
+            image[..., c] = cols[c] * (1 - A) + image[..., c] * A
+        image[..., 3] = 1.0
+        return image
+
+
+def dog(pix, a, b, mp):
+    pixb = pix.copy()
+    pix[..., :3] = cup.abs(gaussian_repeat(pix, a) - gaussian_repeat(pixb, b))[..., :3]
+    pix[pix < mp][..., :3] = 0.0
+    return pix
+
+
+def gimpify(image):
+    pixels = np.copy(image)
+    xs, ys = image.shape[1], image.shape[0]
+    image = np.roll(image, xs * 2 + xs * 4 * (ys // 2))
+
+    sxs = xs // 2
+    sys = ys // 2
+
+    # generate the mask
+    mask_pix = []
+    for y in range(0, sys):
+        zy0 = y / sys + 0.001
+        zy1 = 1 - y / sys + 0.001
+        for x in range(0, sxs):
+            xp = x / sxs
+            p = 1.0 - zy0 / (1.0 - xp + 0.001)
+            t = 1.0 - xp / zy1
+            mask_pix.append(t if t > p else p)
+            # imask[y, x] = max(, imask[y, x])
+
+    tmask = np.array(mask_pix, dtype=np.float32)
+    tmask = tmask.reshape((sys, sxs))
+    imask = np.zeros((pixels.shape[0], pixels.shape[1]), dtype=np.float32)
+    imask[:sys, :sxs] = tmask
+
+    imask[imask < 0] = 0
+
+    # copy the data into the three remaining corners
+    imask[0 : sys + 1, sxs:xs] = np.fliplr(imask[0 : sys + 1, 0:sxs])
+    imask[-sys:ys, 0:sxs] = np.flipud(imask[0:sys, 0:sxs])
+    imask[-sys:ys, sxs:xs] = np.flipud(imask[0:sys, sxs:xs])
+    imask[sys, :] = imask[sys - 1, :]  # center line
+
+    # apply mask
+    amask = np.empty(pixels.shape, dtype=float)
+    amask[:, :, 0] = imask
+    amask[:, :, 1] = imask
+    amask[:, :, 2] = imask
+    amask[:, :, 3] = imask
+
+    return amask * image + (1.0 - amask) * pixels
+
+
+def inpaint_tangents(pixels, threshold):
+    # invalid = pixels[:, :, 2] < 0.5 + (self.tolerance * 0.5)
+    invalid = pixels[:, :, 2] < threshold
+    # n2 = (
+    #     ((pixels[:, :, 0] - 0.5) * 2) ** 2
+    #     + ((pixels[:, :, 1] - 0.5) * 2) ** 2
+    #     + ((pixels[:, :, 2] - 0.5) * 2) ** 2
+    # )
+    # invalid |= (n2 < 0.9) | (n2 > 1.1)
+
+    # grow selection
+    for _ in range(2):
+        invalid[0, :] = False
+        invalid[-1, :] = False
+        invalid[:, 0] = False
+        invalid[:, -1] = False
+
+        invalid = (
+            np.roll(invalid, 1, axis=0)
+            | np.roll(invalid, -1, axis=0)
+            | np.roll(invalid, 1, axis=1)
+            | np.roll(invalid, -1, axis=1)
+        )
+
+    pixels[invalid] = np.array([0.5, 0.5, 1.0, 1.0])
+
+    invalid[0, :] = False
+    invalid[-1, :] = False
+    invalid[:, 0] = False
+    invalid[:, -1] = False
+
+    # fill
+    front = np.copy(invalid)
+    locs = [(0, -1, 1), (0, 1, -1), (1, -1, 1), (1, 1, -1)]
+    for i in range(4):
+        print("fill step:", i)
+        for l in locs:
+            r = np.roll(front, l[1], axis=l[0])
+            a = (r != front) & front
+            pixels[a] = pixels[np.roll(a, l[2], axis=l[0])]
+            front[a] = False
+
+    cl = np.roll(invalid, -1, axis=0)
+    cr = np.roll(invalid, 1, axis=0)
+    uc = np.roll(invalid, -1, axis=1)
+    bc = np.roll(invalid, 1, axis=1)
+
+    # smooth
+    for i in range(4):
+        print("smooth step:", i)
+        pixels[invalid] = (pixels[invalid] + pixels[cl] + pixels[cr] + pixels[uc] + pixels[bc]) / 5
+
+    return pixels
+
+
+def normalize_tangents(image):
+    ih, iw = image.shape[0], image.shape[1]
+    vectors = cup.zeros((ih, iw, 3), dtype=cup.float32)
+    vectors[..., 0] = image[..., 0] - 0.5
+    vectors[..., 1] = image[..., 1] - 0.5
+    vectors[..., 2] = image[..., 2] - 0.5
+
+    vectors = (vectors.T / np.linalg.norm(vectors, axis=2)).T * 0.5
+
+    retarr = cup.empty_like(image)
+    retarr[:, :, 0] = 0.5 + vectors[:, :, 0]
+    retarr[:, :, 1] = 0.5 + vectors[:, :, 1]
+    retarr[:, :, 2] = 0.5 + vectors[:, :, 2]
+    retarr[:, :, 3] = image[..., 3]
+
+    return retarr
+
+
+def image_to_material(image):
+    return image
 
 
 class Grayscale_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
         self.prefix = "grayscale"
         self.info = "Grayscale from RGB"
-        self.category = "Filter"
-        self.payload = lambda self, image, context: ImageOperations(image).grayscale().pixels
+        self.category = "Basic"
+        self.payload = lambda self, image, context: grayscale(image)
+
+
+class Random_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.prefix = "random"
+        self.info = "Random RGB pixels"
+        self.category = "Basic"
+
+        def _pl(self, image, context):
+            t = np.random.random(image.shape)
+            t[..., 3] = 1.0
+            return t
+
+        self.payload = _pl
+
+
+class Swizzle_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["order_a"] = bpy.props.StringProperty(name="Order A", default="RGBA")
+        self.props["order_b"] = bpy.props.StringProperty(name="Order B", default="RBGa")
+        self.props["direction"] = bpy.props.EnumProperty(
+            name="Direction", items=[("ATOB", "A to B", "", 1), ("BTOA", "B to A", "", 2)]
+        )
+        self.prefix = "swizzle"
+        self.info = "Channel swizzle"
+        self.category = "Basic"
+
+        def _pl(self, image, context):
+            test_a = self.order_a.upper()
+            test_b = self.order_b.upper()
+
+            if len(test_a) != 4 or len(test_b) != 4:
+                self.report({"INFO"}, "Swizzle channel count must be 4")
+                return image
+
+            if set(test_a) != set(test_b):
+                self.report({"INFO"}, "Swizzle channels must have same names")
+                return image
+
+            first = self.order_a
+            second = self.order_b
+
+            if self.direction == "BTOA":
+                first, second = second, first
+
+            temp = image.copy()
+
+            for i in range(4):
+                fl = first[i].upper()
+                t = second.upper().index(fl)
+                if second[t] != first[i]:
+                    temp[..., t] = 1.0 - image[..., i]
+                else:
+                    temp[..., t] = image[..., i]
+
+            return temp
+
+        self.payload = _pl
+
+
+class Fractal_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["count"] = bpy.props.IntProperty(name="Count", min=1, default=2)
+        self.props["style"] = bpy.props.EnumProperty(
+            name="Style",
+            items=[
+                ("blend", "Blend", "", 1),
+                ("multiply", "Multiply", "", 2),
+                ("multiply_b", "Multiply B", "", 3),
+            ],
+        )
+        self.prefix = "fractal"
+        self.info = "Fractalize image"
+        self.category = "Basic"
+
+        def _pl(self, image, context):
+            # A = image[..., 3]
+            iw, ih = image.shape[1], image.shape[0]
+            iwh, ihh = iw // 2, ih // 2
+
+            pix = image.copy()
+            for i in range(self.count):
+                if self.style == "blend":
+                    smol = pix[::2, ::2, :] * 0.5
+                    pix *= 0.5
+                    pix[:ihh, :iwh, :] += smol
+                    pix[-ihh:, :iwh, :] += smol
+                    pix[:ihh, -iwh:, :] += smol
+                    pix[-ihh:, -iwh:, :] += smol
+                else:
+                    smol = pix[::2, ::2, :].copy() * 2.0
+                    pix[:ihh, :iwh, :] *= smol
+                    pix[ihh:, :iwh, :] *= smol
+                    pix[:ihh, iwh:, :] *= smol
+                    pix[ihh:, iwh:, :] *= smol
+
+                    if self.style == "multiply":
+                        pix *= 0.5
+                    else:
+                        pix = (pix - 0.5) * 0.5 + 0.5
+
+            # pix[..., 3] = A
+            return pix
+
+        self.payload = _pl
+
+
+class Normalize_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.prefix = "normalize"
+        self.info = "Normalize"
+        self.category = "Basic"
+
+        def _pl(self, image, context):
+            tmp = image[..., 3]
+            res = normalize(image)
+            res[..., 3] = tmp
+            return res
+
+        self.payload = _pl
+
+
+class CropToP2_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.prefix = "crop_to_power"
+        self.info = "Crops the middle of the image to power of twos"
+        self.category = "Basic"
+
+        def _pl(self, image, context):
+            h, w = image.shape[0], image.shape[1]
+
+            offx = 0
+            offy = 0
+
+            wpow = int(cup.log2(w))
+            hpow = int(cup.log2(h))
+
+            offx = (w - 2 ** wpow) // 2
+            offy = (h - 2 ** hpow) // 2
+
+            if w > 2 ** wpow:
+                w = 2 ** wpow
+            if h > 2 ** hpow:
+                h = 2 ** hpow
+            # crop to center
+            image = image[offy : offy + h, offx : offx + w]
+
+            return image
+
+        self.payload = _pl
+
+
+class CropToSquare_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.prefix = "crop_to_square"
+        self.info = "Crop the middle to square with two divisible height and width"
+        self.category = "Basic"
+
+        def _pl(self, image, context):
+            h, w = image.shape[0], image.shape[1]
+
+            offx = w // 2
+            offy = h // 2
+
+            if h > w:
+                h = w
+            if w > h:
+                w = h
+
+            xt = w // 2 - 1
+            yt = w // 2 - 1
+
+            # crop to center
+            image = image[offy - yt : offy + yt, offx - xt : offx + xt]
+
+            return image
+
+        self.payload = _pl
 
 
 class Sharpen_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
-        self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
+        self.props["width"] = bpy.props.IntProperty(name="Width", min=2, default=5)
+        self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=0.6)
         self.prefix = "sharpen"
         self.info = "Simple sharpen"
         self.category = "Filter"
-        self.payload = (
-            lambda self, image, context: ImageOperations(image).sharpen(self.intensity).pixels
-        )
+        self.payload = lambda self, image, context: sharpen(image, self.width, self.intensity)
 
 
-class Fastblur_IOP(image_ops.ImageOperatorGenerator):
+class Sobel_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
-        self.props["steps"] = bpy.props.IntProperty(name="Steps", min=1, default=2)
-        self.prefix = "fast_blur"
-        self.info = "Fast blur"
+        # self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
+        self.prefix = "sobel"
+        self.info = "Sobel"
         self.category = "Filter"
-        self.payload = (
-            lambda self, image, context: ImageOperations(image).fast_blur(self.steps).pixels
+        self.payload = lambda self, image, context: normalize(
+            sobel(grayscale(image), 1.0), save_alpha=True
         )
+
+
+class FillAlpha_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["style"] = bpy.props.EnumProperty(
+            name="Style",
+            items=[("black", "Black color", "", 1), ("tangent", "Neutral tangent", "", 2)],
+        )
+        self.prefix = "fill_alpha"
+        self.info = "Fill alpha with color or normal"
+        self.category = "Basic"
+        self.payload = lambda self, image, context: fill_alpha(image, style=self.style)
 
 
 class GaussianBlur_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
         self.props["width"] = bpy.props.IntProperty(name="Width", min=1, default=2)
-        self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
+        # self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
         self.prefix = "gaussian_blur"
-        self.info = "Does a Gaussian blur (semi-broken atm)"
+        self.info = "Does a Gaussian blur"
         self.category = "Filter"
-        self.payload = (
-            lambda self, image, context: ImageOperations(image)
-            .gaussian(self.width, self.intensity)
-            .pixels
+        self.payload = lambda self, image, context: gaussian_repeat(image, self.width)
+
+
+class BlobMedian_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["style"] = bpy.props.EnumProperty(
+            name="Style",
+            items=[
+                ("start", "Erode", "", 1),
+                ("center", "Neutral", "", 2),
+                ("end", "Dilate", "", 3),
+            ],
         )
+        self.props["width"] = bpy.props.IntProperty(name="Width", min=1, default=2)
+        self.prefix = "blob_median"
+        self.info = "Blob median filter"
+        self.category = "Filter"
+        self.payload = lambda self, image, context: median_filter_blobs(
+            image, self.width, picked=self.style
+        )
+
+
+class Bilateral_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        # self.props["source"] = bpy.props.EnumProperty(
+        #     name="Source", items=[("LUMINANCE", "Luminance", "", 1), ("SOBEL", "Sobel", "", 2)]
+        # )
+        self.props["sigma_a"] = bpy.props.FloatProperty(name="Sigma A", min=0.01, default=3.0)
+        self.props["sigma_b"] = bpy.props.FloatProperty(
+            name="Sigma B", min=0.01, max=1.0, default=0.3
+        )
+        self.prefix = "bilateral"
+        self.info = "Bilateral"
+        self.category = "Filter"
+        self.payload = lambda self, image, context: bilateral_filter(
+            image, self.sigma_a, self.sigma_b, ""
+        )
+
+
+class HiPass_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["width"] = bpy.props.IntProperty(name="Width", min=1, default=2)
+        self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
+        self.prefix = "high_pass"
+        self.info = "High pass"
+        self.category = "Filter"
+        self.payload = lambda self, image, context: hi_pass(image, self.width, self.intensity)
+
+
+class HiPassBalance_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["width"] = bpy.props.IntProperty(name="Width", min=1, default=2)
+        self.props["zoom"] = bpy.props.IntProperty(name="Center slice", min=5, default=1000)
+        self.prefix = "hipass_balance"
+        self.info = "Remove low frequencies from the image"
+        self.category = "Balance"
+        self.force_numpy = True
+        self.payload = lambda self, image, context: hi_pass_balance(image, self.width, self.zoom)
+
+
+class ContrastBalance_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.prefix = "contrast_balance"
+        self.info = "Balance contrast"
+        self.category = "Balance"
+
+        self.props["gA"] = bpy.props.IntProperty(name="Range", min=1, max=256, default=20)
+        self.props["gB"] = bpy.props.IntProperty(name="Error", min=1, max=256, default=40)
+        self.props["strength"] = bpy.props.FloatProperty(name="Strength", min=0.0, default=1.0)
+
+        def _pl(self, image, context):
+            tmp = image.copy()
+
+            # squared error
+            gcr = gaussian_repeat(tmp, self.gA)
+            error = (tmp - gcr) ** 2
+            mask = -gaussian_repeat(error, self.gB)
+            mask -= cup.min(mask)
+            mask /= cup.max(mask)
+            mask = (mask - 0.5) * self.strength + 1.0
+            res = gcr + mask * (tmp - gcr)
+
+            res[..., 3] = tmp[..., 3]
+            return res
+
+        self.payload = _pl
+
+
+class HistogramEQ_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["intensity"] = bpy.props.FloatProperty(
+            name="Intensity", min=0.0, max=1.0, default=1.0
+        )
+        self.prefix = "histogram_eq"
+        self.info = "Histogram equalization"
+        self.category = "Advanced"
+        self.force_numpy = True
+        self.payload = lambda self, image, context: hgram_equalize(image, self.intensity, 0.5)
+
+
+class Gaussianize_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["count"] = bpy.props.IntProperty(name="Count", min=10, max=100000, default=1000)
+        self.prefix = "gaussianize"
+        self.info = "Gaussianize histogram"
+        self.category = "Advanced"
+        self.force_numpy = True
+        self.payload = lambda self, image, context: gaussianize(image, NG=self.count)[0]
+
+
+class GimpSeamless_IOP(image_ops.ImageOperatorGenerator):
+    """Image seamless generator operator"""
+
+    # TODO: the smoothing is not complete, it goes only one way
+    def generate(self):
+        self.prefix = "gimp_seamless"
+        self.info = "Gimp style seamless image operation"
+        self.category = "Advanced"
+        self.force_numpy = True
+        self.payload = lambda self, image, context: gimpify(image)
+
+
+class HistogramSeamless_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.prefix = "histogram_seamless"
+        self.info = "Seamless histogram blending"
+        self.category = "Advanced"
+        self.force_numpy = True
+
+        def _pl(self, image, context):
+            gimg, transforms = gaussianize(image)
+            blended = gimpify(gimg)
+            return degaussianize(blended, transforms)
+
+        self.payload = _pl
 
 
 class Normals_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
-        self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
-        self.prefix = "normals"
+        # self.props["source"] = bpy.props.EnumProperty(
+        #     name="Source", items=[("LUMINANCE", "Luminance", "", 1), ("SOBEL", "Sobel", "", 2)]
+        # )
+        # self.props["width"] = bpy.props.IntProperty(name="Width", min=0, default=2)
+        # self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
+        self.prefix = "height_to_normals"
         self.info = "(Very rough estimate) normal map from RGB"
-        self.category = "Filter"
-        self.payload = (
-            lambda self, image, context: ImageOperations(image)
-            .normals_simple(self.intensity)
-            .pixels
+        self.category = "Normals"
+        self.payload = lambda self, image, context: normals_simple(
+            # image, self.width, self.intensity, "Luminance"
+            image,
+            "Luminance",
         )
 
 
-class LaplacianBlend_IOP(image_ops.ImageOperatorGenerator):
+class NormalsToCurvature_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
-        self.prefix = "laplacian_blend"
-        self.info = "Blends two images with Laplacian pyramids"
-        self.category = "Filter"
-
-        def _pl(self, image, context):
-            return image
-
-        self.payload = _pl
+        # self.props["width"] = bpy.props.IntProperty(name="Width", min=0, default=2)
+        # self.props["intensity"] = bpy.props.FloatProperty(name="Intensity", min=0.0, default=1.0)
+        self.prefix = "normals_to_curvature"
+        self.info = "Curvature map from tangent normal map"
+        self.category = "Normals"
+        self.payload = lambda self, image, context: normals_to_curvature(image)
 
 
-class RenderObject_IOP(image_ops.ImageOperatorGenerator):
+class CurveToHeight_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
-        self.props["object"] = bpy.props.PointerProperty(name="Target", type=bpy.types.Object)
-
-        self.prefix = "render_object"
-        self.info = "Simple render of selected object"
-        self.category = "Debug"
-
-        def _pl(self, image, context):
-            bm = bmesh.new()
-            bm.from_mesh(self.object.data)
-            bmesh.ops.triangulate(bm, faces=bm.faces[:])
-
-            datatype = np.float32
-
-            # rays
-            rays = np.empty((image.shape[0], image.shape[1], 2, 3), dtype=datatype)
-            w, h = image.shape[0], image.shape[1]
-            for x in range(w):
-                for y in range(h):
-                    # ray origin
-                    rays[x, y, 0, 0] = y * 2 / h - 1.0
-                    rays[x, y, 0, 1] = -5.0
-                    rays[x, y, 0, 2] = x * 2 / w - 1.0
-                    # ray direction
-                    rays[x, y, 1, 0] = 0.0
-                    rays[x, y, 1, 1] = 1.0
-                    rays[x, y, 1, 2] = 0.0
-
-            # mesh
-            tris = np.zeros((len(bm.faces), 3, 3), dtype=datatype)
-            for fi, f in enumerate(bm.faces):
-                vv = f.verts
-                # tris[fi] = [i.co for i in vv]
-                tris[fi][0][0] = vv[0].co[0]
-                tris[fi][0][1] = vv[0].co[1]
-                tris[fi][0][2] = vv[0].co[2]
-                tris[fi][1][0] = vv[1].co[0]
-                tris[fi][1][1] = vv[1].co[1]
-                tris[fi][1][2] = vv[1].co[2]
-                tris[fi][2][0] = vv[2].co[0]
-                tris[fi][2][1] = vv[2].co[1]
-                tris[fi][2][2] = vv[2].co[2]
-                # v1v0 = vv[1].co - vv[0].co
-                # v2v0 = vv[2].co - vv[0].co
-                # assert v1v0.length > 0.0
-                # assert v2v0.length > 0.0
-
-            bm.faces.ensure_lookup_table()
-
-            # sun_direction = np.array(mu.Vector([0.5, -0.5, 0.5]).normalized(), dtype=datatype)
-            # normals = np.array(
-            #     [np.array(i.normal, dtype=datatype) for i in bm.faces], dtype=datatype
-            # )
-
-            print(image.shape, rays.shape, tris.shape, rays.dtype)
-            # result = np.zeros((image.shape[0], image.shape[1]), dtype=datatype)
-
-            def rt_nb(do_a_jit=True):
-                import numba
-
-                def intersect_ray(ro, rda, vrt):
-                    def cross(a, b):
-                        return np.array(
-                            [
-                                a[1] * b[2] - a[2] * b[1],
-                                a[2] * b[0] - a[0] * b[2],
-                                a[0] * b[1] - a[1] * b[0],
-                            ]
-                        )
-
-                    def dot(a, b):
-                        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-
-                    def tri_intersect(ro, rd, v0, v1, v2):
-                        v1v0 = v1 - v0
-                        v2v0 = v2 - v0
-                        rov0 = ro - v0
-                        n = cross(v1v0, v2v0)
-                        q = cross(rov0, rd)
-                        rdn = dot(rd, n)
-                        if rdn == 0.0:
-                            return -1.0
-                            # return (-1.0, 0.0, 0.0)
-                        d = 1.0 / rdn
-                        u = d * (dot(-q, v2v0))
-                        v = d * (dot(q, v1v0))
-                        t = d * (dot(-n, rov0))
-                        if u < 0.0 or u > 1.0 or v < 0.0 or u + v > 1.0:
-                            t = -1.0
-                        # return (t, u, v)
-                        return t
-
-                    c = 1.0e10
-                    n = -1
-                    for i in range(len(vrt) // 3):
-                        iv = i * 3
-                        rcast = tri_intersect(ro, rda, vrt[iv], vrt[iv + 1], vrt[iv + 2])
-                        if rcast < c and rcast > 0.0:
-                            c = rcast
-                            n = i
-
-                    return n
-
-                if do_a_jit:
-                    intersect_ray = numba.njit(parallel=False)(intersect_ray)
-
-                result = np.empty((image.shape[0], image.shape[1]), dtype=np.float32)
-
-                def rnd_res(ro, rd, verts, normals, sun_direction, res):
-                    for x in range(res.shape[0]):
-                        print(x)
-                        for y in numba.prange(res.shape[1]):
-                            r = intersect_ray(ro[x, y], rd, verts)
-                            res[x, y] = np.dot(normals[r], sun_direction) if r >= 0 else 0.0
-
-                rnd_res(ro, rd, verts, normals, sun_direction, result)
-
-                return result
-
-            # numba is aboug 20x speedup with single core CPU
-            # result = rt_nb(do_a_jit=True)
-
-            def rt_glcompute():
-                # in: rays, tris
-                # out: distance, u, v, face index
-
-                from .bpy_amb import raycast
-                import importlib
-
-                importlib.reload(raycast)
-
-                rc = raycast.Raycaster(tris)
-                rw = rays.shape[0]
-                res = rc.cast(rays.reshape((rw * rw, 2, 3)))
-
-                return res.reshape((rw, rw, 4))
-
-            result = rt_glcompute()
-            dist = result[:, :, 0]
-            dist = np.where(dist < 50.0, (dist - 4.0) / 2.0, 1.0)
-
-            image[:, :, 0] = dist
-            image[:, :, 1] = result[:, :, 1]
-            image[:, :, 2] = result[:, :, 2]
-
-            bm.free()
-            return image
-
-        self.payload = _pl
-
-
-class GimpSeamless_IOP(image_ops.ImageOperatorGenerator):
-    # TODO: the smoothing is not complete, it goes only one way
-    """Image seamless generator operator"""
-
-    def generate(self):
-        self.prefix = "gimp_seamless"
-        self.info = "Gimp style seamless image operation"
-        self.category = "Filter"
-
-        def gimpify(self, image, context):
-            pixels = numpy.copy(image)
-            xs, ys = image.shape[0], image.shape[1]
-            image = numpy.roll(image, xs * 2 + xs * 4 * (ys // 2))
-
-            sxs = xs // 2
-            sys = ys // 2
-
-            # generate the mask
-            imask = numpy.zeros((pixels.shape[0], pixels.shape[1]), dtype=float)
-            for y in range(0, sys):
-                zy0 = y / sys + 0.001
-                zy1 = 1 - y / sys + 0.001
-                for x in range(0, sxs):
-                    zx0 = 1 - x / sxs + 0.001
-                    imask[y, x] = 1 - zy0 / zx0
-                    zx1 = x / sxs + 0.001
-                    imask[y, x] = numpy.maximum((1 - zx1 / zy1), imask[y, x])
-
-            imask[imask < 0] = 0
-
-            # copy the data into the three remaining corners
-            imask[0 : sys + 1, sxs : xs - 1] = numpy.fliplr(imask[0 : sys + 1, 0 : sxs - 1])
-            imask[-sys:ys, 0:sys] = numpy.flipud(imask[0:sys, 0:sxs])
-            imask[-sys:ys, sxs : xs - 1] = numpy.flipud(imask[0:sys, sxs : xs - 1])
-            imask[sys, :] = imask[sys - 1, :]  # center line
-
-            # apply mask
-            amask = numpy.zeros(pixels.shape, dtype=float)
-            amask[:, :, 0] = imask
-            amask[:, :, 1] = imask
-            amask[:, :, 2] = imask
-            amask[:, :, 3] = 1.0
-
-            return amask * image + (numpy.ones(amask.shape) - amask) * pixels
-
-        self.payload = gimpify
-
-
-class ReactionDiffusion_IOP(image_ops.ImageOperatorGenerator):
-    def generate(self):
-        self.props["atype"] = bpy.props.EnumProperty(
-            name="A Type",
-            items=[
-                ("RANDOM", "Random", "", 1),
-                ("ZERO", "Zero", "", 2),
-                ("ONES", "Ones", "", 4),
-                ("RANGE", "Range", "", 3),
-            ],
-        )
-        self.props["btype"] = bpy.props.EnumProperty(
-            name="B Type",
-            items=[
-                ("RANDOM", "Random", "", 1),
-                ("ZERO", "Zero", "", 2),
-                ("ONES", "Ones", "", 4),
-                ("MIDDLE", "Middle", "", 3),
-            ],
+        self.props["step"] = bpy.props.FloatProperty(name="Step", min=0.00001, default=0.1)
+        self.props["iterations"] = bpy.props.IntProperty(name="Iterations", min=10, default=400)
+        self.prefix = "curvature_to_height"
+        self.info = "Height from curvature"
+        self.category = "Normals"
+        self.payload = lambda self, image, context: curvature_to_height(
+            image, self.step, iterations=self.iterations
         )
 
-        self.props["output"] = bpy.props.EnumProperty(
-            name="Output",
-            items=[
-                ("B_A", "B-A", "", 1),
-                ("A_B", "A-B", "", 2),
-                ("A", "A", "", 3),
-                ("B", "B", "", 4),
-                ("B*A", "B*A", "", 5),
-                ("B+A", "B+A", "", 6),
-            ],
+
+class NormalsToHeight_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["grid"] = bpy.props.IntProperty(name="Grid subd", min=1, default=4)
+        self.props["iterations"] = bpy.props.IntProperty(name="Iterations", min=10, default=200)
+        self.prefix = "normals_to_height"
+        self.info = "Normals to height"
+        self.category = "Normals"
+        self.payload = lambda self, image, context: normals_to_height(
+            image, self.grid, iterations=self.iterations
         )
 
-        self.props["iter"] = bpy.props.IntProperty(name="Iterations", min=1, default=1000)
-        self.props["dA"] = bpy.props.FloatProperty(name="dA", min=0.0, default=1.0)
-        self.props["dB"] = bpy.props.FloatProperty(name="dB", min=0.0, default=0.5)
-        self.props["feed"] = bpy.props.FloatProperty(name="Feed rate (x100)", min=0.0, default=5.5)
-        self.props["kill"] = bpy.props.FloatProperty(name="Kill rate (x100)", min=0.0, default=6.2)
-        self.props["time"] = bpy.props.FloatProperty(
-            name="Timestep", min=0.001, max=1.0, default=0.9
+
+class Delight_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        self.props["flip"] = bpy.props.BoolProperty(name="Flip direction", default=False)
+        self.props["iterations"] = bpy.props.IntProperty(name="Iterations", min=10, default=200)
+        self.prefix = "delighting"
+        self.info = "Delight simple"
+        self.category = "Normals"
+        self.payload = lambda self, image, context: delight_simple(
+            image, -1 if self.flip else 1, iterations=self.iterations
         )
-        self.props["scale"] = bpy.props.FloatProperty(
-            name="Scale", min=0.01, default=1.0, max=100.0
+
+
+class InpaintTangents_IOP(image_ops.ImageOperatorGenerator):
+    def generate(self):
+        # self.props["flip"] = bpy.props.BoolProperty(name="Flip direction", default=False)
+        # self.props["iterations"] = bpy.props.IntProperty(name="Iterations", min=10, default=200)
+        self.props["threshold"] = bpy.props.FloatProperty(
+            name="Threshold", min=0.1, max=0.9, default=0.5
         )
-
-        # lizard scales: true, true, 5000, 1.0, 0.55, 0.082, 0.06, 0.9
-        # default: false, false, 3000, 1.00, 0.3, 0.05, 0.06, 0.9
-        # stones: ones, random, b*a, 7556, 1.00, 0.34, 0.07, 0.06, 0.84
-
-        self.prefix = "reaction_diffusion"
-        self.info = "Reaction diffusion"
-        self.category = "Generator"
-
-        def _pl(self, image, context):
-            def laplacian(p):
-                ring = -p
-                ring[:-1, :] += p[1:, :] * 0.25
-                ring[-1, :] += p[0, :] * 0.25
-                ring[1:, :] += p[:-1, :] * 0.25
-                ring[0, :] += p[-1, :] * 0.25
-
-                ring[:, :-1] += p[:, 1:] * 0.25
-                ring[:, -1] += p[:, 0] * 0.25
-                ring[:, 1:] += p[:, :-1] * 0.25
-                ring[:, 0] += p[:, -1] * 0.25
-                return ring
-
-            def laplacian3(p):
-                # TODO: broken
-                # is Laplacian separatable?
-                f = lambda m: np.convolve(m, [1, -2, 1], mode="same")
-                p = np.apply_along_axis(f, axis=1, arr=p)
-                p = np.apply_along_axis(f, axis=0, arr=p)
-                return p
-
-            res = np.ones(shape=image.shape, dtype=np.float32)
-
-            # grid init with A=1, B=0, small area B=1
-            if self.rnda:
-                gridA = np.random.random(size=(*image.shape[:2],))
-                ix = image.shape[0]
-                for i in range(ix):
-                    gridA[i, :] *= 0.5 + ((i - ix / 2) / (ix * 2.0))
-            else:
-                gridA = np.ones(shape=(*image.shape[:2],), dtype=np.float32)
-
-            if self.rndb:
-                gridB = np.random.random(size=(*image.shape[:2],))
-            else:
-                gridB = np.zeros(shape=(*image.shape[:2],), dtype=np.float32)
-                w, h = image.shape[0] // 2, image.shape[1] // 2
-                gridB[w - 5 : w + 5, h - 5 : h + 5] = 1.0
-
-            lp = laplacian
-
-            A = gridA
-            B = gridB
-            A2 = None
-            B2 = None
-
-            print("v2")
-
-            t = self.time
-            kf = self.kill + self.feed
-            for _ in range(self.iter):
-                ab2 = A * B ** 2
-                A2 = A + (self.dA * lp(A) - ab2 + (1.0 - A) * self.feed) * t
-                B2 = B + (self.dB * lp(B) + ab2 - B * kf) * t
-                A = A2
-                B = B2
-
-            v = B - A
-            v -= np.min(v)
-            v /= np.max(v)
-            res[:, :, 0] = v
-            res[:, :, 1] = v
-            res[:, :, 2] = v
-
-            return res
-
-        def _pl2(self, image, context):
-            import moderngl
-            import numpy as np
-
-            # TODO: floats instead of uint8
-
-            ctx = moderngl.create_context()
-
-            prog = ctx.program(
-                vertex_shader="""
-                    #version 330
-
-                    in vec2 in_vert;
-                    out vec2 vert_pos;
-
-                    void main() {
-                        vert_pos = 0.5 * (in_vert + 1.0);
-                        gl_Position = vec4(in_vert, 0.0, 1.0);
-                    }
-                """,
-                fragment_shader="""
-                    #version 330
-
-                    in vec2 vert_pos;
-                    out vec4 out_vert;
-
-                    uniform sampler2D Texture;
-
-                    uniform float dA = 1.0;
-                    uniform float dB = 0.3;
-                    uniform float feed = 0.05;
-                    uniform float kill = 0.06;
-                    uniform float time = 0.9;
-                    uniform float scale = 1.0;
-                    uniform int imgSize = 256;
-
-                    vec4 tex(float x, float y) {
-                        return texture(Texture, vec2(mod(x, 1.0), mod(y, 1.0)));
-                    }
-
-                    void main()
-                    {
-                        float fstep = scale/float(imgSize);
-                        float x = vert_pos.x;
-                        float y = vert_pos.y;
-                        vec4 sc = tex(x, y);
-
-                        vec4 lap = vec4(0.0);
-                        lap += tex(x, y-fstep);
-                        lap += tex(x, y+fstep);
-                        lap += tex(x-fstep, y);
-                        lap += tex(x+fstep, y);
-                        lap += tex(x-fstep, y-fstep)*0.5;
-                        lap += tex(x-fstep, y+fstep)*0.5;
-                        lap += tex(x+fstep, y-fstep)*0.5;
-                        lap += tex(x+fstep, y+fstep)*0.5;
-                        lap /= 6.0;
-
-                        // A2 = A + (self.dA * lp(A) - ab2 + (1.0 - A) * self.feed) * t
-                        // B2 = B + (self.dB * lp(B) + ab2 - B * kf) * t
-
-                        float a = sc.r;
-                        float b = sc.g;
-                        float ab2 = a * pow(b, 2.0);
-                        out_vert.r = a + (dA * (lap.r - sc.r) - ab2 + (1.0 - a) * feed) * time;
-                        out_vert.g = b + (dB * (lap.g - sc.g) + ab2 - b * (kill + feed)) * time;
-                    }
-                """,
-            )
-
-            res = np.ones(shape=image.shape, dtype=np.float32)
-            w, h = image.shape[0] // 2, image.shape[1] // 2
-
-            if self.atype == "RANDOM":
-                A = np.random.random(size=(*image.shape[:2],))
-            elif self.atype == "RANGE":
-                A = np.random.random(size=(*image.shape[:2],))
-                ix = image.shape[0]
-                for i in range(ix):
-                    A[i, :] *= 0.5 + ((i - ix / 2) / (ix * 2.0))
-            elif self.atype == "ONES":
-                A = np.ones(shape=(*image.shape[:2],), dtype=np.float32)
-            else:
-                A = np.zeros(shape=(*image.shape[:2],), dtype=np.float32)
-
-            if self.btype == "RANDOM":
-                B = np.random.random(size=(*image.shape[:2],))
-            elif self.btype == "MIDDLE":
-                B = np.zeros(shape=(*image.shape[:2],), dtype=np.float32)
-                B[w - 5 : w + 5, h - 5 : h + 5] = 1.0
-            elif self.btype == "ONES":
-                B = np.ones(shape=(*image.shape[:2],), dtype=np.float32)
-            elif self.btype == "ZERO":
-                B = np.zeros(shape=(*image.shape[:2],), dtype=np.float32)
-
-            img_in = np.empty((*image.shape[:2], 4))
-            img_in[:, :, 0] = A
-            img_in[:, :, 1] = B
-            img_in[:, :, 2] = 0.0
-            img_in[:, :, 3] = 0.0
-
-            prog.get("imgSize", -1).value = img_in.shape[0]
-            prog.get("dA", -1).value = self.dA
-            prog.get("dB", -1).value = self.dB
-            prog.get("feed", -1).value = self.feed / 100
-            prog.get("kill", -1).value = self.kill / 100
-            prog.get("time", -1).value = self.time
-            prog.get("scale", -1).value = self.scale
-
-            vertices = np.array([1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0])
-            vbo = ctx.buffer(vertices.astype("f4").tobytes())
-            vao = ctx.simple_vertex_array(prog, vbo, "in_vert")
-
-            precision = "f1"
-            np_dtype = np.uint8
-
-            pixels = (img_in * 255.0).astype(np_dtype)
-            # pixels = img_in.astype(np_dtype)
-            tex = ctx.texture((*img_in.shape[:2],), 4, pixels.tobytes(), dtype=precision)
-            tex.use()
-
-            fbo = ctx.simple_framebuffer((*image.shape[:2],), components=4, dtype=precision)
-            fbo.use()
-            fbo.clear(0.0, 0.0, 0.0, 1.0)
-
-            for _ in range(self.iter):
-                vao.render(moderngl.TRIANGLE_STRIP)
-                ctx.copy_framebuffer(tex, fbo)
-                # tex.write(fbo.read(components=4)) # slow
-
-            res = numpy.frombuffer(fbo.read(dtype=precision), dtype=np_dtype).reshape(
-                (*image.shape[:2], 3)
-            )
-            res = res / 255.0
-
-            if self.output == "B_A":
-                total = res[:, :, 1] - res[:, :, 0]
-            if self.output == "A_B":
-                total = res[:, :, 0] - res[:, :, 1]
-            if self.output == "A":
-                total = res[:, :, 0]
-            if self.output == "B":
-                total = res[:, :, 1]
-            if self.output == "B*A":
-                total = res[:, :, 1] * res[:, :, 0]
-            if self.output == "B+A":
-                total = res[:, :, 1] + res[:, :, 0]
-
-            total -= np.min(total)
-            npm = np.max(total)
-            if npm > 0.0:
-                total /= npm
-
-            image[:, :, 0] = total
-            image[:, :, 1] = total
-            image[:, :, 2] = total
-
-            return image
-
-        self.payload = _pl2
+        self.prefix = "inpaint_invalid"
+        self.info = "Inpaint invalid tangents"
+        self.category = "Normals"
+        self.payload = lambda self, image, context: inpaint_tangents(image, self.threshold)
 
 
-class Base64_16x16_IOP(image_ops.ImageOperatorGenerator):
+class NormalizeTangents_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
-        self.prefix = "base64"
-        self.info = "Base64"
-        self.category = "Debug"
-
-        def _pl(self, image, context):
-            print(image.shape)
-            if image.shape[0] != 16 or image.shape[0] != 16:
-                print("Wrong image size.")
-                return image
-
-            # to icon text
-            base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-            icon = []
-            for v in image.reshape((image.shape[0] * image.shape[1], 4)):
-                icon.append(base64[int(v[0] * 64)])
-                icon.append(base64[int(v[1] * 64)])
-                icon.append(base64[int(v[2] * 64)])
-
-            icon_text = "".join(icon)
-            assert len(icon_text) == 768
-            print(icon_text)
-
-            # to image from icon text
-            to_value = {v: i for i, v in enumerate(base64)}
-            values = []
-            counter = 0
-            for v in icon_text:
-                values.append(to_value[v] / 64)
-                counter += 1
-                if counter == 3:
-                    counter = 0
-                    values.append(1.0)
-
-            # image = image.reshape((image.shape[0] * image.shape[1], 4))
-            image = np.array(values, dtype=image.dtype).reshape(image.shape)
-
-            return image
-
-        self.payload = _pl
+        self.prefix = "normalize_tangents"
+        self.info = "Make all tangents length 1"
+        self.category = "Normals"
+        self.payload = lambda self, image, context: normalize_tangents(image)
 
 
-class MGLRender_IOP(image_ops.ImageOperatorGenerator):
+class ImageToMaterial_IOP(image_ops.ImageOperatorGenerator):
     def generate(self):
-        self.prefix = "test_mgl_render"
-        self.info = "Test 0"
-        self.category = "Debug"
-
-        def _pl(self, image, context):
-            import moderngl
-            import numpy as np
-
-            ctx = moderngl.create_context()
-            prog = ctx.program(
-                vertex_shader="""
-                    #version 330
-
-                    in vec2 in_vert;
-                    out vec2 vert_pos;
-
-                    void main() {
-                        vert_pos = 0.5 * (in_vert + 1.0);
-                        gl_Position = vec4(in_vert, 0.0, 1.0);
-                    }
-                """,
-                fragment_shader="""
-                    #version 330
-
-                    in vec2 vert_pos;
-                    out vec3 f_color;
-
-                    void main() {
-                        // moire patterns
-                        float a = length(vert_pos-vec2(0.53, 0.53));
-                        float b = length(vert_pos-vec2(0.47, 0.47));
-                        float as = (sin(a*9999*exp(-a))+1.0)/2.0;
-                        float bs = (sin(b*9999*exp(-b))+1.0)/2.0;
-                        float c = as * bs;
-                        f_color = vec3(c, c, c);
-                    }
-                """,
-            )
-
-            vertices = np.array([1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0])
-
-            vbo = ctx.buffer(vertices.astype("f4").tobytes())
-            vao = ctx.simple_vertex_array(prog, vbo, "in_vert")
-
-            fbo = ctx.simple_framebuffer((image.shape[0], image.shape[1]))
-            fbo.use()
-            fbo.clear(0.0, 0.0, 0.0, 1.0)
-            vao.render(moderngl.TRIANGLE_STRIP)
-
-            res = numpy.frombuffer(fbo.read(), dtype=np.uint8).reshape((*fbo.size, 3)) / 255.0
-            image[:, :, 0] = res[:, :, 0]
-            image[:, :, 1] = res[:, :, 1]
-            image[:, :, 2] = res[:, :, 2]
-
-            return image
-
-        self.payload = _pl
-
-
-class MGLRender2_IOP(image_ops.ImageOperatorGenerator):
-    def generate(self):
-        self.prefix = "test_mgl_render2"
-        self.info = "Test 1"
-        self.category = "Debug"
-
-        def _pl(self, image, context):
-            import moderngl
-            import numpy as np
-
-            ctx = moderngl.create_context()
-            prog = ctx.program(
-                vertex_shader="""
-                    #version 330
-
-                    in vec2 in_vert;
-                    out vec2 vert_pos;
-
-                    void main() {
-                        vert_pos = 0.5 * (in_vert + 1.0);
-                        gl_Position = vec4(in_vert, 0.0, 1.0);
-                    }
-                """,
-                fragment_shader="""
-                    #version 330
-
-                    in vec2 vert_pos;
-                    out vec4 f_color;
-                    uniform sampler2D Texture;
-
-                    float normpdf(in float x, in float sigma)
-                    {
-                        return 0.39894*exp(-0.5*x*x/(sigma*sigma))/sigma;
-                    }
-
-                    const vec2 iResolution = vec2(512.0, 512.0);
-
-                    void main()
-                    {
-                        vec4 c = texture(Texture, vert_pos.xy);
-
-                        const int mSize = 11;
-                        const int kSize = (mSize-1)/2;
-                        float kernel[mSize];
-                        vec3 final_colour = vec3(0.0);
-
-                        // create the 1-D kernel
-                        float sigma = 7.0;
-                        float Z = 0.0;
-                        for (int j = 0; j <= kSize; ++j)
-                        {
-                            kernel[kSize+j] = kernel[kSize-j] = normpdf(float(j), sigma);
-                        }
-
-                        // get the normalization factor (as the gaussian has been clamped)
-                        for (int j = 0; j < mSize; ++j)
-                        {
-                            Z += kernel[j];
-                        }
-
-                        // read out the texels
-                        for (int i=-kSize; i <= kSize; ++i)
-                        {
-                            for (int j=-kSize; j <= kSize; ++j)
-                            {
-                                final_colour += kernel[kSize+j]*kernel[kSize+i] *
-                                    texture(Texture, vert_pos.xy +
-                                        (vec2(float(i),float(j)))
-                                        / iResolution.xy).rgb;
-                            }
-                        }
-
-                        f_color = vec4(final_colour/(Z*Z), 1.0);
-                    }
-                """,
-            )
-
-            vertices = np.array([1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0])
-
-            vbo = ctx.buffer(vertices.astype("f4").tobytes())
-            vao = ctx.simple_vertex_array(prog, vbo, "in_vert")
-
-            fbo = ctx.simple_framebuffer((*image.shape[:2],), components=4)
-            fbo.use()
-            fbo.clear(0.0, 0.0, 0.0, 1.0)
-
-            tex = ctx.texture((*image.shape[:2],), 4, (image * 255.0).astype(np.uint8).tobytes())
-            tex.use()
-
-            vao.render(moderngl.TRIANGLE_STRIP)
-
-            res = numpy.frombuffer(fbo.read(components=4), dtype=np.uint8).reshape((*fbo.size, 4))
-            res = res / 255.0
-
-            image[:, :, 0] = res[:, :, 0]
-            image[:, :, 1] = res[:, :, 1]
-            image[:, :, 2] = res[:, :, 2]
-
-            return image
-
-        self.payload = _pl
-
-
-class MGLRender3_IOP(image_ops.ImageOperatorGenerator):
-    def generate(self):
-        self.prefix = "test_mgl_render3"
-        self.info = "Test 2"
-        self.category = "Debug"
-
-        def _pl(self, image, context):
-            import moderngl
-            import numpy as np
-
-            # default: false, false, 3000, 1.00, 0.3, 0.05, 0.06, 0.9
-            ctx = moderngl.create_context()
-
-            prog = ctx.program(
-                vertex_shader="""
-                    #version 330
-
-                    in vec2 in_vert;
-                    out vec2 vert_pos;
-
-                    void main() {
-                        vert_pos = 0.5 * (in_vert + 1.0);
-                        gl_Position = vec4(in_vert, 0.0, 1.0);
-                    }
-                """,
-                fragment_shader="""
-                    #version 330
-
-                    in vec2 vert_pos;
-                    out vec4 out_vert;
-
-                    uniform sampler2D Texture;
-
-                    uniform float dA = 1.0;
-                    uniform float dB = 0.3;
-                    uniform float feed = 0.05;
-                    uniform float kill = 0.06;
-                    uniform float time = 0.9;
-
-                    uniform int imgSize = 256;
-
-                    vec4 tex(int x, int y) {
-                        return texelFetch(Texture, ivec2(x % imgSize, y % imgSize), 0);
-                    }
-
-                    void main()
-                    {
-                        ivec2 in_text = ivec2(vert_pos * imgSize);
-                        int x = in_text.x;
-                        int y = in_text.y;
-                        vec4 sc = tex(x, y);
-
-                        vec4 lap = vec4(0.0);
-                        lap += tex(x, y-1);
-                        lap += tex(x, y+1);
-                        lap += tex(x-1, y);
-                        lap += tex(x+1, y);
-                        lap /= 4.0;
-
-                        // A2 = A + (self.dA * lp(A) - ab2 + (1.0 - A) * self.feed) * t
-                        // B2 = B + (self.dB * lp(B) + ab2 - B * kf) * t
-
-                        float a = sc.r;
-                        float b = sc.g;
-                        float ab2 = a * pow(b, 2.0);
-                        out_vert.r = a + (dA * (lap.r - sc.r) - ab2 + (1.0 - a) * feed) * time;
-                        out_vert.g = b + (dB * (lap.g - sc.g) + ab2 - b * (kill + feed)) * time;
-                    }
-                """,
-            )
-
-            res = np.ones(shape=image.shape, dtype=np.float32)
-
-            A = np.ones(shape=(*image.shape[:2],), dtype=np.float32)
-            B = np.zeros(shape=(*image.shape[:2],), dtype=np.float32)
-            w, h = image.shape[0] // 2, image.shape[1] // 2
-            B[w - 5 : w + 5, h - 5 : h + 5] = 1.0
-
-            img_in = np.empty((*image.shape[:2], 4))
-            img_in[:, :, 0] = A
-            img_in[:, :, 1] = B
-            img_in[:, :, 2] = 0.0
-            img_in[:, :, 3] = 0.0
-
-            vertices = np.array([1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0])
-            vbo = ctx.buffer(vertices.astype("f4").tobytes())
-            vao = ctx.simple_vertex_array(prog, vbo, "in_vert")
-
-            prog.get("imgSize", -1).value = img_in.shape[0]
-            prog.get("dA", -1).value = 1.0
-            prog.get("dB", -1).value = 0.3
-            prog.get("feed", -1).value = 0.05
-            prog.get("kill", -1).value = 0.06
-            prog.get("time", -1).value = 0.9
-
-            pixels = (img_in * 255.0).astype(np.uint8)
-            tex = ctx.texture((*img_in.shape[:2],), 4, pixels.tobytes())
-            tex.use()
-
-            fbo = ctx.simple_framebuffer((*image.shape[:2],), components=4)
-            fbo.use()
-            fbo.clear(0.0, 0.0, 0.0, 1.0)
-
-            for _ in range(5000):
-                vao.render(moderngl.TRIANGLE_STRIP)
-                ctx.copy_framebuffer(tex, fbo)
-
-            res = numpy.frombuffer(fbo.read(), dtype=np.uint8).reshape((*image.shape[:2], 3))
-            res = res / 255.0
-            total = res[:, :, 1] - res[:, :, 0]
-            total -= np.min(total)
-            total /= np.max(total)
-            image[:, :, 0] = total
-            image[:, :, 1] = total
-            image[:, :, 2] = total
-
-            return image
-
-        self.payload = _pl
-
-
-register, unregister = image_ops.create(locals())
+        self.prefix = "image_to_material"
+        self.info = "Create magic material from image"
+        self.category = "Magic"
+        self.payload = lambda self, image, context: image_to_material(image)
+
+
+# class DoG_IOP(image_ops.ImageOperatorGenerator):
+#     def generate(self):
+#         self.props["a"] = bpy.props.IntProperty(name="Width A", min=1, default=20)
+#         self.props["b"] = bpy.props.IntProperty(name="Width B", min=1, default=100)
+#         self.props["mp"] = bpy.props.FloatProperty(name="Treshold", min=0.0, default=1.0)
+#         self.prefix = "dog"
+#         self.info = "Difference of gaussians"
+#         self.category = "Filter"
+#         self.payload = lambda self, image, context: dog(image, self.a, self.b, self.mp)
+
+# class LaplacianBlend_IOP(image_ops.ImageOperatorGenerator):
+#     def generate(self):
+#         self.prefix = "laplacian_blend"
+#         self.info = "Blends two images with Laplacian pyramids"
+#         self.category = "Filter"
+
+#         def _pl(self, image, context):
+#             return image
+
+#         self.payload = _pl
+
+additional_classes = [BTT_InstallLibraries, BTT_AddonPreferences]
+
+register, unregister = image_ops.create(locals(), additional_classes)

@@ -189,6 +189,10 @@ class OSM_IMPORT():
 			return {'FINISHED'}
 
 		if self.useElevObj:
+			if not self.objElevLst:
+				log.error('There is no elevation object in the scene to get elevation from')
+				self.report({'ERROR'}, "There is no elevation object in the scene to get elevation from")
+				return {'FINISHED'}
 			elevObj = scn.objects[int(self.objElevLst)]
 			rayCaster = DropToGround(scn, elevObj)
 
@@ -681,7 +685,12 @@ classes = [
 
 def register():
 	for cls in classes:
-		bpy.utils.register_class(cls)
+		try:
+			bpy.utils.register_class(cls)
+		except ValueError as e:
+			log.warning('{} is already registered, now unregister and retry... '.format(cls))
+			bpy.utils.unregister_class(cls)
+			bpy.utils.register_class(cls)
 
 def unregister():
 	for cls in classes:

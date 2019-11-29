@@ -95,9 +95,17 @@ dictionary = {
         "Japan": "Япония",
         "Circumference": "Окружность",
         "Scatter (%)": "Распределение (%)",
+        "Only ID": "Только идентификаторы",
+        "Force Edit": "Принудительное редактирование",
         # Tooltips
         "Add gemstone to the scene": "Добавить камень в сцену",
         "Edit selected gems": "Редактировать выделенные камни",
+
+        "Force edit selected mesh objects, can be used to make gems from non-gem objects":
+            "Принудительно редактировать выделенные мэш объекты, можно использовать для создания камней из других объектов",
+
+        "Only edit gem identifiers, not affecting object data and materials":
+            "Редактировать только идентификаторы камня, не затрагивая объектную информация и материалы.",
 
         "Commonly used precious alloys, physical properties taken directly from suppliers":
             "Распространённые драгоценные сплавы, физические свойства взяты напрямую у поставщиков",

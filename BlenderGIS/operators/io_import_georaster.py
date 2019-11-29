@@ -91,11 +91,11 @@ class IMPORTGIS_OT_georaster(Operator, ImportHelper):
 	importMode: EnumProperty(
 			name="Mode",
 			description="Select import mode",
-			items=[ ('PLANE', 'On plane', "Place raster texture on new plane mesh"),
-			('BKG', 'As background', "Place raster as background image"),
-			('MESH', 'On mesh', "UV map raster on an existing mesh"),
-			('DEM', 'As DEM texture', "Use DEM raster as height texture to wrap a base mesh"),
-			('DEM_RAW', 'Raw DEM', "Import a DEM as pixels points cloud with building faces")]
+			items=[ ('PLANE', 'Basemap on new plane', "Place raster texture on new plane mesh"),
+			('BKG', 'Basemap as background', "Place raster as background image"),
+			('MESH', 'Basemap on mesh', "UV map raster on an existing mesh"),
+			('DEM', 'DEM as displacement texture', "Use DEM raster as height texture to wrap a base mesh"),
+			('DEM_RAW', 'DEM raw data build [slow]', "Import a DEM as pixels points cloud with building faces. Do not use with huge dataset.")]
 			)
 	#
 	objectsLst: EnumProperty(attr="obj_list", name="Objects", description="Choose object to edit", items=listObjects)
@@ -470,7 +470,12 @@ class IMPORTGIS_OT_georaster(Operator, ImportHelper):
 
 
 def register():
-	bpy.utils.register_class(IMPORTGIS_OT_georaster)
+	try:
+		bpy.utils.register_class(IMPORTGIS_OT_georaster)
+	except ValueError as e:
+		log.warning('{} is already registered, now unregister and retry... '.format(cls))
+		unregister()
+		bpy.utils.register_class(IMPORTGIS_OT_georaster)
 
 def unregister():
 	bpy.utils.unregister_class(IMPORTGIS_OT_georaster)

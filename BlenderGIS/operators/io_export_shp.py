@@ -46,7 +46,8 @@ class EXPORTGIS_OT_shapefile(Operator, ExportHelper):
 			name="Mode",
 			description="Select the export strategy",
 			items=[ ('COLLEC', 'Collection', "Export a collection of object"),
-			('OBJ', 'Single object', "Export a single mesh")]
+			('OBJ', 'Single object', "Export a single mesh")],
+			default='OBJ'
 			)
 
 	def listCollections(self, context):
@@ -127,6 +128,10 @@ class EXPORTGIS_OT_shapefile(Operator, ExportHelper):
 			objects = [scn.objects[int(self.selectedObj)]]
 		elif self.mode == 'COLLEC':
 			objects = bpy.data.collections[self.selectedColl].all_objects
+			objects = [obj for obj in objects if obj.type == 'MESH']
+			if not objects:
+				self.report({'ERROR'}, "Nothing to export")
+				return {'CANCELLED'}
 
 		if len(objects) == 0:
 			self.report({'ERROR'}, "No object to export")
@@ -176,7 +181,7 @@ class EXPORTGIS_OT_shapefile(Operator, ExportHelper):
 
 			loc = obj.location
 			bm = bmesh.new()
-			bm.from_object(obj, context.depsgraph, deform=True) #'deform' allows to consider modifier deformation
+			bm.from_object(obj, context.evaluated_depsgraph_get(), deform=True) #'deform' allows to consider modifier deformation
 			bm.transform(obj.matrix_world)
 
 			if self.exportType == 'POINTZ':
@@ -187,8 +192,8 @@ class EXPORTGIS_OT_shapefile(Operator, ExportHelper):
 					return {'CANCELLED'}
 					'''
 
-				#Extract coords & adjust values against object location & shift against georef deltas
-				pts = [[v.co.x+loc.x+dx, v.co.y+loc.y+dy, v.co.z+loc.z] for v in bm.verts]
+				#Extract coords & adjust values against georef deltas
+				pts = [[v.co.x+dx, v.co.y+dy, v.co.z] for v in bm.verts]
 
 				if self.mode == 'OBJ':
 					for j, pt in enumerate(pts):
@@ -211,8 +216,8 @@ class EXPORTGIS_OT_shapefile(Operator, ExportHelper):
 
 				lines = []
 				for edge in bm.edges:
-					#Extract coords & adjust values against object location & shift against georef deltas
-					line = [(vert.co.x+loc.x+dx, vert.co.y+loc.y+dy, vert.co.z+loc.z) for vert in edge.verts]
+					#Extract coords & adjust values against georef deltas
+					line = [(vert.co.x+dx, vert.co.y+dy, vert.co.z) for vert in edge.verts]
 					lines.append(line)
 
 				if self.mode == 'OBJ':
@@ -237,8 +242,8 @@ class EXPORTGIS_OT_shapefile(Operator, ExportHelper):
 				#build geom
 				polygons = []
 				for face in bm.faces:
-					#Extract coords & adjust values against object location & shift against georef deltas
-					poly = [(vert.co.x+loc.x+dx, vert.co.y+loc.y+dy, vert.co.z+loc.z) for vert in face.verts]
+					#Extract coords & adjust values against georef deltas
+					poly = [(vert.co.x+dx, vert.co.y+dy, vert.co.z) for vert in face.verts]
 					poly.append(poly[0])#close poly
 					#In Blender face is up if points are in anticlockwise order
 					#for shapefiles, face's up with clockwise order
@@ -285,7 +290,12 @@ class EXPORTGIS_OT_shapefile(Operator, ExportHelper):
 
 
 def register():
-	bpy.utils.register_class(EXPORTGIS_OT_shapefile)
+	try:
+		bpy.utils.register_class(EXPORTGIS_OT_shapefile)
+	except ValueError as e:
+		log.warning('{} is already registered, now unregister and retry... '.format(cls))
+		unregister()
+		bpy.utils.register_class(EXPORTGIS_OT_shapefile)
 
 def unregister():
 	bpy.utils.unregister_class(EXPORTGIS_OT_shapefile)

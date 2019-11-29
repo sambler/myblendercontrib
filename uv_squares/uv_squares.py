@@ -1,3 +1,29 @@
+#    <Uv Squares, Blender addon for reshaping UV vertices to grid.>
+#    Copyright (C) <2019> <Reslav Hollos>
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+bl_info = {
+    "name": "UV Squares",
+    "description": "UV Editor tool for reshaping selection to grid.",
+    "author": "Reslav Hollos",
+    "version": (1, 12, 1),
+    "blender": (2, 80, 0),
+    "location": "UV Editor > N Panel > UV Squares",
+    "category": "UV",
+    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/UV/Uv_Squares"
+}
+
 import bpy
 import bmesh
 from collections import defaultdict
@@ -17,8 +43,18 @@ def main(context, operator, square = False, snapToClosest = False):
         # context.scene.tool_settings.use_uv_select_sync = False
         return
 
+
+    for obj in context.selected_objects:
+        if (obj.type == "MESH"):
+            main1(obj, context, operator, square, snapToClosest)
+
+def main1(obj, context, operator, square, snapToClosest):
+    if context.scene.tool_settings.use_uv_select_sync:
+        operator.report({'ERROR'}, "Please disable 'Keep UV and edit mesh in sync'")
+        # context.scene.tool_settings.use_uv_select_sync = False
+        return
+
     startTime = time.clock()
-    obj = context.active_object
     me = obj.data
     bm = bmesh.from_edit_mesh(me)
     uv_layer = bm.loops.layers.uv.verify()
@@ -54,46 +90,55 @@ def main(context, operator, square = False, snapToClosest = False):
             luv = l[uv_layer]
             luv.select = False
 
+    def isFaceSelected(f):
+        return f.select and all(l[uv_layer].select for l in f.loops)
+
+    def getIslandFromFace(startFace):
+        island = set()
+        toCheck = set([startFace])
+
+        while (len(toCheck)):
+            face = toCheck.pop()
+            if isFaceSelected(face) and face not in island:
+                island.add(face)
+                adjacentFaces = []
+                for e in face.edges:
+                    if e.seam is False:
+                        for f in e.link_faces:
+                            if f is not face:
+                                adjacentFaces.append(f)
+                toCheck.update(adjacentFaces)
+
+        return island
+
+    def getIslandsFromSelectedFaces(selectedFaces):
+        islands = []
+        toCheck = set(selectedFaces)
+        while(len(toCheck)):
+            face = toCheck.pop()
+            island = getIslandFromFace(face)
+            islands.append(island)
+            toCheck.difference_update(island)
+        return islands
+
+    islands = getIslandsFromSelectedFaces(selFaces)
+
     def main2 (targetFace, faces):
         ShapeFace(uv_layer, operator, targetFace, vertsDict, square)
         
         if square: FollowActiveUV(operator, me, targetFace, faces, 'EVEN')
         else: FollowActiveUV(operator, me, targetFace, faces)
 
-    def isFaceSelected(f):
-        return f.select and all(l[uv_layer].select for l in f.loops)
-
-    def selectLinked():
-            bpy.ops.uv.select_linked()
-
-    def getIslands():
-        islands = []
-        faces_left = set(selFaces)
-        while len(faces_left) > 0:
-            DeselectAll()
-            f = faces_left.pop()
-            for l in f.loops: l[uv_layer].select = True
-            selectLinked()
-            linked = [f for f in bm.faces if isFaceSelected(f)]
-            current_island = list(set(selFaces) & set(linked))
-            islands.append(current_island)
-            faces_left = [f for f in faces_left if f not in current_island]
-
-        DeselectAll()
-        for vertsKey in vertsDict.keys():
-            for v in vertsDict[vertsKey]: v.select = True
-        return islands
-
-    islands = getIslands()
-    for island_faces in islands:
+    for island in islands:
         targetFace = bm.faces.active
         if (targetFace is None or
-            targetFace not in island_faces or
+            targetFace not in island or
             len(islands) > 1 or
             targetFace.select is False or
             len(targetFace.verts) is not 4):
-                targetFace = island_faces[0]
-        main2(targetFace, island_faces)
+                targetFace = next(iter(island))
+        
+        main2(targetFace, island)
 
     if noEdge is False:
         #edge has ripped so we connect it back 
@@ -108,7 +153,7 @@ def main(context, operator, square = False, snapToClosest = False):
 '''def ScaleSelection(factor, pivot = 'CURSOR'):
     last_pivot = bpy.context.space_data.pivot_point
     bpy.context.space_data.pivot_point = pivot
-    bpy.ops.transform.resize(value=(factor, factor, factor), constraint_axis=(False, False, False), mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH', proportional_size=1)
+    bpy.ops.transform.resize(value=(factor, factor, factor), constraint_axis=(False, False, False), mirror=False, proportional_edit_falloff='SMOOTH', proportional_size=1)
     bpy.context.space_data.pivot_point = last_pivot
     return'''
 
@@ -434,21 +479,22 @@ def SuccessFinished(me, startTime):
     #use for backtrack of steps 
     #bpy.ops.ed.undo_push()
     bmesh.update_edit_mesh(me)
-    #elapsed = round(time.clock()-startTime, 2)
+    elapsed = round(time.clock()-startTime, 2)
     #if (elapsed >= 0.05): operator.report({'INFO'}, "UvSquares finished, elapsed:", elapsed, "s.")
+    if (elapsed >= 0.05): print("UvSquares finished, elapsed:", elapsed, "s.")
     return
 
 '''def SymmetrySelected(axis, pivot = "MEDIAN"):
     last_pivot = bpy.context.space_data.pivot_point
     bpy.context.space_data.pivot_point = pivot
-    bpy.ops.transform.mirror(constraint_axis=(True, False, False), constraint_orientation='GLOBAL', proportional='DISABLED', proportional_edit_falloff='SMOOTH', proportional_size=1)
+    bpy.ops.transform.mirror(constraint_axis=(True, False, False), constraint_orientation='GLOBAL', proportional_edit_falloff='SMOOTH', proportional_size=1)
     bpy.context.space_data.pivot_point = last_pivot
     return'''
 
 def AreVectsLinedOnAxis(verts):
     areLinedX = True
     areLinedY = True
-    allowedError = 0.0009
+    allowedError = 0.00001
     valX = verts[0].uv.x
     valY = verts[0].uv.y
     for v in verts:
@@ -466,7 +512,7 @@ def MakeEqualDistanceBetweenVertsInLine(filteredVerts, vertsDict, startv = None)
     last = verts[len(verts)-1].uv
     
     horizontal = True
-    if ((last.x - first.x) >0.0009):
+    if ((last.x - first.x) >0.00001):
         slope = (last.y - first.y)/(last.x - first.x)
         if (slope > 1) or (slope <-1):
             horizontal = False 
@@ -548,7 +594,7 @@ def ScaleTo0OnAxisAndCursor(filteredVerts, vertsDict, startv = None, horizontal 
     
     if horizontal is None:
         horizontal = True
-        if ((last.uv.x - first.uv.x) >0.0009):
+        if ((last.uv.x - first.uv.x) >0.00001):
             slope = (last.uv.y - first.uv.y)/(last.uv.x - first.uv.x)
             if (slope > 1) or (slope <-1):
                 horizontal = False 
@@ -586,9 +632,9 @@ def ScaleTo0(axis):
     for area in bpy.context.screen.areas:
         if area.type == 'IMAGE_EDITOR':
             if axis is 'Y':
-                bpy.ops.transform.resize(value=(1, 0, 1), constraint_axis=(False, True, False), mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH', proportional_size=1)
+                bpy.ops.transform.resize(value=(1, 0, 1), constraint_axis=(False, True, False), mirror=False, proportional_edit_falloff='SMOOTH', proportional_size=1)
             else:
-                bpy.ops.transform.resize(value=(0, 1, 1), constraint_axis=(True, False, False), mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH', proportional_size=1)
+                bpy.ops.transform.resize(value=(0, 1, 1), constraint_axis=(True, False, False), mirror=False, proportional_edit_falloff='SMOOTH', proportional_size=1)
                 
 
     bpy.context.space_data.pivot_point = last_pivot
@@ -679,7 +725,7 @@ def SetAll2dCursorsTo(x,y):
     
     for area in bpy.context.screen.areas:
         if area.type == 'IMAGE_EDITOR':
-            bpy.ops.transform.rotate(value=radians(angle), axis=(-0, -0, -1), constraint_axis=(False, False, False), constraint_orientation='LOCAL', mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH', proportional_size=1)
+            bpy.ops.transform.rotate(value=radians(angle), axis=(-0, -0, -1), constraint_axis=(False, False, False), constraint_orientation='LOCAL', mirror=False, proportional_edit_falloff='SMOOTH', proportional_size=1)
             break
 
     bpy.context.space_data.pivot_point = last_pivot
@@ -687,7 +733,7 @@ def SetAll2dCursorsTo(x,y):
     
     return'''
 
-def AreVertsQuasiEqual(v1, v2, allowedError = 0.0009):
+def AreVertsQuasiEqual(v1, v2, allowedError = 0.00001):
     if abs(v1.uv.x -v2.uv.x) < allowedError and abs(v1.uv.y -v2.uv.y) < allowedError:
         return True
     return False
@@ -755,7 +801,7 @@ def JoinUvFaces(context, operator):
     vertsDict = defaultdict(list)        #dict 
              
     #TODO: radius by image scale
-    radius = 0.02
+    radius = 0.002
     
     for f in bm.faces:
         for l in f.loops:
@@ -766,7 +812,7 @@ def JoinUvFaces(context, operator):
                vertsDict[(x,y)].append(luv)
          
     for key in vertsDict:
-        min = 1000
+        min = 1
         minV = None
         
         for f in bm.faces:
@@ -779,7 +825,7 @@ def JoinUvFaces(context, operator):
                         minV = luv
                         minV.select = True
         
-            if min is not 1000:
+            if min is not 1:
                 for v in vertsDict[(key[0], key[1])]:
                     v = v.uv
                     v.x = minV.uv.x
@@ -790,3 +836,189 @@ def JoinUvFaces(context, operator):
 def DeselectAll():
     bpy.ops.uv.select_all(action='DESELECT')
     return
+
+
+class UV_PT_UvSquares(bpy.types.Operator):
+    """Reshapes UV faces to a grid of equivalent squares"""
+    bl_idname = "uv.uv_squares"
+    bl_label = "UVs to grid of squares"
+    bl_options = {'REGISTER', 'UNDO'}
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        main(context, self, True)
+        return {'FINISHED'}
+
+class UV_PT_UvSquaresByShape(bpy.types.Operator):
+    """Reshapes UV faces to a grid with respect to shape by length of edges around selected corner"""
+    bl_idname = "uv.uv_squares_by_shape"
+    bl_label = "UVs to grid with respect to shape"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        main(context, self)
+        return {'FINISHED'}
+
+class UV_PT_RipFaces(bpy.types.Operator):
+    """Rip UV faces apart"""
+    bl_idname = "uv.uv_face_rip"
+    bl_label = "UV face rip"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        RipUvFaces(context, self)
+        return {'FINISHED'}
+
+class UV_PT_JoinFaces(bpy.types.Operator):
+    """Join selected UV faces to closest nonselected vertices"""
+    bl_idname = "uv.uv_face_join"
+    bl_label = "UV face join"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        JoinUvFaces(context, self)
+        return {'FINISHED'}
+
+class UV_PT_SnapToAxis(bpy.types.Operator):
+    """Snap sequenced vertices to Axis"""
+    bl_idname = "uv.uv_snap_to_axis"
+    bl_label = "UV snap vertices to axis"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        main(context, self)
+        return {'FINISHED'}
+
+class UV_PT_SnapToAxisWithEqual(bpy.types.Operator):
+    """Snap sequenced vertices to Axis with Equal Distance between"""
+    bl_idname = "uv.uv_snap_to_axis_and_equal"
+    bl_label = "UV snap vertices to axis with equal distance between"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.mode == 'EDIT_MESH')
+
+    def execute(self, context):
+        main(context, self)
+        main(context, self)
+        return {'FINISHED'}
+
+addon_keymaps = []
+
+def menu_func_uv_squares(self, context): self.layout.operator(UV_PT_UvSquares.bl_idname)
+def menu_func_uv_squares_by_shape(self, context): self.layout.operator(UV_PT_UvSquaresByShape.bl_idname)
+def menu_func_face_rip(self, context): self.layout.operator(UV_PT_RipFaces.bl_idname)
+def menu_func_face_join(self, context): self.layout.operator(UV_PT_JoinFaces.bl_idname)
+
+class UV_PT_UvSquaresPanel(bpy.types.Panel):
+    """UvSquares Panel"""
+    bl_label = "UV Squares"
+    bl_space_type = 'IMAGE_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = 'UV Squares'
+
+    def draw(self, context):
+        layout = self.layout
+
+        row = layout.row()
+        row.label(text="Select Sequenced Vertices to:")
+        split = layout.split()
+        col = split.column(align=True)
+        col.operator(UV_PT_SnapToAxis.bl_idname, text="Snap to Axis (X or Y)", icon = "ARROW_LEFTRIGHT")
+        col.operator(UV_PT_SnapToAxisWithEqual.bl_idname, text="Snap with Equal Distance", icon = "THREE_DOTS")
+
+        row = layout.row()
+        row.label(text="Convert \"Rectangle\" (4 corners):")
+        split = layout.split()
+        col = split.column(align=True)
+        col.operator(UV_PT_UvSquaresByShape.bl_idname, text="To Grid By Shape", icon = "UV_FACESEL")
+        col.operator(UV_PT_UvSquares.bl_idname, text="To Square Grid", icon = "GRID")
+
+        split = layout.split()
+        col = split.column(align=True)
+        row = col.row(align=True)
+
+        row = layout.row()
+
+        row.label(text="Select Faces or Vertices to:")
+        split = layout.split()
+        col = split.column(align=True)
+        row = col.row(align=True)
+
+        row.operator(UV_PT_RipFaces.bl_idname, text="Rip Vertex", icon = "LAYER_ACTIVE")
+        row.operator(UV_PT_RipFaces.bl_idname, text="Rip Faces", icon = "UV_ISLANDSEL")
+        col.operator(UV_PT_JoinFaces.bl_idname, text="Snap to Closest Unselected", icon = "SNAP_GRID")
+        row = layout.row()
+        row.label(text="V - Join (Stitch), I -Toggle Islands")
+
+def register():
+    bpy.utils.register_class(UV_PT_UvSquaresPanel)
+    bpy.utils.register_class(UV_PT_UvSquares)
+    bpy.utils.register_class(UV_PT_UvSquaresByShape)
+    bpy.utils.register_class(UV_PT_RipFaces)
+    bpy.utils.register_class(UV_PT_JoinFaces)
+    bpy.utils.register_class(UV_PT_SnapToAxis)
+    bpy.utils.register_class(UV_PT_SnapToAxisWithEqual)
+
+    #menu
+    bpy.types.IMAGE_MT_uvs.append(menu_func_uv_squares)
+    bpy.types.IMAGE_MT_uvs.append(menu_func_uv_squares_by_shape)
+    bpy.types.IMAGE_MT_uvs.append(menu_func_face_rip)
+    bpy.types.IMAGE_MT_uvs.append(menu_func_face_join)
+
+    #handle the keymap
+    wm = bpy.context.window_manager
+
+    km = wm.keyconfigs.addon.keymaps.new(name='UV Editor', space_type='EMPTY')
+    kmi = km.keymap_items.new(UV_PT_UvSquaresByShape.bl_idname, 'E', 'PRESS', alt=True)
+    addon_keymaps.append((km, kmi))
+
+    km = wm.keyconfigs.addon.keymaps.new(name='UV Editor', space_type='EMPTY')
+    kmi = km.keymap_items.new(UV_PT_RipFaces.bl_idname, 'V', 'PRESS', alt=True)
+    addon_keymaps.append((km, kmi))
+
+    km = wm.keyconfigs.addon.keymaps.new(name='UV Editor', space_type='EMPTY')
+    kmi = km.keymap_items.new(UV_PT_JoinFaces.bl_idname, 'V', 'PRESS', alt=True, shift=True)
+    addon_keymaps.append((km, kmi))
+
+def unregister():
+    bpy.utils.unregister_class(UV_PT_UvSquaresPanel)
+    bpy.utils.unregister_class(UV_PT_UvSquares)
+    bpy.utils.unregister_class(UV_PT_UvSquaresByShape)
+    bpy.utils.unregister_class(UV_PT_RipFaces)
+    bpy.utils.unregister_class(UV_PT_JoinFaces)
+    bpy.utils.unregister_class(UV_PT_SnapToAxis)
+    bpy.utils.unregister_class(UV_PT_SnapToAxisWithEqual)
+
+    bpy.types.IMAGE_MT_uvs.remove(menu_func_uv_squares)
+    bpy.types.IMAGE_MT_uvs.remove(menu_func_uv_squares_by_shape)
+    bpy.types.IMAGE_MT_uvs.remove(menu_func_face_rip)
+    bpy.types.IMAGE_MT_uvs.remove(menu_func_face_join)
+
+    # handle the keymap
+    for km, kmi in addon_keymaps:
+        km.keymap_items.remove(kmi)
+    # clear the list
+    addon_keymaps.clear()
+
+if __name__ == "__main__":
+    register()
